@@ -17,7 +17,7 @@
 
 //! Miscellaneous additional datatypes.
 
-use alloc::fmt::Debug;
+use core::fmt::Debug;
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{

@@ -18,9 +18,9 @@
 //! Contains the [`Task`] trait, which defines a general-purpose way for defining and executing
 //! service work, and supporting types.
 
-use alloc::{fmt::Debug, vec, vec::IntoIter};
+use alloc::{vec, vec::IntoIter};
 use codec::FullCodec;
-use core::iter::Iterator;
+use core::{fmt::Debug, iter::Iterator};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 use sp_weights::Weight;

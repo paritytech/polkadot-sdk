@@ -243,19 +243,19 @@ where
 	}
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize> alloc::fmt::Debug for Public<LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> core::fmt::Debug for Public<LEFT_PLUS_RIGHT_LEN>
 where
 	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		let s = self.to_ss58check();
 		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -379,17 +379,17 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize> From<Signature<LEFT_PLUS_RIGHT_LEN>>
 	}
 }
 
-impl<const LEFT_PLUS_RIGHT_LEN: usize> alloc::fmt::Debug for Signature<LEFT_PLUS_RIGHT_LEN>
+impl<const LEFT_PLUS_RIGHT_LEN: usize> core::fmt::Debug for Signature<LEFT_PLUS_RIGHT_LEN>
 where
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }

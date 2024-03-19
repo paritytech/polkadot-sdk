@@ -910,14 +910,14 @@ impl OpaqueExtrinsic {
 	}
 }
 
-impl alloc::fmt::Debug for OpaqueExtrinsic {
+impl core::fmt::Debug for OpaqueExtrinsic {
 	#[cfg(feature = "std")]
-	fn fmt(&self, fmt: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(fmt, "{}", sp_core::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _fmt: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, _fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }

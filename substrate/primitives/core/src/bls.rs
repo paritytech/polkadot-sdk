@@ -251,16 +251,16 @@ impl<T: BlsBound> std::fmt::Display for Public<T> {
 }
 
 #[cfg(feature = "std")]
-impl<T: BlsBound> alloc::fmt::Debug for Public<T> {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+impl<T: BlsBound> core::fmt::Debug for Public<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		let s = self.to_ss58check();
 		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.inner), &s[0..8])
 	}
 }
 
 #[cfg(not(feature = "std"))]
-impl<T> alloc::fmt::Debug for Public<T> {
-	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+impl<T> core::fmt::Debug for Public<T> {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
@@ -386,14 +386,14 @@ impl<T> AsMut<[u8]> for Signature<T> {
 	}
 }
 
-impl<T> alloc::fmt::Debug for Signature<T> {
+impl<T> core::fmt::Debug for Signature<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.inner))
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }

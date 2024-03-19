@@ -58,7 +58,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use alloc::fmt::Display;
+	use core::fmt::Display;
 	use frame_support::{
 		dispatch::DispatchResult,
 		ensure,

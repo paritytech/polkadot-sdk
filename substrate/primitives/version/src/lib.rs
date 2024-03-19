@@ -446,7 +446,7 @@ mod apis_serialize {
 		impl<'de> de::Visitor<'de> for Visitor {
 			type Value = ApisVec;
 
-			fn expecting(&self, formatter: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+			fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
 				formatter.write_str("a sequence of api id and version tuples")
 			}
 

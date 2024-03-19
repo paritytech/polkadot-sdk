@@ -28,7 +28,8 @@ use crate::{
 };
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::format;
-use alloc::{fmt, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
+use core::fmt;
 use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
 use scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 use sp_io::hashing::blake2_256;

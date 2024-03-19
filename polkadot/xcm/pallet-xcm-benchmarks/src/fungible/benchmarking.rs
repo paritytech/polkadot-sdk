@@ -37,7 +37,7 @@ benchmarks_instance_pallet! {
 			>::Balance
 			as
 			TryInto<u128>
-		>::Error: alloc::fmt::Debug,
+		>::Error: core::fmt::Debug,
 	}
 
 	withdraw_asset {

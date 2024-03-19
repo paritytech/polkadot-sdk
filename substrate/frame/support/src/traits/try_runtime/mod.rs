@@ -55,8 +55,8 @@ impl Default for Select {
 	}
 }
 
-impl alloc::fmt::Debug for Select {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Debug for Select {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Select::RoundRobin(x) => write!(f, "RoundRobin({})", x),
 			Select::Only(x) => write!(
@@ -153,7 +153,7 @@ pub trait TryState<BlockNumber> {
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
-impl<BlockNumber: Clone + alloc::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber>
+impl<BlockNumber: Clone + core::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber>
 	for Tuple
 {
 	for_tuples!( where #( Tuple: crate::traits::PalletInfoAccess )* );

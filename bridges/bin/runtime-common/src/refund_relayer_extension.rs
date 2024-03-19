@@ -242,7 +242,7 @@ pub enum RelayerAccountAction<AccountId, Reward> {
 
 /// Everything common among our refund signed extensions.
 pub trait RefundSignedExtension:
-	'static + Clone + Codec + alloc::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
+	'static + Clone + Codec + core::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
 where
 	<Self::Runtime as GrandpaConfig<Self::GrandpaInstance>>::BridgedChain:
 		Chain<BlockNumber = RelayBlockNumber>,

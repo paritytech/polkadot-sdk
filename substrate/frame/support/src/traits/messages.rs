@@ -18,7 +18,7 @@
 //! Traits for managing message queuing and handling.
 
 use super::storage::Footprint;
-use alloc::fmt::Debug;
+use core::fmt::Debug;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;

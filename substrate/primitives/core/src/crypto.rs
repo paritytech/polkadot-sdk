@@ -240,8 +240,8 @@ pub enum PublicError {
 }
 
 #[cfg(feature = "std")]
-impl alloc::fmt::Debug for PublicError {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Debug for PublicError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		// Just use the `Display` implementation
 		write!(f, "{}", self)
 	}
@@ -579,8 +579,8 @@ impl std::fmt::Display for AccountId32 {
 	}
 }
 
-impl alloc::fmt::Debug for AccountId32 {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+impl core::fmt::Debug for AccountId32 {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		#[cfg(feature = "serde")]
 		{
 			let s = self.to_ss58check();

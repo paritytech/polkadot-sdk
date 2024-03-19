@@ -214,13 +214,13 @@ where
 	}
 }
 
-impl<T: Config> alloc::fmt::Debug for ChargeAssetTxPayment<T> {
+impl<T: Config> core::fmt::Debug for ChargeAssetTxPayment<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "ChargeAssetTxPayment<{:?}, {:?}>", self.tip, self.asset_id.encode())
 	}
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }

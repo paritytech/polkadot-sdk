@@ -22,8 +22,8 @@ use crate::{
 	Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 
-use alloc::{fmt::Debug, vec, vec::Vec};
-use core::marker::PhantomData;
+use alloc::{vec, vec::Vec};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	ensure,
 	traits::{

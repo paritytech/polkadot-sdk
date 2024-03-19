@@ -87,7 +87,8 @@ mod mock;
 mod tests;
 pub mod weights;
 
-use alloc::{borrow::Borrow, vec::Vec};
+use alloc::{vec::Vec};
+use core::{borrow::Borrow};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{cmp::Ordering, marker::PhantomData};
 use frame_support::{

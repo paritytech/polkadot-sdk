@@ -16,7 +16,8 @@
 
 //! Pallet to process claims from Ethereum addresses.
 
-use alloc::{fmt::Debug, vec::Vec};
+use core::fmt::Debug;
+use alloc::{vec::Vec};
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String};
 use frame_support::{
@@ -150,8 +151,8 @@ impl PartialEq for EcdsaSignature {
 	}
 }
 
-impl alloc::fmt::Debug for EcdsaSignature {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Debug for EcdsaSignature {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "EcdsaSignature({:?})", &self.0[..])
 	}
 }
@@ -598,12 +599,12 @@ where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "PrevalidateAttests")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }

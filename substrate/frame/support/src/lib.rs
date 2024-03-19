@@ -501,7 +501,7 @@ macro_rules! runtime_print {
 }
 
 /// Print out the debuggable type.
-pub fn debug(data: &impl alloc::fmt::Debug) {
+pub fn debug(data: &impl core::fmt::Debug) {
 	runtime_print!("{:?}", data);
 }
 

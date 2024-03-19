@@ -89,14 +89,14 @@ impl ValidationCode {
 #[derive(Clone, Copy, Encode, Decode, Hash, Eq, PartialEq, PartialOrd, Ord, TypeInfo)]
 pub struct ValidationCodeHash(Hash);
 
-impl alloc::fmt::Display for ValidationCodeHash {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Display for ValidationCodeHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
 
-impl alloc::fmt::Debug for ValidationCodeHash {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Debug for ValidationCodeHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "{:?}", self.0)
 	}
 }
@@ -119,9 +119,9 @@ impl From<[u8; 32]> for ValidationCodeHash {
 	}
 }
 
-impl alloc::fmt::LowerHex for ValidationCodeHash {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
-		alloc::fmt::LowerHex::fmt(&self.0, f)
+impl core::fmt::LowerHex for ValidationCodeHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::LowerHex::fmt(&self.0, f)
 	}
 }
 

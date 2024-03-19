@@ -108,11 +108,11 @@ pub fn expand_outer_origin(
 		}
 
 		#[cfg(not(feature = "std"))]
-		impl alloc::fmt::Debug for RuntimeOrigin {
+		impl core::fmt::Debug for RuntimeOrigin {
 			fn fmt(
 				&self,
-				fmt: &mut alloc::fmt::Formatter,
-			) -> core::result::Result<(), alloc::fmt::Error> {
+				fmt: &mut core::fmt::Formatter,
+			) -> core::result::Result<(), core::fmt::Error> {
 				fmt.write_str("<wasm:stripped>")
 			}
 		}
@@ -121,8 +121,8 @@ pub fn expand_outer_origin(
 		impl core::fmt::Debug for RuntimeOrigin {
 			fn fmt(
 				&self,
-				fmt: &mut alloc::fmt::Formatter,
-			) -> core::result::Result<(), alloc::fmt::Error> {
+				fmt: &mut core::fmt::Formatter,
+			) -> core::result::Result<(), core::fmt::Error> {
 				fmt.debug_struct("Origin")
 					.field("caller", &self.caller)
 					.field("filter", &"[function ptr]")

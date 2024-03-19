@@ -91,7 +91,7 @@ pub trait MessageDispatch {
 	type DispatchPayload: Decode;
 
 	/// Fine-grained result of single message dispatch (for better diagnostic purposes)
-	type DispatchLevelResult: Clone + alloc::fmt::Debug + Eq;
+	type DispatchLevelResult: Clone + core::fmt::Debug + Eq;
 
 	/// Returns `true` if dispatcher is ready to accept additional messages. The `false` should
 	/// be treated as a hint by both dispatcher and its consumers - i.e. dispatcher shall not

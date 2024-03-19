@@ -21,9 +21,9 @@
 
 extern crate alloc;
 
-use alloc::{fmt::Debug, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
-use core::{convert::TryFrom, ops::RangeInclusive};
+use core::{fmt::Debug, convert::TryFrom, ops::RangeInclusive};
 use frame_support::{
 	pallet_prelude::DispatchResult, weights::Weight, PalletError, StorageHasher, StorageValue,
 };
@@ -486,12 +486,12 @@ impl<T: Debug> From<T> for StrippableError<T> {
 
 impl<T> Debug for StrippableError<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		f.write_str(&self.message)
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		f.write_str("Stripped error")
 	}
 }

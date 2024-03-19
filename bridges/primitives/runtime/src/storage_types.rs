@@ -39,8 +39,8 @@ pub struct BoundedStorageValue<B, V> {
 	_phantom: PhantomData<B>,
 }
 
-impl<B, V: alloc::fmt::Debug> alloc::fmt::Debug for BoundedStorageValue<B, V> {
-	fn fmt(&self, fmt: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+impl<B, V: core::fmt::Debug> core::fmt::Debug for BoundedStorageValue<B, V> {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		self.value.fmt(fmt)
 	}
 }

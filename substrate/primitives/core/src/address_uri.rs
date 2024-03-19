@@ -97,8 +97,8 @@ impl InvalidCharacterInfo {
 	}
 }
 
-impl alloc::fmt::Display for InvalidCharacterInfo {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+impl core::fmt::Display for InvalidCharacterInfo {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		let (s, pos) = escape_string(&self.0, self.1);
 		write!(f, "{s}\n{i}^", i = core::iter::repeat(" ").take(pos).collect::<String>())
 	}

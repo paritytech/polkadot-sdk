@@ -39,7 +39,8 @@ pub mod proof_size_extension;
 use {
 	alloc::{vec, vec::Vec},
 };
-use alloc::{borrow::Borrow, boxed::Box};
+use alloc::{boxed::Box};
+use core::borrow::Borrow;
 use core::marker::PhantomData;
 /// Our `NodeCodec`-specific error.
 pub use error::Error;

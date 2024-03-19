@@ -97,7 +97,7 @@ pub mod pallet {
 			+ codec::FullCodec
 			+ Copy
 			+ MaybeSerializeDeserialize
-			+ alloc::fmt::Debug
+			+ core::fmt::Debug
 			+ Default
 			+ From<u64>
 			+ TypeInfo

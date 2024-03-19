@@ -177,8 +177,8 @@ pub mod pallet {
 		pub(crate) _ph: core::marker::PhantomData<T>,
 	}
 
-	impl<Size: Get<u32>> alloc::fmt::Debug for Progress<Size> {
-		fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+	impl<Size: Get<u32>> core::fmt::Debug for Progress<Size> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 			match self {
 				Progress::ToStart => f.write_str("To start"),
 				Progress::LastKey(key) => write!(f, "Last: {:?}", HexDisplay::from(key.deref())),
@@ -187,8 +187,8 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> alloc::fmt::Debug for MigrationTask<T> {
-		fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+	impl<T: Config> core::fmt::Debug for MigrationTask<T> {
+		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 			f.debug_struct("MigrationTask")
 				.field("top", &self.progress_top)
 				.field("child", &self.progress_child)

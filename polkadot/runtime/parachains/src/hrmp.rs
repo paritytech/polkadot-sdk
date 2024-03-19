@@ -20,9 +20,8 @@ use crate::{
 };
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt,
 };
-use core::mem;
+use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};

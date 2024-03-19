@@ -18,8 +18,8 @@
 
 extern crate alloc;
 
-use alloc::{fmt::Debug, vec, vec::Vec};
-use core::marker::PhantomData;
+use alloc::{vec, vec::Vec};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,

@@ -186,7 +186,7 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 
 benchmarks! {
 	where_clause { where
-		<BalanceOf<T> as codec::HasCompact>::Type: Clone + Eq + PartialEq + alloc::fmt::Debug + scale_info::TypeInfo + codec::Encode,
+		<BalanceOf<T> as codec::HasCompact>::Type: Clone + Eq + PartialEq + core::fmt::Debug + scale_info::TypeInfo + codec::Encode,
 		T: Config + pallet_balances::Config,
 		BalanceOf<T>: From<<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance>,
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance: From<BalanceOf<T>>,

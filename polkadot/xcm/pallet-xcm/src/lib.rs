@@ -1467,8 +1467,8 @@ enum FeesHandling<T: Config> {
 	Separate { local_xcm: Xcm<<T as Config>::RuntimeCall>, remote_xcm: Xcm<()> },
 }
 
-impl<T: Config> alloc::fmt::Debug for FeesHandling<T> {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl<T: Config> core::fmt::Debug for FeesHandling<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Self::Batched { fees } => write!(f, "FeesHandling::Batched({:?})", fees),
 			Self::Separate { local_xcm, remote_xcm } => write!(

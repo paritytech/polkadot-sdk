@@ -135,21 +135,21 @@ impl ExecutorParamsHash {
 	}
 }
 
-impl alloc::fmt::Display for ExecutorParamsHash {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Display for ExecutorParamsHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		self.0.fmt(f)
 	}
 }
 
-impl alloc::fmt::Debug for ExecutorParamsHash {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+impl core::fmt::Debug for ExecutorParamsHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "{:?}", self.0)
 	}
 }
 
-impl alloc::fmt::LowerHex for ExecutorParamsHash {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
-		alloc::fmt::LowerHex::fmt(&self.0, f)
+impl core::fmt::LowerHex for ExecutorParamsHash {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		core::fmt::LowerHex::fmt(&self.0, f)
 	}
 }
 

@@ -115,7 +115,8 @@ use crate::{
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
 };
-use alloc::{fmt::Debug, vec::Vec};
+use core::fmt::Debug;
+use alloc::{vec::Vec};
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
 use frame_support::{

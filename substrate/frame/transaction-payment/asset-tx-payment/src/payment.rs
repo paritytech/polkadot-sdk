@@ -17,7 +17,7 @@
 use super::*;
 use crate::Config;
 
-use alloc::fmt::Debug;
+use core::fmt::Debug;
 use codec::FullCodec;
 use core::marker::PhantomData;
 use frame_support::{

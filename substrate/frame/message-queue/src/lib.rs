@@ -205,9 +205,9 @@ pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
-use alloc::{fmt::Debug, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use core::ops::Deref;
+use core::{ops::Deref, fmt::Debug};
 use frame_support::{
 	defensive,
 	pallet_prelude::*,

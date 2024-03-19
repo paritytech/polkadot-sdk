@@ -281,14 +281,14 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> alloc::fmt::Debug for CheckWeight<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckWeight<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckWeight")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }

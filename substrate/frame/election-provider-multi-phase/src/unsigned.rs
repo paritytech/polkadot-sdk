@@ -396,14 +396,14 @@ impl<T: Config> Pallet<T> {
 /// Configurations for a miner that comes with this pallet.
 pub trait MinerConfig {
 	/// The account id type.
-	type AccountId: Ord + Clone + codec::Codec + alloc::fmt::Debug;
+	type AccountId: Ord + Clone + codec::Codec + core::fmt::Debug;
 	/// The solution that the miner is mining.
 	type Solution: codec::Codec
 		+ Default
 		+ PartialEq
 		+ Eq
 		+ Clone
-		+ alloc::fmt::Debug
+		+ core::fmt::Debug
 		+ Ord
 		+ NposSolution
 		+ TypeInfo;

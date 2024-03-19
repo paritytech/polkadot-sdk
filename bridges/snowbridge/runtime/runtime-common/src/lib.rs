@@ -10,7 +10,7 @@ extern crate alloc;
 #[cfg(test)]
 mod tests;
 
-use alloc::fmt::Debug;
+use core::fmt::Debug;
 use codec::FullCodec;
 use core::marker::PhantomData;
 use frame_support::traits::Get;

@@ -46,7 +46,8 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	initializer, FeeTracker,
 };
-use alloc::{fmt, vec::Vec};
+use core::fmt;
+use alloc::{vec::Vec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{DownwardMessage, Hash, Id as ParaId, InboundDownwardMessage};

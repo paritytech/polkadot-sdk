@@ -315,7 +315,7 @@ pub enum InconsistentError<BlockNumber> {
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
 where
-	BlockNumber: Zero + PartialOrd + alloc::fmt::Debug + Clone + From<u32>,
+	BlockNumber: Zero + PartialOrd + core::fmt::Debug + Clone + From<u32>,
 {
 	/// Checks that this instance is consistent with the requirements on each individual member.
 	///

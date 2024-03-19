@@ -23,7 +23,7 @@ extern crate alloc;
 
 pub use registration::{Registration, StakeAndSlash};
 
-use alloc::fmt::Debug;
+use core::fmt::Debug;
 use bp_messages::LaneId;
 use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
 use core::marker::PhantomData;

@@ -515,7 +515,7 @@ impl Curve {
 
 #[cfg(feature = "std")]
 impl Debug for Curve {
-	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Self::LinearDecreasing { length, floor, ceil } => {
 				write!(

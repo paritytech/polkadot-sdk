@@ -27,7 +27,8 @@ use sp_core::{
 };
 
 extern crate alloc;
-use alloc::{fmt, format, str::FromStr, string::String, vec::Vec};
+use alloc::{format, str::FromStr, string::String, vec::Vec};
+use core::fmt;
 
 /// Set of test accounts.
 #[derive(

@@ -16,9 +16,9 @@
 // limitations under the License.
 
 use super::*;
-use alloc::{fmt::Debug, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::{iter::once, ops::Add};
+use core::{fmt::Debug, iter::once, ops::Add};
 use frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,

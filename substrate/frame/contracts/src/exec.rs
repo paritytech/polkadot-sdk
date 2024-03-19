@@ -24,8 +24,8 @@ use crate::{
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet as Contracts, Schedule,
 	LOG_TARGET,
 };
-use alloc::{fmt::Debug, vec, vec::Vec};
-use core::{marker::PhantomData, mem};
+use alloc::{vec, vec::Vec};
+use core::{fmt::Debug, marker::PhantomData, mem};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},

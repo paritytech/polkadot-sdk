@@ -200,8 +200,8 @@ enum OffchainErr<BlockNumber> {
 	SubmitTransaction,
 }
 
-impl<BlockNumber: alloc::fmt::Debug> alloc::fmt::Debug for OffchainErr<BlockNumber> {
-	fn fmt(&self, fmt: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+impl<BlockNumber: core::fmt::Debug> core::fmt::Debug for OffchainErr<BlockNumber> {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match *self {
 			OffchainErr::TooEarly => write!(fmt, "Too early to send heartbeat."),
 			OffchainErr::WaitingForInclusion(ref block) => {

@@ -33,14 +33,14 @@ use sp_runtime::{
 #[scale_info(skip_type_params(T))]
 pub struct CheckGenesis<T: Config + Send + Sync>(core::marker::PhantomData<T>);
 
-impl<T: Config + Send + Sync> alloc::fmt::Debug for CheckGenesis<T> {
+impl<T: Config + Send + Sync> core::fmt::Debug for CheckGenesis<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "CheckGenesis")
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
 		Ok(())
 	}
 }
