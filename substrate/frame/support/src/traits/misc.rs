@@ -18,7 +18,10 @@
 //! Smaller traits used in FRAME which don't need their own file.
 
 use crate::dispatch::{DispatchResult, Parameter};
-use alloc::{vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec, vec::Vec},
+};
 use codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
 use core::cmp::Ordering;
 use impl_trait_for_tuples::impl_for_tuples;

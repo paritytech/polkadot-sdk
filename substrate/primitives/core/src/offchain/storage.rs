@@ -20,7 +20,6 @@
 use crate::offchain::{DbExternalities, OffchainStorage, StorageKind, STORAGE_PREFIX};
 use std::{
 	collections::hash_map::{Entry, HashMap},
-	iter::Iterator,
 };
 
 const LOG_TARGET: &str = "offchain-worker::storage";

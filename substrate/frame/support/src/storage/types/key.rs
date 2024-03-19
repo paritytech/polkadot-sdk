@@ -18,7 +18,11 @@
 //! Storage key type.
 
 use crate::hash::{ReversibleStorageHasher, StorageHasher};
-use alloc::{boxed::Box, vec::Vec};
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec::Vec},
+};
+use alloc::{boxed::Box};
 use codec::{Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use paste::paste;
 use scale_info::StaticTypeInfo;

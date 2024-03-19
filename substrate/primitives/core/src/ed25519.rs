@@ -19,7 +19,10 @@
 //! Simple Ed25519 API.
 // end::description[]
 
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec::Vec},
+};
 
 use crate::{
 	crypto::ByteArray,
@@ -36,7 +39,6 @@ use crate::crypto::{
 };
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::{format, string::String};
-use core::convert::TryFrom;
 use core::ops::Deref;
 use ed25519_zebra::{SigningKey, VerificationKey};
 #[cfg(feature = "serde")]

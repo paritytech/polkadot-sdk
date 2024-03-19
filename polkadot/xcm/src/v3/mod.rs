@@ -27,10 +27,12 @@ use super::{
 	},
 };
 use crate::DoubleEncoded;
-use alloc::{vec, vec::Vec};
 use bounded_collections::{parameter_types, BoundedVec};
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec, vec::Vec},
+};
 use core::{
-	convert::{TryFrom, TryInto},
 	fmt::Debug,
 	result,
 };

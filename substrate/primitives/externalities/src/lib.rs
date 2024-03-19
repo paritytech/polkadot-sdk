@@ -27,7 +27,10 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec::Vec};
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{boxed::Box, vec::Vec},
+};
 use core::any::{Any, TypeId};
 
 use sp_storage::{ChildInfo, StateVersion, TrackedStorageKey};

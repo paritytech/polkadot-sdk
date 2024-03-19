@@ -25,7 +25,6 @@ use crate::{
 	},
 	PerThing, Perbill, Rounding, SignedRounding,
 };
-use alloc::fmt::Debug;
 use codec::{CompactAs, Decode, Encode};
 use core::{
 	fmt::Debug,

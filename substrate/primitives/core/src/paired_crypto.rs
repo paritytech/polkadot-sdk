@@ -24,7 +24,10 @@ use crate::crypto::{
 	SecretStringError, UncheckedFrom,
 };
 
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec::Vec},
+};
 
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::{format, string::String};
@@ -33,7 +36,6 @@ use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use core::convert::TryFrom;
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 
 /// ECDSA and BLS12-377 paired crypto scheme

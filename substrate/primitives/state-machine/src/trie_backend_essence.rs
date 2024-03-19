@@ -28,7 +28,7 @@ use alloc::sync::Arc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::Codec;
 use core::marker::PhantomData;
-use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
+use hash_db::{AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};

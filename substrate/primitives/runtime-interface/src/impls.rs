@@ -35,6 +35,7 @@ use sp_wasm_interface::{FunctionContext, Result};
 
 use codec::{Decode, Encode};
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::{any::TypeId, mem};
 

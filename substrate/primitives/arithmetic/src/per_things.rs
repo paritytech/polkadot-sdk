@@ -22,7 +22,6 @@ use crate::traits::{
 	BaseArithmetic, Bounded, CheckedAdd, CheckedMul, CheckedSub, One, SaturatedConversion,
 	Saturating, UniqueSaturatedInto, Unsigned, Zero,
 };
-use alloc::fmt;
 use codec::{CompactAs, Encode};
 use core::{
 	fmt, ops,

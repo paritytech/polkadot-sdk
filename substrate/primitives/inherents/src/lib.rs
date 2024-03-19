@@ -165,10 +165,12 @@
 extern crate alloc;
 
 use codec::{Decode, Encode};
-
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec::Vec},
+};
 use alloc::{
 	collections::btree_map::{BTreeMap, Entry, IntoIter},
-	vec::Vec,
 };
 
 #[cfg(feature = "std")]

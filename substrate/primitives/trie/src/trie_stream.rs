@@ -21,7 +21,10 @@ use crate::{
 	node_header::{size_and_prefix_iterator, NodeKind},
 	trie_constants,
 };
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec::Vec},
+};
 use codec::{Compact, Encode};
 use hash_db::Hasher;
 use trie_root;

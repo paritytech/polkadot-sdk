@@ -18,7 +18,10 @@
 //! Inspect and Mutate traits for Asset metadata
 
 use crate::dispatch::DispatchResult;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec::Vec},
+};
 
 pub trait Inspect<AccountId>: super::Inspect<AccountId> {
 	// Get name for an AssetId.

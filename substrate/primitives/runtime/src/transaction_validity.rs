@@ -21,7 +21,10 @@ use crate::{
 	codec::{Decode, Encode},
 	RuntimeDebug,
 };
-use alloc::{vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use {
+	alloc::{vec, vec::Vec},
+};
 use scale_info::TypeInfo;
 
 /// Priority for a transaction. Additive. Higher is better.

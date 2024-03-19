@@ -39,8 +39,6 @@ use quote::quote;
 
 use inflector::Inflector;
 
-use std::iter::Iterator;
-
 /// Generate the extern host functions for wasm and the `HostFunctions` struct that provides the
 /// implementations for the host functions on the host.
 pub fn generate(trait_def: &ItemTrait, is_wasm_only: bool) -> Result<TokenStream> {

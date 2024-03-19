@@ -21,7 +21,6 @@ use crate::{
 	v2::MultiLocation as OldMultiLocation, v4::Location as NewMultiLocation, VersionedLocation,
 };
 use core::{
-	convert::{TryFrom, TryInto},
 	result,
 };
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};

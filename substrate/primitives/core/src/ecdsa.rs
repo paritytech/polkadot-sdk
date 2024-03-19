@@ -27,12 +27,14 @@ use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
 	Public as TraitPublic, SecretStringError, UncheckedFrom,
 };
-use alloc::vec::Vec;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use alloc::{format, string::String};
 
 #[cfg(not(feature = "std"))]
-use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};
+use {
+	k256::ecdsa::{SigningKey as SecretKey, VerifyingKey},
+	alloc::vec::Vec,
+};
 
 #[cfg(feature = "std")]
 use secp256k1::{
