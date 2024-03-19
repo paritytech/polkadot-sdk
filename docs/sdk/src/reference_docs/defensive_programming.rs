@@ -298,98 +298,98 @@
 #![allow(dead_code)]
 #[allow(unused_variables)]
 mod fake_runtime_types {
-    // Note: The following types are purely for the purpose of example, and do not contain any
-    // *real* use case other than demonstrating various concepts.
-    pub enum RuntimeError {
-        Overflow,
-        UserDoesntExist,
-    }
+	// Note: The following types are purely for the purpose of example, and do not contain any
+	// *real* use case other than demonstrating various concepts.
+	pub enum RuntimeError {
+		Overflow,
+		UserDoesntExist,
+	}
 
-    pub type Address = ();
+	pub type Address = ();
 
-    pub struct Runtime;
+	pub struct Runtime;
 
-    impl Runtime {
-        fn get_balance(account: Address) -> Result<u64, RuntimeError> {
-            Ok(0u64)
-        }
+	impl Runtime {
+		fn get_balance(account: Address) -> Result<u64, RuntimeError> {
+			Ok(0u64)
+		}
 
-        fn set_balance(account: Address, new_balance: u64) {}
-    }
+		fn set_balance(account: Address, new_balance: u64) {}
+	}
 
-    #[docify::export]
-    fn increase_balance(account: Address, amount: u64) -> Result<(), RuntimeError> {
-        // Get a user's current balance
-        let balance = Runtime::get_balance(account)?;
-        // SAFELY increase the balance by some amount
-        if let Some(new_balance) = balance.checked_add(amount) {
-            Runtime::set_balance(account, new_balance);
-            Ok(())
-        } else {
-            Err(RuntimeError::Overflow)
-        }
-    }
+	#[docify::export]
+	fn increase_balance(account: Address, amount: u64) -> Result<(), RuntimeError> {
+		// Get a user's current balance
+		let balance = Runtime::get_balance(account)?;
+		// SAFELY increase the balance by some amount
+		if let Some(new_balance) = balance.checked_add(amount) {
+			Runtime::set_balance(account, new_balance);
+			Ok(())
+		} else {
+			Err(RuntimeError::Overflow)
+		}
+	}
 
-    #[docify::export]
-    fn increase_balance_match(account: Address, amount: u64) -> Result<(), RuntimeError> {
-        // Get a user's current balance
-        let balance = Runtime::get_balance(account)?;
-        // SAFELY increase the balance by some amount
-        let new_balance = match balance.checked_add(amount) {
-            Some(balance) => balance,
-            None => {
-                return Err(RuntimeError::Overflow);
-            }
-        };
-        Runtime::set_balance(account, new_balance);
-        Ok(())
-    }
+	#[docify::export]
+	fn increase_balance_match(account: Address, amount: u64) -> Result<(), RuntimeError> {
+		// Get a user's current balance
+		let balance = Runtime::get_balance(account)?;
+		// SAFELY increase the balance by some amount
+		let new_balance = match balance.checked_add(amount) {
+			Some(balance) => balance,
+			None => {
+				return Err(RuntimeError::Overflow);
+			},
+		};
+		Runtime::set_balance(account, new_balance);
+		Ok(())
+	}
 
-    #[docify::export]
-    fn increase_balance_result(account: Address, amount: u64) -> Result<(), RuntimeError> {
-        // Get a user's current balance
-        let balance = Runtime::get_balance(account)?;
-        // SAFELY increase the balance by some amount - this time, by using `ok_or`
-        let new_balance = balance.checked_add(amount).ok_or(RuntimeError::Overflow)?;
-        Runtime::set_balance(account, new_balance);
-        Ok(())
-    }
+	#[docify::export]
+	fn increase_balance_result(account: Address, amount: u64) -> Result<(), RuntimeError> {
+		// Get a user's current balance
+		let balance = Runtime::get_balance(account)?;
+		// SAFELY increase the balance by some amount - this time, by using `ok_or`
+		let new_balance = balance.checked_add(amount).ok_or(RuntimeError::Overflow)?;
+		Runtime::set_balance(account, new_balance);
+		Ok(())
+	}
 }
 
 #[cfg(test)]
 mod tests {
-    use frame::traits::DefensiveSaturating;
-    #[docify::export]
-    #[test]
-    fn checked_add_example() {
-        // This is valid, as 20 is perfectly within the bounds of u32.
-        let add = (10u32).checked_add(10);
-        assert_eq!(add, Some(20))
-    }
+	use frame::traits::DefensiveSaturating;
+	#[docify::export]
+	#[test]
+	fn checked_add_example() {
+		// This is valid, as 20 is perfectly within the bounds of u32.
+		let add = (10u32).checked_add(10);
+		assert_eq!(add, Some(20))
+	}
 
-    #[docify::export]
-    #[test]
-    fn checked_add_handle_error_example() {
-        // This is invalid - we are adding something to the max of u32::MAX, which would overflow.
-        // Luckily, checked_add just marks this as None!
-        let add = u32::MAX.checked_add(10);
-        assert_eq!(add, None)
-    }
+	#[docify::export]
+	#[test]
+	fn checked_add_handle_error_example() {
+		// This is invalid - we are adding something to the max of u32::MAX, which would overflow.
+		// Luckily, checked_add just marks this as None!
+		let add = u32::MAX.checked_add(10);
+		assert_eq!(add, None)
+	}
 
-    #[docify::export]
-    #[test]
-    fn saturated_add_example() {
-        // Saturating add simply saturates
-        // to the numeric bound of that type if it overflows.
-        let add = u32::MAX.saturating_add(10);
-        assert_eq!(add, u32::MAX)
-    }
+	#[docify::export]
+	#[test]
+	fn saturated_add_example() {
+		// Saturating add simply saturates
+		// to the numeric bound of that type if it overflows.
+		let add = u32::MAX.saturating_add(10);
+		assert_eq!(add, u32::MAX)
+	}
 
-    #[docify::export]
-    #[test]
-    #[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
-    fn saturated_defensive_example() {
-        let saturated_defensive = u32::MAX.defensive_saturating_add(10);
-        assert_eq!(saturated_defensive, u32::MAX);
-    }
+	#[docify::export]
+	#[test]
+	#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
+	fn saturated_defensive_example() {
+		let saturated_defensive = u32::MAX.defensive_saturating_add(10);
+		assert_eq!(saturated_defensive, u32::MAX);
+	}
 }
