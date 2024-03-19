@@ -45,7 +45,7 @@ use polkadot_primitives::{
 	async_backing, slashing,
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
-	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreState,
+	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData,
 	Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
 	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
@@ -221,6 +221,8 @@ pub enum CollatorProtocolMessage {
 		/// The result sender should be informed when at least one parachain validator seconded the
 		/// collation. It is also completely okay to just drop the sender.
 		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+		/// The core index where the candidate should be backed.
+		core_index: CoreIndex,
 	},
 	/// Report a collator as having provided an invalid collation. This should lead to disconnect
 	/// and blacklist of the collator.
