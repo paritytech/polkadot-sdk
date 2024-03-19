@@ -350,6 +350,7 @@ async fn distribute_collation<Context>(
 	pov: PoV,
 	parent_head_data: HeadData,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+	core_index: CoreIndex,
 ) -> Result<()> {
 	let candidate_relay_parent = receipt.descriptor.relay_parent;
 	let candidate_hash = receipt.hash();
@@ -790,6 +791,7 @@ async fn process_msg<Context>(
 			pov,
 			parent_head_data,
 			result_sender,
+			core_index,
 		} => {
 			let _span1 = state
 				.span_per_relay_parent
@@ -820,6 +822,7 @@ async fn process_msg<Context>(
 						pov,
 						parent_head_data,
 						result_sender,
+						core_index,
 					)
 					.await?;
 				},
