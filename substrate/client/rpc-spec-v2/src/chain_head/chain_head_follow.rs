@@ -504,67 +504,25 @@ where
 			pruned_block_hashes: pruned_block_hashes.clone(),
 		});
 
-		match self.current_best_block {
-			Some(block_cache) => {
-				// We need to generate a `BestBlock` event for the finalized block when:
-				// - (i) the last reported best block was pruned
-				// - (ii) the last reported best block is on a fork that will be pruned in the
-				//   future.
-				// Note: pruning happens on level n - 1.
+		if let Some(current_best_block) = self.current_best_block {
+			// The best reported block is in the pruned list. Report a new best block.
+			let is_in_pruned_list =
+				pruned_block_hashes.iter().any(|hash| *hash == current_best_block);
+			// The block is not the last finalized block.
+			//
+			// It can be either:
+			//  - a descendant of the last finalized block
+			//  - a block on a fork that will be pruned in the future.
+			//
+			// In those cases, we emit a new best block.
+			let is_not_last_finalized = current_best_block != last_finalized;
 
-				// Best block already generated.
-				if block_cache == last_finalized {
-					events.push(finalized_event);
-					return Ok(events);
-				}
-
-				// Checking if the block was pruned is faster than computing the route tree.
-				let was_pruned = pruned_block_hashes.iter().any(|hash| *hash == block_cache);
-				if was_pruned {
-					// We need to generate a best block event.
-					let best_block_hash = self.client.info().best_hash;
-
-					// Defensive check against state missmatch.
-					if best_block_hash == block_cache {
-						// The client doest not have any new information about the best block.
-						// The information from `.info()` is updated from the DB as the last
-						// step of the finalization and it should be up to date.
-						// If the info is outdated, there is nothing the RPC can do for now.
-						error!(
-							target: LOG_TARGET,
-							"[follow][id={:?}] Client does not contain different best block",
-							self.sub_id,
-						);
-						events.push(finalized_event);
-						return Ok(events);
-					}
-
-					// The RPC needs to also submit a new best block changed before the
-					// finalized event.
-					self.current_best_block = Some(best_block_hash);
-					let best_block_event =
-						FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
-					events.extend([best_block_event, finalized_event]);
-					return Ok(events)
-				}
-
-				// The best block was not pruned, however it might be on a fork that will be pruned.
-				let tree_route = sp_blockchain::tree_route(
-					self.backend.blockchain(),
-					last_finalized,
-					block_cache,
-				)?;
-
-				// The best block is a descendent of the finalized block.
-				if tree_route.retracted().is_empty() {
-					events.push(finalized_event);
-					return Ok(events)
-				}
-
-				// The best block is on a fork that will be pruned.
+			if is_in_pruned_list || is_not_last_finalized {
+				// We need to generate a best block event.
 				let best_block_hash = self.client.info().best_hash;
+
 				// Defensive check against state missmatch.
-				if best_block_hash == block_cache {
+				if best_block_hash == current_best_block {
 					// The client doest not have any new information about the best block.
 					// The information from `.info()` is updated from the DB as the last
 					// step of the finalization and it should be up to date.
@@ -574,23 +532,18 @@ where
 						"[follow][id={:?}] Client does not contain different best block",
 						self.sub_id,
 					);
-					events.push(finalized_event);
-					return Ok(events);
+				} else {
+					// The RPC needs to also submit a new best block changed before the
+					// finalized event.
+					self.current_best_block = Some(best_block_hash);
+					events
+						.push(FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash }));
 				}
-
-				// The RPC needs to also submit a new best block changed before the
-				// finalized event.
-				self.current_best_block = Some(best_block_hash);
-				let best_block_event =
-					FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash });
-				events.extend([best_block_event, finalized_event]);
-				Ok(events)
-			},
-			None => {
-				events.push(finalized_event);
-				Ok(events)
-			},
+			}
 		}
+
+		events.push(finalized_event);
+		Ok(events)
 	}
 
 	/// Submit the events from the provided stream to the RPC client
