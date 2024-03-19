@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::Decode;
+use codec::{Decode, Encode};
 use frame_metadata::RuntimeMetadataPrefixed;
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
 use sc_executor_wasmtime::{
@@ -51,10 +51,10 @@ pub fn generate_hash(wasm: &Path) -> [u8; 32] {
 		.expect("Creates a runtime")
 		.new_instance()
 		.unwrap()
-		.call_export("Metadata_metadata", &[])
+		.call_export("Metadata_metadata_at_version", &15u32.encode())
 		.expect("Calls `Metadata_metadata`");
 
-	let metadata = Vec::<u8>::decode(&mut &metadata[..]).unwrap();
+	let metadata = Option::<Vec::<u8>>::decode(&mut &metadata[..]).unwrap().unwrap();
 
 	let metadata = RuntimeMetadataPrefixed::decode(&mut &metadata[..]).unwrap().1;
 
