@@ -29,7 +29,22 @@ pub struct RpcConnections {
 	/// The number of tokens that can be registered for each connection.
 	capacity: usize,
 	/// Map the connecton ID to a set of tokens.
-	data: Arc<Mutex<HashMap<ConnectionId, HashSet<String>>>>,
+	data: Arc<Mutex<HashMap<ConnectionId, ConnectionData>>>,
+}
+
+#[derive(Default)]
+struct ConnectionData {
+	/// The total number of tokens.
+	///
+	/// # Note
+	///
+	/// Because a pending subscription sink does not expose the future subscription ID,
+	/// we cannot register a token before the pending subscription is accepted.
+	/// This variable ensures that we have enough capacity to register a token, after
+	/// the subscription is accepted. Otherwise, a jsonrpc error object should be returned.
+	num_tokens: usize,
+	/// Active registered tokens.
+	tokens: HashSet<String>,
 }
 
 impl RpcConnections {
@@ -38,26 +53,54 @@ impl RpcConnections {
 		RpcConnections { capacity, data: Default::default() }
 	}
 
-	/// Register a token for the given connection.
+	/// Reserve space for a token.
 	///
-	/// Returns true if the token can be registered, false otherwise.
-	pub fn register_token(&self, connection_id: ConnectionId, token: String) -> bool {
+	/// This ensures that [`Self::register_token`] has enough capacity.
+	/// Returns false if the token cannot be reserved.
+	pub fn reserve_token(&self, connection_id: ConnectionId) -> bool {
 		let mut data = self.data.lock();
 
-		let mut entry = data.entry(connection_id).or_insert_with(HashSet::new);
-		if entry.len() >= self.capacity {
+		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
+		if entry.num_tokens >= self.capacity {
 			return false;
 		}
+		entry.num_tokens += 1;
 
-		entry.insert(token)
+		true
+	}
+
+	/// Gives back the reserved space before the token is registered.
+	///
+	/// # Note
+	///
+	/// This may happen if the pending subscription cannot be accepted (unlikely).
+	pub fn unreserve_token(&self, connection_id: ConnectionId) {
+		let mut data = self.data.lock();
+
+		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
+		if entry.num_tokens > 0 {
+			entry.num_tokens -= 1;
+		}
+	}
+
+	/// Register a token for the given connection.
+	///
+	/// Users should call [`Self::reserve_token`] before calling this method.
+	pub fn register_token(&self, connection_id: ConnectionId, token: String) {
+		let mut data = self.data.lock();
+
+		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
+		entry.tokens.insert(token);
 	}
 
 	/// Unregister a token for the given connection.
 	pub fn unregister_token(&self, connection_id: ConnectionId, token: &str) {
 		let mut data = self.data.lock();
-		if let Some(tokens) = data.get_mut(&connection_id) {
-			tokens.remove(token);
-			if tokens.is_empty() {
+		if let Some(connection_data) = data.get_mut(&connection_id) {
+			connection_data.tokens.remove(token);
+			connection_data.num_tokens -= 1;
+
+			if connection_data.num_tokens == 0 {
 				data.remove(&connection_id);
 			}
 		}
@@ -66,7 +109,9 @@ impl RpcConnections {
 	/// Check if the given connection contains the given token.
 	pub fn contains_token(&self, connection_id: ConnectionId, token: &str) -> bool {
 		let data = self.data.lock();
-		data.get(&connection_id).map(|tokens| tokens.contains(token)).unwrap_or(false)
+		data.get(&connection_id)
+			.map(|connection_data| connection_data.tokens.contains(token))
+			.unwrap_or(false)
 	}
 }
 
