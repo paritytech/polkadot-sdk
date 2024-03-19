@@ -41,6 +41,7 @@ use sp_runtime::{
 	traits::{CheckedSub, Saturating},
 	RuntimeDebug,
 };
+pub use pallet::*;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
