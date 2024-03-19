@@ -27,6 +27,9 @@ pub mod extrinsic;
 pub mod genesismap;
 pub mod substrate_test_pallet;
 
+use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -47,9 +50,6 @@ use scale_info::TypeInfo;
 use sp_application_crypto::Ss58Codec;
 use sp_keyring::AccountKeyring;
 use sp_runtime::RuntimeString;
-use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
-use alloc::{vec, vec::Vec};
 
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 use sp_core::{OpaqueMetadata, RuntimeDebug};
