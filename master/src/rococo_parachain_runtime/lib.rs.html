@@ -989,6 +989,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
 <a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1475,6 +1478,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
 	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
+	<span class="kw">type </span>HrmpNewChannelOpenRequestHandler = ();
+	<span class="kw">type </span>HrmpChannelAcceptedHandler = ();
+	<span class="kw">type </span>HrmpChannelClosingHandler = ();
 }
 
 <span class="doccomment">/// Local origins on this chain are allowed to dispatch XCM sends/executions.

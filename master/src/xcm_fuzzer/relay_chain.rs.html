@@ -396,6 +396,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -555,6 +558,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
 	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
+	<span class="kw">type </span>HrmpNewChannelOpenRequestHandler = ();
+	<span class="kw">type </span>HrmpChannelAcceptedHandler = ();
+	<span class="kw">type </span>HrmpChannelClosingHandler = ();
 }
 
 <span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, ThisNetwork&gt;;

@@ -1365,6 +1365,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1218" id="1218">1218</a>
 <a href="#1219" id="1219">1219</a>
 <a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1398,7 +1411,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>traits;
 <span class="kw">use </span>traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, OnResponse, ProcessTransaction,
+	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
+	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
 };
@@ -2579,9 +2593,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 				<span class="prelude-val">Ok</span>(())
 			},
-			HrmpNewChannelOpenRequest { .. } =&gt; <span class="prelude-val">Err</span>(XcmError::Unimplemented),
-			HrmpChannelAccepted { .. } =&gt; <span class="prelude-val">Err</span>(XcmError::Unimplemented),
-			HrmpChannelClosing { .. } =&gt; <span class="prelude-val">Err</span>(XcmError::Unimplemented),
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =&gt;
+				Config::TransactionalProcessor::process(|| {
+					Config::HrmpNewChannelOpenRequestHandler::handle(
+						sender,
+						max_message_size,
+						max_capacity,
+					)
+				}),
+			HrmpChannelAccepted { recipient } =&gt; Config::TransactionalProcessor::process(|| {
+				Config::HrmpChannelAcceptedHandler::handle(recipient)
+			}),
+			HrmpChannelClosing { initiator, sender, recipient } =&gt;
+				Config::TransactionalProcessor::process(|| {
+					Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)
+				}),
 		}
 	}
 }

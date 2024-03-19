@@ -493,6 +493,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -777,6 +780,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
 	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
+	<span class="kw">type </span>HrmpNewChannelOpenRequestHandler = ();
+	<span class="kw">type </span>HrmpChannelAcceptedHandler = ();
+	<span class="kw">type </span>HrmpChannelClosingHandler = ();
 }
 
 <span class="kw">impl </span>mock_msg_queue::Config <span class="kw">for </span>Runtime {
