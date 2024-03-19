@@ -43,9 +43,29 @@
 //! genesis block.
 
 extern crate alloc;
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 
 /// The result type alias, used in build methods. `Err` contains formatted error message.
 pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
+
+/// Wrapper representing preset id.
+#[derive(Decode, Encode, Debug, TypeInfo)]
+pub struct PresetId(Vec<u8>);
+
+impl From<&str> for PresetId {
+	fn from(v: &str) -> Self {
+		Self(v.as_bytes().to_vec())
+	}
+}
+
+impl<'a> TryFrom<&'a PresetId> for &'a str {
+	type Error = core::str::Utf8Error;
+	fn try_from(v: &'a PresetId) -> core::result::Result<&'a str, Self::Error> {
+		core::str::from_utf8(&v.0)
+	}
+}
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with RuntimeGenesisConfig for the runtime
@@ -59,7 +79,7 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Please note that provided json blob must contain all `RuntimeGenesisConfig` fields, no
 		/// defaults will be used.
-		fn build_state(json: alloc::vec::Vec<u8>) -> Result;
+		fn build_state(json: Vec<u8>) -> Result;
 
 		/// Returns a JSON blob representation of the built-in `RuntimeGenesisConfig` identified by
 		/// `id`.
@@ -71,12 +91,12 @@ sp_api::decl_runtime_apis! {
 		/// Otherwise function returns a JSON representation of the built-in, named
 		/// `RuntimeGenesisConfig` preset identified by `id`, or `None` if such preset does not
 		/// exists. Returned `Vec<u8>` contains bytes of JSON blob.
-		fn get_preset(id: Option<alloc::vec::Vec<u8>>) -> Option<alloc::vec::Vec<u8>>;
+		fn get_preset(id: Option<PresetId>) -> Option<Vec<u8>>;
 
 		/// Returns a list of names for available builtin `RuntimeGenesisConfig` presets.
 		///
 		/// The presets from the list can be queried with [`GenesisBuilder::get_preset`] method. If
 		/// no named presets are provided by the runtime the list is empty.
-		fn preset_names() -> alloc::vec::Vec<sp_runtime::RuntimeString>;
+		fn preset_names() -> Vec<PresetId>;
 	}
 }

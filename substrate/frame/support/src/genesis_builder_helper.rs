@@ -23,7 +23,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::traits::BuildGenesisConfig;
-use sp_genesis_builder::Result as BuildResult;
+use sp_genesis_builder::{Result as BuildResult, PresetId};
 use sp_runtime::format_runtime_string;
 
 /// Build `GenesisConfig` from a JSON blob not using any defaults and store it in the storage. For
@@ -39,7 +39,7 @@ pub fn build_state<GC: BuildGenesisConfig>(json: Vec<u8>) -> BuildResult {
 ///
 /// No named presets are supported. For more info refer to
 /// [`sp_genesis_builder::GenesisBuilder::get_preset`].
-pub fn get_preset<GC>(id: Option<Vec<u8>>) -> Option<Vec<u8>>
+pub fn get_preset<GC>(id: Option<PresetId>) -> Option<Vec<u8>>
 where
 	GC: BuildGenesisConfig + Default,
 {
