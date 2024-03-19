@@ -25,7 +25,7 @@
 //! as a prerequisite to understanding this pallet.
 //!
 //! Also see the [`frame_tokens`] reference docs for higher level information regarding the
-//! place of this palet in Substrate.
+//! place of this palet in FRAME.
 //!
 //! ## Overview
 //!
