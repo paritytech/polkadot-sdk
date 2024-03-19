@@ -65,6 +65,8 @@ pub struct ChainHeadConfig {
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	pub operation_max_storage_items: usize,
+	/// The maximum number of `chainHead_follow` subscriptions per connection.
+	pub max_follow_subscriptions_per_connection: usize,
 }
 
 /// Maximum pinned blocks across all connections.
@@ -86,6 +88,9 @@ const MAX_ONGOING_OPERATIONS: usize = 16;
 /// before paginations is required.
 const MAX_STORAGE_ITER_ITEMS: usize = 5;
 
+/// The maximum number of `chainHead_follow` subscriptions per connection.
+const MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION: usize = 4;
+
 impl Default for ChainHeadConfig {
 	fn default() -> Self {
 		ChainHeadConfig {
@@ -93,6 +98,7 @@ impl Default for ChainHeadConfig {
 			subscription_max_pinned_duration: MAX_PINNED_DURATION,
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
 			operation_max_storage_items: MAX_STORAGE_ITER_ITEMS,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		}
 	}
 }
