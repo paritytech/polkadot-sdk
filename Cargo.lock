@@ -18407,6 +18407,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-crypto-hashing",
+ "sp-std 14.0.0",
  "static_assertions",
 ]
 
