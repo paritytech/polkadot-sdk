@@ -1,6 +1,6 @@
 # Using Parity Bridges Common dependency (`git subtree`)
 
-In `./bridges` sub-directory you can find a `git subtree` imported version of:
+In `./bridges` sub-directory you can find a `git subtree` imported version of:1
 [`parity-bridges-common`](https://github.com/paritytech/parity-bridges-common/) repository.
 
 (For regular Cumulus contributor 1. is relevant) \
