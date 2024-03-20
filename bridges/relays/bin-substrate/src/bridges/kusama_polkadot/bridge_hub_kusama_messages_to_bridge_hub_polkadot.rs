@@ -16,10 +16,13 @@
 
 //! BridgeHubKusama-to-BridgeHubPolkadot messages sync entrypoint.
 
-use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge};
 use relay_bridge_hub_kusama_client::BridgeHubKusama;
 use relay_bridge_hub_polkadot_client::BridgeHubPolkadot;
-use substrate_relay_helper::{messages_lane::SubstrateMessageLane, UtilityPalletBatchCallBuilder};
+use substrate_relay_helper::{
+	cli::bridge::{CliBridgeBase, MessagesCliBridge},
+	messages_lane::SubstrateMessageLane,
+	UtilityPalletBatchCallBuilder,
+};
 
 /// BridgeHubKusama-to-BridgeHubPolkadot messages bridge.
 pub struct BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge {}

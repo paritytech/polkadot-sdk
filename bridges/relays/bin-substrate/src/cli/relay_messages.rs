@@ -14,10 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use async_trait::async_trait;
-use sp_core::Pair;
 use structopt::StructOpt;
-use strum::VariantNames;
+use strum::{EnumString, VariantNames};
 
 use crate::bridges::{
 	kusama_polkadot::{
@@ -37,10 +35,21 @@ use crate::bridges::{
 		bridge_hub_westend_messages_to_bridge_hub_rococo::BridgeHubWestendToBridgeHubRococoMessagesCliBridge,
 	},
 };
-use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, BalanceOf, ChainWithTransactions};
-use substrate_relay_helper::{messages_lane::MessagesRelayParams, TransactionParams};
+use substrate_relay_helper::cli::relay_messages::{MessagesRelayer, RelayMessagesParams};
 
-use crate::cli::{bridge::*, chain_schema::*, CliChain, HexLaneId, PrometheusParams};
+#[derive(Debug, PartialEq, Eq, EnumString, VariantNames)]
+#[strum(serialize_all = "kebab_case")]
+/// Supported full bridges (headers + messages).
+pub enum FullBridge {
+	BridgeHubRococoToBridgeHubWestend,
+	BridgeHubWestendToBridgeHubRococo,
+	BridgeHubKusamaToBridgeHubPolkadot,
+	BridgeHubPolkadotToBridgeHubKusama,
+	PolkadotBulletinToBridgeHubPolkadot,
+	BridgeHubPolkadotToPolkadotBulletin,
+	RococoBulletinToBridgeHubRococo,
+	BridgeHubRococoToRococoBulletin,
+}
 
 /// Start messages relayer process.
 #[derive(StructOpt)]
@@ -48,57 +57,8 @@ pub struct RelayMessages {
 	/// A bridge instance to relay messages for.
 	#[structopt(possible_values = FullBridge::VARIANTS, case_insensitive = true)]
 	bridge: FullBridge,
-	/// Hex-encoded lane id that should be served by the relay. Defaults to `00000000`.
-	#[structopt(long, default_value = "00000000")]
-	lane: HexLaneId,
 	#[structopt(flatten)]
-	source: SourceConnectionParams,
-	#[structopt(flatten)]
-	source_sign: SourceSigningParams,
-	#[structopt(flatten)]
-	target: TargetConnectionParams,
-	#[structopt(flatten)]
-	target_sign: TargetSigningParams,
-	#[structopt(flatten)]
-	prometheus_params: PrometheusParams,
-}
-
-#[async_trait]
-trait MessagesRelayer: MessagesCliBridge
-where
-	Self::Source: ChainWithTransactions + CliChain,
-	AccountIdOf<Self::Source>: From<<AccountKeyPairOf<Self::Source> as Pair>::Public>,
-	AccountIdOf<Self::Target>: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
-	BalanceOf<Self::Source>: TryFrom<BalanceOf<Self::Target>>,
-{
-	async fn relay_messages(data: RelayMessages) -> anyhow::Result<()> {
-		let source_client = data.source.into_client::<Self::Source>().await?;
-		let source_sign = data.source_sign.to_keypair::<Self::Source>()?;
-		let source_transactions_mortality = data.source_sign.transactions_mortality()?;
-		let target_client = data.target.into_client::<Self::Target>().await?;
-		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
-		let target_transactions_mortality = data.target_sign.transactions_mortality()?;
-
-		substrate_relay_helper::messages_lane::run::<Self::MessagesLane>(MessagesRelayParams {
-			source_client,
-			source_transaction_params: TransactionParams {
-				signer: source_sign,
-				mortality: source_transactions_mortality,
-			},
-			target_client,
-			target_transaction_params: TransactionParams {
-				signer: target_sign,
-				mortality: target_transactions_mortality,
-			},
-			source_to_target_headers_relay: None,
-			target_to_source_headers_relay: None,
-			lane_id: data.lane.into(),
-			limits: Self::maybe_messages_limits(),
-			metrics_params: data.prometheus_params.into_metrics_params()?,
-		})
-		.await
-		.map_err(|e| anyhow::format_err!("{}", e))
-	}
+	params: RelayMessagesParams,
 }
 
 impl MessagesRelayer for BridgeHubRococoToBridgeHubWestendMessagesCliBridge {}
@@ -115,21 +75,21 @@ impl RelayMessages {
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self.bridge {
 			FullBridge::BridgeHubRococoToBridgeHubWestend =>
-				BridgeHubRococoToBridgeHubWestendMessagesCliBridge::relay_messages(self),
+				BridgeHubRococoToBridgeHubWestendMessagesCliBridge::relay_messages(self.params),
 			FullBridge::BridgeHubWestendToBridgeHubRococo =>
-				BridgeHubWestendToBridgeHubRococoMessagesCliBridge::relay_messages(self),
+				BridgeHubWestendToBridgeHubRococoMessagesCliBridge::relay_messages(self.params),
 			FullBridge::BridgeHubKusamaToBridgeHubPolkadot =>
-				BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge::relay_messages(self),
+				BridgeHubKusamaToBridgeHubPolkadotMessagesCliBridge::relay_messages(self.params),
 			FullBridge::BridgeHubPolkadotToBridgeHubKusama =>
-				BridgeHubPolkadotToBridgeHubKusamaMessagesCliBridge::relay_messages(self),
+				BridgeHubPolkadotToBridgeHubKusamaMessagesCliBridge::relay_messages(self.params),
 			FullBridge::PolkadotBulletinToBridgeHubPolkadot =>
-				PolkadotBulletinToBridgeHubPolkadotMessagesCliBridge::relay_messages(self),
+				PolkadotBulletinToBridgeHubPolkadotMessagesCliBridge::relay_messages(self.params),
 			FullBridge::BridgeHubPolkadotToPolkadotBulletin =>
-				BridgeHubPolkadotToPolkadotBulletinMessagesCliBridge::relay_messages(self),
+				BridgeHubPolkadotToPolkadotBulletinMessagesCliBridge::relay_messages(self.params),
 			FullBridge::RococoBulletinToBridgeHubRococo =>
-				RococoBulletinToBridgeHubRococoMessagesCliBridge::relay_messages(self),
+				RococoBulletinToBridgeHubRococoMessagesCliBridge::relay_messages(self.params),
 			FullBridge::BridgeHubRococoToRococoBulletin =>
-				BridgeHubRococoToRococoBulletinMessagesCliBridge::relay_messages(self),
+				BridgeHubRococoToRococoBulletinMessagesCliBridge::relay_messages(self.params),
 		}
 		.await
 	}
