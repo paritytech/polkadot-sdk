@@ -1,0 +1,67 @@
+name: Check PRdoc
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize, unlabeled]
+  merge_group:
+
+env:
+  IMAGE: docker.io/paritytech/prdoc:v0.0.7
+  API_BASE: https://api.github.com/repos
+  REPO: ${{ github.repository }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_PR: ${{ github.event.pull_request.number }}
+  ENGINE: docker
+  PRDOC_DOC: https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md
+
+jobs:
+  check-prdoc:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.number != ''
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
+      # we cannot show the version in this step (ie before checking out the repo)
+      # due to https://github.com/paritytech/prdoc/issues/15
+      - name: Check if PRdoc is required
+        id: get-labels
+        run: |
+          echo "Pulling $IMAGE"
+          $ENGINE pull $IMAGE
+
+          # Fetch the labels for the PR under test
+          echo "Fetch the labels for $API_BASE/${REPO}/pulls/${GITHUB_PR}"
+          labels=$( curl -H "Authorization: token ${GITHUB_TOKEN}" -s "$API_BASE/${REPO}/pulls/${GITHUB_PR}" | jq '.labels | .[] | .name' | tr "\n" ",")
+          echo "Labels: ${labels}"
+          echo "labels=${labels}" >> "$GITHUB_OUTPUT"
+
+          echo "Checking PRdoc version"
+          $ENGINE run --rm -v $PWD:/repo $IMAGE --version
+
+      - name: Early exit if PR is silent
+        if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          hits=$(find prdoc -name "pr_$GITHUB_PR*.prdoc" | wc -l)
+          if (( hits > 0 )); then
+            echo "PR detected as silent, but a PRDoc was found, checking it as information"
+            $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR} || echo "Ignoring failure"
+          else
+            echo "PR detected as silent, no PRDoc found, exiting..."
+          fi
+          echo "If you want to add a PRDoc, please refer to $PRDOC_DOC"
+          exit 0
+
+      - name: PRdoc check for PR#${{ github.event.pull_request.number }}
+        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "Checking for PR#${GITHUB_PR}"
+          echo "You can find more information about PRDoc at $PRDOC_DOC"
+          $ENGINE run --rm -v $PWD:/repo -e RUST_LOG=info $IMAGE check -n ${GITHUB_PR}
+
+      - name: Validate prdoc for PR#${{ github.event.pull_request.number }}
+        if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
+        run: |
+          echo "Validating PR#${GITHUB_PR}"
+          python3 --version
+          python3 -m pip install cargo-workspace==1.2.1
+          python3 .github/scripts/check-prdoc.py Cargo.toml prdoc/pr_${GITHUB_PR}.prdoc
