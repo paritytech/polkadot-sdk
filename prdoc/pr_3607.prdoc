@@ -6,11 +6,18 @@ title: "XCM payment API"
 doc:
   - audience: Runtime Dev
     description: |
-      A trait of XCM payment API was added.
-	    API provides functionality for obtaining
-      the weight required to execute an XCM message,
-	    a list of accepted `AssetId` for payment for its
-	    execution and the cost in the specified supported `AssetId`.
+      A runtime API was added for estimating the fees required for XCM execution and delivery.
+      This is the basic building block needed for UIs to accurately estimate fees.
+      An example implementation is shown in the PR. Ideally it's simple to implement, you only need to call existing parts of your XCM config.
+      The API looks like so:
+      ```rust
+		fn query_acceptable_payment_assets(xcm_version: Version) -> Result<Vec<VersionedAssetId>, Error>;
+		fn query_xcm_weight(message: VersionedXcm<Call>) -> Result<Weight, Error>;
+		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, Error>;
+		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, Error>;
+      ```
+      The first three relate to XCM execution fees, given an XCM, you can query its weight, then which assets are acceptable for buying weight and convert weight to a number of those assets.
+      The last one takes in a destination and a message you want to send from the runtime you're executing this on, it will give you the delivery fees.
 	
 crates:
   - name: xcm-payment-runtime-api
