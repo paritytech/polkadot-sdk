@@ -1953,11 +1953,11 @@ mod tests {
 			descriptor: CandidateDescriptor {
 				para_id: 0.into(),
 				relay_parent: zeros,
-				collator: CollatorId::from(sr25519::Public::from_raw([0; 32])),
+				collator: CollatorId::from(sr25519::Public::default()),
 				persisted_validation_data_hash: zeros,
 				pov_hash: zeros,
 				erasure_root: zeros,
-				signature: CollatorSignature::from(sr25519::Signature([0u8; 64])),
+				signature: CollatorSignature::from(sr25519::Signature::default()),
 				para_head: zeros,
 				validation_code_hash: ValidationCode(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).hash(),
 			},

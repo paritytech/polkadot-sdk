@@ -177,6 +177,9 @@ where
 				self.requests_cache.cache_async_backing_params(relay_parent, params),
 			NodeFeatures(session_index, params) =>
 				self.requests_cache.cache_node_features(session_index, params),
+			ClaimQueue(relay_parent, sender) => {
+				self.requests_cache.cache_claim_queue(relay_parent, sender);
+			},
 		}
 	}
 
@@ -329,6 +332,8 @@ where
 					Some(Request::NodeFeatures(index, sender))
 				}
 			},
+			Request::ClaimQueue(sender) =>
+				query!(claim_queue(), sender).map(|sender| Request::ClaimQueue(sender)),
 		}
 	}
 
@@ -433,6 +438,7 @@ where
 				.unwrap_or_else(|e| {
 					gum::warn!(
 						target: LOG_TARGET,
+						api = ?stringify!($api_name),
 						"cannot query the runtime API version: {}",
 						e,
 					);
@@ -624,6 +630,12 @@ where
 			ver = Request::NODE_FEATURES_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
+		),
+		Request::ClaimQueue(sender) => query!(
+			ClaimQueue,
+			claim_queue(),
+			ver = Request::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+			sender
 		),
 	}
 }

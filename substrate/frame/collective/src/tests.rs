@@ -29,7 +29,7 @@ use sp_core::{bounded_vec, H256};
 use sp_runtime::{testing::Header, traits::BlakeTwo256, BuildStorage};
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -88,7 +88,7 @@ parameter_types! {
 	pub static MaxProposalWeight: Weight = default_max_proposal_weight();
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
