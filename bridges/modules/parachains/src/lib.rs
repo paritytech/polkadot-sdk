@@ -371,8 +371,12 @@ pub mod pallet {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
 			ensure_signed(origin)?;
 
-			// check whether this submission may be refunded
+			// the pallet allows two kind of free submissions:
+			// 1) check whether filter allows this submission for free
 			let may_be_free = T::FreeHeadsUpdateFilter::is_free(at_relay_block, &parachains);
+			// 2) refund allowed if all parachain heads are first headers known to us
+			let total_parachains = parachains.len();
+			let mut first_parachain_heads = 0;
 
 			// we'll need relay chain header to verify that parachains heads are always increasing.
 			let (relay_block_number, relay_block_hash) = at_relay_block;
@@ -466,6 +470,7 @@ pub mod pallet {
 
 				let update_result: Result<_, ()> =
 					ParasInfo::<T, I>::try_mutate(parachain, |stored_best_head| {
+						let is_first = stored_best_head.is_none();
 						let artifacts = Pallet::<T, I>::update_parachain_head(
 							parachain,
 							stored_best_head.take(),
@@ -473,7 +478,12 @@ pub mod pallet {
 							parachain_head_data,
 							parachain_head_hash,
 						)?;
+
 						is_updated_something = true;
+						if is_first {
+							first_parachain_heads = first_parachain_heads + 1;
+						}
+
 						*stored_best_head = Some(artifacts.best_head);
 						Ok(artifacts.prune_happened)
 					});
@@ -504,9 +514,14 @@ pub mod pallet {
 				Error::<T, I>::HeaderChainStorageProof(HeaderChainError::StorageProof(e))
 			})?;
 
-			// we allow free submissions only if the update passes filter and something
+			// we allow free submissions if the update passes filter and something
 			// has been updated
-			let pays_fee = if is_updated_something && may_be_free { Pays::No } else { Pays::Yes };
+			//
+			// we allow free submission of the first parachain head
+			let is_free_by_filter_criteria = is_updated_something && may_be_free;
+			let is_free_by_first_criteria = total_parachains == first_parachain_heads;
+			let is_free = is_free_by_filter_criteria || is_free_by_first_criteria;
+			let pays_fee = if is_free { Pays::No } else { Pays::Yes };
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
@@ -951,7 +966,7 @@ pub(crate) mod tests {
 		run_test(|| {
 			initialize(state_root);
 
-			// we're trying to update heads of parachains 1, 2 and 3
+			// we're trying to update heads of parachains 1 and 3
 			let expected_weight =
 				WeightInfo::submit_parachain_heads_weight(DbWeight::get(), &proof, 2);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
@@ -961,9 +976,10 @@ pub(crate) mod tests {
 				proof,
 			);
 			assert_ok!(result);
+			assert_eq!(result.expect("checked above").pays_fee, Pays::No);
 			assert_eq!(result.expect("checked above").actual_weight, Some(expected_weight));
 
-			// but only 1 and 2 are updated, because proof is missing head of parachain#2
+			// 1 and 3 are updated, because proof is missing head of parachain#2
 			assert_eq!(ParasInfo::<TestRuntime>::get(ParaId(1)), Some(initial_best_head(1)));
 			assert_eq!(ParasInfo::<TestRuntime>::get(ParaId(2)), None);
 			assert_eq!(
@@ -1033,7 +1049,8 @@ pub(crate) mod tests {
 			// start with relay block #0 and import head#5 of parachain#1
 			initialize(state_root_5);
 			let result = import_parachain_1_head(0, state_root_5, parachains_5, proof_5);
-			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+			// first parachain head is imported for free
+			assert_eq!(result.unwrap().pays_fee, Pays::No);
 			assert_eq!(
 				ParasInfo::<TestRuntime>::get(ParaId(1)),
 				Some(ParaInfo {
@@ -1068,7 +1085,9 @@ pub(crate) mod tests {
 
 			// import head#10 of parachain#1 at relay block #1
 			let (relay_1_hash, justification) = proceed(1, state_root_10);
-			assert_ok!(import_parachain_1_head(1, state_root_10, parachains_10, proof_10));
+			let result = import_parachain_1_head(1, state_root_10, parachains_10, proof_10);
+			// second parachain head is imported for fee
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 			assert_eq!(
 				ParasInfo::<TestRuntime>::get(ParaId(1)),
 				Some(ParaInfo {
@@ -1693,7 +1712,7 @@ pub(crate) mod tests {
 	}
 
 	#[test]
-	fn may_be_free_for_submitter() {
+	fn may_be_free_for_submitting_filtered_heads() {
 		run_test(|| {
 			let (state_root, proof, parachains) =
 				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 5))]);
@@ -1716,5 +1735,75 @@ pub(crate) mod tests {
 			);
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 		})
+	}
+
+	#[test]
+	fn may_be_free_for_submitting_first_heads() {
+		fn run_sub_test(pre: impl FnOnce(), heads: Vec<(u32, ParaHead)>) -> Pays {
+			run_test(|| {
+				let (state_root, proof, parachains) =
+					prepare_parachain_heads_proof::<RegularParachainHeader>(heads);
+				let relay_header_hash = initialize(state_root);
+				pre();
+				let result = Pallet::<TestRuntime>::submit_parachain_heads(
+					RuntimeOrigin::signed(1),
+					(0, relay_header_hash),
+					parachains,
+					proof,
+				);
+				result.unwrap().pays_fee
+			})
+		}
+
+		// if we submit 2 heads and both are first => Pays::No
+		assert_eq!(run_sub_test(|| (), vec![(1, head_data(1, 5)), (2, head_data(2, 5))]), Pays::No);
+		// if we submit 2 heads and one is not first => Pays::Yes
+		assert_eq!(
+			run_sub_test(
+				|| {
+					ParasInfo::<TestRuntime, ()>::insert(
+						ParaId(1),
+						ParaInfo {
+							best_head_hash: BestParaHeadHash {
+								at_relay_block_number: 1,
+								head_hash: Default::default(),
+							},
+							next_imported_hash_position: 1,
+						},
+					);
+				},
+				vec![(1, head_data(1, 5)), (2, head_data(2, 5))]
+			),
+			Pays::Yes
+		);
+		// if we submit 2 heads and both are not first => Pays::Yes
+		assert_eq!(
+			run_sub_test(
+				|| {
+					ParasInfo::<TestRuntime, ()>::insert(
+						ParaId(1),
+						ParaInfo {
+							best_head_hash: BestParaHeadHash {
+								at_relay_block_number: 1,
+								head_hash: Default::default(),
+							},
+							next_imported_hash_position: 1,
+						},
+					);
+					ParasInfo::<TestRuntime, ()>::insert(
+						ParaId(2),
+						ParaInfo {
+							best_head_hash: BestParaHeadHash {
+								at_relay_block_number: 2,
+								head_hash: Default::default(),
+							},
+							next_imported_hash_position: 1,
+						},
+					);
+				},
+				vec![(1, head_data(1, 5)), (2, head_data(2, 5))]
+			),
+			Pays::Yes
+		);
 	}
 }
