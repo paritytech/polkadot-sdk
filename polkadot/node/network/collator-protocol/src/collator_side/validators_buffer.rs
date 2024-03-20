@@ -54,12 +54,13 @@ pub const MAX_CHAINED_CANDIDATES_PER_RCB: NonZeroUsize = match NonZeroUsize::new
 /// The ring buffer stores at most this many unique validator groups.
 ///
 /// This value should be chosen in way that all groups assigned to our para
-/// in the view can fit into the buffer multiplied by amount of candidates we support per relay chain block
-/// in the case of elastic scaling.
-pub const VALIDATORS_BUFFER_CAPACITY: NonZeroUsize = match NonZeroUsize::new(3 * MAX_CHAINED_CANDIDATES_PER_RCB.get()) {
-	Some(cap) => cap,
-	None => panic!("buffer capacity must be non-zero"),
-};
+/// in the view can fit into the buffer multiplied by amount of candidates we support per relay
+/// chain block in the case of elastic scaling.
+pub const VALIDATORS_BUFFER_CAPACITY: NonZeroUsize =
+	match NonZeroUsize::new(3 * MAX_CHAINED_CANDIDATES_PER_RCB.get()) {
+		Some(cap) => cap,
+		None => panic!("buffer capacity must be non-zero"),
+	};
 
 /// Unique identifier of a validators group.
 #[derive(Debug)]
