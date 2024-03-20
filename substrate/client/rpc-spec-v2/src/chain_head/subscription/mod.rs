@@ -27,7 +27,7 @@ mod inner;
 
 use crate::{
 	chain_head::chain_head::LOG_TARGET,
-	common::connections::{RegisteredConnectionToken, ReservedConnectionToken, RpcConnections},
+	common::connections::{RegisteredConnection, ReservedConnection, RpcConnections},
 };
 
 use self::inner::SubscriptionsInner;
@@ -98,7 +98,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 		&self,
 		connection_id: ConnectionId,
 	) -> Option<ReservedSubscription<Block, BE>> {
-		let reserved_token = self.rpc_connections.reserve_token(connection_id)?;
+		let reserved_token = self.rpc_connections.reserve_space(connection_id)?;
 
 		Some(ReservedSubscription {
 			state: ConnectionState::Reserved(reserved_token),
@@ -112,7 +112,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 		connection_id: ConnectionId,
 		subscription_id: &str,
 	) -> bool {
-		self.rpc_connections.contains_token(connection_id, subscription_id)
+		self.rpc_connections.contains_identifier(connection_id, subscription_id)
 	}
 
 	/// Remove the subscription ID with associated pinned blocks.
@@ -188,8 +188,8 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 /// The state starts in a [`ConnectionState::Reserved`] state and then transitions to
 /// [`ConnectionState::Registered`] when the subscription is inserted.
 enum ConnectionState {
-	Reserved(ReservedConnectionToken),
-	Registered { _unregister_on_drop: RegisteredConnectionToken, sub_id: String },
+	Reserved(ReservedConnection),
+	Registered { _unregister_on_drop: RegisteredConnection, sub_id: String },
 	Empty,
 }
 
