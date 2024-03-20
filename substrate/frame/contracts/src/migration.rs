@@ -236,19 +236,18 @@ pub struct Migration<T: Config, const TEST_ALL_STEPS: bool = true>(PhantomData<T
 #[cfg(feature = "try-runtime")]
 impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 	fn run_all_steps() -> Result<(), TryRuntimeError> {
-		let mut weight = Weight::zero();
+		let mut meter = &mut WeightMeter::new();
 		let name = <Pallet<T>>::name();
 		loop {
 			let in_progress_version = <Pallet<T>>::on_chain_storage_version() + 1;
 			let state = T::Migrations::pre_upgrade_step(in_progress_version)?;
-			let mut meter = &mut WeightMeter::new();
+			let before = meter.consumed();
 			let status = Self::migrate(&mut meter);
-			weight.saturating_accrue(meter.consumed());
 			log::info!(
 				target: LOG_TARGET,
 				"{name}: Migration step {:?} weight = {}",
 				in_progress_version,
-				meter.consumed()
+				meter.consumed() - before
 			);
 			T::Migrations::post_upgrade_step(in_progress_version, state)?;
 			if matches!(status, MigrateResult::Completed) {
@@ -257,7 +256,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 		}
 
 		let name = <Pallet<T>>::name();
-		log::info!(target: LOG_TARGET, "{name}: Migration steps weight = {}", weight);
+		log::info!(target: LOG_TARGET, "{name}: Migration steps weight = {}", meter.consumed());
 		Ok(())
 	}
 }
