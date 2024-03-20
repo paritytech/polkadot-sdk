@@ -133,7 +133,7 @@ impl Verify for sp_core::ecdsa::Signature {
 			self.as_ref(),
 			&sp_io::hashing::blake2_256(msg.get()),
 		) {
-			Ok(pubkey) => signer.as_ref() == &pubkey[..],
+			Ok(pubkey) => signer.0 == pubkey,
 			_ => false,
 		}
 	}
