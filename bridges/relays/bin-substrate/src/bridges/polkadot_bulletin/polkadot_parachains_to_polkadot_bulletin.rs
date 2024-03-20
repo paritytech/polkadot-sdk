@@ -16,7 +16,9 @@
 
 //! Polkadot-to-PolkadotBulletin parachains sync entrypoint.
 
-use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge};
+use substrate_relay_helper::cli::bridge::{
+	CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge,
+};
 
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::Chain;

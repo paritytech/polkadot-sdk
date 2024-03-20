@@ -17,12 +17,12 @@
 //! Rococo-to-RococoBulletin parachains sync entrypoint.
 
 use super::{BridgeHubRococoAsBridgeHubPolkadot, RococoAsPolkadot};
-use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge};
 
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::Chain;
 use relay_substrate_client::{CallOf, HeaderIdOf};
 use substrate_relay_helper::{
+	cli::bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge},
 	messages_lane::MessagesRelayLimits,
 	parachains::{SubmitParachainHeadsCallBuilder, SubstrateParachainsPipeline},
 };

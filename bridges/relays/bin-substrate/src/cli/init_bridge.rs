@@ -14,107 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use async_trait::async_trait;
-use codec::Encode;
-
-use crate::{
-	bridges::{
-		kusama_polkadot::{
-			kusama_headers_to_bridge_hub_polkadot::KusamaToBridgeHubPolkadotCliBridge,
-			polkadot_headers_to_bridge_hub_kusama::PolkadotToBridgeHubKusamaCliBridge,
-		},
-		polkadot_bulletin::{
-			polkadot_bulletin_headers_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotCliBridge,
-			polkadot_headers_to_polkadot_bulletin::PolkadotToPolkadotBulletinCliBridge,
-		},
-		rococo_bulletin::{
-			rococo_bulletin_headers_to_bridge_hub_rococo::RococoBulletinToBridgeHubRococoCliBridge,
-			rococo_headers_to_rococo_bulletin::RococoToRococoBulletinCliBridge,
-		},
-		rococo_westend::{
-			rococo_headers_to_bridge_hub_westend::RococoToBridgeHubWestendCliBridge,
-			westend_headers_to_bridge_hub_rococo::WestendToBridgeHubRococoCliBridge,
-		},
+use crate::bridges::{
+	kusama_polkadot::{
+		kusama_headers_to_bridge_hub_polkadot::KusamaToBridgeHubPolkadotCliBridge,
+		polkadot_headers_to_bridge_hub_kusama::PolkadotToBridgeHubKusamaCliBridge,
 	},
-	cli::{bridge::CliBridgeBase, chain_schema::*},
+	polkadot_bulletin::{
+		polkadot_bulletin_headers_to_bridge_hub_polkadot::PolkadotBulletinToBridgeHubPolkadotCliBridge,
+		polkadot_headers_to_polkadot_bulletin::PolkadotToPolkadotBulletinCliBridge,
+	},
+	rococo_bulletin::{
+		rococo_bulletin_headers_to_bridge_hub_rococo::RococoBulletinToBridgeHubRococoCliBridge,
+		rococo_headers_to_rococo_bulletin::RococoToRococoBulletinCliBridge,
+	},
+	rococo_westend::{
+		rococo_headers_to_bridge_hub_westend::RococoToBridgeHubWestendCliBridge,
+		westend_headers_to_bridge_hub_rococo::WestendToBridgeHubRococoCliBridge,
+	},
 };
-use bp_runtime::Chain as ChainBase;
-use relay_substrate_client::{AccountKeyPairOf, Chain, UnsignedTransaction};
-use sp_core::Pair;
+use relay_substrate_client::Chain;
 use structopt::StructOpt;
 use strum::{EnumString, VariantNames};
-use substrate_relay_helper::finality_base::engine::{Engine, Grandpa as GrandpaFinalityEngine};
-
-/// Initialize bridge pallet.
-#[derive(StructOpt)]
-pub struct InitBridge {
-	/// A bridge instance to initialize.
-	#[structopt(possible_values = InitBridgeName::VARIANTS, case_insensitive = true)]
-	bridge: InitBridgeName,
-	#[structopt(flatten)]
-	source: SourceConnectionParams,
-	#[structopt(flatten)]
-	target: TargetConnectionParams,
-	#[structopt(flatten)]
-	target_sign: TargetSigningParams,
-	/// Generates all required data, but does not submit extrinsic
-	#[structopt(long)]
-	dry_run: bool,
-}
-
-#[derive(Debug, EnumString, VariantNames)]
-#[strum(serialize_all = "kebab_case")]
-/// Bridge to initialize.
-pub enum InitBridgeName {
-	KusamaToBridgeHubPolkadot,
-	PolkadotToBridgeHubKusama,
-	PolkadotToPolkadotBulletin,
-	PolkadotBulletinToBridgeHubPolkadot,
-	RococoToRococoBulletin,
-	RococoBulletinToBridgeHubRococo,
-	RococoToBridgeHubWestend,
-	WestendToBridgeHubRococo,
-}
-
-#[async_trait]
-trait BridgeInitializer: CliBridgeBase
-where
-	<Self::Target as ChainBase>::AccountId: From<<AccountKeyPairOf<Self::Target> as Pair>::Public>,
-{
-	type Engine: Engine<Self::Source>;
-
-	/// Get the encoded call to init the bridge.
-	fn encode_init_bridge(
-		init_data: <Self::Engine as Engine<Self::Source>>::InitializationData,
-	) -> <Self::Target as Chain>::Call;
-
-	/// Initialize the bridge.
-	async fn init_bridge(data: InitBridge) -> anyhow::Result<()> {
-		let source_client = data.source.into_client::<Self::Source>().await?;
-		let target_client = data.target.into_client::<Self::Target>().await?;
-		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
-		let dry_run = data.dry_run;
-
-		substrate_relay_helper::finality::initialize::initialize::<Self::Engine, _, _, _>(
-			source_client,
-			target_client.clone(),
-			target_sign,
-			move |transaction_nonce, initialization_data| {
-				let call = Self::encode_init_bridge(initialization_data);
-				log::info!(
-					target: "bridge",
-					"Initialize bridge call encoded as hex string: {:?}",
-					format!("0x{}", hex::encode(call.encode()))
-				);
-				Ok(UnsignedTransaction::new(call.into(), transaction_nonce))
-			},
-			dry_run,
-		)
-		.await;
-
-		Ok(())
-	}
-}
+use substrate_relay_helper::{
+	cli::init_bridge::{BridgeInitializer, InitBridgeParams},
+	finality_base::engine::{Engine, Grandpa as GrandpaFinalityEngine},
+};
 
 impl BridgeInitializer for RococoToBridgeHubWestendCliBridge {
 	type Engine = GrandpaFinalityEngine<Self::Source>;
@@ -225,26 +149,50 @@ impl BridgeInitializer for RococoBulletinToBridgeHubRococoCliBridge {
 	}
 }
 
+/// Initialize bridge pallet.
+#[derive(StructOpt)]
+pub struct InitBridge {
+	/// A bridge instance to initialize.
+	#[structopt(possible_values = InitBridgeName::VARIANTS, case_insensitive = true)]
+	bridge: InitBridgeName,
+	#[structopt(flatten)]
+	params: InitBridgeParams,
+}
+
+#[derive(Debug, EnumString, VariantNames)]
+#[strum(serialize_all = "kebab_case")]
+/// Bridge to initialize.
+pub enum InitBridgeName {
+	KusamaToBridgeHubPolkadot,
+	PolkadotToBridgeHubKusama,
+	PolkadotToPolkadotBulletin,
+	PolkadotBulletinToBridgeHubPolkadot,
+	RococoToRococoBulletin,
+	RococoBulletinToBridgeHubRococo,
+	RococoToBridgeHubWestend,
+	WestendToBridgeHubRococo,
+}
+
 impl InitBridge {
 	/// Run the command.
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self.bridge {
 			InitBridgeName::KusamaToBridgeHubPolkadot =>
-				KusamaToBridgeHubPolkadotCliBridge::init_bridge(self),
+				KusamaToBridgeHubPolkadotCliBridge::init_bridge(self.params),
 			InitBridgeName::PolkadotToBridgeHubKusama =>
-				PolkadotToBridgeHubKusamaCliBridge::init_bridge(self),
+				PolkadotToBridgeHubKusamaCliBridge::init_bridge(self.params),
 			InitBridgeName::PolkadotToPolkadotBulletin =>
-				PolkadotToPolkadotBulletinCliBridge::init_bridge(self),
+				PolkadotToPolkadotBulletinCliBridge::init_bridge(self.params),
 			InitBridgeName::PolkadotBulletinToBridgeHubPolkadot =>
-				PolkadotBulletinToBridgeHubPolkadotCliBridge::init_bridge(self),
+				PolkadotBulletinToBridgeHubPolkadotCliBridge::init_bridge(self.params),
 			InitBridgeName::RococoToRococoBulletin =>
-				RococoToRococoBulletinCliBridge::init_bridge(self),
+				RococoToRococoBulletinCliBridge::init_bridge(self.params),
 			InitBridgeName::RococoBulletinToBridgeHubRococo =>
-				RococoBulletinToBridgeHubRococoCliBridge::init_bridge(self),
+				RococoBulletinToBridgeHubRococoCliBridge::init_bridge(self.params),
 			InitBridgeName::RococoToBridgeHubWestend =>
-				RococoToBridgeHubWestendCliBridge::init_bridge(self),
+				RococoToBridgeHubWestendCliBridge::init_bridge(self.params),
 			InitBridgeName::WestendToBridgeHubRococo =>
-				WestendToBridgeHubRococoCliBridge::init_bridge(self),
+				WestendToBridgeHubRococoCliBridge::init_bridge(self.params),
 		}
 		.await
 	}
