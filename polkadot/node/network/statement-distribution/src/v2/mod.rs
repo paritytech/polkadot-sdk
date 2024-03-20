@@ -3357,6 +3357,7 @@ pub(crate) async fn respond_task(
 
 				// If peer currently being served drop request
 				if active_peers.contains(&request.peer) {
+					gum::debug!(target: LOG_TARGET, "Dropping repeated request from peer");
 					continue
 				}
 
