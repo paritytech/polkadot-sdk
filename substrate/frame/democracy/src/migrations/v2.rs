@@ -65,6 +65,10 @@ pub mod old {
 	>;
 }
 
+/// The cursor of the migration.
+///
+/// Our migration will start by migrating deposits from reserve to hold, then votes from lock to
+/// freeze. The cursor will store the last deposit and vote that has been migrated.
 #[derive(Encode, Decode, MaxEncodedLen, DefaultNoBound)]
 pub enum Cursor<T: Config> {
 	/// The index of the last deposit that has been migrated.
@@ -110,7 +114,7 @@ where
 		+ LockableCurrency<AccountIdOf<T>, Moment = BlockNumberFor<T>>,
 	OldCurrency::Balance: IsType<BalanceOf<T>>,
 {
-	/// Execute one deposit reserve to hold migration step.
+	/// Migrate a single deposit from reserve to hold.
 	pub fn deposit_step(
 		index: Option<PropIndex>,
 		meter: &mut WeightMeter,
@@ -142,7 +146,7 @@ where
 		}
 	}
 
-	/// Execute one vote lock to freeze migration step.
+	/// Migrate a single vote from lock to freeze.
 	pub fn vote_step(
 		index: Option<AccountIdOf<T>>,
 		meter: &mut WeightMeter,
@@ -186,7 +190,7 @@ where
 	}
 
 	/// Translate reserved deposit to held deposit.
-	pub fn translate_reserve_to_hold(depositor: &AccountIdOf<T>, amount: OldCurrency::Balance) {
+	fn translate_reserve_to_hold(depositor: &AccountIdOf<T>, amount: OldCurrency::Balance) {
 		let remaining = OldCurrency::unreserve(&depositor, amount);
 		if remaining > Zero::zero() {
 			log::warn!(
@@ -238,7 +242,7 @@ where
 	}
 
 	/// Translate votes locked deposit to frozen deposit.
-	pub fn translate_lock_to_freeze(account_id: &AccountIdOf<T>, amount: OldCurrency::Balance) {
+	fn translate_lock_to_freeze(account_id: &AccountIdOf<T>, amount: OldCurrency::Balance) {
 		OldCurrency::remove_lock(DEMOCRACY_ID, account_id);
 		T::Fungible::set_freeze(&FreezeReason::Vote.into(), account_id, amount.into())
 			.unwrap_or_else(|err| {
