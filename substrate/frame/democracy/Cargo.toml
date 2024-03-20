@@ -32,6 +32,7 @@ sp-core = { path = "../../primitives/core", default-features = false }
 log = { workspace = true }
 
 [dev-dependencies]
+pallet-balances = { path = "../balances" }
 pallet-scheduler = { path = "../scheduler" }
 pallet-preimage = { path = "../preimage" }
 
