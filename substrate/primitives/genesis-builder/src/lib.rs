@@ -20,29 +20,31 @@
 //! Substrate genesis config builder
 //!
 //! This module provides means to interact with `RuntimeGenesisConfig`. Runtime provides a default
-//! `RuntimeGenesisConfig` structire in form of json blob.
+//! `RuntimeGenesisConfig` structure in a form of the JSON blob.
 //!
 //! Additionally the runtime may provide a number of partial predefined `RuntimeGenesisConfig`
 //! configurations in the form of patches which shall be applied on top of the default
 //! `RuntimeGenesisConfig`. The patch is a JSON blob, which essentially comprises the list of
 //! key-value pairs that are to be customized in the default runtime genesis config.
-//! These predefined configurations are refered to as presets.
+//! These predefined configurations are referred to as presets.
 //!
 //! This allows the runtime to provide a number of predefined configs (e.g. for different
-//! testnets) without neccessity to leak the runtime types outside the itself.
+//! testnets or development) without neccessity to leak the runtime types outside the itself (e.g.
+//! node or chain-spec related tools).
 //!
 //! This Runtime API allows to interact with `RuntimeGenesisConfig`, in particular:
 //! - provide the list of available preset names,
-//! - provide a number of named, built-in, presets of `RuntimeGenesisConfig`,
-//! - serialize the default `RuntimeGenesisConfig` struct into json format,
-//! - deserialize the `RuntimeGenesisConfig` from given json blob and put the resulting
-//!   `RuntimeGenesisConfig` into the state storage creating the initial runtime's state. Allows to
-//!   build customized genesis. This operation internally calls `GenesisBuild::build` function for
-//!   all runtime pallets.
+//! - provide a number of named presets of `RuntimeGenesisConfig`,
+//! - provide a JSON represention of the default `RuntimeGenesisConfig` (by simply serializing the
+//!   default `RuntimeGenesisConfig` struct into JSON format),
+//! - deserialize the full `RuntimeGenesisConfig` from given JSON blob and put the resulting
+//!   `RuntimeGenesisConfig` structure into the state storage creating the initial runtime's state.
+//!   Allows to build customized genesis. This operation internally calls `GenesisBuild::build`
+//!   function for all runtime pallets.
 //!
-//! Providing externalities with empty storage and putting `RuntimeGenesisConfig` into storage
-//! allows to catch and build the raw storage of `RuntimeGenesisConfig` which is the foundation for
-//! genesis block.
+//! Providing externalities with an empty storage and putting `RuntimeGenesisConfig` into storage
+//! (by calling `build_state`) allows to construct the raw storage of `RuntimeGenesisConfig`
+//! which is the foundation for genesis block.
 
 extern crate alloc;
 use alloc::vec::Vec;
@@ -79,7 +81,7 @@ sp_api::decl_runtime_apis! {
 		/// puts it into the storage. If the provided JSON blob is incorrect or incomplete or the
 		/// deserialization fails, an error is returned.
 		///
-		/// Please note that provided json blob must contain all `RuntimeGenesisConfig` fields, no
+		/// Please note that provided JSON blob must contain all `RuntimeGenesisConfig` fields, no
 		/// defaults will be used.
 		fn build_state(json: Vec<u8>) -> Result;
 
@@ -92,12 +94,12 @@ sp_api::decl_runtime_apis! {
 		///
 		/// Otherwise function returns a JSON representation of the built-in, named `RuntimeGenesisConfig` preset
 		/// identified by `id`, or `None` if such preset does not exists. Returned `Vec<u8>` contains bytes of JSON blob
-		/// (patch) which comprises a list of (potentially nested) key-value pairs that are intended for custimizing the
+		/// (patch) which comprises a list of (potentially nested) key-value pairs that are intended for customizing the
 		/// default runtime genesis config. The patch shall be merged (rfc7386) with default genesis config in order to
 		/// obtain a full representation of genesis config that can be used in `build_state` method.
 		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>>;
 
-		/// Returns a list of names for available builtin `RuntimeGenesisConfig` presets.
+		/// Returns a list of identifiers for available builtin `RuntimeGenesisConfig` presets.
 		///
 		/// The presets from the list can be queried with [`GenesisBuilder::get_preset`] method. If
 		/// no named presets are provided by the runtime the list is empty.
