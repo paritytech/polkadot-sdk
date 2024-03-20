@@ -24,10 +24,15 @@
 //! - availability-store
 
 use polkadot_subsystem_bench::{
-	availability::{benchmark_availability_write, prepare_test, TestDataAvailability, TestState},
+	availability::{
+		benchmark_availability_write, prepare_data, prepare_test, TestDataAvailability,
+	},
 	configuration::TestConfiguration,
-	utils::{warm_up_and_benchmark, WarmUpOptions},
+	usage::BenchmarkUsage,
 };
+use std::io::Write;
+
+const BENCH_COUNT: usize = 50;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
@@ -37,34 +42,55 @@ fn main() -> Result<(), String> {
 	config.n_validators = 500;
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
+	let (
+		state,
+		test_authorities,
+		block_headers,
+		block_infos,
+		chunk_fetching_requests,
+		signed_bitfields,
+		availability_state,
+		runtime_api,
+	) = prepare_data(&config);
 
-	let usage = warm_up_and_benchmark(
-		WarmUpOptions::new(&[
-			("availability-distribution", 0.06),
-			("bitfield-distribution", 0.03),
-			("availability-store", 0.01),
-		]),
-		|| {
-			let mut state = TestState::new(&config);
-			let (mut env, _protocol_config) =
-				prepare_test(config.clone(), &mut state, TestDataAvailability::Write, false);
+	println!("Benchmarking...");
+	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
+		.map(|n| {
+			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
+			std::io::stdout().flush().unwrap();
+			let mut env = prepare_test(
+				&config,
+				&state,
+				&test_authorities,
+				&block_headers,
+				&availability_state,
+				&runtime_api,
+				TestDataAvailability::Write,
+				false,
+			);
 			env.runtime().block_on(benchmark_availability_write(
 				"data_availability_write",
 				&mut env,
-				state,
+				&state,
+				&block_infos,
+				&chunk_fetching_requests,
+				&signed_bitfields,
 			))
-		},
-	)?;
-	println!("{}", usage);
+		})
+		.collect();
+	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
+	let average_usage = BenchmarkUsage::average(&usages);
+	println!("{}", average_usage);
 
-	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 433.333, 0.05),
-		("Sent to peers", 18480.000, 0.05),
+	messages.extend(average_usage.check_network_usage(&[
+		("Received from peers", 433.3, 0.05),
+		("Sent to peers", 18480.0, 0.05),
 	]));
-	messages.extend(usage.check_cpu_usage(&[
-		("availability-distribution", 0.012, 0.15),
-		("bitfield-distribution", 0.048, 0.15),
-		("availability-store", 0.155, 0.15),
+
+	messages.extend(average_usage.check_cpu_usage(&[
+		("availability-distribution", 0.011, 0.05),
+		("bitfield-distribution", 0.050, 0.05),
+		("availability-store", 0.159, 0.05),
 	]));
 
 	if messages.is_empty() {
