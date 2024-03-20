@@ -280,7 +280,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			persisted_validation_data_hash: Default::default(),
 			pov_hash: Default::default(),
 			erasure_root: Default::default(),
-			signature: CollatorSignature::from(sr25519::Signature([42u8; 64])),
+			signature: CollatorSignature::from(sr25519::Signature::from_raw([42u8; 64])),
 			para_head: Default::default(),
 			validation_code_hash: mock_validation_code().hash(),
 		}
