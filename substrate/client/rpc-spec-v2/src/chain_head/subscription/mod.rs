@@ -77,6 +77,19 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 		}
 	}
 
+	/// Create a new instance from the inner state.
+	///
+	/// # Note
+	///
+	/// Used for testing.
+	#[doc(hidden)]
+	pub(crate) fn _from_inner(
+		inner: Arc<RwLock<SubscriptionsInner<Block, BE>>>,
+		rpc_connections: RpcConnections,
+	) -> Self {
+		SubscriptionManagement { inner, rpc_connections }
+	}
+
 	/// Reserve space for a subscriptions.
 	///
 	/// Fails if the connection ID is has reached the maximum number of active subscriptions.
