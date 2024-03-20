@@ -17,9 +17,12 @@
 //! BridgeHubRococo-to-RococoBulletin messages sync entrypoint.
 
 use super::BridgeHubRococoAsBridgeHubPolkadot;
-use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge};
 use relay_polkadot_bulletin_client::PolkadotBulletin as RococoBulletin;
-use substrate_relay_helper::{messages_lane::SubstrateMessageLane, UtilityPalletBatchCallBuilder};
+use substrate_relay_helper::{
+	cli::bridge::{CliBridgeBase, MessagesCliBridge},
+	messages_lane::SubstrateMessageLane,
+	UtilityPalletBatchCallBuilder,
+};
 
 /// BridgeHubRococo-to-RococoBulletin messages bridge.
 pub struct BridgeHubRococoToRococoBulletinMessagesCliBridge {}

@@ -26,24 +26,9 @@ use crate::bridges::{
 		westend_parachains_to_bridge_hub_rococo::BridgeHubWestendToBridgeHubRococoCliBridge,
 	},
 };
-use async_std::sync::Mutex;
-use async_trait::async_trait;
-use parachains_relay::parachains_loop::{AvailableHeader, SourceClient, TargetClient};
-use relay_substrate_client::Parachain;
-use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
-use std::sync::Arc;
 use structopt::StructOpt;
 use strum::{EnumString, VariantNames};
-use substrate_relay_helper::{
-	parachains::{source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter},
-	TransactionParams,
-};
-
-use crate::cli::{
-	bridge::{CliBridgeBase, ParachainToRelayHeadersCliBridge},
-	chain_schema::*,
-	PrometheusParams,
-};
+use substrate_relay_helper::cli::relay_parachains::{ParachainsRelayer, RelayParachainsParams};
 
 /// Start parachain heads relayer process.
 #[derive(StructOpt)]
@@ -52,13 +37,7 @@ pub struct RelayParachains {
 	#[structopt(possible_values = RelayParachainsBridge::VARIANTS, case_insensitive = true)]
 	bridge: RelayParachainsBridge,
 	#[structopt(flatten)]
-	source: SourceConnectionParams,
-	#[structopt(flatten)]
-	target: TargetConnectionParams,
-	#[structopt(flatten)]
-	target_sign: TargetSigningParams,
-	#[structopt(flatten)]
-	prometheus_params: PrometheusParams,
+	params: RelayParachainsParams,
 }
 
 /// Parachain heads relay bridge.
@@ -73,47 +52,6 @@ pub enum RelayParachainsBridge {
 	WestendToBridgeHubRococo,
 }
 
-#[async_trait]
-trait ParachainsRelayer: ParachainToRelayHeadersCliBridge
-where
-	ParachainsSource<Self::ParachainFinality>:
-		SourceClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
-	ParachainsTarget<Self::ParachainFinality>:
-		TargetClient<ParachainsPipelineAdapter<Self::ParachainFinality>>,
-	<Self as CliBridgeBase>::Source: Parachain,
-{
-	async fn relay_parachains(data: RelayParachains) -> anyhow::Result<()> {
-		let source_client = data.source.into_client::<Self::SourceRelay>().await?;
-		let source_client = ParachainsSource::<Self::ParachainFinality>::new(
-			source_client,
-			Arc::new(Mutex::new(AvailableHeader::Missing)),
-		);
-
-		let target_transaction_params = TransactionParams {
-			signer: data.target_sign.to_keypair::<Self::Target>()?,
-			mortality: data.target_sign.target_transactions_mortality,
-		};
-		let target_client = data.target.into_client::<Self::Target>().await?;
-		let target_client = ParachainsTarget::<Self::ParachainFinality>::new(
-			target_client.clone(),
-			target_transaction_params,
-		);
-
-		let metrics_params: relay_utils::metrics::MetricsParams =
-			data.prometheus_params.into_metrics_params()?;
-		GlobalMetrics::new()?.register_and_spawn(&metrics_params.registry)?;
-
-		parachains_relay::parachains_loop::run(
-			source_client,
-			target_client,
-			metrics_params,
-			futures::future::pending(),
-		)
-		.await
-		.map_err(|e| anyhow::format_err!("{}", e))
-	}
-}
-
 impl ParachainsRelayer for BridgeHubRococoToBridgeHubWestendCliBridge {}
 impl ParachainsRelayer for BridgeHubWestendToBridgeHubRococoCliBridge {}
 impl ParachainsRelayer for BridgeHubKusamaToBridgeHubPolkadotCliBridge {}
@@ -126,17 +64,17 @@ impl RelayParachains {
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self.bridge {
 			RelayParachainsBridge::RococoToBridgeHubWestend =>
-				BridgeHubRococoToBridgeHubWestendCliBridge::relay_parachains(self),
+				BridgeHubRococoToBridgeHubWestendCliBridge::relay_parachains(self.params),
 			RelayParachainsBridge::WestendToBridgeHubRococo =>
-				BridgeHubWestendToBridgeHubRococoCliBridge::relay_parachains(self),
+				BridgeHubWestendToBridgeHubRococoCliBridge::relay_parachains(self.params),
 			RelayParachainsBridge::KusamaToBridgeHubPolkadot =>
-				BridgeHubKusamaToBridgeHubPolkadotCliBridge::relay_parachains(self),
+				BridgeHubKusamaToBridgeHubPolkadotCliBridge::relay_parachains(self.params),
 			RelayParachainsBridge::PolkadotToBridgeHubKusama =>
-				BridgeHubPolkadotToBridgeHubKusamaCliBridge::relay_parachains(self),
+				BridgeHubPolkadotToBridgeHubKusamaCliBridge::relay_parachains(self.params),
 			RelayParachainsBridge::PolkadotToPolkadotBulletin =>
-				PolkadotToPolkadotBulletinCliBridge::relay_parachains(self),
+				PolkadotToPolkadotBulletinCliBridge::relay_parachains(self.params),
 			RelayParachainsBridge::RococoToRococoBulletin =>
-				RococoToRococoBulletinCliBridge::relay_parachains(self),
+				RococoToRococoBulletinCliBridge::relay_parachains(self.params),
 		}
 		.await
 	}

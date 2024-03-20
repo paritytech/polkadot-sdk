@@ -18,20 +18,23 @@
 // future
 #![allow(unused_macros)]
 
+//! Relay chain to Relay chain relayer CLI primitives.
+
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use crate::cli::{
-	bridge::{CliBridgeBase, MessagesCliBridge, RelayToRelayHeadersCliBridge},
-	relay_headers_and_messages::{Full2WayBridgeBase, Full2WayBridgeCommonParams},
-	CliChain,
-};
-use relay_substrate_client::{AccountIdOf, AccountKeyPairOf, ChainWithTransactions};
-use sp_core::Pair;
-use substrate_relay_helper::{
+use crate::{
+	cli::{
+		bridge::{CliBridgeBase, MessagesCliBridge, RelayToRelayHeadersCliBridge},
+		relay_headers_and_messages::{Full2WayBridgeBase, Full2WayBridgeCommonParams},
+	},
 	finality::SubstrateFinalitySyncPipeline,
 	on_demand::{headers::OnDemandHeadersRelay, OnDemandRelay},
 };
+use relay_substrate_client::{
+	AccountIdOf, AccountKeyPairOf, ChainWithRuntimeVersion, ChainWithTransactions,
+};
+use sp_core::Pair;
 
 /// A base relay between two standalone (relay) chains.
 ///
@@ -45,6 +48,7 @@ pub struct RelayToRelayBridge<
 		Full2WayBridgeCommonParams<<R2L as CliBridgeBase>::Target, <L2R as CliBridgeBase>::Target>,
 }
 
+/// Create set of configuration objects specific to relay-to-relay relayer.
 macro_rules! declare_relay_to_relay_bridge_schema {
 	($left_chain:ident, $right_chain:ident) => {
 		bp_runtime::paste::item! {
@@ -101,8 +105,8 @@ macro_rules! declare_relay_to_relay_bridge_schema {
 
 #[async_trait]
 impl<
-		Left: ChainWithTransactions + CliChain,
-		Right: ChainWithTransactions + CliChain,
+		Left: ChainWithTransactions + ChainWithRuntimeVersion,
+		Right: ChainWithTransactions + ChainWithRuntimeVersion,
 		L2R: CliBridgeBase<Source = Left, Target = Right>
 			+ MessagesCliBridge
 			+ RelayToRelayHeadersCliBridge,

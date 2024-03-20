@@ -23,8 +23,9 @@ use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 use codec::Encode;
 use relay_substrate_client::{
 	calls::UtilityCall as MockUtilityCall, Chain, ChainWithBalances, ChainWithMessages,
-	ChainWithTransactions, ChainWithUtilityPallet, Error as SubstrateError,
-	MockedRuntimeUtilityPallet, SignParam, UnderlyingChainProvider, UnsignedTransaction,
+	ChainWithRuntimeVersion, ChainWithTransactions, ChainWithUtilityPallet,
+	Error as SubstrateError, MockedRuntimeUtilityPallet, SignParam, SimpleRuntimeVersion,
+	UnderlyingChainProvider, UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount};
@@ -121,4 +122,9 @@ impl ChainWithMessages for BridgeHubRococo {
 		bp_bridge_hub_rococo::TO_BRIDGE_HUB_ROCOCO_MESSAGE_DETAILS_METHOD;
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_bridge_hub_rococo::FROM_BRIDGE_HUB_ROCOCO_MESSAGE_DETAILS_METHOD;
+}
+
+impl ChainWithRuntimeVersion for BridgeHubRococo {
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 1_008_000, transaction_version: 4 });
 }

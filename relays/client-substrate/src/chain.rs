@@ -16,6 +16,7 @@
 
 use crate::calls::UtilityCall;
 
+use crate::SimpleRuntimeVersion;
 use bp_header_chain::ChainWithGrandpa as ChainWithGrandpaBase;
 use bp_messages::ChainWithMessages as ChainWithMessagesBase;
 use bp_runtime::{
@@ -56,6 +57,16 @@ pub trait Chain: ChainBase + Clone {
 	type SignedBlock: Member + Serialize + DeserializeOwned + BlockWithJustification<Self::Header>;
 	/// The aggregated `Call` type.
 	type Call: Clone + Codec + Debug + Send + Sync;
+}
+
+/// Bridge-supported network definition.
+///
+/// Used to abstract away CLI commands.
+pub trait ChainWithRuntimeVersion: Chain {
+	/// Current version of the chain runtime, known to relay.
+	///
+	/// can be `None` if relay is not going to submit transactions to that chain.
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion>;
 }
 
 /// Substrate-based relay chain that supports parachains.

@@ -22,8 +22,9 @@ use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 use bp_rococo::ROCOCO_SYNCED_HEADERS_GRANDPA_INFO_METHOD;
 use codec::Encode;
 use relay_substrate_client::{
-	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithTransactions, Error as SubstrateError,
-	RelayChain, SignParam, UnderlyingChainProvider, UnsignedTransaction,
+	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithRuntimeVersion, ChainWithTransactions,
+	Error as SubstrateError, RelayChain, SignParam, SimpleRuntimeVersion, UnderlyingChainProvider,
+	UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount, MultiAddress};
@@ -113,4 +114,9 @@ impl ChainWithTransactions for Rococo {
 			extra,
 		))
 	}
+}
+
+impl ChainWithRuntimeVersion for Rococo {
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 1_008_000, transaction_version: 24 });
 }

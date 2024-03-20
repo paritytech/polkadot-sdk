@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use async_trait::async_trait;
 use structopt::StructOpt;
 use strum::{EnumString, VariantNames};
 
@@ -32,10 +31,8 @@ use crate::bridges::{
 		rococo_headers_to_rococo_bulletin::RococoToRococoBulletinCliBridge,
 	},
 };
-use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
-use substrate_relay_helper::finality::SubstrateFinalitySyncPipeline;
 
-use crate::cli::{bridge::*, chain_schema::*, PrometheusParams};
+use substrate_relay_helper::cli::relay_headers::{HeadersRelayer, RelayHeadersParams};
 
 /// Start headers relayer process.
 #[derive(StructOpt)]
@@ -43,18 +40,8 @@ pub struct RelayHeaders {
 	/// A bridge instance to relay headers for.
 	#[structopt(possible_values = RelayHeadersBridge::VARIANTS, case_insensitive = true)]
 	bridge: RelayHeadersBridge,
-	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set)
-	/// are relayed.
-	#[structopt(long)]
-	only_mandatory_headers: bool,
 	#[structopt(flatten)]
-	source: SourceConnectionParams,
-	#[structopt(flatten)]
-	target: TargetConnectionParams,
-	#[structopt(flatten)]
-	target_sign: TargetSigningParams,
-	#[structopt(flatten)]
-	prometheus_params: PrometheusParams,
+	params: RelayHeadersParams,
 }
 
 #[derive(Debug, EnumString, VariantNames)]
@@ -69,37 +56,6 @@ pub enum RelayHeadersBridge {
 	RococoBulletinToBridgeHubRococo,
 }
 
-#[async_trait]
-trait HeadersRelayer: RelayToRelayHeadersCliBridge {
-	/// Relay headers.
-	async fn relay_headers(data: RelayHeaders) -> anyhow::Result<()> {
-		let source_client = data.source.into_client::<Self::Source>().await?;
-		let target_client = data.target.into_client::<Self::Target>().await?;
-		let target_transactions_mortality = data.target_sign.target_transactions_mortality;
-		let target_sign = data.target_sign.to_keypair::<Self::Target>()?;
-
-		let metrics_params: relay_utils::metrics::MetricsParams =
-			data.prometheus_params.into_metrics_params()?;
-		GlobalMetrics::new()?.register_and_spawn(&metrics_params.registry)?;
-
-		let target_transactions_params = substrate_relay_helper::TransactionParams {
-			signer: target_sign,
-			mortality: target_transactions_mortality,
-		};
-		Self::Finality::start_relay_guards(&target_client, target_client.can_start_version_guard())
-			.await?;
-
-		substrate_relay_helper::finality::run::<Self::Finality>(
-			source_client,
-			target_client,
-			data.only_mandatory_headers,
-			target_transactions_params,
-			metrics_params,
-		)
-		.await
-	}
-}
-
 impl HeadersRelayer for KusamaToBridgeHubPolkadotCliBridge {}
 impl HeadersRelayer for PolkadotToBridgeHubKusamaCliBridge {}
 impl HeadersRelayer for PolkadotToPolkadotBulletinCliBridge {}
@@ -112,17 +68,17 @@ impl RelayHeaders {
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self.bridge {
 			RelayHeadersBridge::KusamaToBridgeHubPolkadot =>
-				KusamaToBridgeHubPolkadotCliBridge::relay_headers(self),
+				KusamaToBridgeHubPolkadotCliBridge::relay_headers(self.params),
 			RelayHeadersBridge::PolkadotToBridgeHubKusama =>
-				PolkadotToBridgeHubKusamaCliBridge::relay_headers(self),
+				PolkadotToBridgeHubKusamaCliBridge::relay_headers(self.params),
 			RelayHeadersBridge::PolkadotToPolkadotBulletin =>
-				PolkadotToPolkadotBulletinCliBridge::relay_headers(self),
+				PolkadotToPolkadotBulletinCliBridge::relay_headers(self.params),
 			RelayHeadersBridge::PolkadotBulletinToBridgeHubPolkadot =>
-				PolkadotBulletinToBridgeHubPolkadotCliBridge::relay_headers(self),
+				PolkadotBulletinToBridgeHubPolkadotCliBridge::relay_headers(self.params),
 			RelayHeadersBridge::RococoToRococoBulletin =>
-				RococoToRococoBulletinCliBridge::relay_headers(self),
+				RococoToRococoBulletinCliBridge::relay_headers(self.params),
 			RelayHeadersBridge::RococoBulletinToBridgeHubRococo =>
-				RococoBulletinToBridgeHubRococoCliBridge::relay_headers(self),
+				RococoBulletinToBridgeHubRococoCliBridge::relay_headers(self.params),
 		}
 		.await
 	}

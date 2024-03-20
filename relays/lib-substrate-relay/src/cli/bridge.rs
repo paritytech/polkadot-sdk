@@ -14,38 +14,26 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::cli::CliChain;
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use relay_substrate_client::{Chain, ChainWithTransactions, Parachain, RelayChain};
-use strum::{EnumString, VariantNames};
-use substrate_relay_helper::{
+//! Basic traits for exposing bridges in the CLI.
+
+use crate::{
 	equivocation::SubstrateEquivocationDetectionPipeline,
 	finality::SubstrateFinalitySyncPipeline,
 	messages_lane::{MessagesRelayLimits, SubstrateMessageLane},
 	parachains::SubstrateParachainsPipeline,
 };
-
-#[derive(Debug, PartialEq, Eq, EnumString, VariantNames)]
-#[strum(serialize_all = "kebab_case")]
-/// Supported full bridges (headers + messages).
-pub enum FullBridge {
-	BridgeHubRococoToBridgeHubWestend,
-	BridgeHubWestendToBridgeHubRococo,
-	BridgeHubKusamaToBridgeHubPolkadot,
-	BridgeHubPolkadotToBridgeHubKusama,
-	PolkadotBulletinToBridgeHubPolkadot,
-	BridgeHubPolkadotToPolkadotBulletin,
-	RococoBulletinToBridgeHubRococo,
-	BridgeHubRococoToRococoBulletin,
-}
+use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
+use relay_substrate_client::{
+	Chain, ChainWithRuntimeVersion, ChainWithTransactions, Parachain, RelayChain,
+};
 
 /// Minimal bridge representation that can be used from the CLI.
 /// It connects a source chain to a target chain.
 pub trait CliBridgeBase: Sized {
 	/// The source chain.
-	type Source: Chain + CliChain;
+	type Source: Chain + ChainWithRuntimeVersion;
 	/// The target chain.
-	type Target: ChainWithTransactions + CliChain;
+	type Target: ChainWithTransactions + ChainWithRuntimeVersion;
 }
 
 /// Bridge representation that can be used from the CLI for relaying headers
@@ -60,6 +48,7 @@ pub trait RelayToRelayHeadersCliBridge: CliBridgeBase {
 
 /// Convenience trait that adds bounds to `CliBridgeBase`.
 pub trait RelayToRelayEquivocationDetectionCliBridgeBase: CliBridgeBase {
+	/// The source chain with extra bounds.
 	type BoundedSource: ChainWithTransactions;
 }
 
@@ -89,10 +78,10 @@ pub trait ParachainToRelayHeadersCliBridge: CliBridgeBase
 where
 	Self::Source: Parachain,
 {
-	// The `CliBridgeBase` type represents the parachain in this situation.
-	// We need to add an extra type for the relay chain.
+	/// The `CliBridgeBase` type represents the parachain in this situation.
+	/// We need to add an extra type for the relay chain.
 	type SourceRelay: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
-		+ CliChain
+		+ ChainWithRuntimeVersion
 		+ RelayChain;
 	/// Finality proofs synchronization pipeline (source parachain -> target).
 	type ParachainFinality: SubstrateParachainsPipeline<

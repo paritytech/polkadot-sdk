@@ -22,8 +22,9 @@ use bp_kusama::{AccountInfoStorageMapKeyProvider, KUSAMA_SYNCED_HEADERS_GRANDPA_
 use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 use codec::Encode;
 use relay_substrate_client::{
-	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithTransactions, Error as SubstrateError,
-	RelayChain, SignParam, UnderlyingChainProvider, UnsignedTransaction,
+	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithRuntimeVersion, ChainWithTransactions,
+	Error as SubstrateError, RelayChain, SignParam, SimpleRuntimeVersion, UnderlyingChainProvider,
+	UnsignedTransaction,
 };
 use sp_core::{storage::StorageKey, Pair};
 use sp_runtime::{generic::SignedPayload, traits::IdentifyAccount, MultiAddress};
@@ -113,4 +114,9 @@ impl ChainWithTransactions for Kusama {
 			extra,
 		))
 	}
+}
+
+impl ChainWithRuntimeVersion for Kusama {
+	const RUNTIME_VERSION: Option<SimpleRuntimeVersion> =
+		Some(SimpleRuntimeVersion { spec_version: 1_001_002, transaction_version: 25 });
 }
