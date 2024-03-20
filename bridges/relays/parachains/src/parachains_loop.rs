@@ -193,18 +193,36 @@ where
 	// free parachain header = header, available (proved) at free relay chain block. Let's
 	// read interval of free source relay chain blocks from target client
 	let free_source_relay_headers_interval = if only_free_headers {
-		let free_source_relay_headers_interval = target_client
-			.free_source_relay_headers_interval()
-			.await
-			.map_err(|e| {
-				log::warn!(target: "bridge", "Failed to read free {} headers interval at {}: {:?}", P::SourceRelayChain::NAME, P::TargetChain::NAME, e);
+		let free_source_relay_headers_interval =
+			target_client.free_source_relay_headers_interval().await.map_err(|e| {
+				log::warn!(
+					target: "bridge",
+					"Failed to read free {} headers interval at {}: {:?}",
+					P::SourceRelayChain::NAME,
+					P::TargetChain::NAME,
+					e,
+				);
 				FailedClient::Target
 			})?;
 		match free_source_relay_headers_interval {
-			Some(free_source_relay_headers_interval) if free_source_relay_headers_interval != 0 =>
-				free_source_relay_headers_interval,
+			Some(free_source_relay_headers_interval) if free_source_relay_headers_interval != 0 => {
+				log::trace!(
+					target: "bridge",
+					"Free {} headers interval at {}: {:?}",
+					P::SourceRelayChain::NAME,
+					P::TargetChain::NAME,
+					free_source_relay_headers_interval,
+				);
+				free_source_relay_headers_interval
+			},
 			_ => {
-				log::warn!(target: "bridge", "Invalid free {} headers interval at {}: {:?}", P::SourceRelayChain::NAME, P::TargetChain::NAME, free_source_relay_headers_interval);
+				log::warn!(
+					target: "bridge",
+					"Invalid free {} headers interval at {}: {:?}",
+					P::SourceRelayChain::NAME,
+					P::TargetChain::NAME,
+					free_source_relay_headers_interval,
+				);
 				return Err(FailedClient::Target)
 			},
 		}
@@ -305,39 +323,47 @@ where
 		// head, available at best free source relay chain header, known to the
 		// target chain
 		let prove_at_relay_block = if only_free_headers {
-			let relay_of_head_at_target = match relay_of_head_at_target {
-				Some(relay_of_head_at_target) => relay_of_head_at_target,
-				None => {
-					// no relay headers available at target => wait
-					continue
+			match relay_of_head_at_target {
+				Some(relay_of_head_at_target) => {
+					// find last free relay chain header in the range that we are interested in
+					let scan_range_begin = relay_of_head_at_target.number() + 1;
+					let scan_range_end = best_finalized_relay_block_at_target.number();
+					let last_free_source_relay_header_number = (scan_range_end /
+						free_source_relay_headers_interval) *
+						free_source_relay_headers_interval;
+					if last_free_source_relay_header_number < scan_range_begin {
+						// there are no new **free** relay chain headers in the range
+						log::trace!(
+							target: "bridge",
+							"Waiting for new free {} headers at {}: scanned {:?}..={:?}",
+							P::SourceRelayChain::NAME,
+							P::TargetChain::NAME,
+							scan_range_begin,
+							scan_range_end,
+						);
+						continue;
+					}
+
+					// ok - we know the relay chain header number, now let's get its full id
+					source_client
+						.relay_header_id(last_free_source_relay_header_number)
+						.await
+						.map_err(|e| {
+							log::warn!(
+								target: "bridge",
+								"Failed to get full header id of {} block #{:?}: {:?}",
+								P::SourceRelayChain::NAME,
+								last_free_source_relay_header_number,
+								e,
+							);
+							FailedClient::Source
+						})?
 				},
-			};
-
-			// find last free relay chain header in the range that we are interested in
-			let scan_range_begin = relay_of_head_at_target.number() + 1;
-			let scan_range_end = best_finalized_relay_block_at_target.number();
-			let last_free_source_relay_header_number = (scan_range_end /
-				free_source_relay_headers_interval) *
-				free_source_relay_headers_interval;
-			if last_free_source_relay_header_number < scan_range_begin {
-				// there are no new **free** relay chain headers in the range
-				continue;
+				None => {
+					// no parachain head at target => let's submit first one
+					best_finalized_relay_block_at_target
+				},
 			}
-
-			// ok - we know the relay chain header number, now let's get its full id
-			source_client
-				.relay_header_id(last_free_source_relay_header_number)
-				.await
-				.map_err(|e| {
-					log::warn!(
-						target: "bridge",
-						"Failed to get full header id of {} block #{:?}: {:?}",
-						P::SourceRelayChain::NAME,
-						last_free_source_relay_header_number,
-						e,
-					);
-					FailedClient::Source
-				})?
 		} else {
 			best_finalized_relay_block_at_target
 		};

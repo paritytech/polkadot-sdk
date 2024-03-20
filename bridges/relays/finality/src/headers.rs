@@ -57,6 +57,7 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 		source_client: &SC,
 		info: &SyncInfo<P>,
 		headers_to_relay: HeadersToRelay,
+		free_headers_interval: Option<P::Number>,
 	) -> Result<Self, Error<P, SC::Error, TC::Error>> {
 		let mut unjustified_headers = Vec::new();
 		let mut maybe_justified_header = None;
@@ -74,7 +75,9 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 					return Ok(Self::Mandatory(JustifiedHeader { header, proof }))
 				},
 				(true, None) => return Err(Error::MissingMandatoryFinalityProof(header.number())),
-				(false, Some(proof)) if need_to_relay(info, headers_to_relay, &header) => {
+				(false, Some(proof))
+					if need_to_relay::<P>(headers_to_relay, free_headers_interval, &header) =>
+				{
 					log::trace!(target: "bridge", "Header {:?} has persistent finality proof", header_number);
 					unjustified_headers.clear();
 					maybe_justified_header = Some(JustifiedHeader { header, proof });
@@ -113,8 +116,8 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 	/// justifications stream.
 	pub fn select(
 		self,
-		info: &SyncInfo<P>,
 		headers_to_relay: HeadersToRelay,
+		free_headers_interval: Option<P::Number>,
 		buf: &FinalityProofsBuf<P>,
 	) -> Option<JustifiedHeader<P>> {
 		let (unjustified_headers, maybe_justified_header) = match self {
@@ -134,7 +137,13 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 			(maybe_finality_proof, maybe_unjustified_header)
 		{
 			match finality_proof.target_header_number().cmp(&unjustified_header.number()) {
-				Ordering::Equal if need_to_relay(info, headers_to_relay, &unjustified_header) => {
+				Ordering::Equal
+					if need_to_relay::<P>(
+						headers_to_relay,
+						free_headers_interval,
+						&unjustified_header,
+					) =>
+				{
 					log::trace!(
 						target: "bridge",
 						"Managed to improve selected {} finality proof {:?} to {:?}.",
@@ -170,8 +179,8 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 
 /// Returns true if we want to relay header `header_number`.
 fn need_to_relay<P: FinalitySyncPipeline>(
-	info: &SyncInfo<P>,
 	headers_to_relay: HeadersToRelay,
+	free_headers_interval: Option<P::Number>,
 	header: &P::Header,
 ) -> bool {
 	match headers_to_relay {
@@ -179,7 +188,7 @@ fn need_to_relay<P: FinalitySyncPipeline>(
 		HeadersToRelay::Mandatory => header.is_mandatory(),
 		HeadersToRelay::Free =>
 			header.is_mandatory() ||
-				info.free_headers_interval
+				free_headers_interval
 					.map(|free_headers_interval| {
 						!header.number().is_zero() &&
 							(header.number() % free_headers_interval).is_zero()

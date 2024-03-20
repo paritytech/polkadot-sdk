@@ -29,7 +29,7 @@ use crate::{
 use async_trait::async_trait;
 use backoff::{backoff::Backoff, ExponentialBackoff};
 use futures::{future::Fuse, select, Future, FutureExt};
-use num_traits::Saturating;
+use num_traits::{Saturating, Zero};
 use relay_utils::{
 	metrics::MetricsParams, relay_loop::Client as RelayClient, retry_backoff, FailedClient,
 	HeaderId, MaybeConnectionError, TrackedTransactionStatus, TransactionTracker,
@@ -128,11 +128,6 @@ pub struct SyncInfo<P: FinalitySyncPipeline> {
 	pub best_number_at_target: P::Number,
 	/// Whether the target client follows the same fork as the source client do.
 	pub is_using_same_fork: bool,
-	/// Free headers interval. We assume that the submission of header `N`, divisible
-	/// by `free_headers_interval` will be free for submitter. May be `None` if runtime
-	/// is configured to not allow free headers. If it is `Some(_)`, it is guaranteed
-	/// not to be zero.
-	pub free_headers_interval: Option<P::Number>,
 }
 
 impl<P: FinalitySyncPipeline> SyncInfo<P> {
@@ -171,22 +166,11 @@ impl<P: FinalitySyncPipeline> SyncInfo<P> {
 			target_client.best_finalized_source_block_id().await.map_err(Error::Target)?;
 		let best_number_at_target = best_id_at_target.0;
 
-		let mut free_headers_interval =
-			target_client.free_source_headers_interval().await.map_err(Error::Target)?;
-		if free_headers_interval == Some(0.into()) {
-			free_headers_interval = None;
-		}
-
 		let is_using_same_fork = Self::is_on_same_fork(source_client, &best_id_at_target)
 			.await
 			.map_err(Error::Source)?;
 
-		Ok(Self {
-			best_number_at_source,
-			best_number_at_target,
-			free_headers_interval,
-			is_using_same_fork,
-		})
+		Ok(Self { best_number_at_source, best_number_at_target, is_using_same_fork })
 	}
 
 	fn update_metrics(&self, metrics_sync: &Option<SyncLoopMetrics>) {
@@ -331,6 +315,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 	pub async fn select_header_to_submit(
 		&mut self,
 		info: &SyncInfo<P>,
+		free_headers_interval: Option<P::Number>,
 	) -> Result<Option<JustifiedHeader<P>>, Error<P, SC::Error, TC::Error>> {
 		// to see that the loop is progressing
 		log::trace!(
@@ -345,6 +330,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 			&self.source_client,
 			info,
 			self.sync_params.headers_to_relay,
+			free_headers_interval,
 		)
 		.await?;
 		// if we see that the header schedules GRANDPA change, we need to submit it
@@ -356,8 +342,11 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		// => even if we have already selected some header and its persistent finality proof,
 		// we may try to select better header by reading non-persistent proofs from the stream
 		self.finality_proofs_buf.fill(&mut self.finality_proofs_stream);
-		let maybe_justified_header =
-			selector.select(info, self.sync_params.headers_to_relay, &self.finality_proofs_buf);
+		let maybe_justified_header = selector.select(
+			self.sync_params.headers_to_relay,
+			free_headers_interval,
+			&self.finality_proofs_buf,
+		);
 
 		// remove obsolete 'recent' finality proofs + keep its size under certain limit
 		let oldest_finality_proof_to_keep = maybe_justified_header
@@ -374,6 +363,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 
 	pub async fn run_iteration(
 		&mut self,
+		free_headers_interval: Option<P::Number>,
 	) -> Result<
 		Option<Transaction<TC::TransactionTracker, P::Number>>,
 		Error<P, SC::Error, TC::Error>,
@@ -390,7 +380,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		}
 
 		// submit new header if we have something new
-		match self.select_header_to_submit(&info).await? {
+		match self.select_header_to_submit(&info, free_headers_interval).await? {
 			Some(header) => {
 				let transaction = Transaction::submit(
 					&self.target_client,
@@ -427,9 +417,11 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		let exit_signal = exit_signal.fuse();
 		futures::pin_mut!(exit_signal, proof_submission_tx_tracker);
 
+		let free_headers_interval = free_headers_interval(&self.target_client).await?;
+
 		loop {
 			// run loop iteration
-			let next_tick = match self.run_iteration().await {
+			let next_tick = match self.run_iteration(free_headers_interval).await {
 				Ok(Some(tx)) => {
 					proof_submission_tx_tracker
 						.set(tx.track::<P, SC, _>(self.target_client.clone()).fuse());
@@ -479,6 +471,52 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 	) -> Result<(), FailedClient> {
 		let mut finality_loop = Self::new(source_client, target_client, sync_params, metrics_sync);
 		finality_loop.run_until_connection_lost(exit_signal).await
+	}
+}
+
+async fn free_headers_interval<P: FinalitySyncPipeline>(
+	target_client: &impl TargetClient<P>,
+) -> Result<Option<P::Number>, FailedClient> {
+	match target_client.free_source_headers_interval().await {
+		Ok(Some(free_headers_interval)) if !free_headers_interval.is_zero() => {
+			log::trace!(
+				target: "bridge",
+				"Free headers interval for {} headers at {} is: {:?}",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+				free_headers_interval,
+			);
+			Ok(Some(free_headers_interval))
+		},
+		Ok(Some(_free_headers_interval)) => {
+			log::trace!(
+				target: "bridge",
+				"Free headers interval for {} headers at {} is zero. Not submitting any free headers",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+			);
+			Ok(None)
+		},
+		Ok(None) => {
+			log::trace!(
+				target: "bridge",
+				"Free headers interval for {} headers at {} is None. Not submitting any free headers",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+			);
+
+			Ok(None)
+		},
+		Err(e) => {
+			log::error!(
+				target: "bridge",
+				"Failed to read free headers interval for {} headers at {}: {:?}",
+				P::SOURCE_NAME,
+				P::TARGET_NAME,
+				e,
+			);
+			Err(FailedClient::Target)
+		},
 	}
 }
 
