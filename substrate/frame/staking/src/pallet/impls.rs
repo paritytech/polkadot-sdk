@@ -51,7 +51,7 @@ use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	RewardDestination, SessionInterface, StakingLedger, StakingWeightInfo, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -135,13 +135,13 @@ impl<T: Config> Pallet<T> {
 				// left. We can now safely remove all staking-related information.
 				Self::kill_stash(&ledger.stash, num_slashing_spans)?;
 
-				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+				StakingWeightInfo::<T>::withdraw_unbonded_kill(num_slashing_spans)
 			} else {
 				// This was the consequence of a partial unbond. just update the ledger and move on.
 				ledger.update()?;
 
 				// This is only an update, so we use less overall weight.
-				T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+				StakingWeightInfo::<T>::withdraw_unbonded_update(num_slashing_spans)
 			};
 
 		// `old_total` should never be less than the new total because
@@ -163,14 +163,14 @@ impl<T: Config> Pallet<T> {
 		era: EraIndex,
 	) -> DispatchResultWithPostInfo {
 		let controller = Self::bonded(&validator_stash).ok_or_else(|| {
-			Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+			Error::<T>::NotStash.with_weight(StakingWeightInfo::<T>::payout_stakers_alive_staked(0))
 		})?;
 
 		let ledger = Self::ledger(StakingAccount::Controller(controller))?;
 		let page = EraInfo::<T>::get_next_claimable_page(era, &validator_stash, &ledger)
 			.ok_or_else(|| {
 				Error::<T>::AlreadyClaimed
-					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+					.with_weight(StakingWeightInfo::<T>::payout_stakers_alive_staked(0))
 			})?;
 
 		Self::do_payout_stakers_by_page(validator_stash, era, page)
@@ -184,26 +184,27 @@ impl<T: Config> Pallet<T> {
 		// Validate input data
 		let current_era = CurrentEra::<T>::get().ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
-				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+				.with_weight(StakingWeightInfo::<T>::payout_stakers_alive_staked(0))
 		})?;
 
 		let history_depth = T::HistoryDepth::get();
 		ensure!(
 			era <= current_era && era >= current_era.saturating_sub(history_depth),
 			Error::<T>::InvalidEraToReward
-				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+				.with_weight(StakingWeightInfo::<T>::payout_stakers_alive_staked(0))
 		);
 
 		ensure!(
 			page < EraInfo::<T>::get_page_count(era, &validator_stash),
-			Error::<T>::InvalidPage.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+			Error::<T>::InvalidPage
+				.with_weight(StakingWeightInfo::<T>::payout_stakers_alive_staked(0))
 		);
 
 		// Note: if era has no reward to be claimed, era may be future. better not to update
 		// `ledger.legacy_claimed_rewards` in this case.
 		let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
-				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+				.with_weight(StakingWeightInfo::<T>::payout_stakers_alive_staked(0))
 		})?;
 
 		let account = StakingAccount::Stash(validator_stash.clone());
@@ -211,7 +212,8 @@ impl<T: Config> Pallet<T> {
 			if StakingLedger::<T>::is_bonded(account) {
 				Err(Error::<T>::NotController.into())
 			} else {
-				Err(Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
+				Err(Error::<T>::NotStash
+					.with_weight(StakingWeightInfo::<T>::payout_stakers_alive_staked(0)))
 			}
 		})?;
 
@@ -225,14 +227,14 @@ impl<T: Config> Pallet<T> {
 
 		if EraInfo::<T>::is_rewards_claimed_with_legacy_fallback(era, &ledger, &stash, page) {
 			return Err(Error::<T>::AlreadyClaimed
-				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
+				.with_weight(StakingWeightInfo::<T>::payout_stakers_alive_staked(0)))
 		} else {
 			EraInfo::<T>::set_rewards_as_claimed(era, &stash, page);
 		}
 
 		let exposure = EraInfo::<T>::get_paged_exposure(era, &stash, page).ok_or_else(|| {
 			Error::<T>::InvalidEraToReward
-				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+				.with_weight(StakingWeightInfo::<T>::payout_stakers_alive_staked(0))
 		})?;
 
 		// Input data seems good, no errors allowed after this point
@@ -251,7 +253,7 @@ impl<T: Config> Pallet<T> {
 
 		// Nothing to do if they have no reward points.
 		if validator_reward_points.is_zero() {
-			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
+			return Ok(Some(StakingWeightInfo::<T>::payout_stakers_alive_staked(0)).into())
 		}
 
 		// This is the fraction of the total reward that the validator and the
@@ -318,7 +320,7 @@ impl<T: Config> Pallet<T> {
 		T::Reward::on_unbalanced(total_imbalance);
 		debug_assert!(nominator_payout_count <= T::MaxExposurePageSize::get());
 
-		Ok(Some(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
+		Ok(Some(StakingWeightInfo::<T>::payout_stakers_alive_staked(nominator_payout_count)).into())
 	}
 
 	/// Chill a stash account.
@@ -924,7 +926,10 @@ impl<T: Config> Pallet<T> {
 		// all_voters should have not re-allocated.
 		debug_assert!(all_voters.capacity() == final_predicted_len as usize);
 
-		Self::register_weight(T::WeightInfo::get_npos_voters(validators_taken, nominators_taken));
+		Self::register_weight(StakingWeightInfo::<T>::get_npos_voters(
+			validators_taken,
+			nominators_taken,
+		));
 
 		let min_active_stake: T::CurrencyBalance =
 			if all_voters.is_empty() { Zero::zero() } else { min_active_stake.into() };
@@ -981,7 +986,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
+		Self::register_weight(StakingWeightInfo::<T>::get_npos_targets(all_targets.len() as u32));
 		log!(info, "generated {} npos targets", all_targets.len());
 
 		all_targets

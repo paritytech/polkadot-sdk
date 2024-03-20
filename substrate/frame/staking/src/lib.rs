@@ -367,6 +367,10 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
+// Disambiguation type for staking weight info. Required due to tight coupling with the pallet
+// Balances.
+type StakingWeightInfo<T> = <T as Config>::WeightInfo;
+
 /// Information regarding the active era (era in used in session).
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveEraInfo {
