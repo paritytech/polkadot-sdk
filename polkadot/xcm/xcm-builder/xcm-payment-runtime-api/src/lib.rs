@@ -32,6 +32,7 @@ sp_api::decl_runtime_apis! {
 	/// * the weight required to execute an XCM message,
 	/// * a list of acceptable `AssetId`s for message execution payment,
 	/// * the cost of the weight in the specified acceptable `AssetId`.
+	/// * the fees for an XCM message delivery.
 	///
 	/// To determine the execution weight of the calls required for
 	/// [`xcm::latest::Instruction::Transact`] instruction, `TransactionPaymentCallApi` can be used.
