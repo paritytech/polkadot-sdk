@@ -16,7 +16,7 @@
 
 //! Signed extension that refunds relayer if he has delivered some new messages.
 //! It also refunds transaction cost if the transaction is an `utility.batchAll()`
-//! with calls that are: delivering new messsage and all necessary underlying headers
+//! with calls that are: delivering new message and all necessary underlying headers
 //! (parachain or relay chain).
 
 use crate::messages_call_ext::{
