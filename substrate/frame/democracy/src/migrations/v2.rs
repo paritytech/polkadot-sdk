@@ -95,19 +95,9 @@ where
 		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		let mut cursor = cursor.unwrap_or_default();
-		loop {
-			match cursor {
-				Cursor::Deposit(index) => {
-					cursor = Self::deposit_step(index, meter)?;
-				},
-				Cursor::Vote(account) =>
-					if let Some(new_cursor) = Self::vote_step(account, meter)? {
-						cursor = new_cursor;
-					} else {
-						return Ok(None)
-					},
-			}
+		match cursor.unwrap_or_default() {
+			Cursor::Deposit(index) => Ok(Some(Self::deposit_step(index, meter)?)),
+			Cursor::Vote(account) => Self::vote_step(account, meter),
 		}
 	}
 }
@@ -283,7 +273,16 @@ mod test {
 			assert_eq!(pallet_balances::Pallet::<T>::locks(&alice)[0].amount, 1_000_000);
 
 			// Run migration.
-			MigrationOf::<T>::step(None, &mut WeightMeter::new()).unwrap();
+			let mut cursor = None;
+			loop {
+				if let Ok(Some(next_cursor)) =
+					MigrationOf::<T>::step(cursor, &mut WeightMeter::new())
+				{
+					cursor = Some(next_cursor);
+				} else {
+					break;
+				}
+			}
 
 			// Check that alice's deposit is now held instead of reserved.
 			assert_eq!(FungibleOf::<T>::balance_on_hold(&HoldReason::Proposal.into(), &alice), 1);
