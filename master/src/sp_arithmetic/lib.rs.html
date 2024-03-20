@@ -638,6 +638,88 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -741,7 +823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>tcmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>T, threshold: T) -&gt; Ordering {
 		<span class="comment">// early exit.
 		</span><span class="kw">if </span>threshold.is_zero() {
-			<span class="kw">return </span><span class="self">self</span>.cmp(other)
+			<span class="kw">return </span><span class="self">self</span>.cmp(other);
 		}
 
 		<span class="kw">let </span>upper_bound = other.saturating_add(threshold);
@@ -846,12 +928,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Nothing to do here.
 	</span><span class="kw">if </span>count.is_zero() {
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::&lt;T&gt;::new())
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::&lt;T&gt;::new());
 	}
 
 	<span class="kw">let </span>diff = targeted_sum.max(sum) - targeted_sum.min(sum);
 	<span class="kw">if </span>diff.is_zero() {
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(input.to_vec())
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(input.to_vec());
 	}
 
 	<span class="kw">let </span>needs_bump = targeted_sum &gt; sum;
@@ -894,7 +976,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				min_index += <span class="number">1</span>;
 				min_index %= count;
 			}
-			leftover -= One::one()
+			leftover -= One::one();
 		}
 	} <span class="kw">else </span>{
 		<span class="comment">// must decrease the stakes a bit. decrement from the max element. index of maximum is now
@@ -928,7 +1010,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>output_with_idx[max_index].<span class="number">1 </span>&lt;= threshold {
 					max_index = max_index.checked_sub(<span class="number">1</span>).unwrap_or(count - <span class="number">1</span>);
 				}
-				leftover -= One::one()
+				leftover -= One::one();
 			} <span class="kw">else </span>{
 				max_index = max_index.checked_sub(<span class="number">1</span>).unwrap_or(count - <span class="number">1</span>);
 			}
@@ -940,7 +1022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		targeted_sum,
 		<span class="string">&quot;sum({:?}) != {:?}&quot;</span>,
 		output_with_idx,
-		targeted_sum,
+		targeted_sum
 	);
 
 	<span class="comment">// sort again based on the original index.
@@ -996,7 +1078,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">vec!</span>[
 				Perbill::from_parts(<span class="number">333333334</span>),
 				Perbill::from_parts(<span class="number">333333333</span>),
-				Perbill::from_parts(<span class="number">333333333</span>),
+				Perbill::from_parts(<span class="number">333333333</span>)
 			]
 		);
 
@@ -1007,7 +1089,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">vec!</span>[
 				Perbill::from_parts(<span class="number">316666668</span>),
 				Perbill::from_parts(<span class="number">383333332</span>),
-				Perbill::from_parts(<span class="number">300000000</span>),
+				Perbill::from_parts(<span class="number">300000000</span>)
 			]
 		);
 	}
@@ -1018,13 +1100,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// could have a situation where the sum cannot be calculated in the inner type. Calculating
 		// using the upper type of the per_thing should assure this to be okay.
 		</span><span class="macro">assert_eq!</span>(
-			<span class="macro">vec!</span>[PerU16::from_percent(<span class="number">40</span>), PerU16::from_percent(<span class="number">40</span>), PerU16::from_percent(<span class="number">40</span>),]
+			<span class="macro">vec!</span>[PerU16::from_percent(<span class="number">40</span>), PerU16::from_percent(<span class="number">40</span>), PerU16::from_percent(<span class="number">40</span>)]
 				.normalize(PerU16::one())
 				.unwrap(),
 			<span class="macro">vec!</span>[
 				PerU16::from_parts(<span class="number">21845</span>), <span class="comment">// 33%
 				</span>PerU16::from_parts(<span class="number">21845</span>), <span class="comment">// 33%
-				</span>PerU16::from_parts(<span class="number">21845</span>), <span class="comment">// 33%
+				</span>PerU16::from_parts(<span class="number">21845</span>)  <span class="comment">// 33%
 			</span>]
 		);
 	}
@@ -1069,6 +1151,88 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>per_and_fixed_examples {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[docify::export]
+	#[test]
+	</span><span class="kw">fn </span>percent_mult() {
+		<span class="kw">let </span>percent = Percent::from_rational(<span class="number">5u32</span>, <span class="number">100u32</span>); <span class="comment">// aka, 5%
+		</span><span class="kw">let </span>five_percent_of_100 = percent * <span class="number">100u32</span>; <span class="comment">// 5% of 100 is 5.
+		</span><span class="macro">assert_eq!</span>(five_percent_of_100, <span class="number">5</span>)
+	}
+	<span class="attr">#[docify::export]
+	#[test]
+	</span><span class="kw">fn </span>perbill_example() {
+		<span class="kw">let </span>p = Perbill::from_percent(<span class="number">80</span>);
+		<span class="comment">// 800000000 bil, or a representative of 0.800000000.
+		// Precision is in the billions place.
+		</span><span class="macro">assert_eq!</span>(p.deconstruct(), <span class="number">800000000</span>);
+	}
+
+	<span class="attr">#[docify::export]
+	#[test]
+	</span><span class="kw">fn </span>percent_example() {
+		<span class="kw">let </span>percent = Percent::from_rational(<span class="number">190u32</span>, <span class="number">400u32</span>);
+		<span class="macro">assert_eq!</span>(percent.deconstruct(), <span class="number">47</span>);
+	}
+
+	<span class="attr">#[docify::export]
+	#[test]
+	</span><span class="kw">fn </span>fixed_u64_block_computation_example() {
+		<span class="comment">// Calculate a very rudimentary on-chain price from supply / demand
+		// Supply: Cores available per block
+		// Demand: Cores being ordered per block
+		</span><span class="kw">let </span>price = FixedU64::from_rational(<span class="number">5u128</span>, <span class="number">10u128</span>);
+
+		<span class="comment">// 0.5 DOT per core
+		</span><span class="macro">assert_eq!</span>(price, FixedU64::from_float(<span class="number">0.5</span>));
+
+		<span class="comment">// Now, the story has changed - lots of demand means we buy as many cores as there
+		// available.  This also means that price goes up! For the sake of simplicity, we don&#39;t care
+		// about who gets a core - just about our very simple price model
+
+		// Calculate a very rudimentary on-chain price from supply / demand
+		// Supply: Cores available per block
+		// Demand: Cores being ordered per block
+		</span><span class="kw">let </span>price = FixedU64::from_rational(<span class="number">19u128</span>, <span class="number">10u128</span>);
+
+		<span class="comment">// 1.9 DOT per core
+		</span><span class="macro">assert_eq!</span>(price, FixedU64::from_float(<span class="number">1.9</span>));
+	}
+
+	<span class="attr">#[docify::export]
+	#[test]
+	</span><span class="kw">fn </span>fixed_u64() {
+		<span class="comment">// The difference between this and perthings is perthings operates within the relam of [0,
+		// 1] In cases where we need &gt; 1, we can used fixed types such as FixedU64
+
+		</span><span class="kw">let </span>rational_1 = FixedU64::from_rational(<span class="number">10</span>, <span class="number">5</span>); <span class="comment">//&quot; 200%&quot; aka 2.
+		</span><span class="kw">let </span>rational_2 = FixedU64::from_rational_with_rounding(<span class="number">5</span>, <span class="number">10</span>, Rounding::Down); <span class="comment">// &quot;50%&quot; aka 0.50...
+
+		</span><span class="macro">assert_eq!</span>(rational_1, (<span class="number">2u64</span>).into());
+		<span class="macro">assert_eq!</span>(rational_2.into_perbill(), Perbill::from_float(<span class="number">0.5</span>));
+	}
+
+	<span class="attr">#[docify::export]
+	#[test]
+	</span><span class="kw">fn </span>fixed_u64_operation_example() {
+		<span class="kw">let </span>rational_1 = FixedU64::from_rational(<span class="number">10</span>, <span class="number">5</span>); <span class="comment">// &quot;200%&quot; aka 2.
+		</span><span class="kw">let </span>rational_2 = FixedU64::from_rational(<span class="number">8</span>, <span class="number">5</span>); <span class="comment">// &quot;160%&quot; aka 1.6.
+
+		</span><span class="kw">let </span>addition = rational_1 + rational_2;
+		<span class="kw">let </span>multiplication = rational_1 * rational_2;
+		<span class="kw">let </span>division = rational_1 / rational_2;
+		<span class="kw">let </span>subtraction = rational_1 - rational_2;
+
+		<span class="macro">assert_eq!</span>(addition, FixedU64::from_float(<span class="number">3.6</span>));
+		<span class="macro">assert_eq!</span>(multiplication, FixedU64::from_float(<span class="number">3.2</span>));
+		<span class="macro">assert_eq!</span>(division, FixedU64::from_float(<span class="number">1.25</span>));
+		<span class="macro">assert_eq!</span>(subtraction, FixedU64::from_float(<span class="number">0.4</span>));
+	}
+}
+
+<span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>threshold_compare_tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::traits::Saturating;
@@ -1080,15 +1244,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>e = Perbill::from_percent(<span class="number">10</span>).mul_ceil(b);
 
 		<span class="comment">// [115 - 11,5 (103,5), 115 + 11,5 (126,5)] is all equal
-		</span><span class="macro">assert_eq!</span>(<span class="number">103u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
-		<span class="macro">assert_eq!</span>(<span class="number">104u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
-		<span class="macro">assert_eq!</span>(<span class="number">115u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
-		<span class="macro">assert_eq!</span>(<span class="number">120u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
-		<span class="macro">assert_eq!</span>(<span class="number">126u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
-		<span class="macro">assert_eq!</span>(<span class="number">127u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
+		</span><span class="macro">assert_eq!</span>((<span class="number">103u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
+		<span class="macro">assert_eq!</span>((<span class="number">104u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
+		<span class="macro">assert_eq!</span>((<span class="number">115u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
+		<span class="macro">assert_eq!</span>((<span class="number">120u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
+		<span class="macro">assert_eq!</span>((<span class="number">126u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
+		<span class="macro">assert_eq!</span>((<span class="number">127u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Equal);
 
-		<span class="macro">assert_eq!</span>(<span class="number">128u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Greater);
-		<span class="macro">assert_eq!</span>(<span class="number">102u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Less);
+		<span class="macro">assert_eq!</span>((<span class="number">128u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Greater);
+		<span class="macro">assert_eq!</span>((<span class="number">102u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), Ordering::Less);
 	}
 
 	<span class="attr">#[test]
@@ -1098,15 +1262,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>e = Perbill::from_parts(<span class="number">100</span>) * b;
 
 		<span class="comment">// [115 - 11,5 (103,5), 115 + 11,5 (126,5)] is all equal
-		</span><span class="macro">assert_eq!</span>(<span class="number">103u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), <span class="number">103u32</span>.cmp(<span class="kw-2">&amp;</span>b));
-		<span class="macro">assert_eq!</span>(<span class="number">104u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), <span class="number">104u32</span>.cmp(<span class="kw-2">&amp;</span>b));
-		<span class="macro">assert_eq!</span>(<span class="number">115u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), <span class="number">115u32</span>.cmp(<span class="kw-2">&amp;</span>b));
-		<span class="macro">assert_eq!</span>(<span class="number">120u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), <span class="number">120u32</span>.cmp(<span class="kw-2">&amp;</span>b));
-		<span class="macro">assert_eq!</span>(<span class="number">126u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), <span class="number">126u32</span>.cmp(<span class="kw-2">&amp;</span>b));
-		<span class="macro">assert_eq!</span>(<span class="number">127u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), <span class="number">127u32</span>.cmp(<span class="kw-2">&amp;</span>b));
+		</span><span class="macro">assert_eq!</span>((<span class="number">103u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), (<span class="number">103u32</span>).cmp(<span class="kw-2">&amp;</span>b));
+		<span class="macro">assert_eq!</span>((<span class="number">104u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), (<span class="number">104u32</span>).cmp(<span class="kw-2">&amp;</span>b));
+		<span class="macro">assert_eq!</span>((<span class="number">115u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), (<span class="number">115u32</span>).cmp(<span class="kw-2">&amp;</span>b));
+		<span class="macro">assert_eq!</span>((<span class="number">120u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), (<span class="number">120u32</span>).cmp(<span class="kw-2">&amp;</span>b));
+		<span class="macro">assert_eq!</span>((<span class="number">126u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), (<span class="number">126u32</span>).cmp(<span class="kw-2">&amp;</span>b));
+		<span class="macro">assert_eq!</span>((<span class="number">127u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), (<span class="number">127u32</span>).cmp(<span class="kw-2">&amp;</span>b));
 
-		<span class="macro">assert_eq!</span>(<span class="number">128u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), <span class="number">128u32</span>.cmp(<span class="kw-2">&amp;</span>b));
-		<span class="macro">assert_eq!</span>(<span class="number">102u32</span>.tcmp(<span class="kw-2">&amp;</span>b, e), <span class="number">102u32</span>.cmp(<span class="kw-2">&amp;</span>b));
+		<span class="macro">assert_eq!</span>((<span class="number">128u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), (<span class="number">128u32</span>).cmp(<span class="kw-2">&amp;</span>b));
+		<span class="macro">assert_eq!</span>((<span class="number">102u32</span>).tcmp(<span class="kw-2">&amp;</span>b, e), (<span class="number">102u32</span>).cmp(<span class="kw-2">&amp;</span>b));
 	}
 
 	<span class="attr">#[test]

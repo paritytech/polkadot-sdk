@@ -2016,6 +2016,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1869" id="1869">1869</a>
 <a href="#1870" id="1870">1870</a>
 <a href="#1871" id="1871">1871</a>
+<a href="#1872" id="1872">1872</a>
+<a href="#1873" id="1873">1873</a>
+<a href="#1874" id="1874">1874</a>
+<a href="#1875" id="1875">1875</a>
+<a href="#1876" id="1876">1876</a>
+<a href="#1877" id="1877">1877</a>
+<a href="#1878" id="1878">1878</a>
+<a href="#1879" id="1879">1879</a>
+<a href="#1880" id="1880">1880</a>
+<a href="#1881" id="1881">1881</a>
+<a href="#1882" id="1882">1882</a>
+<a href="#1883" id="1883">1883</a>
+<a href="#1884" id="1884">1884</a>
+<a href="#1885" id="1885">1885</a>
+<a href="#1886" id="1886">1886</a>
+<a href="#1887" id="1887">1887</a>
+<a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
+<a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2033,7 +2069,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+</span><span class="doccomment">//! Types that implement [`PerThing`](PerThing) can be used as a floating-point alternative for
+//! numbers that operate within the realm of `[0, 1]`. The primary types may you encounter in
+//! Substrate would be the following:
+//! - [`Percent`](Percent) - parts of one hundred.
+//! - [`Permill`](Permill) - parts of a million.
+//! - [`Perbill`](Perbill) - parts of a billion.
+//!
+//! In use, you may see them being used as follows:
+//!
+//! &gt; **[`Perbill`](Perbill), parts of a billion**
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/lib.rs&quot;</span>, perbill_example)]
+</span><span class="doccomment">//! &gt; **[`Percent`](Percent), parts of a hundred**
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/lib.rs&quot;</span>, percent_example)]
+</span><span class="doccomment">//!
+//! Note that `Percent` is represented as a _rounded down_, fixed point
+//! number (see the example above). Unlike primitive types, types that implement
+//! [`PerThing`](PerThing) will also not overflow, and are therefore safe to use.
+//! They adopt the same behavior that a saturated calculation would provide, meaning that if one is
+//! to go over &quot;100%&quot;, it wouldn&#39;t overflow, but simply stop at the upper or lower bound.
+//!
+//! For use cases which require precision beyond the range of `[0, 1]`, there are fixed-point types
+//! which can be used.
+//!
+//! Each of these can be used to construct and represent ratios within our runtime.
+//! You will find types like [`Perbill`](Perbill) being used often in pallet
+//! development.  `pallet_referenda` is a good example of a pallet which makes good use of fixed
+//! point arithmetic, as it relies on representing various curves and thresholds relating to
+//! governance.
+//!
+//! #### Fixed Point Arithmetic with [`PerThing`](PerThing)
+//!
+//! As stated, one can also perform mathematics using these types directly. For example, finding the
+//! percentage of a particular item:
+
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/lib.rs&quot;</span>, percent_mult)]
+
+#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span><span class="kw">crate</span>::traits::{

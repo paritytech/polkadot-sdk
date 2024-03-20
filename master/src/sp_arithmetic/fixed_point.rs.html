@@ -2360,6 +2360,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2213" id="2213">2213</a>
 <a href="#2214" id="2214">2214</a>
 <a href="#2215" id="2215">2215</a>
+<a href="#2216" id="2216">2216</a>
+<a href="#2217" id="2217">2217</a>
+<a href="#2218" id="2218">2218</a>
+<a href="#2219" id="2219">2219</a>
+<a href="#2220" id="2220">2220</a>
+<a href="#2221" id="2221">2221</a>
+<a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
+<a href="#2225" id="2225">2225</a>
+<a href="#2226" id="2226">2226</a>
+<a href="#2227" id="2227">2227</a>
+<a href="#2228" id="2228">2228</a>
+<a href="#2229" id="2229">2229</a>
+<a href="#2230" id="2230">2230</a>
+<a href="#2231" id="2231">2231</a>
+<a href="#2232" id="2232">2232</a>
+<a href="#2233" id="2233">2233</a>
+<a href="#2234" id="2234">2234</a>
+<a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2378,6 +2405,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="doccomment">//! Decimal Fixed Point implementations for Substrate runtime.
+//! Similar to types that implement [`PerThing`](crate::per_things), these are also
+//! fixed-point types, however, they are able to represent larger fractions:
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/lib.rs&quot;</span>, fixed_u64)]
+</span><span class="doccomment">//!
+//! ### Fixed Point Types in Practice
+//!
+//! If one needs to exceed the value of one (1), then
+//! [`FixedU64`](FixedU64) (and its signed and `u128` counterparts) can be utilized.
+//! Take for example this very rudimentary pricing mechanism, where we wish to calculate the demand
+//! / supply to get a price for some on-chain compute:
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(
+	<span class="string">&quot;./src/lib.rs&quot;</span>,
+	fixed_u64_block_computation_example
+)]
+</span><span class="doccomment">//!
+//! For a much more comprehensive example, be sure to look at the source for broker (the &quot;coretime&quot;)
+//! pallet.
+//!
+//! #### Fixed Point Types in Practice
+//!
+//! Just as with [`PerThing`](PerThing), you can also perform regular mathematical
+//! expressions:
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(
+	<span class="string">&quot;./src/lib.rs&quot;</span>,
+	fixed_u64_operation_example
+)]
+</span><span class="doccomment">//!
 
 </span><span class="kw">use crate</span>::{
 	helpers_128bit::{multiply_by_rational_with_rounding, sqrt},
