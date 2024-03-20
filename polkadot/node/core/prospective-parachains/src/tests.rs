@@ -19,7 +19,7 @@ use assert_matches::assert_matches;
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		AllMessages, HypotheticalFrontierRequest, ProspectiveParachainsMessage,
+		AllMessages, HypotheticalFrontierRequest, ParentHeadData, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest,
 	},
 };
@@ -468,7 +468,7 @@ async fn get_pvd(
 	let request = ProspectiveValidationDataRequest {
 		para_id,
 		candidate_relay_parent,
-		parent_head_data_hash: parent_head_data.hash(),
+		parent_head_data: ParentHeadData::OnlyHash(parent_head_data.hash()),
 	};
 	let (tx, rx) = oneshot::channel();
 	virtual_overseer

@@ -20,7 +20,7 @@ use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BenchmarkUsage {
 	pub benchmark_name: String,
 	pub network_usage: Vec<ResourceUsage>,
@@ -110,7 +110,7 @@ fn check_resource_usage(
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ResourceUsage {
 	pub resource_name: String,
 	pub total: f64,

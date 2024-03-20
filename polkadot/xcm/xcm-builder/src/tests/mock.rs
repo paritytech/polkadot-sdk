@@ -743,6 +743,9 @@ impl Config for TestConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = AliasForeignAccountId32<SiblingPrefix>;
 	type TransactionalProcessor = ();
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {
