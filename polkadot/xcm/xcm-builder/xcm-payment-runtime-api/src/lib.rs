@@ -85,6 +85,7 @@ pub enum Error {
 	#[codec(index = 2)]
 	WeightNotComputable,
 	/// XCM version not able to be handled.
+	#[codec(index = 3)]
 	UnhandledXcmVersion,
 	/// The given asset is not handled(as a fee payment).
 	#[codec(index = 4)]
