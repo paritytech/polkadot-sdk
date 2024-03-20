@@ -12396,6 +12396,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "rstest",
  "sp-core",
  "sp-keyring",
  "sp-maybe-compressed-blob",
