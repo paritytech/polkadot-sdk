@@ -42,16 +42,8 @@ fn main() -> Result<(), String> {
 	config.n_validators = 500;
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
-	let (
-		state,
-		test_authorities,
-		block_headers,
-		block_infos,
-		chunk_fetching_requests,
-		signed_bitfields,
-		availability_state,
-		runtime_api,
-	) = prepare_data(&config);
+	let (state, test_authorities, block_headers, availability_state, runtime_api) =
+		prepare_data(&config);
 
 	println!("Benchmarking...");
 	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
@@ -72,9 +64,6 @@ fn main() -> Result<(), String> {
 				"data_availability_write",
 				&mut env,
 				&state,
-				&block_infos,
-				&chunk_fetching_requests,
-				&signed_bitfields,
 			))
 		})
 		.collect();

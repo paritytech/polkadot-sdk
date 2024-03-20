@@ -148,16 +148,7 @@ fn build_overseer_for_availability_write(
 
 pub fn prepare_data(
 	config: &TestConfiguration,
-) -> (
-	TestState,
-	TestAuthorities,
-	HashMap<H256, Header>,
-	Vec<BlockInfo>,
-	Vec<Vec<Vec<u8>>>,
-	HashMap<H256, Vec<VersionedValidationProtocol>>,
-	NetworkAvailabilityState,
-	MockRuntimeApi,
-) {
+) -> (TestState, TestAuthorities, HashMap<H256, Header>, NetworkAvailabilityState, MockRuntimeApi) {
 	let mut state = TestState::new(config);
 	// Generate test authorities.
 	let test_authorities = config.generate_authorities();
@@ -270,16 +261,11 @@ pub fn prepare_data(
 		})
 		.collect();
 
-	(
-		state,
-		test_authorities,
-		block_headers,
-		block_infos,
-		chunk_fetching_requests,
-		signed_bitfields,
-		availability_state,
-		runtime_api,
-	)
+	state.block_infos = block_infos;
+	state.chunk_fetching_requests = chunk_fetching_requests;
+	state.signed_bitfields = signed_bitfields;
+
+	(state, test_authorities, block_headers, availability_state, runtime_api)
 }
 
 /// Takes a test configuration and uses it to create the `TestEnvironment`.
@@ -407,6 +393,9 @@ pub struct TestState {
 	chunks: Vec<Vec<ErasureChunk>>,
 	// Per relay chain block - candidate backed by our backing group
 	backed_candidates: Vec<CandidateReceipt>,
+	block_infos: Vec<BlockInfo>,
+	chunk_fetching_requests: Vec<Vec<Vec<u8>>>,
+	signed_bitfields: HashMap<H256, Vec<VersionedValidationProtocol>>,
 }
 
 impl TestState {
@@ -501,6 +490,9 @@ impl TestState {
 			candidates: Vec::new().into_iter().cycle(),
 			backed_candidates: Vec::new(),
 			config,
+			block_infos: Default::default(),
+			chunk_fetching_requests: Default::default(),
+			signed_bitfields: Default::default(),
 		};
 
 		_self.generate_candidates();
@@ -584,9 +576,6 @@ pub async fn benchmark_availability_write(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	state: &TestState,
-	block_infos: &[BlockInfo],
-	chunk_fetching_requests: &[Vec<Vec<u8>>],
-	signed_bitfields: &HashMap<H256, Vec<VersionedValidationProtocol>>,
 ) -> BenchmarkUsage {
 	let config = env.config().clone();
 
@@ -617,7 +606,7 @@ pub async fn benchmark_availability_write(
 	gum::info!(target: LOG_TARGET, "Done");
 
 	let test_start = Instant::now();
-	for block_info in block_infos {
+	for block_info in state.block_infos.iter() {
 		let block_num = block_info.number as usize;
 		gum::info!(target: LOG_TARGET, "Current block #{}", block_num);
 		env.metrics().set_current_block(block_num);
@@ -635,7 +624,7 @@ pub async fn benchmark_availability_write(
 		let chunk_fetch_start_ts = Instant::now();
 
 		// Request chunks of our own backed candidate from all other validators.
-		let payloads = chunk_fetching_requests.get(block_num - 1).expect("pregenerated");
+		let payloads = state.chunk_fetching_requests.get(block_num - 1).expect("pregenerated");
 		let receivers = (1..config.n_validators)
 			.map(|index| {
 				let (pending_response, pending_response_receiver) = oneshot::channel();
@@ -677,7 +666,7 @@ pub async fn benchmark_availability_write(
 		// Spawn a task that will generate `n_validator` - 1 signed bitfiends and
 		// send them from the emulated peers to the subsystem.
 		// TODO: Implement topology.
-		let messages = signed_bitfields.get(&relay_block_hash).expect("pregenerated").clone();
+		let messages = state.signed_bitfields.get(&relay_block_hash).expect("pregenerated").clone();
 		for index in 1..config.n_validators {
 			let from_peer = &authorities.validator_authority_id[index];
 			let message = messages.get(index).expect("pregenerated").clone();
