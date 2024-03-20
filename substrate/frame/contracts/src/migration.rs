@@ -162,9 +162,8 @@ impl<const N: u16> MigrationStep for NoopMigration<N> {
 	fn max_step_weight() -> Weight {
 		Weight::zero()
 	}
-	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
+	fn step(&mut self, _meter: &mut WeightMeter) -> IsFinished {
 		log::debug!(target: LOG_TARGET, "Noop migration for version {}", N);
-		meter.consume(Weight::zero());
 		IsFinished::Yes
 	}
 }
