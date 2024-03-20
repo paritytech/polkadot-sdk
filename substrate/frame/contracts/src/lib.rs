@@ -857,7 +857,7 @@ pub mod pallet {
 			use migration::MigrateResult::*;
 			ensure_signed(origin)?;
 
-			let limit = weight_limit.saturating_add(T::WeightInfo::migrate());
+			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
 			let mut meter = WeightMeter::with_limit(limit);
 			let result = Migration::<T>::migrate(&mut meter);
 
