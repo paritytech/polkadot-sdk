@@ -33,7 +33,7 @@ sp-application-crypto = { path = "../../../substrate/primitives/application-cryp
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false, optional = true, version = "16.0.0" }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false, version = "25.0.0" }
 
-pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false, version = "30.0.0" }
+pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false, version = "30.0.1" }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false, version = "30.0.0" }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, version = "30.0.0" }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false, version = "30.0.0" }
