@@ -115,9 +115,9 @@ mod v1 {
 				"Number of orders should be the same before and after migration"
 			);
 
-			let n_affinity_entries =
+			let n_affinity_entries: u32 =
 				AffinityEntries::<T>::iter().map(|(_index, heap)| heap.len() as u32).sum();
-			let n_para_id_affinity = ParaIdAffinity::<T>::iter()
+			let n_para_id_affinity: u32 = ParaIdAffinity::<T>::iter()
 				.map(|(_para_id, affinity)| affinity.count as u32)
 				.sum();
 			ensure!(
