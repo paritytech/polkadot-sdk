@@ -315,11 +315,6 @@ cancel-pipeline-cargo-check-each-crate-6:
   needs:
     - job: "cargo-check-each-crate 6/6"
 
-cancel-pipeline-cargo-check-each-crate-macos:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: cargo-check-each-crate-macos
-
 cancel-pipeline-check-tracing:
   extends: .cancel-pipeline-template
   needs:
