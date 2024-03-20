@@ -22,7 +22,7 @@ use codec::{Codec, Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
 use sp_std::vec::Vec;
 use sp_weights::Weight;
-use xcm::{Version, VersionedAssetId, VersionedXcm, VersionedLocation, VersionedAssets};
+use xcm::{Version, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 
 sp_api::decl_runtime_apis! {
 	/// A trait of XCM payment API.

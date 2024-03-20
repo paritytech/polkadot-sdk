@@ -41,7 +41,7 @@ use sp_runtime::{
 use sp_version::RuntimeVersion;
 use sp_weights::Weight;
 use std::collections::BTreeMap;
-use xcm::{VersionedAssetId, VersionedXcm, VersionedLocation, VersionedAssets};
+use xcm::{VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 sp_api::decl_runtime_apis! {
 	/// This runtime API is only implemented for the test runtime!
 	pub trait GetLastTimestamp {

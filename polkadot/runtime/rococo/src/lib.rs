@@ -98,7 +98,10 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::{latest::prelude::*, IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
+use xcm::{
+	latest::prelude::*, IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation,
+	VersionedXcm,
+};
 use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;
@@ -1828,7 +1831,10 @@ sp_api::impl_runtime_apis! {
 				.try_into()
 				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 			<xcm_config::XcmConfig as xcm_executor::Config>::Weigher::weight(&mut message)
-				.map_err(|_| XcmPaymentApiError::WeightNotComputable)
+				.map_err(|error| {
+					log::error!("Error when querying XCM weight: {:?}", error);
+					XcmPaymentApiError::WeightNotComputable
+				})
 		}
 
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
