@@ -82,16 +82,19 @@ impl RpcConnections {
 	/// Register a token for the given connection.
 	///
 	/// Users should call [`Self::reserve_token`] before calling this method.
-	fn register_token(&self, connection_id: ConnectionId, token: String) {
+	///
+	/// Returns true if the token was inserted successfully, false if the token was already
+	/// inserted or reached capacity.
+	fn register_token(&self, connection_id: ConnectionId, token: String) -> bool {
 		let mut data = self.data.lock();
 
 		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
 		// Should be already checked `Self::reserve_token`.
 		if entry.tokens.len() >= self.capacity {
-			return;
+			return false;
 		}
 
-		entry.tokens.insert(token);
+		entry.tokens.insert(token)
 	}
 
 	/// Unregister a token for the given connection.
@@ -125,14 +128,18 @@ pub struct ReservedConnectionToken {
 
 impl ReservedConnectionToken {
 	/// Register the token for the given connection.
-	pub fn register(mut self, token: String) -> RegisteredConnectionToken {
-		let rpc_connections = self
-			.rpc_connections
-			.take()
-			.expect("Always constructed with rpc connections; qed");
+	pub fn register(mut self, token: String) -> Option<RegisteredConnectionToken> {
+		let rpc_connections = self.rpc_connections.take()?;
 
-		rpc_connections.register_token(self.connection_id, token.clone());
-		RegisteredConnectionToken { connection_id: self.connection_id, token, rpc_connections }
+		if rpc_connections.register_token(self.connection_id, token.clone()) {
+			Some(RegisteredConnectionToken {
+				connection_id: self.connection_id,
+				token,
+				rpc_connections,
+			})
+		} else {
+			None
+		}
 	}
 }
 
@@ -170,7 +177,7 @@ mod tests {
 		assert_eq!(rpc_connections.data.lock().len(), 1);
 
 		let reserved = reserved.unwrap();
-		let registered = reserved.register("token1".to_string());
+		let registered = reserved.register("token1".to_string()).unwrap();
 		assert!(rpc_connections.contains_token(1, "token1"));
 		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
 		drop(registered);
@@ -193,7 +200,7 @@ mod tests {
 
 		// Add token for connection 1.
 		let reserved = reserved.unwrap();
-		let registered = reserved.register("token1".to_string());
+		let registered = reserved.register("token1".to_string()).unwrap();
 		assert!(rpc_connections.contains_token(1, "token1"));
 		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
 
@@ -204,7 +211,7 @@ mod tests {
 
 		// Add token for connection 1 again.
 		let reserved = reserved.unwrap();
-		let registered_second = reserved.register("token2".to_string());
+		let registered_second = reserved.register("token2".to_string()).unwrap();
 		assert!(rpc_connections.contains_token(1, "token2"));
 		assert_eq!(2, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
 

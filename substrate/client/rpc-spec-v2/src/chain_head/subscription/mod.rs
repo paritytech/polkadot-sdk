@@ -25,8 +25,9 @@ use std::{sync::Arc, time::Duration};
 mod error;
 mod inner;
 
-use crate::common::connections::{
-	RegisteredConnectionToken, ReservedConnectionToken, RpcConnections,
+use crate::{
+	chain_head::chain_head::LOG_TARGET,
+	common::connections::{RegisteredConnectionToken, ReservedConnectionToken, RpcConnections},
 };
 
 use self::inner::SubscriptionsInner;
@@ -205,6 +206,10 @@ impl<Block: BlockT, BE: Backend<Block>> ReservedSubscription<Block, BE> {
 	/// If the subscription was not previously inserted, returns the receiver that is
 	/// triggered upon the "Stop" event. Otherwise, if the subscription ID was already
 	/// inserted returns none.
+	///
+	/// # Note
+	///
+	/// This method should be called only once.
 	pub fn insert_subscription(
 		&mut self,
 		sub_id: String,
@@ -212,7 +217,7 @@ impl<Block: BlockT, BE: Backend<Block>> ReservedSubscription<Block, BE> {
 	) -> Option<InsertedSubscriptionData<Block>> {
 		match std::mem::replace(&mut self.state, ConnectionState::Empty) {
 			ConnectionState::Reserved(reserved) => {
-				let registered_token = reserved.register(sub_id.clone());
+				let registered_token = reserved.register(sub_id.clone())?;
 				self.state = ConnectionState::Registered {
 					_unregister_on_drop: registered_token,
 					sub_id: sub_id.clone(),
@@ -222,8 +227,10 @@ impl<Block: BlockT, BE: Backend<Block>> ReservedSubscription<Block, BE> {
 				inner.insert_subscription(sub_id, runtime_updates)
 			},
 			// Cannot insert multiple subscriptions into one single reserved space.
-			ConnectionState::Registered { .. } => None,
-			ConnectionState::Empty => None,
+			ConnectionState::Registered { .. } | ConnectionState::Empty => {
+				log::error!(target: LOG_TARGET, "Called insert_subscription on a connection that is not reserved");
+				None
+			},
 		}
 	}
 }
