@@ -126,6 +126,9 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 	/// List of keys onto which addresses have been published at the latest publication.
 	/// Used to check whether they have changed.
 	latest_published_keys: HashSet<AuthorityId>,
+
+	latest_published_kad_keys: HashSet<KademliaKey>,
+
 	/// Same value as in the configuration.
 	publish_non_global_ips: bool,
 	/// Same value as in the configuration.
@@ -232,6 +235,7 @@ where
 			publish_interval,
 			publish_if_changed_interval,
 			latest_published_keys: HashSet::new(),
+			latest_published_kad_keys: HashSet::new(),
 			publish_non_global_ips: config.publish_non_global_ips,
 			strict_record_validation: config.strict_record_validation,
 			query_interval,
@@ -381,6 +385,8 @@ where
 			keys_vec,
 		)?;
 
+		self.latest_published_kad_keys.extend(kv_pairs.iter().map(|(k, _)| k.clone()));
+
 		for (key, value) in kv_pairs.into_iter() {
 			self.network.put_value(key, value);
 		}
@@ -482,6 +488,11 @@ where
 				}
 			},
 			DhtEvent::ValuePut(hash) => {
+				if !self.latest_published_kad_keys.remove(&hash) {
+					// Not a value we have published or received multiple times.
+					return;
+				}
+
 				// Fast forward the exponentially increasing interval to the configured maximum. In
 				// case this was the first successful address publishing there is no need for a
 				// timely retry.
@@ -494,6 +505,11 @@ where
 				debug!(target: LOG_TARGET, "Successfully put hash '{:?}' on Dht.", hash)
 			},
 			DhtEvent::ValuePutFailed(hash) => {
+				if !self.latest_published_kad_keys.remove(&hash) {
+					// Not a value we have published or received multiple times.
+					return;
+				}
+
 				if let Some(metrics) = &self.metrics {
 					metrics.dht_event_received.with_label_values(&["value_put_failed"]).inc();
 				}
