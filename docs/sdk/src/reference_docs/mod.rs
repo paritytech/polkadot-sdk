@@ -66,9 +66,6 @@ pub mod metadata;
 /// Learn about how frame-system handles `account-ids`, nonces, consumers and providers.
 pub mod frame_system_accounts;
 
-/// Learn about the currency-related abstractions provided in FRAME.
-pub mod frame_currency;
-
 /// Advice for configuring your development environment for Substrate development.
 pub mod development_environment_advice;
 
