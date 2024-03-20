@@ -49,7 +49,7 @@ use frame_support::{
 	traits::{
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		WithdrawReasons,
+		Imbalance, WithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::*;
@@ -205,6 +205,11 @@ enum QueuePushDirection {
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+/// Shorthand for the NegativeImbalance type the runtime is using.
+type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
+
 /// Errors that can happen during spot traffic calculation.
 #[derive(PartialEq, RuntimeDebug)]
 enum SpotTrafficCalculationErr {
@@ -324,6 +329,17 @@ pub mod pallet {
 		/// The default value for the spot traffic multiplier.
 		#[pallet::constant]
 		type TrafficDefaultValue: Get<FixedU128>;
+
+		/// The maximum number of blocks some historical revenue
+		/// information stored for.
+		#[pallet::constant]
+		type MaxHistoricalRevenue: Get<u32>;
+	}
+
+	/// Creates and empty revenue tracker if one isn't present in storage already.
+	#[pallet::type_value]
+	pub fn RevenueOnEmpty<T: Config>() -> BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue> {
+		BoundedVec::new()
 	}
 
 	/// Creates an empty queue status for an empty queue with initial traffic value.
@@ -365,6 +381,15 @@ pub mod pallet {
 		EntriesOnEmpty<T>,
 	>;
 
+	/// Keeps track of accumulated revenue from on demand order sales.
+	#[pallet::storage]
+	pub type Revenue<T: Config> = StorageValue<
+		_,
+		BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>,
+		ValueQuery,
+		RevenueOnEmpty<T>,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -386,6 +411,12 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+			// Update revenue information storage.
+			let zero_balance: BalanceOf<T> = 0u32.into();
+			Revenue::<T>::mutate(|revenue| {
+				let _ = revenue.force_insert_keep_left(0, zero_balance);
+			});
+
 			let config = <configuration::Pallet<T>>::config();
 			// We need to update the spot traffic on block initialize in order to account for idle
 			// blocks.
@@ -566,12 +597,15 @@ where
 			ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
 
 			// Charge the sending account the spot price
-			let _ = T::Currency::withdraw(
+			let withdrawn_amount = T::Currency::withdraw(
 				&sender,
 				spot_price,
 				WithdrawReasons::FEE,
 				existence_requirement,
 			)?;
+
+			// Add the spot price to the revenue information
+			Self::add_revenue_info(withdrawn_amount);
 
 			ensure!(
 				queue_status.size() < config.scheduler_params.on_demand_queue_max_size,
@@ -778,6 +812,23 @@ where
 				*maybe_affinity = Some(CoreAffinityCount { core_index, count: 1 });
 			},
 		})
+	}
+
+	pub fn do_request_revenue_info_at(_when: BlockNumberFor<T>) -> DispatchResult {
+		//TODO: impl
+		Ok(())
+	}
+
+	/// Adds revenue information for the current block.
+	/// TODO Make sure we don't mess up total issuance
+	fn add_revenue_info(amount: NegativeImbalanceOf<T>) {
+		Revenue::<T>::mutate(|revenue| {
+			let current_revenue = revenue.get_mut(0);
+			current_revenue.map(|rev| {
+				let new_revenue = rev.saturating_add(amount.peek());
+				*rev = new_revenue;
+			})
+		});
 	}
 
 	/// Getter for the affinity tracker.

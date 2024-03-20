@@ -1028,6 +1028,8 @@ impl coretime::Config for Runtime {
 
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+	// Keep 2 timeslices worth of revenue information.
+	pub const MaxHistoricalRevenue: BlockNumber = 2 * 80;
 }
 
 impl parachains_assigner_on_demand::Config for Runtime {
@@ -1035,6 +1037,7 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
+	type MaxHistoricalRevenue = MaxHistoricalRevenue;
 }
 
 impl parachains_assigner_coretime::Config for Runtime {}

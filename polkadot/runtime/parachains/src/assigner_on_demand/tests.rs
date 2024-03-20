@@ -26,7 +26,7 @@ use crate::{
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
-use pallet_balances::Error as BalancesError;
+use pallet_balances::{Error as BalancesError, NegativeImbalance};
 use primitives::{BlockNumber, SessionIndex, ValidationCode};
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -73,7 +73,7 @@ fn run_to_block(
 		Paras::initializer_initialize(b + 1);
 		Scheduler::initializer_initialize(b + 1);
 
-		// We need to update the spot traffic on every block.
+		// Update the spot traffic on every block.
 		OnDemandAssigner::on_initialize(b + 1);
 
 		// In the real runtime this is expected to be called by the `InclusionInherent` pallet.
@@ -705,5 +705,36 @@ fn queue_status_size_fn_works() {
 		assert_eq!(OnDemandAssigner::get_free_entries().len(), 2);
 		// For a total size of 4.
 		assert_eq!(OnDemandAssigner::get_queue_status().size(), 4)
+	});
+}
+
+#[test]
+fn add_revenue_info_works() {
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// Revenue should be empty on block 0
+		assert_eq!(Revenue::<Test>::get().len(), 0);
+
+		// Mock assigner sets max revenue history to 10.
+		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
+		assert_eq!(Revenue::<Test>::get().len(), 10);
+
+		// New revenue
+		let val: u128 = 1;
+		let imbalance = NegativeImbalance::new(val);
+		OnDemandAssigner::add_revenue_info(imbalance);
+		let rev = Revenue::<Test>::get();
+		assert_eq!(rev.get(0).unwrap(), &val);
+
+		let imbalance = NegativeImbalance::new(val);
+		OnDemandAssigner::add_revenue_info(imbalance);
+		let rev = Revenue::<Test>::get();
+		assert_eq!(rev.get(0).unwrap(), &2);
+
+		// Should still be at 10 and the previous value should be
+		// shifted from index 0 -> 1.
+		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+		assert_eq!(Revenue::<Test>::get().len(), 10);
+		let rev = Revenue::<Test>::get();
+		assert_eq!(rev.get(1).unwrap(), &2);
 	});
 }

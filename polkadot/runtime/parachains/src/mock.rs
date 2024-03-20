@@ -367,17 +367,21 @@ impl pallet_message_queue::Config for Test {
 	type ServiceWeight = MessageQueueServiceWeight;
 }
 
+impl assigner_parachains::Config for Test {}
+
 parameter_types! {
 	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
+	// Production chains should keep this numbar around twice the
+	// defined Timeslice for Coretime.
+	pub const MaxHistoricalRevenue: BlockNumber = 2 * 5;
 }
-
-impl assigner_parachains::Config for Test {}
 
 impl assigner_on_demand::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
+	type MaxHistoricalRevenue = MaxHistoricalRevenue;
 }
 
 impl assigner_coretime::Config for Test {}
