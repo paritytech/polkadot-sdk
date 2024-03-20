@@ -188,6 +188,7 @@ function run_finality_relay() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-headers rococo-to-bridge-hub-westend \
+        --only-free-headers \
         --source-host localhost \
         --source-port 9942 \
         --target-host localhost \
@@ -198,6 +199,7 @@ function run_finality_relay() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-headers westend-to-bridge-hub-rococo \
+        --only-free-headers \
         --source-host localhost \
         --source-port 9945 \
         --target-host localhost \
@@ -212,6 +214,7 @@ function run_parachains_relay() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-parachains rococo-to-bridge-hub-westend \
+        --only-free-headers \
         --source-host localhost \
         --source-port 9942 \
         --target-host localhost \
@@ -222,6 +225,7 @@ function run_parachains_relay() {
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
         $relayer_path relay-parachains westend-to-bridge-hub-rococo \
+        --only-free-headers \
         --source-host localhost \
         --source-port 9945 \
         --target-host localhost \
