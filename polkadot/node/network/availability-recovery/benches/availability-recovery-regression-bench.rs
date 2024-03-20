@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! availability-write regression tests
+//! availability-read regression tests
 //!
-//! Availability write benchmark based on Kusama parameters and scale.
+//! Availability read benchmark based on Kusama parameters and scale.
 //!
 //! Subsystems involved:
 //! - availability-recovery
@@ -27,8 +27,11 @@ use polkadot_subsystem_bench::{
 		TestDataAvailability, TestState,
 	},
 	configuration::TestConfiguration,
-	utils::{warm_up_and_benchmark, WarmUpOptions},
+	usage::BenchmarkUsage,
 };
+use std::io::Write;
+
+const BENCH_COUNT: usize = 50;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
@@ -38,28 +41,30 @@ fn main() -> Result<(), String> {
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
 
-	let usage =
-		warm_up_and_benchmark(WarmUpOptions::new(&[("availability-recovery", 0.01)]), || {
-			let mut state = TestState::new(&config);
-			let (mut env, _protocol_config) = prepare_test(
-				config.clone(),
-				&mut state,
-				TestDataAvailability::Read(options.clone()),
-				false,
-			);
+	let state = TestState::new(&config);
+
+	println!("Benchmarking...");
+	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
+		.map(|n| {
+			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
+			std::io::stdout().flush().unwrap();
+			let mut env = prepare_test(&state, TestDataAvailability::Read(options.clone()), false);
 			env.runtime().block_on(benchmark_availability_read(
 				"data_availability_read",
 				&mut env,
-				state,
+				state.clone(),
 			))
-		})?;
-	println!("{}", usage);
+		})
+		.collect();
+	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
+	let average_usage = BenchmarkUsage::average(&usages);
+	println!("{}", average_usage);
 
-	messages.extend(usage.check_network_usage(&[
+	messages.extend(average_usage.check_network_usage(&[
 		("Received from peers", 307200.000, 0.05),
 		("Sent to peers", 1.667, 0.05),
 	]));
-	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 11.500, 0.05)]));
+	messages.extend(average_usage.check_cpu_usage(&[("availability-recovery", 11.500, 0.05)]));
 
 	if messages.is_empty() {
 		Ok(())

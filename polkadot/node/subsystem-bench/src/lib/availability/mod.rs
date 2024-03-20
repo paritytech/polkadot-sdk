@@ -16,7 +16,6 @@
 
 use crate::{
 	availability::av_store_helpers::new_av_store,
-	configuration::TestAuthorities,
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
 	mock::{
@@ -137,18 +136,131 @@ fn build_overseer_for_availability_write(
 	(overseer, OverseerHandle::new(raw_handle))
 }
 
+pub fn prepare_test(
+	state: &TestState,
+	mode: TestDataAvailability,
+	with_prometheus_endpoint: bool,
+) -> TestEnvironment {
+	let dependencies = TestEnvironmentDependencies::default();
+
+	let (collation_req_receiver, _collation_req_cfg) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+
+	let (pov_req_receiver, _pov_req_cfg) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+
+	let (chunk_req_receiver, chunk_req_cfg) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+
+	let availability_state = NetworkAvailabilityState {
+		candidate_hashes: state.candidate_hashes.clone(),
+		available_data: state.available_data.clone(),
+		chunks: state.chunks.clone(),
+	};
+	let (network, network_interface, network_receiver) = new_network(
+		&state.config,
+		&dependencies,
+		&state.test_authorities,
+		vec![Arc::new(availability_state.clone())],
+	);
+
+	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
+		network.clone(),
+		network_interface.subsystem_sender(),
+		state.test_authorities.clone(),
+	);
+
+	let network_bridge_rx =
+		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
+
+	let runtime_api = runtime_api::MockRuntimeApi::new(
+		state.config.clone(),
+		state.test_authorities.clone(),
+		state.candidate_receipts.clone(),
+		Default::default(),
+		Default::default(),
+		0,
+	);
+
+	let (overseer, overseer_handle) = match &mode {
+		TestDataAvailability::Read(options) => {
+			let use_fast_path = options.fetch_from_backers;
+
+			let subsystem = if use_fast_path {
+				AvailabilityRecoverySubsystem::with_fast_path(
+					collation_req_receiver,
+					Metrics::try_register(&dependencies.registry).unwrap(),
+				)
+			} else {
+				AvailabilityRecoverySubsystem::with_chunks_only(
+					collation_req_receiver,
+					Metrics::try_register(&dependencies.registry).unwrap(),
+				)
+			};
+
+			// Use a mocked av-store.
+			let av_store = av_store::MockAvailabilityStore::new(
+				state.chunks.clone(),
+				state.candidate_hashes.clone(),
+			);
+
+			build_overseer_for_availability_read(
+				dependencies.task_manager.spawn_handle(),
+				runtime_api.clone(),
+				av_store,
+				(network_bridge_tx, network_bridge_rx),
+				subsystem,
+				&dependencies,
+			)
+		},
+		TestDataAvailability::Write => {
+			let availability_distribution = AvailabilityDistributionSubsystem::new(
+				state.test_authorities.keyring.keystore(),
+				IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+				Metrics::try_register(&dependencies.registry).unwrap(),
+			);
+
+			let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
+			let chain_api = MockChainApi::new(chain_api_state);
+			let bitfield_distribution =
+				BitfieldDistribution::new(Metrics::try_register(&dependencies.registry).unwrap());
+			build_overseer_for_availability_write(
+				dependencies.task_manager.spawn_handle(),
+				runtime_api.clone(),
+				(network_bridge_tx, network_bridge_rx),
+				availability_distribution,
+				chain_api,
+				new_av_store(&dependencies),
+				bitfield_distribution,
+				&dependencies,
+			)
+		},
+	};
+
+	TestEnvironment::new(
+		dependencies,
+		state.config.clone(),
+		network,
+		overseer,
+		overseer_handle,
+		state.test_authorities.clone(),
+		with_prometheus_endpoint,
+	)
+}
+
 /// Takes a test configuration and uses it to create the `TestEnvironment`.
 pub fn prepare_availability_read_test(
 	state: &TestState,
-	test_authorities: &TestAuthorities,
 	options: &DataAvailabilityReadOptions,
 	with_prometheus_endpoint: bool,
 ) -> TestEnvironment {
-	let (collation_req_receiver, _) =
+	let (collation_req_receiver, _collation_req_cfg) =
 		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let (_, chunk_req_cfg) = IncomingRequest::<ChunkFetchingRequest>::get_config_receiver(
-		&ReqProtocolNames::new(GENESIS_HASH, None),
-	);
+	let (_chunk_req_receiver, chunk_req_cfg) =
+		IncomingRequest::<ChunkFetchingRequest>::get_config_receiver(&ReqProtocolNames::new(
+			GENESIS_HASH,
+			None,
+		));
 
 	let dependencies = TestEnvironmentDependencies::default();
 	let availability_state = NetworkAvailabilityState {
@@ -159,13 +271,13 @@ pub fn prepare_availability_read_test(
 	let (network, network_interface, network_receiver) = new_network(
 		&state.config,
 		&dependencies,
-		&test_authorities,
+		&state.test_authorities,
 		vec![Arc::new(availability_state.clone())],
 	);
 	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
 		network.clone(),
 		network_interface.subsystem_sender(),
-		test_authorities.clone(),
+		state.test_authorities.clone(),
 	);
 	let network_bridge_rx =
 		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
@@ -188,7 +300,7 @@ pub fn prepare_availability_read_test(
 	let runtime_api = runtime_api::MockRuntimeApi::new(
 		state.config.clone(),
 		state.test_authorities.clone(),
-		state.candidate_hashes_2.clone(),
+		state.candidate_receipts.clone(),
 		Default::default(),
 		Default::default(),
 		0,
@@ -209,7 +321,7 @@ pub fn prepare_availability_read_test(
 		network,
 		overseer,
 		overseer_handle,
-		test_authorities.clone(),
+		state.test_authorities.clone(),
 		with_prometheus_endpoint,
 	)
 }
@@ -257,7 +369,7 @@ pub fn prepare_availability_write_test(
 	let runtime_api = runtime_api::MockRuntimeApi::new(
 		state.config.clone(),
 		state.test_authorities.clone(),
-		state.candidate_hashes_2.clone(),
+		state.candidate_receipts.clone(),
 		Default::default(),
 		Default::default(),
 		0,
