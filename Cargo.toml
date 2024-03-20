@@ -555,7 +555,7 @@ serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
 serde_json = { version = "1.0.114", default-features = false }
 serde_yaml = { version = "0.9" }
-syn = { version = "2.0.52" }
+syn = { version = "2.0.53" }
 thiserror = { version = "1.0.48" }
 
 [profile.release]
