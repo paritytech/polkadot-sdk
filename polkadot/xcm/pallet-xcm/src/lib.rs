@@ -294,7 +294,9 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ExecuteController<OriginFor<T>, <T as Config>::RuntimeCall, MaxXcmEncodedSize> for Pallet<T> {
+	impl<T: Config> ExecuteController<OriginFor<T>, <T as Config>::RuntimeCall, MaxXcmEncodedSize>
+		for Pallet<T>
+	{
 		type WeightInfo = Self;
 		fn execute_blob(
 			origin: OriginFor<T>,
@@ -898,7 +900,8 @@ pub mod pallet {
 					max_weight,
 					max_weight,
 				))
-			})().map_err(|e: DispatchError| {
+			})()
+			.map_err(|e: DispatchError| {
 				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
 			})?;
 
@@ -1078,8 +1081,7 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let weight_used =
-				Self::execute_base(origin, message, max_weight)?;
+			let weight_used = Self::execute_base(origin, message, max_weight)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
@@ -1498,8 +1500,9 @@ pub mod pallet {
 			message: BoundedVec<u8, MaxXcmEncodedSize>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			let weight_used =
-				<Self as ExecuteController<_, _, MaxXcmEncodedSize>>::execute_blob(origin, message, max_weight)?;
+			let weight_used = <Self as ExecuteController<_, _, MaxXcmEncodedSize>>::execute_blob(
+				origin, message, max_weight,
+			)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute_blob())).into())
 		}
 
