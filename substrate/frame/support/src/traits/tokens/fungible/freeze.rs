@@ -16,6 +16,9 @@
 // limitations under the License.
 
 //! The traits for putting freezes within a single fungible token class.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits
+//! including the place of the Freezes in FRAME.
 
 use scale_info::TypeInfo;
 use sp_arithmetic::{

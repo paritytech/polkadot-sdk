@@ -16,6 +16,9 @@
 // limitations under the License.
 
 //! The traits for putting holds within a single fungible token class.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits
+//! including the place of the Holds in FRAME.
 
 use crate::{
 	ensure,
