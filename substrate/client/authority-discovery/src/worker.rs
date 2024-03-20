@@ -347,8 +347,17 @@ where
 			self.client.as_ref(),
 		).await?.into_iter().collect::<HashSet<_>>();
 
-		if only_if_changed && keys == self.latest_published_keys {
-			return Ok(())
+		if only_if_changed {
+			// If the authority keys did not change and the `publish_if_changed_interval` was
+			// triggered then do nothing.
+			if keys == self.latest_published_keys {
+				return Ok(())
+			}
+
+			// We have detected a change in the authority keys, reset the timers to
+			// publish and gather data faster.
+			self.publish_interval.set_to_start();
+			self.query_interval.set_to_start();
 		}
 
 		let addresses = serialize_addresses(self.addresses_to_publish());
