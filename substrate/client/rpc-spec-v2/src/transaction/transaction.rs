@@ -91,7 +91,7 @@ where
 			else {
 				let err = ErrorObject::owned(
 					BAD_FORMAT,
-					format!("Reached maximum number of connections"),
+					"Reached maximum number of connections".to_string(),
 					None::<()>,
 				);
 				let _ = pending.reject(err).await;

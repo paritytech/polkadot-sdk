@@ -140,9 +140,7 @@ where
 			Box<dyn Stream<Item = <Pool::Block as BlockT>::Hash> + Send>,
 		> =
 			Box::pin(self.client.import_notification_stream().filter_map(
-				|notification| async move {
-					notification.is_new_best.then_some(notification.hash.clone())
-				},
+				|notification| async move { notification.is_new_best.then_some(notification.hash) },
 			));
 
 		let broadcast_transaction_fut = async move {
