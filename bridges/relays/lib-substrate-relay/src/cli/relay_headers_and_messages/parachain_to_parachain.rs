@@ -14,26 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Parachain to parachain relayer CLI primitives.
+
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use crate::cli::{
-	bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge},
-	relay_headers_and_messages::{Full2WayBridgeBase, Full2WayBridgeCommonParams},
-	CliChain,
-};
-use bp_polkadot_core::parachains::ParaHash;
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, Chain, ChainWithTransactions, Client, Parachain,
-};
-use sp_core::Pair;
-use substrate_relay_helper::{
+use crate::{
+	cli::{
+		bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge},
+		relay_headers_and_messages::{Full2WayBridgeBase, Full2WayBridgeCommonParams},
+	},
 	finality::SubstrateFinalitySyncPipeline,
 	on_demand::{
 		headers::OnDemandHeadersRelay, parachains::OnDemandParachainsRelay, OnDemandRelay,
 	},
 };
+use bp_polkadot_core::parachains::ParaHash;
+use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
+use relay_substrate_client::{
+	AccountIdOf, AccountKeyPairOf, Chain, ChainWithRuntimeVersion, ChainWithTransactions, Client,
+	Parachain,
+};
+use sp_core::Pair;
 
 /// A base relay between two parachain from different consensus systems.
 ///
@@ -55,6 +57,8 @@ pub struct ParachainToParachainBridge<
 	pub right_relay: Client<<R2L as ParachainToRelayHeadersCliBridge>::SourceRelay>,
 }
 
+/// Create set of configuration objects specific to parachain-to-parachain relayer.
+#[macro_export]
 macro_rules! declare_parachain_to_parachain_bridge_schema {
 	// left-parachain, relay-chain-of-left-parachain, right-parachain, relay-chain-of-right-parachain
 	($left_parachain:ident, $left_chain:ident, $right_parachain:ident, $right_chain:ident) => {
@@ -87,20 +91,20 @@ macro_rules! declare_parachain_to_parachain_bridge_schema {
 
 			impl [<$left_parachain $right_parachain HeadersAndMessages>] {
 				async fn into_bridge<
-					Left: ChainWithTransactions + CliChain + Parachain,
-					LeftRelay: CliChain,
-					Right: ChainWithTransactions + CliChain + Parachain,
-					RightRelay: CliChain,
-					L2R: CliBridgeBase<Source = Left, Target = Right>
+					Left: ChainWithTransactions + ChainWithRuntimeVersion + Parachain,
+					LeftRelay: ChainWithRuntimeVersion,
+					Right: ChainWithTransactions + ChainWithRuntimeVersion + Parachain,
+					RightRelay: ChainWithRuntimeVersion,
+					L2R: $crate::cli::bridge::CliBridgeBase<Source = Left, Target = Right>
 						+ MessagesCliBridge
-						+ ParachainToRelayHeadersCliBridge<SourceRelay = LeftRelay>,
-					R2L: CliBridgeBase<Source = Right, Target = Left>
+						+ $crate::cli::bridge::ParachainToRelayHeadersCliBridge<SourceRelay = LeftRelay>,
+					R2L: $crate::cli::bridge::CliBridgeBase<Source = Right, Target = Left>
 						+ MessagesCliBridge
-						+ ParachainToRelayHeadersCliBridge<SourceRelay = RightRelay>,
+						+ $crate::cli::bridge::ParachainToRelayHeadersCliBridge<SourceRelay = RightRelay>,
 				>(
 					self,
-				) -> anyhow::Result<ParachainToParachainBridge<L2R, R2L>> {
-					Ok(ParachainToParachainBridge {
+				) -> anyhow::Result<$crate::cli::relay_headers_and_messages::parachain_to_parachain::ParachainToParachainBridge<L2R, R2L>> {
+					Ok($crate::cli::relay_headers_and_messages::parachain_to_parachain::ParachainToParachainBridge {
 						common: Full2WayBridgeCommonParams::new::<L2R>(
 							self.shared,
 							BridgeEndCommonParams {
@@ -125,12 +129,12 @@ macro_rules! declare_parachain_to_parachain_bridge_schema {
 
 #[async_trait]
 impl<
-		Left: Chain<Hash = ParaHash> + ChainWithTransactions + CliChain + Parachain,
-		Right: Chain<Hash = ParaHash> + ChainWithTransactions + CliChain + Parachain,
+		Left: Chain<Hash = ParaHash> + ChainWithTransactions + ChainWithRuntimeVersion + Parachain,
+		Right: Chain<Hash = ParaHash> + ChainWithTransactions + ChainWithRuntimeVersion + Parachain,
 		LeftRelay: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
-			+ CliChain,
+			+ ChainWithRuntimeVersion,
 		RightRelay: Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>
-			+ CliChain,
+			+ ChainWithRuntimeVersion,
 		L2R: CliBridgeBase<Source = Left, Target = Right>
 			+ MessagesCliBridge
 			+ ParachainToRelayHeadersCliBridge<SourceRelay = LeftRelay>,

@@ -17,16 +17,17 @@
 //! RococoBulletin-to-BridgeHubRococo headers sync entrypoint.
 
 use super::BridgeHubRococoAsBridgeHubPolkadot;
-use crate::cli::bridge::{
-	CliBridgeBase, MessagesCliBridge, RelayToRelayEquivocationDetectionCliBridge,
-	RelayToRelayHeadersCliBridge,
-};
 
 use async_trait::async_trait;
 use substrate_relay_helper::{
 	equivocation::SubstrateEquivocationDetectionPipeline,
 	finality::SubstrateFinalitySyncPipeline,
 	finality_base::{engine::Grandpa as GrandpaFinalityEngine, SubstrateFinalityPipeline},
+};
+
+use substrate_relay_helper::cli::bridge::{
+	CliBridgeBase, MessagesCliBridge, RelayToRelayEquivocationDetectionCliBridge,
+	RelayToRelayHeadersCliBridge,
 };
 
 /// Description of `RococoBulletin` -> `RococoBridgeHub` finalized headers bridge.

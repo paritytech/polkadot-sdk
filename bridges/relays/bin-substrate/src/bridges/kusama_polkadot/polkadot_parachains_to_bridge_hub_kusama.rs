@@ -16,11 +16,11 @@
 
 //! Polkadot-to-BridgeHubKusama parachains sync entrypoint.
 
-use crate::cli::bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use relay_substrate_client::{CallOf, HeaderIdOf};
-use substrate_relay_helper::parachains::{
-	SubmitParachainHeadsCallBuilder, SubstrateParachainsPipeline,
+use substrate_relay_helper::{
+	cli::bridge::{CliBridgeBase, MessagesCliBridge, ParachainToRelayHeadersCliBridge},
+	parachains::{SubmitParachainHeadsCallBuilder, SubstrateParachainsPipeline},
 };
 
 /// Polkadot-to-BridgeHubKusama parachain sync description.

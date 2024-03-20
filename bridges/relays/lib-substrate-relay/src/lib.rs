@@ -22,6 +22,7 @@ use relay_substrate_client::{Chain, ChainWithUtilityPallet, UtilityPallet};
 
 use std::marker::PhantomData;
 
+pub mod cli;
 pub mod equivocation;
 pub mod error;
 pub mod finality;
