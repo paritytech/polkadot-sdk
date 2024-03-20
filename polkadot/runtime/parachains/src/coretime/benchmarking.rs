@@ -29,6 +29,20 @@ mod benchmarks {
 	use assigner_coretime::PartsOf57600;
 
 	#[benchmark]
+	fn request_revenue_info_at() {
+		//TODO: write actual benchmark
+		// Setup
+		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
+
+		#[extrinsic_call]
+		_(
+			root_origin as <T as frame_system::Config>::RuntimeOrigin,
+			// TODO: Better when param
+			BlockNumberFor::<T>::from(100),
+		)
+	}
+
+	#[benchmark]
 	fn request_core_count() {
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();

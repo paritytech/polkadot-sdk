@@ -30,6 +30,7 @@ use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, We
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
+	assigner_on_demand,
 	initializer::{OnNewSession, SessionChangeNotification},
 	origin::{ensure_parachain, Origin},
 };
@@ -39,7 +40,7 @@ pub mod migration;
 
 pub trait WeightInfo {
 	fn request_core_count() -> Weight;
-	//fn request_revenue_info_at() -> Weight;
+	fn request_revenue_info_at() -> Weight;
 	//fn credit_account() -> Weight;
 	fn assign_core(s: u32) -> Weight;
 }
@@ -51,14 +52,14 @@ impl WeightInfo for TestWeightInfo {
 	fn request_core_count() -> Weight {
 		Weight::MAX
 	}
-	// TODO: Add real benchmarking functionality for each of these to
-	// benchmarking.rs, then uncomment here and in trait definition.
-	/*fn request_revenue_info_at() -> Weight {
+	fn request_revenue_info_at() -> Weight {
 		Weight::MAX
 	}
-	fn credit_account() -> Weight {
-		Weight::MAX
-	}*/
+	// TODO: Add real benchmarking functionality for each of these to
+	// benchmarking.rs, then uncomment here and in trait definition.
+	//fn credit_account() -> Weight {
+	//	Weight::MAX
+	//}
 	fn assign_core(_s: u32) -> Weight {
 		Weight::MAX
 	}
@@ -96,7 +97,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + assigner_coretime::Config {
+	pub trait Config:
+		frame_system::Config + assigner_coretime::Config + assigner_on_demand::Config
+	{
 		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -139,17 +142,24 @@ pub mod pallet {
 			configuration::Pallet::<T>::set_coretime_cores_unchecked(u32::from(count))
 		}
 
-		//// TODO Impl me!
-		////#[pallet::weight(<T as Config>::WeightInfo::request_revenue_info_at())]
-		//#[pallet::call_index(2)]
-		//pub fn request_revenue_info_at(
-		//	origin: OriginFor<T>,
-		//	_when: BlockNumberFor<T>,
-		//) -> DispatchResult {
-		//	// Ignore requests not coming from the broker parachain or root.
-		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-		//	Ok(())
-		//}
+		/// Requests that the Relay-chain send a notify_revenue message back at or soon
+		/// after Relay-chain block number when whose until parameter is equal to `when`.
+		///
+		/// The period in to the past which when is allowed to be may be limited;
+		/// if so the limit should be understood on a channel outside of this proposal.
+		/// In the case that the request cannot be serviced because when is too old a block
+		/// then a `notify_revenue`` message must still be returned, but its `revenue` field
+		/// may be `None``.
+		#[pallet::weight(<T as Config>::WeightInfo::request_revenue_info_at())]
+		#[pallet::call_index(2)]
+		pub fn request_revenue_info_at(
+			origin: OriginFor<T>,
+			when: BlockNumberFor<T>,
+		) -> DispatchResult {
+			// Ignore requests not coming from the broker parachain or root.
+			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+			assigner_on_demand::Pallet::<T>::do_request_revenue_info_at(when)
+		}
 
 		//// TODO Impl me!
 		////#[pallet::weight(<T as Config>::WeightInfo::credit_account())]
