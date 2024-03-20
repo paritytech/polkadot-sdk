@@ -1,6 +1,5 @@
 #!/bin/bash
 
-echo "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA: $1"
 if [ $1 == "auto-log" ]; then
     shift # ignore "auto-log"
     log_name=$1
