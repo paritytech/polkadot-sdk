@@ -21,20 +21,21 @@
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
 	pallet_prelude::DispatchError,
+	BoundedVec,
 };
 use sp_std::boxed::Box;
 use xcm::prelude::*;
 pub use xcm_executor::traits::QueryHandler;
 
 /// Umbrella trait for all Controller traits.
-pub trait Controller<Origin, RuntimeCall, Timeout>:
-	ExecuteController<Origin, RuntimeCall> + SendController<Origin> + QueryController<Origin, Timeout>
+pub trait Controller<Origin, RuntimeCall, Timeout, MaxXcmEncodedSize>:
+	ExecuteController<Origin, RuntimeCall, MaxXcmEncodedSize> + SendController<Origin, MaxXcmEncodedSize> + QueryController<Origin, Timeout>
 {
 }
 
-impl<T, Origin, RuntimeCall, Timeout> Controller<Origin, RuntimeCall, Timeout> for T where
-	T: ExecuteController<Origin, RuntimeCall>
-		+ SendController<Origin>
+impl<T, Origin, RuntimeCall, Timeout, MaxXcmEncodedSize> Controller<Origin, RuntimeCall, Timeout, MaxXcmEncodedSize> for T where
+	T: ExecuteController<Origin, RuntimeCall, MaxXcmEncodedSize>
+		+ SendController<Origin, MaxXcmEncodedSize>
 		+ QueryController<Origin, Timeout>
 {
 }
@@ -83,7 +84,7 @@ pub trait SendControllerWeightInfo {
 /// - Validating and Converting the origin to an interior location.
 /// - Handling versioning.
 /// - Calling the internal router, which implements [`SendXcm`].
-pub trait SendController<Origin> {
+pub trait SendController<Origin, MaxXcmEncodedSize> {
 	/// Weight information for SendController functions.
 	type WeightInfo: SendControllerWeightInfo;
 
@@ -96,8 +97,8 @@ pub trait SendController<Origin> {
 	/// - `msg`: the XCM to be sent, encoded.
 	fn send_blob(
 		origin: Origin,
-		dest: BoundedVec<u8, MaxXcmEncodedSize>,
-		message: Box<VersionedXcm<()>>,
+		dest: Box<VersionedLocation>,
+		message: BoundedVec<u8, MaxXcmEncodedSize>,
 	) -> Result<XcmHash, DispatchError>;
 }
 
@@ -135,37 +136,37 @@ pub trait QueryController<Origin, Timeout>: QueryHandler {
 	) -> Result<Self::QueryId, DispatchError>;
 }
 
-impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
+impl<Origin, RuntimeCall, MaxXcmEncodedSize> ExecuteController<Origin, RuntimeCall, MaxXcmEncodedSize> for () {
 	type WeightInfo = ();
-	fn execute(
+	fn execute_blob(
 		_origin: Origin,
-		_message: Box<VersionedXcm<RuntimeCall>>,
+		_message: BoundedVec<u8, MaxXcmEncodedSize>,
 		_max_weight: Weight,
 	) -> Result<Weight, DispatchErrorWithPostInfo> {
-		Err(DispatchError::Other("ExecuteController::execute not implemented")
+		Err(DispatchError::Other("ExecuteController::execute_blob not implemented")
 			.with_weight(Weight::zero()))
 	}
 }
 
 impl ExecuteControllerWeightInfo for () {
-	fn execute() -> Weight {
+	fn execute_blob() -> Weight {
 		Weight::zero()
 	}
 }
 
-impl<Origin> SendController<Origin> for () {
+impl<Origin, MaxXcmEncodedSize> SendController<Origin, MaxXcmEncodedSize> for () {
 	type WeightInfo = ();
-	fn send(
+	fn send_blob(
 		_origin: Origin,
 		_dest: Box<VersionedLocation>,
-		_message: Box<VersionedXcm<()>>,
+		_message: BoundedVec<u8, MaxXcmEncodedSize>,
 	) -> Result<XcmHash, DispatchError> {
 		Ok(Default::default())
 	}
 }
 
 impl SendControllerWeightInfo for () {
-	fn send() -> Weight {
+	fn send_blob() -> Weight {
 		Weight::zero()
 	}
 }

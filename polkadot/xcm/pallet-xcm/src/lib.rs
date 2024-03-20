@@ -172,6 +172,14 @@ impl WeightInfo for TestWeightInfo {
 	fn claim_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
+
+	fn execute_blob() -> Weight {
+		Weight::from_parts(100_000_000, 0)
+	}
+
+	fn send_blob() -> Weight {
+		Weight::from_parts(100_000_000, 0)
+	}
 }
 
 #[frame_support::pallet]
@@ -309,7 +317,7 @@ pub mod pallet {
 					log::error!(target: "xcm::execute_blob", "Unable to decode XCM, error: {:?}", error);
 					Error::<T>::UnableToDecode
 				})?;
-			Self::execute_base(origin_location, message, max_weight)
+			Self::execute_base(origin_location, Box::new(message), max_weight)
 		}
 	}
 
@@ -327,12 +335,12 @@ pub mod pallet {
 			message: BoundedVec<u8, MaxXcmEncodedSize>,
 		) -> Result<XcmHash, DispatchError> {
 			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
-			let message = VersionedXcm::<<T as Config>::RuntimeCall>::decode(&mut &message[..])
+			let message = VersionedXcm::<()>::decode(&mut &message[..])
 				.map_err(|error| {
 					log::error!(target: "xcm::send_blob", "Unable to decode XCM, error: {:?}", error);
 					Error::<T>::UnableToDecode
 				})?;
-			Self::send_base(origin_location, dest, message)
+			Self::send_base(origin_location, dest, Box::new(message))
 		}
 	}
 
@@ -902,7 +910,7 @@ pub mod pallet {
 				))
 			})()
 			.map_err(|e: DispatchError| {
-				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
+				e.with_weight(T::WeightInfo::execute())
 			})?;
 
 			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
@@ -911,7 +919,7 @@ pub mod pallet {
 				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
 				Error::<T>::LocalExecutionIncomplete.with_weight(
 					weight_used.saturating_add(
-						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
+						T::WeightInfo::execute(),
 					),
 				)
 			})?;
@@ -948,7 +956,7 @@ pub mod pallet {
 			message: Box<VersionedXcm<()>>,
 		) -> DispatchResult {
 			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
-			<Self as SendController<_>>::send_base(origin_location, dest, message)?;
+			Self::send_base(origin_location, dest, message)?;
 			Ok(())
 		}
 
@@ -1081,7 +1089,7 @@ pub mod pallet {
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let weight_used = Self::execute_base(origin, message, max_weight)?;
+			let weight_used = Self::execute_base(origin_location, message, max_weight)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
@@ -1495,7 +1503,7 @@ pub mod pallet {
 
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::execute_blob())]
-		fn execute_blob(
+		pub fn execute_blob(
 			origin: OriginFor<T>,
 			message: BoundedVec<u8, MaxXcmEncodedSize>,
 			max_weight: Weight,
@@ -1508,11 +1516,11 @@ pub mod pallet {
 
 		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::send_blob())]
-		fn send_blob(
+		pub fn send_blob(
 			origin: OriginFor<T>,
+			dest: Box<VersionedLocation>,
 			message: BoundedVec<u8, MaxXcmEncodedSize>,
-			max_weight: Weight,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			<Self as SendController<_, MaxXcmEncodedSize>>::send_blob(origin, dest, message)?;
 			Ok(())
 		}
