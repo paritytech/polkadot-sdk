@@ -166,6 +166,7 @@ mod tests {
 		let reserved = rpc_connections.reserve_token(1);
 		assert!(reserved.is_some());
 		assert_eq!(1, rpc_connections.data.lock().get(&1).unwrap().num_tokens);
+		assert_eq!(rpc_connections.data.lock().len(), 1);
 
 		let reserved = reserved.unwrap();
 		let registered = reserved.register("token1".to_string());
@@ -175,6 +176,7 @@ mod tests {
 
 		// Data is dropped.
 		assert!(rpc_connections.data.lock().get(&1).is_none());
+		assert!(rpc_connections.data.lock().is_empty());
 		// Checks can still happen.
 		assert!(!rpc_connections.contains_token(1, "token1"));
 	}
