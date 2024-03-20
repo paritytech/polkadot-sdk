@@ -14969,6 +14969,7 @@ dependencies = [
  "cumulus-ping",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
