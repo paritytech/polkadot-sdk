@@ -36,8 +36,7 @@ use frame_support::{
 	CloneNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use pallet_bridge_grandpa::{
-	CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper,
-	SubmitFinalityProofInfo,
+	CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper, SubmitFinalityProofInfo,
 };
 use pallet_bridge_messages::Config as MessagesConfig;
 use pallet_bridge_parachains::{
@@ -431,6 +430,7 @@ impl<T: RefundTransactionExtension, Context> TransactionExtension<CallOf<T::Runt
 	for RefundTransactionExtensionAdapter<T>
 where
 	CallOf<T::Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+		// 		+ IsSubType<CallableCallFor<UtilityPallet<T::Runtime>, T::Runtime>>
 		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
 	<CallOf<T::Runtime> as Dispatchable>::RuntimeOrigin:
 		AsSystemOriginSigner<AccountIdOf<T::Runtime>> + Clone,
@@ -1296,7 +1296,7 @@ pub(crate) mod tests {
 					is_free_execution_expected: false,
 				},
 				SubmitParachainHeadsInfo {
-					at_relay_block_number: 200,
+					at_relay_block: (200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 				},
@@ -1334,7 +1334,7 @@ pub(crate) mod tests {
 					is_free_execution_expected: false,
 				},
 				SubmitParachainHeadsInfo {
-					at_relay_block_number: 200,
+					at_relay_block: (200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 				},
@@ -1423,7 +1423,7 @@ pub(crate) mod tests {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::ParachainFinalityAndMsgs(
 				SubmitParachainHeadsInfo {
-					at_relay_block_number: 200,
+					at_relay_block: (200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 				},
@@ -1447,7 +1447,7 @@ pub(crate) mod tests {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::ParachainFinalityAndMsgs(
 				SubmitParachainHeadsInfo {
-					at_relay_block_number: 200,
+					at_relay_block: (200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 				},
@@ -1706,12 +1706,6 @@ pub(crate) mod tests {
 				))),
 				Ok(Default::default()),
 			);
-			assert_eq!(
-				run_validate_ignore_priority(all_finality_and_confirmation_batch_call_ex(
-					200, 200, 200
-				)),
-				Ok(Default::default()),
-			);
 		});
 	}
 
@@ -1831,12 +1825,6 @@ pub(crate) mod tests {
 				ignore_priority(run_validate(all_finality_and_confirmation_batch_call_ex(
 					200, 200, 200
 				))),
-				Ok(ValidTransaction::default()),
-			);
-			assert_eq!(
-				run_validate_ignore_priority(all_finality_and_confirmation_batch_call_ex(
-					200, 200, 200
-				)),
 				Ok(ValidTransaction::default()),
 			);
 		});

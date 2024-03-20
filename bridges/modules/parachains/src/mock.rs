@@ -175,7 +175,7 @@ impl pallet_bridge_grandpa::Config<pallet_bridge_grandpa::Instance1> for TestRun
 	type RuntimeEvent = RuntimeEvent;
 	type BridgedChain = TestBridgedChain;
 	type MaxFreeHeadersPerBlock = ConstU32<2>;
-	type FreeHeadersInterval = ConstU32<1_024>;
+	type FreeHeadersInterval = ConstU32<15>;
 	type HeadersToKeep = HeadersToKeep;
 	type WeightInfo = ();
 }
