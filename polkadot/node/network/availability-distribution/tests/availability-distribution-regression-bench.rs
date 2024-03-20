@@ -24,9 +24,7 @@
 //! - availability-store
 
 use polkadot_subsystem_bench::{
-	availability::{
-		benchmark_availability_write, prepare_data, prepare_test, TestDataAvailability,
-	},
+	availability::{benchmark_availability_write, prepare_availability_write_test, TestState},
 	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
 };
@@ -42,24 +40,14 @@ fn main() -> Result<(), String> {
 	config.n_validators = 500;
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
-	let (state, test_authorities, block_headers, availability_state, runtime_api) =
-		prepare_data(&config);
+	let state = TestState::new(&config);
 
 	println!("Benchmarking...");
 	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let mut env = prepare_test(
-				&config,
-				&state,
-				&test_authorities,
-				&block_headers,
-				&availability_state,
-				&runtime_api,
-				TestDataAvailability::Write,
-				false,
-			);
+			let mut env = prepare_availability_write_test(&state, false);
 			env.runtime().block_on(benchmark_availability_write(
 				"data_availability_write",
 				&mut env,

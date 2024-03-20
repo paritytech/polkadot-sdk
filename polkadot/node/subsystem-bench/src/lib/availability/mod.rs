@@ -146,228 +146,149 @@ fn build_overseer_for_availability_write(
 	(overseer, OverseerHandle::new(raw_handle))
 }
 
-pub fn prepare_data(
-	config: &TestConfiguration,
-) -> (TestState, TestAuthorities, HashMap<H256, Header>, NetworkAvailabilityState, MockRuntimeApi) {
-	let mut state = TestState::new(config);
-	// Generate test authorities.
-	let test_authorities = config.generate_authorities();
-	let mut candidate_hashes: HashMap<H256, Vec<CandidateReceipt>> = HashMap::new();
-
-	// Prepare per block candidates.
-	// Genesis block is always finalized, so we start at 1.
-	for block_num in 1..=config.num_blocks {
-		for _ in 0..config.n_cores {
-			candidate_hashes
-				.entry(Hash::repeat_byte(block_num as u8))
-				.or_default()
-				.push(state.next_candidate().expect("Cycle iterator"))
-		}
-
-		// First candidate is our backed candidate.
-		state.backed_candidates.push(
-			candidate_hashes
-				.get(&Hash::repeat_byte(block_num as u8))
-				.expect("just inserted above")
-				.first()
-				.expect("just inserted above")
-				.clone(),
-		);
-	}
-
-	let runtime_api = runtime_api::MockRuntimeApi::new(
-		config.clone(),
-		test_authorities.clone(),
-		candidate_hashes,
-		Default::default(),
-		Default::default(),
-		0,
+/// Takes a test configuration and uses it to create the `TestEnvironment`.
+pub fn prepare_availability_read_test(
+	state: &TestState,
+	test_authorities: &TestAuthorities,
+	options: &DataAvailabilityReadOptions,
+	with_prometheus_endpoint: bool,
+) -> TestEnvironment {
+	let (collation_req_receiver, _) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+	let (_, chunk_req_cfg) = IncomingRequest::<ChunkFetchingRequest>::get_config_receiver(
+		&ReqProtocolNames::new(GENESIS_HASH, None),
 	);
 
+	let dependencies = TestEnvironmentDependencies::default();
 	let availability_state = NetworkAvailabilityState {
 		candidate_hashes: state.candidate_hashes.clone(),
 		available_data: state.available_data.clone(),
 		chunks: state.chunks.clone(),
 	};
-
-	let block_headers = (1..=config.num_blocks)
-		.map(|block_number| {
-			(
-				Hash::repeat_byte(block_number as u8),
-				Header {
-					digest: Default::default(),
-					number: block_number as BlockNumber,
-					parent_hash: Default::default(),
-					extrinsics_root: Default::default(),
-					state_root: Default::default(),
-				},
-			)
-		})
-		.collect::<HashMap<_, _>>();
-
-	let block_infos: Vec<BlockInfo> = (1..=config.num_blocks)
-		.map(|block_num| {
-			let relay_block_hash = Hash::repeat_byte(block_num as u8);
-			new_block_import_info(relay_block_hash, block_num as BlockNumber)
-		})
-		.collect();
-
-	let chunk_fetching_requests = state
-		.backed_candidates()
-		.iter()
-		.map(|candidate| {
-			(0..config.n_validators)
-				.map(|index| {
-					ChunkFetchingRequest {
-						candidate_hash: candidate.hash(),
-						index: ValidatorIndex(index as u32),
-					}
-					.encode()
-				})
-				.collect::<Vec<_>>()
-		})
-		.collect::<Vec<_>>();
-
-	let signed_bitfields: HashMap<H256, Vec<VersionedValidationProtocol>> = block_infos
-		.iter()
-		.map(|block_info| {
-			let signing_context = SigningContext { session_index: 0, parent_hash: block_info.hash };
-			let messages = (0..config.n_validators)
-				.map(|index| {
-					let validator_public = test_authorities
-						.validator_public
-						.get(index)
-						.expect("All validator keys are known");
-
-					// Node has all the chunks in the world.
-					let payload: AvailabilityBitfield =
-						AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
-					let signed_bitfield = Signed::<AvailabilityBitfield>::sign(
-						&test_authorities.keyring.keystore(),
-						payload,
-						&signing_context,
-						ValidatorIndex(index as u32),
-						validator_public,
-					)
-					.ok()
-					.flatten()
-					.expect("should be signed");
-
-					peer_bitfield_message_v2(block_info.hash, signed_bitfield)
-				})
-				.collect::<Vec<_>>();
-
-			(block_info.hash, messages)
-		})
-		.collect();
-
-	state.block_infos = block_infos;
-	state.chunk_fetching_requests = chunk_fetching_requests;
-	state.signed_bitfields = signed_bitfields;
-
-	(state, test_authorities, block_headers, availability_state, runtime_api)
-}
-
-/// Takes a test configuration and uses it to create the `TestEnvironment`.
-pub fn prepare_test(
-	config: &TestConfiguration,
-	state: &TestState,
-	test_authorities: &TestAuthorities,
-	block_headers: &HashMap<H256, Header>,
-	availability_state: &NetworkAvailabilityState,
-	runtime_api: &MockRuntimeApi,
-	mode: TestDataAvailability,
-	with_prometheus_endpoint: bool,
-) -> TestEnvironment {
-	let dependencies = TestEnvironmentDependencies::default();
-
-	let (collation_req_receiver, _collation_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-
-	let (pov_req_receiver, _pov_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-
-	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-
 	let (network, network_interface, network_receiver) = new_network(
-		&config,
+		&state.config,
 		&dependencies,
 		&test_authorities,
 		vec![Arc::new(availability_state.clone())],
 	);
-
 	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
 		network.clone(),
 		network_interface.subsystem_sender(),
 		test_authorities.clone(),
 	);
-
 	let network_bridge_rx =
 		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
 
-	let (overseer, overseer_handle) = match &mode {
-		TestDataAvailability::Read(options) => {
-			let use_fast_path = options.fetch_from_backers;
-
-			let subsystem = if use_fast_path {
-				AvailabilityRecoverySubsystem::with_fast_path(
-					collation_req_receiver,
-					Metrics::try_register(&dependencies.registry).unwrap(),
-				)
-			} else {
-				AvailabilityRecoverySubsystem::with_chunks_only(
-					collation_req_receiver,
-					Metrics::try_register(&dependencies.registry).unwrap(),
-				)
-			};
-
-			// Use a mocked av-store.
-			let av_store = av_store::MockAvailabilityStore::new(
-				state.chunks.clone(),
-				state.candidate_hashes.clone(),
-			);
-
-			build_overseer_for_availability_read(
-				dependencies.task_manager.spawn_handle(),
-				runtime_api.clone(),
-				av_store,
-				(network_bridge_tx, network_bridge_rx),
-				subsystem,
-				&dependencies,
-			)
-		},
-		TestDataAvailability::Write => {
-			let availability_distribution = AvailabilityDistributionSubsystem::new(
-				test_authorities.keyring.keystore(),
-				IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
-				Metrics::try_register(&dependencies.registry).unwrap(),
-			);
-
-			let chain_api_state = ChainApiState { block_headers: block_headers.clone() };
-			let chain_api = MockChainApi::new(chain_api_state);
-			let bitfield_distribution =
-				BitfieldDistribution::new(Metrics::try_register(&dependencies.registry).unwrap());
-			build_overseer_for_availability_write(
-				dependencies.task_manager.spawn_handle(),
-				runtime_api.clone(),
-				(network_bridge_tx, network_bridge_rx),
-				availability_distribution,
-				chain_api,
-				new_av_store(&dependencies),
-				bitfield_distribution,
-				&dependencies,
-			)
-		},
+	let subsystem = if options.fetch_from_backers {
+		AvailabilityRecoverySubsystem::with_fast_path(
+			collation_req_receiver,
+			Metrics::try_register(&dependencies.registry).unwrap(),
+		)
+	} else {
+		AvailabilityRecoverySubsystem::with_chunks_only(
+			collation_req_receiver,
+			Metrics::try_register(&dependencies.registry).unwrap(),
+		)
 	};
+
+	// Use a mocked av-store.
+	let av_store =
+		av_store::MockAvailabilityStore::new(state.chunks.clone(), state.candidate_hashes.clone());
+	let runtime_api = runtime_api::MockRuntimeApi::new(
+		state.config.clone(),
+		state.test_authorities.clone(),
+		state.candidate_hashes_2.clone(),
+		Default::default(),
+		Default::default(),
+		0,
+	);
+
+	let (overseer, overseer_handle) = build_overseer_for_availability_read(
+		dependencies.task_manager.spawn_handle(),
+		runtime_api,
+		av_store,
+		(network_bridge_tx, network_bridge_rx),
+		subsystem,
+		&dependencies,
+	);
 
 	TestEnvironment::new(
 		dependencies,
-		config.clone(),
+		state.config.clone(),
 		network,
 		overseer,
 		overseer_handle,
 		test_authorities.clone(),
+		with_prometheus_endpoint,
+	)
+}
+
+/// Takes a test configuration and uses it to create the `TestEnvironment`.
+pub fn prepare_availability_write_test(
+	state: &TestState,
+	with_prometheus_endpoint: bool,
+) -> TestEnvironment {
+	let (pov_req_receiver, _) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+	let (chunk_req_receiver, chunk_req_cfg) =
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+
+	let dependencies = TestEnvironmentDependencies::default();
+	let availability_state = NetworkAvailabilityState {
+		candidate_hashes: state.candidate_hashes.clone(),
+		available_data: state.available_data.clone(),
+		chunks: state.chunks.clone(),
+	};
+	let (network, network_interface, network_receiver) = new_network(
+		&state.config,
+		&dependencies,
+		&state.test_authorities,
+		vec![Arc::new(availability_state.clone())],
+	);
+	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
+		network.clone(),
+		network_interface.subsystem_sender(),
+		state.test_authorities.clone(),
+	);
+	let network_bridge_rx =
+		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
+
+	let availability_distribution = AvailabilityDistributionSubsystem::new(
+		state.test_authorities.keyring.keystore(),
+		IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+		Metrics::try_register(&dependencies.registry).unwrap(),
+	);
+
+	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
+	let chain_api = MockChainApi::new(chain_api_state);
+	let bitfield_distribution =
+		BitfieldDistribution::new(Metrics::try_register(&dependencies.registry).unwrap());
+	let runtime_api = runtime_api::MockRuntimeApi::new(
+		state.config.clone(),
+		state.test_authorities.clone(),
+		state.candidate_hashes_2.clone(),
+		Default::default(),
+		Default::default(),
+		0,
+	);
+	let (overseer, overseer_handle) = build_overseer_for_availability_write(
+		dependencies.task_manager.spawn_handle(),
+		runtime_api,
+		(network_bridge_tx, network_bridge_rx),
+		availability_distribution,
+		chain_api,
+		new_av_store(&dependencies),
+		bitfield_distribution,
+		&dependencies,
+	);
+
+	TestEnvironment::new(
+		dependencies,
+		state.config.clone(),
+		network,
+		overseer,
+		overseer_handle,
+		state.test_authorities.clone(),
 		with_prometheus_endpoint,
 	)
 }
@@ -396,48 +317,15 @@ pub struct TestState {
 	block_infos: Vec<BlockInfo>,
 	chunk_fetching_requests: Vec<Vec<Vec<u8>>>,
 	signed_bitfields: HashMap<H256, Vec<VersionedValidationProtocol>>,
+	block_headers: HashMap<H256, Header>,
+	test_authorities: TestAuthorities,
+	candidate_hashes_2: HashMap<H256, Vec<CandidateReceipt>>,
 }
 
 impl TestState {
-	pub fn next_candidate(&mut self) -> Option<CandidateReceipt> {
-		let candidate = self.candidates.next();
-		let candidate_hash = candidate.as_ref().unwrap().hash();
-		gum::trace!(target: LOG_TARGET, "Next candidate selected {:?}", candidate_hash);
-		candidate
-	}
-
-	/// Generate candidates to be used in the test.
-	fn generate_candidates(&mut self) {
-		let count = self.config.n_cores * self.config.num_blocks;
-		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", count).bright_blue());
-
-		// Generate all candidates
-		self.candidates = (0..count)
-			.map(|index| {
-				let pov_size = self.pov_sizes.next().expect("This is a cycle; qed");
-				let candidate_index = *self
-					.pov_size_to_candidate
-					.get(&pov_size)
-					.expect("pov_size always exists; qed");
-				let mut candidate_receipt =
-					self.candidate_receipt_templates[candidate_index].clone();
-
-				// Make it unique.
-				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
-				// Store the new candidate in the state
-				self.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
-
-				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
-
-				candidate_receipt
-			})
-			.collect::<Vec<_>>()
-			.into_iter()
-			.cycle();
-	}
-
 	pub fn new(config: &TestConfiguration) -> Self {
 		let config = config.clone();
+		let test_authorities = config.generate_authorities();
 
 		let mut chunks = Vec::new();
 		let mut available_data = Vec::new();
@@ -478,6 +366,28 @@ impl TestState {
 			candidate_receipt_templates.push(candidate_receipt);
 		}
 
+		let block_infos: Vec<BlockInfo> = (1..=config.num_blocks)
+			.map(|block_num| {
+				let relay_block_hash = Hash::repeat_byte(block_num as u8);
+				new_block_import_info(relay_block_hash, block_num as BlockNumber)
+			})
+			.collect();
+
+		let block_headers = (1..=config.num_blocks)
+			.map(|block_number| {
+				(
+					Hash::repeat_byte(block_number as u8),
+					Header {
+						digest: Default::default(),
+						number: block_number as BlockNumber,
+						parent_hash: Default::default(),
+						extrinsics_root: Default::default(),
+						state_root: Default::default(),
+					},
+				)
+			})
+			.collect::<HashMap<_, _>>();
+
 		gum::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
 
 		let mut _self = Self {
@@ -489,18 +399,138 @@ impl TestState {
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
 			backed_candidates: Vec::new(),
-			config,
-			block_infos: Default::default(),
+			config: config.clone(),
+			block_infos,
 			chunk_fetching_requests: Default::default(),
 			signed_bitfields: Default::default(),
+			candidate_hashes_2: Default::default(),
+			block_headers,
+			test_authorities,
 		};
 
 		_self.generate_candidates();
+
+		let mut candidate_hashes_2: HashMap<H256, Vec<CandidateReceipt>> = HashMap::new();
+
+		// Prepare per block candidates.
+		// Genesis block is always finalized, so we start at 1.
+		for block_num in 1..=config.num_blocks {
+			for _ in 0..config.n_cores {
+				candidate_hashes_2
+					.entry(Hash::repeat_byte(block_num as u8))
+					.or_default()
+					.push(_self.next_candidate().expect("Cycle iterator"))
+			}
+
+			// First candidate is our backed candidate.
+			_self.backed_candidates.push(
+				candidate_hashes_2
+					.get(&Hash::repeat_byte(block_num as u8))
+					.expect("just inserted above")
+					.first()
+					.expect("just inserted above")
+					.clone(),
+			);
+		}
+
+		let chunk_fetching_requests = _self
+			.backed_candidates()
+			.iter()
+			.map(|candidate| {
+				(0..config.n_validators)
+					.map(|index| {
+						ChunkFetchingRequest {
+							candidate_hash: candidate.hash(),
+							index: ValidatorIndex(index as u32),
+						}
+						.encode()
+					})
+					.collect::<Vec<_>>()
+			})
+			.collect::<Vec<_>>();
+
+		let signed_bitfields: HashMap<H256, Vec<VersionedValidationProtocol>> = _self
+			.block_infos
+			.iter()
+			.map(|block_info| {
+				let signing_context =
+					SigningContext { session_index: 0, parent_hash: block_info.hash };
+				let messages = (0..config.n_validators)
+					.map(|index| {
+						let validator_public = _self
+							.test_authorities
+							.validator_public
+							.get(index)
+							.expect("All validator keys are known");
+
+						// Node has all the chunks in the world.
+						let payload: AvailabilityBitfield =
+							AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
+						let signed_bitfield = Signed::<AvailabilityBitfield>::sign(
+							&_self.test_authorities.keyring.keystore(),
+							payload,
+							&signing_context,
+							ValidatorIndex(index as u32),
+							validator_public,
+						)
+						.ok()
+						.flatten()
+						.expect("should be signed");
+
+						peer_bitfield_message_v2(block_info.hash, signed_bitfield)
+					})
+					.collect::<Vec<_>>();
+
+				(block_info.hash, messages)
+			})
+			.collect();
+
+		_self.chunk_fetching_requests = chunk_fetching_requests;
+		_self.signed_bitfields = signed_bitfields;
+		_self.candidate_hashes_2 = candidate_hashes_2;
+
 		_self
 	}
 
 	pub fn backed_candidates(&self) -> &Vec<CandidateReceipt> {
 		&self.backed_candidates
+	}
+
+	pub fn next_candidate(&mut self) -> Option<CandidateReceipt> {
+		let candidate = self.candidates.next();
+		let candidate_hash = candidate.as_ref().unwrap().hash();
+		gum::trace!(target: LOG_TARGET, "Next candidate selected {:?}", candidate_hash);
+		candidate
+	}
+
+	/// Generate candidates to be used in the test.
+	fn generate_candidates(&mut self) {
+		let count = self.config.n_cores * self.config.num_blocks;
+		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", count).bright_blue());
+
+		// Generate all candidates
+		self.candidates = (0..count)
+			.map(|index| {
+				let pov_size = self.pov_sizes.next().expect("This is a cycle; qed");
+				let candidate_index = *self
+					.pov_size_to_candidate
+					.get(&pov_size)
+					.expect("pov_size always exists; qed");
+				let mut candidate_receipt =
+					self.candidate_receipt_templates[candidate_index].clone();
+
+				// Make it unique.
+				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
+				// Store the new candidate in the state
+				self.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
+
+				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
+
+				candidate_receipt
+			})
+			.collect::<Vec<_>>()
+			.into_iter()
+			.cycle();
 	}
 }
 
