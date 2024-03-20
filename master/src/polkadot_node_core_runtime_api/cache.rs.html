@@ -725,6 +725,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -741,7 +760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>std::collections::btree_map::BTreeMap;
+</span><span class="kw">use </span>std::collections::{btree_map::BTreeMap, VecDeque};
 
 <span class="kw">use </span>schnellru::{ByLength, LruMap};
 <span class="kw">use </span>sp_consensus_babe::Epoch;
@@ -750,10 +769,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	async_backing, slashing,
 	vstaging::{<span class="self">self</span>, ApprovalVotingParams},
 	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 
 <span class="doccomment">/// For consistency we have the same capacity for all caches. We use 128 as we&#39;ll only need that
@@ -797,6 +817,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	async_backing_params: LruMap&lt;Hash, async_backing::AsyncBackingParams&gt;,
 	node_features: LruMap&lt;SessionIndex, vstaging::NodeFeatures&gt;,
 	approval_voting_params: LruMap&lt;SessionIndex, ApprovalVotingParams&gt;,
+	claim_queue: LruMap&lt;Hash, BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;&gt;,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>RequestResultCache {
@@ -832,6 +853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			claim_queue: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -1252,6 +1274,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 		<span class="self">self</span>.approval_voting_params.insert(session_index, value);
 	}
+
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>claim_queue(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		relay_parent: <span class="kw-2">&amp;</span>Hash,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;&gt; {
+		<span class="self">self</span>.claim_queue.get(relay_parent).map(|v| <span class="kw-2">&amp;*</span>v)
+	}
+
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cache_claim_queue(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		relay_parent: Hash,
+		value: BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;,
+	) {
+		<span class="self">self</span>.claim_queue.insert(relay_parent, value);
+	}
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>RequestResult {
@@ -1304,5 +1341,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ParaBackingState(Hash, ParaId, <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 	NodeFeatures(SessionIndex, vstaging::NodeFeatures),
+	ClaimQueue(Hash, BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;),
 }
 </code></pre></div></section></main></body></html>

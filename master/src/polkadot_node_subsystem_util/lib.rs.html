@@ -679,6 +679,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -711,7 +715,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
-<span class="kw">use </span>polkadot_primitives::{slashing, ExecutorParams};
+<span class="kw">use </span>polkadot_primitives::{slashing, CoreIndex, ExecutorParams};
 
 <span class="kw">pub use </span>overseer::{
 	gen::{OrchestraError <span class="kw">as </span>OverseerError, Timeout},
@@ -734,7 +738,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_application_crypto::AppCrypto;
 <span class="kw">use </span>sp_core::ByteArray;
 <span class="kw">use </span>sp_keystore::{Error <span class="kw">as </span>KeystoreError, KeystorePtr};
-<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>std::{
+	collections::{BTreeMap, VecDeque},
+	time::Duration,
+};
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>vstaging::get_disabled_validators_with_fallback;
 
@@ -985,6 +992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt;; SubmitReportDisputeLost;
 	<span class="kw">fn </span>request_disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt;; DisabledValidators;
 	<span class="kw">fn </span>request_async_backing_params() -&gt; AsyncBackingParams; AsyncBackingParams;
+	<span class="kw">fn </span>request_claim_queue() -&gt; BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;; ClaimQueue;
 }
 
 <span class="doccomment">/// Requests executor parameters from the runtime effective at given relay-parent. First obtains

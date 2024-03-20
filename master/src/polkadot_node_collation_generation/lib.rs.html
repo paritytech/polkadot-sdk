@@ -747,6 +747,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
 <a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -787,21 +841,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SubmitCollationParams,
 };
 <span class="kw">use </span>polkadot_node_subsystem::{
-	messages::{CollationGenerationMessage, CollatorProtocolMessage},
+	messages::{CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiRequest},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::{
-	request_async_backing_params, request_availability_cores, request_persisted_validation_data,
-	request_validation_code, request_validation_code_hash, request_validators,
+	has_required_runtime, request_async_backing_params, request_availability_cores,
+	request_claim_queue, request_persisted_validation_data, request_validation_code,
+	request_validation_code_hash, request_validators,
 };
 <span class="kw">use </span>polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
-	CollatorPair, CoreState, Hash, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption, PersistedValidationData,
-	ValidationCodeHash,
+	CollatorPair, CoreIndex, CoreState, Hash, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };
 <span class="kw">use </span>sp_core::crypto::Pair;
-<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::{
+	collections::{BTreeMap, VecDeque},
+	sync::Arc,
+};
 
 <span class="kw">mod </span>error;
 
@@ -972,6 +1030,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>availability_cores = availability_cores<span class="question-mark">??</span>;
 		<span class="kw">let </span>n_validators = validators<span class="question-mark">??</span>.len();
 		<span class="kw">let </span>async_backing_params = async_backing_params<span class="question-mark">?</span>.ok();
+		<span class="kw">let </span>maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent).<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="kw">for </span>(core_idx, core) <span class="kw">in </span>availability_cores.into_iter().enumerate() {
 			<span class="kw">let </span>_availability_core_timer = metrics.time_new_activations_availability_core();
@@ -988,11 +1047,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						// TODO [now]: this assumes that next up == current.
 						// in practice we should only set `OccupiedCoreAssumption::Included`
 						// when the candidate occupying the core is also of the same para.
-						</span><span class="kw">if let </span><span class="prelude-val">Some</span>(scheduled) = occupied_core.next_up_on_available {
-							(scheduled, OccupiedCoreAssumption::Included)
-						} <span class="kw">else </span>{
-							<span class="kw">continue
-						</span>}
+						</span><span class="kw">let </span>res = <span class="kw">match </span>maybe_claim_queue {
+							<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>claim_queue) =&gt; {
+								<span class="comment">// read what&#39;s in the claim queue for this core
+								</span>fetch_next_scheduled_on_core(
+									claim_queue,
+									CoreIndex(core_idx <span class="kw">as </span>u32),
+								)
+							},
+							<span class="prelude-val">None </span>=&gt; {
+								<span class="comment">// Runtime doesn&#39;t support claim queue runtime api. Fallback to
+								// `next_up_on_available`
+								</span>occupied_core.next_up_on_available
+							},
+						}
+						.map(|scheduled| (scheduled, OccupiedCoreAssumption::Included));
+
+						<span class="kw">match </span>res {
+							<span class="prelude-val">Some</span>(res) =&gt; res,
+							<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+						}
 					},
 					<span class="kw">_ </span>=&gt; {
 						<span class="macro">gum::trace!</span>(
@@ -1348,5 +1422,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, <span class="kw-2">&amp;</span>available_data)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(polkadot_erasure_coding::branches(<span class="kw-2">&amp;</span>chunks).root())
+}
+
+<span class="comment">// Checks if the runtime supports `request_claim_queue` and executes it. Returns `Ok(None)`
+// otherwise. Any [`RuntimeApiError`]s are bubbled up to the caller.
+</span><span class="kw">async fn </span>fetch_claim_queue(
+	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::CollationGenerationSenderTrait,
+	relay_parent: Hash,
+) -&gt; <span class="kw">crate</span>::error::Result&lt;<span class="prelude-ty">Option</span>&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;&gt;&gt; {
+	<span class="kw">if </span>has_required_runtime(
+		sender,
+		relay_parent,
+		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+	)
+	.<span class="kw">await
+	</span>{
+		<span class="kw">let </span>res = request_claim_queue(relay_parent, sender).<span class="kw">await</span>.<span class="kw">await</span><span class="question-mark">??</span>;
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(res))
+	} <span class="kw">else </span>{
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Runtime doesn&#39;t support `request_claim_queue`&quot;</span>);
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+	}
+}
+
+<span class="comment">// Returns the next scheduled `ParaId` for a core in the claim queue, wrapped in `ScheduledCore`.
+// This function is supposed to be used in `handle_new_activations` hence the return type.
+</span><span class="kw">fn </span>fetch_next_scheduled_on_core(
+	claim_queue: <span class="kw-2">&amp;</span>BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;,
+	core_idx: CoreIndex,
+) -&gt; <span class="prelude-ty">Option</span>&lt;ScheduledCore&gt; {
+	claim_queue
+		.get(<span class="kw-2">&amp;</span>core_idx)<span class="question-mark">?
+		</span>.front()
+		.cloned()
+		.map(|para_id| ScheduledCore { para_id, collator: <span class="prelude-val">None </span>})
 }
 </code></pre></div></section></main></body></html>

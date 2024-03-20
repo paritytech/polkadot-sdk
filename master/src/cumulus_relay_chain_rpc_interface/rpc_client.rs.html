@@ -862,6 +862,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#715" id="715">715</a>
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -888,6 +897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>serde::de::DeserializeOwned;
 <span class="kw">use </span>serde_json::Value <span class="kw">as </span>JsonValue;
+<span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>tokio::sync::mpsc::Sender <span class="kw">as </span>TokioSender;
 
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
@@ -898,10 +908,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		slashing,
 		vstaging::{ApprovalVotingParams, NodeFeatures},
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
-		Hash <span class="kw">as </span>RelayHash, Header <span class="kw">as </span>RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
-		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+		GroupRotationInfo, Hash <span class="kw">as </span>RelayHash, Header <span class="kw">as </span>RelayHeader, InboundHrmpMessage,
+		OccupiedCoreAssumption, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+		ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -1508,6 +1518,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_id: ParaId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BackingState&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_para_backing_state&quot;</span>, at, <span class="prelude-val">Some</span>(para_id))
+			.<span class="kw">await
+	</span>}
+
+	<span class="kw">pub async fn </span>parachain_host_claim_queue(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		at: RelayHash,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;, RelayChainError&gt; {
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_claim_queue&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 

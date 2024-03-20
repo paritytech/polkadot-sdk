@@ -800,6 +800,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -823,10 +835,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	slashing,
 	vstaging::{<span class="self">self</span>, ApprovalVotingParams},
 	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Header, Id, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 <span class="kw">use </span>sc_client_api::{AuxStore, HeaderBackend};
 <span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -835,7 +848,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_blockchain::{BlockStatus, Info};
 <span class="kw">use </span>sp_consensus_babe::{BabeApi, Epoch};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor};
-<span class="kw">use </span>std::{collections::BTreeMap, sync::Arc};
+<span class="kw">use </span>std::{
+	collections::{BTreeMap, VecDeque},
+	sync::Arc,
+};
 
 <span class="doccomment">/// Offers header utilities.
 ///
@@ -1131,6 +1147,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: Hash,
 		session_index: SessionIndex,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ApprovalVotingParams, ApiError&gt;;
+
+	<span class="comment">// == v11: Claim queue ==
+	</span><span class="doccomment">/// Fetch the `ClaimQueue` from scheduler pallet
+	</span><span class="kw">async fn </span>claim_queue(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;Id&gt;&gt;, ApiError&gt;;
 }
 
 <span class="doccomment">/// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -1395,6 +1415,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_session_index: SessionIndex,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ApprovalVotingParams, ApiError&gt; {
 		<span class="self">self</span>.client.runtime_api().approval_voting_params(at)
+	}
+
+	<span class="kw">async fn </span>claim_queue(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;Id&gt;&gt;, ApiError&gt; {
+		<span class="self">self</span>.client.runtime_api().claim_queue(at)
 	}
 }
 
