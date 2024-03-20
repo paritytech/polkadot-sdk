@@ -143,14 +143,15 @@ impl Contains<Location> for OnlyParachains {
 	}
 }
 
-pub struct CollectivesOrFellows;
-impl Contains<Location> for CollectivesOrFellows {
+pub struct SystemOrFellows<ParaId>(PhantomData<ParaId>);
+impl<ParaId: IsSystem + From<u32>> Contains<Location> for SystemOrFellows<ParaId> {
 	fn contains(location: &Location) -> bool {
-		matches!(
+		let is_system = IsChildSystemParachain::contains(location);
+		let is_fellows = matches!(
 			location.unpack(),
-			(0, [Parachain(COLLECTIVES_ID)]) |
-				(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
-		)
+			(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+		);
+		is_system || is_fellows
 	}
 }
 
@@ -174,7 +175,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 			// Subscriptions for version tracking are OK.
 			AllowSubscriptionsFrom<OnlyParachains>,
 			// Messages coming from system parachains need not pay for execution.
-			AllowExplicitUnpaidExecutionFrom<IsChildSystemParachain<ParaId>>,
+			AllowExplicitUnpaidExecutionFrom<SystemOrFellows<ParaId>>,
 		),
 		UniversalLocation,
 		ConstU32<8>,
