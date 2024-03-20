@@ -480,7 +480,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		Ok(())
 	}
 
-	/// Call this before transfering control to the runtime.
+	/// Call this before transferring control to the runtime.
 	///
 	/// This protects all existing transactions from being removed by the runtime.
 	/// Calling this while already inside the runtime will return an error.
@@ -809,7 +809,7 @@ pub struct OverlayedExtensions<'a> {
 
 #[cfg(feature = "std")]
 impl<'a> OverlayedExtensions<'a> {
-	/// Create a new instance of overalyed extensions from the given extensions.
+	/// Create a new instance of overlaid extensions from the given extensions.
 	pub fn new(extensions: &'a mut Extensions) -> Self {
 		Self {
 			extensions: extensions

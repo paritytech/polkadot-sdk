@@ -31,7 +31,7 @@ pub struct TestMessageInfo {
 	pub msg: protocol_v3::ApprovalDistributionMessage,
 	/// The list of peers that would sends this message in a real topology.
 	/// It includes both the peers that would send the message because of the topology
-	/// or because of randomly chosing so.
+	/// or because of randomly choosing so.
 	pub sent_by: Vec<ValidatorIndex>,
 	/// The tranche at which this message should be sent.
 	pub tranche: u32,
@@ -90,7 +90,7 @@ impl MessagesBundle {
 
 	/// Tells if the bundle is needed for sending.
 	/// We either send it because we need more assignments and approvals to approve the candidates
-	/// or because we configured the test to send messages untill a given tranche.
+	/// or because we configured the test to send messages until a given tranche.
 	pub fn should_send(
 		&self,
 		candidates_test_data: &HashMap<(Hash, CandidateIndex), CandidateTestData>,

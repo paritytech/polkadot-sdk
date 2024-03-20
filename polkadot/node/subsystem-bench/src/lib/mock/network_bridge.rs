@@ -42,7 +42,7 @@ pub struct MockNetworkBridgeTx {
 	network: NetworkEmulatorHandle,
 	/// A channel to the network interface,
 	to_network_interface: UnboundedSender<NetworkMessage>,
-	/// Test authorithies
+	/// Test authorities
 	test_authorithies: TestAuthorities,
 }
 
@@ -125,7 +125,7 @@ impl MockNetworkBridgeTx {
 						}
 					},
 					NetworkBridgeTxMessage::ReportPeer(_) => {
-						// ingore rep changes
+						// ignore rep changes
 					},
 					NetworkBridgeTxMessage::SendValidationMessage(peers, message) => {
 						for peer in peers {

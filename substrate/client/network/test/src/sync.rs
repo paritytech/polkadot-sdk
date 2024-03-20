@@ -749,7 +749,7 @@ async fn sync_blocks_when_block_announce_validator_says_it_is_new_best() {
 	}
 }
 
-/// Waits for some time until the validation is successfull.
+/// Waits for some time until the validation is successful.
 struct DeferredBlockAnnounceValidator;
 
 impl BlockAnnounceValidator<Block> for DeferredBlockAnnounceValidator {

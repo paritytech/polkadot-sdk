@@ -342,7 +342,7 @@ impl<B: BlockT> StateStrategy<B> {
 		std::mem::take(&mut self.actions).into_iter()
 	}
 
-	/// Check if state sync has succeded.
+	/// Check if state sync has succeeded.
 	#[must_use]
 	pub fn is_succeded(&self) -> bool {
 		self.succeded

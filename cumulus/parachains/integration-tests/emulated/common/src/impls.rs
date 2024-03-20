@@ -265,7 +265,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
-							// XCM is successfully received and proccessed
+							// XCM is successfully received and processed
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								origin: $crate::impls::AggregateMessageOrigin::Ump($crate::impls::UmpQueueId::Para(id)),
 								weight_used,
@@ -343,7 +343,7 @@ macro_rules! impl_hrmp_channels_helpers_for_relay_chain {
 							<Self as Chain>::Runtime,
 						>::contains_key(&channel_id);
 
-						// Check the HRMP channel has been successfully registrered
+						// Check the HRMP channel has been successfully registered
 						assert!(hrmp_channel_exist)
 					});
 				}

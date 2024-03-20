@@ -76,7 +76,7 @@ pub struct DisputeSender<M> {
 	/// Value is the hash that was used for the query.
 	active_sessions: HashMap<SessionIndex, Hash>,
 
-	/// All ongoing dispute sendings this subsystem is aware of.
+	/// All ongoing dispute sending this subsystem is aware of.
 	///
 	/// Using an `IndexMap` so items can be iterated in the order of insertion.
 	disputes: IndexMap<CandidateHash, SendTask<M>>,
@@ -105,7 +105,7 @@ struct WaitForActiveDisputesState {
 
 #[overseer::contextbounds(DisputeDistribution, prefix = self::overseer)]
 impl<M: 'static + Send + Sync> DisputeSender<M> {
-	/// Create a new `DisputeSender` which can be used to start dispute sendings.
+	/// Create a new `DisputeSender` which can be used to start dispute sending.
 	pub fn new(tx: NestingSender<M, DisputeSenderMessage>, metrics: Metrics) -> Self {
 		Self {
 			active_heads: Vec::new(),

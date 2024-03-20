@@ -1497,7 +1497,7 @@ mod tests {
 		}
 		overlay.start_transaction();
 
-		// Then only initlaization item and second (committed) item should persist.
+		// Then only initialization item and second (committed) item should persist.
 		{
 			let ext = Ext::new(&mut overlay, backend, None);
 			assert_eq!(
@@ -1866,7 +1866,7 @@ mod tests {
 						// a inner hashable node
 						(&b"k"[..], Some(&long_vec[..])),
 						// need to ensure this is not an inline node
-						// otherwhise we do not know what is accessed when
+						// otherwise we do not know what is accessed when
 						// storing proof.
 						(&b"key1"[..], Some(&vec![5u8; 32][..])),
 						(&b"key2"[..], Some(&b"val3"[..])),

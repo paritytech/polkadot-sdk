@@ -1976,7 +1976,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Transfer some `amount` from the main account into the payouts account and reduce the Pot
 	/// by this amount.
 	fn reserve_payout(amount: BalanceOf<T, I>) {
-		// Tramsfer payout from the Pot into the payouts account.
+		// Transfer payout from the Pot into the payouts account.
 		Pot::<T, I>::mutate(|pot| pot.saturating_reduce(amount));
 
 		// this should never fail since we ensure we can afford the payouts in a previous
@@ -1988,7 +1988,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Transfer some `amount` from the main account into the payouts account and increase the Pot
 	/// by this amount.
 	fn unreserve_payout(amount: BalanceOf<T, I>) {
-		// Tramsfer payout from the Pot into the payouts account.
+		// Transfer payout from the Pot into the payouts account.
 		Pot::<T, I>::mutate(|pot| pot.saturating_accrue(amount));
 
 		// this should never fail since we ensure we can afford the payouts in a previous

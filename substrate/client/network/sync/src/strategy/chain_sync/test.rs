@@ -189,7 +189,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	assert_eq!(sync.peers.get(&peer_id3).unwrap().common_number, 50);
 }
 
-/// Send a block annoucnement for the given `header`.
+/// Send a block announcement for the given `header`.
 fn send_block_announce(header: Header, peer_id: PeerId, sync: &mut ChainSync<Block, TestClient>) {
 	let announce = BlockAnnounce {
 		header: header.clone(),
@@ -472,7 +472,7 @@ fn can_sync_huge_fork() {
 		let actions = sync.take_actions().collect::<Vec<_>>();
 
 		request = if actions.is_empty() {
-			// We found the ancenstor
+			// We found the ancestor
 			break
 		} else {
 			assert_eq!(actions.len(), 1);
@@ -607,7 +607,7 @@ fn syncs_fork_without_duplicate_requests() {
 		let actions = sync.take_actions().collect::<Vec<_>>();
 
 		request = if actions.is_empty() {
-			// We found the ancenstor
+			// We found the ancestor
 			break
 		} else {
 			assert_eq!(actions.len(), 1);

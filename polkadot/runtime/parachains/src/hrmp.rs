@@ -790,7 +790,7 @@ pub mod pallet {
 							.ok_or(ArithmeticError::Underflow)?;
 						T::Currency::unreserve(
 							&channel_id.sender.into_account_truncating(),
-							// The difference should always be convertable into `Balance`, but be
+							// The difference should always be convertible into `Balance`, but be
 							// paranoid and do nothing in case.
 							amount.try_into().unwrap_or(Zero::zero()),
 						);

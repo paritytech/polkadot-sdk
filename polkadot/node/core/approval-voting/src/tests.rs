@@ -3154,7 +3154,7 @@ where
 // starting configuration. The relevant ticks (all scheduled wakeups) are printed after no further
 // ticks are scheduled. To create a valid test, a prefix of the relevant ticks should be included
 // in the final test configuration, ending at the tick with the desired inputs to
-// should_trigger_assignemnt.
+// should_trigger_assignment.
 async fn step_until_done(clock: &MockClock) {
 	let mut relevant_ticks = Vec::new();
 	loop {
@@ -4319,7 +4319,7 @@ fn subsystem_relaunches_approval_work_on_restart() {
 		virtual_overseer
 	});
 
-	// Restart a new approval voting subsystem with the same database and major syncing true untill
+	// Restart a new approval voting subsystem with the same database and major syncing true until
 	// the last leaf.
 	let config = HarnessConfigBuilder::default().backend(store_clone).major_syncing(true).build();
 

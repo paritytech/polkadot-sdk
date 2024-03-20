@@ -234,7 +234,7 @@ pub mod pallet {
 	/// Epoch X first N-th ticket has key (X mod 2, N)
 	///
 	/// Note that the ticket's index doesn't directly correspond to the slot index within the epoch.
-	/// The assigment is computed dynamically using an *outside-in* strategy.
+	/// The assignment is computed dynamically using an *outside-in* strategy.
 	///
 	/// Be aware that entries within this map are never removed, only overwritten.
 	/// Last element index should be fetched from the [`TicketsMeta`] value.
@@ -465,7 +465,7 @@ pub mod pallet {
 
 		/// Plan an epoch configuration change.
 		///
-		/// The epoch configuration change is recorded and will be announced at the begining
+		/// The epoch configuration change is recorded and will be announced at the beginning
 		/// of the next epoch together with next epoch authorities information.
 		/// In other words, the configuration will be enacted one epoch later.
 		///

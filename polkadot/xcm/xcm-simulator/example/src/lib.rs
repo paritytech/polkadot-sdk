@@ -424,7 +424,7 @@ mod tests {
 
 	/// Scenario:
 	/// The relay-chain transfers an NFT into a parachain's sovereign account, who then mints a
-	/// trustless-backed-derivated locally.
+	/// trustless-backed-derived locally.
 	///
 	/// Asserts that the parachain accounts are updated as expected.
 	#[test]

@@ -53,7 +53,7 @@ pub type HostFunctions = (
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
-/// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
+/// A specialized `WasmExecutor` intended to use across substrate node. It provides all required
 /// HostFunctions.
 pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
 

@@ -62,7 +62,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(90);
 
 // Re following constants - we are using the same values at Cumulus parachains. They are limited
 // by the maximal transaction weight/size. Since block limits at Bulletin Chain are larger than
-// at the Cumulus Bridgeg Hubs, we could reuse the same values.
+// at the Cumulus Bridge Hubs, we could reuse the same values.
 
 /// Maximal number of unrewarded relayer entries at inbound lane for Cumulus-based parachains.
 pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 1024;

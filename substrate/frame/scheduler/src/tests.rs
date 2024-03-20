@@ -2980,7 +2980,7 @@ fn reschedule_named_last_task_removes_agenda() {
 	});
 }
 
-/// Ensures that an unvailable call sends an event.
+/// Ensures that an unavailable call sends an event.
 #[test]
 fn unavailable_call_is_detected() {
 	use frame_support::traits::schedule::v3::Named;

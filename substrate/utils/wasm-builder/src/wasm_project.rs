@@ -695,7 +695,7 @@ impl BuildConfiguration {
 	/// "production". It would only contain the builtin profile where the custom profile
 	/// inherits from. This is why we inspect the build path to learn which profile is used.
 	///
-	/// When not overriden by a env variable we always default to building wasm with the `Release`
+	/// When not overridden by a env variable we always default to building wasm with the `Release`
 	/// profile even when the main build uses the debug build. This is because wasm built with the
 	/// `Debug` profile is too slow for normal development activities and almost never intended.
 	///
@@ -704,7 +704,7 @@ impl BuildConfiguration {
 	///
 	/// # Note
 	///
-	/// Can be overriden by setting [`crate::WASM_BUILD_TYPE_ENV`].
+	/// Can be overridden by setting [`crate::WASM_BUILD_TYPE_ENV`].
 	fn detect(target: RuntimeTarget, wasm_project: &Path) -> Self {
 		let (name, overriden) = if let Ok(name) = env::var(crate::WASM_BUILD_TYPE_ENV) {
 			(name, true)
@@ -732,13 +732,13 @@ impl BuildConfiguration {
 		};
 		let outer_build_profile = Profile::iter().find(|p| p.directory() == name);
 		let blob_build_profile = match (outer_build_profile.clone(), overriden) {
-			// When not overriden by a env variable we default to using the `Release` profile
+			// When not overridden by a env variable we default to using the `Release` profile
 			// for the wasm build even when the main build uses the debug build. This
 			// is because the `Debug` profile is too slow for normal development activities.
 			(Some(Profile::Debug), false) => Profile::Release,
-			// For any other profile or when overriden we take it at face value.
+			// For any other profile or when overridden we take it at face value.
 			(Some(profile), _) => profile,
-			// For non overriden unknown profiles we fall back to `Release`.
+			// For non overridden unknown profiles we fall back to `Release`.
 			// This allows us to continue building when a custom profile is used for the
 			// main builds cargo. When explicitly passing a profile via env variable we are
 			// not doing a fallback.

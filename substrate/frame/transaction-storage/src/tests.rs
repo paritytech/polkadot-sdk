@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for transction-storage pallet.
+//! Tests for transaction-storage pallet.
 
 use super::{Pallet as TransactionStorage, *};
 use crate::mock::*;
