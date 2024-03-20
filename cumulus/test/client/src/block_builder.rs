@@ -91,8 +91,10 @@ fn init_block_builder(
 	mut relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
 ) -> (BlockBuilder<'_, Block, Client>, PersistedValidationData<PHash, PBlockNumber>, Slot) {
+	// This slot will be used for both relay chain and parachain
 	let slot: Slot = (timestamp / cumulus_test_runtime::SLOT_DURATION).into();
 	relay_sproof_builder.current_slot = slot;
+
 	let aura_pre_digest = Digest {
 		logs: vec![DigestItem::PreRuntime(sp_consensus_aura::AURA_ENGINE_ID, slot.encode())],
 	};
