@@ -17,6 +17,7 @@
 //! Test usage implementation
 
 use colored::Colorize;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -37,10 +38,16 @@ impl std::fmt::Display for BenchmarkUsage {
 			self.network_usage
 				.iter()
 				.map(|v| v.to_string())
+				.sorted()
 				.collect::<Vec<String>>()
 				.join("\n"),
 			format!("{:<32}{:>12}{:>12}", "CPU usage, seconds", "total", "per block").blue(),
-			self.cpu_usage.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n")
+			self.cpu_usage
+				.iter()
+				.map(|v| v.to_string())
+				.sorted()
+				.collect::<Vec<String>>()
+				.join("\n")
 		)
 	}
 }

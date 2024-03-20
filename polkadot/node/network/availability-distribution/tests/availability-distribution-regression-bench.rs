@@ -30,6 +30,9 @@ use polkadot_subsystem_bench::{
 	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
 };
+use std::io::Write;
+
+const BENCH_COUNT: usize = 50;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
@@ -50,8 +53,11 @@ fn main() -> Result<(), String> {
 		runtime_api,
 	) = prepare_data(&config);
 
-	let usages: Vec<BenchmarkUsage> = (0..10)
-		.map(|_| {
+	println!("Benchmarking...");
+	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
+		.map(|n| {
+			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
+			std::io::stdout().flush().unwrap();
 			let mut env = prepare_test(
 				&config,
 				&state,
@@ -72,17 +78,19 @@ fn main() -> Result<(), String> {
 			))
 		})
 		.collect();
-	let usage = BenchmarkUsage::average(&usages);
-	println!("{}", usage);
+	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
+	let average_usage = BenchmarkUsage::average(&usages);
+	println!("{}", average_usage);
 
-	messages.extend(usage.check_network_usage(&[
+	messages.extend(average_usage.check_network_usage(&[
 		("Received from peers", 433.3, 0.05),
 		("Sent to peers", 18480.0, 0.05),
 	]));
-	messages.extend(usage.check_cpu_usage(&[
-		("availability-distribution", 0.012, 0.05),
-		("bitfield-distribution", 0.057, 0.05),
-		("availability-store", 0.157, 0.05),
+
+	messages.extend(average_usage.check_cpu_usage(&[
+		("availability-distribution", 0.011, 0.05),
+		("bitfield-distribution", 0.050, 0.05),
+		("availability-store", 0.159, 0.05),
 	]));
 
 	if messages.is_empty() {
