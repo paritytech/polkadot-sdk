@@ -820,7 +820,7 @@ fn restore_limit_monitor() {
 		.collect::<Vec<_>>();
 	let id10 = blocks1[0].header.hash();
 
-	for _ in (0..LEVEL_LIMIT) {
+	for _ in 0..LEVEL_LIMIT {
 		build_and_import_block_ext(
 			&client,
 			BlockOrigin::Own,
