@@ -60,7 +60,7 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Backend of the chain.
 	backend: Arc<BE>,
 	/// Subscriptions handle.
-	sub_handle: Arc<SubscriptionManagement<Block, BE>>,
+	sub_handle: SubscriptionManagement<Block, BE>,
 	/// Subscription was started with the runtime updates flag.
 	with_runtime: bool,
 	/// Subscription ID.
@@ -74,7 +74,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 	pub fn new(
 		client: Arc<Client>,
 		backend: Arc<BE>,
-		sub_handle: Arc<SubscriptionManagement<Block, BE>>,
+		sub_handle: SubscriptionManagement<Block, BE>,
 		with_runtime: bool,
 		sub_id: String,
 	) -> Self {

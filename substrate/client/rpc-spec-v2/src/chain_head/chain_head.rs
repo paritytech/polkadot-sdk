@@ -30,7 +30,7 @@ use crate::{
 		event::{FollowEvent, MethodResponse, OperationError},
 		subscription::{SubscriptionManagement, SubscriptionManagementError},
 	},
-	common::{connections::RpcConnections, events::StorageQuery},
+	common::events::StorageQuery,
 	hex_string, SubscriptionTaskExecutor,
 };
 use codec::Encode;
@@ -112,15 +112,10 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 	/// Keep track of the pinned blocks for each subscription.
-	subscriptions: Arc<SubscriptionManagement<Block, BE>>,
+	subscriptions: SubscriptionManagement<Block, BE>,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
-	/// Ensures that chainHead methods can be called from a single connection context.
-	///
-	/// For example, `chainHead_storage` cannot be called with a subscription ID that
-	/// was obtained from a different connection.
-	rpc_connections: RpcConnections,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
 }
@@ -137,14 +132,14 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 			client,
 			backend: backend.clone(),
 			executor,
-			subscriptions: Arc::new(SubscriptionManagement::new(
+			subscriptions: SubscriptionManagement::new(
 				config.global_max_pinned_blocks,
 				config.subscription_max_pinned_duration,
 				config.subscription_max_ongoing_operations,
+				config.max_follow_subscriptions_per_connection,
 				backend,
-			)),
+			),
 			operation_max_storage_items: config.operation_max_storage_items,
-			rpc_connections: RpcConnections::new(config.max_follow_subscriptions_per_connection),
 			_phantom: PhantomData,
 		}
 	}
@@ -192,13 +187,15 @@ where
 		let subscriptions = self.subscriptions.clone();
 		let backend = self.backend.clone();
 		let client = self.client.clone();
-		let rpc_connections = self.rpc_connections.clone();
 
 		let fut = async move {
 			// Ensure the current connection ID has enough space to accept a new subscription.
 			let connection_id = pending.connection_id();
-
-			let Some(reserved_token) = rpc_connections.reserve_token(connection_id) else {
+			// The RAII `reserved_subscription` will clean up resources on drop:
+			// - free the reserved subscription for the connection ID.
+			// - remove the subscription ID from the subscription management.
+			let Some(mut reserved_subscription) = subscriptions.reserve_subscription(connection_id)
+			else {
 				pending.reject(ChainHeadRpcError::ReachedLimits).await;
 				return
 			};
@@ -207,7 +204,8 @@ where
 
 			let sub_id = read_subscription_id_as_string(&sink);
 			// Keep track of the subscription.
-			let Some(sub_data) = subscriptions.insert_subscription(sub_id.clone(), with_runtime)
+			let Some(sub_data) =
+				reserved_subscription.insert_subscription(sub_id.clone(), with_runtime)
 			else {
 				// Inserting the subscription can only fail if the JsonRPSee
 				// generated a duplicate subscription ID.
@@ -218,19 +216,16 @@ where
 			};
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription accepted", sub_id);
 
-			let _registered_token = reserved_token.register(sub_id.clone());
-
 			let mut chain_head_follow = ChainHeadFollower::new(
 				client,
 				backend,
-				subscriptions.clone(),
+				subscriptions,
 				with_runtime,
 				sub_id.clone(),
 			);
 
 			chain_head_follow.generate_events(sink, sub_data).await;
 
-			subscriptions.remove_subscription(&sub_id);
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription removed", sub_id);
 		};
 
@@ -244,8 +239,8 @@ where
 		hash: Block::Hash,
 	) -> ResponsePayload<'static, MethodResponse> {
 		if !self
-			.rpc_connections
-			.contains_token(connection_details.id(), &follow_subscription)
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
 			return ResponsePayload::success(MethodResponse::LimitReached);
 		}
@@ -326,8 +321,8 @@ where
 		hash: Block::Hash,
 	) -> Result<Option<String>, ChainHeadRpcError> {
 		if !self
-			.rpc_connections
-			.contains_token(connection_details.id(), &follow_subscription)
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
 			return Ok(None);
 		}
@@ -364,8 +359,8 @@ where
 		child_trie: Option<String>,
 	) -> ResponsePayload<'static, MethodResponse> {
 		if !self
-			.rpc_connections
-			.contains_token(connection_details.id(), &follow_subscription)
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
 			return ResponsePayload::success(MethodResponse::LimitReached);
 		}
@@ -448,8 +443,8 @@ where
 		};
 
 		if !self
-			.rpc_connections
-			.contains_token(connection_details.id(), &follow_subscription)
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
 			return ResponsePayload::success(MethodResponse::LimitReached);
 		}
@@ -517,8 +512,8 @@ where
 		hash_or_hashes: ListOrValue<Block::Hash>,
 	) -> Result<(), ChainHeadRpcError> {
 		if !self
-			.rpc_connections
-			.contains_token(connection_details.id(), &follow_subscription)
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
 			return Ok(());
 		}
@@ -553,8 +548,8 @@ where
 		operation_id: String,
 	) -> Result<(), ChainHeadRpcError> {
 		if !self
-			.rpc_connections
-			.contains_token(connection_details.id(), &follow_subscription)
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
 			return Ok(())
 		}
@@ -579,8 +574,8 @@ where
 		operation_id: String,
 	) -> Result<(), ChainHeadRpcError> {
 		if !self
-			.rpc_connections
-			.contains_token(connection_details.id(), &follow_subscription)
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
 			return Ok(())
 		}
