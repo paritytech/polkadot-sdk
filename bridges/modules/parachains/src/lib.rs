@@ -110,7 +110,8 @@ pub mod pallet {
 		BoundedStorageValue<<T as Config<I>>::MaxParaHeadDataSize, ParaStoredHeaderData>;
 	/// Weight info of the given parachains pallet.
 	pub type WeightInfoOf<T, I> = <T as Config<I>>::WeightInfo;
-	type GrandpaPalletOf<T, I> =
+	/// Bridge GRANDPA pallet that is used to verify parachain proofs.
+	pub type GrandpaPalletOf<T, I> =
 		pallet_bridge_grandpa::Pallet<T, <T as Config<I>>::BridgesGrandpaPalletInstance>;
 
 	#[pallet::event]
@@ -224,6 +225,10 @@ pub mod pallet {
 		/// **IMPORTANT**: we are NOT limiting number of free calls per block. The filter must
 		/// take that into account or anyone could fill the block with parachain head updates
 		/// for free.
+		///
+		/// **IMPORTANT**: we expect that the filter don't touch any storage values or makes
+		/// any heavy computations. It is called by transaction pool during transaction validation,
+		/// so it should be lightweight.
 		type FreeHeadsUpdateFilter: ParachainHeadsUpdateFilter;
 
 		/// Name of the original `paras` pallet in the `construct_runtime!()` call at the bridged
@@ -474,7 +479,7 @@ pub mod pallet {
 						let artifacts = Pallet::<T, I>::update_parachain_head(
 							parachain,
 							stored_best_head.take(),
-							relay_block_number,
+							(relay_block_number, relay_block_hash),
 							parachain_head_data,
 							parachain_head_hash,
 						)?;
@@ -607,14 +612,14 @@ pub mod pallet {
 		pub(super) fn update_parachain_head(
 			parachain: ParaId,
 			stored_best_head: Option<ParaInfo>,
-			new_at_relay_block_number: RelayBlockNumber,
+			new_at_relay_block: (RelayBlockNumber, RelayBlockHash),
 			new_head_data: ParaStoredHeaderData,
 			new_head_hash: ParaHash,
 		) -> Result<UpdateParachainHeadArtifacts, ()> {
 			// check if head has been already updated at better relay chain block. Without this
 			// check, we may import heads in random order
 			let update = SubmitParachainHeadsInfo {
-				at_relay_block_number: new_at_relay_block_number,
+				at_relay_block: new_at_relay_block,
 				para_id: parachain,
 				para_head_hash: new_head_hash,
 			};
@@ -658,7 +663,7 @@ pub mod pallet {
 				ImportedParaHashes::<T, I>::try_get(parachain, next_imported_hash_position);
 			let updated_best_para_head = ParaInfo {
 				best_head_hash: BestParaHeadHash {
-					at_relay_block_number: new_at_relay_block_number,
+					at_relay_block_number: new_at_relay_block.0,
 					head_hash: new_head_hash,
 				},
 				next_imported_hash_position: (next_imported_hash_position + 1) %
@@ -675,7 +680,7 @@ pub mod pallet {
 				"Updated head of parachain {:?} to {} at relay block {}",
 				parachain,
 				new_head_hash,
-				new_at_relay_block_number,
+				new_at_relay_block.0,
 			);
 
 			// remove old head

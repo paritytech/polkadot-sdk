@@ -1279,7 +1279,7 @@ pub(crate) mod tests {
 					is_free_execution_expected: false,
 				},
 				SubmitParachainHeadsInfo {
-					at_relay_block_number: 200,
+					at_relay_block: (200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 				},
@@ -1317,7 +1317,7 @@ pub(crate) mod tests {
 					is_free_execution_expected: false,
 				},
 				SubmitParachainHeadsInfo {
-					at_relay_block_number: 200,
+					at_relay_block: (200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 				},
@@ -1406,7 +1406,7 @@ pub(crate) mod tests {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::ParachainFinalityAndMsgs(
 				SubmitParachainHeadsInfo {
-					at_relay_block_number: 200,
+					at_relay_block: (200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 				},
@@ -1430,7 +1430,7 @@ pub(crate) mod tests {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::ParachainFinalityAndMsgs(
 				SubmitParachainHeadsInfo {
-					at_relay_block_number: 200,
+					at_relay_block: (200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 				},
