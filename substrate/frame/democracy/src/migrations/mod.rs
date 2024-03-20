@@ -15,6 +15,27 @@
 
 //! All migrations of this pallet.
 
-/// storage migrations for the democracy pallet.
-pub mod v1;
 pub mod v2;
+
+use codec::{Decode, Encode, MaxEncodedLen};
+
+/// Migration identifier.
+///
+/// Used to identify a migration across all pallets. This identifier is essential because
+/// the [`SteppedMigration::Identifier`](`frame_support::migrations::SteppedMigration::Identifier`)
+/// needs to be globally unique.
+#[derive(MaxEncodedLen, Encode, Decode)]
+pub struct MigrationIdentifier {
+	pallet_identifier: [u8; 20],
+	version_to: u8,
+}
+
+impl MigrationIdentifier {
+	/// Create a new migration identifier.
+	pub fn new(version_to: u8) -> Self {
+		Self { pallet_identifier: *PALLET_MIGRATIONS_ID, version_to }
+	}
+}
+
+/// A unique migration identifier across all pallets.
+const PALLET_MIGRATIONS_ID: &[u8; 20] = b"pallet-democracy-mbm";

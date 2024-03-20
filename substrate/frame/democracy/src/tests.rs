@@ -28,11 +28,6 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
-<<<<<<< HEAD
-use sp_core::H256;
-=======
-use pallet_balances::{BalanceLock, Error as BalancesError};
->>>>>>> master
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, Hash},
 	BuildStorage, Perbill,
@@ -122,10 +117,10 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<10>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 parameter_types! {
 	pub static PreimageByteDeposit: u64 = 0;

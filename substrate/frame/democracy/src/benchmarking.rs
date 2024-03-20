@@ -24,6 +24,7 @@ use frame_benchmarking::v1::{account, benchmarks, whitelist_account, BenchmarkEr
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{fungible::Mutate, Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
+	weights::WeightMeter,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{traits::Bounded, BoundedVec};
@@ -103,52 +104,24 @@ benchmarks! {
 		<pallet_balances::Pallet<T> as Currency<T::AccountId>>::Balance :IsType<BalanceOf<T>>,
 	}
 
-	// Benchmark the cost of a noop v2 migration.
-	v2_migration_base {
-		use frame_support::pallet_prelude::StorageVersion;
-		use frame_support::traits::OnRuntimeUpgrade;
-		StorageVersion::new(1).put::<Pallet<T>>();
-	}:{
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::on_runtime_upgrade();
-	} verify {
-		assert_eq!(StorageVersion::get::<Pallet<T>>(), 2);
+	// Benchmark the cost of migrating one deposit entry.
+	v2_migrate_deposit {
+		let c in 0 .. T::MaxDeposits::get();
+		let depositors: Vec<_> = (0..c).map(|i| funded_account::<T>("caller", i)).collect();
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(0u32, depositors);
+	}: {
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::deposit_step(None, &mut WeightMeter::new()).unwrap();
 	}
 
-	// Benchmark the cost of reading the proposals from storage.
-	v2_migration_proposals_count {
-		let c = 0 .. T::MaxProposals::get();
-		let depositors: Vec<_> = (0..T::MaxDeposits::get()).map(|i| funded_account::<T>("caller", i)).collect();
-		for i in 0 .. T::MaxProposals::get() {
-			migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(i, depositors.clone());
-		}
+	// Benchmark the cost of migrating one vote entry.
+	v2_migrate_vote {
+		let c in 0 .. 1;
+		if c == 1 {
+			let voter = funded_account::<T>("voter", 0);
+			migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone());
+		};
 	}: {
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::get_deposits_and_proposal_count();
-	}
-
-	// Benchmark the cost of translating a reserved balance of a proposal deposit into a held balance.
-	v2_migration_translate_reserve_to_hold {
-		let depositor = funded_account::<T>("backer", 0);
-		let deposit = T::MinimumDeposit::get().into();
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(0u32, vec![depositor.clone()]);
-	}: {
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_reserve_to_hold(&depositor, deposit);
-	}
-
-	// Benchmark the cost of reading the next vote from storage.
-	v2_migration_votes_read_next {
-		let voter = funded_account::<T>("voter", 0);
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone());
-	}: {
-		migrations::v2::old::VotingOf::<T>::iter().next();
-	}
-
-	// Benchmark the cost of translating a locked vote balance into a frozen balance.
-	v2_migration_translate_lock_to_freeze {
-		let voter = funded_account::<T>("voter", 0);
-		let balance = 1_000u32.into();
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone());
-	}: {
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::translate_lock_to_freeze(voter, balance);
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::vote_step(None, &mut WeightMeter::new()).unwrap();
 	}
 
 	propose {
