@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Snowbridge Ethereum client improvements and prevent relayer rewards from message processing to fail
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR improves the beacon client to send the execution header along with the message as proof and removes the verification and storing off all execution headers.
+      If the AH sovereign account is depleted and relayer rewards cannot be paid, the message should still be processed.
+
+crates:
+  - name: snowbridge-pallet-ethereum-client
+  - name: snowbridge-pallet-inbound-queue
