@@ -41,8 +41,6 @@ impl<T, Origin, RuntimeCall, Timeout> Controller<Origin, RuntimeCall, Timeout> f
 
 /// Weight functions needed for [`ExecuteController`].
 pub trait ExecuteControllerWeightInfo {
-	/// Weight for [`ExecuteController::execute`]
-	fn execute() -> Weight;
 	/// Weight for [`ExecuteController::execute_blob`]
 	fn execute_blob() -> Weight;
 }
@@ -60,22 +58,6 @@ pub trait ExecuteController<Origin, RuntimeCall, MaxXcmEncodedSize> {
 	/// Attempt to execute an XCM locally, returns Ok with the weight consumed if the execution
 	/// complete successfully, Err otherwise.
 	///
-	/// WARNING: This call is DEPRECATED! Use `execute_blob` instead.
-	///
-	/// # Parameters
-	///
-	/// - `origin`: the origin of the call.
-	/// - `message`: the XCM program to be executed.
-	/// - `max_weight`: the maximum weight that can be consumed by the execution.
-	fn execute(
-		origin: Origin,
-		message: Box<VersionedXcm<RuntimeCall>>,
-		max_weight: Weight,
-	) -> Result<Weight, DispatchErrorWithPostInfo>;
-
-	/// Attempt to execute an XCM locally, returns Ok with the weight consumed if the execution
-	/// complete successfully, Err otherwise.
-	///
 	/// # Parameters
 	///
 	/// - `origin`: the origin of the call.
@@ -86,19 +68,10 @@ pub trait ExecuteController<Origin, RuntimeCall, MaxXcmEncodedSize> {
 		message: BoundedVec<u8, MaxXcmEncodedSize>,
 		max_weight: Weight,
 	) -> Result<Weight, DispatchErrorWithPostInfo>;
-
-	/// The underlying XCM execution logic, shared by both `execute` and `execute_blob`.
-	fn execute_base(
-		origin_location: Location,
-		message: Box<VersionedXcm<RuntimeCall>>,
-		max_weight: Weight,
-	) -> Result<Weight, DispatchErrorWithPostInfo>;
 }
 
 /// Weight functions needed for [`SendController`].
 pub trait SendControllerWeightInfo {
-	/// Weight for [`SendController::send`]
-	fn send() -> Weight;
 	/// Weight for [`SendController::send_blob`]
 	fn send_blob() -> Weight;
 }
@@ -116,21 +89,6 @@ pub trait SendController<Origin> {
 
 	/// Send an XCM to be executed by a remote location.
 	///
-	/// WARNING: This call is DEPRECATED! Use `send_blob` instead.
-	///
-	/// # Parameters
-	///
-	/// - `origin`: the origin of the call.
-	/// - `dest`: the destination of the message.
-	/// - `msg`: the XCM to be sent.
-	fn send(
-		origin: Origin,
-		dest: Box<VersionedLocation>,
-		message: Box<VersionedXcm<()>>,
-	) -> Result<XcmHash, DispatchError>;
-
-	/// Send an XCM to be executed by a remote location.
-	///
 	/// # Parameters
 	///
 	/// - `origin`: the origin of the call.
@@ -138,13 +96,6 @@ pub trait SendController<Origin> {
 	/// - `msg`: the XCM to be sent, encoded.
 	fn send_blob(
 		origin: Origin,
-		dest: BoundedVec<u8, MaxXcmEncodedSize>,
-		message: Box<VersionedXcm<()>>,
-	) -> Result<XcmHash, DispatchError>;
-
-	/// The underlying XCM sending logic, shared by both `send` and `send_blob`.
-	fn send_base(
-		origin_location: Location,
 		dest: BoundedVec<u8, MaxXcmEncodedSize>,
 		message: Box<VersionedXcm<()>>,
 	) -> Result<XcmHash, DispatchError>;
