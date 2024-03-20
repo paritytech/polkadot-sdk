@@ -23,7 +23,8 @@ use std::{
 	sync::Arc,
 };
 
-/// Limit the RPC functionality to a single connection.
+/// Connection state which keeps track whether a connection exist and
+/// the number of concurrent operations.
 #[derive(Default, Clone)]
 pub struct RpcConnections {
 	/// The number of tokens that can be registered for each connection.
