@@ -3817,7 +3817,7 @@ fn locking_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			dependency_deposit + contract.storage_base_deposit() - ED
+			dependency_deposit + contract.storage_base_deposit()
 		);
 
 		// Removing the code should fail, since we have added a dependency.
@@ -3856,7 +3856,7 @@ fn locking_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			contract.storage_base_deposit() - ED
+			contract.storage_base_deposit()
 		);
 
 		// Removing a nonexistent dependency should fail.
@@ -3888,7 +3888,7 @@ fn locking_delegate_dependency_works() {
 		assert_ok!(call(&addr_caller, &terminate_input).result);
 		assert_eq!(
 			test_utils::get_balance(&ALICE),
-			balance_before + contract.storage_base_deposit() + dependency_deposit
+			ED + balance_before + contract.storage_base_deposit() + dependency_deposit
 		);
 
 		// Terminate should also remove the dependency, so we can remove the code.
@@ -3938,17 +3938,16 @@ fn native_dependency_deposit_works() {
 			let res = builder::bare_instantiate(code).build();
 
 			let addr = res.result.unwrap().account_id;
-			let min_balance = Contracts::min_balance();
-			let base_deposit = min_balance + test_utils::contract_info_storage_deposit(&addr);
+			let base_deposit = test_utils::contract_info_storage_deposit(&addr);
 			let upload_deposit = test_utils::get_code_deposit(&code_hash);
 			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
 
 			// Check initial storage_deposit
-			// The base deposit should be: ED + contract_info_storage_deposit + 30% * deposit
+			// The base deposit should be: contract_info_storage_deposit + 30% * deposit
 			let deposit =
 				extra_deposit + base_deposit + lockup_deposit_percent.mul_ceil(upload_deposit);
 
-			assert_eq!(res.storage_deposit.charge_or_zero(), deposit);
+			assert_eq!(res.storage_deposit.charge_or_zero(), deposit + Contracts::min_balance());
 
 			// call set_code_hash
 			builder::bare_call(addr.clone())
@@ -3959,9 +3958,10 @@ fn native_dependency_deposit_works() {
 			let code_deposit = test_utils::get_code_deposit(&dummy_code_hash);
 			let deposit = base_deposit + lockup_deposit_percent.mul_ceil(code_deposit);
 			assert_eq!(test_utils::get_contract(&addr).storage_base_deposit(), deposit);
+
 			assert_eq!(
 				test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &addr),
-				deposit - min_balance
+				deposit
 			);
 		});
 	}

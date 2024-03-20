@@ -58,6 +58,7 @@ pub trait WeightInfo {
 	fn v13_migration_step() -> Weight;
 	fn v14_migration_step() -> Weight;
 	fn v15_migration_step() -> Weight;
+	fn v16_migration_step() -> Weight { Weight::zero()}
 	fn migration_noop() -> Weight;
 	fn migrate() -> Weight;
 	fn on_runtime_upgrade_noop() -> Weight;
