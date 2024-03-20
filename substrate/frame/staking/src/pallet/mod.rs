@@ -39,7 +39,6 @@ use sp_runtime::{
 use sp_staking::{
 	EraIndex, Page, SessionIndex, StakerStatus,
 	StakingAccount::{self, Controller, Stash},
-	StakingInterface,
 };
 use sp_std::prelude::*;
 
@@ -856,8 +855,10 @@ pub mod pallet {
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
-		/// Cannot force clean the ledger.
-		CannotCleanLedger,
+		/// Cannot force clean a ledger.
+		CannotForceCleanLedger,
+		/// Cannot reset a ledger.
+		CannotResetLedger,
 	}
 
 	#[pallet::hooks]
@@ -1984,9 +1985,20 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
 		}
 
+		/// Force cleans all the data and metadata related to a stash.
+		///
+		/// The requirements to force clean a stash are the following:
+		/// * The stash is bonded;
+		/// * If the stash has an associated ledger, its state must be inconsistent.
+		///
+		/// Upon successful execution, this extrinsic will clear all the data and metadata related
+		/// to a stash and its ledger.
+		///
+		/// NOTE: The ledger associated with his stash will be completely removed and the stash
+		/// will be completely unstaked from the system.
 		#[pallet::call_index(29)]
 		#[pallet::weight(0)]
-		pub fn clean_bad_state_bond(
+		pub fn force_clean_ledger(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
 		) -> DispatchResultWithPostInfo {
@@ -1999,56 +2011,104 @@ pub mod pallet {
 			// than expected.
 			ensure!(
 				Ledger::<T>::get(&controller).map(|l| l.stash != stash).unwrap_or(true),
-				Error::<T>::CannotCleanLedger
+				Error::<T>::CannotForceCleanLedger
 			);
 
-			// validator ledgers, even if corrupted, cannot be cleaned through this extrinsic.
-			ensure!(
-				Self::status(&stash) != Ok(StakerStatus::Validator),
-				Error::<T>::CannotCleanLedger
-			);
+			// TODO: verify what are other side effects (e.g. era points) of force cleaning a
+			// validator.
 
 			// 1. remove staking lock on the stash.
 			T::Currency::remove_lock(crate::STAKING_ID, &stash);
 			// 2. remove the bonded and payee entries of the stash to clean up.
 			Bonded::<T>::remove(&stash);
 			Payee::<T>::remove(&stash);
-			// 3. remove the nominator entry for the stash.
+			// 3. remove the nominator and validator entries for the stash.
 			Nominators::<T>::remove(&stash);
+			Validators::<T>::remove(&stash);
 			// 4. ensure the `VoterList` is cleared up.
 			let _ = T::VoterList::on_remove(&stash);
 
 			Ok(Pays::No.into())
 		}
 
+		/// Reset the state of a ledger which is in an inconsistent state.
+		///
+		/// The requirements to reset a ledger are the following:
+		/// * The stash is bonded;
+		/// * If the stash has an associated ledger, its state must be inconsistent;
+		/// * The reset ledger must become either a nominator or validator.
+		///
+		/// The `maybe_*` input parameters will overwrite the corresponding data and metadata of the
+		/// ledger associated with the stash. If the input parameters are not set, the ledger will
+		/// be reset with the current values.
+		///
+		/// Upon successful execution, this extrinsic will *recreate* the ledger based on its past
+		/// state and/or the `maybe_controller`, `maybe_total` and `maybe_unlocking` and
+		/// `maybe_payee` input parameters.
+		///
+		/// NOTE: if the stash does not have an associated ledger and the `maybe_nominations` or
+		/// `maybe_validator_prefs` are not given, the ledger will be reset as a nominator.
 		#[pallet::call_index(30)]
 		#[pallet::weight(0)]
-		pub fn fix_bad_state_bond(
+		pub fn reset_ledger(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
-			total: BalanceOf<T>,
+			maybe_controller: Option<T::AccountId>,
+			maybe_total: Option<BalanceOf<T>>,
+			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
+			maybe_payee: Option<RewardDestination<T::AccountId>>,
+			maybe_nominations: Option<Nominations<T>>,
+			maybe_validator_prefs: Option<ValidatorPrefs>,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin(origin)?;
 
 			let controller = Bonded::<T>::get(&stash).ok_or(Error::<T>::NotStash)?;
 
+			// a stash cannot be reset as both validator and nominator.
+			ensure!(
+				maybe_nominations.is_none() || maybe_validator_prefs.is_none(),
+				Error::<T>::CannotResetLedger
+			);
+
 			// ensure that this bond is in a bad state to proceed. i.e. one of two states: either
 			// the ledger for the controller does not exist or it exists but the stash is different
 			// than expected.
+			let maybe_ledger = Ledger::<T>::get(&controller);
 			ensure!(
-				Ledger::<T>::get(&controller).map(|l| l.stash != stash).unwrap_or(true),
-				Error::<T>::CannotCleanLedger
+				maybe_ledger.as_ref().map(|l| l.stash != stash).unwrap_or(true),
+				Error::<T>::CannotResetLedger,
 			);
 
-			// 1. recreate new ledger.
-			let ledger = StakingLedger::<T>::new(stash.clone(), total);
+			// get new ledger data.
+			let new_controller = maybe_controller.unwrap_or(controller);
+			//TODO: get current lock for stash and staking
+			//let new_total = maybe_total.unwrap_or(T::Currency::lock(crate::STAKING_ID, &stash));
+			let new_total = maybe_total.unwrap_or_default();
+			let new_unlocking = maybe_unlocking
+				.unwrap_or_else(|| maybe_ledger.map(|l| l.unlocking).unwrap_or(Default::default()));
 
-			// 2. restore the bond manually.
-			<Bonded<T>>::insert(&stash, &stash);
-			// 3. restore ledger, which will update the staking lock.
+			// reset ledger state.
+			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
+			ledger.unlocking = new_unlocking;
+			ledger.controller = Some(new_controller);
 			ledger.update()?;
 
-			ensure!(<Payee<T>>::get(&stash).is_some(), Error::<T>::BadState);
+			// get and reset ledger's metadata.
+			let new_payee =
+				maybe_payee.unwrap_or(Payee::<T>::get(&stash).unwrap_or(RewardDestination::Staked));
+			Payee::<T>::insert(&stash, new_payee);
+
+			if let Some(validator_prefs) = maybe_validator_prefs {
+				// reset as validator.
+				Self::do_remove_nominator(&stash);
+				Self::do_add_validator(&stash, validator_prefs);
+			} else {
+				// reset as nominator.
+				let nominations =
+					maybe_nominations.unwrap_or(Nominators::<T>::get(&stash).unwrap_or_default());
+				Self::do_remove_validator(&stash);
+				Self::do_add_nominator(&stash, nominations);
+			};
 
 			Ok(Pays::No.into())
 		}

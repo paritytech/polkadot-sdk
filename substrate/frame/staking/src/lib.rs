@@ -719,6 +719,12 @@ pub struct Nominations<T: Config> {
 	pub suppressed: bool,
 }
 
+impl<T: Config> Default for Nominations<T> {
+	fn default() -> Self {
+		Self { targets: Default::default(), submitted_in: 0, suppressed: false }
+	}
+}
+
 /// Facade struct to encapsulate `PagedExposureMetadata` and a single page of `ExposurePage`.
 ///
 /// This is useful where we need to take into account the validator's own stake and total exposure
