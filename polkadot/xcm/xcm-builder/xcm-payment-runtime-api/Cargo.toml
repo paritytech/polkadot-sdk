@@ -26,6 +26,7 @@ sp-runtime = { path = "../../../../substrate/primitives/runtime", default-featur
 sp-weights = { path = "../../../../substrate/primitives/weights", default-features = false }
 xcm = { package = "staging-xcm", path = "../..", default-features = false }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+
 [features]
 default = ["std"]
 std = [
