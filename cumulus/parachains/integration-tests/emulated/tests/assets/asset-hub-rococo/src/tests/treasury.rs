@@ -39,7 +39,7 @@ fn spend_roc_on_asset_hub() {
 
 	let init_alice_balance = AssetHubRococo::execute_with(|| {
 		<<AssetHubRococo as AssetHubRococoPallet>::Balances as Inspect<_>>::balance(
-			&Rococo::account_id_of(ALICE),
+			&AssetHubRococo::account_id_of(ALICE),
 		)
 	});
 
@@ -55,7 +55,7 @@ fn spend_roc_on_asset_hub() {
 		let root = <Rococo as Chain>::RuntimeOrigin::root();
 		let treasury_account = Treasury::account_id();
 
-		// Mist assets to Treasury account on Relay Chain.
+		// Mint assets to Treasury account on Relay Chain.
 		assert_ok!(Balances::force_set_balance(
 			root.clone(),
 			treasury_account.clone().into(),
@@ -64,13 +64,13 @@ fn spend_roc_on_asset_hub() {
 
 		let native_asset = Location::here();
 		let asset_hub_location: Location = [Parachain(1000)].into();
-		let treasury_location_on_asset_hub: Location = (Parent, PalletInstance(18)).into();
+		let treasury_location: Location = (Parent, PalletInstance(18)).into();
 
 		let teleport_call = RuntimeCall::Utility(pallet_utility::Call::<Runtime>::dispatch_as {
 			as_origin: bx!(OriginCaller::system(RawOrigin::Signed(treasury_account))),
 			call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::teleport_assets {
 				dest: bx!(VersionedLocation::V4(asset_hub_location.clone())),
-				beneficiary: bx!(VersionedLocation::V4(treasury_location_on_asset_hub)),
+				beneficiary: bx!(VersionedLocation::V4(treasury_location)),
 				assets: bx!(VersionedAssets::V4(
 					Asset { id: native_asset.clone().into(), fun: treasury_balance.into() }.into()
 				)),
@@ -105,12 +105,12 @@ fn spend_roc_on_asset_hub() {
 			[Junction::AccountId32 { network: None, id: Rococo::account_id_of(ALICE).into() }]
 				.into();
 		let asset_hub_location: Location = [Parachain(1000)].into();
-		let native_asset_on_asset_hub = Location::parent();
+		let native_asset = Location::parent();
 
 		let treasury_spend_call = RuntimeCall::Treasury(pallet_treasury::Call::<Runtime>::spend {
 			asset_kind: bx!(VersionedLocatableAsset::V4 {
 				location: asset_hub_location.clone(),
-				asset_id: native_asset_on_asset_hub.into(),
+				asset_id: native_asset.into(),
 			}),
 			amount: treasury_spend_balance,
 			beneficiary: bx!(VersionedLocation::V4(alice_location)),
@@ -139,7 +139,7 @@ fn spend_roc_on_asset_hub() {
 
 		// Ensure that the funds deposited to Alice account.
 
-		let alice_account = Rococo::account_id_of(ALICE);
+		let alice_account = AssetHubRococo::account_id_of(ALICE);
 		assert_eq!(
 			<Balances as Inspect<_>>::balance(&alice_account),
 			treasury_spend_balance + init_alice_balance
