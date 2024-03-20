@@ -39,7 +39,10 @@ pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58Addres
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
 
-pub use crate::address_uri::{AddressUri, Error as AddressUriError};
+pub use crate::{
+	address_uri::{AddressUri, Error as AddressUriError},
+	crypto_bytes::{CryptoBytes, PublicBytes, SignatureBytes},
+};
 
 /// The root phrase for our publicly known keys.
 pub const DEV_PHRASE: &str =
