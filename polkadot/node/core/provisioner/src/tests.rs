@@ -562,7 +562,10 @@ mod select_candidates {
 		use ChainApiMessage::BlockNumber;
 		use RuntimeApiMessage::Request;
 
-		let mut backed_iter = expected.clone().into_iter();
+		let mut backed = expected.clone().into_iter().fold(HashMap::new(), |mut acc, candidate| {
+			acc.entry(candidate.descriptor().para_id).or_insert(vec![]).push(candidate);
+			acc
+		});
 
 		expected.sort_by_key(|c| c.candidate().descriptor.para_id);
 		let mut candidates_iter = expected
@@ -583,11 +586,30 @@ mod select_candidates {
 					hashes,
 					sender,
 				)) => {
-					let response: Vec<BackedCandidate> =
-						backed_iter.by_ref().take(hashes.len()).collect();
-					let expected_hashes: Vec<(CandidateHash, Hash)> = response
+					let mut response: HashMap<ParaId, Vec<BackedCandidate>> = HashMap::new();
+					for (para_id, requested_candidates) in hashes.clone() {
+						response.insert(
+							para_id,
+							backed
+								.get_mut(&para_id)
+								.unwrap()
+								.drain(0..requested_candidates.len())
+								.collect(),
+						);
+					}
+					let expected_hashes: HashMap<ParaId, Vec<(CandidateHash, Hash)>> = response
 						.iter()
-						.map(|candidate| (candidate.hash(), candidate.descriptor().relay_parent))
+						.map(|(para_id, candidates)| {
+							(
+								*para_id,
+								candidates
+									.iter()
+									.map(|candidate| {
+										(candidate.hash(), candidate.descriptor().relay_parent)
+									})
+									.collect(),
+							)
+						})
 						.collect();
 
 					assert_eq!(expected_hashes, hashes);
@@ -768,7 +790,7 @@ mod select_candidates {
 	#[rstest]
 	#[case(ProspectiveParachainsMode::Disabled)]
 	#[case(ProspectiveParachainsMode::Enabled {max_candidate_depth: 0, allowed_ancestry_len: 0})]
-	fn selects_max_one_code_upgrade(
+	fn selects_max_one_code_upgrade_one_core_per_para(
 		#[case] prospective_parachains_mode: ProspectiveParachainsMode,
 	) {
 		let mock_cores = mock_availability_cores_one_per_para();
@@ -780,7 +802,9 @@ mod select_candidates {
 		let cores = [1, 4, 7, 8, 10, 12];
 		let cores_with_code = [1, 4, 8];
 
-		let expected_cores = [1, 7, 10, 12];
+		// We can't be sure which one code upgrade the provisioner will pick. We can only assert
+		// that it only picks one.
+		let expected_cores = [[1, 7, 10, 12], [4, 7, 10, 12], [7, 8, 10, 12]];
 
 		let committed_receipts: Vec<_> = (0..=mock_cores.len())
 			.map(|i| {
@@ -820,8 +844,10 @@ mod select_candidates {
 		// Then, some of them get filtered due to new validation code rule.
 		let expected_backed: Vec<_> =
 			cores.iter().map(|&idx| backed_candidates[idx].clone()).collect();
-		let expected_backed_filtered: Vec<_> =
-			expected_cores.iter().map(|&idx| candidates[idx].clone()).collect();
+		let expected_backed_filtered: Vec<Vec<_>> = expected_cores
+			.iter()
+			.map(|indices| indices.iter().map(|&idx| candidates[idx].clone()).collect())
+			.collect();
 
 		let mock_cores_clone = mock_cores.clone();
 
@@ -850,13 +876,11 @@ mod select_candidates {
 
 				assert_eq!(result.len(), 4);
 
-				result.into_iter().for_each(|c| {
-					assert!(
-						expected_backed_filtered.iter().any(|c2| c.candidate().corresponds_to(c2)),
-						"Failed to find candidate: {:?}",
-						c,
-					)
-				});
+				assert!(expected_backed_filtered.iter().any(|expected_backed_filtered| {
+					result.clone().into_iter().all(|c| {
+						expected_backed_filtered.iter().any(|c2| c.candidate().corresponds_to(c2))
+					})
+				}));
 			},
 		)
 	}

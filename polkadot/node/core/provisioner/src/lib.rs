@@ -46,7 +46,7 @@ use polkadot_primitives::{
 	BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, CoreState, Hash,
 	Id as ParaId, OccupiedCoreAssumption, SessionIndex, SignedAvailabilityBitfield, ValidatorIndex,
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 mod disputes;
 mod error;
@@ -598,13 +598,11 @@ async fn select_candidate_hashes_from_tracked(
 	candidates: &[CandidateReceipt],
 	relay_parent: Hash,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<Vec<(CandidateHash, Hash)>, Error> {
+) -> Result<HashMap<ParaId, Vec<(CandidateHash, Hash)>>, Error> {
 	let block_number = get_block_number_under_construction(relay_parent, sender).await?;
 
 	let mut selected_candidates =
-		Vec::with_capacity(candidates.len().min(availability_cores.len()));
-	let mut selected_parachains =
-		HashSet::with_capacity(candidates.len().min(availability_cores.len()));
+		HashMap::with_capacity(candidates.len().min(availability_cores.len()));
 
 	gum::debug!(
 		target: LOG_TARGET,
@@ -638,7 +636,7 @@ async fn select_candidate_hashes_from_tracked(
 			CoreState::Free => continue,
 		};
 
-		if selected_parachains.contains(&scheduled_core.para_id) {
+		if selected_candidates.contains_key(&scheduled_core.para_id) {
 			// We already picked a candidate for this parachain. Elastic scaling only works with
 			// prospective parachains mode.
 			continue
@@ -677,8 +675,10 @@ async fn select_candidate_hashes_from_tracked(
 				"Selected candidate receipt",
 			);
 
-			selected_parachains.insert(candidate.descriptor.para_id);
-			selected_candidates.push((candidate_hash, candidate.descriptor.relay_parent));
+			selected_candidates.insert(
+				candidate.descriptor.para_id,
+				vec![(candidate_hash, candidate.descriptor.relay_parent)],
+			);
 		}
 	}
 
@@ -695,7 +695,7 @@ async fn request_backable_candidates(
 	bitfields: &[SignedAvailabilityBitfield],
 	relay_parent: Hash,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<Vec<(CandidateHash, Hash)>, Error> {
+) -> Result<HashMap<ParaId, Vec<(CandidateHash, Hash)>>, Error> {
 	let block_number = get_block_number_under_construction(relay_parent, sender).await?;
 
 	// Record how many cores are scheduled for each paraid. Use a BTreeMap because
@@ -747,8 +747,8 @@ async fn request_backable_candidates(
 		};
 	}
 
-	let mut selected_candidates: Vec<(CandidateHash, Hash)> =
-		Vec::with_capacity(availability_cores.len());
+	let mut selected_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>> =
+		HashMap::with_capacity(scheduled_cores.len());
 
 	for (para_id, core_count) in scheduled_cores {
 		let para_ancestors = ancestors.remove(&para_id).unwrap_or_default();
@@ -758,7 +758,7 @@ async fn request_backable_candidates(
 			continue
 		}
 
-		let response = get_backable_candidates(
+		let mut response = get_backable_candidates(
 			relay_parent,
 			para_id,
 			para_ancestors,
@@ -777,7 +777,8 @@ async fn request_backable_candidates(
 			continue
 		}
 
-		selected_candidates.extend(response.into_iter().take(core_count));
+		response.truncate(core_count);
+		selected_candidates.insert(para_id, response);
 	}
 
 	Ok(selected_candidates)
@@ -826,33 +827,44 @@ async fn select_candidates(
 		selected_candidates.clone(),
 		tx,
 	));
-	let mut candidates = rx.await.map_err(|err| Error::CanceledBackedCandidates(err))?;
+	let candidates = rx.await.map_err(|err| Error::CanceledBackedCandidates(err))?;
 	gum::trace!(target: LOG_TARGET, leaf_hash=?relay_parent,
 				"Got {} backed candidates", candidates.len());
 
 	// keep only one candidate with validation code.
 	let mut with_validation_code = false;
-	candidates.retain(|c| {
-		if c.candidate().commitments.new_validation_code.is_some() {
-			if with_validation_code {
-				return false
-			}
+	// merge the candidates into a common collection, preserving the order
+	let mut merged_candidates = Vec::with_capacity(availability_cores.len());
 
-			with_validation_code = true;
+	for para_candidates in candidates.into_values() {
+		let mut stop_at_index = None;
+		for (index, candidate) in para_candidates.iter().enumerate() {
+			if candidate.candidate().commitments.new_validation_code.is_some() {
+				if with_validation_code {
+					stop_at_index = Some(index);
+					break
+				} else {
+					with_validation_code = true;
+				}
+			}
 		}
 
-		true
-	});
+		if let Some(stop_at_index) = stop_at_index {
+			merged_candidates.extend(para_candidates.into_iter().take(stop_at_index));
+		} else {
+			merged_candidates.extend(para_candidates.into_iter());
+		}
+	}
 
 	gum::debug!(
 		target: LOG_TARGET,
-		n_candidates = candidates.len(),
+		n_candidates = merged_candidates.len(),
 		n_cores = availability_cores.len(),
 		?relay_parent,
 		"Selected backed candidates",
 	);
 
-	Ok(candidates)
+	Ok(merged_candidates)
 }
 
 /// Produces a block number 1 higher than that of the relay parent

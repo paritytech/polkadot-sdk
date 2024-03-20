@@ -82,8 +82,15 @@ pub struct CanSecondRequest {
 pub enum CandidateBackingMessage {
 	/// Requests a set of backable candidates attested by the subsystem.
 	///
-	/// Each pair is (candidate_hash, candidate_relay_parent).
-	GetBackedCandidates(Vec<(CandidateHash, Hash)>, oneshot::Sender<Vec<BackedCandidate>>),
+	/// The order of candidates of the same para must be preserved in the response.
+	/// If a backed candidate of a para cannot be retrieved, the response should not contain any
+	/// candidates of the same para that follow it in the input vector. In other words, assuming
+	/// candidates are supplied in dependency order, we must ensure that this dependency order is
+	/// preserved.
+	GetBackedCandidates(
+		HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
+		oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
+	),
 	/// Request the subsystem to check whether it's allowed to second given candidate.
 	/// The rule is to only fetch collations that are either built on top of the root
 	/// of some fragment tree or have a parent node which represents backed candidate.

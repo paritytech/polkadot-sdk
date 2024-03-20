@@ -663,13 +663,19 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 
 		let (tx, rx) = oneshot::channel();
 		let msg = CandidateBackingMessage::GetBackedCandidates(
-			vec![(candidate_a_hash, test_state.relay_parent)],
+			std::iter::once((
+				test_state.chain_ids[0],
+				vec![(candidate_a_hash, test_state.relay_parent)],
+			))
+			.collect(),
 			tx,
 		);
 
 		virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 
-		let candidates = rx.await.unwrap();
+		let mut candidates = rx.await.unwrap();
+		assert_eq!(1, candidates.len());
+		let candidates = candidates.remove(&test_state.chain_ids[0]).unwrap();
 		assert_eq!(1, candidates.len());
 		assert_eq!(candidates[0].validity_votes().len(), 3);
 
@@ -950,13 +956,19 @@ fn backing_works_while_validation_ongoing() {
 
 		let (tx, rx) = oneshot::channel();
 		let msg = CandidateBackingMessage::GetBackedCandidates(
-			vec![(candidate_a.hash(), test_state.relay_parent)],
+			std::iter::once((
+				test_state.chain_ids[0],
+				vec![(candidate_a.hash(), test_state.relay_parent)],
+			))
+			.collect(),
 			tx,
 		);
 
 		virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 
-		let candidates = rx.await.unwrap();
+		let mut candidates = rx.await.unwrap();
+		assert_eq!(candidates.len(), 1);
+		let candidates = candidates.remove(&test_state.chain_ids[0]).unwrap();
 		assert_eq!(1, candidates.len());
 		assert_eq!(candidates[0].validity_votes().len(), 3);
 
@@ -1565,7 +1577,11 @@ fn backing_works_after_failed_validation() {
 		// and check that it is still alive.
 		let (tx, rx) = oneshot::channel();
 		let msg = CandidateBackingMessage::GetBackedCandidates(
-			vec![(candidate.hash(), test_state.relay_parent)],
+			std::iter::once((
+				test_state.chain_ids[0],
+				vec![(candidate.hash(), test_state.relay_parent)],
+			))
+			.collect(),
 			tx,
 		);
 
