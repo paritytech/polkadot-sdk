@@ -15,11 +15,12 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	configuration::{TestAuthorities, TestConfiguration},
+	availability::av_store_helpers::new_av_store,
+	configuration::TestAuthorities,
 	dummy_builder,
 	environment::{TestEnvironment, TestEnvironmentDependencies, GENESIS_HASH},
 	mock::{
-		av_store::{self, MockAvailabilityStore},
+		av_store::{self, MockAvailabilityStore, NetworkAvailabilityState},
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
 		runtime_api::{self, MockRuntimeApi},
@@ -28,12 +29,8 @@ use crate::{
 	network::new_network,
 	usage::BenchmarkUsage,
 };
-use av_store::NetworkAvailabilityState;
-use av_store_helpers::new_av_store;
-use bitvec::bitvec;
 use colored::Colorize;
 use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
-use itertools::Itertools;
 use parity_scale_codec::Encode;
 use polkadot_availability_bitfield_distribution::BitfieldDistribution;
 use polkadot_availability_distribution::{
@@ -44,33 +41,27 @@ use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
 	request_response::{v1::ChunkFetchingRequest, IncomingRequest, ReqProtocolNames},
-	OurView, Versioned, VersionedValidationProtocol,
+	OurView,
 };
-use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem::{
 	messages::{AllMessages, AvailabilityRecoveryMessage},
 	Overseer, OverseerConnector, SpawnGlue,
 };
-use polkadot_node_subsystem_test_helpers::{
-	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
-};
+use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_node_subsystem_types::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
 	Span,
 };
-use polkadot_overseer::{metrics::Metrics as OverseerMetrics, BlockInfo, Handle as OverseerHandle};
-use polkadot_primitives::{
-	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData,
-	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
-};
-use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
+use polkadot_primitives::{GroupIndex, Hash};
 use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
-use sp_core::H256;
-use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
+use std::{ops::Sub, sync::Arc, time::Instant};
+pub use test_state::TestState;
 
 mod av_store_helpers;
+mod test_state;
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
@@ -293,247 +284,6 @@ pub fn prepare_availability_write_test(
 	)
 }
 
-#[derive(Clone)]
-pub struct TestState {
-	// Full test configuration
-	config: TestConfiguration,
-	// A cycle iterator on all PoV sizes used in the test.
-	pov_sizes: Cycle<std::vec::IntoIter<usize>>,
-	// Generated candidate receipts to be used in the test
-	candidates: Cycle<std::vec::IntoIter<CandidateReceipt>>,
-	// Map from pov size to candidate index
-	pov_size_to_candidate: HashMap<usize, usize>,
-	// Map from generated candidate hashes to candidate index in `available_data`
-	// and `chunks`.
-	candidate_hashes: HashMap<CandidateHash, usize>,
-	// Per candidate index receipts.
-	candidate_receipt_templates: Vec<CandidateReceipt>,
-	// Per candidate index `AvailableData`
-	available_data: Vec<AvailableData>,
-	// Per candiadte index chunks
-	chunks: Vec<Vec<ErasureChunk>>,
-	// Per relay chain block - candidate backed by our backing group
-	backed_candidates: Vec<CandidateReceipt>,
-	block_infos: Vec<BlockInfo>,
-	chunk_fetching_requests: Vec<Vec<Vec<u8>>>,
-	signed_bitfields: HashMap<H256, Vec<VersionedValidationProtocol>>,
-	block_headers: HashMap<H256, Header>,
-	test_authorities: TestAuthorities,
-	candidate_hashes_2: HashMap<H256, Vec<CandidateReceipt>>,
-}
-
-impl TestState {
-	pub fn new(config: &TestConfiguration) -> Self {
-		let config = config.clone();
-		let test_authorities = config.generate_authorities();
-
-		let mut chunks = Vec::new();
-		let mut available_data = Vec::new();
-		let mut candidate_receipt_templates = Vec::new();
-		let mut pov_size_to_candidate = HashMap::new();
-
-		// we use it for all candidates.
-		let persisted_validation_data = PersistedValidationData {
-			parent_head: HeadData(vec![7, 8, 9]),
-			relay_parent_number: Default::default(),
-			max_pov_size: 1024,
-			relay_parent_storage_root: Default::default(),
-		};
-
-		// For each unique pov we create a candidate receipt.
-		for (index, pov_size) in config.pov_sizes().iter().cloned().unique().enumerate() {
-			gum::info!(target: LOG_TARGET, index, pov_size, "{}", "Generating template candidate".bright_blue());
-
-			let mut candidate_receipt = dummy_candidate_receipt(dummy_hash());
-			let pov = PoV { block_data: BlockData(vec![index as u8; pov_size]) };
-
-			let new_available_data = AvailableData {
-				validation_data: persisted_validation_data.clone(),
-				pov: Arc::new(pov),
-			};
-
-			let (new_chunks, erasure_root) = derive_erasure_chunks_with_proofs_and_root(
-				config.n_validators,
-				&new_available_data,
-				|_, _| {},
-			);
-
-			candidate_receipt.descriptor.erasure_root = erasure_root;
-
-			chunks.push(new_chunks);
-			available_data.push(new_available_data);
-			pov_size_to_candidate.insert(pov_size, index);
-			candidate_receipt_templates.push(candidate_receipt);
-		}
-
-		let block_infos: Vec<BlockInfo> = (1..=config.num_blocks)
-			.map(|block_num| {
-				let relay_block_hash = Hash::repeat_byte(block_num as u8);
-				new_block_import_info(relay_block_hash, block_num as BlockNumber)
-			})
-			.collect();
-
-		let block_headers = (1..=config.num_blocks)
-			.map(|block_number| {
-				(
-					Hash::repeat_byte(block_number as u8),
-					Header {
-						digest: Default::default(),
-						number: block_number as BlockNumber,
-						parent_hash: Default::default(),
-						extrinsics_root: Default::default(),
-						state_root: Default::default(),
-					},
-				)
-			})
-			.collect::<HashMap<_, _>>();
-
-		gum::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
-
-		let mut _self = Self {
-			available_data,
-			candidate_receipt_templates,
-			chunks,
-			pov_size_to_candidate,
-			pov_sizes: Vec::from(config.pov_sizes()).into_iter().cycle(),
-			candidate_hashes: HashMap::new(),
-			candidates: Vec::new().into_iter().cycle(),
-			backed_candidates: Vec::new(),
-			config: config.clone(),
-			block_infos,
-			chunk_fetching_requests: Default::default(),
-			signed_bitfields: Default::default(),
-			candidate_hashes_2: Default::default(),
-			block_headers,
-			test_authorities,
-		};
-
-		_self.generate_candidates();
-
-		let mut candidate_hashes_2: HashMap<H256, Vec<CandidateReceipt>> = HashMap::new();
-
-		// Prepare per block candidates.
-		// Genesis block is always finalized, so we start at 1.
-		for block_num in 1..=config.num_blocks {
-			for _ in 0..config.n_cores {
-				candidate_hashes_2
-					.entry(Hash::repeat_byte(block_num as u8))
-					.or_default()
-					.push(_self.next_candidate().expect("Cycle iterator"))
-			}
-
-			// First candidate is our backed candidate.
-			_self.backed_candidates.push(
-				candidate_hashes_2
-					.get(&Hash::repeat_byte(block_num as u8))
-					.expect("just inserted above")
-					.first()
-					.expect("just inserted above")
-					.clone(),
-			);
-		}
-
-		let chunk_fetching_requests = _self
-			.backed_candidates()
-			.iter()
-			.map(|candidate| {
-				(0..config.n_validators)
-					.map(|index| {
-						ChunkFetchingRequest {
-							candidate_hash: candidate.hash(),
-							index: ValidatorIndex(index as u32),
-						}
-						.encode()
-					})
-					.collect::<Vec<_>>()
-			})
-			.collect::<Vec<_>>();
-
-		let signed_bitfields: HashMap<H256, Vec<VersionedValidationProtocol>> = _self
-			.block_infos
-			.iter()
-			.map(|block_info| {
-				let signing_context =
-					SigningContext { session_index: 0, parent_hash: block_info.hash };
-				let messages = (0..config.n_validators)
-					.map(|index| {
-						let validator_public = _self
-							.test_authorities
-							.validator_public
-							.get(index)
-							.expect("All validator keys are known");
-
-						// Node has all the chunks in the world.
-						let payload: AvailabilityBitfield =
-							AvailabilityBitfield(bitvec![u8, bitvec::order::Lsb0; 1u8; 32]);
-						let signed_bitfield = Signed::<AvailabilityBitfield>::sign(
-							&_self.test_authorities.keyring.keystore(),
-							payload,
-							&signing_context,
-							ValidatorIndex(index as u32),
-							validator_public,
-						)
-						.ok()
-						.flatten()
-						.expect("should be signed");
-
-						peer_bitfield_message_v2(block_info.hash, signed_bitfield)
-					})
-					.collect::<Vec<_>>();
-
-				(block_info.hash, messages)
-			})
-			.collect();
-
-		_self.chunk_fetching_requests = chunk_fetching_requests;
-		_self.signed_bitfields = signed_bitfields;
-		_self.candidate_hashes_2 = candidate_hashes_2;
-
-		_self
-	}
-
-	pub fn backed_candidates(&self) -> &Vec<CandidateReceipt> {
-		&self.backed_candidates
-	}
-
-	pub fn next_candidate(&mut self) -> Option<CandidateReceipt> {
-		let candidate = self.candidates.next();
-		let candidate_hash = candidate.as_ref().unwrap().hash();
-		gum::trace!(target: LOG_TARGET, "Next candidate selected {:?}", candidate_hash);
-		candidate
-	}
-
-	/// Generate candidates to be used in the test.
-	fn generate_candidates(&mut self) {
-		let count = self.config.n_cores * self.config.num_blocks;
-		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", count).bright_blue());
-
-		// Generate all candidates
-		self.candidates = (0..count)
-			.map(|index| {
-				let pov_size = self.pov_sizes.next().expect("This is a cycle; qed");
-				let candidate_index = *self
-					.pov_size_to_candidate
-					.get(&pov_size)
-					.expect("pov_size always exists; qed");
-				let mut candidate_receipt =
-					self.candidate_receipt_templates[candidate_index].clone();
-
-				// Make it unique.
-				candidate_receipt.descriptor.relay_parent = Hash::from_low_u64_be(index as u64);
-				// Store the new candidate in the state
-				self.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
-
-				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
-
-				candidate_receipt
-			})
-			.collect::<Vec<_>>()
-			.into_iter()
-			.cycle();
-	}
-}
-
 pub async fn benchmark_availability_read(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
@@ -613,7 +363,7 @@ pub async fn benchmark_availability_write(
 	env.metrics().set_n_cores(config.n_cores);
 
 	gum::info!(target: LOG_TARGET, "Seeding availability store with candidates ...");
-	for backed_candidate in state.backed_candidates().clone() {
+	for backed_candidate in state.backed_candidates.clone() {
 		let candidate_index = *state.candidate_hashes.get(&backed_candidate.hash()).unwrap();
 		let available_data = state.available_data[candidate_index].clone();
 		let (tx, rx) = oneshot::channel();
@@ -739,18 +489,4 @@ pub async fn benchmark_availability_write(
 		benchmark_name,
 		&["availability-distribution", "bitfield-distribution", "availability-store"],
 	)
-}
-
-pub fn peer_bitfield_message_v2(
-	relay_hash: H256,
-	signed_bitfield: Signed<AvailabilityBitfield>,
-) -> VersionedValidationProtocol {
-	let bitfield = polkadot_node_network_protocol::v2::BitfieldDistributionMessage::Bitfield(
-		relay_hash,
-		signed_bitfield.into(),
-	);
-
-	Versioned::V2(polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
-		bitfield,
-	))
 }
