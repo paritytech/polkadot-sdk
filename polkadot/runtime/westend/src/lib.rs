@@ -17,7 +17,7 @@
 //! The Westend runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// `construct_runtime!` does a lot of recursion and requires us to increase the limit.
+// `#[frame_support::runtime]!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
 use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
@@ -27,7 +27,7 @@ use beefy_primitives::{
 };
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 use frame_support::{
-	construct_runtime, derive_impl,
+	derive_impl,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
