@@ -315,7 +315,12 @@ pub mod pallet {
 				current_set_id,
 			);
 			if may_refund_call_fee {
-				FreeHeadersRemaining::<T, I>::mutate(|count| *count = count.saturating_sub(1));
+				FreeHeadersRemaining::<T, I>::mutate(|count| {
+					*count = match *count {
+						Some(count) if count > 1 => Some(count - 1),
+						_ => None,
+					}
+				});
 			}
 			insert_header::<T, I>(*finality_target, hash);
 			log::info!(
@@ -370,7 +375,7 @@ pub mod pallet {
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn free_mandatory_headers_remaining)]
 	pub(super) type FreeHeadersRemaining<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, u32, ValueQuery>;
+		StorageValue<_, u32, OptionQuery>;
 
 	/// Hash of the header used to bootstrap the pallet.
 	#[pallet::storage]
@@ -509,7 +514,7 @@ pub mod pallet {
 		current_set_id: SetId,
 	) -> bool {
 		// if we have refunded too much at this block => not refunding
-		if FreeHeadersRemaining::<T, I>::get() == 0 {
+		if FreeHeadersRemaining::<T, I>::get().unwrap_or(0) == 0 {
 			return false;
 		}
 
