@@ -258,6 +258,8 @@ mod select_candidates {
 		BlockNumber, CandidateCommitments, CommittedCandidateReceipt, PersistedValidationData,
 	};
 	use rstest::rstest;
+	use std::ops::Not;
+	use CoreState::{Free, Scheduled};
 
 	const BLOCK_UNDER_PRODUCTION: BlockNumber = 128;
 
@@ -323,9 +325,6 @@ mod select_candidates {
 	//     11: Occupied(next_up_on_available and available, but different successor para_id)
 	//   ]
 	fn mock_availability_cores_one_per_para() -> Vec<CoreState> {
-		use std::ops::Not;
-		use CoreState::{Free, Scheduled};
-
 		vec![
 			// 0: Free,
 			Free,
@@ -389,9 +388,6 @@ mod select_candidates {
 	// For test purposes with multiple possible cores assigned to a para, we always return this set
 	// of availability cores:
 	fn mock_availability_cores_multiple_per_para() -> Vec<CoreState> {
-		use std::ops::Not;
-		use CoreState::{Free, Scheduled};
-
 		vec![
 			// 0: Free,
 			Free,
@@ -880,6 +876,112 @@ mod select_candidates {
 					result.clone().into_iter().all(|c| {
 						expected_backed_filtered.iter().any(|c2| c.candidate().corresponds_to(c2))
 					})
+				}));
+			},
+		)
+	}
+
+	#[test]
+	fn selects_max_one_code_upgrade_multiple_cores_per_para() {
+		let prospective_parachains_mode =
+			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };
+		let mock_cores = vec![
+			// 1: Scheduled(default),
+			Scheduled(scheduled_core(1)),
+			// 2: Scheduled(default),
+			Scheduled(scheduled_core(2)),
+			// 3: Scheduled(default),
+			Scheduled(scheduled_core(2)),
+			// 4: Scheduled(default),
+			Scheduled(scheduled_core(2)),
+			// 5: Scheduled(default),
+			Scheduled(scheduled_core(3)),
+			// 6: Scheduled(default),
+			Scheduled(scheduled_core(3)),
+			// 7: Scheduled(default),
+			Scheduled(scheduled_core(3)),
+		];
+
+		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
+		let cores_with_code = [0, 2, 4, 5];
+
+		// We can't be sure which one code upgrade the provisioner will pick. We can only assert
+		// that it only picks one.
+		let expected_cores = [vec![0, 1], vec![1, 2, 3], vec![4, 1]];
+
+		let committed_receipts: Vec<_> = (0..mock_cores.len())
+			.map(|i| {
+				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
+				descriptor.para_id = mock_cores[i].para_id().unwrap();
+				descriptor.persisted_validation_data_hash = empty_hash;
+				descriptor.pov_hash = Hash::from_low_u64_be(i as u64);
+				CommittedCandidateReceipt {
+					descriptor,
+					commitments: CandidateCommitments {
+						new_validation_code: if cores_with_code.contains(&i) {
+							Some(vec![].into())
+						} else {
+							None
+						},
+						..Default::default()
+					},
+				}
+			})
+			.collect();
+
+		// Input to select_candidates
+		let candidates: Vec<_> = committed_receipts.iter().map(|r| r.to_plain()).collect();
+		// Build possible outputs from select_candidates
+		let backed_candidates: Vec<_> = committed_receipts
+			.iter()
+			.map(|committed_receipt| {
+				BackedCandidate::new(
+					committed_receipt.clone(),
+					Vec::new(),
+					default_bitvec(MOCK_GROUP_SIZE),
+					None,
+				)
+			})
+			.collect();
+
+		// First, provisioner will request backable candidates for each scheduled core.
+		// Then, some of them get filtered due to new validation code rule.
+		let expected_backed: Vec<_> =
+			(0..mock_cores.len()).map(|idx| backed_candidates[idx].clone()).collect();
+		let expected_backed_filtered: Vec<Vec<_>> = expected_cores
+			.iter()
+			.map(|indices| indices.iter().map(|&idx| candidates[idx].clone()).collect())
+			.collect();
+
+		let mock_cores_clone = mock_cores.clone();
+
+		test_harness(
+			|r| {
+				mock_overseer(
+					r,
+					mock_cores_clone,
+					expected_backed,
+					HashMap::new(),
+					prospective_parachains_mode,
+				)
+			},
+			|mut tx: TestSubsystemSender| async move {
+				let result = select_candidates(
+					&mock_cores,
+					&[],
+					&candidates,
+					prospective_parachains_mode,
+					true,
+					Default::default(),
+					&mut tx,
+				)
+				.await
+				.unwrap();
+
+				assert!(expected_backed_filtered.iter().any(|expected_backed_filtered| {
+					result.clone().into_iter().all(|c| {
+						expected_backed_filtered.iter().any(|c2| c.candidate().corresponds_to(c2))
+					}) && (expected_backed_filtered.len() == result.len())
 				}));
 			},
 		)
