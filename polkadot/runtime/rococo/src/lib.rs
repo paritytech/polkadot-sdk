@@ -127,7 +127,7 @@ use governance::{
 	TreasurySpender,
 };
 use xcm_executor::traits::WeightBounds;
-use xcm_payment_runtime_api::Error as XcmPaymentApiError;
+use xcm_fee_payment_runtime_api::Error as XcmPaymentApiError;
 
 #[cfg(test)]
 mod tests;
@@ -383,10 +383,12 @@ impl OpaqueKeys for OldSessionKeys {
 			<<Babe as BoundToRuntimeAppPublic>::Public>::ID => self.babe.as_ref(),
 			sp_core::crypto::key_types::IM_ONLINE => self.im_online.as_ref(),
 			<<Initializer as BoundToRuntimeAppPublic>::Public>::ID => self.para_validator.as_ref(),
-			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID =>
-				self.para_assignment.as_ref(),
-			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID =>
-				self.authority_discovery.as_ref(),
+			<<ParaSessionInfo as BoundToRuntimeAppPublic>::Public>::ID => {
+				self.para_assignment.as_ref()
+			},
+			<<AuthorityDiscovery as BoundToRuntimeAppPublic>::Public>::ID => {
+				self.authority_discovery.as_ref()
+			},
 			<<Beefy as BoundToRuntimeAppPublic>::Public>::ID => self.beefy.as_ref(),
 			_ => &[],
 		}
@@ -885,19 +887,19 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
-					RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
+					| RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions { .. } |
-					RuntimeCall::Crowdloan { .. } |
-					RuntimeCall::Registrar { .. } |
-					RuntimeCall::Multisig(..) |
-					RuntimeCall::Slots { .. }
+				RuntimeCall::Auctions { .. }
+					| RuntimeCall::Crowdloan { .. }
+					| RuntimeCall::Registrar { .. }
+					| RuntimeCall::Multisig(..)
+					| RuntimeCall::Slots { .. }
 			),
 			ProxyType::Society => matches!(c, RuntimeCall::Society(..)),
 			ProxyType::OnDemandOrdering => matches!(c, RuntimeCall::OnDemandAssignmentProvider(..)),
@@ -1804,7 +1806,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_payment_runtime_api::XcmPaymentApi<Block, RuntimeCall> for Runtime {
+	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block, RuntimeCall> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
 			if !matches!(xcm_version, 3 | 4) {
 				return Err(XcmPaymentApiError::UnhandledXcmVersion);

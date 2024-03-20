@@ -399,20 +399,20 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_payment_runtime_api::XcmPaymentApi<Block, RuntimeCall> for Runtime {
-		fn query_acceptable_payment_assets(_: xcm::Version) -> Result<Vec<VersionedAssetId>, xcm_payment_runtime_api::Error> {
+	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block, RuntimeCall> for Runtime {
+		fn query_acceptable_payment_assets(_: xcm::Version) -> Result<Vec<VersionedAssetId>, xcm_fee_payment_runtime_api::Error> {
 			unimplemented!()
 		}
 
-		fn query_weight_to_asset_fee(_: Weight, _: VersionedAssetId) -> Result<u128, xcm_payment_runtime_api::Error> {
+		fn query_weight_to_asset_fee(_: Weight, _: VersionedAssetId) -> Result<u128, xcm_fee_payment_runtime_api::Error> {
 			unimplemented!()
 		}
 
-		fn query_xcm_weight(_: VersionedXcm<RuntimeCall>) -> Result<Weight, xcm_payment_runtime_api::Error> {
+		fn query_xcm_weight(_: VersionedXcm<RuntimeCall>) -> Result<Weight, xcm_fee_payment_runtime_api::Error> {
 			unimplemented!()
 		}
 
-		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>) -> Result<VersionedAssets, xcm_payment_runtime_api::Error> {
+		fn query_delivery_fees(_: VersionedLocation, _: VersionedXcm<()>) -> Result<VersionedAssets, xcm_fee_payment_runtime_api::Error> {
 			unimplemented!()
 		}
 	}

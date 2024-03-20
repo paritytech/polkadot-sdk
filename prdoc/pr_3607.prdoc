@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: "XCM payment API"
+title: "XCM fee payment API"
 
 doc:
   - audience: Runtime Dev
@@ -20,7 +20,7 @@ doc:
       The last one takes in a destination and a message you want to send from the runtime you're executing this on, it will give you the delivery fees.
 	
 crates:
-  - name: xcm-payment-runtime-api
+  - name: xcm-fee-payment-runtime-api
   - name: rococo-runtime
   - name: westend-runtime
   

@@ -13578,7 +13578,7 @@ dependencies = [
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants",
- "xcm-payment-runtime-api",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -15159,7 +15159,7 @@ dependencies = [
  "substrate-wasm-builder",
  "tiny-keccak",
  "tokio",
- "xcm-payment-runtime-api",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -22052,7 +22052,7 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "westend-runtime-constants",
- "xcm-payment-runtime-api",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -22527,7 +22527,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "xcm-payment-runtime-api"
+name = "xcm-fee-payment-runtime-api"
 version = "0.1.0"
 dependencies = [
  "frame-support",
