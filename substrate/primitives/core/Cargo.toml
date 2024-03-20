@@ -63,7 +63,7 @@ w3f-bls = { version = "0.1.3", default-features = false, optional = true }
 bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "e9782f9", default-features = false, features = ["substrate-curves"], optional = true }
 
 [target.'cfg(not(substrate_runtime))'.dependencies]
-sp-externalities = { path = "../externalities" }
+sp-externalities = { path = "../externalities", default-features = false }
 futures = { version = "0.3.21", default-features = false, features = ["alloc"] }
 dyn-clone = "1.0.17"
 
