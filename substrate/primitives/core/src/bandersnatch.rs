@@ -26,7 +26,8 @@ use crate::crypto::Ss58Codec;
 use crate::crypto::VrfSecret;
 use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
-	Public as TraitPublic, SecretStringError, UncheckedFrom, VrfPublic,
+	Public as TraitPublic, PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
+	VrfPublic,
 };
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -45,64 +46,23 @@ pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"band");
 /// Context used to produce a plain signature without any VRF input/output.
 pub const SIGNING_CTX: &[u8] = b"BandersnatchSigningContext";
 
-const SEED_SERIALIZED_SIZE: usize = 32;
+/// The byte length of secret key seed.
+pub const SEED_SERIALIZED_SIZE: usize = 32;
 
-const PUBLIC_SERIALIZED_SIZE: usize = 33;
-const SIGNATURE_SERIALIZED_SIZE: usize = 65;
-const PREOUT_SERIALIZED_SIZE: usize = 33;
+/// The byte length of serialized public key.
+pub const PUBLIC_SERIALIZED_SIZE: usize = 33;
+
+/// The byte length of serialized signature.
+pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
+
+/// The byte length of serialized pre-output.
+pub const PREOUT_SERIALIZED_SIZE: usize = 33;
+
+#[doc(hidden)]
+pub struct BandersnatchTag;
 
 /// Bandersnatch public key.
-#[derive(
-	Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, MaxEncodedLen, TypeInfo, Hash,
-)]
-pub struct Public(pub [u8; PUBLIC_SERIALIZED_SIZE]);
-
-impl From<[u8; PUBLIC_SERIALIZED_SIZE]> for Public {
-	fn from(raw: [u8; PUBLIC_SERIALIZED_SIZE]) -> Self {
-		Public(raw)
-	}
-}
-
-impl UncheckedFrom<[u8; PUBLIC_SERIALIZED_SIZE]> for Public {
-	fn unchecked_from(raw: [u8; PUBLIC_SERIALIZED_SIZE]) -> Self {
-		Public(raw)
-	}
-}
-
-impl AsRef<[u8; PUBLIC_SERIALIZED_SIZE]> for Public {
-	fn as_ref(&self) -> &[u8; PUBLIC_SERIALIZED_SIZE] {
-		&self.0
-	}
-}
-
-impl AsRef<[u8]> for Public {
-	fn as_ref(&self) -> &[u8] {
-		&self.0[..]
-	}
-}
-
-impl AsMut<[u8]> for Public {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0[..]
-	}
-}
-
-impl TryFrom<&[u8]> for Public {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != PUBLIC_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut r = [0u8; PUBLIC_SERIALIZED_SIZE];
-		r.copy_from_slice(data);
-		Ok(Self::unchecked_from(r))
-	}
-}
-
-impl ByteArray for Public {
-	const LEN: usize = PUBLIC_SERIALIZED_SIZE;
-}
+pub type Public = PublicBytes<PUBLIC_SERIALIZED_SIZE, BandersnatchTag>;
 
 impl TraitPublic for Public {}
 
@@ -144,43 +104,7 @@ impl<'de> Deserialize<'de> for Public {
 ///
 /// The signature is created via the [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as transcript
 /// `label`.
-#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, Hash)]
-pub struct Signature([u8; SIGNATURE_SERIALIZED_SIZE]);
-
-impl UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {
-	fn unchecked_from(raw: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Self {
-		Signature(raw)
-	}
-}
-
-impl AsRef<[u8]> for Signature {
-	fn as_ref(&self) -> &[u8] {
-		&self.0[..]
-	}
-}
-
-impl AsMut<[u8]> for Signature {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0[..]
-	}
-}
-
-impl TryFrom<&[u8]> for Signature {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != SIGNATURE_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut r = [0u8; SIGNATURE_SERIALIZED_SIZE];
-		r.copy_from_slice(data);
-		Ok(Self::unchecked_from(r))
-	}
-}
-
-impl ByteArray for Signature {
-	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
-}
+pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, BandersnatchTag>;
 
 impl CryptoType for Signature {
 	type Pair = Pair;
@@ -534,8 +458,7 @@ pub mod vrf {
 				thin_signature.preouts.into_iter().map(VrfPreOutput).collect();
 			let pre_outputs = VrfIosVec::truncate_from(pre_outputs);
 
-			let mut signature =
-				VrfSignature { signature: Signature([0; SIGNATURE_SERIALIZED_SIZE]), pre_outputs };
+			let mut signature = VrfSignature { signature: Signature::default(), pre_outputs };
 
 			thin_signature
 				.proof
@@ -574,7 +497,7 @@ pub mod vrf {
 			// This is another hack used because backend signature type is generic over
 			// the number of ios.
 			let Ok(proof) = ThinVrfSignature::<0>::deserialize_compressed_unchecked(
-				signature.signature.as_ref(),
+				signature.signature.as_slice(),
 			)
 			.map(|s| s.proof) else {
 				return false
