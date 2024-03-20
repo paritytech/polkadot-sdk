@@ -116,10 +116,10 @@ mod v1 {
 			);
 
 			let n_affinity_entries =
-				AffinityEntries::<T>::iter().map(|(_index, heap)| heap.len() as u32).count();
+				AffinityEntries::<T>::iter().map(|(_index, heap)| heap.len() as u32).sum();
 			let n_para_id_affinity = ParaIdAffinity::<T>::iter()
 				.map(|(_para_id, affinity)| affinity.count as u32)
-				.count();
+				.sum();
 			ensure!(
 				n_para_id_affinity == n_affinity_entries,
 				"Number of affinity entries should be the same as the counts in ParaIdAffinity"
