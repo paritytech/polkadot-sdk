@@ -274,14 +274,9 @@ mod test {
 
 			// Run migration.
 			let mut cursor = None;
-			loop {
-				if let Ok(Some(next_cursor)) =
-					MigrationOf::<T>::step(cursor, &mut WeightMeter::new())
-				{
-					cursor = Some(next_cursor);
-				} else {
-					break;
-				}
+			let mut meter = WeightMeter::new();
+			while let Ok(Some(next_cursor)) = MigrationOf::<T>::step(cursor, &mut meter) {
+				cursor = Some(next_cursor);
 			}
 
 			// Check that alice's deposit is now held instead of reserved.
