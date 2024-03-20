@@ -771,7 +771,7 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = 
 	Pallet::<T, I>::update_parachain_head(
 		parachain,
 		None,
-		0,
+		(0, Default::default()),
 		updated_head_data,
 		parachain_head.hash(),
 	)
