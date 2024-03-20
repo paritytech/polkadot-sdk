@@ -25,4 +25,4 @@ migrations:
         The region owner is optional.
 
 crates: 
-  - name: pallet-regions
+  - name: pallet-broker
