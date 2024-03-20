@@ -125,8 +125,7 @@ where
 		let id = self.generate_unique_id();
 
 		// Ensure that the connection has not reached the maximum number of active operations.
-		let Some(reserved_connection) =
-			self.rpc_connections.reserve_space(connection_details.id().clone())
+		let Some(reserved_connection) = self.rpc_connections.reserve_space(connection_details.id())
 		else {
 			return Ok(None)
 		};

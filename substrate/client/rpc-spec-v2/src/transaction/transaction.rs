@@ -19,6 +19,7 @@
 //! API implementation for submitting transactions.
 
 use crate::{
+	common::connections::RpcConnections,
 	transaction::{
 		api::TransactionApiServer,
 		error::Error,
@@ -47,12 +48,14 @@ pub struct Transaction<Pool, Client> {
 	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
+	/// Keep track of how many concurrent operations are active for each connection.
+	rpc_connections: RpcConnections,
 }
 
 impl<Pool, Client> Transaction<Pool, Client> {
 	/// Creates a new [`Transaction`].
 	pub fn new(client: Arc<Client>, pool: Arc<Pool>, executor: SubscriptionTaskExecutor) -> Self {
-		Transaction { client, pool, executor }
+		Transaction { client, pool, executor, rpc_connections: RpcConnections::new(4) }
 	}
 }
 
@@ -81,8 +84,20 @@ where
 	fn submit_and_watch(&self, pending: PendingSubscriptionSink, xt: Bytes) {
 		let client = self.client.clone();
 		let pool = self.pool.clone();
+		let rpc_connections = self.rpc_connections.clone();
 
 		let fut = async move {
+			let Some(_reserved_connection) = rpc_connections.reserve_space(pending.connection_id())
+			else {
+				let err = ErrorObject::owned(
+					BAD_FORMAT,
+					format!("Reached maximum number of connections"),
+					None::<()>,
+				);
+				let _ = pending.reject(err).await;
+				return
+			};
+
 			// This is the only place where the RPC server can return an error for this
 			// subscription. Other defects must be signaled as events to the sink.
 			let decoded_extrinsic = match TransactionFor::<Pool>::decode(&mut &xt[..]) {
