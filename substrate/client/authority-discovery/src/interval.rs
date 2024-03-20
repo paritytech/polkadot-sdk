@@ -47,7 +47,7 @@ impl ExpIncInterval {
 		self.delay = Delay::new(self.next);
 	}
 
-	/// Fast forward the exponentially increasing interval to the configured start.
+	/// Rewind the exponentially increasing interval to the configured start.
 	pub fn set_to_start(&mut self) {
 		self.next = self.start * 2;
 		self.delay = Delay::new(self.start);
