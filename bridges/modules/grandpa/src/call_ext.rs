@@ -22,7 +22,7 @@ use bp_header_chain::{
 	justification::GrandpaJustification, max_expected_submit_finality_proof_arguments_size,
 	ChainWithGrandpa, GrandpaConsensusLogReader,
 };
-use bp_runtime::{BlockNumberOf, OwnedBridgeModule};
+use bp_runtime::{BlockNumberOf, Chain, OwnedBridgeModule};
 use codec::Encode;
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight};
 use sp_consensus_grandpa::SetId;
@@ -92,7 +92,21 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		}
 
 		// else - if we can not accept more free headers, "reject" the transaction
-		if FreeHeadersRemaining::<T, I>::get() == 0 {
+		//
+		// `unwrap_or(u32::MAX)` means that if `FreeHeadersRemaining` is `None`, we may accept
+		// this header for free. That is a small cheat - is is `None` if executed outside of
+		// transaction (e.g. during block initialization). Normal relayer would never submit
+		// such calls, but if he did, that is not our problem. During normal transactions,
+		// the `FreeHeadersRemaining` is always `Some(_)`.
+		let free_headers_remaining = FreeHeadersRemaining::<T, I>::get().unwrap_or(u32::MAX);
+		if free_headers_remaining == 0 {
+			log::trace!(
+				target: crate::LOG_TARGET,
+				"Cannot accept free {:?} header {:?}. No more free slots remaining",
+				T::BridgedChain::ID,
+				call_info.block_number,
+			);
+
 			return Err(Error::<T, I>::CannotAcceptMoreFreeHeaders);
 		}
 
@@ -409,11 +423,20 @@ mod tests {
 			// when we can NOT accept free headers => Err
 			FreeHeadersRemaining::<TestRuntime, ()>::put(0);
 			assert!(RuntimeCall::check_obsolete_submit_finality_proof(
-				&RuntimeCall::Grandpa(bridge_grandpa_call,),
+				&RuntimeCall::Grandpa(bridge_grandpa_call.clone(),),
 				0
 			)
 			.1
 			.is_err());
+
+			// when called outside of transaction => Ok
+			FreeHeadersRemaining::<TestRuntime, ()>::kill();
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(
+				&RuntimeCall::Grandpa(bridge_grandpa_call,),
+				0
+			)
+			.1
+			.is_ok());
 		})
 	}
 
