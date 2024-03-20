@@ -2121,7 +2121,7 @@ pub mod env {
 		ensure_executable::<E::T>(&message)?;
 
 		let execute_weight =
-			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute();
+			<<E::T as Config>::Xcm as ExecuteController<_, _>>::WeightInfo::execute_blob();
 		let weight = ctx.ext.gas_meter().gas_left().max(execute_weight);
 		let dispatch_info = DispatchInfo { weight, ..Default::default() };
 
@@ -2130,9 +2130,9 @@ pub mod env {
 			RuntimeCosts::CallXcmExecute,
 			|ctx| {
 				let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
-				let weight_used = <<E::T as Config>::Xcm>::execute(
+				let weight_used = <<E::T as Config>::Xcm>::execute_blob(
 					origin,
-					Box::new(message),
+					message.encode().try_into().expect("TODO: What do I do here?"),
 					weight.saturating_sub(execute_weight),
 				)?;
 
@@ -2160,11 +2160,11 @@ pub mod env {
 
 		let message: VersionedXcm<()> =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
-		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send();
+		let weight = <<E::T as Config>::Xcm as SendController<_>>::WeightInfo::send_blob();
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
 
-		match <<E::T as Config>::Xcm>::send(origin, dest.into(), message.into()) {
+		match <<E::T as Config>::Xcm>::send_blob(origin, dest.into(), message.encode().try_into().expect("TODO: What to do here?")) {
 			Ok(message_id) => {
 				ctx.write_sandbox_memory(memory, output_ptr, &message_id.encode())?;
 				Ok(ReturnErrorCode::Success)

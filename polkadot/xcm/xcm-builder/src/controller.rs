@@ -21,6 +21,7 @@
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
 	pallet_prelude::DispatchError,
+	parameter_types,
 	BoundedVec,
 };
 use sp_std::boxed::Box;
@@ -28,14 +29,14 @@ use xcm::prelude::*;
 pub use xcm_executor::traits::QueryHandler;
 
 /// Umbrella trait for all Controller traits.
-pub trait Controller<Origin, RuntimeCall, Timeout, MaxXcmEncodedSize>:
-	ExecuteController<Origin, RuntimeCall, MaxXcmEncodedSize> + SendController<Origin, MaxXcmEncodedSize> + QueryController<Origin, Timeout>
+pub trait Controller<Origin, RuntimeCall, Timeout>:
+	ExecuteController<Origin, RuntimeCall> + SendController<Origin> + QueryController<Origin, Timeout>
 {
 }
 
-impl<T, Origin, RuntimeCall, Timeout, MaxXcmEncodedSize> Controller<Origin, RuntimeCall, Timeout, MaxXcmEncodedSize> for T where
-	T: ExecuteController<Origin, RuntimeCall, MaxXcmEncodedSize>
-		+ SendController<Origin, MaxXcmEncodedSize>
+impl<T, Origin, RuntimeCall, Timeout> Controller<Origin, RuntimeCall, Timeout> for T where
+	T: ExecuteController<Origin, RuntimeCall>
+		+ SendController<Origin>
 		+ QueryController<Origin, Timeout>
 {
 }
@@ -46,13 +47,17 @@ pub trait ExecuteControllerWeightInfo {
 	fn execute_blob() -> Weight;
 }
 
+parameter_types! {
+	pub const MaxXcmEncodedSize: u32 = xcm::MAX_XCM_ENCODED_SIZE;
+}
+
 /// Execute an XCM locally, for a given origin.
 ///
 /// An implementation of that trait will handle the low-level details of the execution, such as:
 /// - Validating and Converting the origin to a Location.
 /// - Handling versioning.
 /// - Calling  the internal executor, which implements [`ExecuteXcm`].
-pub trait ExecuteController<Origin, RuntimeCall, MaxXcmEncodedSize> {
+pub trait ExecuteController<Origin, RuntimeCall> {
 	/// Weight information for ExecuteController functions.
 	type WeightInfo: ExecuteControllerWeightInfo;
 
@@ -84,7 +89,7 @@ pub trait SendControllerWeightInfo {
 /// - Validating and Converting the origin to an interior location.
 /// - Handling versioning.
 /// - Calling the internal router, which implements [`SendXcm`].
-pub trait SendController<Origin, MaxXcmEncodedSize> {
+pub trait SendController<Origin> {
 	/// Weight information for SendController functions.
 	type WeightInfo: SendControllerWeightInfo;
 
@@ -136,7 +141,7 @@ pub trait QueryController<Origin, Timeout>: QueryHandler {
 	) -> Result<Self::QueryId, DispatchError>;
 }
 
-impl<Origin, RuntimeCall, MaxXcmEncodedSize> ExecuteController<Origin, RuntimeCall, MaxXcmEncodedSize> for () {
+impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
 	type WeightInfo = ();
 	fn execute_blob(
 		_origin: Origin,
@@ -154,7 +159,7 @@ impl ExecuteControllerWeightInfo for () {
 	}
 }
 
-impl<Origin, MaxXcmEncodedSize> SendController<Origin, MaxXcmEncodedSize> for () {
+impl<Origin> SendController<Origin> for () {
 	type WeightInfo = ();
 	fn send_blob(
 		_origin: Origin,

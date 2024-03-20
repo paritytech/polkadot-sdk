@@ -51,7 +51,7 @@ use sp_std::{boxed::Box, marker::PhantomData, prelude::*, result::Result, vec};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::{
 	ExecuteController, ExecuteControllerWeightInfo, QueryController, QueryControllerWeightInfo,
-	SendController, SendControllerWeightInfo,
+	SendController, SendControllerWeightInfo, MaxXcmEncodedSize,
 };
 use xcm_executor::{
 	traits::{
@@ -198,8 +198,6 @@ pub mod pallet {
 		/// An implementation of `Get<u32>` which just returns the latest XCM version which we can
 		/// support.
 		pub const CurrentXcmVersion: u32 = XCM_VERSION;
-		/// The maximum encoded size of an XCM.
-		pub const MaxXcmEncodedSize: u32 = 500;
 	}
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -302,7 +300,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> ExecuteController<OriginFor<T>, <T as Config>::RuntimeCall, MaxXcmEncodedSize>
+	impl<T: Config> ExecuteController<OriginFor<T>, <T as Config>::RuntimeCall>
 		for Pallet<T>
 	{
 		type WeightInfo = Self;
@@ -327,7 +325,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> SendController<OriginFor<T>, MaxXcmEncodedSize> for Pallet<T> {
+	impl<T: Config> SendController<OriginFor<T>> for Pallet<T> {
 		type WeightInfo = Self;
 		fn send_blob(
 			origin: OriginFor<T>,
@@ -1508,7 +1506,7 @@ pub mod pallet {
 			message: BoundedVec<u8, MaxXcmEncodedSize>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			let weight_used = <Self as ExecuteController<_, _, MaxXcmEncodedSize>>::execute_blob(
+			let weight_used = <Self as ExecuteController<_, _>>::execute_blob(
 				origin, message, max_weight,
 			)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute_blob())).into())
@@ -1521,7 +1519,7 @@ pub mod pallet {
 			dest: Box<VersionedLocation>,
 			message: BoundedVec<u8, MaxXcmEncodedSize>,
 		) -> DispatchResult {
-			<Self as SendController<_, MaxXcmEncodedSize>>::send_blob(origin, dest, message)?;
+			<Self as SendController<_>>::send_blob(origin, dest, message)?;
 			Ok(())
 		}
 	}

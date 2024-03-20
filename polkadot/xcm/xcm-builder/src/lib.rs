@@ -45,6 +45,7 @@ mod controller;
 pub use controller::{
 	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
 	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
+	MaxXcmEncodedSize,
 };
 
 mod currency_adapter;
