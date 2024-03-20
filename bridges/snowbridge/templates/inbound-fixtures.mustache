@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+// Generated, do not edit!
+// See ethereum client README.md for instructions to generate
+
+use hex_literal::hex;
+use snowbridge_beacon_primitives::{
+types::deneb, AncestryProof, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
+};
+use snowbridge_core::inbound::{InboundQueueFixture, Log, Message, Proof};
+use sp_core::U256;
+use sp_std::vec;
+
+pub fn make_{{TestCase}}_message() -> InboundQueueFixture {
+    InboundQueueFixture {
+        message: Message {
+            event_log: 	Log {
+                address: hex!("{{InboundMessage.EventLog.Address}}").into(),
+                topics: vec![
+                {{#InboundMessage.EventLog.Topics}}
+                    hex!("{{.}}").into(),
+                {{/InboundMessage.EventLog.Topics}}
+                ],
+                data: hex!("{{InboundMessage.EventLog.Data}}").into(),
+            },
+            proof: Proof {
+                block_hash: hex!("{{InboundMessage.Proof.BlockHash}}").into(),
+                tx_index: {{InboundMessage.Proof.TxIndex}},
+                receipt_proof: (vec![
+                {{#InboundMessage.Proof.ReceiptProof.Keys}}
+                    hex!("{{.}}").to_vec(),
+                {{/InboundMessage.Proof.ReceiptProof.Keys}}
+                ], vec![
+                {{#InboundMessage.Proof.ReceiptProof.Values}}
+                    hex!("{{.}}").to_vec(),
+                {{/InboundMessage.Proof.ReceiptProof.Values}}
+                ]),
+                execution_proof: ExecutionProof {
+                    header: BeaconHeader {
+                        slot: {{HeaderUpdate.Header.Slot}},
+                        proposer_index: {{HeaderUpdate.Header.ProposerIndex}},
+                        parent_root: hex!("{{HeaderUpdate.Header.ParentRoot}}").into(),
+                        state_root: hex!("{{HeaderUpdate.Header.StateRoot}}").into(),
+                        body_root: hex!("{{HeaderUpdate.Header.BodyRoot}}").into(),
+                    },
+                    {{#HeaderUpdate.AncestryProof}}
+                        ancestry_proof: Some(AncestryProof {
+                        header_branch: vec![
+                        {{#HeaderUpdate.AncestryProof.HeaderBranch}}
+                            hex!("{{.}}").into(),
+                        {{/HeaderUpdate.AncestryProof.HeaderBranch}}
+                        ],
+                        finalized_block_root: hex!("{{HeaderUpdate.AncestryProof.FinalizedBlockRoot}}").into(),
+                        }),
+                    {{/HeaderUpdate.AncestryProof}}
+                    {{^HeaderUpdate.AncestryProof}}
+                        ancestry_proof: None,
+                    {{/HeaderUpdate.AncestryProof}}
+                    execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
+                        parent_hash: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.ParentHash}}").into(),
+                        fee_recipient: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.FeeRecipient}}").into(),
+                        state_root: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.StateRoot}}").into(),
+                        receipts_root: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.ReceiptsRoot}}").into(),
+                        logs_bloom: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.LogsBloom}}").into(),
+                        prev_randao: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.PrevRandao}}").into(),
+                        block_number: {{HeaderUpdate.ExecutionHeader.Deneb.BlockNumber}},
+                        gas_limit: {{HeaderUpdate.ExecutionHeader.Deneb.GasLimit}},
+                        gas_used: {{HeaderUpdate.ExecutionHeader.Deneb.GasUsed}},
+                        timestamp: {{HeaderUpdate.ExecutionHeader.Deneb.Timestamp}},
+                        extra_data: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.ExtraData}}").into(),
+                        base_fee_per_gas: U256::from({{HeaderUpdate.ExecutionHeader.Deneb.BaseFeePerGas}}u64),
+                        block_hash: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.BlockHash}}").into(),
+                        transactions_root: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.TransactionsRoot}}").into(),
+                        withdrawals_root: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.WithdrawalsRoot}}").into(),
+                        blob_gas_used: {{HeaderUpdate.ExecutionHeader.Deneb.BlobGasUsed}},
+                        excess_blob_gas: {{HeaderUpdate.ExecutionHeader.Deneb.ExcessBlobGas}},
+                    }),
+                    execution_branch: vec![
+                        {{#HeaderUpdate.ExecutionBranch}}
+                            hex!("{{.}}").into(),
+                        {{/HeaderUpdate.ExecutionBranch}}
+                    ],
+                }
+            },
+        },
+        finalized_header: BeaconHeader {
+            slot: {{FinalizedHeaderUpdate.FinalizedHeader.Slot}},
+            proposer_index: {{FinalizedHeaderUpdate.FinalizedHeader.ProposerIndex}},
+            parent_root: hex!("{{FinalizedHeaderUpdate.FinalizedHeader.ParentRoot}}").into(),
+            state_root: hex!("{{FinalizedHeaderUpdate.FinalizedHeader.StateRoot}}").into(),
+            body_root: hex!("{{FinalizedHeaderUpdate.FinalizedHeader.BodyRoot}}").into(),
+        },
+        block_roots_root: hex!("{{FinalizedHeaderUpdate.BlockRootsRoot}}").into(),
+    }
+}

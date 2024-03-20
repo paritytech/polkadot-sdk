@@ -6,7 +6,7 @@ use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_std::prelude::*;
 
-use crate::types::{BeaconHeader, SyncAggregate, SyncCommittee, VersionedExecutionPayloadHeader};
+use crate::types::{BeaconHeader, SyncAggregate, SyncCommittee};
 
 #[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
 #[cfg_attr(
@@ -64,34 +64,4 @@ pub struct Update<const COMMITTEE_SIZE: usize, const COMMITTEE_BITS_SIZE: usize>
 pub struct NextSyncCommitteeUpdate<const COMMITTEE_SIZE: usize> {
 	pub next_sync_committee: SyncCommittee<COMMITTEE_SIZE>,
 	pub next_sync_committee_branch: Vec<H256>,
-}
-
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
-#[cfg_attr(
-	feature = "std",
-	derive(serde::Deserialize),
-	serde(deny_unknown_fields, bound(serialize = ""), bound(deserialize = ""))
-)]
-pub struct ExecutionHeaderUpdate {
-	/// Header for the beacon block containing the execution payload
-	pub header: BeaconHeader,
-	/// Proof that `header` is an ancestor of a finalized header
-	pub ancestry_proof: Option<AncestryProof>,
-	/// Execution header to be imported
-	pub execution_header: VersionedExecutionPayloadHeader,
-	/// Merkle proof that execution payload is contained within `header`
-	pub execution_branch: Vec<H256>,
-}
-
-#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
-#[cfg_attr(
-	feature = "std",
-	derive(serde::Deserialize),
-	serde(deny_unknown_fields, bound(serialize = ""), bound(deserialize = ""))
-)]
-pub struct AncestryProof {
-	/// Merkle proof that `header` is an ancestor of `finalized_header`
-	pub header_branch: Vec<H256>,
-	/// Root of a finalized block that has already been imported into the light client
-	pub finalized_block_root: H256,
 }
