@@ -144,7 +144,7 @@ polkadot-statement-distribution = { path = "../network/statement-distribution", 
 
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
-xcm-fee-payment-runtime-api = { package = "xcm-fee-payment-runtime-api", path = "../../xcm/xcm-builder/xcm-payment-runtime-api", default-features = false }
+xcm-fee-payment-runtime-api = { package = "xcm-fee-payment-runtime-api", path = "../../xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 [dev-dependencies]
 polkadot-test-client = { path = "../test/client" }

@@ -91,6 +91,7 @@ pub enum Error {
 	/// The given asset is not handled(as a fee payment).
 	#[codec(index = 4)]
 	AssetNotFound,
+	// Destination is known to be unroutable.
 	#[codec(index = 5)]
 	Unroutable,
 }
