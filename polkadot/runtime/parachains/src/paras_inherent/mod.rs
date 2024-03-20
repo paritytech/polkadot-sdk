@@ -228,38 +228,6 @@ pub mod pallet {
 		}
 	}
 
-	/// Collect all freed cores based on storage data. (i.e. append cores freed from timeouts to
-	/// the given `freed_concluded`).
-	///
-	/// The parameter `freed_concluded` contains all core indicies that became
-	/// free due to candidates that became available or due to candidates being disputed.
-	pub(crate) fn collect_all_freed_cores<T, I>(
-		freed_concluded: I,
-	) -> BTreeMap<CoreIndex, FreedReason>
-	where
-		I: core::iter::IntoIterator<Item = (CoreIndex, CandidateHash)>,
-		T: Config,
-	{
-		// Handle timeouts for any availability core work.
-		let freed_timeout = if <scheduler::Pallet<T>>::availability_timeout_check_required() {
-			<inclusion::Pallet<T>>::free_timedout()
-		} else {
-			Vec::new()
-		};
-
-		if !freed_timeout.is_empty() {
-			log::debug!(target: LOG_TARGET, "Evicted timed out cores: {:?}", freed_timeout);
-		}
-
-		// We'll schedule paras again, given freed cores, and reasons for freeing.
-		let freed = freed_concluded
-			.into_iter()
-			.map(|(c, _hash)| (c, FreedReason::Concluded))
-			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
-			.collect::<BTreeMap<CoreIndex, FreedReason>>();
-		freed
-	}
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Enter the paras inherent. This will process bitfields and backed candidates.
@@ -538,15 +506,17 @@ impl<T: Config> Pallet<T> {
 			.map(|(_session, candidate)| candidate)
 			.collect::<BTreeSet<CandidateHash>>();
 
-		let freed_disputed =
-			<inclusion::Pallet<T>>::free_disputed(&current_concluded_invalid_disputes);
+		// Get the cores freed as a result of concluded invalid candidates.
+		let (freed_disputed, concluded_invalid_hashes): (Vec<CoreIndex>, BTreeSet<CandidateHash>) =
+			<inclusion::Pallet<T>>::free_disputed(&current_concluded_invalid_disputes)
+				.into_iter()
+				.unzip();
 
 		// Create a bit index from the set of core indices where each index corresponds to
 		// a core index that was freed due to a dispute.
 		//
 		// I.e. 010100 would indicate, the candidates on Core 1 and 3 would be disputed.
-		let disputed_bitfield =
-			create_disputed_bitfield(expected_bits, freed_disputed.iter().map(|(core, _)| core));
+		let disputed_bitfield = create_disputed_bitfield(expected_bits, freed_disputed.iter());
 
 		let bitfields = sanitize_bitfields::<T>(
 			bitfields,
@@ -560,7 +530,7 @@ impl<T: Config> Pallet<T> {
 
 		// Process new availability bitfields, yielding any availability cores whose
 		// work has now concluded.
-		let mut freed_concluded =
+		let freed_concluded =
 			<inclusion::Pallet<T>>::update_pending_availability_and_get_freed_cores(
 				&validator_public[..],
 				bitfields.clone(),
@@ -573,11 +543,24 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_included(freed_concluded.len() as u64);
 
-		// Add the disputed candidates to the concluded collection.
-		freed_concluded.extend(freed_disputed.iter());
+		// Get the timed out candidates
+		let freed_timeout = if <scheduler::Pallet<T>>::availability_timeout_check_required() {
+			<inclusion::Pallet<T>>::free_timedout()
+		} else {
+			Vec::new()
+		};
 
-		let freed = collect_all_freed_cores::<T, _>(freed_concluded);
+		if !freed_timeout.is_empty() {
+			log::debug!(target: LOG_TARGET, "Evicted timed out cores: {:?}", freed_timeout);
+		}
 
+		// We'll schedule paras again, given freed cores, and reasons for freeing.
+		let freed = freed_concluded
+			.into_iter()
+			.map(|(c, _hash)| (c, FreedReason::Concluded))
+			.chain(freed_disputed.into_iter().map(|core| (core, FreedReason::Concluded)))
+			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
+			.collect::<BTreeMap<CoreIndex, FreedReason>>();
 		<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(freed, now);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
@@ -600,7 +583,7 @@ impl<T: Config> Pallet<T> {
 		let backed_candidates_with_core = sanitize_backed_candidates::<T>(
 			backed_candidates,
 			&allowed_relay_parents,
-			freed_disputed.into_iter().map(|(_, hash)| hash).collect(),
+			concluded_invalid_hashes,
 			scheduled,
 			core_index_enabled,
 		);
