@@ -78,7 +78,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 		T::WeightInfo::v11_migration_step(128)
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let Some(old_queue) = v10::DeletionQueue::<T>::take() else {
 			meter.consume(T::WeightInfo::v11_migration_step(0));
 			return IsFinished::Yes

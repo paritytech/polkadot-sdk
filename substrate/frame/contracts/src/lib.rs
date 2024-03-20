@@ -919,7 +919,7 @@ pub mod pallet {
 			ensure_signed(origin)?;
 
 			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			let mut meter = WeightMeter::with_limit(limit);
+			let mut meter = WeightMeter::with_limit(weight_limit);
 			let result = Migration::<T>::migrate(&mut meter);
 
 			match result {
