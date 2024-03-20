@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-outbound-queue-merkle-tree"
 description = "Snowbridge Outbound Queue Merkle Tree"
-version = "0.9.0"
+version = "0.3.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true

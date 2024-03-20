@@ -19,8 +19,8 @@
 //! Substrate Client
 
 use super::block_rules::{BlockRules, LookupResult as BlockLookupResult};
-use futures::{FutureExt, StreamExt};
-use log::{error, info, trace, warn};
+use crate::client::notification_pinning::NotificationPinningWorker;
+use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use rand::Rng;
@@ -38,7 +38,7 @@ use sc_client_api::{
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
 	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
-	ProofProvider, UsageProvider,
+	ProofProvider, UnpinWorkerMessage, UsageProvider,
 };
 use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
@@ -114,7 +114,7 @@ where
 	block_rules: BlockRules<Block>,
 	config: ClientConfig<Block>,
 	telemetry: Option<TelemetryHandle>,
-	unpin_worker_sender: TracingUnboundedSender<Block::Hash>,
+	unpin_worker_sender: TracingUnboundedSender<UnpinWorkerMessage<Block>>,
 	_phantom: PhantomData<RA>,
 }
 
@@ -326,19 +326,35 @@ where
 			// dropped, the block will be unpinned automatically.
 			if let Some(ref notification) = finality_notification {
 				if let Err(err) = self.backend.pin_block(notification.hash) {
-					error!(
+					debug!(
 						"Unable to pin block for finality notification. hash: {}, Error: {}",
 						notification.hash, err
 					);
-				};
+				} else {
+					let _ = self
+						.unpin_worker_sender
+						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
+						.map_err(|e| {
+							log::error!(
+								"Unable to send AnnouncePin worker message for finality: {e}"
+							)
+						});
+				}
 			}
 
 			if let Some(ref notification) = import_notification {
 				if let Err(err) = self.backend.pin_block(notification.hash) {
-					error!(
+					debug!(
 						"Unable to pin block for import notification. hash: {}, Error: {}",
 						notification.hash, err
 					);
+				} else {
+					let _ = self
+						.unpin_worker_sender
+						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
+						.map_err(|e| {
+							log::error!("Unable to send AnnouncePin worker message for import: {e}")
+						});
 				};
 			}
 
@@ -416,25 +432,12 @@ where
 			backend.commit_operation(op)?;
 		}
 
-		let (unpin_worker_sender, mut rx) =
-			tracing_unbounded::<Block::Hash>("unpin-worker-channel", 10_000);
-		let task_backend = Arc::downgrade(&backend);
-		spawn_handle.spawn(
-			"unpin-worker",
-			None,
-			async move {
-				while let Some(message) = rx.next().await {
-					if let Some(backend) = task_backend.upgrade() {
-						backend.unpin_block(message);
-					} else {
-						log::debug!("Terminating unpin-worker, backend reference was dropped.");
-						return
-					}
-				}
-				log::debug!("Terminating unpin-worker, stream terminated.")
-			}
-			.boxed(),
+		let (unpin_worker_sender, rx) = tracing_unbounded::<UnpinWorkerMessage<Block>>(
+			"notification-pinning-worker-channel",
+			10_000,
 		);
+		let unpin_worker = NotificationPinningWorker::new(rx, backend.clone());
+		spawn_handle.spawn("notification-pinning-worker", None, Box::pin(unpin_worker.run()));
 
 		Ok(Client {
 			backend,
@@ -675,8 +678,10 @@ where
 
 						// This is use by fast sync for runtime version to be resolvable from
 						// changes.
-						let state_version =
-							resolve_state_version_from_wasm(&storage, &self.executor)?;
+						let state_version = resolve_state_version_from_wasm::<_, HashingFor<Block>>(
+							&storage,
+							&self.executor,
+						)?;
 						let state_root = operation.op.reset_storage(storage, state_version)?;
 						if state_root != *import_headers.post().state_root() {
 							// State root mismatch when importing state. This should not happen in

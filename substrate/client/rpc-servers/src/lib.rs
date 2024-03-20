@@ -49,7 +49,7 @@ pub use jsonrpsee::{
 	},
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
-pub use middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
+pub use middleware::{Metrics, MiddlewareLayer, RpcMetrics};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
@@ -173,13 +173,22 @@ where
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label = if is_websocket { "ws" } else { "http" };
 
-				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
-				let rate_limit = rate_limit.map(|r| RateLimitLayer::per_minute(r));
+				let middleware_layer = match (metrics, rate_limit) {
+					(None, None) => None,
+					(Some(metrics), None) => Some(
+						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
+					),
+					(None, Some(rate_limit)) =>
+						Some(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit)),
+					(Some(metrics), Some(rate_limit)) => Some(
+						MiddlewareLayer::new()
+							.with_metrics(Metrics::new(metrics, transport_label))
+							.with_rate_limit_per_minute(rate_limit),
+					),
+				};
 
-				// NOTE: The metrics needs to run first to include rate-limited calls in the
-				// metrics.
 				let rpc_middleware =
-					RpcServiceBuilder::new().option_layer(metrics.clone()).option_layer(rate_limit);
+					RpcServiceBuilder::new().option_layer(middleware_layer.clone());
 
 				let mut svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
@@ -191,9 +200,9 @@ where
 						// Spawn a task to handle when the connection is closed.
 						tokio_handle.spawn(async move {
 							let now = std::time::Instant::now();
-							metrics.as_ref().map(|m| m.ws_connect());
+							middleware_layer.as_ref().map(|m| m.ws_connect());
 							on_disconnect.await;
-							metrics.as_ref().map(|m| m.ws_disconnect(now));
+							middleware_layer.as_ref().map(|m| m.ws_disconnect(now));
 						});
 					}
 

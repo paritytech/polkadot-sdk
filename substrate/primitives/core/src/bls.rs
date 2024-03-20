@@ -25,27 +25,21 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic, UncheckedFrom};
-#[cfg(feature = "full_crypto")]
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
-
-#[cfg(feature = "full_crypto")]
-use sp_std::vec::Vec;
-
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
+use crate::crypto::{
+	CryptoType, Derive, DeriveError, DeriveJunction, Pair as TraitPair, Public as TraitPublic,
+	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
+};
 
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
+use sp_std::vec::Vec;
 
-use w3f_bls::{DoublePublicKey, DoubleSignature, EngineBLS, SerializableToBytes, TinyBLS381};
-#[cfg(feature = "full_crypto")]
-use w3f_bls::{DoublePublicKeyScheme, Keypair, Message, SecretKey};
-
-use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
-use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
+use w3f_bls::{
+	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
+	SecretKey, SerializableToBytes, TinyBLS381,
+};
 
 /// BLS-377 specialized types
 pub mod bls377 {
@@ -56,8 +50,10 @@ pub mod bls377 {
 	/// An identifier used to match public keys against BLS12-377 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls7");
 
+	#[doc(hidden)]
+	pub type Bls377Tag = TinyBLS377;
+
 	/// BLS12-377 key pair.
-	#[cfg(feature = "full_crypto")]
 	pub type Pair = super::Pair<TinyBLS377>;
 	/// BLS12-377 public key.
 	pub type Public = super::Public<TinyBLS377>;
@@ -79,7 +75,6 @@ pub mod bls381 {
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls8");
 
 	/// BLS12-381 key pair.
-	#[cfg(feature = "full_crypto")]
 	pub type Pair = super::Pair<TinyBLS381>;
 	/// BLS12-381 public key.
 	pub type Public = super::Public<TinyBLS381>;
@@ -96,7 +91,6 @@ trait BlsBound: EngineBLS + HardJunctionId + Send + Sync + 'static {}
 impl<T: EngineBLS + HardJunctionId + Send + Sync + 'static> BlsBound for T {}
 
 /// Secret key serialized size
-#[cfg(feature = "full_crypto")]
 const SECRET_KEY_SERIALIZED_SIZE: usize =
 	<SecretKey<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
@@ -113,129 +107,17 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize =
 /// It's not called a "secret key" because ring doesn't expose the secret keys
 /// of the key pair (yeah, dumb); as such we're forced to remember the seed manually if we
 /// will need it later (such as for HDKD).
-#[cfg(feature = "full_crypto")]
 type Seed = [u8; SECRET_KEY_SERIALIZED_SIZE];
 
+#[doc(hidden)]
+pub struct BlsTag;
+
 /// A public key.
-#[derive(Copy, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct Public<T> {
-	inner: [u8; PUBLIC_KEY_SERIALIZED_SIZE],
-	_phantom: PhantomData<fn() -> T>,
-}
+pub type Public<SubTag> = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, (BlsTag, SubTag)>;
 
-impl<T> Clone for Public<T> {
-	fn clone(&self) -> Self {
-		Self { inner: self.inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PartialEq for Public<T> {
-	fn eq(&self, other: &Self) -> bool {
-		self.inner == other.inner
-	}
-}
-
-impl<T> Eq for Public<T> {}
-
-impl<T> PartialOrd for Public<T> {
-	fn partial_cmp(&self, other: &Self) -> Option<sp_std::cmp::Ordering> {
-		Some(self.cmp(other))
-	}
-}
-
-impl<T> Ord for Public<T> {
-	fn cmp(&self, other: &Self) -> sp_std::cmp::Ordering {
-		self.inner.cmp(&other.inner)
-	}
-}
-
-#[cfg(feature = "full_crypto")]
-impl<T> sp_std::hash::Hash for Public<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
-		self.inner.hash(state)
-	}
-}
-
-impl<T> ByteArray for Public<T> {
-	const LEN: usize = PUBLIC_KEY_SERIALIZED_SIZE;
-}
-
-impl<T> PassByInner for Public<T> {
-	type Inner = [u8; PUBLIC_KEY_SERIALIZED_SIZE];
-
-	fn into_inner(self) -> Self::Inner {
-		self.inner
-	}
-
-	fn inner(&self) -> &Self::Inner {
-		&self.inner
-	}
-
-	fn from_inner(inner: Self::Inner) -> Self {
-		Self { inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PassBy for Public<T> {
-	type PassBy = pass_by::Inner<Self, [u8; PUBLIC_KEY_SERIALIZED_SIZE]>;
-}
-
-impl<T> AsRef<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public<T> {
-	fn as_ref(&self) -> &[u8; PUBLIC_KEY_SERIALIZED_SIZE] {
-		&self.inner
-	}
-}
-
-impl<T> AsRef<[u8]> for Public<T> {
-	fn as_ref(&self) -> &[u8] {
-		&self.inner[..]
-	}
-}
-
-impl<T> AsMut<[u8]> for Public<T> {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.inner[..]
-	}
-}
-
-impl<T> Deref for Public<T> {
-	type Target = [u8];
-
-	fn deref(&self) -> &Self::Target {
-		&self.inner
-	}
-}
-
-impl<T> TryFrom<&[u8]> for Public<T> {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != PUBLIC_KEY_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut r = [0u8; PUBLIC_KEY_SERIALIZED_SIZE];
-		r.copy_from_slice(data);
-		Ok(Self::unchecked_from(r))
-	}
-}
-
-impl<T> From<Public<T>> for [u8; PUBLIC_KEY_SERIALIZED_SIZE] {
-	fn from(x: Public<T>) -> Self {
-		x.inner
-	}
-}
-
-#[cfg(feature = "full_crypto")]
 impl<T: BlsBound> From<Pair<T>> for Public<T> {
 	fn from(x: Pair<T>) -> Self {
 		x.public()
-	}
-}
-
-impl<T> UncheckedFrom<[u8; PUBLIC_KEY_SERIALIZED_SIZE]> for Public<T> {
-	fn unchecked_from(data: [u8; PUBLIC_KEY_SERIALIZED_SIZE]) -> Self {
-		Public { inner: data, _phantom: PhantomData }
 	}
 }
 
@@ -259,7 +141,7 @@ impl<T: BlsBound> std::fmt::Display for Public<T> {
 impl<T: BlsBound> sp_std::fmt::Debug for Public<T> {
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.inner), &s[0..8])
+		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
 	}
 }
 
@@ -296,55 +178,11 @@ impl<T: BlsBound> TraitPublic for Public<T> {}
 impl<T> Derive for Public<T> {}
 
 impl<T: BlsBound> CryptoType for Public<T> {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair<T>;
 }
 
 /// A generic BLS signature.
-#[derive(Copy, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct Signature<T> {
-	inner: [u8; SIGNATURE_SERIALIZED_SIZE],
-	_phantom: PhantomData<fn() -> T>,
-}
-
-impl<T> Clone for Signature<T> {
-	fn clone(&self) -> Self {
-		Self { inner: self.inner, _phantom: PhantomData }
-	}
-}
-
-impl<T> PartialEq for Signature<T> {
-	fn eq(&self, other: &Self) -> bool {
-		self.inner == other.inner
-	}
-}
-
-impl<T> Eq for Signature<T> {}
-
-#[cfg(feature = "full_crypto")]
-impl<T> sp_std::hash::Hash for Signature<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
-		self.inner.hash(state)
-	}
-}
-
-impl<T> ByteArray for Signature<T> {
-	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
-}
-
-impl<T> TryFrom<&[u8]> for Signature<T> {
-	type Error = ();
-
-	fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
-		if data.len() != SIGNATURE_SERIALIZED_SIZE {
-			return Err(())
-		}
-		let mut inner = [0u8; SIGNATURE_SERIALIZED_SIZE];
-		inner.copy_from_slice(data);
-		Ok(Signature::unchecked_from(inner))
-	}
-}
+pub type Signature<SubTag> = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, (BlsTag, SubTag)>;
 
 #[cfg(feature = "serde")]
 impl<T> Serialize for Signature<T> {
@@ -369,34 +207,10 @@ impl<'de, T> Deserialize<'de> for Signature<T> {
 	}
 }
 
-impl<T> From<Signature<T>> for [u8; SIGNATURE_SERIALIZED_SIZE] {
-	fn from(signature: Signature<T>) -> [u8; SIGNATURE_SERIALIZED_SIZE] {
-		signature.inner
-	}
-}
-
-impl<T> AsRef<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature<T> {
-	fn as_ref(&self) -> &[u8; SIGNATURE_SERIALIZED_SIZE] {
-		&self.inner
-	}
-}
-
-impl<T> AsRef<[u8]> for Signature<T> {
-	fn as_ref(&self) -> &[u8] {
-		&self.inner[..]
-	}
-}
-
-impl<T> AsMut<[u8]> for Signature<T> {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.inner[..]
-	}
-}
-
 impl<T> sp_std::fmt::Debug for Signature<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.inner))
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -405,22 +219,13 @@ impl<T> sp_std::fmt::Debug for Signature<T> {
 	}
 }
 
-impl<T> UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature<T> {
-	fn unchecked_from(data: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Self {
-		Signature { inner: data, _phantom: PhantomData }
-	}
-}
-
 impl<T: BlsBound> CryptoType for Signature<T> {
-	#[cfg(feature = "full_crypto")]
 	type Pair = Pair<T>;
 }
 
 /// A key pair.
-#[cfg(feature = "full_crypto")]
 pub struct Pair<T: EngineBLS>(Keypair<T>);
 
-#[cfg(feature = "full_crypto")]
 impl<T: EngineBLS> Clone for Pair<T> {
 	fn clone(&self) -> Self {
 		Pair(self.0.clone())
@@ -432,15 +237,13 @@ trait HardJunctionId {
 }
 
 /// Derive a single hard junction.
-#[cfg(feature = "full_crypto")]
 fn derive_hard_junction<T: HardJunctionId>(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
+	use codec::Encode;
 	(T::ID, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
-#[cfg(feature = "full_crypto")]
 impl<T: EngineBLS> Pair<T> {}
 
-#[cfg(feature = "full_crypto")]
 impl<T: BlsBound> TraitPair for Pair<T> {
 	type Seed = Seed;
 	type Public = Public<T>;
@@ -480,6 +283,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 		Self::Public::unchecked_from(raw)
 	}
 
+	#[cfg(feature = "full_crypto")]
 	fn sign(&self, message: &[u8]) -> Self::Signature {
 		let mut mutable_self = self.clone();
 		let r: [u8; SIGNATURE_SERIALIZED_SIZE] =
@@ -501,7 +305,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 			Err(_) => return false,
 		};
 
-		let sig_array = match sig.inner[..].try_into() {
+		let sig_array = match sig.0[..].try_into() {
 			Ok(s) => s,
 			Err(_) => return false,
 		};
@@ -523,7 +327,6 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
 impl<T: BlsBound> CryptoType for Pair<T> {
 	type Pair = Pair<T>;
 }

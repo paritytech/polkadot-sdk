@@ -214,6 +214,27 @@ pub struct Environment<T: Config> {
 	block_number: EnvironmentType<BlockNumberFor<T>>,
 }
 
+/// Defines the current version of the HostFn APIs.
+/// This is used to communicate the available APIs in pallet-contracts.
+///
+/// The version is bumped any time a new HostFn is added or stabilized.
+#[derive(Encode, Decode, TypeInfo)]
+pub struct ApiVersion(u16);
+impl Default for ApiVersion {
+	fn default() -> Self {
+		Self(2)
+	}
+}
+
+#[test]
+fn api_version_is_up_to_date() {
+	assert_eq!(
+		109,
+		crate::wasm::STABLE_API_COUNT,
+		"Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test."
+	);
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -222,7 +243,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::Perbill;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	pub(crate) const STORAGE_VERSION: StorageVersion = StorageVersion::new(15);
 
 	#[pallet::pallet]
@@ -367,6 +388,24 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxDebugBufferLen: Get<u32>;
 
+		/// Origin allowed to upload code.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
+		/// code.
+		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+
+		/// Origin allowed to instantiate code.
+		///
+		/// # Note
+		///
+		/// This is not enforced when a contract instantiates another contract. The
+		/// [`Self::UploadOrigin`] should make sure that no code is deployed that does unwanted
+		/// instantiations.
+		///
+		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
+		/// contract code.
+		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
@@ -401,6 +440,12 @@ pub mod pallet {
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
 		type Environment: Get<Environment<Self>>;
+
+		/// The version of the HostFn APIs that are available in the runtime.
+		///
+		/// Only valid value is `()`.
+		#[pallet::constant]
+		type ApiVersion: Get<ApiVersion>;
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
@@ -609,8 +654,17 @@ pub mod pallet {
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
+		///
+		/// Use [`Determinism::Relaxed`] exclusively for non-deterministic code. If the uploaded
+		/// code is deterministic, specifying [`Determinism::Relaxed`] will be disregarded and
+		/// result in higher gas costs.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
+		#[pallet::weight(
+			match determinism {
+				Determinism::Enforced => T::WeightInfo::upload_code_determinism_enforced(code.len() as u32),
+				Determinism::Relaxed => T::WeightInfo::upload_code_determinism_relaxed(code.len() as u32),
+			}
+		)]
 		pub fn upload_code(
 			origin: OriginFor<T>,
 			code: Vec<u8>,
@@ -618,7 +672,7 @@ pub mod pallet {
 			determinism: Determinism,
 		) -> DispatchResult {
 			Migration::<T>::ensure_migrated()?;
-			let origin = ensure_signed(origin)?;
+			let origin = T::UploadOrigin::ensure_origin(origin)?;
 			Self::bare_upload_code(origin, code, storage_deposit_limit.map(Into::into), determinism)
 				.map(|_| ())
 		}
@@ -767,11 +821,17 @@ pub mod pallet {
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
-			let origin = ensure_signed(origin)?;
+
+			// These two origins will usually be the same; however, we treat them as separate since
+			// it is possible for the `Success` value of `UploadOrigin` and `InstantiateOrigin` to
+			// differ.
+			let upload_origin = T::UploadOrigin::ensure_origin(origin.clone())?;
+			let instantiate_origin = T::InstantiateOrigin::ensure_origin(origin)?;
+
 			let code_len = code.len() as u32;
 
 			let (module, upload_deposit) = Self::try_upload_code(
-				origin.clone(),
+				upload_origin,
 				code,
 				storage_deposit_limit.clone().map(Into::into),
 				Determinism::Enforced,
@@ -785,7 +845,7 @@ pub mod pallet {
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
 			let common = CommonInput {
-				origin: Origin::from_account_id(origin),
+				origin: Origin::from_account_id(instantiate_origin),
 				value,
 				data,
 				gas_limit,
@@ -826,10 +886,11 @@ pub mod pallet {
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
+			let origin = T::InstantiateOrigin::ensure_origin(origin)?;
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
 			let common = CommonInput {
-				origin: Origin::from_runtime_origin(origin)?,
+				origin: Origin::from_account_id(origin),
 				value,
 				data,
 				gas_limit,

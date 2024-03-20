@@ -467,6 +467,57 @@ fn trapped_assets_can_be_claimed() {
 	});
 }
 
+// Like `trapped_assets_can_be_claimed` but using the `claim_assets` extrinsic.
+#[test]
+fn claim_assets_works() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// First trap some assets.
+		let trapping_program =
+			Xcm::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT).into()).build();
+		// Even though assets are trapped, the extrinsic returns success.
+		assert_ok!(XcmPallet::execute(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedXcm::V4(trapping_program)),
+			BaseXcmWeight::get() * 2,
+		));
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
+
+		// Expected `AssetsTrapped` event info.
+		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let versioned_assets = VersionedAssets::V4(Assets::from((Here, SEND_AMOUNT)));
+		let hash = BlakeTwo256::hash_of(&(source.clone(), versioned_assets.clone()));
+
+		// Assets were indeed trapped.
+		assert_eq!(
+			last_events(2),
+			vec![
+				RuntimeEvent::XcmPallet(crate::Event::AssetsTrapped {
+					hash,
+					origin: source,
+					assets: versioned_assets
+				}),
+				RuntimeEvent::XcmPallet(crate::Event::Attempted {
+					outcome: Outcome::Complete { used: BaseXcmWeight::get() * 1 }
+				})
+			],
+		);
+		let trapped = AssetTraps::<Test>::iter().collect::<Vec<_>>();
+		assert_eq!(trapped, vec![(hash, 1)]);
+
+		// Now claim them with the extrinsic.
+		assert_ok!(XcmPallet::claim_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedAssets::V4((Here, SEND_AMOUNT).into())),
+			Box::new(VersionedLocation::V4(
+				AccountId32 { network: None, id: ALICE.clone().into() }.into()
+			)),
+		));
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
+	});
+}
+
 /// Test failure to complete execution reverts intermediate side-effects.
 ///
 /// XCM program will withdraw and deposit some assets, then fail execution of a further withdraw.

@@ -40,7 +40,8 @@ use polkadot_node_primitives::{CollationSecondedSignal, PoV, Statement};
 use polkadot_node_subsystem::{
 	jaeger,
 	messages::{
-		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, RuntimeApiMessage,
+		CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData,
+		RuntimeApiMessage,
 	},
 	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, PerLeafSpan,
 };
@@ -55,7 +56,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, CollatorPair, CoreIndex, CoreState,
-	GroupIndex, Hash, Id as ParaId, SessionIndex,
+	GroupIndex, Hash, HeadData, Id as ParaId, SessionIndex,
 };
 
 use super::LOG_TARGET;
@@ -347,6 +348,7 @@ async fn distribute_collation<Context>(
 	receipt: CandidateReceipt,
 	parent_head_data_hash: Hash,
 	pov: PoV,
+	parent_head_data: HeadData,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 ) -> Result<()> {
 	let candidate_relay_parent = receipt.descriptor.relay_parent;
@@ -394,12 +396,11 @@ async fn distribute_collation<Context>(
 		return Ok(())
 	}
 
-	// Determine which core the para collated-on is assigned to.
+	// Determine which core(s) the para collated-on is assigned to.
 	// If it is not scheduled then ignore the message.
-	let (our_core, num_cores) =
-		match determine_core(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).await? {
-			Some(core) => core,
-			None => {
+	let (our_cores, num_cores) =
+		match determine_cores(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).await? {
+			(cores, _num_cores) if cores.is_empty() => {
 				gum::warn!(
 					target: LOG_TARGET,
 					para_id = %id,
@@ -408,8 +409,20 @@ async fn distribute_collation<Context>(
 
 				return Ok(())
 			},
+			(cores, num_cores) => (cores, num_cores),
 		};
 
+	let elastic_scaling = our_cores.len() > 1;
+	if elastic_scaling {
+		gum::debug!(
+			target: LOG_TARGET,
+			para_id = %id,
+			cores = ?our_cores,
+			"{} is assigned to {} cores at {}", id, our_cores.len(), candidate_relay_parent,
+		);
+	}
+
+	let our_core = our_cores[0];
 	// Determine the group on that core.
 	//
 	// When prospective parachains are disabled, candidate relay parent here is
@@ -463,9 +476,15 @@ async fn distribute_collation<Context>(
 		state.collation_result_senders.insert(candidate_hash, result_sender);
 	}
 
+	let parent_head_data = if elastic_scaling {
+		ParentHeadData::WithData { hash: parent_head_data_hash, head_data: parent_head_data }
+	} else {
+		ParentHeadData::OnlyHash(parent_head_data_hash)
+	};
+
 	per_relay_parent.collations.insert(
 		candidate_hash,
-		Collation { receipt, parent_head_data_hash, pov, status: CollationStatus::Created },
+		Collation { receipt, pov, parent_head_data, status: CollationStatus::Created },
 	);
 
 	// If prospective parachains are disabled, a leaf should be known to peer.
@@ -506,15 +525,17 @@ async fn distribute_collation<Context>(
 	Ok(())
 }
 
-/// Get the Id of the Core that is assigned to the para being collated on if any
+/// Get the core indices that are assigned to the para being collated on if any
 /// and the total number of cores.
-async fn determine_core(
+async fn determine_cores(
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
 	para_id: ParaId,
 	relay_parent: Hash,
 	relay_parent_mode: ProspectiveParachainsMode,
-) -> Result<Option<(CoreIndex, usize)>> {
+) -> Result<(Vec<CoreIndex>, usize)> {
 	let cores = get_availability_cores(sender, relay_parent).await?;
+	let n_cores = cores.len();
+	let mut assigned_cores = Vec::new();
 
 	for (idx, core) in cores.iter().enumerate() {
 		let core_para_id = match core {
@@ -531,11 +552,11 @@ async fn determine_core(
 		};
 
 		if core_para_id == Some(para_id) {
-			return Ok(Some(((idx as u32).into(), cores.len())))
+			assigned_cores.push(CoreIndex::from(idx as u32));
 		}
 	}
 
-	Ok(None)
+	Ok((assigned_cores, n_cores))
 }
 
 /// Validators of a particular group index.
@@ -718,7 +739,7 @@ async fn advertise_collation<Context>(
 				let wire_message = protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
 					relay_parent,
 					candidate_hash: *candidate_hash,
-					parent_head_data_hash: collation.parent_head_data_hash,
+					parent_head_data_hash: collation.parent_head_data.hash(),
 				};
 				Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(wire_message))
 			},
@@ -763,20 +784,26 @@ async fn process_msg<Context>(
 		CollateOn(id) => {
 			state.collating_on = Some(id);
 		},
-		DistributeCollation(receipt, parent_head_data_hash, pov, result_sender) => {
+		DistributeCollation {
+			candidate_receipt,
+			parent_head_data_hash,
+			pov,
+			parent_head_data,
+			result_sender,
+		} => {
 			let _span1 = state
 				.span_per_relay_parent
-				.get(&receipt.descriptor.relay_parent)
+				.get(&candidate_receipt.descriptor.relay_parent)
 				.map(|s| s.child("distributing-collation"));
 			let _span2 = jaeger::Span::new(&pov, "distributing-collation");
 
 			match state.collating_on {
-				Some(id) if receipt.descriptor.para_id != id => {
+				Some(id) if candidate_receipt.descriptor.para_id != id => {
 					// If the ParaId of a collation requested to be distributed does not match
 					// the one we expect, we ignore the message.
 					gum::warn!(
 						target: LOG_TARGET,
-						para_id = %receipt.descriptor.para_id,
+						para_id = %candidate_receipt.descriptor.para_id,
 						collating_on = %id,
 						"DistributeCollation for unexpected para_id",
 					);
@@ -788,9 +815,10 @@ async fn process_msg<Context>(
 						runtime,
 						state,
 						id,
-						receipt,
+						candidate_receipt,
 						parent_head_data_hash,
 						pov,
+						parent_head_data,
 						result_sender,
 					)
 					.await?;
@@ -798,7 +826,7 @@ async fn process_msg<Context>(
 				None => {
 					gum::warn!(
 						target: LOG_TARGET,
-						para_id = %receipt.descriptor.para_id,
+						para_id = %candidate_receipt.descriptor.para_id,
 						"DistributeCollation message while not collating on any",
 					);
 				},
@@ -835,6 +863,7 @@ async fn send_collation(
 	request: VersionedCollationRequest,
 	receipt: CandidateReceipt,
 	pov: PoV,
+	parent_head_data: ParentHeadData,
 ) {
 	let (tx, rx) = oneshot::channel();
 
@@ -842,13 +871,27 @@ async fn send_collation(
 	let peer_id = request.peer_id();
 	let candidate_hash = receipt.hash();
 
-	// The response payload is the same for both versions of protocol
-	// and doesn't have v2 alias for simplicity.
-	let response = OutgoingResponse {
-		result: Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
-		reputation_changes: Vec::new(),
-		sent_feedback: Some(tx),
+	#[cfg(feature = "elastic-scaling-experimental")]
+	let result = match parent_head_data {
+		ParentHeadData::WithData { head_data, .. } =>
+			Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
+				receipt,
+				pov,
+				parent_head_data: head_data,
+			}),
+		ParentHeadData::OnlyHash(_) =>
+			Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
 	};
+	#[cfg(not(feature = "elastic-scaling-experimental"))]
+	let result = {
+		// suppress unused warning
+		let _parent_head_data = parent_head_data;
+
+		Ok(request_v1::CollationFetchingResponse::Collation(receipt, pov))
+	};
+
+	let response =
+		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: Some(tx) };
 
 	if let Err(_) = request.send_outgoing_response(response) {
 		gum::warn!(target: LOG_TARGET, "Sending collation response failed");
@@ -1027,9 +1070,13 @@ async fn handle_incoming_request<Context>(
 					return Ok(())
 				},
 			};
-			let (receipt, pov) = if let Some(collation) = collation {
+			let (receipt, pov, parent_head_data) = if let Some(collation) = collation {
 				collation.status.advance_to_requested();
-				(collation.receipt.clone(), collation.pov.clone())
+				(
+					collation.receipt.clone(),
+					collation.pov.clone(),
+					collation.parent_head_data.clone(),
+				)
 			} else {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -1068,7 +1115,7 @@ async fn handle_incoming_request<Context>(
 				waiting.collation_fetch_active = true;
 				// Obtain a timer for sending collation
 				let _ = state.metrics.time_collation_distribution("send");
-				send_collation(state, req, receipt, pov).await;
+				send_collation(state, req, receipt, pov, parent_head_data).await;
 			}
 		},
 		Some(our_para_id) => {
@@ -1453,8 +1500,9 @@ async fn run_inner<Context>(
 				if let Some(collation) = next_collation {
 					let receipt = collation.receipt.clone();
 					let pov = collation.pov.clone();
+					let parent_head_data = collation.parent_head_data.clone();
 
-					send_collation(&mut state, next, receipt, pov).await;
+					send_collation(&mut state, next, receipt, pov, parent_head_data).await;
 				}
 			},
 			(candidate_hash, peer_id) = state.advertisement_timeouts.select_next_some() => {
