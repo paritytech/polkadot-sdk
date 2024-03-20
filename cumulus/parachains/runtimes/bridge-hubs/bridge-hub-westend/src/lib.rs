@@ -704,7 +704,7 @@ impl_runtime_apis! {
 			BridgeRococoGrandpa::best_finalized()
 		}
 		fn free_headers_interval() -> Option<bp_rococo::BlockNumber> {
-			<Runtime as pallet_bridge_grandpa::Config<bridge_to_rococo_config::BridgeGrandpaRococoInstance>>::MaxFreeHeadersPerBlock::get()
+			<Runtime as pallet_bridge_grandpa::Config<bridge_to_rococo_config::BridgeGrandpaRococoInstance>>::FreeHeadersInterval::get()
 		}
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_rococo::Header>> {

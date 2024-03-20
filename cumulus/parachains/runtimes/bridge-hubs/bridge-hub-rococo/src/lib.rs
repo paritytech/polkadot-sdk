@@ -961,7 +961,7 @@ impl_runtime_apis! {
 			BridgeWestendGrandpa::best_finalized()
 		}
 		fn free_headers_interval() -> Option<bp_westend::BlockNumber> {
-			<Runtime as pallet_bridge_grandpa::Config<bridge_common_config::BridgeGrandpaWestendInstance>>::MaxFreeHeadersPerBlock::get()
+			<Runtime as pallet_bridge_grandpa::Config<bridge_common_config::BridgeGrandpaWestendInstance>>::FreeHeadersInterval::get()
 		}
 		fn synced_headers_grandpa_info(
 		) -> Vec<bp_header_chain::StoredHeaderGrandpaInfo<bp_westend::Header>> {
@@ -1013,7 +1013,7 @@ impl_runtime_apis! {
 		}
 
 		fn free_headers_interval() -> Option<bp_polkadot_bulletin::BlockNumber> {
-			<Runtime as pallet_bridge_grandpa::Config<bridge_common_config::BridgeGrandpaRococoBulletinInstance>>::MaxFreeHeadersPerBlock::get()
+			<Runtime as pallet_bridge_grandpa::Config<bridge_common_config::BridgeGrandpaRococoBulletinInstance>>::FreeHeadersInterval::get()
 		}
 
 		fn synced_headers_grandpa_info(
