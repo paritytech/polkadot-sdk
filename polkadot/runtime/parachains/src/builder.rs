@@ -40,7 +40,7 @@ use sp_runtime::{
 	RuntimeAppPublic,
 };
 use sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
 	prelude::Vec,
 	vec,
 };
@@ -104,6 +104,8 @@ pub(crate) struct BenchBuilder<T: paras_inherent::Config> {
 	code_upgrade: Option<u32>,
 	/// Specifies whether the claimqueue should be filled.
 	fill_claimqueue: bool,
+	/// Cores which should not be available when being populated with pending candidates.
+	unavailable_cores: Vec<u32>,
 	_phantom: sp_std::marker::PhantomData<T>,
 }
 
@@ -133,6 +135,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			elastic_paras: Default::default(),
 			code_upgrade: None,
 			fill_claimqueue: true,
+			unavailable_cores: vec![],
 			_phantom: sp_std::marker::PhantomData::<T>,
 		}
 	}
@@ -146,6 +149,12 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Note that there must be an entry for each core with a dispute statement set.
 	pub(crate) fn set_dispute_sessions(mut self, dispute_sessions: impl AsRef<[u32]>) -> Self {
 		self.dispute_sessions = dispute_sessions.as_ref().to_vec();
+		self
+	}
+
+	/// Set the cores which should not be available when being populated with pending candidates.
+	pub(crate) fn set_unavailable_cores(mut self, unavailable_cores: Vec<u32>) -> Self {
+		self.unavailable_cores = unavailable_cores;
 		self
 	}
 
@@ -337,10 +346,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 	/// Create an `AvailabilityBitfield` where `concluding` is a map where each key is a core index
 	/// that is concluding and `cores` is the total number of cores in the system.
-	fn availability_bitvec(concluding: &BTreeMap<u32, u32>, cores: usize) -> AvailabilityBitfield {
+	fn availability_bitvec(concluding_cores: &BTreeSet<u32>, cores: usize) -> AvailabilityBitfield {
 		let mut bitfields = bitvec::bitvec![u8, bitvec::order::Lsb0; 0; 0];
 		for i in 0..cores {
-			if concluding.get(&(i as u32)).is_some() {
+			if concluding_cores.contains(&(i as u32)) {
 				bitfields.push(true);
 			} else {
 				bitfields.push(false)
@@ -480,24 +489,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let validators =
 			self.validators.as_ref().expect("must have some validators prior to calling");
 
-		let availability_bitvec = Self::availability_bitvec(concluding_paras, total_cores);
-
-		let bitfields: Vec<UncheckedSigned<AvailabilityBitfield>> = validators
-			.iter()
-			.enumerate()
-			.map(|(i, public)| {
-				let unchecked_signed = UncheckedSigned::<AvailabilityBitfield>::benchmark_sign(
-					public,
-					availability_bitvec.clone(),
-					&self.signing_context(),
-					ValidatorIndex(i as u32),
-				);
-
-				unchecked_signed
-			})
-			.collect();
-
 		let mut current_core_idx = 0u32;
+		let mut concluding_cores = BTreeSet::new();
 
 		for (seed, _) in concluding_paras.iter() {
 			// make sure the candidates that will be concluding are marked as pending availability.
@@ -513,12 +506,33 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 					para_id,
 					core_idx,
 					group_idx,
-					Self::validator_availability_votes_yes(validators.len()),
+					// No validators have made this candidate available yet.
+					bitvec::bitvec![u8, bitvec::order::Lsb0; 0; validators.len()],
 					CandidateHash(H256::from(byte32_slice_from(current_core_idx))),
 				);
+				if !self.unavailable_cores.contains(&current_core_idx) {
+					concluding_cores.insert(current_core_idx);
+				}
 				current_core_idx += 1;
 			}
 		}
+
+		let availability_bitvec = Self::availability_bitvec(&concluding_cores, total_cores);
+
+		let bitfields: Vec<UncheckedSigned<AvailabilityBitfield>> = validators
+			.iter()
+			.enumerate()
+			.map(|(i, public)| {
+				let unchecked_signed = UncheckedSigned::<AvailabilityBitfield>::benchmark_sign(
+					public,
+					availability_bitvec.clone(),
+					&self.signing_context(),
+					ValidatorIndex(i as u32),
+				);
+
+				unchecked_signed
+			})
+			.collect();
 
 		bitfields
 	}
@@ -839,7 +853,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 				.keys()
 				.flat_map(|para_id| {
 					(0..elastic_paras.get(&para_id).cloned().unwrap_or(1))
-						.map(|_para_local_core_idx| {
+						.filter_map(|_para_local_core_idx| {
 							let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
 							// Load an assignment into provider so that one is present to pop
 							let assignment =
@@ -852,8 +866,13 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 								CoreIndex(core_idx),
 								[ParasEntry::new(assignment, now + ttl)].into(),
 							);
+							let res = if builder.unavailable_cores.contains(&core_idx) {
+								None
+							} else {
+								Some(entry)
+							};
 							core_idx += 1;
-							entry
+							res
 						})
 						.collect::<Vec<(CoreIndex, VecDeque<ParasEntry<_>>)>>()
 				})
