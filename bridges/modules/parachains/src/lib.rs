@@ -521,7 +521,13 @@ pub mod pallet {
 			let is_free_by_filter_criteria = is_updated_something && may_be_free;
 			let is_free_by_first_criteria = total_parachains == first_parachain_heads;
 			let is_free = is_free_by_filter_criteria || is_free_by_first_criteria;
-			let pays_fee = if is_free { Pays::No } else { Pays::Yes };
+			let pays_fee = if is_free {
+				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is free");
+				Pays::No
+			} else {
+				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is paid");
+				Pays::Yes
+			};
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
@@ -666,9 +672,10 @@ pub mod pallet {
 			ImportedParaHeads::<T, I>::insert(parachain, new_head_hash, updated_head_data);
 			log::trace!(
 				target: LOG_TARGET,
-				"Updated head of parachain {:?} to {}",
+				"Updated head of parachain {:?} to {} at relay block {}",
 				parachain,
 				new_head_hash,
+				new_at_relay_block_number,
 			);
 
 			// remove old head
