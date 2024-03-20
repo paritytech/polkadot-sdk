@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"fn":["__type_value_for_spot_traffic_on_empty"],"mod":["dispatchables","storage_types"],"struct":["Pallet","SpotTrafficOnEmpty"],"trait":["Config"],"type":["Module"]};
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["dispatchables","storage_types"],"struct":["Pallet"],"trait":["Config"],"type":["Module"]};

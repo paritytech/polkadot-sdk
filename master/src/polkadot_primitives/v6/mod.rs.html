@@ -2262,6 +2262,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2115" id="2115">2115</a>
 <a href="#2116" id="2116">2116</a>
 <a href="#2117" id="2117">2117</a>
+<a href="#2118" id="2118">2118</a>
+<a href="#2119" id="2119">2119</a>
+<a href="#2120" id="2120">2120</a>
+<a href="#2121" id="2121">2121</a>
+<a href="#2122" id="2122">2122</a>
+<a href="#2123" id="2123">2123</a>
+<a href="#2124" id="2124">2124</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2662,6 +2669,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Can be adjusted in configuration.
 </span><span class="kw">pub const </span>ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = <span class="number">10_000</span>;
+
+<span class="doccomment">/// Maximum for maximum queue size.
+///
+/// Setting `on_demand_queue_max_size` to a value higher than this is unsound. This is more a
+/// theoretical limit, just below enough what the target type supports, so comparisons are possible
+/// even with indices that are overflowing the underyling type.
+</span><span class="kw">pub const </span>ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = <span class="number">1_000_000_000</span>;
 
 <span class="doccomment">/// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
 /// prior to v9 configuration migration.

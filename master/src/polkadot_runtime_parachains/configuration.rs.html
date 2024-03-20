@@ -1572,6 +1572,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1425" id="1425">1425</a>
 <a href="#1426" id="1426">1426</a>
 <a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1603,6 +1611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 <span class="kw">use </span>sp_runtime::{traits::Zero, Perbill};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -1886,6 +1895,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>InconsistentExecutorParams { inner: ExecutorParamError },
 	<span class="doccomment">/// TTL should be bigger than lookahead
 	</span>LookaheadExceedsTTL,
+	<span class="doccomment">/// Passed in queue size for on-demand was too large.
+	</span>OnDemandQueueSizeTooLarge,
 }
 
 <span class="kw">impl</span>&lt;BlockNumber&gt; HostConfiguration&lt;BlockNumber&gt;
@@ -1977,6 +1988,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span><span class="self">self</span>.scheduler_params.ttl &lt; <span class="self">self</span>.scheduler_params.lookahead.into() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(LookaheadExceedsTTL)
+		}
+
+		<span class="kw">if </span><span class="self">self</span>.scheduler_params.on_demand_queue_max_size &gt; ON_DEMAND_MAX_QUEUE_MAX_SIZE {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(OnDemandQueueSizeTooLarge)
 		}
 
 		<span class="prelude-val">Ok</span>(())
@@ -2204,7 +2219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Set the number of coretime execution cores.
 		///
-		/// Note that this configuration is managed by the coretime chain. Only manually change
+		/// NOTE: that this configuration is managed by the coretime chain. Only manually change
 		/// this, if you really know what you are doing!
 		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
 		#[pallet::weight((
@@ -2707,6 +2722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				config.scheduler_params.on_demand_queue_max_size = new;
 			})
 		}
+
 		<span class="doccomment">/// Set the on demand (parathreads) fee variability.
 		</span><span class="attr">#[pallet::call_index(<span class="number">50</span>)]
 		#[pallet::weight((

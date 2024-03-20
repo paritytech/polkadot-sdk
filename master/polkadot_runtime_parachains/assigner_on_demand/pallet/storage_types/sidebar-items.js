@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["OnDemandQueue","ParaIdAffinity","SpotTraffic"]};
+window.SIDEBAR_ITEMS = {"struct":["AffinityEntries","FreeEntries","ParaIdAffinity","QueueStatus"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["QueuePushDirection","SpotTrafficCalculationErr"],"mod":["pallet"],"struct":["CoreAffinityCount","TestWeightInfo"],"trait":["WeightInfo"]};
+window.SIDEBAR_ITEMS = {"mod":["migration","pallet"],"struct":["TestWeightInfo"],"trait":["WeightInfo"]};
