@@ -800,8 +800,11 @@ async fn handle_network_msg<Context>(
 		},
 		NetworkBridgeEvent::PeerMessage(remote, message) =>
 			process_incoming_peer_message(ctx, state, metrics, remote, message, rng).await,
-		NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
-			// The bitfield-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.
+		NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) => {
+			state
+				.topologies
+				.get_current_topology_mut()
+				.update_authority_ids(peer_id, &authority_ids);
 		},
 	}
 }

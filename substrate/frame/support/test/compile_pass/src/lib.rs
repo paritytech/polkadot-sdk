@@ -51,7 +51,7 @@ parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
-#[derive_impl(renamed_frame_system::config_preludes::TestDefaultConfig as renamed_frame_system::DefaultConfig)]
+#[derive_impl(renamed_frame_system::config_preludes::TestDefaultConfig)]
 impl renamed_frame_system::Config for Runtime {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
@@ -83,7 +83,7 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Signature, ()>;
 
 construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: renamed_frame_system,
 	}
 );

@@ -32,6 +32,7 @@ use parking_lot::Mutex;
 use sp_core::testing::TaskExecutor;
 
 use std::{
+	collections::VecDeque,
 	convert::Infallible,
 	future::Future,
 	pin::Pin,
@@ -190,6 +191,7 @@ pub struct TestSubsystemContext<M, S> {
 	tx: TestSubsystemSender,
 	rx: mpsc::Receiver<FromOrchestra<M>>,
 	spawn: S,
+	message_buffer: VecDeque<FromOrchestra<M>>,
 }
 
 #[async_trait::async_trait]
@@ -207,6 +209,9 @@ where
 	type Error = SubsystemError;
 
 	async fn try_recv(&mut self) -> Result<Option<FromOrchestra<M>>, ()> {
+		if let Some(msg) = self.message_buffer.pop_front() {
+			return Ok(Some(msg))
+		}
 		match poll!(self.rx.next()) {
 			Poll::Ready(Some(msg)) => Ok(Some(msg)),
 			Poll::Ready(None) => Err(()),
@@ -215,10 +220,28 @@ where
 	}
 
 	async fn recv(&mut self) -> SubsystemResult<FromOrchestra<M>> {
+		if let Some(msg) = self.message_buffer.pop_front() {
+			return Ok(msg)
+		}
 		self.rx
 			.next()
 			.await
 			.ok_or_else(|| SubsystemError::Context("Receiving end closed".to_owned()))
+	}
+
+	async fn recv_signal(&mut self) -> SubsystemResult<OverseerSignal> {
+		loop {
+			let msg = self
+				.rx
+				.next()
+				.await
+				.ok_or_else(|| SubsystemError::Context("Receiving end closed".to_owned()))?;
+			if let FromOrchestra::Signal(sig) = msg {
+				return Ok(sig)
+			} else {
+				self.message_buffer.push_back(msg)
+			}
+		}
 	}
 
 	fn spawn(
@@ -314,6 +337,7 @@ pub fn make_buffered_subsystem_context<M, S>(
 			tx: TestSubsystemSender { tx: all_messages_tx },
 			rx: overseer_rx,
 			spawn: SpawnGlue(spawner),
+			message_buffer: VecDeque::new(),
 		},
 		TestSubsystemContextHandle { tx: overseer_tx, rx: all_messages_rx },
 	)

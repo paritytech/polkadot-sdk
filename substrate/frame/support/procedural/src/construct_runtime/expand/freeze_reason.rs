@@ -23,6 +23,7 @@ use quote::quote;
 pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream) -> TokenStream {
 	let mut conversion_fns = Vec::new();
 	let mut freeze_reason_variants = Vec::new();
+	let mut freeze_reason_variants_count = Vec::new();
 	for decl in pallet_decls {
 		if let Some(_) = decl.find_part("FreezeReason") {
 			let variant_name = &decl.name;
@@ -44,9 +45,14 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 				instance,
 				variant_name,
 			));
+
+			freeze_reason_variants_count.push(composite_helper::expand_variant_count(
+				"FreezeReason",
+				path,
+				instance,
+			));
 		}
 	}
-	let freeze_reason_variants_count = freeze_reason_variants.len() as u32;
 
 	quote! {
 		/// A reason for placing a freeze on funds.
@@ -61,7 +67,7 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 		}
 
 		impl #scrate::traits::VariantCount for RuntimeFreezeReason {
-			const VARIANT_COUNT: u32 = #freeze_reason_variants_count;
+			const VARIANT_COUNT: u32 = 0 #( + #freeze_reason_variants_count )*;
 		}
 
 		#( #conversion_fns )*

@@ -42,20 +42,21 @@ type MessagesPallet<T, I> = BridgeMessagesPallet<T, <T as Config<I>>::BridgeMess
 
 impl<T: Config<I>, I: 'static> ExportXcm for Pallet<T, I>
 where
-	T: BridgeMessagesConfig<
-		<T as Config<I>>::BridgeMessagesPalletInstance,
-		OutboundPayload = XcmAsPlainPayload,
-	>,
+	T: BridgeMessagesConfig<T::BridgeMessagesPalletInstance, OutboundPayload = XcmAsPlainPayload>,
 {
-	type Ticket = (SenderAndLane, XcmAsPlainPayload, XcmHash);
+	type Ticket = (
+		SenderAndLane,
+		<MessagesPallet<T, I> as MessagesBridge<T::OutboundPayload>>::SendMessageArgs,
+		XcmHash,
+	);
 
 	fn validate(
 		network: NetworkId,
 		channel: u32,
-		universal_source: &mut Option<InteriorMultiLocation>,
-		destination: &mut Option<InteriorMultiLocation>,
+		universal_source: &mut Option<InteriorLocation>,
+		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
-	) -> Result<(Self::Ticket, MultiAssets), SendError> {
+	) -> Result<(Self::Ticket, Assets), SendError> {
 		// Find supported lane_id.
 		let sender_and_lane = Self::lane_for(
 			universal_source.as_ref().ok_or(SendError::MissingArgument)?,
@@ -74,42 +75,38 @@ where
 			message,
 		)?;
 
-		Ok(((sender_and_lane, blob, id), price))
-	}
-
-	fn deliver(
-		(sender_and_lane, blob, id): (SenderAndLane, XcmAsPlainPayload, XcmHash),
-	) -> Result<XcmHash, SendError> {
-		let lane_id = sender_and_lane.lane;
-		let send_result = MessagesPallet::<T, I>::send_message(lane_id, blob);
-
-		match send_result {
-			Ok(artifacts) => {
-				log::info!(
-					target: LOG_TARGET,
-					"XCM message {:?} has been enqueued at bridge {:?} with nonce {}",
-					id,
-					lane_id,
-					artifacts.nonce,
-				);
-
-				// notify XCM queue manager about updated lane state
-				LocalXcmQueueManager::<T::LanesSupport>::on_bridge_message_enqueued(
-					&sender_and_lane,
-					artifacts.enqueued_messages,
-				);
-			},
-			Err(error) => {
+		let bridge_message = MessagesPallet::<T, I>::validate_message(sender_and_lane.lane, &blob)
+			.map_err(|e| {
 				log::debug!(
 					target: LOG_TARGET,
-					"XCM message {:?} has been dropped because of bridge error {:?} on bridge {:?}",
+					"XCM message {:?} cannot be exported because of bridge error {:?} on bridge {:?}",
 					id,
-					error,
-					lane_id,
+					e,
+					sender_and_lane.lane,
 				);
-				return Err(SendError::Transport("BridgeSendError"))
-			},
-		}
+				SendError::Transport("BridgeValidateError")
+			})?;
+
+		Ok(((sender_and_lane, bridge_message, id), price))
+	}
+
+	fn deliver((sender_and_lane, bridge_message, id): Self::Ticket) -> Result<XcmHash, SendError> {
+		let lane_id = sender_and_lane.lane;
+		let artifacts = MessagesPallet::<T, I>::send_message(bridge_message);
+
+		log::info!(
+			target: LOG_TARGET,
+			"XCM message {:?} has been enqueued at bridge {:?} with nonce {}",
+			id,
+			lane_id,
+			artifacts.nonce,
+		);
+
+		// notify XCM queue manager about updated lane state
+		LocalXcmQueueManager::<T::LanesSupport>::on_bridge_message_enqueued(
+			&sender_and_lane,
+			artifacts.enqueued_messages,
+		);
 
 		Ok(id)
 	}
@@ -137,11 +134,11 @@ mod tests {
 	use frame_support::assert_ok;
 	use xcm_executor::traits::export_xcm;
 
-	fn universal_source() -> InteriorMultiLocation {
-		X2(GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID))
+	fn universal_source() -> InteriorLocation {
+		[GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)].into()
 	}
 
-	fn universal_destination() -> InteriorMultiLocation {
+	fn universal_destination() -> InteriorLocation {
 		BridgedDestination::get()
 	}
 

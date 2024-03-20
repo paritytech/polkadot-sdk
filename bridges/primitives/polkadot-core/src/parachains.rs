@@ -89,11 +89,18 @@ pub type ParaHasher = crate::Hasher;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
 #[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct ParaHeadsProof(pub RawStorageProof);
+pub struct ParaHeadsProof {
+	/// Unverified storage proof of finalized parachain heads.
+	pub storage_proof: RawStorageProof,
+}
 
 impl Size for ParaHeadsProof {
 	fn size(&self) -> u32 {
-		u32::try_from(self.0.iter().fold(0usize, |sum, node| sum.saturating_add(node.len())))
-			.unwrap_or(u32::MAX)
+		u32::try_from(
+			self.storage_proof
+				.iter()
+				.fold(0usize, |sum, node| sum.saturating_add(node.len())),
+		)
+		.unwrap_or(u32::MAX)
 	}
 }

@@ -23,7 +23,7 @@ use pallet_message_queue::OnQueueChanged;
 use scale_info::TypeInfo;
 use snowbridge_core::ChannelId;
 use sp_std::{marker::PhantomData, prelude::*};
-use xcm::v3::{Junction, MultiLocation};
+use xcm::v4::{Junction, Location};
 
 /// The aggregate origin of an inbound message.
 /// This is specialized for BridgeHub, as the snowbridge-outbound-queue-pallet is also using
@@ -46,16 +46,16 @@ pub enum AggregateMessageOrigin {
 	Snowbridge(ChannelId),
 }
 
-impl From<AggregateMessageOrigin> for MultiLocation {
+impl From<AggregateMessageOrigin> for Location {
 	fn from(origin: AggregateMessageOrigin) -> Self {
 		use AggregateMessageOrigin::*;
 		match origin {
-			Here => MultiLocation::here(),
-			Parent => MultiLocation::parent(),
-			Sibling(id) => MultiLocation::new(1, Junction::Parachain(id.into())),
+			Here => Location::here(),
+			Parent => Location::parent(),
+			Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
 			// NOTE: We don't need this conversion for Snowbridge. However we have to
 			// implement it anyway as xcm_builder::ProcessXcmMessage requires it.
-			Snowbridge(_) => MultiLocation::default(),
+			Snowbridge(_) => Location::default(),
 		}
 	}
 }

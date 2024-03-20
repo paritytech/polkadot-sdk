@@ -22,7 +22,7 @@ use primitives::Balance;
 use rococo_runtime_constants::currency::*;
 use runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
 use sp_std::{marker::PhantomData, prelude::*};
-use xcm::{latest::prelude::*, VersionedMultiLocation, VersionedXcm};
+use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
 
 /// A type containing the encoding of the People Chain pallets in its runtime. Used to construct any
@@ -95,9 +95,9 @@ where
 		let total_to_send = Self::calculate_remote_deposit(fields, subs);
 
 		// define asset / destination from relay perspective
-		let roc = MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(total_to_send) };
+		let roc = Asset { id: AssetId(Here.into_location()), fun: Fungible(total_to_send) };
 		// People Chain: ParaId 1004
-		let destination: MultiLocation = MultiLocation::new(0, Parachain(1004));
+		let destination: Location = Location::new(0, Parachain(1004));
 
 		// Do `check_out` accounting since the XCM Executor's `InitiateTeleport` doesn't support
 		// unpaid teleports.
@@ -138,11 +138,9 @@ where
 		);
 
 		// reanchor
-		let roc_reanchored: MultiAssets = vec![MultiAsset {
-			id: Concrete(MultiLocation::new(1, Here)),
-			fun: Fungible(total_to_send),
-		}]
-		.into();
+		let roc_reanchored: Assets =
+			vec![Asset { id: AssetId(Location::new(1, Here)), fun: Fungible(total_to_send) }]
+				.into();
 
 		let poke = PeopleRuntimePallets::<AccountId>::IdentityMigrator(PokeDeposit(who.clone()));
 		let remote_weight_limit = MigratorWeights::<Runtime>::poke_deposit().saturating_mul(2);
@@ -172,8 +170,8 @@ where
 		// send
 		let _ = <pallet_xcm::Pallet<Runtime>>::send(
 			RawOrigin::Root.into(),
-			Box::new(VersionedMultiLocation::V3(destination)),
-			Box::new(VersionedXcm::V3(program)),
+			Box::new(VersionedLocation::V4(destination)),
+			Box::new(VersionedXcm::V4(program)),
 		)?;
 		Ok(())
 	}

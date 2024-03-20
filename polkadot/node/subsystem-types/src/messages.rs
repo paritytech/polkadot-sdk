@@ -46,11 +46,12 @@ use polkadot_primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreState,
-	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Header as BlockHeader,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex,
-	SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData,
+	Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -207,16 +208,20 @@ pub enum CollatorProtocolMessage {
 	/// This should be sent before any `DistributeCollation` message.
 	CollateOn(ParaId),
 	/// Provide a collation to distribute to validators with an optional result sender.
-	/// The second argument is the parent head-data hash.
-	///
-	/// The result sender should be informed when at least one parachain validator seconded the
-	/// collation. It is also completely okay to just drop the sender.
-	DistributeCollation(
-		CandidateReceipt,
-		Hash,
-		PoV,
-		Option<oneshot::Sender<CollationSecondedSignal>>,
-	),
+	DistributeCollation {
+		/// The receipt of the candidate.
+		candidate_receipt: CandidateReceipt,
+		/// The hash of the parent head-data.
+		/// Here to avoid computing the hash of the parent head data twice.
+		parent_head_data_hash: Hash,
+		/// Proof of validity.
+		pov: PoV,
+		/// This parent head-data is needed for elastic scaling.
+		parent_head_data: HeadData,
+		/// The result sender should be informed when at least one parachain validator seconded the
+		/// collation. It is also completely okay to just drop the sender.
+		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+	},
 	/// Report a collator as having provided an invalid collation. This should lead to disconnect
 	/// and blacklist of the collator.
 	ReportCollator(CollatorId),
@@ -830,8 +835,10 @@ pub enum ProvisionerMessage {
 /// Message to the Collation Generation subsystem.
 #[derive(Debug)]
 pub enum CollationGenerationMessage {
-	/// Initialize the collation generation subsystem
+	/// Initialize the collation generation subsystem.
 	Initialize(CollationGenerationConfig),
+	/// Reinitialize the collation generation subsystem, overriding the existing config.
+	Reinitialize(CollationGenerationConfig),
 	/// Submit a collation to the subsystem. This will package it into a signed
 	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
 	///
@@ -1102,13 +1109,30 @@ pub struct ProspectiveValidationDataRequest {
 	pub para_id: ParaId,
 	/// The relay-parent of the candidate.
 	pub candidate_relay_parent: Hash,
-	/// The parent head-data hash.
-	pub parent_head_data_hash: Hash,
+	/// The parent head-data.
+	pub parent_head_data: ParentHeadData,
+}
+
+/// The parent head-data hash with optional data itself.
+#[derive(Debug)]
+pub enum ParentHeadData {
+	/// Parent head-data hash.
+	OnlyHash(Hash),
+	/// Parent head-data along with its hash.
+	WithData {
+		/// This will be provided for collations with elastic scaling enabled.
+		head_data: HeadData,
+		/// Parent head-data hash.
+		hash: Hash,
+	},
 }
 
 /// Indicates the relay-parents whose fragment tree a candidate
 /// is present in and the depths of that tree the candidate is present in.
 pub type FragmentTreeMembership = Vec<(Hash, Vec<usize>)>;
+
+/// A collection of ancestor candidates of a parachain.
+pub type Ancestors = HashSet<CandidateHash>;
 
 /// Messages sent to the Prospective Parachains subsystem.
 #[derive(Debug)]
@@ -1126,14 +1150,19 @@ pub enum ProspectiveParachainsMessage {
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.
 	CandidateBacked(ParaId, CandidateHash),
-	/// Get a backable candidate hash along with its relay parent for the given parachain,
-	/// under the given relay-parent hash, which is a descendant of the given candidate hashes.
-	/// Returns `None` on the channel if no such candidate exists.
-	GetBackableCandidate(
+	/// Try getting N backable candidate hashes along with their relay parents for the given
+	/// parachain, under the given relay-parent hash, which is a descendant of the given ancestors.
+	/// Timed out ancestors should not be included in the collection.
+	/// N should represent the number of scheduled cores of this ParaId.
+	/// A timed out ancestor frees the cores of all of its descendants, so if there's a hole in the
+	/// supplied ancestor path, we'll get candidates that backfill those timed out slots first. It
+	/// may also return less/no candidates, if there aren't enough backable candidates recorded.
+	GetBackableCandidates(
 		Hash,
 		ParaId,
-		Vec<CandidateHash>,
-		oneshot::Sender<Option<(CandidateHash, Hash)>>,
+		u32,
+		Ancestors,
+		oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 	),
 	/// Get the hypothetical frontier membership of candidates with the given properties
 	/// under the specified active leaves' fragment trees.

@@ -32,7 +32,7 @@ pub mod blake2 {
 		const LENGTH: usize = 32;
 
 		fn hash(x: &[u8]) -> Self::Out {
-			crate::hashing::blake2_256(x).into()
+			sp_crypto_hashing::blake2_256(x).into()
 		}
 	}
 }
@@ -52,7 +52,7 @@ pub mod keccak {
 		const LENGTH: usize = 32;
 
 		fn hash(x: &[u8]) -> Self::Out {
-			crate::hashing::keccak_256(x).into()
+			sp_crypto_hashing::keccak_256(x).into()
 		}
 	}
 }

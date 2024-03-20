@@ -23,6 +23,7 @@ use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedE
 use node_cli::chain_spec::get_from_seed;
 use node_primitives::{AccountId, Balance, Nonce};
 use sp_core::{ecdsa, ed25519, sr25519};
+use sp_crypto_hashing::blake2_256;
 use sp_keyring::AccountKeyring;
 use sp_runtime::generic::Era;
 
@@ -96,15 +97,16 @@ pub fn sign(
 			let payload =
 				(xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
 			let key = AccountKeyring::from_account_id(&signed).unwrap();
-			let signature = payload
-				.using_encoded(|b| {
-					if b.len() > 256 {
-						key.sign(&sp_io::hashing::blake2_256(b))
-					} else {
-						key.sign(b)
-					}
-				})
-				.into();
+			let signature =
+				payload
+					.using_encoded(|b| {
+						if b.len() > 256 {
+							key.sign(&blake2_256(b))
+						} else {
+							key.sign(b)
+						}
+					})
+					.into();
 			UncheckedExtrinsic {
 				signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
 				function: payload.0,

@@ -21,7 +21,7 @@
 use crate::messages::{
 	source::{
 		FromThisChainMaximalOutboundPayloadSize, FromThisChainMessagePayload,
-		FromThisChainMessageVerifier, TargetHeaderChainAdapter,
+		TargetHeaderChainAdapter,
 	},
 	target::{FromBridgedChainMessagePayload, SourceHeaderChainAdapter},
 	BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
@@ -141,7 +141,7 @@ parameter_types! {
 	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for TestRuntime {
 	type Hash = ThisChainHash;
 	type Hashing = ThisChainHasher;
@@ -158,12 +158,13 @@ impl pallet_utility::Config for TestRuntime {
 	type WeightInfo = ();
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
 }
 
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for TestRuntime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
@@ -213,7 +214,6 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type DeliveryPayments = ();
 
 	type TargetHeaderChain = TargetHeaderChainAdapter<OnThisChainBridge>;
-	type LaneMessageVerifier = FromThisChainMessageVerifier<OnThisChainBridge>;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
@@ -315,6 +315,8 @@ impl From<BridgedChainOrigin>
 pub struct ThisUnderlyingChain;
 
 impl Chain for ThisUnderlyingChain {
+	const ID: ChainId = *b"tuch";
+
 	type BlockNumber = ThisChainBlockNumber;
 	type Hash = ThisChainHash;
 	type Hasher = ThisChainHasher;
@@ -355,6 +357,8 @@ pub struct BridgedUnderlyingParachain;
 pub struct BridgedChainCall;
 
 impl Chain for BridgedUnderlyingChain {
+	const ID: ChainId = *b"buch";
+
 	type BlockNumber = BridgedChainBlockNumber;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;
@@ -381,6 +385,8 @@ impl ChainWithGrandpa for BridgedUnderlyingChain {
 }
 
 impl Chain for BridgedUnderlyingParachain {
+	const ID: ChainId = *b"bupc";
+
 	type BlockNumber = BridgedChainBlockNumber;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;
