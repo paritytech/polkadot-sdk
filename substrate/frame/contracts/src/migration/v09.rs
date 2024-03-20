@@ -108,7 +108,6 @@ impl<T: Config> MigrationStep for Migration<T> {
 			};
 			CodeStorage::<T>::insert(key, module);
 			self.last_code_hash = Some(key);
-
 			meter.consume(T::WeightInfo::v9_migration_step(len));
 			IsFinished::No
 		} else {
