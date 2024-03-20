@@ -50,7 +50,7 @@ frame-system = { path = "../../../substrate/frame/system", default-features = fa
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "27.0.0" }
 westend-runtime-constants = { package = "westend-runtime-constants", path = "constants", default-features = false, version = "8.0.0" }
 pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false, version = "8.0.0" }
-pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false, version = "29.0.0" }
+pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false, version = "29.0.1" }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false, version = "29.0.0" }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false, version = "29.0.0" }
 pallet-bags-list = { path = "../../../substrate/frame/bags-list", default-features = false, version = "28.0.0" }

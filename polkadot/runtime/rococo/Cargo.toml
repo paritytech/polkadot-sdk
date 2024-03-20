@@ -41,7 +41,7 @@ sp-version = { path = "../../../substrate/primitives/version", default-features 
 tx-pool-api = { package = "sp-transaction-pool", path = "../../../substrate/primitives/transaction-pool", default-features = false, version = "27.0.0" }
 block-builder-api = { package = "sp-block-builder", path = "../../../substrate/primitives/block-builder", default-features = false, version = "27.0.0" }
 
-pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false, version = "29.0.0" }
+pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false, version = "29.0.1" }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false, version = "29.0.0" }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false, version = "29.0.0" }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, version = "29.0.0" }
