@@ -187,12 +187,12 @@ where
 				last_blocks.pop_front();
 			}
 
-			info!(
-				target: "substrate",
-				"✨ Imported #{} ({})",
-				format.print_with_color(Colour::White.bold(), n.header.number()),
-				n.hash,
-			);
+			// info!(
+			// 	target: "substrate",
+			// 	"✨ Imported #{} ({})",
+			// 	format.print_with_color(Colour::White.bold(), n.header.number()),
+			// 	n.hash,
+			// );
 		}
 
 		future::ready(())
