@@ -25,7 +25,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		LockableCurrency, OnUnbalanced, UnixTime,
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -88,10 +88,13 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The staking balance.
 		type Currency: LockableCurrency<
-			Self::AccountId,
-			Moment = BlockNumberFor<Self>,
-			Balance = Self::CurrencyBalance,
-		>;
+				Self::AccountId,
+				Moment = BlockNumberFor<Self>,
+				Balance = Self::CurrencyBalance,
+			> + InspectLockableCurrency<
+				Self::AccountId,
+				Lock = pallet_balances::BalanceLock<Self::CurrencyBalance>,
+			>;
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
@@ -2081,9 +2084,14 @@ pub mod pallet {
 
 			// get new ledger data.
 			let new_controller = maybe_controller.unwrap_or(controller);
-			//TODO: get current lock for stash and staking
-			//let new_total = maybe_total.unwrap_or(T::Currency::lock(crate::STAKING_ID, &stash));
-			let new_total = maybe_total.unwrap_or_default();
+			let new_total = maybe_total.unwrap_or_else(|| {
+				<T::Currency as InspectLockableCurrency<T::AccountId>>::get_lock(
+					crate::STAKING_ID,
+					&stash,
+				)
+				.map(|l| l.amount)
+				.unwrap_or(Zero::zero())
+			});
 			let new_unlocking = maybe_unlocking
 				.unwrap_or_else(|| maybe_ledger.map(|l| l.unlocking).unwrap_or(Default::default()));
 
