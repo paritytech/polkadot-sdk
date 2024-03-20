@@ -477,7 +477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Runtime::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
 		BalanceOf&lt;Runtime&gt;: Send + Sync + FixedPointOperand,
 	{
-		<span class="comment">// esimate priority of transaction that delivers one message and has large tip
+		<span class="comment">// estimate priority of transaction that delivers one message and has large tip
 		</span><span class="kw">let </span>maximal_messages_in_delivery_transaction =
 			Runtime::MaxUnconfirmedMessagesAtInboundLane::get();
 		<span class="kw">let </span>small_with_tip_priority =
