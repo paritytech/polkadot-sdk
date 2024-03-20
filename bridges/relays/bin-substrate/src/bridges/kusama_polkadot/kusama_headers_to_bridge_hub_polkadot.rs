@@ -16,7 +16,7 @@
 
 //! Kusama-to-BridgeHubPolkadot headers sync entrypoint.
 
-use crate::cli::bridge::{
+use substrate_relay_helper::cli::bridge::{
 	CliBridgeBase, RelayToRelayEquivocationDetectionCliBridge, RelayToRelayHeadersCliBridge,
 };
 

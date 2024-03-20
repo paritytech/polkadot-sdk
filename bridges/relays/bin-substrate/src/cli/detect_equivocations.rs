@@ -14,25 +14,23 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-	bridges::{
-		kusama_polkadot::{
-			kusama_headers_to_bridge_hub_polkadot::KusamaToBridgeHubPolkadotCliBridge,
-			polkadot_headers_to_bridge_hub_kusama::PolkadotToBridgeHubKusamaCliBridge,
-		},
-		rococo_westend::{
-			rococo_headers_to_bridge_hub_westend::RococoToBridgeHubWestendCliBridge,
-			westend_headers_to_bridge_hub_rococo::WestendToBridgeHubRococoCliBridge,
-		},
+use crate::bridges::{
+	kusama_polkadot::{
+		kusama_headers_to_bridge_hub_polkadot::KusamaToBridgeHubPolkadotCliBridge,
+		polkadot_headers_to_bridge_hub_kusama::PolkadotToBridgeHubKusamaCliBridge,
 	},
-	cli::{bridge::*, chain_schema::*, PrometheusParams},
+	rococo_westend::{
+		rococo_headers_to_bridge_hub_westend::RococoToBridgeHubWestendCliBridge,
+		westend_headers_to_bridge_hub_rococo::WestendToBridgeHubRococoCliBridge,
+	},
 };
 
-use async_trait::async_trait;
-use relay_substrate_client::ChainWithTransactions;
 use structopt::StructOpt;
 use strum::{EnumString, VariantNames};
-use substrate_relay_helper::{equivocation, equivocation::SubstrateEquivocationDetectionPipeline};
+
+use substrate_relay_helper::cli::detect_equivocations::{
+	DetectEquivocationsParams, EquivocationsDetector,
+};
 
 /// Start equivocation detection loop.
 #[derive(StructOpt)]
@@ -40,13 +38,7 @@ pub struct DetectEquivocations {
 	#[structopt(possible_values = DetectEquivocationsBridge::VARIANTS, case_insensitive = true)]
 	bridge: DetectEquivocationsBridge,
 	#[structopt(flatten)]
-	source: SourceConnectionParams,
-	#[structopt(flatten)]
-	source_sign: SourceSigningParams,
-	#[structopt(flatten)]
-	target: TargetConnectionParams,
-	#[structopt(flatten)]
-	prometheus_params: PrometheusParams,
+	params: DetectEquivocationsParams,
 }
 
 #[derive(Debug, EnumString, VariantNames)]
@@ -59,29 +51,6 @@ pub enum DetectEquivocationsBridge {
 	WestendToBridgeHubRococo,
 }
 
-#[async_trait]
-trait EquivocationsDetector: RelayToRelayEquivocationDetectionCliBridge
-where
-	Self::Source: ChainWithTransactions,
-{
-	async fn start(data: DetectEquivocations) -> anyhow::Result<()> {
-		let source_client = data.source.into_client::<Self::Source>().await?;
-		Self::Equivocation::start_relay_guards(
-			&source_client,
-			source_client.can_start_version_guard(),
-		)
-		.await?;
-
-		equivocation::run::<Self::Equivocation>(
-			source_client,
-			data.target.into_client::<Self::Target>().await?,
-			data.source_sign.transaction_params::<Self::Source>()?,
-			data.prometheus_params.into_metrics_params()?,
-		)
-		.await
-	}
-}
-
 impl EquivocationsDetector for KusamaToBridgeHubPolkadotCliBridge {}
 impl EquivocationsDetector for PolkadotToBridgeHubKusamaCliBridge {}
 impl EquivocationsDetector for RococoToBridgeHubWestendCliBridge {}
@@ -92,13 +61,13 @@ impl DetectEquivocations {
 	pub async fn run(self) -> anyhow::Result<()> {
 		match self.bridge {
 			DetectEquivocationsBridge::KusamaToBridgeHubPolkadot =>
-				KusamaToBridgeHubPolkadotCliBridge::start(self),
+				KusamaToBridgeHubPolkadotCliBridge::start(self.params),
 			DetectEquivocationsBridge::PolkadotToBridgeHubKusama =>
-				PolkadotToBridgeHubKusamaCliBridge::start(self),
+				PolkadotToBridgeHubKusamaCliBridge::start(self.params),
 			DetectEquivocationsBridge::RococoToBridgeHubWestend =>
-				RococoToBridgeHubWestendCliBridge::start(self),
+				RococoToBridgeHubWestendCliBridge::start(self.params),
 			DetectEquivocationsBridge::WestendToBridgeHubRococo =>
-				WestendToBridgeHubRococoCliBridge::start(self),
+				WestendToBridgeHubRococoCliBridge::start(self.params),
 		}
 		.await
 	}
