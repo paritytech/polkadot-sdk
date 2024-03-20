@@ -382,7 +382,7 @@ pub mod pallet {
 			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
 			let message = VersionedXcm::<<T as Config>::RuntimeCall>::decode(&mut &message[..])
 				.map_err(|error| {
-					log::error!(target: "xcm::execute_blob", "Unable to decode XCM, error: {:?}", error);
+					log::error!(target: "xcm::send_blob", "Unable to decode XCM, error: {:?}", error);
 					Error::<T>::UnableToDecode
 				})?;
 			Self::send_base(origin_location, dest, message)
