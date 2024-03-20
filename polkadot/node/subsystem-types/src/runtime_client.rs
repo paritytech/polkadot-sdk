@@ -21,10 +21,11 @@ use polkadot_primitives::{
 	slashing,
 	vstaging::{self, ApprovalVotingParams},
 	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Header, Id, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use sc_client_api::{AuxStore, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -33,7 +34,10 @@ use sp_authority_discovery::AuthorityDiscoveryApi;
 use sp_blockchain::{BlockStatus, Info};
 use sp_consensus_babe::{BabeApi, Epoch};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	sync::Arc,
+};
 
 /// Offers header utilities.
 ///
@@ -329,6 +333,10 @@ pub trait RuntimeApiSubsystemClient {
 		at: Hash,
 		session_index: SessionIndex,
 	) -> Result<ApprovalVotingParams, ApiError>;
+
+	// == v11: Claim queue ==
+	/// Fetch the `ClaimQueue` from scheduler pallet
+	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.
@@ -593,6 +601,10 @@ where
 		_session_index: SessionIndex,
 	) -> Result<ApprovalVotingParams, ApiError> {
 		self.client.runtime_api().approval_voting_params(at)
+	}
+
+	async fn claim_queue(&self, at: Hash) -> Result<BTreeMap<CoreIndex, VecDeque<Id>>, ApiError> {
+		self.client.runtime_api().claim_queue(at)
 	}
 }
 

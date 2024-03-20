@@ -41,3 +41,7 @@ parity-scale-codec = { version = "3.6.1", features = ["std"] }
 
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+
+[features]
+default = []
+elastic-scaling-experimental = []
