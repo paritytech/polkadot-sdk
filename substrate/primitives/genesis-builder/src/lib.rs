@@ -24,7 +24,9 @@
 //!
 //! Additionally the runtime may provide a number of partial predefined `RuntimeGenesisConfig`
 //! configurations in the form of patches which shall be applied on top of the default
-//! `RuntimeGenesisConfig`. These predefined configurations are refered to as presets.
+//! `RuntimeGenesisConfig`. The patch is a JSON blob, which essentially comprises the list of
+//! key-value pairs that are to be customized in the default runtime genesis config.
+//! These predefined configurations are refered to as presets.
 //!
 //! This allows the runtime to provide a number of predefined configs (e.g. for different
 //! testnets) without neccessity to leak the runtime types outside the itself.
@@ -88,9 +90,11 @@ sp_api::decl_runtime_apis! {
 		/// `RuntimeGenesisConfig` struct of the runtime. Implementation must provide default
 		/// `RuntimeGenesisConfig`.
 		///
-		/// Otherwise function returns a JSON representation of the built-in, named
-		/// `RuntimeGenesisConfig` preset identified by `id`, or `None` if such preset does not
-		/// exists. Returned `Vec<u8>` contains bytes of JSON blob.
+		/// Otherwise function returns a JSON representation of the built-in, named `RuntimeGenesisConfig` preset
+		/// identified by `id`, or `None` if such preset does not exists. Returned `Vec<u8>` contains bytes of JSON blob
+		/// (patch) which comprises a list of (potentially nested) key-value pairs that are intended for custimizing the
+		/// default runtime genesis config. The patch shall be merged (rfc7386) with default genesis config in order to
+		/// obtain a full representation of genesis config that can be used in `build_state` method.
 		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>>;
 
 		/// Returns a list of names for available builtin `RuntimeGenesisConfig` presets.
