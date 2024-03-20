@@ -156,8 +156,8 @@ impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocation
 pub struct ContainsLatest<L, A>(PhantomData<(L, A)>);
 impl<L, A> Contains<VersionedLocatableAsset> for ContainsLatest<L, A>
 where
-	L: Contains<xcm::v4::Location>,
-	A: Contains<xcm::v4::Location>,
+	L: Contains<xcm::latest::prelude::Location>,
+	A: Contains<xcm::latest::prelude::Location>,
 {
 	fn contains(asset: &VersionedLocatableAsset) -> bool {
 		use VersionedLocatableAsset::*;
