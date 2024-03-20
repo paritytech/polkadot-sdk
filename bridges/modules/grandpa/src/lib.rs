@@ -323,11 +323,6 @@ pub mod pallet {
 				});
 			}
 			insert_header::<T, I>(*finality_target, hash);
-			log::info!(
-				target: LOG_TARGET,
-				"Successfully imported finalized header with hash {:?}!",
-				hash
-			);
 
 			// mandatory header is a header that changes authorities set. The pallet can't go
 			// further without importing this header. So every bridge MUST import mandatory headers.
@@ -338,6 +333,13 @@ pub mod pallet {
 			// If size/weight of the call is exceeds our estimated limits, the relayer still needs
 			// to pay for the transaction.
 			let pays_fee = if may_refund_call_fee { Pays::No } else { Pays::Yes };
+
+			log::info!(
+				target: LOG_TARGET,
+				"Successfully imported finalized header with hash {:?}! Free: {}",
+				hash,
+				if may_refund_call_fee { "No" } else { "Yes" },
+			);
 
 			// the proof size component of the call weight assumes that there are
 			// `MaxBridgedAuthorities` in the `CurrentAuthoritySet` (we use `MaxEncodedLen`
