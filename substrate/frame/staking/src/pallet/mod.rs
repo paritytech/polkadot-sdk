@@ -37,7 +37,7 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	EraIndex, Page, SessionIndex, StakerStatus,
+	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 };
 use sp_std::prelude::*;
