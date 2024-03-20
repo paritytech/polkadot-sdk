@@ -28,8 +28,8 @@ use frame_support::{
 		tokens::{fungible, BalanceStatus as Status, Fortitude::Polite, Precision::BestEffort},
 		Currency, DefensiveSaturating, ExistenceRequirement,
 		ExistenceRequirement::AllowDeath,
-		Get, Imbalance, LockIdentifier, LockableCurrency, NamedReservableCurrency,
-		ReservableCurrency, SignedImbalance, TryDrop, WithdrawReasons,
+		Get, Imbalance, InspectLockableCurrency, LockIdentifier, LockableCurrency,
+		NamedReservableCurrency, ReservableCurrency, SignedImbalance, TryDrop, WithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -916,5 +916,13 @@ where
 		let mut locks = Self::locks(who);
 		locks.retain(|l| l.id != id);
 		Self::update_locks(who, &locks[..]);
+	}
+}
+
+impl<T: Config<I>, I: 'static> InspectLockableCurrency<T::AccountId> for Pallet<T, I> {
+	type Lock = BalanceLock<T::Balance>;
+
+	fn get_lock(id: LockIdentifier, who: &T::AccountId) -> Option<Self::Lock> {
+		Self::locks(who).into_iter().filter(|l| l.id == id).collect::<Vec<_>>().pop()
 	}
 }

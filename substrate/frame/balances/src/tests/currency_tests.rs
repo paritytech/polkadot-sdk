@@ -24,8 +24,8 @@ use frame_support::{
 		BalanceStatus::{Free, Reserved},
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Hooks, LockIdentifier, LockableCurrency, NamedReservableCurrency, ReservableCurrency,
-		WithdrawReasons,
+		Hooks, InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
+		ReservableCurrency, WithdrawReasons,
 	},
 	StorageNoopGuard,
 };
@@ -86,6 +86,46 @@ fn basic_locking_should_work() {
 				TokenError::Frozen
 			);
 		});
+}
+
+#[test]
+fn inspect_lock_should_work() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			Balances::set_lock(ID_1, &1, 10, WithdrawReasons::all());
+			Balances::set_lock(ID_2, &1, 10, WithdrawReasons::all());
+			Balances::set_lock(ID_1, &2, 20, WithdrawReasons::all());
+
+			assert_eq!(
+				<Balances as InspectLockableCurrency<_>>::get_lock(ID_1, &1),
+				Some(crate::BalanceLock {
+					id: ID_1,
+					amount: 10,
+					reasons: WithdrawReasons::all().into()
+				})
+			);
+			assert_eq!(
+				<Balances as InspectLockableCurrency<_>>::get_lock(ID_2, &1),
+				Some(crate::BalanceLock {
+					id: ID_2,
+					amount: 10,
+					reasons: WithdrawReasons::all().into()
+				})
+			);
+			assert_eq!(
+				<Balances as InspectLockableCurrency<_>>::get_lock(ID_1, &2),
+				Some(crate::BalanceLock {
+					id: ID_1,
+					amount: 20,
+					reasons: WithdrawReasons::all().into()
+				})
+			);
+
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::get_lock(ID_2, &2), None,);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::get_lock(ID_1, &3), None,);
+		})
 }
 
 #[test]
