@@ -21,23 +21,15 @@ use cumulus_test_client::{
 	runtime::{
 		self as test_runtime, Block, Hash, Header, TestPalletCall, UncheckedExtrinsic, WASM_BINARY,
 	},
-	transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client, ClientBlockImportExt,
-	DefaultTestClientBuilderExt, HeadData, InitBlockBuilder, TestClientBuilder,
-	TestClientBuilderExt, ValidationParams,
+	seal_block, transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client,
+	ClientBlockImportExt, DefaultTestClientBuilderExt, HeadData, InitBlockBuilder,
+	Sr25519Keyring::{Alice, Bob, Charlie},
+	TestClientBuilder, TestClientBuilderExt, ValidationParams,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
-use cumulus_test_runtime::GetLastTimestamp;
-use sc_consensus_aura::{standalone::slot_author, AuraApi};
-use sp_api::ProvideRuntimeApi;
-use sp_application_crypto::{AppCrypto, RuntimeAppPublic};
-use sp_consensus_aura::{digests::CompatibleDigestItem, sr25519::AuthoritySignature};
-use sp_consensus_slots::{Slot, SlotDuration};
-use sp_core::sr25519::Public;
-use sp_keyring::AccountKeyring::*;
-use sp_runtime::{
-	traits::{Block as BlockT, Header as HeaderT},
-	DigestItem,
-};
+use sp_consensus_slots::Slot;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+
 use std::{env, process::Command};
 
 use crate::validate_block::MemoryOptimizedValidationParams;
@@ -343,28 +335,4 @@ fn validate_block_works_with_child_tries() {
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");
 	assert_eq!(header, res_header);
-}
-
-fn seal_block(
-	block: ParachainBlockData<cumulus_test_runtime::Block>,
-	parachain_slot: Slot,
-	client: &Client,
-) -> ParachainBlockData<cumulus_test_runtime::Block> {
-	let parent_hash = block.header().parent_hash;
-	let authorities = client.runtime_api().authorities(parent_hash).unwrap();
-	let expected_author: Option<&sp_consensus_aura::sr25519::AuthorityId> =
-		slot_author::<<cumulus_test_runtime::AuraId as AppCrypto>::Pair>(
-			parachain_slot,
-			&authorities,
-		);
-
-	let core_public = Public::try_from(expected_author.unwrap().to_raw_vec().as_slice()).unwrap();
-	let author = sp_keyring::Sr25519Keyring::from_public(&core_public).unwrap();
-
-	let (mut header, extrinsics, proof) = block.deconstruct();
-	let signature = author.sign(header.hash().as_ref());
-	let digest_item =
-		<DigestItem as CompatibleDigestItem<AuthoritySignature>>::aura_seal(signature.into());
-	header.digest_mut().push(digest_item.clone());
-	ParachainBlockData::new(header, extrinsics, proof)
 }

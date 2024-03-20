@@ -31,10 +31,7 @@ mod test_pallet;
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstBool, ConstU32, OpaqueMetadata};
-
-#[cfg(feature = "experimental")]
-use sp_core::ConstU64;
+use sp_core::{ConstBool, ConstU32, ConstU64, OpaqueMetadata};
 
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
@@ -333,8 +330,6 @@ impl pallet_aura::Config for Runtime {
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-
-	#[cfg(feature = "experimental")]
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
@@ -471,7 +466,7 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			Aura::authorities().into_inner()
+			pallet_aura::Authorities::<Runtime>::get().into_inner()
 		}
 	}
 
