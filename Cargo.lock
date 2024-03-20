@@ -13376,7 +13376,9 @@ dependencies = [
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
+ "pallet-babe",
  "pallet-balances",
+ "pallet-broker",
  "pallet-collective",
  "pallet-default-config-example",
  "pallet-democracy",
@@ -13385,6 +13387,7 @@ dependencies = [
  "pallet-examples",
  "pallet-multisig",
  "pallet-proxy",
+ "pallet-referenda",
  "pallet-scheduler",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -13404,6 +13407,7 @@ dependencies = [
  "scale-info",
  "simple-mermaid",
  "sp-api",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-keyring",
@@ -18395,6 +18399,7 @@ name = "sp-arithmetic"
 version = "23.0.0"
 dependencies = [
  "criterion 0.4.0",
+ "docify 0.2.7",
  "integer-sqrt",
  "num-traits",
  "parity-scale-codec",
@@ -18403,6 +18408,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-crypto-hashing",
+ "sp-std 14.0.0",
  "static_assertions",
 ]
 
