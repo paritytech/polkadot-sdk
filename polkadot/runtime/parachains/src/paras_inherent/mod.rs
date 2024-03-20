@@ -1349,8 +1349,16 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 
 		// ParaIds without scheduled cores are silently filtered out.
 		if let Some(scheduled_cores) = scheduled_cores {
+			if scheduled_cores.len() == 0 {
+				log::debug!(
+					target: LOG_TARGET,
+					"Paraid: {:?} has no scheduled cores but {} candidates were supplied.",
+					para_id,
+					backed_candidates.len()
+				);
+
 			// Non-elastic scaling case. One core per para.
-			if scheduled_cores.len() == 1 {
+			} else if scheduled_cores.len() == 1 && !core_index_enabled {
 				backed_candidates_with_core.insert(
 					para_id,
 					vec![(
@@ -1364,7 +1372,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 
 			// Elastic scaling case. We only allow candidates which have the right core
 			// indices injected.
-			} else if scheduled_cores.len() > 1 && core_index_enabled {
+			} else if scheduled_cores.len() >= 1 && core_index_enabled {
 				// We must preserve the dependency order given in the input.
 				let mut temp_backed_candidates = Vec::with_capacity(scheduled_cores.len());
 
@@ -1374,7 +1382,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 						// the next para.
 						log::debug!(
 							target: LOG_TARGET,
-							"Found enough candidates for paraid: {:?}. Dropping the rest.",
+							"Found enough candidates for paraid: {:?}.",
 							candidate.descriptor().para_id
 						);
 						break;
