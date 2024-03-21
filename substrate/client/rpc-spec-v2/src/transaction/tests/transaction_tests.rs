@@ -105,11 +105,7 @@ async fn tx_with_pruned_best_block() {
 	// Import block 2 with the transaction included.
 	let block_2_header = api.push_block(2, vec![uxt.clone()], true);
 	let block_2 = block_2_header.hash();
-
-	// Announce block 2 to the pool.
 	let event = ChainEvent::NewBestBlock { hash: block_2, tree_route: None };
-	pool.inner_pool.maintain(event).await;
-	let event = ChainEvent::Finalized { hash: block_2, tree_route: Arc::from(vec![]) };
 	pool.inner_pool.maintain(event).await;
 
 	let event: TransactionEvent<H256> = get_next_event_sub!(&mut sub);
@@ -120,6 +116,36 @@ async fn tx_with_pruned_best_block() {
 			index: 0
 		}))
 	);
+
+	// Import block 2 again without the transaction included.
+	let block_2_header = api.push_block(2, vec![], true);
+	let block_2 = block_2_header.hash();
+	let event = ChainEvent::NewBestBlock { hash: block_2, tree_route: None };
+	pool.inner_pool.maintain(event).await;
+
+	let event: TransactionEvent<H256> = get_next_event_sub!(&mut sub);
+	assert_eq!(event, TransactionEvent::BestChainBlockIncluded(None));
+
+	let block_2_header = api.push_block(2, vec![uxt.clone()], true);
+	let block_2 = block_2_header.hash();
+	let event = ChainEvent::NewBestBlock { hash: block_2, tree_route: None };
+	pool.inner_pool.maintain(event).await;
+
+	// The tx is validated again against the new block.
+	let event: TransactionEvent<H256> = get_next_event_sub!(&mut sub);
+	assert_eq!(event, TransactionEvent::Validated);
+
+	let event: TransactionEvent<H256> = get_next_event_sub!(&mut sub);
+	assert_eq!(
+		event,
+		TransactionEvent::BestChainBlockIncluded(Some(TransactionBlock {
+			hash: block_2,
+			index: 0
+		}))
+	);
+
+	let event = ChainEvent::Finalized { hash: block_2, tree_route: Arc::from(vec![]) };
+	pool.inner_pool.maintain(event).await;
 	let event: TransactionEvent<H256> = get_next_event_sub!(&mut sub);
 	assert_eq!(event, TransactionEvent::Finalized(TransactionBlock { hash: block_2, index: 0 }));
 }
