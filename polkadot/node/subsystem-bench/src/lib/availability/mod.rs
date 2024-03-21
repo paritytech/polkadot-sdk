@@ -369,29 +369,26 @@ pub async fn benchmark_availability_write(
 
 		// Request chunks of our own backed candidate from all other validators.
 		let payloads = state.chunk_fetching_requests.get(block_num - 1).expect("pregenerated");
-		let receivers = (1..config.n_validators)
-			.map(|index| {
-				let (pending_response, pending_response_receiver) = oneshot::channel();
+		let receivers = (1..config.n_validators).filter_map(|index| {
+			let (pending_response, pending_response_receiver) = oneshot::channel();
 
-				let peer_id =
-					*env.authorities().peer_ids.get(index).expect("all validators have ids");
-				let payload = payloads.get(index).expect("pregenerated").clone();
-				let request = RawIncomingRequest { peer: peer_id, payload, pending_response };
-				let peer = env
-					.authorities()
-					.validator_authority_id
-					.get(index)
-					.expect("all validators have keys");
+			let peer_id = *env.authorities().peer_ids.get(index).expect("all validators have ids");
+			let payload = payloads.get(index).expect("pregenerated").clone();
+			let request = RawIncomingRequest { peer: peer_id, payload, pending_response };
+			let peer = env
+				.authorities()
+				.validator_authority_id
+				.get(index)
+				.expect("all validators have keys");
 
-				if env.network().is_peer_connected(peer) &&
-					env.network().send_request_from_peer(peer, request).is_ok()
-				{
-					Some(pending_response_receiver)
-				} else {
-					None
-				}
-			})
-			.flatten();
+			if env.network().is_peer_connected(peer) &&
+				env.network().send_request_from_peer(peer, request).is_ok()
+			{
+				Some(pending_response_receiver)
+			} else {
+				None
+			}
+		});
 
 		gum::info!(target: LOG_TARGET, "Waiting for all emulated peers to receive their chunk from us ...");
 
