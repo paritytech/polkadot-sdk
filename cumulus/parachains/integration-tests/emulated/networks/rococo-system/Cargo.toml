@@ -16,5 +16,6 @@ emulated-integration-tests-common = { path = "../../common", default-features = 
 rococo-emulated-chain = { path = "../../chains/relays/rococo" }
 asset-hub-rococo-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-rococo" }
 bridge-hub-rococo-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-rococo" }
+coretime-rococo-emulated-chain = { path = "../../chains/parachains/coretime/coretime-rococo" }
 people-rococo-emulated-chain = { path = "../../chains/parachains/people/people-rococo" }
 penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }
