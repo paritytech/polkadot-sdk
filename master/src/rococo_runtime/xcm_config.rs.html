@@ -434,8 +434,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -697,11 +695,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>pallet_xcm::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="comment">// We only allow the root, fellows and the staking admin to send messages.
-	// This is basically safe to enable for everyone (safe the possibility of someone spamming the
-	// parachain if they&#39;re willing to pay the KSM to send from the Relay-chain), but it&#39;s useless
-	// until we bring in XCM v3 which will make `DescendOrigin` a bit more useful.
-	</span><span class="kw">type </span>SendXcmOrigin = xcm_builder::EnsureXcmOrigin&lt;RuntimeOrigin, LocalPalletOriginToLocation&gt;;
+	<span class="comment">// Note that this configuration of `SendXcmOrigin` is different from the one present in
+	// production.
+	</span><span class="kw">type </span>SendXcmOrigin = xcm_builder::EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
 	<span class="kw">type </span>XcmRouter = XcmRouter;
 	<span class="comment">// Anyone can execute XCM messages locally.
 	</span><span class="kw">type </span>ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
