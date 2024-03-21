@@ -35,7 +35,7 @@ log = { workspace = true }
 sp-io = { path = "../../primitives/io" }
 
 [features]
-default = ["std", "try-runtime"]
+default = ["std"]
 
 std = [
   "bitvec/std",
