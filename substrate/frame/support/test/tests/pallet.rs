@@ -209,7 +209,7 @@ pub mod pallet {
 	where
 		T::AccountId: From<SomeType1> + From<SomeType3> + SomeAssociation1,
 	{
-		/// Doc comment put in metadata
+		/// call foo doc comment put in metadata
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(*foo as u64, 0))]
 		pub fn foo(
@@ -225,7 +225,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Doc comment put in metadata
+		/// call foo_storage_layer doc comment put in metadata
 		#[pallet::call_index(1)]
 		#[pallet::weight({1})]
 		pub fn foo_storage_layer(
@@ -270,7 +270,7 @@ pub mod pallet {
 	#[pallet::error]
 	#[derive(PartialEq, Eq)]
 	pub enum Error<T> {
-		/// doc comment put into metadata
+		/// error doc comment put in metadata
 		InsufficientProposersBalance,
 		NonExistentStorageValue,
 		Code(u8),
@@ -287,9 +287,8 @@ pub mod pallet {
 	where
 		T::AccountId: SomeAssociation1 + From<SomeType1>,
 	{
-		/// doc comment put in metadata
+		/// event doc comment put in metadata
 		Proposed(<T as frame_system::Config>::AccountId),
-		/// doc
 		Spending(BalanceOf<T>),
 		Something(u32),
 		SomethingElse(<T::AccountId as SomeAssociation1>::_1),
@@ -590,7 +589,7 @@ pub mod pallet2 {
 			Self::deposit_event(Event::Something(31));
 
 			if UpdateStorageVersion::get() {
-				Self::current_storage_version().put::<Self>();
+				Self::in_code_storage_version().put::<Self>();
 			}
 
 			Weight::zero()
@@ -694,7 +693,7 @@ frame_support::parameter_types!(
 	pub const MyGetParam3: u32 = 12;
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type RuntimeOrigin = RuntimeOrigin;
@@ -750,8 +749,7 @@ pub type UncheckedExtrinsic =
 	sp_runtime::testing::TestXt<RuntimeCall, frame_system::CheckNonZeroSender<Runtime>>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
+	pub struct Runtime {
 		// Exclude part `Storage` in order not to check its metadata in tests.
 		System: frame_system exclude_parts { Pallet, Storage },
 		Example: pallet,
@@ -769,6 +767,14 @@ frame_support::construct_runtime!(
 fn _ensure_call_is_correctly_excluded_and_included(call: RuntimeCall) {
 	match call {
 		RuntimeCall::System(_) | RuntimeCall::Example(_) | RuntimeCall::Example4(_) => (),
+	}
+}
+
+fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
+	if cfg!(feature = "no-metadata-docs") {
+		vec![]
+	} else {
+		doc
 	}
 }
 
@@ -1310,7 +1316,7 @@ fn pallet_on_genesis() {
 		assert_eq!(pallet::Pallet::<Runtime>::on_chain_storage_version(), StorageVersion::new(0));
 		pallet::Pallet::<Runtime>::on_genesis();
 		assert_eq!(
-			pallet::Pallet::<Runtime>::current_storage_version(),
+			pallet::Pallet::<Runtime>::in_code_storage_version(),
 			pallet::Pallet::<Runtime>::on_chain_storage_version(),
 		);
 	})
@@ -1363,17 +1369,45 @@ fn migrate_from_pallet_version_to_storage_version() {
 }
 
 #[test]
+fn pallet_item_docs_in_metadata() {
+	// call
+	let call_variants = match meta_type::<pallet::Call<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(call_variants[0].docs, maybe_docs(vec!["call foo doc comment put in metadata"]));
+	assert_eq!(
+		call_variants[1].docs,
+		maybe_docs(vec!["call foo_storage_layer doc comment put in metadata"])
+	);
+	assert!(call_variants[2].docs.is_empty());
+
+	// event
+	let event_variants = match meta_type::<pallet::Event<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(event_variants[0].docs, maybe_docs(vec!["event doc comment put in metadata"]));
+	assert!(event_variants[1].docs.is_empty());
+
+	// error
+	let error_variants = match meta_type::<pallet::Error<Runtime>>().type_info().type_def {
+		scale_info::TypeDef::Variant(variants) => variants.variants,
+		_ => unreachable!(),
+	};
+
+	assert_eq!(error_variants[0].docs, maybe_docs(vec!["error doc comment put in metadata"]));
+	assert!(error_variants[1].docs.is_empty());
+
+	// storage is already covered in the main `fn metadata` test.
+}
+
+#[test]
 fn metadata() {
 	use codec::Decode;
 	use frame_metadata::{v15::*, *};
-
-	fn maybe_docs(doc: Vec<&'static str>) -> Vec<&'static str> {
-		if cfg!(feature = "no-metadata-docs") {
-			vec![]
-		} else {
-			doc
-		}
-	}
 
 	let readme = "Support code for the runtime.\n\nLicense: Apache-2.0\n";
 	let expected_pallet_doc = vec![" Pallet documentation", readme, readme];
@@ -2257,10 +2291,10 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 		AllPalletsWithSystem,
 	>;
 
-	// Simple example of a pallet with current version 10 being added to the runtime for the first
+	// Simple example of a pallet with in-code version 10 being added to the runtime for the first
 	// time.
 	TestExternalities::default().execute_with(|| {
-		let current_version = Example::current_storage_version();
+		let in_code_version = Example::in_code_storage_version();
 
 		// Check the pallet has no storage items set.
 		let pallet_hashed_prefix = twox_128(Example::name().as_bytes());
@@ -2271,14 +2305,14 @@ fn pallet_on_chain_storage_version_initializes_correctly() {
 		// version.
 		Executive::execute_on_runtime_upgrade();
 
-		// Check that the storage version was initialized to the current version
+		// Check that the storage version was initialized to the in-code version
 		let on_chain_version_after = StorageVersion::get::<Example>();
-		assert_eq!(on_chain_version_after, current_version);
+		assert_eq!(on_chain_version_after, in_code_version);
 	});
 
-	// Pallet with no current storage version should have the on-chain version initialized to 0.
+	// Pallet with no in-code storage version should have the on-chain version initialized to 0.
 	TestExternalities::default().execute_with(|| {
-		// Example4 current_storage_version is NoStorageVersionSet.
+		// Example4 in_code_storage_version is NoStorageVersionSet.
 
 		// Check the pallet has no storage items set.
 		let pallet_hashed_prefix = twox_128(Example4::name().as_bytes());
@@ -2308,7 +2342,7 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 
 	impl OnRuntimeUpgrade for CustomUpgrade {
 		fn on_runtime_upgrade() -> Weight {
-			Example2::current_storage_version().put::<Example2>();
+			Example2::in_code_storage_version().put::<Example2>();
 
 			Default::default()
 		}
@@ -2351,14 +2385,14 @@ fn post_runtime_upgrade_detects_storage_version_issues() {
 	>;
 
 	TestExternalities::default().execute_with(|| {
-		// Set the on-chain version to one less than the current version for `Example`, simulating a
+		// Set the on-chain version to one less than the in-code version for `Example`, simulating a
 		// forgotten migration
 		StorageVersion::new(9).put::<Example2>();
 
 		// The version isn't changed, we should detect it.
 		assert!(
 			Executive::try_runtime_upgrade(UpgradeCheckSelect::PreAndPost).unwrap_err() ==
-				"On chain and current storage version do not match. Missing runtime upgrade?"
+				"On chain and in-code storage version do not match. Missing runtime upgrade?"
 					.into()
 		);
 	});

@@ -518,7 +518,7 @@ where
 			runtime_code,
 			ext,
 			heap_alloc_strategy,
-			|_, mut instance, _onchain_version, mut ext| {
+			|_, mut instance, _on_chain_version, mut ext| {
 				with_externalities_safe(&mut **ext, move || instance.call_export(method, data))
 			},
 		);
@@ -682,18 +682,18 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 			runtime_code,
 			ext,
 			heap_alloc_strategy,
-			|_, mut instance, onchain_version, mut ext| {
-				let onchain_version =
-					onchain_version.ok_or_else(|| Error::ApiError("Unknown version".into()))?;
+			|_, mut instance, on_chain_version, mut ext| {
+				let on_chain_version =
+					on_chain_version.ok_or_else(|| Error::ApiError("Unknown version".into()))?;
 
 				let can_call_with =
-					onchain_version.can_call_with(&self.native_version.runtime_version);
+					on_chain_version.can_call_with(&self.native_version.runtime_version);
 
 				if use_native && can_call_with {
 					tracing::trace!(
 						target: "executor",
 						native = %self.native_version.runtime_version,
-						chain = %onchain_version,
+						chain = %on_chain_version,
 						"Request for native execution succeeded",
 					);
 
@@ -705,7 +705,7 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 						tracing::trace!(
 							target: "executor",
 							native = %self.native_version.runtime_version,
-							chain = %onchain_version,
+							chain = %on_chain_version,
 							"Request for native execution failed",
 						);
 					}

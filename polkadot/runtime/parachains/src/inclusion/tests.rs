@@ -47,10 +47,10 @@ use test_helpers::{dummy_collator, dummy_collator_signature, dummy_validation_co
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	let mut config = HostConfiguration::default();
-	config.coretime_cores = 1;
+	config.scheduler_params.num_cores = 1;
 	config.max_code_size = 0b100000;
 	config.max_head_data_size = 0b100000;
-	config.group_rotation_frequency = u32::MAX;
+	config.scheduler_params.group_rotation_frequency = u32::MAX;
 	config
 }
 
@@ -224,7 +224,7 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	Paras::parachains().len() + Configuration::config().coretime_cores as usize
+	Paras::parachains().len() + Configuration::config().scheduler_params.num_cores as usize
 }
 
 fn default_bitfield() -> AvailabilityBitfield {
@@ -386,7 +386,7 @@ fn collect_pending_cleans_up_pending() {
 		(thread_a, ParaKind::Parathread),
 	];
 	let mut config = genesis_config(paras);
-	config.configuration.config.group_rotation_frequency = 3;
+	config.configuration.config.scheduler_params.group_rotation_frequency = 3;
 	new_test_ext(config).execute_with(|| {
 		let default_candidate = TestCandidateBuilder::default().build();
 		<PendingAvailability<Test>>::insert(
@@ -2062,7 +2062,7 @@ fn check_allowed_relay_parents() {
 	}
 	let validator_public = validator_pubkeys(&validators);
 	let mut config = genesis_config(paras);
-	config.configuration.config.group_rotation_frequency = 1;
+	config.configuration.config.scheduler_params.group_rotation_frequency = 1;
 
 	new_test_ext(config).execute_with(|| {
 		shared::Pallet::<Test>::set_active_validators_ascending(validator_public.clone());

@@ -35,9 +35,10 @@ use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
 	messages::{
-		ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
-		HypotheticalFrontierRequest, IntroduceCandidateRequest, ProspectiveParachainsMessage,
-		ProspectiveValidationDataRequest, RuntimeApiMessage, RuntimeApiRequest,
+		Ancestors, ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
+		HypotheticalFrontierRequest, IntroduceCandidateRequest, ParentHeadData,
+		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
+		RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -150,16 +151,9 @@ async fn run_iteration<Context>(
 					relay_parent,
 					para,
 					count,
-					required_path,
+					ancestors,
 					tx,
-				) => answer_get_backable_candidates(
-					&view,
-					relay_parent,
-					para,
-					count,
-					required_path,
-					tx,
-				),
+				) => answer_get_backable_candidates(&view, relay_parent, para, count, ancestors, tx),
 				ProspectiveParachainsMessage::GetHypotheticalFrontier(request, tx) =>
 					answer_hypothetical_frontier_request(&view, request, tx),
 				ProspectiveParachainsMessage::GetTreeMembership(para, candidate, tx) =>
@@ -565,7 +559,7 @@ fn answer_get_backable_candidates(
 	relay_parent: Hash,
 	para: ParaId,
 	count: u32,
-	required_path: Vec<CandidateHash>,
+	ancestors: Ancestors,
 	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 ) {
 	let data = match view.active_leaves.get(&relay_parent) {
@@ -614,7 +608,7 @@ fn answer_get_backable_candidates(
 	};
 
 	let backable_candidates: Vec<_> = tree
-		.select_children(&required_path, count, |candidate| storage.is_backed(candidate))
+		.find_backable_chain(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
 		.into_iter()
 		.filter_map(|child_hash| {
 			storage.relay_parent_by_candidate_hash(&child_hash).map_or_else(
@@ -635,7 +629,7 @@ fn answer_get_backable_candidates(
 	if backable_candidates.is_empty() {
 		gum::trace!(
 			target: LOG_TARGET,
-			?required_path,
+			?ancestors,
 			para_id = ?para,
 			%relay_parent,
 			"Could not find any backable candidate",
@@ -771,8 +765,14 @@ fn answer_prospective_validation_data_request(
 		Some(s) => s,
 	};
 
-	let mut head_data =
-		storage.head_data_by_hash(&request.parent_head_data_hash).map(|x| x.clone());
+	let (mut head_data, parent_head_data_hash) = match request.parent_head_data {
+		ParentHeadData::OnlyHash(parent_head_data_hash) => (
+			storage.head_data_by_hash(&parent_head_data_hash).map(|x| x.clone()),
+			parent_head_data_hash,
+		),
+		ParentHeadData::WithData { head_data, hash } => (Some(head_data), hash),
+	};
+
 	let mut relay_parent_info = None;
 	let mut max_pov_size = None;
 
@@ -790,7 +790,7 @@ fn answer_prospective_validation_data_request(
 		}
 		if head_data.is_none() {
 			let required_parent = &fragment_tree.scope().base_constraints().required_parent;
-			if required_parent.hash() == request.parent_head_data_hash {
+			if required_parent.hash() == parent_head_data_hash {
 				head_data = Some(required_parent.clone());
 			}
 		}
