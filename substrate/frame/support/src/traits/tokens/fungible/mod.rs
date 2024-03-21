@@ -96,7 +96,7 @@
 //!             |__untouchable__|__spendable__|
 //! ```
 //!
-//! ## Holds vs. Freezes
+//! ## Holds and Freezes
 //!
 //! Both holds and freezes are used to prevent an account from using some of its balance.
 //!
@@ -113,6 +113,17 @@
 //! |__freeze_c________|
 //! |__frozen_________________| // <- the max of all freezes
 //! ```
+//!
+//! Holds are designed to be infallibly slashed, meaning that any logic using a `Freeze`
+//! must handle the possibility of the frozen amount being reduced, potentially to zero. A
+//! permissionless function should be provided in order to allow bookkeeping to be updated in this
+//! instance. E.g. some balance is frozen when it is used for voting, one could use held balance for
+//! voting, but nothing prevents this frozen balance from being reduced if the overlapping hold is
+//! slashed.
+//!
+//! Every Hold and Freeze is accompanied by a unique `Reason`, making it clear for each instance
+//! what the originating pallet and purpose is. These reasons are amalgomated into a single enum
+//! `RuntimeHoldReason` and `RuntimeFreezeReason` respectively, when the runtime is compiled.
 //!
 //! ## Sets of Tokens
 //!
