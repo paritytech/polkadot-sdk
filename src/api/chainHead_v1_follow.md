@@ -26,7 +26,7 @@ This function works as follows:
 
 **Note**: This list of notifications makes it very easy for a JSON-RPC client to follow just the best block updates (listening to just `bestBlockChanged` events) or follow just the finalized block updates (listening to just `initialized` and `finalized` events). It is however not possible to easily figure out whether the runtime has been modified when these updates happen. This is not problematic, as anyone using the JSON-RPC interface naively propably doesn't need to account for runtime changes anyway.
 
-Additionally, the `chainHead_v1_body`, `chainHead_unstable_call`, and `chainHead_unstable_storage` JSON-RPC function might cause the subscription to produce additional notifications.
+Additionally, the `chainHead_v1_body`, `chainHead_unstable_call`, and `chainHead_v1_storage` JSON-RPC function might cause the subscription to produce additional notifications.
 
 ## The `withRuntime` parameter
 
@@ -194,12 +194,12 @@ No more event will be generated with this `operationId`.
 }
 ```
 
-`operationId` is a string returned by `chainHead_unstable_storage`.
+`operationId` is a string returned by `chainHead_v1_storage`.
 
 Yields one or more items that were found in the storage.
 
-The `key` field is a string containing the hexadecimal-encoded key of the item. This `key` is guaranteed to start with one of the `key`s provided as parameter to `chainHead_unstable_storage`.
-If the `type` parameter was `"value"`, `"hash"`, `"closestDescendantMerkleValue"`, then it is also guaranteed to be equal to one of the `key`s provided as parameter to `chainHead_unstable_storage`.
+The `key` field is a string containing the hexadecimal-encoded key of the item. This `key` is guaranteed to start with one of the `key`s provided as parameter to `chainHead_v1_storage`.
+If the `type` parameter was `"value"`, `"hash"`, `"closestDescendantMerkleValue"`, then it is also guaranteed to be equal to one of the `key`s provided as parameter to `chainHead_v1_storage`.
 
 In the situation where the `type` parameter was `"closestDescendantMerkleValue"`, the fact that `key` is equal to a `key` that was provided as parameter is necessary in order to avoid ambiguities when multiple `items` of type `"closestDescendantMerkleValue"` were requested.
 
@@ -218,11 +218,11 @@ The `closestDescendantMerkleValue` field is set if this item corresponds to one 
 }
 ```
 
-`operationId` is a string returned by `chainHead_unstable_storage`.
+`operationId` is a string returned by `chainHead_v1_storage`.
 
 The `waitingForContinue` event is generated after at least one `"operationStorageItems"` event has been generated, and indicates that the JSON-RPC client must call `chainHead_unstable_continue` before more events are generated.
 
-This event only ever happens if the `type` of one of the `items` provided as a parameter to `chainHead_unstable_storage` was `descendantsValues` or `descendantsHashes`.
+This event only ever happens if the `type` of one of the `items` provided as a parameter to `chainHead_v1_storage` was `descendantsValues` or `descendantsHashes`.
 
 While the JSON-RPC server is waiting for a call to `chainHead_unstable_continue`, it can generate an `operationInaccessible` event in order to indicate that it can no longer proceed with the operation. If that is the case, the JSON-RPC client can simply try again.
 
@@ -235,9 +235,9 @@ While the JSON-RPC server is waiting for a call to `chainHead_unstable_continue`
 }
 ```
 
-`operationId` is a string returned by `chainHead_unstable_storage`.
+`operationId` is a string returned by `chainHead_v1_storage`.
 
-The `operationStorageDone` event indicates that an operation started with `chainHead_unstable_storage` went well and all result has been provided through `operationStorageItems` events in the past.
+The `operationStorageDone` event indicates that an operation started with `chainHead_v1_storage` went well and all result has been provided through `operationStorageItems` events in the past.
 
 If no `operationStorageItems` event was yielded for this `operationId`, then the storage doesn't contain a value at the given key.
 
@@ -252,7 +252,7 @@ No more event will be generated with this `operationId`.
 }
 ```
 
-`operationId` is a string returned by `chainHead_v1_body`, `chainHead_unstable_call`, or `chainHead_unstable_storage`.
+`operationId` is a string returned by `chainHead_v1_body`, `chainHead_unstable_call`, or `chainHead_v1_storage`.
 
 The `operationInaccessible` event is produced if the JSON-RPC server fails to retrieve either the block body or the necessary storage items for the given operation.
 
@@ -270,9 +270,9 @@ No more event will be generated about this `operationId`.
 }
 ```
 
-`operationId` is a string returned by `chainHead_v1_body`, `chainHead_unstable_call`, or `chainHead_unstable_storage`.
+`operationId` is a string returned by `chainHead_v1_body`, `chainHead_unstable_call`, or `chainHead_v1_storage`.
 
-The `operationError` event indicates a problem during the operation. In the case of `chainHead_unstable_call`, this can include the function missing or a runtime panic. In the case of `chainHead_v1_body` or `chainHead_unstable_storage`, this includes failing to parse the block header to obtain the extrinsics root hash or state root hash.
+The `operationError` event indicates a problem during the operation. In the case of `chainHead_unstable_call`, this can include the function missing or a runtime panic. In the case of `chainHead_v1_body` or `chainHead_v1_storage`, this includes failing to parse the block header to obtain the extrinsics root hash or state root hash.
 
 Contrary to the `operationInaccessible` event, repeating the same call in the future will not succeed.
 
@@ -300,7 +300,7 @@ Calling `chainHead_unstable_unfollow` on a subscription that has produced a `sto
 
 The finalized blocks reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, are automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_unstable_unpin`.
 
-When a block is unpinned, on-going calls to `chainHead_v1_body`, `chainHead_unstable_call` and `chainHead_unstable_storage` against this block will still finish normally.
+When a block is unpinned, on-going calls to `chainHead_v1_body`, `chainHead_unstable_call` and `chainHead_v1_storage` against this block will still finish normally.
 
 A block is pinned only in the context of a specific subscription. If multiple `chainHead_v1_follow` subscriptions exist, then each `(subscription, block)` tuple must be unpinned individually. Blocks stay pinned even if they have been pruned from the chain of blocks, and must always be unpinned by the JSON-RPC client.
 

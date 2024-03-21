@@ -3,11 +3,11 @@
 **Parameters**:
 
 - `followSubscription`: An opaque string that was returned by `chainHead_v1_follow`.
-- `operationId`: An opaque string that was returned by `chainHead_unstable_storage`.
+- `operationId`: An opaque string that was returned by `chainHead_v1_storage`.
 
 **Return value**: *null*
 
-Resumes a storage fetch started with `chainHead_unstable_storage` after it has generated an `operationWaitingForContinue` event.
+Resumes a storage fetch started with `chainHead_v1_storage` after it has generated an `operationWaitingForContinue` event.
 
 Has no effect if the `operationId` is invalid or refers to an operation that has emitted a `{"event": "operationInaccessible"}` event, or if the `followSubscription` is invalid or stale.
 
