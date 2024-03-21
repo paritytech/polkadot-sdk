@@ -74,7 +74,7 @@ If `items` contains multiple identical or overlapping queries, the JSON-RPC serv
 
 It is allowed (but discouraged) for the JSON-RPC server to provide the same information multiple times in the result, for example providing the `value` field of the same `key` twice. Forcing the JSON-RPC server to de-duplicate items in the result might lead to unnecessary overhead.
 
-If a `{"event": "operationWaitingForContinue"}` notification is generated, the subscription will not generate any more notification unless the JSON-RPC client calls the `chainHead_unstable_continue` JSON-RPC function. The JSON-RPC server is encouraged to generate this event after having sent a certain number of bytes to the JSON-RPC client in order to avoid head-of-line-blocking issues.
+If a `{"event": "operationWaitingForContinue"}` notification is generated, the subscription will not generate any more notification unless the JSON-RPC client calls the `chainHead_v1_continue` JSON-RPC function. The JSON-RPC server is encouraged to generate this event after having sent a certain number of bytes to the JSON-RPC client in order to avoid head-of-line-blocking issues.
 
 ## Possible errors
 
