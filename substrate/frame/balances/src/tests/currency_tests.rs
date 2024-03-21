@@ -17,6 +17,18 @@
 
 //! Tests regarding the functionality of the `Currency` trait set implementations.
 
+#[test]
+fn asdf() {
+	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
+		let _ = Balances::deposit_creating(&1, 111);
+		
+		Balances::set_lock(*b"asdfasdf", &1, 9, WithdrawReasons::all());
+		assert_ok!(Balances::reserve(&1, 8));
+		
+		panic!("Acc: {:?}", System::account(1));
+	});
+}
+
 use super::*;
 use crate::{Event, NegativeImbalance};
 use frame_support::{

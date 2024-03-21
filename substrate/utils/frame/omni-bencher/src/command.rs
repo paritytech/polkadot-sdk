@@ -68,7 +68,7 @@ use sp_runtime::traits::BlakeTwo256;
 ///     --pallet "pallet_balances" --extrinsic ""
 /// ```
 ///
-/// For the exact arguments of the `pallet` command, please refer to the [pallet] sub-module.
+/// For the exact arguments of the `pallet` command, please refer to the `pallet` sub-module.
 ///
 /// ## Backwards Compatibility
 ///
