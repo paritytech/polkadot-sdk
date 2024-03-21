@@ -600,7 +600,7 @@ impl<T: Config> Pallet<T> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let fp = T::XcmpQueue::footprint(sender);
 		// Assume that it will not fit into the current page:
-		let new_pages = fp.pages.saturating_add(1);
+		let new_pages = fp.ready_pages.saturating_add(1);
 		if new_pages > drop_threshold {
 			// This should not happen since the channel should have been suspended in
 			// [`on_queue_changed`].
@@ -663,12 +663,12 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 		let mut suspended_channels = <InboundXcmpSuspended<T>>::get();
 		let suspended = suspended_channels.contains(&para);
 
-		if suspended && fp.pages <= resume_threshold {
+		if suspended && fp.ready_pages <= resume_threshold {
 			Self::send_signal(para, ChannelSignal::Resume);
 
 			suspended_channels.remove(&para);
 			<InboundXcmpSuspended<T>>::put(suspended_channels);
-		} else if !suspended && fp.pages >= suspend_threshold {
+		} else if !suspended && fp.ready_pages >= suspend_threshold {
 			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
 			Self::send_signal(para, ChannelSignal::Suspend);
 

@@ -1,0 +1,5 @@
+error: expected integer literal
+  --> tests/runtime_ui/invalid_pallet_index.rs:24:29
+   |
+24 |     #[runtime::pallet_index("0")]
+   |                             ^^^
