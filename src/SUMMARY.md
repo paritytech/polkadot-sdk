@@ -16,7 +16,7 @@
     - [archive_unstable_header](api/archive_unstable_header.md)
     - [archive_unstable_storage](api/archive_unstable_storage.md)
   - [chainHead](api/chainHead.md)
-    - [chainHead_unstable_body](api/chainHead_unstable_body.md)
+    - [chainHead_v1_body](api/chainHead_v1_body.md)
     - [chainHead_unstable_call](api/chainHead_unstable_call.md)
     - [chainHead_unstable_continue](api/chainHead_unstable_continue.md)
     - [chainHead_v1_follow](api/chainHead_v1_follow.md)
