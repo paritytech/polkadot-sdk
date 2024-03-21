@@ -858,8 +858,6 @@ pub mod pallet {
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
-		/// Cannot force clean a ledger.
-		CannotForceCleanLedger,
 		/// Cannot reset a ledger.
 		CannotResetLedger,
 	}
