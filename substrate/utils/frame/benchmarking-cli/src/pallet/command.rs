@@ -973,7 +973,7 @@ impl CliConfiguration for PalletCmd {
 	fn chain_id(&self, _is_dev: bool) -> Result<String> {
 		Ok(match self.shared_params.chain {
 			Some(ref chain) => chain.clone(),
-			None => "dev".into(), // FAIL-CI
+			None => "dev".into(),
 		})
 	}
 }
