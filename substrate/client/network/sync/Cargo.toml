@@ -31,7 +31,7 @@ mockall = "0.11.3"
 prost = "0.12"
 schnellru = "0.2.1"
 smallvec = "1.11.0"
-thiserror = "1.0"
+thiserror = { workspace = true }
 tokio-stream = "0.1.14"
 tokio = { version = "1.32.0", features = ["macros", "time"] }
 fork-tree = { path = "../../../utils/fork-tree" }

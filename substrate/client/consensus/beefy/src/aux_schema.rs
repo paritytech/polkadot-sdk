@@ -20,7 +20,7 @@
 
 use crate::{error::Error, worker::PersistedState, LOG_TARGET};
 use codec::{Decode, Encode};
-use log::{info, trace};
+use log::{debug, trace};
 use sc_client_api::{backend::AuxStore, Backend};
 use sp_runtime::traits::Block as BlockT;
 
@@ -30,7 +30,7 @@ const WORKER_STATE_KEY: &[u8] = b"beefy_voter_state";
 const CURRENT_VERSION: u32 = 4;
 
 pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> Result<(), Error> {
-	info!(target: LOG_TARGET, "🥩 write aux schema version {:?}", CURRENT_VERSION);
+	debug!(target: LOG_TARGET, "🥩 write aux schema version {:?}", CURRENT_VERSION);
 	AuxStore::insert_aux(backend, &[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())], &[])
 		.map_err(|e| Error::Backend(e.to_string()))
 }

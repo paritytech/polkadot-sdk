@@ -33,4 +33,4 @@ sc-client-api = { path = "../../api" }
 sc-network = { path = ".." }
 sp-core = { path = "../../../primitives/core" }
 sp-runtime = { path = "../../../primitives/runtime" }
-thiserror = "1.0"
+thiserror = { workspace = true }

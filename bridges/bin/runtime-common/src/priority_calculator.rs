@@ -128,7 +128,7 @@ mod integrity_tests {
 		Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 		BalanceOf<Runtime>: Send + Sync + FixedPointOperand,
 	{
-		// esimate priority of transaction that delivers one message and has large tip
+		// estimate priority of transaction that delivers one message and has large tip
 		let maximal_messages_in_delivery_transaction =
 			Runtime::MaxUnconfirmedMessagesAtInboundLane::get();
 		let small_with_tip_priority =

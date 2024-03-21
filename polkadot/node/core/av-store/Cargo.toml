@@ -13,7 +13,7 @@ workspace = true
 futures = "0.3.21"
 futures-timer = "3.0.2"
 kvdb = "0.13.0"
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 gum = { package = "tracing-gum", path = "../../gum" }
 bitvec = "1.0.0"
 

@@ -42,7 +42,14 @@ use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
-use std::{collections::HashSet, sync::Arc};
+use std::{
+	collections::{HashSet, VecDeque},
+	sync::Arc,
+};
+
+/// The maximum number of finalized blocks provided by the
+/// `Initialized` event.
+const MAX_FINALIZED_BLOCKS: usize = 16;
 
 use super::subscription::InsertedSubscriptionData;
 
@@ -95,6 +102,8 @@ struct InitialBlocks<Block: BlockT> {
 	///
 	/// It is a tuple of (block hash, parent hash).
 	finalized_block_descendants: Vec<(Block::Hash, Block::Hash)>,
+	/// Hashes of the last finalized blocks
+	finalized_block_hashes: VecDeque<Block::Hash>,
 	/// Blocks that should not be reported as pruned by the `Finalized` event.
 	///
 	/// Substrate database will perform the pruning of height N at
@@ -178,13 +187,14 @@ where
 	}
 
 	/// Get the in-memory blocks of the client, starting from the provided finalized hash.
+	///
+	/// The reported blocks are pinned by this function.
 	fn get_init_blocks_with_forks(
 		&self,
-		startup_point: &StartupPoint<Block>,
+		finalized: Block::Hash,
 	) -> Result<InitialBlocks<Block>, SubscriptionManagementError> {
 		let blockchain = self.backend.blockchain();
 		let leaves = blockchain.leaves()?;
-		let finalized = startup_point.finalized_hash;
 		let mut pruned_forks = HashSet::new();
 		let mut finalized_block_descendants = Vec::new();
 		let mut unique_descendants = HashSet::new();
@@ -198,17 +208,47 @@ where
 				// Ensure a `NewBlock` event is generated for all children of the
 				// finalized block. Describe the tree route as (child_node, parent_node)
 				// Note: the order of elements matters here.
-				let parents = std::iter::once(finalized).chain(blocks.clone());
+				let mut parent = finalized;
+				for child in blocks {
+					let pair = (child, parent);
 
-				for pair in blocks.zip(parents) {
 					if unique_descendants.insert(pair) {
+						// The finalized block is pinned below.
+						self.sub_handle.pin_block(&self.sub_id, child)?;
 						finalized_block_descendants.push(pair);
 					}
+
+					parent = child;
 				}
 			}
 		}
 
-		Ok(InitialBlocks { finalized_block_descendants, pruned_forks })
+		let mut current_block = finalized;
+		// The header of the finalized block must not be pruned.
+		let Some(header) = blockchain.header(current_block)? else {
+			return Err(SubscriptionManagementError::BlockHeaderAbsent);
+		};
+
+		// Report at most `MAX_FINALIZED_BLOCKS`. Note: The node might not have that many blocks.
+		let mut finalized_block_hashes = VecDeque::with_capacity(MAX_FINALIZED_BLOCKS);
+
+		// Pin the finalized block.
+		self.sub_handle.pin_block(&self.sub_id, current_block)?;
+		finalized_block_hashes.push_front(current_block);
+		current_block = *header.parent_hash();
+
+		for _ in 0..MAX_FINALIZED_BLOCKS - 1 {
+			let Ok(Some(header)) = blockchain.header(current_block) else { break };
+			// Block cannot be reported if pinning fails.
+			if self.sub_handle.pin_block(&self.sub_id, current_block).is_err() {
+				break
+			};
+
+			finalized_block_hashes.push_front(current_block);
+			current_block = *header.parent_hash();
+		}
+
+		Ok(InitialBlocks { finalized_block_descendants, finalized_block_hashes, pruned_forks })
 	}
 
 	/// Generate the initial events reported by the RPC `follow` method.
@@ -220,18 +260,17 @@ where
 		startup_point: &StartupPoint<Block>,
 	) -> Result<(Vec<FollowEvent<Block::Hash>>, HashSet<Block::Hash>), SubscriptionManagementError>
 	{
-		let init = self.get_init_blocks_with_forks(startup_point)?;
-
-		let initial_blocks = init.finalized_block_descendants;
+		let init = self.get_init_blocks_with_forks(startup_point.finalized_hash)?;
 
 		// The initialized event is the first one sent.
-		let finalized_block_hash = startup_point.finalized_hash;
-		self.sub_handle.pin_block(&self.sub_id, finalized_block_hash)?;
+		let initial_blocks = init.finalized_block_descendants;
+		let finalized_block_hashes = init.finalized_block_hashes;
 
+		let finalized_block_hash = startup_point.finalized_hash;
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
 
 		let initialized_event = FollowEvent::Initialized(Initialized {
-			finalized_block_hash,
+			finalized_block_hashes: finalized_block_hashes.into(),
 			finalized_block_runtime,
 			with_runtime: self.with_runtime,
 		});
@@ -240,8 +279,6 @@ where
 
 		finalized_block_descendants.push(initialized_event);
 		for (child, parent) in initial_blocks.into_iter() {
-			self.sub_handle.pin_block(&self.sub_id, child)?;
-
 			let new_runtime = self.generate_runtime_event(child, Some(parent));
 
 			let event = FollowEvent::NewBlock(NewBlock {

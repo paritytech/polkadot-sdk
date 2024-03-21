@@ -23,7 +23,7 @@ use frame_support::{
 	DefaultNoBound,
 };
 use sp_core::Get;
-use sp_runtime::{traits::Zero, DispatchError};
+use sp_runtime::{traits::Zero, DispatchError, Saturating};
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -34,6 +34,24 @@ pub struct ChargedAmount(Weight);
 impl ChargedAmount {
 	pub fn amount(&self) -> Weight {
 		self.0
+	}
+}
+
+/// Used to capture the gas left before entering a host function.
+///
+/// Has to be consumed in order to sync back the gas after leaving the host function.
+#[must_use]
+pub struct RefTimeLeft(u64);
+
+/// Resource that needs to be synced to the executor.
+///
+/// Wrapped to make sure that the resource will be synced back the the executor.
+#[must_use]
+pub struct Syncable(u64);
+
+impl From<Syncable> for u64 {
+	fn from(from: Syncable) -> u64 {
+		from.0
 	}
 }
 
@@ -84,8 +102,13 @@ pub struct GasMeter<T: Config> {
 	gas_left: Weight,
 	/// Due to `adjust_gas` and `nested` the `gas_left` can temporarily dip below its final value.
 	gas_left_lowest: Weight,
-	/// Amount of fuel consumed by the engine from the last host function call.
-	engine_consumed: u64,
+	/// The amount of resources that was consumed by the execution engine.
+	///
+	/// This should be equivalent to `self.gas_consumed().ref_time()` but expressed in whatever
+	/// unit the execution engine uses to track resource consumption. We have to track it
+	/// separately in order to avoid the loss of precision that happens when converting from
+	/// ref_time to the execution engine unit.
+	executor_consumed: u64,
 	_phantom: PhantomData<T>,
 	#[cfg(test)]
 	tokens: Vec<ErasedToken>,
@@ -97,7 +120,7 @@ impl<T: Config> GasMeter<T> {
 			gas_limit,
 			gas_left: gas_limit,
 			gas_left_lowest: gas_limit,
-			engine_consumed: Default::default(),
+			executor_consumed: 0,
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
@@ -172,32 +195,41 @@ impl<T: Config> GasMeter<T> {
 		self.gas_left = self.gas_left.saturating_add(adjustment).min(self.gas_limit);
 	}
 
-	/// This method is used for gas syncs with the engine.
+	/// Hand over the gas metering responsibility from the executor to this meter.
 	///
-	/// Updates internal `engine_comsumed` tracker of engine fuel consumption.
-	///
-	/// Charges self with the `ref_time` Weight corresponding to wasmi fuel consumed on the engine
-	/// side since last sync. Passed value is scaled by multiplying it by the weight of a basic
-	/// operation, as such an operation in wasmi engine costs 1.
-	///
-	/// Returns the updated `gas_left` `Weight` value from the meter.
-	/// Normally this would never fail, as engine should fail first when out of gas.
-	pub fn charge_fuel(&mut self, wasmi_fuel_total: u64) -> Result<Weight, DispatchError> {
-		// Take the part consumed since the last update.
-		let wasmi_fuel = wasmi_fuel_total.saturating_sub(self.engine_consumed);
-		if !wasmi_fuel.is_zero() {
-			self.engine_consumed = wasmi_fuel_total;
-			let reftime_consumed =
-				wasmi_fuel.saturating_mul(T::Schedule::get().instruction_weights.base as u64);
-			let ref_time_left = self
-				.gas_left
-				.ref_time()
-				.checked_sub(reftime_consumed)
-				.ok_or_else(|| Error::<T>::OutOfGas)?;
+	/// Needs to be called when entering a host function to update this meter with the
+	/// gas that was tracked by the executor. It tracks the latest seen total value
+	/// in order to compute the delta that needs to be charged.
+	pub fn sync_from_executor(
+		&mut self,
+		executor_total: u64,
+	) -> Result<RefTimeLeft, DispatchError> {
+		let chargable_reftime = executor_total
+			.saturating_sub(self.executor_consumed)
+			.saturating_mul(u64::from(T::Schedule::get().instruction_weights.base));
+		self.executor_consumed = executor_total;
+		self.gas_left
+			.checked_reduce(Weight::from_parts(chargable_reftime, 0))
+			.ok_or_else(|| Error::<T>::OutOfGas)?;
+		Ok(RefTimeLeft(self.gas_left.ref_time()))
+	}
 
-			*(self.gas_left.ref_time_mut()) = ref_time_left;
-		}
-		Ok(self.gas_left)
+	/// Hand over the gas metering responsibility from this meter to the executor.
+	///
+	/// Needs to be called when leaving a host function in order to calculate how much
+	/// gas needs to be charged from the **executor**. It updates the last seen executor
+	/// total value so that it is correct when `sync_from_executor` is called the next time.
+	///
+	/// It is important that this does **not** actually sync with the executor. That has
+	/// to be done by the caller.
+	pub fn sync_to_executor(&mut self, before: RefTimeLeft) -> Result<Syncable, DispatchError> {
+		let chargable_executor_resource = before
+			.0
+			.saturating_sub(self.gas_left().ref_time())
+			.checked_div(u64::from(T::Schedule::get().instruction_weights.base))
+			.ok_or(Error::<T>::InvalidSchedule)?;
+		self.executor_consumed.saturating_accrue(chargable_executor_resource);
+		Ok(Syncable(chargable_executor_resource))
 	}
 
 	/// Returns the amount of gas that is required to run the same call.

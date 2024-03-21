@@ -18,8 +18,8 @@ futures = "0.3.16"
 jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
 log = { workspace = true, default-features = true }
 parity-scale-codec = { version = "3.6.1", features = ["derive"] }
-serde = { version = "1.0.196", features = ["derive"] }
-thiserror = "1.0"
+serde = { features = ["derive"], workspace = true, default-features = true }
+thiserror = { workspace = true }
 sc-client-api = { path = "../../../api" }
 sc-consensus-grandpa = { path = ".." }
 sc-rpc = { path = "../../../rpc" }

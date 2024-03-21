@@ -28,6 +28,6 @@ sc-client-api = { path = "../../../substrate/client/api" }
 sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
 smallvec = "1.8.0"
 substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 async-trait = "0.1.74"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
