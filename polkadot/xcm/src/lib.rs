@@ -49,7 +49,8 @@ mod tests;
 /// Maximum nesting level for XCM decoding.
 pub const MAX_XCM_DECODE_DEPTH: u32 = 8;
 /// Maximum encoded size.
-pub const MAX_XCM_ENCODED_SIZE: u32 = 500;
+/// See `decoding_respects_limit` test for more reasoning behind this value.
+pub const MAX_XCM_ENCODED_SIZE: u32 = 12402;
 
 /// A version of XCM.
 pub type Version = u32;

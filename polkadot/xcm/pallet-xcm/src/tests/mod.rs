@@ -24,6 +24,7 @@ use crate::{
 	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
 	WeightInfo,
 };
+use codec::Encode;
 use frame_support::{
 	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	traits::{Currency, Hooks},
@@ -305,11 +306,12 @@ fn send_works() {
 		]);
 
 		let versioned_dest = Box::new(RelayLocation::get().into());
-		let versioned_message = Box::new(VersionedXcm::from(message.clone()));
-		assert_ok!(XcmPallet::send(
+		let versioned_message = VersionedXcm::from(message.clone());
+		let encoded_versioned_message = versioned_message.encode().try_into().expect("MaxXcmEncodedSize should be big enough.");
+		assert_ok!(XcmPallet::send_blob(
 			RuntimeOrigin::signed(ALICE),
 			versioned_dest,
-			versioned_message
+			encoded_versioned_message
 		));
 		let sent_message = Xcm(Some(DescendOrigin(sender.clone().try_into().unwrap()))
 			.into_iter()
@@ -341,16 +343,16 @@ fn send_fails_when_xcm_router_blocks() {
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let sender: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-		let message = Xcm(vec![
+		let message = Xcm::<()>(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 			buy_execution((Parent, SEND_AMOUNT)),
 			DepositAsset { assets: AllCounted(1).into(), beneficiary: sender },
 		]);
 		assert_noop!(
-			XcmPallet::send(
+			XcmPallet::send_blob(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(Location::ancestor(8).into()),
-				Box::new(VersionedXcm::from(message.clone())),
+				VersionedXcm::from(message.clone()).encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
 			),
 			crate::Error::<Test>::SendFailure
 		);

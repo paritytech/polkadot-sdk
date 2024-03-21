@@ -168,10 +168,10 @@ where
 		]);
 
 		// send
-		let _ = <pallet_xcm::Pallet<Runtime>>::send(
+		let _ = <pallet_xcm::Pallet<Runtime>>::send_blob(
 			RawOrigin::Root.into(),
 			Box::new(VersionedLocation::V4(destination)),
-			Box::new(VersionedXcm::V4(program)),
+			VersionedXcm::V4(program).encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
 		)?;
 		Ok(())
 	}

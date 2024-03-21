@@ -945,7 +945,9 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// WARNING: This call is DEPRECATED! Use `send_blob` instead.
+		/// WARNING: DEPRECATED. `send` will be removed after June 2024. Use `send_blob` instead.
+		#[allow(deprecated)]
+		#[deprecated(note = "`send` will be removed after June 2024. Use `send_blob` instead.")]
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::send())]
 		pub fn send(
@@ -1078,7 +1080,7 @@ pub mod pallet {
 		/// the maximum amount of weight that the message could take to be executed, then no
 		/// execution attempt will be made.
 		///
-		/// WARNING: This call is DEPRECATED! Use `execute_blob` instead.
+		/// WARNING: DEPRECATED. `execute` will be removed after June 2024. Use `execute_blob` instead.
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(

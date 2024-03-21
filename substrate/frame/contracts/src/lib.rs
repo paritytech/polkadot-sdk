@@ -117,7 +117,7 @@ use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
 	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
-	ensure, parameter_types,
+	ensure,
 	error::BadOrigin,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},

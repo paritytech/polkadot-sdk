@@ -83,7 +83,7 @@ fn create_agent() {
 
 	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
 	// Construct XCM to create an agent for para 1001
-	let remote_xcm = VersionedXcm::from(Xcm(vec![
+	let remote_xcm = VersionedXcm::from(Xcm::<()>(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
@@ -96,10 +96,10 @@ fn create_agent() {
 	// Rococo Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Rococo::execute_with(|| {
-		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
+		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
 			sudo_origin,
 			bx!(destination),
-			bx!(remote_xcm),
+			remote_xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
 		));
 
 		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
@@ -141,7 +141,7 @@ fn create_channel() {
 
 	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
 	// Construct XCM to create an agent for para 1001
-	let create_agent_xcm = VersionedXcm::from(Xcm(vec![
+	let create_agent_xcm = VersionedXcm::from(Xcm::<()>(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
@@ -154,7 +154,7 @@ fn create_channel() {
 	let create_channel_call =
 		SnowbridgeControl::Control(ControlCall::CreateChannel { mode: OperatingMode::Normal });
 	// Construct XCM to create a channel for para 1001
-	let create_channel_xcm = VersionedXcm::from(Xcm(vec![
+	let create_channel_xcm = VersionedXcm::from(Xcm::<()>(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
@@ -167,16 +167,16 @@ fn create_channel() {
 	// Rococo Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Rococo::execute_with(|| {
-		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
+		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
 			sudo_origin.clone(),
 			bx!(destination.clone()),
-			bx!(create_agent_xcm),
+			create_agent_xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
 		));
 
-		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send(
+		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
 			sudo_origin,
 			bx!(destination),
-			bx!(create_channel_xcm),
+			create_channel_xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
 		));
 
 		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
