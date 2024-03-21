@@ -1528,7 +1528,7 @@ pub mod pallet {
 			let maybe_ledger = Ledger::<T>::get(&controller);
 			ensure!(
 				maybe_ledger.as_ref().map(|l| l.stash != stash).unwrap_or(true),
-				Error::<T>::CannotResetLedger,
+				Error::<T>::CannotForceCleanLedger,
 			);
 
 			// TODO: clean slashing related data.
