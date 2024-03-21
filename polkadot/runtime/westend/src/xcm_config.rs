@@ -28,13 +28,11 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
-use polkadot_parachain_primitives::primitives::IsSystem;
 use runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
 use sp_core::ConstU32;
-use sp_std::marker::PhantomData;
 use westend_runtime_constants::{
 	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
@@ -145,8 +143,8 @@ impl Contains<Location> for OnlyParachains {
 	}
 }
 
-pub struct SystemOrFellows<ParaId>(PhantomData<ParaId>);
-impl<ParaId: IsSystem + From<u32>> Contains<Location> for SystemOrFellows<ParaId> {
+pub struct SystemOrFellows;
+impl Contains<Location> for SystemOrFellows {
 	fn contains(location: &Location) -> bool {
 		let is_system = IsChildSystemParachain::<ParaId>::contains(location);
 		let is_fellows = matches!(
@@ -177,7 +175,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 			// Subscriptions for version tracking are OK.
 			AllowSubscriptionsFrom<OnlyParachains>,
 			// Messages coming from system parachains need not pay for execution.
-			AllowExplicitUnpaidExecutionFrom<SystemOrFellows<ParaId>>,
+			AllowExplicitUnpaidExecutionFrom<SystemOrFellows>,
 		),
 		UniversalLocation,
 		ConstU32<8>,
