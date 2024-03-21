@@ -31,11 +31,8 @@
 //! performed through the methods exposed by the [`StakingLedger`] implementation in order to ensure
 //! state consistency.
 
+use frame_support::{defensive, ensure, traits::Defensive};
 use sp_staking::{StakingAccount, StakingInterface};
-use frame_support::{
-	defensive, ensure,
-	traits::{Defensive, LockableCurrency, WithdrawReasons},
-};
 use sp_std::prelude::*;
 
 use crate::{
