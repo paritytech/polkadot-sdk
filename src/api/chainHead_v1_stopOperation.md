@@ -1,4 +1,4 @@
-# chainHead_unstable_stopOperation
+# chainHead_v1_stopOperation
 
 **Parameters**:
 
