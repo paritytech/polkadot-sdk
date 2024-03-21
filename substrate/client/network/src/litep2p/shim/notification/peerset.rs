@@ -570,7 +570,7 @@ impl Peerset {
 			PeerState::Disconnected => {},
 			// peer is backed off but if it can be accepted (either a reserved peer or inbound slot
 			// available), accept the peer and then just ignore the back-off timer when it expires
-			PeerState::Backoff => {
+			PeerState::Backoff =>
 				if !is_reserved_peer && self.num_in == self.max_in {
 					log::trace!(
 						target: LOG_TARGET,
@@ -579,8 +579,7 @@ impl Peerset {
 					);
 
 					return ValidationResult::Reject
-				}
-			},
+				},
 			// `Peerset` had initiated an outbound substream but litep2p had received an inbound
 			// substream before the command to open the substream was received, meaning local and
 			// remote desired to open a connection at the same time. Since outbound substreams
