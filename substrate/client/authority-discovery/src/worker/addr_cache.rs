@@ -21,7 +21,10 @@ use libp2p::{
 	PeerId,
 };
 use sp_authority_discovery::AuthorityId;
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::{
+	collections::{hash_map::Entry, HashMap, HashSet},
+	time::Instant,
+};
 
 /// Cache for [`AuthorityId`] -> [`HashSet<Multiaddr>`] and [`PeerId`] -> [`HashSet<AuthorityId>`]
 /// mappings.
@@ -33,7 +36,7 @@ pub(super) struct AddrCache {
 	/// Since we may store the mapping across several sessions, a single
 	/// `PeerId` might correspond to multiple `AuthorityId`s. However,
 	/// it's not expected that a single `AuthorityId` can have multiple `PeerId`s.
-	authority_id_to_addresses: HashMap<AuthorityId, HashSet<Multiaddr>>,
+	authority_id_to_addresses: HashMap<AuthorityId, HashMap<Multiaddr, Instant>>,
 	peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
 }
 
@@ -48,8 +51,12 @@ impl AddrCache {
 	/// Inserts the given [`AuthorityId`] and [`Vec<Multiaddr>`] pair for future lookups by
 	/// [`AuthorityId`] or [`PeerId`].
 	pub fn insert(&mut self, authority_id: AuthorityId, addresses: Vec<Multiaddr>) {
-		let addresses = addresses.into_iter().collect::<HashSet<_>>();
-		let peer_ids = addresses_to_peer_ids(&addresses);
+		let mut addresses = addresses
+			.into_iter()
+			.map(|addr| (addr, Instant::now() + std::time::Duration::from_secs(24 * 60 * 60)))
+			.collect::<HashMap<_, _>>();
+
+		let mut peer_ids = addresses_to_peer_ids(&addresses);
 
 		if peer_ids.is_empty() {
 			log::debug!(
@@ -74,8 +81,25 @@ impl AddrCache {
 			"Found addresses for authority {authority_id:?}: {addresses:?}",
 		);
 
+		let old_addresses =
+			self.authority_id_to_addresses.get(&authority_id).cloned().unwrap_or_default();
+
+		let time_now = Instant::now();
+
+		let to_keep_addresses = old_addresses
+			.iter()
+			.filter(|(addr, expires)| **expires >= time_now && !addresses.contains_key(addr))
+			.map(|(addr, expires)| (addr.clone(), expires.clone()))
+			.collect::<HashMap<_, _>>();
+
+		addresses.extend(to_keep_addresses.clone());
+
 		let old_addresses = self.authority_id_to_addresses.insert(authority_id.clone(), addresses);
+
 		let old_peer_ids = addresses_to_peer_ids(&old_addresses.unwrap_or_default());
+
+		let to_kepp_peer_ids = addresses_to_peer_ids(&to_keep_addresses);
+		peer_ids.extend(to_kepp_peer_ids);
 
 		// Add the new peer ids
 		peer_ids.difference(&old_peer_ids).for_each(|new_peer_id| {
@@ -118,8 +142,10 @@ impl AddrCache {
 	pub fn get_addresses_by_authority_id(
 		&self,
 		authority_id: &AuthorityId,
-	) -> Option<&HashSet<Multiaddr>> {
-		self.authority_id_to_addresses.get(authority_id)
+	) -> Option<HashSet<Multiaddr>> {
+		self.authority_id_to_addresses
+			.get(authority_id)
+			.map(|result| result.keys().map(|addr| addr.clone()).collect::<HashSet<_>>())
 	}
 
 	/// Returns the [`AuthorityId`]s for the given [`PeerId`].
@@ -170,8 +196,8 @@ fn peer_id_from_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
 	})
 }
 
-fn addresses_to_peer_ids(addresses: &HashSet<Multiaddr>) -> HashSet<PeerId> {
-	addresses.iter().filter_map(peer_id_from_multiaddr).collect::<HashSet<_>>()
+fn addresses_to_peer_ids(addresses: &HashMap<Multiaddr, Instant>) -> HashSet<PeerId> {
+	addresses.keys().filter_map(peer_id_from_multiaddr).collect::<HashSet<_>>()
 }
 
 #[cfg(test)]

@@ -26,7 +26,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
 	sync::Arc,
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt};
@@ -139,6 +139,11 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 	/// Set of in-flight lookups.
 	in_flight_lookups: HashMap<KademliaKey, AuthorityId>,
 
+	/// Set of lookups we can still received records.
+	/// These are the entries in the `in_flight_lookups` for which
+	/// we got at least on successfull result.
+	known_lookups: HashMap<KademliaKey, AuthorityId>,
+
 	addr_cache: addr_cache::AddrCache,
 
 	metrics: Option<Metrics>,
@@ -237,6 +242,7 @@ where
 			query_interval,
 			pending_lookups: Vec::new(),
 			in_flight_lookups: HashMap::new(),
+			known_lookups: HashMap::new(),
 			addr_cache,
 			role,
 			metrics,
@@ -292,9 +298,7 @@ where
 	fn process_message_from_service(&self, msg: ServicetoWorkerMsg) {
 		match msg {
 			ServicetoWorkerMsg::GetAddressesByAuthorityId(authority, sender) => {
-				let _ = sender.send(
-					self.addr_cache.get_addresses_by_authority_id(&authority).map(Clone::clone),
-				);
+				let _ = sender.send(self.addr_cache.get_addresses_by_authority_id(&authority));
 			},
 			ServicetoWorkerMsg::GetAuthorityIdsByPeerId(peer_id, sender) => {
 				let _ = sender
@@ -408,6 +412,7 @@ where
 		// Ignore all still in-flight lookups. Those that are still in-flight are likely stalled as
 		// query interval ticks are far enough apart for all lookups to succeed.
 		self.in_flight_lookups.clear();
+		self.known_lookups.clear();
 
 		if let Some(metrics) = &self.metrics {
 			metrics
@@ -500,10 +505,16 @@ where
 			.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
 			.ok_or(Error::ReceivingDhtValueFoundEventWithNoRecords)?;
 
-		let authority_id: AuthorityId = self
-			.in_flight_lookups
-			.remove(&remote_key)
-			.ok_or(Error::ReceivingUnexpectedRecord)?;
+		let authority_id: AuthorityId =
+			if let Some(authority_id) = self.in_flight_lookups.remove(&remote_key) {
+				authority_id
+			} else if let Some(authority_id) = self.known_lookups.get(&remote_key) {
+				authority_id.clone()
+			} else {
+				return Err(Error::ReceivingUnexpectedRecord);
+			};
+
+		self.known_lookups.insert(remote_key.clone(), authority_id.clone());
 
 		let local_peer_id = self.network.local_peer_id();
 

@@ -72,7 +72,7 @@ use libp2p::{
 	},
 	PeerId,
 };
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
 	cmp,
@@ -784,8 +784,13 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								// Let's directly finish the query, as we are only interested in a
 								// quorum of 1.
 								if let Some(kad) = self.kademlia.as_mut() {
-									if let Some(mut query) = kad.query_mut(&id) {
-										query.finish();
+									if let Some(query) = kad.query_mut(&id) {
+										// Let the query continue, to increase the chances we
+										// discover all possible addresses, for the cases where more
+										// addresses might exist in DHT, for example when the node
+										// changes its PeerId.
+
+										// query.finish();
 									}
 								}
 

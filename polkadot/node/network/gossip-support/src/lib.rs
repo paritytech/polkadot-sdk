@@ -69,6 +69,12 @@ const BACKOFF_DURATION: Duration = Duration::from_secs(5);
 #[cfg(test)]
 const BACKOFF_DURATION: Duration = Duration::from_millis(500);
 
+// The authorithy_discovery queries runs every ten minutes,
+// so no point in trying more often than that, so let's
+// try re-resolving the authorithies every 10 minutes and force
+// the reconnection to the ones that changed their address.
+const TRY_RECONNECT_AFTER: Duration = Duration::from_secs(60 * 10);
+
 /// Duration after which we consider low connectivity a problem.
 ///
 /// Especially at startup low connectivity is expected (authority discovery cache needs to be
@@ -90,6 +96,14 @@ pub struct GossipSupport<AD> {
 	// at least a third of authorities the last time.
 	// `None` otherwise.
 	last_failure: Option<Instant>,
+
+	// Validators can restart during a session, so if they change
+	// their PeerID, we will connect to them in the best case after
+	// a session, so we need to try more often to resolved peers and
+	// reconnect to them. The authorithy_discovery queries runs every ten
+	// minutes, so no point in trying more often than that, so let's
+	// try reconnecting every 10 minutes here as well.
+	last_connection_request: Option<Instant>,
 
 	/// First time we did not reach our connectivity threshold.
 	///
@@ -131,6 +145,7 @@ where
 			keystore,
 			last_session_index: None,
 			last_failure: None,
+			last_connection_request: None,
 			failure_start: None,
 			resolved_authorities: HashMap::new(),
 			connected_authorities: HashMap::new(),
@@ -196,7 +211,11 @@ where
 		for leaf in leaves {
 			let current_index = util::request_session_index_for_child(leaf, sender).await.await??;
 			let since_failure = self.last_failure.map(|i| i.elapsed()).unwrap_or_default();
-			let force_request = since_failure >= BACKOFF_DURATION;
+			let since_last_reconnect =
+				self.last_connection_request.map(|i| i.elapsed()).unwrap_or_default();
+
+			let force_request =
+				since_failure >= BACKOFF_DURATION || since_last_reconnect >= TRY_RECONNECT_AFTER;
 			let leaf_session = Some((current_index, leaf));
 			let maybe_new_session = match self.last_session_index {
 				Some(i) if current_index <= i => None,
@@ -248,7 +267,7 @@ where
 				// connections to a much broader set of validators.
 				{
 					let mut connections = authorities_past_present_future(sender, leaf).await?;
-
+					self.last_connection_request = Some(Instant::now());
 					// Remove all of our locally controlled validator indices so we don't connect to
 					// ourself.
 					let connections =
@@ -405,10 +424,11 @@ where
 				.await
 				.into_iter()
 				.flat_map(|list| list.into_iter())
-				.find_map(|addr| parse_addr(addr).ok().map(|(p, _)| p));
+				.flat_map(|addr| parse_addr(addr).ok().map(|(p, _)| p))
+				.collect::<Vec<_>>();
 
-			if let Some(p) = peer_id {
-				authority_ids.entry(p).or_default().insert(authority);
+			for p in peer_id {
+				authority_ids.entry(p).or_default().insert(authority.clone());
 			}
 		}
 
