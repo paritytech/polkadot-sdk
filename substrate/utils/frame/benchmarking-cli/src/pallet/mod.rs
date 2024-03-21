@@ -238,7 +238,7 @@ pub struct PalletCmd {
 	#[arg(long)]
 	pub unsafe_overwrite_results: bool,
 
-	/// Do everything as usual but suppresses most prints.
+	/// Suppresses most prints.
 	#[arg(long)]
 	quiet: bool,
 }

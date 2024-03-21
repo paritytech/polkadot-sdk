@@ -681,22 +681,18 @@ impl PalletCmd {
 		&self,
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
-		match (&self.runtime, &self.shared_params.chain) {
-			(Some(runtime), None) => {
-				log::info!("Loading WASM from {}", runtime.display());
-				let code = fs::read(runtime)?;
-				let hash = sp_core::blake2_256(&code).to_vec();
-				let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
+		if let Some(runtime) = &self.runtime {
+			log::info!("Loading WASM from {}", runtime.display());
+			let code = fs::read(runtime)?;
+			let hash = sp_core::blake2_256(&code).to_vec();
+			let wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
-				Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
-			},
-			(None, Some(_)) => {
-				log::info!("Loading WASM from genesis state");
-				let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
+			Ok(FetchedCode::FromFile { wrapped_code, heap_pages: self.heap_pages, hash })
+		} else {
+			log::info!("Loading WASM from genesis state");
+			let state = sp_state_machine::backend::BackendRuntimeCode::new(state);
 
-				Ok(FetchedCode::FromGenesis { state })
-			},
-			_ => Err("Exactly one of `--runtime` or `--chain` must be provided".into()),
+			Ok(FetchedCode::FromGenesis { state })
 		}
 	}
 
