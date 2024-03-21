@@ -381,7 +381,17 @@ macro_rules! app_crypto_signature {
 			}
 		}
 
+		impl AsMut<[u8]> for Signature {
+			fn as_mut(&mut self) -> &mut [u8] {
+				self.0.as_mut()
+			}
+		}
+
 		impl $crate::Signature for Signature {}
+
+		impl $crate::ByteArray for Signature {
+			const LEN: usize = <$sig>::LEN;
+		}
 
 		impl $crate::AppSignature for Signature {
 			type Generic = $sig;
