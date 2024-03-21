@@ -18,10 +18,10 @@
 //! *BLS12-381* types and host functions.
 
 use crate::utils;
+use alloc::vec::Vec;
 use ark_bls12_381_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
 use sp_runtime_interface::runtime_interface;
-use sp_std::vec::Vec;
 
 /// First pairing group definitions.
 pub mod g1 {

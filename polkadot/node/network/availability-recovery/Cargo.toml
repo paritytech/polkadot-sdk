@@ -43,9 +43,9 @@ polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 polkadot-subsystem-bench = { path = "../../subsystem-bench" }
 
-[[test]]
+[[bench]]
 name = "availability-recovery-regression-bench"
-path = "tests/availability-recovery-regression-bench.rs"
+path = "benches/availability-recovery-regression-bench.rs"
 harness = false
 required-features = ["subsystem-benchmarks"]
 
