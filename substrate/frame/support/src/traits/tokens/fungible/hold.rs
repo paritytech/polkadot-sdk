@@ -217,8 +217,8 @@ pub trait Mutate<AccountId>:
 	///
 	/// The actual amount released is returned with `Ok`.
 	///
-	/// If `precision` is `BestEffort`, then the amount actually unreserved and returned as the
-	/// inner value of `Ok` may be smaller than the `amount` passed.
+	/// If `precision` is [`Precision::BestEffort`], then the amount actually unreserved and
+	/// returned as the inner value of `Ok` may be smaller than the `amount` passed.
 	///
 	/// NOTE! The inner of the `Ok` result variant returns the *actual* amount released. This is the
 	/// opposite of the `ReservableCurrency::unreserve()` result, which gives the amount not able

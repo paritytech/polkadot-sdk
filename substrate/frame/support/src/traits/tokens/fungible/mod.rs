@@ -125,6 +125,15 @@
 //! what the originating pallet and purpose is. These reasons are amalgomated into a single enum
 //! `RuntimeHoldReason` and `RuntimeFreezeReason` respectively, when the runtime is compiled.
 //!
+//! ### Should I use a Hold or Freeze?
+//!
+//! If you require a balance to be infaillibly slashed, then you should use Holds.
+//!
+//! If you require setting a minimum account balance amount, then you should use a Freezes. Note
+//! Freezes do not carry the same guarantees as Holds. Although the account cannot voluntarily
+//! reduce their balance below the largest freeze, if Holds on the account are slashed then the
+//! balance could drop below the freeze amount.
+//!
 //! ## Sets of Tokens
 //!
 //! For managing sets of tokens, see the [`fungibles`](`frame_support::traits::fungibles`) trait
