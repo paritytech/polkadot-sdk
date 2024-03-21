@@ -176,7 +176,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 			AllowTopLevelPaidExecutionFrom<Everything>,
 			// Subscriptions for version tracking are OK.
 			AllowSubscriptionsFrom<OnlyParachains>,
-			// Messages coming from system parachains need not pay for execution.
+			// Messages from system parachains or the Fellows plurality need not pay for execution.
 			AllowExplicitUnpaidExecutionFrom<SystemOrFellows<ParaId>>,
 		),
 		UniversalLocation,
