@@ -49,10 +49,10 @@ use core::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	fn execute_blob() -> Weight {
-		todo!()
+		Weight::MAX
 	}
 	fn send_blob() -> Weight {
-		todo!()
+		Weight::MAX
 	}
 	/// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
 	/// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
