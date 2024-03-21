@@ -457,6 +457,8 @@ pub enum ClaimPermission {
 	PermissionlessCompound,
 	/// Anyone can withdraw rewards on a pool member's behalf.
 	PermissionlessWithdraw,
+	/// Anyone can withdraw and compound rewards on a pool member's behalf.
+	PermissionlessAll,
 }
 
 impl Default for ClaimPermission {
@@ -467,15 +469,15 @@ impl Default for ClaimPermission {
 
 impl ClaimPermission {
 	/// Permissionless compounding of pool rewards is allowed if the current permission is
-	/// `PermissionlessCompound`.
+	/// `PermissionlessCompound`, or permissionless.
 	fn can_bond_extra(&self) -> bool {
-		matches!(self, ClaimPermission::PermissionlessCompound)
+		matches!(self, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessCompound)
 	}
 
 	/// Permissionless payout claiming is allowed if the current permission is
-	/// `PermissionlessWithdraw`.
+	/// `PermissionlessWithdraw`, or permissionless.
 	fn can_claim_payout(&self) -> bool {
-		matches!(self, ClaimPermission::PermissionlessWithdraw)
+		matches!(self, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessWithdraw)
 	}
 }
 
@@ -2632,7 +2634,7 @@ pub mod pallet {
 		///
 		/// In the case of `origin != other`, `origin` can only bond extra pending rewards of
 		/// `other` members assuming set_claim_permission for the given member is
-		/// `PermissionlessCompound`.
+		/// `PermissionlessCompound` or `PermissionlessAll`.
 		#[pallet::call_index(14)]
 		#[pallet::weight(
 			T::WeightInfo::bond_extra_transfer()
@@ -2673,8 +2675,8 @@ pub mod pallet {
 
 		/// `origin` can claim payouts on some pool member `other`'s behalf.
 		///
-		/// Pool member `other` must have a `PermissionlessWithdraw` claim permission for this call
-		/// to be successful.
+		/// Pool member `other` must have a `PermissionlessWithdraw` or `PermissionlessAll` claim
+		/// permission for this call to be successful.
 		#[pallet::call_index(16)]
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout_other(origin: OriginFor<T>, other: T::AccountId) -> DispatchResult {

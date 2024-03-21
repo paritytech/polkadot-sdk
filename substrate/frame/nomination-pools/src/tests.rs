@@ -2481,10 +2481,20 @@ mod unbond {
 					Error::<T>::MinimumBondNotMet
 				);
 
+				// Make permissionless
+				assert_ok!(Pools::set_claim_permission(
+					RuntimeOrigin::signed(20),
+					ClaimPermission::PermissionlessAll
+				));
+
 				// but can go to 0
 				assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 15));
 				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().active_points(), 0);
 				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().unbonding_points(), 20);
+				assert_eq!(
+					ClaimPermissions::<Runtime>::get(20),
+					ClaimPermission::PermissionlessAll
+				);
 			})
 	}
 
