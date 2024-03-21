@@ -102,6 +102,11 @@ struct SharedInner {
 	collation_peers: HashMap<PeerId, PeerData>,
 }
 
+// Counts the number of peers that are connectioned using `version`
+fn count_peers_by_version(peers: &HashMap<PeerId, PeerData>, version: ProtocolVersion) -> usize {
+	peers.values().filter(|peer_data| peer_data.version == version).count()
+}
+
 pub(crate) enum Mode {
 	Syncing(Box<dyn SyncOracle + Send>),
 	Active,
