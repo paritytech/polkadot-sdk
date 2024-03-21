@@ -957,7 +957,7 @@ benchmarks! {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
 		Ledger::<T>::remove(controller);
-	}: _(RawOrigin::Root, stash.clone(), None, None, None, None, None, None)
+	}: _(RawOrigin::Root, stash.clone(), None, None, None)
 	verify {
 		assert_eq!(Staking::<T>::status(&stash).unwrap(), StakerStatus::Nominator(vec![]));
 	}

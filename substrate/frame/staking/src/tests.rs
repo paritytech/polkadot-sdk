@@ -7330,7 +7330,7 @@ mod bad_state_recovery {
 	use frame_support::traits::InspectLockableCurrency;
 
 	#[test]
-	fn reset_ledge_default_works() {
+	fn reset_ledger_default_works() {
 		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
@@ -7352,32 +7352,14 @@ mod bad_state_recovery {
 
 			// ledger bonded by stash 333 is OK and does not need fixing.
 			assert_noop!(
-				Staking::reset_ledger(
-					RuntimeOrigin::root(),
-					333,
-					None,
-					None,
-					None,
-					None,
-					None,
-					None
-				),
+				Staking::reset_ledger(RuntimeOrigin::root(), 333, None, None, None),
 				Error::<Test>::CannotResetLedger,
 			);
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
 			// 444 is in a bad state and we can reset it. let's reset it to the default, on-chain
 			// state.
-			assert_ok!(Staking::reset_ledger(
-				RuntimeOrigin::root(),
-				444,
-				None,
-				None,
-				None,
-				None,
-				None,
-				None
-			));
+			assert_ok!(Staking::reset_ledger(RuntimeOrigin::root(), 444, None, None, None));
 
 			// now the ledger can be feteched though the stash and the correct controller.
 			let ledger_reset = StakingLedger::<Test>::get(StakingAccount::Stash(444)).unwrap();

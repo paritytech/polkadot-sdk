@@ -2011,19 +2011,10 @@ pub mod pallet {
 			maybe_controller: Option<T::AccountId>,
 			maybe_total: Option<BalanceOf<T>>,
 			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
-			maybe_payee: Option<RewardDestination<T::AccountId>>,
-			maybe_nominations: Option<Nominations<T>>,
-			maybe_validator_prefs: Option<ValidatorPrefs>,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin(origin)?;
 
 			let controller = Bonded::<T>::get(&stash).ok_or(Error::<T>::NotStash)?;
-
-			// a stash cannot be reset as both validator and nominator.
-			ensure!(
-				maybe_nominations.is_none() || maybe_validator_prefs.is_none(),
-				Error::<T>::CannotResetLedger
-			);
 
 			// ensure that this bond is in a bad state to proceed. i.e. one of two states: either
 			// the ledger for the controller does not exist or it exists but the stash is different
@@ -2051,24 +2042,8 @@ pub mod pallet {
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
 			ledger.unlocking = new_unlocking;
 			ledger.controller = Some(new_controller);
+			ledger.total = new_total;
 			ledger.update()?;
-
-			// get and reset ledger's metadata.
-			let new_payee =
-				maybe_payee.unwrap_or(Payee::<T>::get(&stash).unwrap_or(RewardDestination::Staked));
-			Payee::<T>::insert(&stash, new_payee);
-
-			if let Some(validator_prefs) = maybe_validator_prefs {
-				// reset as validator.
-				Self::do_remove_nominator(&stash);
-				Self::do_add_validator(&stash, validator_prefs);
-			} else {
-				// reset as nominator.
-				let nominations =
-					maybe_nominations.unwrap_or(Nominators::<T>::get(&stash).unwrap_or_default());
-				Self::do_remove_validator(&stash);
-				Self::do_add_nominator(&stash, nominations);
-			};
 
 			Ok(Pays::No.into())
 		}
