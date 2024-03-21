@@ -78,6 +78,7 @@ pub enum Cursor<T: Config> {
 	Vote(Option<AccountIdOf<T>>),
 }
 
+/// The [`SteppedMigration`] used for migrating from v1 to v2 of this pallet.
 pub struct Migration<T: Config, OldCurrency>(PhantomData<(T, OldCurrency)>);
 
 impl<T, OldCurrency> SteppedMigration for Migration<T, OldCurrency>
