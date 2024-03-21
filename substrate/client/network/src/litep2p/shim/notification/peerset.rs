@@ -563,7 +563,7 @@ impl Peerset {
 		}
 
 		let state = self.peers.entry(peer).or_insert(PeerState::Disconnected);
-		let reserved_peer = self.reserved_peers.contains(&peer);
+		let is_reserved_peer = self.reserved_peers.contains(&peer);
 
 		match state {
 			// disconnected peers proceed directly to inbound slot allocation
@@ -571,7 +571,7 @@ impl Peerset {
 			// peer is backed off but if it can be accepted (either a reserved peer or inbound slot
 			// available), accept the peer and then just ignore the back-off timer when it expires
 			PeerState::Backoff => {
-				if !self.reserved_peers.contains(&peer) && self.num_in == self.max_in {
+				if !is_reserved_peer && self.num_in == self.max_in {
 					log::trace!(
 						target: LOG_TARGET,
 						"{}: ({peer:?}) is backed-off and cannot accept, reject inbound substream",
@@ -624,14 +624,14 @@ impl Peerset {
 			},
 		}
 
-		if reserved_peer {
+		if is_reserved_peer {
 			log::trace!(
 				target: LOG_TARGET,
 				"{}: {peer:?} accepting peer as reserved peer",
 				self.protocol,
 			);
 
-			*state = PeerState::Opening { direction: Direction::Inbound(reserved_peer.into()) };
+			*state = PeerState::Opening { direction: Direction::Inbound(is_reserved_peer.into()) };
 			return ValidationResult::Accept
 		}
 
@@ -644,7 +644,7 @@ impl Peerset {
 
 			self.num_in += 1;
 
-			*state = PeerState::Opening { direction: Direction::Inbound(reserved_peer.into()) };
+			*state = PeerState::Opening { direction: Direction::Inbound(is_reserved_peer.into()) };
 			return ValidationResult::Accept
 		}
 
