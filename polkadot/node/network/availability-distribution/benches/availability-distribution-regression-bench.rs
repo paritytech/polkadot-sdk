@@ -64,14 +64,14 @@ fn main() -> Result<(), String> {
 	println!("{}", average_usage);
 
 	messages.extend(average_usage.check_network_usage(&[
-		("Received from peers", 433.3, 0.05),
-		("Sent to peers", 18480.0, 0.05),
+		("Received from peers", 433.3, 0.01),
+		("Sent to peers", 18480.0, 0.01),
 	]));
 
 	messages.extend(average_usage.check_cpu_usage(&[
-		("availability-distribution", 0.011, 0.05),
-		("bitfield-distribution", 0.050, 0.05),
-		("availability-store", 0.159, 0.05),
+		("availability-distribution", 0.012, 0.05),
+		("availability-store", 0.153, 0.05),
+		("bitfield-distribution", 0.026, 0.05),
 	]));
 
 	if messages.is_empty() {
