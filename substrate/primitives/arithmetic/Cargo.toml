@@ -43,7 +43,7 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"sp-crypto-hashing/std",
-  "sp-std/std",
+	"sp-std/std",
 ]
 # Serde support without relying on std features.
 serde = ["dep:serde", "scale-info/serde"]
