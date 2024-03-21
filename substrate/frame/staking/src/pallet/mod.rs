@@ -1490,10 +1490,6 @@ pub mod pallet {
 
 		/// Force a current staker to become completely unstaked, immediately.
 		///
-		/// If `force_clean` flag is set, resort to manually clean all the storage items associated
-		/// with the stash *even* if calling kill ledger fails. Before proceeding witht the force
-		/// clean, we must ensure that the ledger associated with `stash` is in a corrupted state.
-		///
 		/// The dispatch origin must be Root.
 		///
 		/// ## Parameters
@@ -1506,38 +1502,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			stash: T::AccountId,
 			num_slashing_spans: u32,
-			force_clean: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Remove all staking-related information and lock.
-			if let Err(err) = Self::kill_stash(&stash, num_slashing_spans) {
-				if !force_clean {
-					return Err(err);
-				}
-			// proceed to force clean.
-			} else {
-				return Ok(());
-			}
-
-			// From here on, we will force unstake the stash by manually cleaning up all the
-			// storage items associated with the stash's ledger.
-
-			// But first, double check that stash is corrupted before proceeding.
-			let controller = Bonded::<T>::get(&stash).ok_or(Error::<T>::NotStash)?;
-			let maybe_ledger = Ledger::<T>::get(&controller);
-			ensure!(
-				maybe_ledger.as_ref().map(|l| l.stash != stash).unwrap_or(true),
-				Error::<T>::CannotForceCleanLedger,
-			);
-
-			// TODO: clean slashing related data.
-			T::Currency::remove_lock(crate::STAKING_ID, &stash);
-			Bonded::<T>::remove(&stash);
-			Payee::<T>::remove(&stash);
-			Nominators::<T>::remove(&stash);
-			Validators::<T>::remove(&stash);
-			let _ = T::VoterList::on_remove(&stash);
+			Self::kill_stash(&stash, num_slashing_spans)?;
 
 			Ok(())
 		}

@@ -112,14 +112,14 @@ fn force_unstake_works() {
 			TokenError::Frozen,
 		);
 		// Force unstake requires root.
-		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed(11), 11, 2, false), BadOrigin);
+		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed(11), 11, 2), BadOrigin);
 		// Force unstake needs correct number of slashing spans (for weight calculation)
 		assert_noop!(
-			Staking::force_unstake(RuntimeOrigin::root(), 11, 0, false),
+			Staking::force_unstake(RuntimeOrigin::root(), 11, 0),
 			Error::<Test>::IncorrectSlashingSpans
 		);
 		// We now force them to unstake
-		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 11, 2, false));
+		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 11, 2));
 		// No longer bonded.
 		assert_eq!(Staking::bonded(&11), None);
 		// Transfer works.
@@ -7328,47 +7328,6 @@ mod ledger {
 mod bad_state_recovery {
 	use super::*;
 	use frame_support::traits::InspectLockableCurrency;
-
-	#[test]
-	fn fast_unstake_force_clean_works() {
-		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
-			// setup the bad state:
-			// Bonded(1, 1)
-			// Bonded(2, 1)
-			// Ledger(1) = StakingLedger { stash = 1 }
-			// Ledger(2) = StakingLedger { stash = 1 }
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 100, RewardDestination::Staked));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11]));
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(2), 100, RewardDestination::Staked));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(2), vec![11]));
-
-			Ledger::<Test>::insert(&2, Ledger::<Test>::get(&1).unwrap());
-			Ledger::<Test>::remove(&2);
-
-			// double-check bad state.
-			assert!(StakingLedger::<Test>::get(StakingAccount::Stash(2)).is_err());
-			assert_eq!(Ledger::<Test>::get(&2), None);
-			assert_eq!(Bonded::<Test>::iter().count(), 7);
-			assert_eq!(Payee::<Test>::iter().count(), 7);
-			assert_eq!(Ledger::<Test>::iter().count(), 6);
-			// in sum, try-state checks won't pass.
-			assert!(Staking::do_try_state(System::block_number()).is_err());
-
-			// calling force unstake without `force_clean` will fail since the ledger is corrupted.
-			assert_noop!(
-				Staking::force_unstake(RuntimeOrigin::root(), 2, 0, false),
-				Error::<Test>::NotController
-			);
-			// however it works and cleans up all lingering state if `force_clean` flag is set.
-			assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 2, 0, true));
-
-			// bad ledger was unbonded.
-			assert_eq!(Bonded::<Test>::get(&2), None);
-			assert_eq!(Ledger::<Test>::get(&2), None);
-			// try-state checks are ok now.
-			assert_ok!(Staking::do_try_state(System::block_number()));
-		})
-	}
 
 	#[test]
 	fn reset_ledge_default_works() {
