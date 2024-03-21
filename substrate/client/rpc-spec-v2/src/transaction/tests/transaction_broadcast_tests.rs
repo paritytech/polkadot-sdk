@@ -525,3 +525,53 @@ async fn tx_broadcast_resubmits_dropped_tx() {
 	// The dropped transaction was resubmitted.
 	assert_eq!(events.get(&future_xt).unwrap(), &vec![TxStatusTypeTest::Ready]);
 }
+
+#[tokio::test]
+async fn tx_broadcast_limit_reached() {
+	// One operation per connection.
+	let (api, _pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) =
+		setup_api(Default::default(), 1);
+
+	// Start at block 1.
+	let block_1_header = api.push_block(1, vec![], true);
+	let uxt = uxt(Alice, ALICE_NONCE);
+	let xt = hex_string(&uxt.encode());
+
+	let operation_id: String =
+		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+
+	// Announce block 1 to `transaction_unstable_broadcast`.
+	client_mock.trigger_import_stream(block_1_header).await;
+
+	// Ensure the tx propagated from `transaction_unstable_broadcast` to the transaction pool.
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::TransactionStatus {
+			transaction: xt.clone(),
+			status: TxStatusTypeTest::Ready
+		}
+	);
+	assert_eq!(1, exec_middleware.num_tasks());
+
+	let limit_reached: Option<String> =
+		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+	assert!(limit_reached.is_none());
+
+	// We still have in flight one operation.
+	assert_eq!(1, exec_middleware.num_tasks());
+
+	// Force the future to exit by calling stop.
+	let _: () = tx_api
+		.call("transaction_unstable_stop", rpc_params![&operation_id])
+		.await
+		.unwrap();
+
+	// Ensure the broadcast future finishes.
+	let _ = get_next_event!(&mut exec_middleware.recv);
+	assert_eq!(0, exec_middleware.num_tasks());
+
+	// Can resubmit again now.
+	let _operation_id: String =
+		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+}
