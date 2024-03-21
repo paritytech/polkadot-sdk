@@ -51,12 +51,13 @@ mod enter {
 			common::{Assignment, AssignmentProvider},
 			ParasEntry,
 		},
+		session_info,
 	};
 	use assert_matches::assert_matches;
 	use core::panic;
 	use frame_support::assert_ok;
 	use frame_system::limits;
-	use primitives::vstaging::SchedulerParams;
+	use primitives::{vstaging::SchedulerParams, AvailabilityBitfield, UncheckedSigned};
 	use sp_runtime::Perbill;
 	use sp_std::collections::btree_map::BTreeMap;
 
@@ -322,8 +323,6 @@ mod enter {
 			)
 			.unwrap();
 
-			let dispute_statements = BTreeMap::new();
-
 			let mut backed_and_concluding = BTreeMap::new();
 			backed_and_concluding.insert(0, 1);
 			backed_and_concluding.insert(1, 1);
@@ -334,7 +333,7 @@ mod enter {
 			let unavailable_cores = vec![0, 4, 5];
 
 			let scenario = make_inherent_data(TestConfig {
-				dispute_statements,
+				dispute_statements: BTreeMap::new(),
 				dispute_sessions: vec![], // No disputes
 				backed_and_concluding,
 				num_validators_per_core: 1,
@@ -378,7 +377,7 @@ mod enter {
 				expected_para_inherent_data
 			);
 
-			// 3 candidates have been enacted (for cores 1,2 and 3)
+			// 3 candidates have been backed (for cores 1,2 and 3)
 			assert_eq!(
 				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
 				3
@@ -390,14 +389,6 @@ mod enter {
 				2
 			);
 
-			assert_eq!(
-				inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
-					.unwrap()
-					.into_iter()
-					.map(|c| c.core_occupied())
-					.collect::<Vec<_>>(),
-				vec![CoreIndex(0)]
-			);
 			assert_eq!(
 				inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
 					.unwrap()
@@ -414,6 +405,86 @@ mod enter {
 					.collect::<Vec<_>>(),
 				vec![CoreIndex(4), CoreIndex(5), CoreIndex(2), CoreIndex(3)]
 			);
+
+			let expected_heads = (0..=2)
+				.map(|id| {
+					inclusion::PendingAvailability::<Test>::get(ParaId::from(id))
+						.unwrap()
+						.back()
+						.unwrap()
+						.candidate_commitments()
+						.head_data
+						.clone()
+				})
+				.collect::<Vec<_>>();
+
+			// Now just make all candidates available.
+			let mut data = scenario.data.clone();
+			let validators = session_info::Pallet::<Test>::session_info(2).unwrap().validators;
+			let signing_context = SigningContext {
+				parent_hash: BenchBuilder::<Test>::header(4).hash(),
+				session_index: 2,
+			};
+
+			data.backed_candidates.clear();
+
+			data.bitfields.iter_mut().enumerate().for_each(|(i, bitfield)| {
+				let unchecked_signed = UncheckedSigned::<AvailabilityBitfield>::benchmark_sign(
+					validators.get(ValidatorIndex(i as u32)).unwrap(),
+					bitvec::bitvec![u8, bitvec::order::Lsb0; 1; 6].into(),
+					&signing_context,
+					ValidatorIndex(i as u32),
+				);
+				*bitfield = unchecked_signed;
+			});
+			let mut inherent_data = InherentData::new();
+			inherent_data.put_data(PARACHAINS_INHERENT_IDENTIFIER, &data).unwrap();
+
+			// Nothing has been filtered out.
+			assert_eq!(
+				Pallet::<Test>::create_inherent_inner(&inherent_data.clone()).unwrap(),
+				data
+			);
+
+			// No more candidates have been backed
+			assert!(Pallet::<Test>::on_chain_votes()
+				.unwrap()
+				.backing_validators_per_candidate
+				.is_empty());
+
+			// No more pending availability candidates
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(0))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![]
+			);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(1))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![]
+			);
+			assert_eq!(
+				inclusion::PendingAvailability::<Test>::get(ParaId::from(2))
+					.unwrap()
+					.into_iter()
+					.map(|c| c.core_occupied())
+					.collect::<Vec<_>>(),
+				vec![]
+			);
+
+			// Paras have the right on-chain heads now
+			expected_heads.into_iter().enumerate().for_each(|(id, head)| {
+				assert_eq!(
+					paras::Pallet::<Test>::para_head(ParaId::from(id as u32)).unwrap(),
+					head
+				);
+			});
 		});
 	}
 
