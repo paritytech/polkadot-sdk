@@ -440,24 +440,27 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
-		let mut id_exists = false;
-		let mut other_exists = false;
+		let mut id_leases_count = 0;
+		let mut other_leases_count = 0;
 		let leases = Leases::<T>::get()
 			.into_inner()
 			.into_iter()
 			.map(|mut lease| {
 				if lease.task == id {
 					lease.task = other;
-					id_exists = true;
+					id_leases_count += 1;
 				} else if lease.task == other {
 					lease.task = id;
-					other_exists = true;
+					other_leases_count += 1;
 				}
 				lease
 			})
 			.collect::<Vec<_>>();
 
-		ensure!(id_exists && other_exists, Error::<T>::UnknownReservation);
+		// Ensure both leases exist
+		ensure!(id_leases_count > 0 && other_leases_count > 0, Error::<T>::UnknownReservation);
+		// And ensure there are just to leases to be swapped
+		ensure!(id_leases_count == 1 && other_leases_count == 1, Error::<T>::TooManyLeases);
 
 		let leases = if let Ok(leases) = BoundedVec::try_from(leases) {
 			leases
