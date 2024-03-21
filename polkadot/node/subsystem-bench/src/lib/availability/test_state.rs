@@ -171,7 +171,7 @@ impl TestState {
 		// Genesis block is always finalized, so we start at 1.
 		for block_num in 1..=config.num_blocks {
 			for _ in 0..config.n_cores {
-				let receipt = test_state.next_candidate().expect("Cycle iterator");
+				let receipt = test_state.candidates.next().expect("Cycle iterator");
 				test_state
 					.candidate_receipts
 					.entry(Hash::repeat_byte(block_num as u8))
@@ -246,13 +246,6 @@ impl TestState {
 		gum::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
 
 		test_state
-	}
-
-	pub fn next_candidate(&mut self) -> Option<CandidateReceipt> {
-		let candidate = self.candidates.next();
-		let candidate_hash = candidate.as_ref().unwrap().hash();
-		gum::trace!(target: LOG_TARGET, "Next candidate selected {:?}", candidate_hash);
-		candidate
 	}
 }
 

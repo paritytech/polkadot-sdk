@@ -46,13 +46,12 @@ use polkadot_node_subsystem::{
 	messages::{AllMessages, AvailabilityRecoveryMessage},
 	Overseer, OverseerConnector, SpawnGlue,
 };
-use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_node_subsystem_types::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
 	Span,
 };
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
-use polkadot_primitives::{GroupIndex, Hash};
+use polkadot_primitives::GroupIndex;
 use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
@@ -254,22 +253,21 @@ pub async fn benchmark_availability_read(
 ) -> BenchmarkUsage {
 	let config = env.config().clone();
 
-	env.import_block(new_block_import_info(Hash::repeat_byte(1), 1)).await;
-
-	let test_start = Instant::now();
-	let mut batch = FuturesUnordered::new();
-	let mut availability_bytes = 0u128;
-
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
+	let mut batch = FuturesUnordered::new();
+	let mut availability_bytes = 0u128;
 	let mut candidates = state.candidates.clone();
-
-	for block_num in 1..=env.config().num_blocks {
+	let test_start = Instant::now();
+	for block_info in state.block_infos.iter() {
+		let block_num = block_info.number as usize;
 		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num, env.config().num_blocks);
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();
+		env.import_block(block_info.clone()).await;
+
 		for candidate_num in 0..config.n_cores as u64 {
 			let candidate =
 				candidates.next().expect("We always send up to n_cores*num_blocks; qed");
