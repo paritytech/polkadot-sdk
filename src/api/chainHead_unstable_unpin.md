@@ -9,7 +9,7 @@
 
 See explanations in the documentation of `chainHead_v1_follow`.
 
-On-going calls to `chainHead_v1_body`, `chainHead_unstable_call` and `chainHead_v1_storage` against this block will still finish normally.
+On-going calls to `chainHead_v1_body`, `chainHead_v1_call` and `chainHead_v1_storage` against this block will still finish normally.
 
 Has no effect if the `followSubscription` is invalid or stale.
 

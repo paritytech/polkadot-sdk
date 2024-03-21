@@ -26,7 +26,7 @@ This function works as follows:
 
 **Note**: This list of notifications makes it very easy for a JSON-RPC client to follow just the best block updates (listening to just `bestBlockChanged` events) or follow just the finalized block updates (listening to just `initialized` and `finalized` events). It is however not possible to easily figure out whether the runtime has been modified when these updates happen. This is not problematic, as anyone using the JSON-RPC interface naively propably doesn't need to account for runtime changes anyway.
 
-Additionally, the `chainHead_v1_body`, `chainHead_unstable_call`, and `chainHead_v1_storage` JSON-RPC function might cause the subscription to produce additional notifications.
+Additionally, the `chainHead_v1_body`, `chainHead_v1_call`, and `chainHead_v1_storage` JSON-RPC function might cause the subscription to produce additional notifications.
 
 ## The `withRuntime` parameter
 
@@ -168,9 +168,9 @@ No more event will be generated with this `operationId`.
 }
 ```
 
-`operationId` is a string returned by`chainHead_unstable_call`.
+`operationId` is a string returned by`chainHead_v1_call`.
 
-The `operationCallDone` event indicates that an operation started with `chainHead_unstable_call` was successful.
+The `operationCallDone` event indicates that an operation started with `chainHead_v1_call` was successful.
 
 `output` is the hexadecimal-encoded output of the runtime function call.
 
@@ -252,7 +252,7 @@ No more event will be generated with this `operationId`.
 }
 ```
 
-`operationId` is a string returned by `chainHead_v1_body`, `chainHead_unstable_call`, or `chainHead_v1_storage`.
+`operationId` is a string returned by `chainHead_v1_body`, `chainHead_v1_call`, or `chainHead_v1_storage`.
 
 The `operationInaccessible` event is produced if the JSON-RPC server fails to retrieve either the block body or the necessary storage items for the given operation.
 
@@ -270,9 +270,9 @@ No more event will be generated about this `operationId`.
 }
 ```
 
-`operationId` is a string returned by `chainHead_v1_body`, `chainHead_unstable_call`, or `chainHead_v1_storage`.
+`operationId` is a string returned by `chainHead_v1_body`, `chainHead_v1_call`, or `chainHead_v1_storage`.
 
-The `operationError` event indicates a problem during the operation. In the case of `chainHead_unstable_call`, this can include the function missing or a runtime panic. In the case of `chainHead_v1_body` or `chainHead_v1_storage`, this includes failing to parse the block header to obtain the extrinsics root hash or state root hash.
+The `operationError` event indicates a problem during the operation. In the case of `chainHead_v1_call`, this can include the function missing or a runtime panic. In the case of `chainHead_v1_body` or `chainHead_v1_storage`, this includes failing to parse the block header to obtain the extrinsics root hash or state root hash.
 
 Contrary to the `operationInaccessible` event, repeating the same call in the future will not succeed.
 
@@ -300,7 +300,7 @@ Calling `chainHead_unstable_unfollow` on a subscription that has produced a `sto
 
 The finalized blocks reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, are automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_unstable_unpin`.
 
-When a block is unpinned, on-going calls to `chainHead_v1_body`, `chainHead_unstable_call` and `chainHead_v1_storage` against this block will still finish normally.
+When a block is unpinned, on-going calls to `chainHead_v1_body`, `chainHead_v1_call` and `chainHead_v1_storage` against this block will still finish normally.
 
 A block is pinned only in the context of a specific subscription. If multiple `chainHead_v1_follow` subscriptions exist, then each `(subscription, block)` tuple must be unpinned individually. Blocks stay pinned even if they have been pruned from the chain of blocks, and must always be unpinned by the JSON-RPC client.
 
@@ -353,7 +353,7 @@ The fields of `spec` are:
 
 - `transactionVersion`: Opaque integer. Necessary when building the bytes of a transaction. Transactions that have been generated with a different `transactionVersion` are incompatible.
 
-- `apis`: Object containing a list of "entry point APIs" supported by the runtime. Each key is an opaque string indicating the API, and each value is an integer version number. Before making a runtime call (using `chainHead_unstable_call`), you should make sure that this list contains the entry point API corresponding to the call and with a known version number.
+- `apis`: Object containing a list of "entry point APIs" supported by the runtime. Each key is an opaque string indicating the API, and each value is an integer version number. Before making a runtime call (using `chainHead_v1_call`), you should make sure that this list contains the entry point API corresponding to the call and with a known version number.
 
 **Note**: In Substrate, the keys in the `apis` field consists of the hexadecimal-encoded 8-bytes blake2 hash of the name of the API. For example, the `TaggedTransactionQueue` API is `0xd2bc9897eed08f15`.
 

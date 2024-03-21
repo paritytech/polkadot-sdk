@@ -3,11 +3,11 @@
 **Parameters**:
 
 - `followSubscription`: An opaque string that was returned by `chainHead_v1_follow`.
-- `operationId`: An opaque string that was returned by `chainHead_v1_body`, `chainHead_unstable_call`, or `chainHead_v1_storage`.
+- `operationId`: An opaque string that was returned by `chainHead_v1_body`, `chainHead_v1_call`, or `chainHead_v1_storage`.
 
 **Return value**: *null*
 
-Stops an operation started with `chainHead_v1_body`, `chainHead_unstable_call`, or `chainHead_v1_storage`. If the operation was still in progress, this interrupts it. If the operation was already finished, this call has no effect.
+Stops an operation started with `chainHead_v1_body`, `chainHead_v1_call`, or `chainHead_v1_storage`. If the operation was still in progress, this interrupts it. If the operation was already finished, this call has no effect.
 
 Has no effect if the `followSubscription` is invalid or stale.
 
