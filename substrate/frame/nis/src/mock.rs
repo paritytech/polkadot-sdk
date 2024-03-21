@@ -123,6 +123,10 @@ impl pallet_nis::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
+impl crate::BenchmarkSetup for Test {
+	fn create_counterpart_asset() {}
+}
+
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {

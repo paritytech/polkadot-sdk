@@ -155,6 +155,12 @@ impl<T> Convert<Perquintill, u32> for NoCounterpart<T> {
 	}
 }
 
+/// Setup the empty genesis state for benchmarking.
+pub trait BenchmarkSetup {
+	/// Create the counterpart asset. Should panic on error.
+	fn create_counterpart_asset();
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{FunInspect, FunMutate};

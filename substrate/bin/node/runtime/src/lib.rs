@@ -1734,7 +1734,7 @@ impl pallet_nis::Config for Runtime {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type FundOrigin = frame_system::EnsureSigned<AccountId>;
-	type Counterpart = ItemOf<Assets, ConstU32<0u32>, AccountId>;
+	type Counterpart = ItemOf<Assets, ConstU32<9u32>, AccountId>;
 	type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
 	type Deficit = ();
 	type IgnoredIssuance = ();
@@ -1750,6 +1750,21 @@ impl pallet_nis::Config for Runtime {
 	type MaxIntakeWeight = MaxIntakeWeight;
 	type ThawThrottle = ThawThrottle;
 	type RuntimeHoldReason = RuntimeHoldReason;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_nis::BenchmarkSetup for Runtime {
+	fn create_counterpart_asset() {
+		let owner = AccountId::from([0u8; 32]);
+		// this may or may not fail depending on if the chain spec or runtime genesis is used.
+		let _ = Assets::force_create(
+			RuntimeOrigin::root(),
+			9u32.into(),
+			sp_runtime::MultiAddress::Id(owner),
+			true,
+			1,
+		);
+	}
 }
 
 parameter_types! {
