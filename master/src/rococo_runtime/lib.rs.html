@@ -2656,6 +2656,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2509" id="2509">2509</a>
 <a href="#2510" id="2510">2510</a>
 <a href="#2511" id="2511">2511</a>
+<a href="#2512" id="2512">2512</a>
+<a href="#2513" id="2513">2513</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4321,6 +4323,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// permanent
 		</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
+
+		parachains_inclusion::migration::MigrateToV1&lt;Runtime&gt;,
 	);
 }
 

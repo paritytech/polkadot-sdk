@@ -642,6 +642,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -666,6 +688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	scheduler::{<span class="self">self</span>, CoreOccupied},
 	session_info, shared,
 };
+<span class="kw">use </span>frame_support::traits::{GetStorageVersion, StorageVersion};
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>primitives::{
 	async_backing::{
@@ -736,16 +759,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.enumerate()
 		.map(|(i, core)| <span class="kw">match </span>core {
 			CoreOccupied::Paras(entry) =&gt; {
-				<span class="kw">let </span>pending_availability =
-					&lt;inclusion::Pallet&lt;T&gt;&gt;::pending_availability(entry.para_id())
-						.expect(<span class="string">&quot;Occupied core always has pending availability; qed&quot;</span>);
+				<span class="comment">// Due to https://github.com/paritytech/polkadot-sdk/issues/64, using the new storage types would cause
+				// this runtime API to panic. We explicitly handle the storage for version 0 to
+				// prevent that. When removing the inclusion v0 -&gt; v1 migration, this bit of code
+				// can also be removed.
+				</span><span class="kw">let </span>pending_availability = <span class="kw">if </span>&lt;inclusion::Pallet&lt;T&gt;&gt;::on_chain_storage_version() ==
+					StorageVersion::new(<span class="number">0</span>)
+				{
+					inclusion::migration::v0::PendingAvailability::&lt;T&gt;::get(entry.para_id())
+						.expect(<span class="string">&quot;Occupied core always has pending availability; qed&quot;</span>)
+				} <span class="kw">else </span>{
+					<span class="kw">let </span>candidate = &lt;inclusion::Pallet&lt;T&gt;&gt;::pending_availability_with_core(
+						entry.para_id(),
+						CoreIndex(i <span class="kw">as </span>u32),
+					)
+					.expect(<span class="string">&quot;Occupied core always has pending availability; qed&quot;</span>);
 
-				<span class="kw">let </span>backed_in_number = <span class="kw-2">*</span>pending_availability.backed_in_number();
+					<span class="comment">// Translate to the old candidate format, as we don&#39;t need the commitments now.
+					</span>inclusion::migration::v0::CandidatePendingAvailability {
+						core: candidate.core_occupied(),
+						hash: candidate.candidate_hash(),
+						descriptor: candidate.candidate_descriptor().clone(),
+						availability_votes: candidate.availability_votes().clone(),
+						backers: candidate.backers().clone(),
+						relay_parent_number: candidate.relay_parent_number(),
+						backed_in_number: candidate.backed_in_number(),
+						backing_group: candidate.backing_group(),
+					}
+				};
+
+				<span class="kw">let </span>backed_in_number = pending_availability.backed_in_number;
 
 				<span class="comment">// Use the same block number for determining the responsible group as what the
 				// backing subsystem would use when it calls validator_groups api.
 				</span><span class="kw">let </span>backing_group_allocation_time =
-					pending_availability.relay_parent_number() + One::one();
+					pending_availability.relay_parent_number + One::one();
 				CoreState::Occupied(OccupiedCore {
 					next_up_on_available: &lt;scheduler::Pallet&lt;T&gt;&gt;::next_up_on_available(CoreIndex(
 						i <span class="kw">as </span>u32,
@@ -755,13 +803,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					next_up_on_time_out: &lt;scheduler::Pallet&lt;T&gt;&gt;::next_up_on_time_out(CoreIndex(
 						i <span class="kw">as </span>u32,
 					)),
-					availability: pending_availability.availability_votes().clone(),
+					availability: pending_availability.availability_votes.clone(),
 					group_responsible: group_responsible_for(
 						backing_group_allocation_time,
-						pending_availability.core_occupied(),
+						pending_availability.core,
 					),
-					candidate_hash: pending_availability.candidate_hash(),
-					candidate_descriptor: pending_availability.candidate_descriptor().clone(),
+					candidate_hash: pending_availability.hash,
+					candidate_descriptor: pending_availability.descriptor,
 				})
 			},
 			CoreOccupied::Free =&gt; {
@@ -844,8 +892,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>persisted_validation_data = make_validation_data().or_else(|| {
-		<span class="comment">// Try again with force enacting the core. This check only makes sense if
-		// the core is occupied.
+		<span class="comment">// Try again with force enacting the pending candidates. This check only makes sense if
+		// there are any pending candidates.
 		</span>&lt;inclusion::Pallet&lt;T&gt;&gt;::pending_availability(para_id).and_then(|<span class="kw">_</span>| {
 			&lt;inclusion::Pallet&lt;T&gt;&gt;::force_enact(para_id);
 			make_validation_data()
@@ -1109,27 +1157,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>pending_availability = {
-		<span class="comment">// Note: the API deals with a `Vec` as it is future-proof for cases
-		// where there may be multiple candidates pending availability at a time.
-		// But at the moment only one candidate can be pending availability per
-		// parachain.
-		</span><span class="kw">crate</span>::inclusion::PendingAvailability::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para_id)
-			.and_then(|pending| {
-				<span class="kw">let </span>commitments =
-					<span class="kw">crate</span>::inclusion::PendingAvailabilityCommitments::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para_id);
-				commitments.map(<span class="kw">move </span>|c| (pending, c))
+		<span class="kw">crate</span>::inclusion::PendingAvailability::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para_id)
+			.map(|pending_candidates| {
+				pending_candidates
+					.into_iter()
+					.map(|candidate| {
+						CandidatePendingAvailability {
+							candidate_hash: candidate.candidate_hash(),
+							descriptor: candidate.candidate_descriptor().clone(),
+							commitments: candidate.candidate_commitments().clone(),
+							relay_parent_number: candidate.relay_parent_number(),
+							max_pov_size: constraints.max_pov_size, <span class="comment">/* assume always same in
+							                                         * session. */
+						</span>}
+					})
+					.collect()
 			})
-			.map(|(pending, commitments)| {
-				CandidatePendingAvailability {
-					candidate_hash: pending.candidate_hash(),
-					descriptor: pending.candidate_descriptor().clone(),
-					commitments,
-					relay_parent_number: pending.relay_parent_number(),
-					max_pov_size: constraints.max_pov_size, <span class="comment">// assume always same in session.
-				</span>}
-			})
-			.into_iter()
-			.collect()
+			.unwrap_or_else(|| <span class="macro">vec!</span>[])
 	};
 
 	<span class="prelude-val">Some</span>(BackingState { constraints, pending_availability })

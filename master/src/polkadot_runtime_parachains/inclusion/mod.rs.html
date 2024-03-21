@@ -1468,27 +1468,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1321" id="1321">1321</a>
 <a href="#1322" id="1322">1322</a>
 <a href="#1323" id="1323">1323</a>
-<a href="#1324" id="1324">1324</a>
-<a href="#1325" id="1325">1325</a>
-<a href="#1326" id="1326">1326</a>
-<a href="#1327" id="1327">1327</a>
-<a href="#1328" id="1328">1328</a>
-<a href="#1329" id="1329">1329</a>
-<a href="#1330" id="1330">1330</a>
-<a href="#1331" id="1331">1331</a>
-<a href="#1332" id="1332">1332</a>
-<a href="#1333" id="1333">1333</a>
-<a href="#1334" id="1334">1334</a>
-<a href="#1335" id="1335">1335</a>
-<a href="#1336" id="1336">1336</a>
-<a href="#1337" id="1337">1337</a>
-<a href="#1338" id="1338">1338</a>
-<a href="#1339" id="1339">1339</a>
-<a href="#1340" id="1340">1340</a>
-<a href="#1341" id="1341">1341</a>
-<a href="#1342" id="1342">1342</a>
-<a href="#1343" id="1343">1343</a>
-<a href="#1344" id="1344">1344</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1514,31 +1493,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	configuration::{<span class="self">self</span>, HostConfiguration},
 	disputes, dmp, hrmp,
 	paras::{<span class="self">self</span>, SetGoAhead},
-	scheduler::{<span class="self">self</span>, AvailabilityTimeoutStatus},
+	scheduler,
 	shared::{<span class="self">self</span>, AllowedRelayParentsTracker},
+	util::make_persisted_validation_data_with_parent,
 };
 <span class="kw">use </span>bitvec::{order::Lsb0 <span class="kw">as </span>BitOrderLsb0, vec::BitVec};
 <span class="kw">use </span>frame_support::{
 	defensive,
 	pallet_prelude::<span class="kw-2">*</span>,
-	traits::{Defensive, EnqueueMessage, Footprint, QueueFootprint},
+	traits::{EnqueueMessage, Footprint, QueueFootprint},
 	BoundedSlice,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>pallet_message_queue::OnQueueChanged;
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>primitives::{
-	effective_minimum_backing_votes, supermajority_threshold, well_known_keys,
-	AvailabilityBitfield, BackedCandidate, CandidateCommitments, CandidateDescriptor,
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash,
-	HeadData, Id <span class="kw">as </span>ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage,
-	ValidatorId, ValidatorIndex, ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold, well_known_keys, BackedCandidate,
+	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
+	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id <span class="kw">as </span>ParaId,
+	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
+	ValidityAttestation,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_std::fmt;
-<span class="kw">use </span>sp_std::{collections::btree_set::BTreeSet, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>sp_std::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
+	prelude::<span class="kw-2">*</span>,
+};
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
@@ -1547,6 +1530,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benchmarking;
+
+<span class="kw">pub mod </span>migration;
 
 <span class="kw">pub trait </span>WeightInfo {
 	<span class="kw">fn </span>receive_upward_messages(i: u32) -&gt; Weight;
@@ -1571,20 +1556,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `configuration` pallet to check these values before setting.
 </span><span class="kw">pub const </span>MAX_UPWARD_MESSAGE_SIZE_BOUND: u32 = <span class="number">128 </span>* <span class="number">1024</span>;
 
-<span class="doccomment">/// A bitfield signed by a validator indicating that it is keeping its piece of the erasure-coding
-/// for any backed candidates referred to by a `1` bit available.
-///
-/// The bitfield&#39;s signature should be checked at the point of submission. Afterwards it can be
-/// dropped.
-</span><span class="attr">#[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(Debug))]
-</span><span class="kw">pub struct </span>AvailabilityBitfieldRecord&lt;N&gt; {
-	bitfield: AvailabilityBitfield, <span class="comment">// one bit per core.
-	</span>submitted_at: N,                <span class="comment">// for accounting, as meaning of bits may change over time.
-</span>}
-
 <span class="doccomment">/// A backed candidate pending availability.
-</span><span class="attr">#[derive(Encode, Decode, PartialEq, TypeInfo)]
+</span><span class="attr">#[derive(Encode, Decode, PartialEq, TypeInfo, Clone)]
 #[cfg_attr(test, derive(Debug))]
 </span><span class="kw">pub struct </span>CandidatePendingAvailability&lt;H, N&gt; {
 	<span class="doccomment">/// The availability core this is assigned to.
@@ -1593,6 +1566,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>hash: CandidateHash,
 	<span class="doccomment">/// The candidate descriptor.
 	</span>descriptor: CandidateDescriptor&lt;H&gt;,
+	<span class="doccomment">/// The candidate commitments.
+	</span>commitments: CandidateCommitments,
 	<span class="doccomment">/// The received availability votes. One bit per validator.
 	</span>availability_votes: BitVec&lt;u8, BitOrderLsb0&gt;,
 	<span class="doccomment">/// The backers of the candidate pending availability.
@@ -1612,8 +1587,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get the relay-chain block number this was backed in.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>backed_in_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>N {
-		<span class="kw-2">&amp;</span><span class="self">self</span>.backed_in_number
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>backed_in_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; N
+	<span class="kw">where
+		</span>N: Clone,
+	{
+		<span class="self">self</span>.backed_in_number.clone()
 	}
 
 	<span class="doccomment">/// Get the core index.
@@ -1631,6 +1609,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>.descriptor
 	}
 
+	<span class="doccomment">/// Get the candidate commitments.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>candidate_commitments(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CandidateCommitments {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.commitments
+	}
+
 	<span class="doccomment">/// Get the candidate&#39;s relay parent&#39;s number.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>relay_parent_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; N
 	<span class="kw">where
@@ -1639,11 +1622,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.relay_parent_number.clone()
 	}
 
+	<span class="doccomment">/// Get the candidate backing group.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>backing_group(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; GroupIndex {
+		<span class="self">self</span>.backing_group
+	}
+
+	<span class="doccomment">/// Get the candidate&#39;s backers.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>backers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BitVec&lt;u8, BitOrderLsb0&gt; {
+		<span class="kw-2">&amp;</span><span class="self">self</span>.backers
+	}
+
 	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		core: CoreIndex,
 		hash: CandidateHash,
 		descriptor: CandidateDescriptor&lt;H&gt;,
+		commitments: CandidateCommitments,
 		availability_votes: BitVec&lt;u8, BitOrderLsb0&gt;,
 		backers: BitVec&lt;u8, BitOrderLsb0&gt;,
 		relay_parent_number: N,
@@ -1654,6 +1648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			core,
 			hash,
 			descriptor,
+			commitments,
 			availability_votes,
 			backers,
 			relay_parent_number,
@@ -1744,8 +1739,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
+	<span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">1</span>);
 	<span class="attr">#[pallet::pallet]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
@@ -1788,30 +1785,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::error]
 	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
-		<span class="doccomment">/// Validator indices are out of order or contains duplicates.
-		</span>UnsortedOrDuplicateValidatorIndices,
-		<span class="doccomment">/// Dispute statement sets are out of order or contain duplicates.
-		</span>UnsortedOrDuplicateDisputeStatementSet,
-		<span class="doccomment">/// Backed candidates are out of order (core index) or contain duplicates.
-		</span>UnsortedOrDuplicateBackedCandidates,
-		<span class="doccomment">/// A different relay parent was provided compared to the on-chain stored one.
-		</span>UnexpectedRelayParent,
-		<span class="doccomment">/// Availability bitfield has unexpected size.
-		</span>WrongBitfieldSize,
-		<span class="doccomment">/// Bitfield consists of zeros only.
-		</span>BitfieldAllZeros,
-		<span class="doccomment">/// Multiple bitfields submitted by same validator or validators out of order by index.
-		</span>BitfieldDuplicateOrUnordered,
 		<span class="doccomment">/// Validator index out of bounds.
 		</span>ValidatorIndexOutOfBounds,
-		<span class="doccomment">/// Invalid signature
-		</span>InvalidBitfieldSignature,
 		<span class="doccomment">/// Candidate submitted but para not scheduled.
 		</span>UnscheduledCandidate,
-		<span class="doccomment">/// Candidate scheduled despite pending candidate already existing for the para.
-		</span>CandidateScheduledBeforeParaFree,
-		<span class="doccomment">/// Scheduled cores out of order.
-		</span>ScheduledOutOfOrder,
 		<span class="doccomment">/// Head data exceeds the configured maximum.
 		</span>HeadDataTooLarge,
 		<span class="doccomment">/// Code upgrade prematurely.
@@ -1847,30 +1824,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The `para_head` hash in the candidate descriptor doesn&#39;t match the hash of the actual
 		/// para head in the commitments.
 		</span>ParaHeadMismatch,
-		<span class="doccomment">/// A bitfield that references a freed core,
-		/// either intentionally or as part of a concluded
-		/// invalid dispute.
-		</span>BitfieldReferencesFreedCore,
 	}
 
-	<span class="doccomment">/// The latest bitfield for each validator, referred to by their index in the validator set.
+	<span class="doccomment">/// Candidates pending availability by `ParaId`. They form a chain starting from the latest
+	/// included head of the para.
+	/// Use a different prefix post-migration to v1, since the v0 `PendingAvailability` storage
+	/// would otherwise have the exact same prefix which could cause undefined behaviour when doing
+	/// the migration.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AvailabilityBitfields&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ValidatorIndex, AvailabilityBitfieldRecord&lt;BlockNumberFor&lt;T&gt;&gt;&gt;;
-
-	<span class="doccomment">/// Candidates pending availability by `ParaId`.
-	</span><span class="attr">#[pallet::storage]
+	#[pallet::storage_prefix = <span class="string">&quot;V1&quot;</span>]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>PendingAvailability&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		ParaId,
-		CandidatePendingAvailability&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;,
+		VecDeque&lt;CandidatePendingAvailability&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt;,
 	&gt;;
-
-	<span class="doccomment">/// The commitments of candidates pending availability, by `ParaId`.
-	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>PendingAvailabilityCommitments&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, CandidateCommitments&gt;;
 
 	<span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {}
@@ -1960,9 +1928,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 		<span class="comment">// unlike most drain methods, drained elements are not cleared on `Drop` of the iterator
 		// and require consumption.
-		</span><span class="kw">for _ in </span>&lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::drain() {}
-		<span class="kw">for _ in </span>&lt;PendingAvailability&lt;T&gt;&gt;::drain() {}
-		<span class="kw">for _ in </span>&lt;AvailabilityBitfields&lt;T&gt;&gt;::drain() {}
+		</span><span class="kw">for _ in </span>&lt;PendingAvailability&lt;T&gt;&gt;::drain() {}
 
 		<span class="self">Self</span>::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
 	}
@@ -1981,27 +1947,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Bitfields are expected to have been sanitized already. E.g. via `sanitize_bitfields`!
 	///
-	/// Updates storage items `PendingAvailability` and `AvailabilityBitfields`.
+	/// Updates storage items `PendingAvailability`.
 	///
 	/// Returns a `Vec` of `CandidateHash`es and their respective `AvailabilityCore`s that became
 	/// available, and cores free.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_pending_availability_and_get_freed_cores&lt;F&gt;(
-		expected_bits: usize,
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_pending_availability_and_get_freed_cores(
 		validators: <span class="kw-2">&amp;</span>[ValidatorId],
 		signed_bitfields: SignedAvailabilityBitfields,
-		core_lookup: F,
-	) -&gt; Vec&lt;(CoreIndex, CandidateHash)&gt;
-	<span class="kw">where
-		</span>F: Fn(CoreIndex) -&gt; <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
-	{
-		<span class="kw">let </span><span class="kw-2">mut </span>assigned_paras_record = (<span class="number">0</span>..expected_bits)
-			.map(|bit_index| core_lookup(CoreIndex::from(bit_index <span class="kw">as </span>u32)))
-			.map(|opt_para_id| {
-				opt_para_id.map(|para_id| (para_id, PendingAvailability::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para_id)))
-			})
-			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+	) -&gt; Vec&lt;(CoreIndex, CandidateHash)&gt; {
+		<span class="kw">let </span>threshold = availability_threshold(validators.len());
 
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		<span class="kw">let </span><span class="kw-2">mut </span>votes_per_core: BTreeMap&lt;CoreIndex, BTreeSet&lt;ValidatorIndex&gt;&gt; = BTreeMap::new();
+
 		<span class="kw">for </span>(checked_bitfield, validator_index) <span class="kw">in
 			</span>signed_bitfields.into_iter().map(|signed_bitfield| {
 				<span class="kw">let </span>validator_idx = signed_bitfield.validator_index();
@@ -2009,310 +1966,275 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(checked_bitfield, validator_idx)
 			}) {
 			<span class="kw">for </span>(bit_idx, <span class="kw">_</span>) <span class="kw">in </span>checked_bitfield.<span class="number">0</span>.iter().enumerate().filter(|(<span class="kw">_</span>, is_av)| <span class="kw-2">**</span>is_av) {
-				<span class="kw">let </span>pending_availability = <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, pending_availability)) =
-					assigned_paras_record[bit_idx].as_mut()
-				{
-					pending_availability
-				} <span class="kw">else </span>{
-					<span class="comment">// For honest validators, this happens in case of unoccupied cores,
-					// which in turn happens in case of a disputed candidate.
-					// A malicious one might include arbitrary indices, but they are represented
-					// by `None` values and will be sorted out in the next if case.
-					</span><span class="kw">continue
-				</span>};
-
-				<span class="comment">// defensive check - this is constructed by loading the availability bitfield
-				// record, which is always `Some` if the core is occupied - that&#39;s why we&#39;re here.
-				</span><span class="kw">let </span>validator_index = validator_index.<span class="number">0 </span><span class="kw">as </span>usize;
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>bit) =
-					pending_availability.as_mut().and_then(|candidate_pending_availability| {
-						candidate_pending_availability.availability_votes.get_mut(validator_index)
-					}) {
-					<span class="kw-2">*</span>bit = <span class="bool-val">true</span>;
-				}
+				<span class="kw">let </span>core_index = CoreIndex(bit_idx <span class="kw">as </span>u32);
+				votes_per_core
+					.entry(core_index)
+					.or_insert_with(|| BTreeSet::new())
+					.insert(validator_index);
 			}
-
-			<span class="kw">let </span>record =
-				AvailabilityBitfieldRecord { bitfield: checked_bitfield, submitted_at: now };
-
-			&lt;AvailabilityBitfields&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>validator_index, record);
 		}
 
-		<span class="kw">let </span>threshold = availability_threshold(validators.len());
+		<span class="kw">let </span><span class="kw-2">mut </span>freed_cores = <span class="macro">vec!</span>[];
 
-		<span class="kw">let </span><span class="kw-2">mut </span>freed_cores = Vec::with_capacity(expected_bits);
-		<span class="kw">for </span>(para_id, pending_availability) <span class="kw">in </span>assigned_paras_record
-			.into_iter()
-			.flatten()
-			.filter_map(|(id, p)| p.map(|p| (id, p)))
-		{
-			<span class="kw">if </span>pending_availability.availability_votes.count_ones() &gt;= threshold {
-				&lt;PendingAvailability&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>para_id);
-				<span class="kw">let </span>commitments = <span class="kw">match </span>PendingAvailabilityCommitments::&lt;T&gt;::take(<span class="kw-2">&amp;</span>para_id) {
-					<span class="prelude-val">Some</span>(commitments) =&gt; commitments,
-					<span class="prelude-val">None </span>=&gt; {
-						<span class="macro">log::warn!</span>(
-							target: LOG_TARGET,
-							<span class="string">&quot;Inclusion::process_bitfields: PendingAvailability and PendingAvailabilityCommitments
-							are out of sync, did someone mess with the storage?&quot;</span>,
-						);
-						<span class="kw">continue
-					</span>},
-				};
+		<span class="kw">let </span>pending_paraids: Vec&lt;<span class="kw">_</span>&gt; = &lt;PendingAvailability&lt;T&gt;&gt;::iter_keys().collect();
+		<span class="kw">for </span>paraid <span class="kw">in </span>pending_paraids {
+			&lt;PendingAvailability&lt;T&gt;&gt;::mutate(paraid, |candidates| {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(candidates) = candidates {
+					<span class="kw">let </span><span class="kw-2">mut </span>last_enacted_index: <span class="prelude-ty">Option</span>&lt;usize&gt; = <span class="prelude-val">None</span>;
 
-				<span class="kw">let </span>receipt = CommittedCandidateReceipt {
-					descriptor: pending_availability.descriptor,
-					commitments,
-				};
-				<span class="kw">let </span>_weight = <span class="self">Self</span>::enact_candidate(
-					pending_availability.relay_parent_number,
-					receipt,
-					pending_availability.backers,
-					pending_availability.availability_votes,
-					pending_availability.core,
-					pending_availability.backing_group,
-				);
+					<span class="kw">for </span>(candidate_index, candidate) <span class="kw">in </span>candidates.iter_mut().enumerate() {
+						<span class="kw">if let </span><span class="prelude-val">Some</span>(validator_indices) = votes_per_core.remove(<span class="kw-2">&amp;</span>candidate.core) {
+							<span class="kw">for </span>validator_index <span class="kw">in </span>validator_indices.iter() {
+								<span class="comment">// defensive check - this is constructed by loading the
+								// availability bitfield record, which is always `Some` if
+								// the core is occupied - that&#39;s why we&#39;re here.
+								</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>bit) =
+									candidate.availability_votes.get_mut(validator_index.<span class="number">0 </span><span class="kw">as </span>usize)
+								{
+									<span class="kw-2">*</span>bit = <span class="bool-val">true</span>;
+								}
+							}
+						}
 
-				freed_cores.push((pending_availability.core, pending_availability.hash));
-			} <span class="kw">else </span>{
-				&lt;PendingAvailability&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>para_id, <span class="kw-2">&amp;</span>pending_availability);
-			}
+						<span class="comment">// We check for the candidate&#39;s availability even if we didn&#39;t get any new
+						// bitfields for its core, as it may have already been available at a
+						// previous block but wasn&#39;t enacted due to its predecessors not being
+						// available.
+						</span><span class="kw">if </span>candidate.availability_votes.count_ones() &gt;= threshold {
+							<span class="comment">// We can only enact a candidate if we&#39;ve enacted all of its
+							// predecessors already.
+							</span><span class="kw">let </span>can_enact = <span class="kw">if </span>candidate_index == <span class="number">0 </span>{
+								last_enacted_index == <span class="prelude-val">None
+							</span>} <span class="kw">else </span>{
+								<span class="kw">let </span>prev_candidate_index = usize::try_from(candidate_index - <span class="number">1</span>)
+									.expect(<span class="string">&quot;Previous `if` would have caught a 0 candidate index.&quot;</span>);
+								<span class="macro">matches!</span>(last_enacted_index, <span class="prelude-val">Some</span>(old_index) <span class="kw">if </span>old_index == prev_candidate_index)
+							};
+
+							<span class="kw">if </span>can_enact {
+								last_enacted_index = <span class="prelude-val">Some</span>(candidate_index);
+							}
+						}
+					}
+
+					<span class="comment">// Trim the pending availability candidates storage and enact candidates of this
+					// para now.
+					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(last_enacted_index) = last_enacted_index {
+						<span class="kw">let </span>evicted_candidates = candidates.drain(<span class="number">0</span>..=last_enacted_index);
+						<span class="kw">for </span>candidate <span class="kw">in </span>evicted_candidates {
+							freed_cores.push((candidate.core, candidate.hash));
+
+							<span class="kw">let </span>receipt = CommittedCandidateReceipt {
+								descriptor: candidate.descriptor,
+								commitments: candidate.commitments,
+							};
+							<span class="kw">let </span>_weight = <span class="self">Self</span>::enact_candidate(
+								candidate.relay_parent_number,
+								receipt,
+								candidate.backers,
+								candidate.availability_votes,
+								candidate.core,
+								candidate.backing_group,
+							);
+						}
+					}
+				}
+			});
 		}
 
 		freed_cores
 	}
 
-	<span class="doccomment">/// Process candidates that have been backed. Provide the relay storage root, a set of
-	/// candidates and scheduled cores.
+	<span class="doccomment">/// Process candidates that have been backed. Provide a set of
+	/// candidates along with their scheduled cores.
 	///
-	/// Both should be sorted ascending by core index, and the candidates should be a subset of
-	/// scheduled cores. If these conditions are not met, the execution of the function fails.
+	/// Candidates of the same paraid should be sorted according to their dependency order (they
+	/// should form a chain). If this condition is not met, this function will return an error.
+	/// (This really should not happen here, if the candidates were properly sanitised in
+	/// paras_inherent).
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_candidates&lt;GV&gt;(
 		allowed_relay_parents: <span class="kw-2">&amp;</span>AllowedRelayParentsTracker&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;,
-		candidates: Vec&lt;(BackedCandidate&lt;T::Hash&gt;, CoreIndex)&gt;,
+		candidates: <span class="kw-2">&amp;</span>BTreeMap&lt;ParaId, Vec&lt;(BackedCandidate&lt;T::Hash&gt;, CoreIndex)&gt;&gt;,
 		group_validators: GV,
 		core_index_enabled: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ProcessedCandidates&lt;T::Hash&gt;, DispatchError&gt;
 	<span class="kw">where
 		</span>GV: Fn(GroupIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;ValidatorIndex&gt;&gt;,
 	{
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
-
 		<span class="kw">if </span>candidates.is_empty() {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(ProcessedCandidates::default())
 		}
 
-		<span class="kw">let </span>minimum_backing_votes = configuration::Pallet::&lt;T&gt;::config().minimum_backing_votes;
+		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
 		<span class="kw">let </span>validators = shared::Pallet::&lt;T&gt;::active_validator_keys();
 
 		<span class="comment">// Collect candidate receipts with backers.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>candidate_receipt_with_backing_validator_indices =
 			Vec::with_capacity(candidates.len());
+		<span class="kw">let </span><span class="kw-2">mut </span>core_indices = Vec::with_capacity(candidates.len());
 
-		<span class="comment">// Do all checks before writing storage.
-		</span><span class="kw">let </span>core_indices_and_backers = {
-			<span class="kw">let </span><span class="kw-2">mut </span>core_indices_and_backers = Vec::with_capacity(candidates.len());
-			<span class="kw">let </span><span class="kw-2">mut </span>last_core = <span class="prelude-val">None</span>;
-
-			<span class="kw">let </span><span class="kw-2">mut </span>check_assignment_in_order = |core_idx| -&gt; DispatchResult {
-				<span class="macro">ensure!</span>(
-					last_core.map_or(<span class="bool-val">true</span>, |core| core_idx &gt; core),
-					Error::&lt;T&gt;::ScheduledOutOfOrder,
-				);
-
-				last_core = <span class="prelude-val">Some</span>(core_idx);
-				<span class="prelude-val">Ok</span>(())
+		<span class="kw">for </span>(para_id, para_candidates) <span class="kw">in </span>candidates {
+			<span class="kw">let </span><span class="kw-2">mut </span>latest_head_data = <span class="kw">match </span><span class="self">Self</span>::para_latest_head_data(para_id) {
+				<span class="prelude-val">None </span>=&gt; {
+					<span class="macro">defensive!</span>(<span class="string">&quot;Latest included head data for paraid {:?} is None&quot;</span>, para_id);
+					<span class="kw">continue
+				</span>},
+				<span class="prelude-val">Some</span>(latest_head_data) =&gt; latest_head_data,
 			};
 
-			<span class="comment">// We combine an outer loop over candidates with an inner loop over the scheduled,
-			// where each iteration of the outer loop picks up at the position
-			// in scheduled just after the past iteration left off.
-			//
-			// If the candidates appear in the same order as they appear in `scheduled`,
-			// then they should always be found. If the end of `scheduled` is reached,
-			// then the candidate was either not scheduled or out-of-order.
-			//
-			// In the meantime, we do certain sanity checks on the candidates and on the scheduled
-			// list.
-			</span><span class="kw">for </span>(candidate_idx, (backed_candidate, core_index)) <span class="kw">in </span>candidates.iter().enumerate() {
-				<span class="kw">let </span>relay_parent_hash = backed_candidate.descriptor().relay_parent;
-				<span class="kw">let </span>para_id = backed_candidate.descriptor().para_id;
+			<span class="kw">for </span>(candidate, core) <span class="kw">in </span>para_candidates.iter() {
+				<span class="kw">let </span>candidate_hash = candidate.candidate().hash();
 
-				<span class="kw">let </span>prev_context = &lt;paras::Pallet&lt;T&gt;&gt;::para_most_recent_context(para_id);
-
-				<span class="kw">let </span>check_ctx = CandidateCheckContext::&lt;T&gt;::new(prev_context);
-				<span class="kw">let </span>signing_context = SigningContext {
-					parent_hash: relay_parent_hash,
-					session_index: shared::Pallet::&lt;T&gt;::session_index(),
-				};
-
-				<span class="kw">let </span>relay_parent_number = <span class="kw">match </span>check_ctx.verify_backed_candidate(
+				<span class="kw">let </span>check_ctx = CandidateCheckContext::&lt;T&gt;::new(<span class="prelude-val">None</span>);
+				<span class="kw">let </span>relay_parent_number = check_ctx.verify_backed_candidate(
 					<span class="kw-2">&amp;</span>allowed_relay_parents,
-					candidate_idx,
-					backed_candidate.candidate(),
-				)<span class="question-mark">? </span>{
-					<span class="prelude-val">Err</span>(FailedToCreatePVD) =&gt; {
-						<span class="macro">log::debug!</span>(
-							target: LOG_TARGET,
-							<span class="string">&quot;Failed to create PVD for candidate {}&quot;</span>,
-							candidate_idx,
-						);
-						<span class="comment">// We don&#39;t want to error out here because it will
-						// brick the relay-chain. So we return early without
-						// doing anything.
-						</span><span class="kw">return </span><span class="prelude-val">Ok</span>(ProcessedCandidates::default())
-					},
-					<span class="prelude-val">Ok</span>(rpn) =&gt; rpn,
-				};
+					candidate.candidate(),
+					latest_head_data.clone(),
+				)<span class="question-mark">?</span>;
 
-				<span class="kw">let </span>(validator_indices, <span class="kw">_</span>) =
-					backed_candidate.validator_indices_and_core_index(core_index_enabled);
-
-				<span class="macro">log::debug!</span>(
-					target: LOG_TARGET,
-					<span class="string">&quot;Candidate {:?} on {:?},
-					core_index_enabled = {}&quot;</span>,
-					backed_candidate.hash(),
-					core_index,
-					core_index_enabled
-				);
-
-				check_assignment_in_order(core_index)<span class="question-mark">?</span>;
-
-				<span class="kw">let </span><span class="kw-2">mut </span>backers = <span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; validators.len()];
-
-				<span class="macro">ensure!</span>(
-					&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para_id).is_none() &amp;&amp;
-						&lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para_id).is_none(),
-					Error::&lt;T&gt;::CandidateScheduledBeforeParaFree,
-				);
-
-				<span class="comment">// The candidate based upon relay parent `N` should be backed by a group
-				// assigned to core at block `N + 1`. Thus, `relay_parent_number + 1`
-				// will always land in the current session.
+				<span class="comment">// The candidate based upon relay parent `N` should be backed by a
+				// group assigned to core at block `N + 1`. Thus,
+				// `relay_parent_number + 1` will always land in the current
+				// session.
 				</span><span class="kw">let </span>group_idx = &lt;scheduler::Pallet&lt;T&gt;&gt;::group_assigned_to_core(
-					<span class="kw-2">*</span>core_index,
+					<span class="kw-2">*</span>core,
 					relay_parent_number + One::one(),
 				)
 				.ok_or_else(|| {
 					<span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Failed to compute group index for candidate {}&quot;</span>,
-						candidate_idx
+						<span class="string">&quot;Failed to compute group index for candidate {:?}&quot;</span>,
+						candidate_hash
 					);
 					Error::&lt;T&gt;::InvalidAssignment
 				})<span class="question-mark">?</span>;
 				<span class="kw">let </span>group_vals =
 					group_validators(group_idx).ok_or_else(|| Error::&lt;T&gt;::InvalidGroupIndex)<span class="question-mark">?</span>;
 
-				<span class="comment">// check the signatures in the backing and that it is a majority.
-				</span>{
-					<span class="kw">let </span>maybe_amount_validated = primitives::check_candidate_backing(
-						backed_candidate.candidate().hash(),
-						backed_candidate.validity_votes(),
-						validator_indices,
-						<span class="kw-2">&amp;</span>signing_context,
-						group_vals.len(),
-						|intra_group_vi| {
-							group_vals
-								.get(intra_group_vi)
-								.and_then(|vi| validators.get(vi.<span class="number">0 </span><span class="kw">as </span>usize))
-								.map(|v| v.clone())
-						},
-					);
+				<span class="comment">// Check backing vote count and validity.
+				</span><span class="kw">let </span>(backers, backer_idx_and_attestation) = <span class="self">Self</span>::check_backing_votes(
+					candidate,
+					<span class="kw-2">&amp;</span>validators,
+					group_vals,
+					core_index_enabled,
+				)<span class="question-mark">?</span>;
 
-					<span class="kw">match </span>maybe_amount_validated {
-						<span class="prelude-val">Ok</span>(amount_validated) =&gt; <span class="macro">ensure!</span>(
-							amount_validated &gt;=
-								effective_minimum_backing_votes(
-									group_vals.len(),
-									minimum_backing_votes
-								),
-							Error::&lt;T&gt;::InsufficientBacking,
-						),
-						<span class="prelude-val">Err</span>(()) =&gt; {
-							<span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidBacking)<span class="question-mark">?</span>;
-						},
+				<span class="comment">// Found a valid candidate.
+				</span>latest_head_data = candidate.candidate().commitments.head_data.clone();
+				candidate_receipt_with_backing_validator_indices
+					.push((candidate.receipt(), backer_idx_and_attestation));
+				core_indices.push((<span class="kw-2">*</span>core, <span class="kw-2">*</span>para_id));
+
+				<span class="comment">// Update storage now
+				</span>&lt;PendingAvailability&lt;T&gt;&gt;::mutate(<span class="kw-2">&amp;</span>para_id, |pending_availability| {
+					<span class="kw">let </span>new_candidate = CandidatePendingAvailability {
+						core: <span class="kw-2">*</span>core,
+						hash: candidate_hash,
+						descriptor: candidate.candidate().descriptor.clone(),
+						commitments: candidate.candidate().commitments.clone(),
+						<span class="comment">// initialize all availability votes to 0.
+						</span>availability_votes: <span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; validators.len()],
+						relay_parent_number,
+						backers: backers.to_bitvec(),
+						backed_in_number: now,
+						backing_group: group_idx,
+					};
+
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(pending_availability) = pending_availability {
+						pending_availability.push_back(new_candidate);
+					} <span class="kw">else </span>{
+						<span class="kw-2">*</span>pending_availability =
+							<span class="prelude-val">Some</span>([new_candidate].into_iter().collect::&lt;VecDeque&lt;<span class="kw">_</span>&gt;&gt;())
 					}
+				});
 
-					<span class="kw">let </span><span class="kw-2">mut </span>backer_idx_and_attestation =
-						Vec::&lt;(ValidatorIndex, ValidityAttestation)&gt;::with_capacity(
-							validator_indices.count_ones(),
-						);
-					<span class="kw">let </span>candidate_receipt = backed_candidate.receipt();
-
-					<span class="kw">for </span>((bit_idx, <span class="kw">_</span>), attestation) <span class="kw">in </span>validator_indices
-						.iter()
-						.enumerate()
-						.filter(|(<span class="kw">_</span>, signed)| <span class="kw-2">**</span>signed)
-						.zip(backed_candidate.validity_votes().iter().cloned())
-					{
-						<span class="kw">let </span>val_idx =
-							group_vals.get(bit_idx).expect(<span class="string">&quot;this query succeeded above; qed&quot;</span>);
-						backer_idx_and_attestation.push((<span class="kw-2">*</span>val_idx, attestation));
-
-						backers.set(val_idx.<span class="number">0 </span><span class="kw">as _</span>, <span class="bool-val">true</span>);
-					}
-					candidate_receipt_with_backing_validator_indices
-						.push((candidate_receipt, backer_idx_and_attestation));
-				}
-
-				core_indices_and_backers.push((
-					(<span class="kw-2">*</span>core_index, para_id),
-					backers,
+				<span class="comment">// Deposit backed event.
+				</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CandidateBacked(
+					candidate.candidate().to_plain(),
+					candidate.candidate().commitments.head_data.clone(),
+					<span class="kw-2">*</span>core,
 					group_idx,
-					relay_parent_number,
 				));
 			}
-
-			core_indices_and_backers
-		};
-
-		<span class="comment">// one more sweep for actually writing to storage.
-		</span><span class="kw">let </span>core_indices = core_indices_and_backers.iter().map(|(c, ..)| <span class="kw-2">*</span>c).collect();
-		<span class="kw">for </span>((candidate, <span class="kw">_</span>), (core, backers, group, relay_parent_number)) <span class="kw">in
-			</span>candidates.into_iter().zip(core_indices_and_backers)
-		{
-			<span class="kw">let </span>para_id = candidate.descriptor().para_id;
-
-			<span class="comment">// initialize all availability votes to 0.
-			</span><span class="kw">let </span>availability_votes: BitVec&lt;u8, BitOrderLsb0&gt; =
-				<span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; validators.len()];
-
-			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CandidateBacked(
-				candidate.candidate().to_plain(),
-				candidate.candidate().commitments.head_data.clone(),
-				core.<span class="number">0</span>,
-				group,
-			));
-
-			<span class="kw">let </span>candidate_hash = candidate.candidate().hash();
-
-			<span class="kw">let </span>(descriptor, commitments) = (
-				candidate.candidate().descriptor.clone(),
-				candidate.candidate().commitments.clone(),
-			);
-
-			&lt;PendingAvailability&lt;T&gt;&gt;::insert(
-				<span class="kw-2">&amp;</span>para_id,
-				CandidatePendingAvailability {
-					core: core.<span class="number">0</span>,
-					hash: candidate_hash,
-					descriptor,
-					availability_votes,
-					relay_parent_number,
-					backers: backers.to_bitvec(),
-					backed_in_number: now,
-					backing_group: group,
-				},
-			);
-			&lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>para_id, commitments);
 		}
 
 		<span class="prelude-val">Ok</span>(ProcessedCandidates::&lt;T::Hash&gt; {
 			core_indices,
 			candidate_receipt_with_backing_validator_indices,
 		})
+	}
+
+	<span class="comment">// Get the latest backed output head data of this para.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>para_latest_head_data(para_id: <span class="kw-2">&amp;</span>ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;HeadData&gt; {
+		<span class="kw">match </span>&lt;PendingAvailability&lt;T&gt;&gt;::get(para_id).and_then(|pending_candidates| {
+			pending_candidates.back().map(|x| x.commitments.head_data.clone())
+		}) {
+			<span class="prelude-val">Some</span>(head_data) =&gt; <span class="prelude-val">Some</span>(head_data),
+			<span class="prelude-val">None </span>=&gt; &lt;paras::Pallet&lt;T&gt;&gt;::para_head(para_id),
+		}
+	}
+
+	<span class="kw">fn </span>check_backing_votes(
+		backed_candidate: <span class="kw-2">&amp;</span>BackedCandidate&lt;T::Hash&gt;,
+		validators: <span class="kw-2">&amp;</span>[ValidatorId],
+		group_vals: Vec&lt;ValidatorIndex&gt;,
+		core_index_enabled: bool,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(BitVec&lt;u8, BitOrderLsb0&gt;, Vec&lt;(ValidatorIndex, ValidityAttestation)&gt;), Error&lt;T&gt;&gt; {
+		<span class="kw">let </span>minimum_backing_votes = configuration::Pallet::&lt;T&gt;::config().minimum_backing_votes;
+
+		<span class="kw">let </span><span class="kw-2">mut </span>backers = <span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; validators.len()];
+		<span class="kw">let </span>signing_context = SigningContext {
+			parent_hash: backed_candidate.descriptor().relay_parent,
+			session_index: shared::Pallet::&lt;T&gt;::session_index(),
+		};
+
+		<span class="kw">let </span>(validator_indices, <span class="kw">_</span>) =
+			backed_candidate.validator_indices_and_core_index(core_index_enabled);
+
+		<span class="comment">// check the signatures in the backing and that it is a majority.
+		</span><span class="kw">let </span>maybe_amount_validated = primitives::check_candidate_backing(
+			backed_candidate.candidate().hash(),
+			backed_candidate.validity_votes(),
+			validator_indices,
+			<span class="kw-2">&amp;</span>signing_context,
+			group_vals.len(),
+			|intra_group_vi| {
+				group_vals
+					.get(intra_group_vi)
+					.and_then(|vi| validators.get(vi.<span class="number">0 </span><span class="kw">as </span>usize))
+					.map(|v| v.clone())
+			},
+		);
+
+		<span class="kw">match </span>maybe_amount_validated {
+			<span class="prelude-val">Ok</span>(amount_validated) =&gt; <span class="macro">ensure!</span>(
+				amount_validated &gt;=
+					effective_minimum_backing_votes(group_vals.len(), minimum_backing_votes),
+				Error::&lt;T&gt;::InsufficientBacking,
+			),
+			<span class="prelude-val">Err</span>(()) =&gt; {
+				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::InvalidBacking)<span class="question-mark">?</span>;
+			},
+		}
+
+		<span class="kw">let </span><span class="kw-2">mut </span>backer_idx_and_attestation =
+			Vec::&lt;(ValidatorIndex, ValidityAttestation)&gt;::with_capacity(
+				validator_indices.count_ones(),
+			);
+
+		<span class="kw">for </span>((bit_idx, <span class="kw">_</span>), attestation) <span class="kw">in </span>validator_indices
+			.iter()
+			.enumerate()
+			.filter(|(<span class="kw">_</span>, signed)| <span class="kw-2">**</span>signed)
+			.zip(backed_candidate.validity_votes().iter().cloned())
+		{
+			<span class="kw">let </span>val_idx = group_vals.get(bit_idx).expect(<span class="string">&quot;this query succeeded above; qed&quot;</span>);
+			backer_idx_and_attestation.push((<span class="kw-2">*</span>val_idx, attestation));
+
+			backers.set(val_idx.<span class="number">0 </span><span class="kw">as _</span>, <span class="bool-val">true</span>);
+		}
+
+		<span class="prelude-val">Ok</span>((backers, backer_idx_and_attestation))
 	}
 
 	<span class="doccomment">/// Run the acceptance criteria checks on the given candidate commitments.
@@ -2519,110 +2441,155 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		weight
 	}
 
-	<span class="doccomment">/// Cleans up all paras pending availability that the predicate returns true for.
-	///
-	/// The predicate accepts the index of the core and the block number the core has been occupied
-	/// since (i.e. the block number the candidate was backed at in this fork of the relay chain).
+	<span class="doccomment">/// Cleans up all timed out candidates as well as their descendant candidates.
 	///
 	/// Returns a vector of cleaned-up core IDs.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>collect_pending(
-		pred: <span class="kw">impl </span>Fn(BlockNumberFor&lt;T&gt;) -&gt; AvailabilityTimeoutStatus&lt;BlockNumberFor&lt;T&gt;&gt;,
-	) -&gt; Vec&lt;CoreIndex&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>cleaned_up_ids = Vec::new();
-		<span class="kw">let </span><span class="kw-2">mut </span>cleaned_up_cores = Vec::new();
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>free_timedout() -&gt; Vec&lt;CoreIndex&gt; {
+		<span class="kw">let </span>timeout_pred = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_timeout_predicate();
 
-		<span class="kw">for </span>(para_id, pending_record) <span class="kw">in </span>&lt;PendingAvailability&lt;T&gt;&gt;::iter() {
-			<span class="kw">if </span>pred(pending_record.backed_in_number).timed_out {
-				cleaned_up_ids.push(para_id);
-				cleaned_up_cores.push(pending_record.core);
-			}
+		<span class="kw">let </span>timed_out: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">Self</span>::free_failed_cores(
+			|candidate| timeout_pred(candidate.backed_in_number).timed_out,
+			<span class="prelude-val">None</span>,
+		)
+		.collect();
+
+		<span class="kw">let </span><span class="kw-2">mut </span>timed_out_cores = Vec::with_capacity(timed_out.len());
+		<span class="kw">for </span>candidate <span class="kw">in </span>timed_out.iter() {
+			timed_out_cores.push(candidate.core);
+
+			<span class="kw">let </span>receipt = CandidateReceipt {
+				descriptor: candidate.descriptor.clone(),
+				commitments_hash: candidate.commitments.hash(),
+			};
+
+			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CandidateTimedOut(
+				receipt,
+				candidate.commitments.head_data.clone(),
+				candidate.core,
+			));
 		}
 
-		<span class="kw">for </span>para_id <span class="kw">in </span>cleaned_up_ids {
-			<span class="kw">let </span>pending = &lt;PendingAvailability&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>para_id);
-			<span class="kw">let </span>commitments = &lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>para_id);
-
-			<span class="kw">if let </span>(<span class="prelude-val">Some</span>(pending), <span class="prelude-val">Some</span>(commitments)) = (pending, commitments) {
-				<span class="comment">// defensive: this should always be true.
-				</span><span class="kw">let </span>candidate = CandidateReceipt {
-					descriptor: pending.descriptor,
-					commitments_hash: commitments.hash(),
-				};
-
-				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::CandidateTimedOut(
-					candidate,
-					commitments.head_data,
-					pending.core,
-				));
-			}
-		}
-
-		cleaned_up_cores
+		timed_out_cores
 	}
 
-	<span class="doccomment">/// Cleans up all paras pending availability that are in the given list of disputed candidates.
+	<span class="doccomment">/// Cleans up all cores pending availability occupied by one of the disputed candidates or which
+	/// are descendants of a disputed candidate.
 	///
-	/// Returns a vector of cleaned-up core IDs.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>collect_disputed(disputed: <span class="kw-2">&amp;</span>BTreeSet&lt;CandidateHash&gt;) -&gt; Vec&lt;CoreIndex&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>cleaned_up_ids = Vec::new();
-		<span class="kw">let </span><span class="kw-2">mut </span>cleaned_up_cores = Vec::new();
+	/// Returns a vector of cleaned-up core IDs, along with the evicted candidate hashes.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>free_disputed(
+		disputed: <span class="kw-2">&amp;</span>BTreeSet&lt;CandidateHash&gt;,
+	) -&gt; Vec&lt;(CoreIndex, CandidateHash)&gt; {
+		<span class="self">Self</span>::free_failed_cores(
+			|candidate| disputed.contains(<span class="kw-2">&amp;</span>candidate.hash),
+			<span class="prelude-val">Some</span>(disputed.len()),
+		)
+		.map(|candidate| (candidate.core, candidate.hash))
+		.collect()
+	}
 
-		<span class="kw">for </span>(para_id, pending_record) <span class="kw">in </span>&lt;PendingAvailability&lt;T&gt;&gt;::iter() {
-			<span class="kw">if </span>disputed.contains(<span class="kw-2">&amp;</span>pending_record.hash) {
-				cleaned_up_ids.push(para_id);
-				cleaned_up_cores.push(pending_record.core);
+	<span class="comment">// Clean up cores whose candidates are deemed as failed by the predicate. `pred` returns true if
+	// a candidate is considered failed.
+	// A failed candidate also frees all subsequent cores which hold descendants of said candidate.
+	</span><span class="kw">fn </span>free_failed_cores&lt;
+		P: Fn(<span class="kw-2">&amp;</span>CandidatePendingAvailability&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;) -&gt; bool,
+	&gt;(
+		pred: P,
+		capacity_hint: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = CandidatePendingAvailability&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>earliest_dropped_indices: BTreeMap&lt;ParaId, usize&gt; = BTreeMap::new();
+
+		<span class="kw">for </span>(para_id, pending_candidates) <span class="kw">in </span>&lt;PendingAvailability&lt;T&gt;&gt;::iter() {
+			<span class="comment">// We assume that pending candidates are stored in dependency order. So we need to store
+			// the earliest dropped candidate. All others that follow will get freed as well.
+			</span><span class="kw">let </span><span class="kw-2">mut </span>earliest_dropped_idx = <span class="prelude-val">None</span>;
+			<span class="kw">for </span>(index, candidate) <span class="kw">in </span>pending_candidates.iter().enumerate() {
+				<span class="kw">if </span>pred(candidate) {
+					earliest_dropped_idx = <span class="prelude-val">Some</span>(index);
+					<span class="comment">// Since we&#39;re looping the candidates in dependency order, we&#39;ve found the
+					// earliest failed index for this paraid.
+					</span><span class="kw">break</span>;
+				}
+			}
+
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(earliest_dropped_idx) = earliest_dropped_idx {
+				earliest_dropped_indices.insert(para_id, earliest_dropped_idx);
 			}
 		}
 
-		<span class="kw">for </span>para_id <span class="kw">in </span>cleaned_up_ids {
-			<span class="kw">let _ </span>= &lt;PendingAvailability&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>para_id);
-			<span class="kw">let _ </span>= &lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>para_id);
+		<span class="kw">let </span><span class="kw-2">mut </span>cleaned_up_cores =
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(capacity) = capacity_hint { Vec::with_capacity(capacity) } <span class="kw">else </span>{ <span class="macro">vec!</span>[] };
+
+		<span class="kw">for </span>(para_id, earliest_dropped_idx) <span class="kw">in </span>earliest_dropped_indices {
+			<span class="comment">// Do cleanups and record the cleaned up cores
+			</span>&lt;PendingAvailability&lt;T&gt;&gt;::mutate(<span class="kw-2">&amp;</span>para_id, |record| {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(record) = record {
+					<span class="kw">let </span>cleaned_up = record.drain(earliest_dropped_idx..);
+					cleaned_up_cores.extend(cleaned_up);
+				}
+			});
 		}
 
-		cleaned_up_cores
+		cleaned_up_cores.into_iter()
 	}
 
-	<span class="doccomment">/// Forcibly enact the candidate with the given ID as though it had been deemed available
-	/// by bitfields.
+	<span class="doccomment">/// Forcibly enact the pending candidates of the given paraid as though they had been deemed
+	/// available by bitfields.
 	///
 	/// Is a no-op if there is no candidate pending availability for this para-id.
-	/// This should generally not be used but it is useful during execution of Runtime APIs,
+	/// If there are multiple candidates pending availability for this para-id, it will enact all of
+	/// them. This should generally not be used but it is useful during execution of Runtime APIs,
 	/// where the changes to the state are expected to be discarded directly after.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>force_enact(para: ParaId) {
-		<span class="kw">let </span>pending = &lt;PendingAvailability&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>para);
-		<span class="kw">let </span>commitments = &lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>para);
+		&lt;PendingAvailability&lt;T&gt;&gt;::mutate(<span class="kw-2">&amp;</span>para, |candidates| {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(candidates) = candidates {
+				<span class="kw">for </span>candidate <span class="kw">in </span>candidates.drain(..) {
+					<span class="kw">let </span>receipt = CommittedCandidateReceipt {
+						descriptor: candidate.descriptor,
+						commitments: candidate.commitments,
+					};
 
-		<span class="kw">if let </span>(<span class="prelude-val">Some</span>(pending), <span class="prelude-val">Some</span>(commitments)) = (pending, commitments) {
-			<span class="kw">let </span>candidate =
-				CommittedCandidateReceipt { descriptor: pending.descriptor, commitments };
-
-			<span class="self">Self</span>::enact_candidate(
-				pending.relay_parent_number,
-				candidate,
-				pending.backers,
-				pending.availability_votes,
-				pending.core,
-				pending.backing_group,
-			);
-		}
+					<span class="self">Self</span>::enact_candidate(
+						candidate.relay_parent_number,
+						receipt,
+						candidate.backers,
+						candidate.availability_votes,
+						candidate.core,
+						candidate.backing_group,
+					);
+				}
+			}
+		});
 	}
 
-	<span class="doccomment">/// Returns the `CommittedCandidateReceipt` pending availability for the para provided, if any.
+	<span class="doccomment">/// Returns the first `CommittedCandidateReceipt` pending availability for the para provided, if
+	/// any.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>candidate_pending_availability(
 		para: ParaId,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&lt;T::Hash&gt;&gt; {
-		&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para)
-			.map(|p| p.descriptor)
-			.and_then(|d| &lt;PendingAvailabilityCommitments&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para).map(<span class="kw">move </span>|c| (d, c)))
-			.map(|(d, c)| CommittedCandidateReceipt { descriptor: d, commitments: c })
+		&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para).and_then(|p| {
+			p.get(<span class="number">0</span>).map(|p| CommittedCandidateReceipt {
+				descriptor: p.descriptor.clone(),
+				commitments: p.commitments.clone(),
+			})
+		})
 	}
 
-	<span class="doccomment">/// Returns the metadata around the candidate pending availability for the
+	<span class="doccomment">/// Returns the metadata around the first candidate pending availability for the
 	/// para provided, if any.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>pending_availability(
 		para: ParaId,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;CandidatePendingAvailability&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
+		&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para).and_then(|p| p.get(<span class="number">0</span>).cloned())
+	}
+
+	<span class="doccomment">/// Returns the metadata around the candidate pending availability occupying the supplied core,
+	/// if any.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>pending_availability_with_core(
+		para: ParaId,
+		core: CoreIndex,
+	) -&gt; <span class="prelude-ty">Option</span>&lt;CandidatePendingAvailability&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
 		&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para)
+			.and_then(|p| p.iter().find(|c| c.core == core).cloned())
 	}
 }
 
@@ -2673,10 +2640,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	prev_context: <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;,
 }
 
-<span class="doccomment">/// An error indicating that creating Persisted Validation Data failed
-/// while checking a candidate&#39;s validity.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>FailedToCreatePVD;
-
 <span class="kw">impl</span>&lt;T: Config&gt; CandidateCheckContext&lt;T&gt; {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(prev_context: <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ config: &lt;configuration::Pallet&lt;T&gt;&gt;::config(), prev_context }
@@ -2694,9 +2657,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_backed_candidate(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		allowed_relay_parents: <span class="kw-2">&amp;</span>AllowedRelayParentsTracker&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;,
-		candidate_idx: usize,
 		backed_candidate_receipt: <span class="kw-2">&amp;</span>CommittedCandidateReceipt&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;BlockNumberFor&lt;T&gt;, FailedToCreatePVD&gt;, Error&lt;T&gt;&gt; {
+		parent_head_data: HeadData,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockNumberFor&lt;T&gt;, Error&lt;T&gt;&gt; {
 		<span class="kw">let </span>para_id = backed_candidate_receipt.descriptor().para_id;
 		<span class="kw">let </span>relay_parent = backed_candidate_receipt.descriptor().relay_parent;
 
@@ -2709,16 +2672,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		{
-			<span class="kw">let </span>persisted_validation_data = <span class="kw">match </span><span class="kw">crate</span>::util::make_persisted_validation_data::&lt;T&gt;(
-				para_id,
+			<span class="kw">let </span>persisted_validation_data = make_persisted_validation_data_with_parent::&lt;T&gt;(
 				relay_parent_number,
 				relay_parent_storage_root,
-			)
-			.defensive_proof(<span class="string">&quot;the para is registered&quot;</span>)
-			{
-				<span class="prelude-val">Some</span>(l) =&gt; l,
-				<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(FailedToCreatePVD)),
-			};
+				parent_head_data,
+			);
 
 			<span class="kw">let </span>expected = persisted_validation_data.hash();
 
@@ -2759,13 +2717,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Validation outputs checking during inclusion of a candidate {} for parachain `{}` failed&quot;</span>,
-				candidate_idx,
+				<span class="string">&quot;Validation outputs checking during inclusion of a candidate {:?} for parachain `{}` failed&quot;</span>,
+				backed_candidate_receipt.hash(),
 				u32::from(para_id),
 			);
 			<span class="prelude-val">Err</span>(err.strip_into_dispatch_err::&lt;T&gt;())<span class="question-mark">?</span>;
 		};
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(relay_parent_number))
+		<span class="prelude-val">Ok</span>(relay_parent_number)
 	}
 
 	<span class="doccomment">/// Check the given outputs after candidate validation on whether it passes the acceptance

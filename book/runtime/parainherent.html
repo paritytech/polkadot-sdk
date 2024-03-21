@@ -162,7 +162,7 @@ to be initialized or finalized by the <code>Initializer</code>.</p>
 this fork.</li>
 <li>When disputes are initiated, we remove the block from pending availability. This allows us to roll back chains to the
 block before blocks are included as opposed to backing. It's important to do this before processing bitfields.</li>
-<li><code>Inclusion::collect_disputed</code> is kind of expensive so it's important to gate this on whether there are actually any
+<li><code>Inclusion::free_disputed</code> is kind of expensive so it's important to gate this on whether there are actually any
 new disputes. Which should be never.</li>
 <li>And we don't accept parablocks that have open disputes or disputes that have concluded against the candidate. It's
 important to import dispute statements before backing, but this is already the case as disputes are imported before
@@ -228,7 +228,7 @@ backed candidate may end up with votes count less than <code>minimum_backing_vot
 In this case the whole candidate is dropped otherwise it will be rejected by <code>process_candidates</code> from pallet inclusion.
 All checks related to backed candidates are implemented in <code>sanitize_backed_candidates</code> and
 <code>filter_backed_statements_from_disabled_validators</code>.</p>
-<footer id="last-change">Last change: 2024-01-18, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/f8954093b4">f8954093b4</a></footer>
+<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

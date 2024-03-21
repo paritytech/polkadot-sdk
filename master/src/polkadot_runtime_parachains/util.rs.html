@@ -264,6 +264,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -284,7 +301,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! on all modules.
 
 </span><span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
-<span class="kw">use </span>primitives::{Id <span class="kw">as </span>ParaId, PersistedValidationData, ValidatorIndex};
+<span class="kw">use </span>primitives::{HeadData, Id <span class="kw">as </span>ParaId, PersistedValidationData, ValidatorIndex};
 <span class="kw">use </span>sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 <span class="kw">use crate</span>::{configuration, hrmp, paras};
@@ -306,6 +323,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relay_parent_storage_root,
 		max_pov_size: config.max_pov_size,
 	})
+}
+
+<span class="doccomment">/// Make the persisted validation data for a particular parachain, a specified relay-parent, its
+/// storage root and parent head data.
+</span><span class="kw">pub fn </span>make_persisted_validation_data_with_parent&lt;T: configuration::Config&gt;(
+	relay_parent_number: BlockNumberFor&lt;T&gt;,
+	relay_parent_storage_root: T::Hash,
+	parent_head: HeadData,
+) -&gt; PersistedValidationData&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt; {
+	<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+
+	PersistedValidationData {
+		parent_head,
+		relay_parent_number,
+		relay_parent_storage_root,
+		max_pov_size: config.max_pov_size,
+	}
 }
 
 <span class="doccomment">/// Take an active subset of a set containing all validators.

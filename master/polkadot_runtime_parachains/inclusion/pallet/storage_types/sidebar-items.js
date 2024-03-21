@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AvailabilityBitfields","PendingAvailability","PendingAvailabilityCommitments"]};
+window.SIDEBAR_ITEMS = {"struct":["PendingAvailability"]};

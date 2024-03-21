@@ -2111,7 +2111,6 @@ within the same session predictable. Rotations are based off of <code>now</code>
 implemented efficiently.</li>
 </ul>
 </li>
-<li><code>core_para(CoreIndex) -&gt; ParaId</code>: return the currently-scheduled or occupied ParaId for the given core.</li>
 <li><code>group_validators(GroupIndex) -&gt; Option&lt;Vec&lt;ValidatorIndex&gt;&gt;</code>: return all validators in a given group, if the group
 index is valid for this session.</li>
 <li><code>availability_timeout_predicate() -&gt; Option&lt;impl Fn(CoreIndex, BlockNumber) -&gt; bool&gt;</code>: returns an optional predicate
@@ -2139,7 +2138,7 @@ which no longer exist under paras.</li>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-12-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/69434d9a32">69434d9a32</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
+<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
 <p>The inclusion module is responsible for inclusion and availability of scheduled parachains. It also manages the UMP
 dispatch queue of each parachain.</p>
 <h2 id="storage-6"><a class="header" href="#storage-6">Storage</a></h2>
@@ -2303,10 +2302,11 @@ the commitment,</li>
 </span></code></pre></pre>
 </li>
 <li>
-<p><code>force_enact(ParaId)</code>: Forcibly enact the candidate with the given ID as though it had been deemed available by
-bitfields. Is a no-op if there is no candidate pending availability for this para-id. This should generally not be
-used but it is useful during execution of Runtime APIs, where the changes to the state are expected to be discarded
-directly after.</p>
+<p><code>force_enact(ParaId)</code>: Forcibly enact the pending candidates of the given paraid as though they had been deemed
+available by bitfields. Is a no-op if there is no candidate pending availability for this para-id.
+If there are multiple candidates pending availability for this para-id, it will enact all of
+them. This should generally not be used but it is useful during execution of Runtime APIs,
+where the changes to the state are expected to be discarded directly after.</p>
 </li>
 <li>
 <p><code>candidate_pending_availability(ParaId) -&gt; Option&lt;CommittedCandidateReceipt&gt;</code>: returns the <code>CommittedCandidateReceipt</code>
@@ -2317,7 +2317,7 @@ pending availability for the para provided, if any.</p>
 pending availability for the para, if any.</p>
 </li>
 <li>
-<p><code>collect_disputed(disputed: Vec&lt;CandidateHash&gt;) -&gt; Vec&lt;CoreIndex&gt;</code>: Sweeps through all paras pending availability. If
+<p><code>free_disputed(disputed: Vec&lt;CandidateHash&gt;) -&gt; Vec&lt;CoreIndex&gt;</code>: Sweeps through all paras pending availability. If
 the candidate hash is one of the disputed candidates, then clean up the corresponding storage for that candidate and
 the commitments. Return a vector of cleaned-up core IDs.</p>
 </li>
@@ -2348,7 +2348,7 @@ in <code>well_known_keys</code> in order to facilitate oraclisation on to the pa
 </ol>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
+<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="parainherent"><a class="header" href="#parainherent"><code>ParaInherent</code></a></h1>
 <p>This module is responsible for providing all data given to the runtime by the block author to the various parachains
 modules. The entry-point is mandatory, in that it must be invoked exactly once within every block, and it is also
 &quot;inherent&quot;, in that it is provided with no origin by the block author. The data within it carries its own
@@ -2364,7 +2364,7 @@ to be initialized or finalized by the <code>Initializer</code>.</p>
 this fork.</li>
 <li>When disputes are initiated, we remove the block from pending availability. This allows us to roll back chains to the
 block before blocks are included as opposed to backing. It's important to do this before processing bitfields.</li>
-<li><code>Inclusion::collect_disputed</code> is kind of expensive so it's important to gate this on whether there are actually any
+<li><code>Inclusion::free_disputed</code> is kind of expensive so it's important to gate this on whether there are actually any
 new disputes. Which should be never.</li>
 <li>And we don't accept parablocks that have open disputes or disputes that have concluded against the candidate. It's
 important to import dispute statements before backing, but this is already the case as disputes are imported before
@@ -2430,7 +2430,7 @@ backed candidate may end up with votes count less than <code>minimum_backing_vot
 In this case the whole candidate is dropped otherwise it will be rejected by <code>process_candidates</code> from pallet inclusion.
 All checks related to backed candidates are implemented in <code>sanitize_backed_candidates</code> and
 <code>filter_backed_statements_from_disabled_validators</code>.</p>
-<footer id="last-change">Last change: 2024-01-18, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/f8954093b4">f8954093b4</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dmp-pallet"><a class="header" href="#dmp-pallet">DMP Pallet</a></h1>
+<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dmp-pallet"><a class="header" href="#dmp-pallet">DMP Pallet</a></h1>
 <p>A module responsible for Downward Message Processing (DMP). See <a href="runtime/../messaging.html">Messaging Overview</a> for more details.</p>
 <h2 id="storage-8"><a class="header" href="#storage-8">Storage</a></h2>
 <p>Storage layout required for implementation of DMP.</p>
