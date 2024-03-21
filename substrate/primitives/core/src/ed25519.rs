@@ -57,13 +57,6 @@ impl TraitPublic for Public {}
 
 impl Derive for Public {}
 
-#[cfg(feature = "full_crypto")]
-impl From<Pair> for Public {
-	fn from(x: Pair) -> Self {
-		x.public()
-	}
-}
-
 #[cfg(feature = "std")]
 impl std::str::FromStr for Public {
 	type Err = crate::crypto::PublicError;

@@ -144,26 +144,6 @@ pub struct PairedCryptoTag;
 pub type Public<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
 	PublicBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
 
-// TODO: @davxy what about a blanket implementation?
-// impl<
-// 		LeftPair: PairT,
-// 		RightPair: PairT,
-// 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
-// 		const SIGNATURE_LEN: usize,
-// 		SubTag: PairedCryptoSubTagBound,
-// 	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>>
-// 	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
-// where
-// 	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>:
-// 		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>>,
-// {
-// 	fn from(
-// 		x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>,
-// 	) -> Self {
-// 		x.public()
-// 	}
-// }
-
 #[cfg(feature = "std")]
 impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> std::fmt::Display
 	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>

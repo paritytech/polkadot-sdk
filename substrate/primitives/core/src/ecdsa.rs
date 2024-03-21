@@ -103,12 +103,6 @@ impl From<VerifyingKey> for Public {
 	}
 }
 
-impl From<Pair> for Public {
-	fn from(x: Pair) -> Self {
-		x.public()
-	}
-}
-
 #[cfg(feature = "std")]
 impl std::fmt::Display for Public {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

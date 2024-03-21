@@ -120,12 +120,6 @@ impl<T: BlsBound> TraitPublic for Public<T> {}
 
 impl<T> Derive for Public<T> {}
 
-impl<T: BlsBound> From<Pair<T>> for Public<T> {
-	fn from(x: Pair<T>) -> Self {
-		x.public()
-	}
-}
-
 #[cfg(feature = "std")]
 impl<T: BlsBound> std::str::FromStr for Public<T> {
 	type Err = crate::crypto::PublicError;
