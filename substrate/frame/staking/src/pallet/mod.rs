@@ -1511,16 +1511,19 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			// Remove all staking-related information and lock.
-			let killed = Self::kill_stash(&stash, num_slashing_spans);
-
-			if killed.is_err() && !force_clean {
-				return killed;
+			if let Err(err) = Self::kill_stash(&stash, num_slashing_spans) {
+				if !force_clean {
+					return Err(err);
+				}
+			// proceed to force clean.
+			} else {
+				return Ok(());
 			}
 
 			// From here on, we will force unstake the stash by manually cleaning up all the
 			// storage items associated with the stash's ledger.
 
-			// Double check that stash is corrupted before proceeding.
+			// But first, double check that stash is corrupted before proceeding.
 			let controller = Bonded::<T>::get(&stash).ok_or(Error::<T>::NotStash)?;
 			let maybe_ledger = Ledger::<T>::get(&controller);
 			ensure!(
@@ -1528,7 +1531,7 @@ pub mod pallet {
 				Error::<T>::CannotResetLedger,
 			);
 
-			// TODO: clean based on num_slashing_spans (check the ledger.kill)
+			// TODO: clean slashing related data.
 			T::Currency::remove_lock(crate::STAKING_ID, &stash);
 			Bonded::<T>::remove(&stash);
 			Payee::<T>::remove(&stash);
