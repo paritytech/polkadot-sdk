@@ -17,18 +17,12 @@
 
 //! Simple ECDSA secp256k1 API.
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
-use sp_runtime_interface::pass_by::PassByInner;
-
-use core::hash::Hash;
-
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	impl_byte_array_types, impl_crypto_type, ByteArray, CryptoTypeId, Derive, DeriveError,
-	DeriveJunction, FromEntropy, Pair as TraitPair, Public as TraitPublic, SecretStringError,
-	Signature as TraitSignature, UncheckedFrom,
+	impl_crypto_type, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
+	Public as TraitPublic, PublicBytes, SecretStringError, Signature as TraitSignature,
+	SignatureBytes,
 };
 
 #[cfg(not(feature = "std"))]
@@ -57,37 +51,16 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 /// The byte length of signature
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
+#[doc(hidden)]
+pub struct EcdsaTag;
+
 /// The secret seed.
 ///
 /// The raw secret seed, which can be used to create the `Pair`.
 type Seed = [u8; 32];
 
 /// The ECDSA compressed public key.
-#[derive(
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	PassByInner,
-	MaxEncodedLen,
-	TypeInfo,
-	Eq,
-	PartialEq,
-	PartialOrd,
-	Ord,
-	Hash,
-)]
-pub struct Public(pub [u8; PUBLIC_KEY_SERIALIZED_SIZE]);
-
-impl_byte_array_types!(Public);
-
-impl FromEntropy for Public {
-	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
-		let mut result = Self([0u8; PUBLIC_KEY_SERIALIZED_SIZE]);
-		input.read(&mut result.0[..])?;
-		Ok(result)
-	}
-}
+pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, EcdsaTag>;
 
 impl Public {
 	/// Create a new instance from the given full public key.
@@ -118,18 +91,15 @@ impl Derive for Public {}
 #[cfg(feature = "std")]
 impl From<PublicKey> for Public {
 	fn from(pubkey: PublicKey) -> Self {
-		Self(pubkey.serialize())
+		Self::from(pubkey.serialize())
 	}
 }
 
 #[cfg(not(feature = "std"))]
 impl From<VerifyingKey> for Public {
 	fn from(pubkey: VerifyingKey) -> Self {
-		Self::unchecked_from(
-			pubkey.to_sec1_bytes()[..]
-				.try_into()
-				.expect("valid key is serializable to [u8,33]. qed."),
-		)
+		Self::try_from(&pubkey.to_sec1_bytes()[..])
+			.expect("Valid key is serializable to [u8; 33]. qed.")
 	}
 }
 
@@ -181,12 +151,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
-#[derive(
-	Hash, Clone, Copy, Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq,
-)]
-pub struct Signature(pub [u8; SIGNATURE_SERIALIZED_SIZE]);
-
-impl_byte_array_types!(Signature);
+pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, EcdsaTag>;
 
 impl TraitSignature for Signature {}
 
@@ -237,7 +202,8 @@ impl Signature {
 		{
 			let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
 			let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
-			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
+			let message =
+				Message::from_digest_slice(message).expect("Message is a 32 bytes hash; qed");
 			SECP256K1.recover_ecdsa(&message, &sig).ok().map(Public::from)
 		}
 
@@ -274,6 +240,7 @@ impl From<RecoverableSignature> for Signature {
 
 /// Derive a single hard junction.
 fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
+	use codec::Encode;
 	("Secp256k1HDKD", secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
@@ -375,15 +342,18 @@ impl Pair {
 	pub fn sign_prehashed(&self, message: &[u8; 32]) -> Signature {
 		#[cfg(feature = "std")]
 		{
-			let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
+			let message =
+				Message::from_digest_slice(message).expect("Message is a 32 bytes hash; qed");
 			SECP256K1.sign_ecdsa_recoverable(&message, &self.secret).into()
 		}
 
 		#[cfg(not(feature = "std"))]
 		{
+			// Signing fails only if the `message` number of bytes is less than the field length
+			// (unfallible as we're using a fixed message length of 32).
 			self.secret
 				.sign_prehash_recoverable(message)
-				.expect("signing may not fail (???). qed.")
+				.expect("Signing can't fail when using 32 bytes message hash. qed.")
 				.into()
 		}
 	}

@@ -31,7 +31,7 @@ use sp_consensus_beefy::{
 };
 use sp_runtime::DigestItem;
 
-use crate::{mock::*, Call, Config, Error, Weight, WeightInfo};
+use crate::{self as beefy, mock::*, Call, Config, Error, Weight, WeightInfo};
 
 fn init_block(block: u64) {
 	System::set_block_number(block);
@@ -48,15 +48,15 @@ fn genesis_session_initializes_authorities() {
 	let want = authorities.clone();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let authorities = Beefy::authorities();
+		let authorities = beefy::Authorities::<Test>::get();
 
 		assert_eq!(authorities.len(), 4);
 		assert_eq!(want[0], authorities[0]);
 		assert_eq!(want[1], authorities[1]);
 
-		assert!(Beefy::validator_set_id() == 0);
+		assert!(beefy::ValidatorSetId::<Test>::get() == 0);
 
-		let next_authorities = Beefy::next_authorities();
+		let next_authorities = beefy::NextAuthorities::<Test>::get();
 
 		assert_eq!(next_authorities.len(), 4);
 		assert_eq!(want[0], next_authorities[0]);
@@ -70,11 +70,11 @@ fn session_change_updates_authorities() {
 	let want_validators = authorities.clone();
 
 	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
-		assert!(0 == Beefy::validator_set_id());
+		assert!(0 == beefy::ValidatorSetId::<Test>::get());
 
 		init_block(1);
 
-		assert!(1 == Beefy::validator_set_id());
+		assert!(1 == beefy::ValidatorSetId::<Test>::get());
 
 		let want = beefy_log(ConsensusLog::AuthoritiesChange(
 			ValidatorSet::new(want_validators, 1).unwrap(),
@@ -85,7 +85,7 @@ fn session_change_updates_authorities() {
 
 		init_block(2);
 
-		assert!(2 == Beefy::validator_set_id());
+		assert!(2 == beefy::ValidatorSetId::<Test>::get());
 
 		let want = beefy_log(ConsensusLog::AuthoritiesChange(
 			ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(4)], 2).unwrap(),
@@ -101,7 +101,7 @@ fn session_change_updates_next_authorities() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
 	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
-		let next_authorities = Beefy::next_authorities();
+		let next_authorities = beefy::NextAuthorities::<Test>::get();
 
 		assert_eq!(next_authorities.len(), 4);
 		assert_eq!(want[0], next_authorities[0]);
@@ -111,7 +111,7 @@ fn session_change_updates_next_authorities() {
 
 		init_block(1);
 
-		let next_authorities = Beefy::next_authorities();
+		let next_authorities = beefy::NextAuthorities::<Test>::get();
 
 		assert_eq!(next_authorities.len(), 2);
 		assert_eq!(want[1], next_authorities[0]);
@@ -177,7 +177,7 @@ fn cleans_up_old_set_id_session_mappings() {
 		// we should have a session id mapping for all the set ids from
 		// `max_set_id_session_entries` eras we have observed
 		for i in 1..=max_set_id_session_entries {
-			assert!(Beefy::session_for_set(i as u64).is_some());
+			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		// go through another `max_set_id_session_entries` sessions
@@ -185,12 +185,12 @@ fn cleans_up_old_set_id_session_mappings() {
 
 		// we should keep tracking the new mappings for new sessions
 		for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
-			assert!(Beefy::session_for_set(i as u64).is_some());
+			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		// but the old ones should have been pruned by now
 		for i in 1..=max_set_id_session_entries {
-			assert!(Beefy::session_for_set(i as u64).is_none());
+			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_none());
 		}
 	});
 }
@@ -804,7 +804,7 @@ fn set_new_genesis_works() {
 		assert_ok!(Beefy::set_new_genesis(RuntimeOrigin::root(), new_genesis_delay,));
 		let expected = System::block_number() + new_genesis_delay;
 		// verify new genesis was set
-		assert_eq!(Beefy::genesis_block(), Some(expected));
+		assert_eq!(beefy::GenesisBlock::<Test>::get(), Some(expected));
 
 		// setting delay < 1 should fail
 		assert_err!(

@@ -55,7 +55,6 @@ use sp_core::{
 use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
-	generic::{ExtrinsicFormat, Preamble},
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	OpaqueExtrinsic,
 };
@@ -300,10 +299,10 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 
 		let signed = self.keyring.sign(
 			CheckedExtrinsic {
-				format: ExtrinsicFormat::Signed(
+				signed: Some((
 					sender,
-					tx_ext(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
-				),
+					signed_extra(0, kitchensink_runtime::ExistentialDeposit::get() + 1),
+				)),
 				function: match self.content.block_type {
 					BlockType::RandomTransfersKeepAlive =>
 						RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
@@ -567,11 +566,11 @@ impl BenchKeyring {
 		tx_version: u32,
 		genesis_hash: [u8; 32],
 	) -> UncheckedExtrinsic {
-		match xt.format {
-			ExtrinsicFormat::Signed(signed, tx_ext) => {
+		match xt.signed {
+			Some((signed, extra)) => {
 				let payload = (
 					xt.function,
-					tx_ext.clone(),
+					extra.clone(),
 					spec_version,
 					tx_version,
 					genesis_hash,
@@ -586,20 +585,11 @@ impl BenchKeyring {
 					}
 				});
 				UncheckedExtrinsic {
-					preamble: Preamble::Signed(
-						sp_runtime::MultiAddress::Id(signed),
-						signature,
-						tx_ext,
-					),
+					signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
 					function: payload.0,
 				}
 			},
-			ExtrinsicFormat::Bare =>
-				UncheckedExtrinsic { preamble: Preamble::Bare, function: xt.function },
-			ExtrinsicFormat::General(tx_ext) => UncheckedExtrinsic {
-				preamble: sp_runtime::generic::Preamble::General(tx_ext),
-				function: xt.function,
-			},
+			None => UncheckedExtrinsic { signature: None, function: xt.function },
 		}
 	}
 

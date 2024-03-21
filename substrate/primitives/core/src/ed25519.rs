@@ -17,30 +17,21 @@
 
 //! Simple Ed25519 API.
 
-use sp_std::vec::Vec;
-
-use crate::{
-	crypto::{impl_byte_array_types, impl_crypto_type, ByteArray},
-	hash::{H256, H512},
-};
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
-
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoTypeId, Derive, DeriveError, DeriveJunction, FromEntropy, Pair as TraitPair,
-	Public as TraitPublic, SecretStringError, Signature as TraitSignature, UncheckedFrom,
+	impl_crypto_type, ByteArray, CryptoTypeId, Derive, DeriveError, DeriveJunction,
+	Pair as TraitPair, Public as TraitPublic, PublicBytes, SecretStringError,
+	Signature as TraitSignature, SignatureBytes,
 };
-use core::{convert::TryFrom, hash::Hash};
+
 use ed25519_zebra::{SigningKey, VerificationKey};
 
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-
-use sp_runtime_interface::pass_by::PassByInner;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
+use sp_std::vec::Vec;
 
 /// An identifier used to match public keys against ed25519 keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ed25");
@@ -56,53 +47,20 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize = 64;
 /// will need it later (such as for HDKD).
 type Seed = [u8; 32];
 
+#[doc(hidden)]
+pub struct Ed25519Tag;
+
 /// A public key.
-#[derive(
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	PassByInner,
-	MaxEncodedLen,
-	TypeInfo,
-	Hash,
-)]
-pub struct Public(pub [u8; PUBLIC_KEY_SERIALIZED_SIZE]);
+pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 
-impl_byte_array_types!(Public);
+impl TraitPublic for Public {}
 
-impl Public {
-	/// A new instance from an H256.
-	///
-	/// NOTE: No checking goes on to ensure this is a real public key. Only use it if
-	/// you are certain that the array actually is a pubkey. GIGO!
-	pub fn from_h256(x: H256) -> Self {
-		Public(x.into())
-	}
-}
-
-impl FromEntropy for Public {
-	fn from_entropy(input: &mut impl codec::Input) -> Result<Self, codec::Error> {
-		let mut result = Self([0u8; PUBLIC_KEY_SERIALIZED_SIZE]);
-		input.read(&mut result.0[..])?;
-		Ok(result)
-	}
-}
+impl Derive for Public {}
 
 #[cfg(feature = "full_crypto")]
 impl From<Pair> for Public {
 	fn from(x: Pair) -> Self {
 		x.public()
-	}
-}
-
-impl From<Public> for H256 {
-	fn from(x: Public) -> Self {
-		x.0.into()
 	}
 }
 
@@ -112,12 +70,6 @@ impl std::str::FromStr for Public {
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		Self::from_ss58check(s)
-	}
-}
-
-impl UncheckedFrom<H256> for Public {
-	fn unchecked_from(x: H256) -> Self {
-		Public::from_h256(x)
 	}
 }
 
@@ -162,25 +114,10 @@ impl<'de> Deserialize<'de> for Public {
 	}
 }
 
-/// A signature (a 512-bit value).
-#[derive(
-	Clone, Copy, Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash,
-)]
-pub struct Signature(pub [u8; 64]);
-
-impl_byte_array_types!(Signature);
+/// A signature.
+pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
 
 impl TraitSignature for Signature {}
-
-impl Signature {
-	/// A new instance from an H512.
-	///
-	/// NOTE: No checking goes on to ensure this is a real signature. Only use it if
-	/// you are certain that the array actually is a signature. GIGO!
-	pub fn from_h512(v: H512) -> Signature {
-		Signature(v.into())
-	}
-}
 
 #[cfg(feature = "serde")]
 impl Serialize for Signature {
@@ -205,12 +142,6 @@ impl<'de> Deserialize<'de> for Signature {
 	}
 }
 
-impl From<Signature> for H512 {
-	fn from(v: Signature) -> H512 {
-		H512::from(v.0)
-	}
-}
-
 impl sp_std::fmt::Debug for Signature {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
@@ -223,10 +154,6 @@ impl sp_std::fmt::Debug for Signature {
 	}
 }
 
-impl TraitPublic for Public {}
-
-impl Derive for Public {}
-
 /// A key pair.
 #[derive(Copy, Clone)]
 pub struct Pair {
@@ -236,6 +163,7 @@ pub struct Pair {
 
 /// Derive a single hard junction.
 fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
+	use codec::Encode;
 	("Ed25519HDKD", secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
@@ -271,7 +199,7 @@ impl TraitPair for Pair {
 
 	/// Get the public key.
 	fn public(&self) -> Public {
-		Public(self.public.into())
+		Public::from_raw(self.public.into())
 	}
 
 	/// Sign a message.
