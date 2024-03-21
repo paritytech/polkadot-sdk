@@ -884,7 +884,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		// TODO: Check if this doc works.
 		/// Underlying logic for both [`execute_blob`] and [`execute`].
 		fn execute_base(
 			origin_location: Location,
