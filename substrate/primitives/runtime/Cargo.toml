@@ -17,7 +17,6 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-tuplex = { version = "0.1.2", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 either = { version = "1.5", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
@@ -68,7 +67,6 @@ std = [
 	"sp-std/std",
 	"sp-tracing/std",
 	"sp-weights/std",
-	"tuplex/std",
 ]
 
 # Serde support without relying on std features.

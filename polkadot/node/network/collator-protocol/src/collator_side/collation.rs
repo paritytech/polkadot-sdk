@@ -27,6 +27,7 @@ use polkadot_node_network_protocol::{
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
+use polkadot_node_subsystem::messages::ParentHeadData;
 use polkadot_primitives::{CandidateHash, CandidateReceipt, Hash, Id as ParaId};
 
 /// The status of a collation as seen from the collator.
@@ -59,10 +60,10 @@ impl CollationStatus {
 pub struct Collation {
 	/// Candidate receipt.
 	pub receipt: CandidateReceipt,
-	/// Parent head-data hash.
-	pub parent_head_data_hash: Hash,
 	/// Proof to verify the state transition of the parachain.
 	pub pov: PoV,
+	/// Parent head-data (or just hash).
+	pub parent_head_data: ParentHeadData,
 	/// Collation status.
 	pub status: CollationStatus,
 }
