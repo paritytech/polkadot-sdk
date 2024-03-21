@@ -1078,7 +1078,7 @@ impl paras_registrar::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type OnSwap = (Crowdloan, Slots, Self);
+	type OnSwap = (Crowdloan, Slots, SwapLeases);
 	type ParaDeposit = ParaDeposit;
 	type DataDepositPerByte = DataDepositPerByte;
 	type WeightInfo = weights::runtime_common_paras_registrar::WeightInfo<Runtime>;
@@ -1307,7 +1307,8 @@ impl pallet_asset_rate::Config for Runtime {
 }
 
 // Notify `coretime` pallet when a lease swap occurs
-impl OnSwap for Runtime {
+pub struct SwapLeases;
+impl OnSwap for SwapLeases {
 	fn on_swap(one: ParaId, other: ParaId) {
 		coretime::Pallet::<Runtime>::on_legacy_lease_swap(one, other);
 	}
