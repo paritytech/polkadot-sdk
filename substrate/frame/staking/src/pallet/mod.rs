@@ -91,10 +91,7 @@ pub mod pallet {
 				Self::AccountId,
 				Moment = BlockNumberFor<Self>,
 				Balance = Self::CurrencyBalance,
-			> + InspectLockableCurrency<
-				Self::AccountId,
-				Lock = pallet_balances::BalanceLock<Self::CurrencyBalance>,
-			>;
+			> + InspectLockableCurrency<Self::AccountId>;
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
@@ -1998,8 +1995,8 @@ pub mod pallet {
 		/// be reset with the current values.
 		///
 		/// Upon successful execution, this extrinsic will *recreate* the ledger based on its past
-		/// state and/or the `maybe_controller`, `maybe_total` and `maybe_unlocking` and
-		/// `maybe_payee` input parameters.
+		/// state and/or the `maybe_controller`, `maybe_total` and `maybe_unlocking` input
+		/// parameters.
 		///
 		/// NOTE: if the stash does not have an associated ledger and the `maybe_nominations` or
 		/// `maybe_validator_prefs` are not given, the ledger will be reset as a nominator.
@@ -2027,22 +2024,21 @@ pub mod pallet {
 
 			// get new ledger data.
 			let new_controller = maybe_controller.unwrap_or(controller);
+
 			let new_total = maybe_total.unwrap_or_else(|| {
-				<T::Currency as InspectLockableCurrency<T::AccountId>>::get_lock(
+				<T::Currency as InspectLockableCurrency<T::AccountId>>::balance_locked(
 					crate::STAKING_ID,
 					&stash,
 				)
-				.map(|l| l.amount)
-				.unwrap_or(Zero::zero())
 			});
 			let new_unlocking = maybe_unlocking
 				.unwrap_or_else(|| maybe_ledger.map(|l| l.unlocking).unwrap_or(Default::default()));
 
 			// reset ledger state.
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
+			ledger.total = new_total;
 			ledger.unlocking = new_unlocking;
 			ledger.controller = Some(new_controller);
-			ledger.total = new_total;
 			ledger.update()?;
 
 			Ok(Pays::No.into())

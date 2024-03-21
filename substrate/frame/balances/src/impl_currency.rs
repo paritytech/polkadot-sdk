@@ -920,9 +920,13 @@ where
 }
 
 impl<T: Config<I>, I: 'static> InspectLockableCurrency<T::AccountId> for Pallet<T, I> {
-	type Lock = BalanceLock<T::Balance>;
-
-	fn get_lock(id: LockIdentifier, who: &T::AccountId) -> Option<Self::Lock> {
-		Self::locks(who).into_iter().filter(|l| l.id == id).collect::<Vec<_>>().pop()
+	fn balance_locked(id: LockIdentifier, who: &T::AccountId) -> Self::Balance {
+		Self::locks(who)
+			.into_iter()
+			.filter(|l| l.id == id)
+			.collect::<Vec<_>>()
+			.pop()
+			.map(|l| l.amount)
+			.unwrap_or(Zero::zero())
 	}
 }

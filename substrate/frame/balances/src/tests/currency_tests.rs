@@ -98,33 +98,11 @@ fn inspect_lock_should_work() {
 			Balances::set_lock(ID_2, &1, 10, WithdrawReasons::all());
 			Balances::set_lock(ID_1, &2, 20, WithdrawReasons::all());
 
-			assert_eq!(
-				<Balances as InspectLockableCurrency<_>>::get_lock(ID_1, &1),
-				Some(crate::BalanceLock {
-					id: ID_1,
-					amount: 10,
-					reasons: WithdrawReasons::all().into()
-				})
-			);
-			assert_eq!(
-				<Balances as InspectLockableCurrency<_>>::get_lock(ID_2, &1),
-				Some(crate::BalanceLock {
-					id: ID_2,
-					amount: 10,
-					reasons: WithdrawReasons::all().into()
-				})
-			);
-			assert_eq!(
-				<Balances as InspectLockableCurrency<_>>::get_lock(ID_1, &2),
-				Some(crate::BalanceLock {
-					id: ID_1,
-					amount: 20,
-					reasons: WithdrawReasons::all().into()
-				})
-			);
-
-			assert_eq!(<Balances as InspectLockableCurrency<_>>::get_lock(ID_2, &2), None,);
-			assert_eq!(<Balances as InspectLockableCurrency<_>>::get_lock(ID_1, &3), None,);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_1, &1), 10);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_2, &1), 10);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_1, &2), 20);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_2, &2), 0);
+			assert_eq!(<Balances as InspectLockableCurrency<_>>::balance_locked(ID_1, &3), 0);
 		})
 }
 

@@ -7336,7 +7336,7 @@ mod bad_state_recovery {
 
 			let ledger_before_corruption =
 				StakingLedger::<Test>::get(StakingAccount::Stash(444)).unwrap();
-			let lock_before_corruption = Balances::get_lock(crate::STAKING_ID, &444).unwrap();
+			let locked_before_corruption = Balances::balance_locked(crate::STAKING_ID, &444);
 
 			// remove ledger 444 (controlled by 555) to simulate a corruption with deletion.
 			assert_eq!(Bonded::<Test>::get(&444), Some(555));
@@ -7368,10 +7368,7 @@ mod bad_state_recovery {
 				StakingLedger::<Test>::get(StakingAccount::Controller(555)).unwrap()
 			);
 			// reset lock is the same before corruption.
-			assert_eq!(
-				lock_before_corruption,
-				Balances::get_lock(crate::STAKING_ID, &444).unwrap()
-			);
+			assert_eq!(locked_before_corruption, Balances::balance_locked(crate::STAKING_ID, &444));
 
 			// ledger is the same before corruption.
 			assert_eq!(ledger_reset, ledger_before_corruption);
