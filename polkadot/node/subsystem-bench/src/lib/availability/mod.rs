@@ -357,7 +357,7 @@ pub async fn benchmark_availability_write(
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();
-		let relay_block_hash = block_info.hash.clone();
+		let relay_block_hash = block_info.hash;
 		env.import_block(block_info.clone()).await;
 
 		// Inform bitfield distribution about our view of current test block
@@ -392,7 +392,7 @@ pub async fn benchmark_availability_write(
 					None
 				}
 			})
-			.filter_map(|v| v);
+			.flatten();
 
 		gum::info!(target: LOG_TARGET, "Waiting for all emulated peers to receive their chunk from us ...");
 
