@@ -73,6 +73,7 @@ use std::time::Instant;
 
 use multi_view_listener::MultiViewListener;
 use sp_blockchain::{HashAndNumber, TreeRoute};
+use sp_runtime::transaction_validity::TransactionValidityError;
 
 mod multi_view_listener;
 mod view_revalidation;
@@ -301,7 +302,7 @@ where
 				.chain(std::iter::once(tree_route.common_block()))
 				.chain(tree_route.retracted().iter().rev())
 				.rev()
-				.find(|i| views.contains_key(&i.hash))
+				.find(|block| views.contains_key(&block.hash))
 		};
 		best_view.map(|h| views.get(&h.hash).expect("best_hash is an existing key.qed").clone())
 	}
@@ -464,6 +465,10 @@ where
 
 	pub fn has_view(&self, hash: Block::Hash) -> bool {
 		self.views.views.read().get(&hash).is_some()
+	}
+
+	pub fn mempool_len(&self) -> (usize, usize) {
+		(self.xts.read().len(), self.watched_xts.read().len())
 	}
 }
 
@@ -888,6 +893,7 @@ where
 
 		let mut view = View::new(self.api.clone(), at.clone());
 
+		// we need to install listeners first
 		self.update_view(&mut view).await;
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
 
@@ -910,7 +916,7 @@ where
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
 	) -> Option<Arc<View<PoolApi>>> {
-		log::info!("build_cloned_view: {:?}", at.hash);
+		log::info!("build_cloned_view: for: {:?} from: {:?}", at.hash, origin_view.at.hash);
 		let new_block_hash = at.hash;
 		let mut view = View { at: at.clone(), pool: origin_view.pool.deep_clone() };
 
@@ -934,6 +940,11 @@ where
 
 		future::join_all(futs).await;
 
+		//In this order we won't send additional Ready for each view
+		//tests affected if swapped:
+		// - fap_watcher_fork_retract_and_finalize
+		// - fap_watcher_switching_fork_multiple_times_works
+		// todo: can be swapped to align with new create_new_view_at, once events are merged.
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
 		self.update_view(&mut view).await;
 		let view = Arc::from(view);
@@ -977,6 +988,11 @@ where
 						let watcher = result.map_or_else(
 							|error| {
 								let error = error.into_pool_error();
+								log::info!(
+									"update_view: submit_and_watch result: {:?} {:?}",
+									tx_hash,
+									error,
+								);
 								match error {
 									// We need to install listener for stale xt: in case of
 									// transaction being already included in the block we want to
@@ -984,8 +1000,11 @@ where
 									Ok(Error::InvalidTransaction(InvalidTransaction::Stale)) =>
 										Some(view.pool.validated_pool().create_watcher(tx_hash)),
 									//ignore
-									Ok(Error::TemporarilyBanned | Error::AlreadyImported(_)) =>
-										None,
+									Ok(
+										Error::TemporarilyBanned |
+										Error::AlreadyImported(_) |
+										Error::InvalidTransaction(InvalidTransaction::Custom(_)),
+									) => None,
 									//todo: panic while testing
 									_ => {
 										panic!(
@@ -1024,7 +1043,7 @@ where
 		tree_route: &TreeRoute<Block>,
 		hash_and_number: HashAndNumber<Block>,
 	) {
-		log::info!(target: LOG_TARGET, "update_view tree_route: {tree_route:?}");
+		log::info!(target: LOG_TARGET, "update_view_with_fork tree_route: {tree_route:?}");
 		let api = self.api.clone();
 
 		// We keep track of everything we prune so that later we won't add
@@ -1092,7 +1111,8 @@ where
 				// });
 			}
 
-			view.pool
+			let x = view
+				.pool
 				.resubmit_at(
 					&hash_and_number,
 					// These transactions are coming from retracted blocks, we should
@@ -1101,6 +1121,7 @@ where
 					resubmit_transactions,
 				)
 				.await;
+			log::info!("retracted resubmit: {:#?}", x);
 		}
 	}
 
@@ -1132,7 +1153,95 @@ where
 				Ok(Some(n)) => v.at.number > n,
 			})
 		}
+
+		// todo: async!
+		// self.revalidation_queue.purge_transactions_later();
+		self.purge_transactions(finalized_hash).await;
 		log::info!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
+	}
+
+	async fn purge_transactions(&self, finalized_block: Block::Hash) {
+		// xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
+		// watched_xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
+
+		let xts = self
+			.xts
+			.read()
+			.clone()
+			.into_iter()
+			.map(|xt| (self.api.hash_and_length(&xt).0, xt))
+			.collect::<Vec<_>>();
+
+		let xts_watched = self
+			.watched_xts
+			.read()
+			.clone()
+			.into_iter()
+			.map(|xt| (self.api.hash_and_length(&xt).0, xt))
+			.collect::<Vec<_>>();
+
+		// 	todo: source
+		let source = TransactionSource::External;
+
+		let validation_results = futures::future::join_all(xts.into_iter().map(|(xt_hash, xt)| {
+			self.api
+				.validate_transaction(finalized_block, source, xt)
+				.map(move |validation_result| (xt_hash, validation_result))
+		}))
+		.await;
+		let validation_results_watched =
+			futures::future::join_all(xts_watched.into_iter().map(|(xt_hash, xt)| {
+				self.api
+					.validate_transaction(finalized_block, source, xt)
+					.map(move |validation_result| (xt_hash, validation_result))
+			}))
+			.await;
+
+		let mut invalid_hashes = Vec::new();
+		let mut invalid_hashes_watched = Vec::new();
+
+		for (xt_hash, validation_result) in validation_results {
+			match validation_result {
+				Ok(Ok(_)) |
+				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {},
+				Err(_) |
+				Ok(Err(TransactionValidityError::Unknown(_))) |
+				Ok(Err(TransactionValidityError::Invalid(_))) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"[{:?}]: Purging: invalid: {:?}",
+						xt_hash,
+						validation_result,
+					);
+					invalid_hashes.push(xt_hash);
+				},
+			}
+		}
+		for (xt_hash, validation_result) in validation_results_watched {
+			match validation_result {
+				Ok(Ok(_)) |
+				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {},
+				Err(_) |
+				Ok(Err(TransactionValidityError::Unknown(_))) |
+				Ok(Err(TransactionValidityError::Invalid(_))) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"[{:?}]: Purging: invalid: {:?}",
+						xt_hash,
+						validation_result,
+					);
+					invalid_hashes_watched.push(xt_hash);
+				},
+			}
+		}
+
+		self.xts
+			.write()
+			.retain(|xt| !invalid_hashes.contains(&self.api.hash_and_length(xt).0));
+
+		self.watched_xts
+			.write()
+			.retain(|xt| !invalid_hashes_watched.contains(&self.api.hash_and_length(xt).0));
 	}
 }
 
