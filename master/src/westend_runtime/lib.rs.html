@@ -2787,6 +2787,79 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2640" id="2640">2640</a>
 <a href="#2641" id="2641">2641</a>
 <a href="#2642" id="2642">2642</a>
+<a href="#2643" id="2643">2643</a>
+<a href="#2644" id="2644">2644</a>
+<a href="#2645" id="2645">2645</a>
+<a href="#2646" id="2646">2646</a>
+<a href="#2647" id="2647">2647</a>
+<a href="#2648" id="2648">2648</a>
+<a href="#2649" id="2649">2649</a>
+<a href="#2650" id="2650">2650</a>
+<a href="#2651" id="2651">2651</a>
+<a href="#2652" id="2652">2652</a>
+<a href="#2653" id="2653">2653</a>
+<a href="#2654" id="2654">2654</a>
+<a href="#2655" id="2655">2655</a>
+<a href="#2656" id="2656">2656</a>
+<a href="#2657" id="2657">2657</a>
+<a href="#2658" id="2658">2658</a>
+<a href="#2659" id="2659">2659</a>
+<a href="#2660" id="2660">2660</a>
+<a href="#2661" id="2661">2661</a>
+<a href="#2662" id="2662">2662</a>
+<a href="#2663" id="2663">2663</a>
+<a href="#2664" id="2664">2664</a>
+<a href="#2665" id="2665">2665</a>
+<a href="#2666" id="2666">2666</a>
+<a href="#2667" id="2667">2667</a>
+<a href="#2668" id="2668">2668</a>
+<a href="#2669" id="2669">2669</a>
+<a href="#2670" id="2670">2670</a>
+<a href="#2671" id="2671">2671</a>
+<a href="#2672" id="2672">2672</a>
+<a href="#2673" id="2673">2673</a>
+<a href="#2674" id="2674">2674</a>
+<a href="#2675" id="2675">2675</a>
+<a href="#2676" id="2676">2676</a>
+<a href="#2677" id="2677">2677</a>
+<a href="#2678" id="2678">2678</a>
+<a href="#2679" id="2679">2679</a>
+<a href="#2680" id="2680">2680</a>
+<a href="#2681" id="2681">2681</a>
+<a href="#2682" id="2682">2682</a>
+<a href="#2683" id="2683">2683</a>
+<a href="#2684" id="2684">2684</a>
+<a href="#2685" id="2685">2685</a>
+<a href="#2686" id="2686">2686</a>
+<a href="#2687" id="2687">2687</a>
+<a href="#2688" id="2688">2688</a>
+<a href="#2689" id="2689">2689</a>
+<a href="#2690" id="2690">2690</a>
+<a href="#2691" id="2691">2691</a>
+<a href="#2692" id="2692">2692</a>
+<a href="#2693" id="2693">2693</a>
+<a href="#2694" id="2694">2694</a>
+<a href="#2695" id="2695">2695</a>
+<a href="#2696" id="2696">2696</a>
+<a href="#2697" id="2697">2697</a>
+<a href="#2698" id="2698">2698</a>
+<a href="#2699" id="2699">2699</a>
+<a href="#2700" id="2700">2700</a>
+<a href="#2701" id="2701">2701</a>
+<a href="#2702" id="2702">2702</a>
+<a href="#2703" id="2703">2703</a>
+<a href="#2704" id="2704">2704</a>
+<a href="#2705" id="2705">2705</a>
+<a href="#2706" id="2706">2706</a>
+<a href="#2707" id="2707">2707</a>
+<a href="#2708" id="2708">2708</a>
+<a href="#2709" id="2709">2709</a>
+<a href="#2710" id="2710">2710</a>
+<a href="#2711" id="2711">2711</a>
+<a href="#2712" id="2712">2712</a>
+<a href="#2713" id="2713">2713</a>
+<a href="#2714" id="2714">2714</a>
+<a href="#2715" id="2715">2715</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2806,7 +2879,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! The Westend runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-</span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit.
+</span><span class="comment">// `#[frame_support::runtime]!` does a lot of recursion and requires us to increase the limit.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;512&quot;</span>]
 
 </span><span class="kw">use </span>authority_discovery_primitives::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
@@ -2816,7 +2889,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 <span class="kw">use </span>frame_support::{
-	construct_runtime, derive_impl,
+	derive_impl,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
@@ -4203,128 +4276,201 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
-<span class="macro">construct_runtime! </span>{
-	<span class="kw">pub enum </span>Runtime
-	{
-		<span class="comment">// Basic stuff; balances is uncallable initially.
-		</span>System: frame_system = <span class="number">0</span>,
+<span class="attr">#[frame_support::runtime(legacy_ordering)]
+</span><span class="kw">mod </span>runtime {
+	<span class="attr">#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	</span><span class="kw">pub struct </span>Runtime;
 
-		<span class="comment">// Babe must be before session.
-		</span>Babe: pallet_babe = <span class="number">1</span>,
+	<span class="comment">// Basic stuff; balances is uncallable initially.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">0</span>)]
+	</span><span class="kw">pub type </span>System = frame_system;
 
-		Timestamp: pallet_timestamp = <span class="number">2</span>,
-		Indices: pallet_indices = <span class="number">3</span>,
-		Balances: pallet_balances = <span class="number">4</span>,
-		TransactionPayment: pallet_transaction_payment = <span class="number">26</span>,
+	<span class="comment">// Babe must be before session.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">1</span>)]
+	</span><span class="kw">pub type </span>Babe = pallet_babe;
 
-		<span class="comment">// Consensus support.
-		// Authorship must be before session in order to note author in the correct session and era.
-		</span>Authorship: pallet_authorship = <span class="number">5</span>,
-		Staking: pallet_staking = <span class="number">6</span>,
-		Offences: pallet_offences = <span class="number">7</span>,
-		Historical: session_historical = <span class="number">27</span>,
+	<span class="attr">#[runtime::pallet_index(<span class="number">2</span>)]
+	</span><span class="kw">pub type </span>Timestamp = pallet_timestamp;
+	<span class="attr">#[runtime::pallet_index(<span class="number">3</span>)]
+	</span><span class="kw">pub type </span>Indices = pallet_indices;
+	<span class="attr">#[runtime::pallet_index(<span class="number">4</span>)]
+	</span><span class="kw">pub type </span>Balances = pallet_balances;
+	<span class="attr">#[runtime::pallet_index(<span class="number">26</span>)]
+	</span><span class="kw">pub type </span>TransactionPayment = pallet_transaction_payment;
 
-		Session: pallet_session = <span class="number">8</span>,
-		Grandpa: pallet_grandpa = <span class="number">10</span>,
-		AuthorityDiscovery: pallet_authority_discovery = <span class="number">12</span>,
+	<span class="comment">// Consensus support.
+	// Authorship must be before session in order to note author in the correct session and era.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">5</span>)]
+	</span><span class="kw">pub type </span>Authorship = pallet_authorship;
+	<span class="attr">#[runtime::pallet_index(<span class="number">6</span>)]
+	</span><span class="kw">pub type </span>Staking = pallet_staking;
+	<span class="attr">#[runtime::pallet_index(<span class="number">7</span>)]
+	</span><span class="kw">pub type </span>Offences = pallet_offences;
+	<span class="attr">#[runtime::pallet_index(<span class="number">27</span>)]
+	</span><span class="kw">pub type </span>Historical = session_historical;
 
-		<span class="comment">// Utility module.
-		</span>Utility: pallet_utility = <span class="number">16</span>,
+	<span class="attr">#[runtime::pallet_index(<span class="number">8</span>)]
+	</span><span class="kw">pub type </span>Session = pallet_session;
+	<span class="attr">#[runtime::pallet_index(<span class="number">10</span>)]
+	</span><span class="kw">pub type </span>Grandpa = pallet_grandpa;
+	<span class="attr">#[runtime::pallet_index(<span class="number">12</span>)]
+	</span><span class="kw">pub type </span>AuthorityDiscovery = pallet_authority_discovery;
 
-		<span class="comment">// Less simple identity module.
-		</span>Identity: pallet_identity = <span class="number">17</span>,
+	<span class="comment">// Utility module.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">16</span>)]
+	</span><span class="kw">pub type </span>Utility = pallet_utility;
 
-		<span class="comment">// Social recovery module.
-		</span>Recovery: pallet_recovery = <span class="number">18</span>,
+	<span class="comment">// Less simple identity module.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">17</span>)]
+	</span><span class="kw">pub type </span>Identity = pallet_identity;
 
-		<span class="comment">// Vesting. Usable initially, but removed once all vesting is finished.
-		</span>Vesting: pallet_vesting = <span class="number">19</span>,
+	<span class="comment">// Social recovery module.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">18</span>)]
+	</span><span class="kw">pub type </span>Recovery = pallet_recovery;
 
-		<span class="comment">// System scheduler.
-		</span>Scheduler: pallet_scheduler = <span class="number">20</span>,
+	<span class="comment">// Vesting. Usable initially, but removed once all vesting is finished.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">19</span>)]
+	</span><span class="kw">pub type </span>Vesting = pallet_vesting;
 
-		<span class="comment">// Preimage registrar.
-		</span>Preimage: pallet_preimage = <span class="number">28</span>,
+	<span class="comment">// System scheduler.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">20</span>)]
+	</span><span class="kw">pub type </span>Scheduler = pallet_scheduler;
 
-		<span class="comment">// Sudo.
-		</span>Sudo: pallet_sudo = <span class="number">21</span>,
+	<span class="comment">// Preimage registrar.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">28</span>)]
+	</span><span class="kw">pub type </span>Preimage = pallet_preimage;
 
-		<span class="comment">// Proxy module. Late addition.
-		</span>Proxy: pallet_proxy = <span class="number">22</span>,
+	<span class="comment">// Sudo.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">21</span>)]
+	</span><span class="kw">pub type </span>Sudo = pallet_sudo;
 
-		<span class="comment">// Multisig module. Late addition.
-		</span>Multisig: pallet_multisig = <span class="number">23</span>,
+	<span class="comment">// Proxy module. Late addition.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">22</span>)]
+	</span><span class="kw">pub type </span>Proxy = pallet_proxy;
 
-		<span class="comment">// Election pallet. Only works with staking, but placed here to maintain indices.
-		</span>ElectionProviderMultiPhase: pallet_election_provider_multi_phase = <span class="number">24</span>,
+	<span class="comment">// Multisig module. Late addition.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">23</span>)]
+	</span><span class="kw">pub type </span>Multisig = pallet_multisig;
 
-		<span class="comment">// Provides a semi-sorted list of nominators for staking.
-		</span>VoterList: pallet_bags_list::&lt;Instance1&gt; = <span class="number">25</span>,
+	<span class="comment">// Election pallet. Only works with staking, but placed here to maintain indices.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">24</span>)]
+	</span><span class="kw">pub type </span>ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
 
-		<span class="comment">// Nomination pools for staking.
-		</span>NominationPools: pallet_nomination_pools = <span class="number">29</span>,
+	<span class="comment">// Provides a semi-sorted list of nominators for staking.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">25</span>)]
+	</span><span class="kw">pub type </span>VoterList = pallet_bags_list&lt;Instance1&gt;;
 
-		<span class="comment">// Fast unstake pallet: extension to staking.
-		</span>FastUnstake: pallet_fast_unstake = <span class="number">30</span>,
+	<span class="comment">// Nomination pools for staking.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">29</span>)]
+	</span><span class="kw">pub type </span>NominationPools = pallet_nomination_pools;
 
-		<span class="comment">// OpenGov
-		</span>ConvictionVoting: pallet_conviction_voting = <span class="number">31</span>,
-		Referenda: pallet_referenda = <span class="number">32</span>,
-		Origins: pallet_custom_origins = <span class="number">35</span>,
-		Whitelist: pallet_whitelist = <span class="number">36</span>,
+	<span class="comment">// Fast unstake pallet = extension to staking.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">30</span>)]
+	</span><span class="kw">pub type </span>FastUnstake = pallet_fast_unstake;
 
-		<span class="comment">// Treasury
-		</span>Treasury: pallet_treasury = <span class="number">37</span>,
+	<span class="comment">// OpenGov
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">31</span>)]
+	</span><span class="kw">pub type </span>ConvictionVoting = pallet_conviction_voting;
+	<span class="attr">#[runtime::pallet_index(<span class="number">32</span>)]
+	</span><span class="kw">pub type </span>Referenda = pallet_referenda;
+	<span class="attr">#[runtime::pallet_index(<span class="number">35</span>)]
+	</span><span class="kw">pub type </span>Origins = pallet_custom_origins;
+	<span class="attr">#[runtime::pallet_index(<span class="number">36</span>)]
+	</span><span class="kw">pub type </span>Whitelist = pallet_whitelist;
 
-		<span class="comment">// Parachains pallets. Start indices at 40 to leave room.
-		</span>ParachainsOrigin: parachains_origin = <span class="number">41</span>,
-		Configuration: parachains_configuration = <span class="number">42</span>,
-		ParasShared: parachains_shared = <span class="number">43</span>,
-		ParaInclusion: parachains_inclusion = <span class="number">44</span>,
-		ParaInherent: parachains_paras_inherent = <span class="number">45</span>,
-		ParaScheduler: parachains_scheduler = <span class="number">46</span>,
-		Paras: parachains_paras = <span class="number">47</span>,
-		Initializer: parachains_initializer = <span class="number">48</span>,
-		Dmp: parachains_dmp = <span class="number">49</span>,
-		<span class="comment">// RIP Ump 50
-		</span>Hrmp: parachains_hrmp = <span class="number">51</span>,
-		ParaSessionInfo: parachains_session_info = <span class="number">52</span>,
-		ParasDisputes: parachains_disputes = <span class="number">53</span>,
-		ParasSlashing: parachains_slashing = <span class="number">54</span>,
-		OnDemandAssignmentProvider: parachains_assigner_on_demand = <span class="number">56</span>,
-		CoretimeAssignmentProvider: parachains_assigner_coretime = <span class="number">57</span>,
+	<span class="comment">// Treasury
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">37</span>)]
+	</span><span class="kw">pub type </span>Treasury = pallet_treasury;
 
-		<span class="comment">// Parachain Onboarding Pallets. Start indices at 60 to leave room.
-		</span>Registrar: paras_registrar = <span class="number">60</span>,
-		Slots: slots = <span class="number">61</span>,
-		ParasSudoWrapper: paras_sudo_wrapper = <span class="number">62</span>,
-		Auctions: auctions = <span class="number">63</span>,
-		Crowdloan: crowdloan = <span class="number">64</span>,
-		AssignedSlots: assigned_slots = <span class="number">65</span>,
-		Coretime: coretime = <span class="number">66</span>,
+	<span class="comment">// Parachains pallets. Start indices at 40 to leave room.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">41</span>)]
+	</span><span class="kw">pub type </span>ParachainsOrigin = parachains_origin;
+	<span class="attr">#[runtime::pallet_index(<span class="number">42</span>)]
+	</span><span class="kw">pub type </span>Configuration = parachains_configuration;
+	<span class="attr">#[runtime::pallet_index(<span class="number">43</span>)]
+	</span><span class="kw">pub type </span>ParasShared = parachains_shared;
+	<span class="attr">#[runtime::pallet_index(<span class="number">44</span>)]
+	</span><span class="kw">pub type </span>ParaInclusion = parachains_inclusion;
+	<span class="attr">#[runtime::pallet_index(<span class="number">45</span>)]
+	</span><span class="kw">pub type </span>ParaInherent = parachains_paras_inherent;
+	<span class="attr">#[runtime::pallet_index(<span class="number">46</span>)]
+	</span><span class="kw">pub type </span>ParaScheduler = parachains_scheduler;
+	<span class="attr">#[runtime::pallet_index(<span class="number">47</span>)]
+	</span><span class="kw">pub type </span>Paras = parachains_paras;
+	<span class="attr">#[runtime::pallet_index(<span class="number">48</span>)]
+	</span><span class="kw">pub type </span>Initializer = parachains_initializer;
+	<span class="attr">#[runtime::pallet_index(<span class="number">49</span>)]
+	</span><span class="kw">pub type </span>Dmp = parachains_dmp;
+	<span class="comment">// RIP Ump 50
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">51</span>)]
+	</span><span class="kw">pub type </span>Hrmp = parachains_hrmp;
+	<span class="attr">#[runtime::pallet_index(<span class="number">52</span>)]
+	</span><span class="kw">pub type </span>ParaSessionInfo = parachains_session_info;
+	<span class="attr">#[runtime::pallet_index(<span class="number">53</span>)]
+	</span><span class="kw">pub type </span>ParasDisputes = parachains_disputes;
+	<span class="attr">#[runtime::pallet_index(<span class="number">54</span>)]
+	</span><span class="kw">pub type </span>ParasSlashing = parachains_slashing;
+	<span class="attr">#[runtime::pallet_index(<span class="number">56</span>)]
+	</span><span class="kw">pub type </span>OnDemandAssignmentProvider = parachains_assigner_on_demand;
+	<span class="attr">#[runtime::pallet_index(<span class="number">57</span>)]
+	</span><span class="kw">pub type </span>CoretimeAssignmentProvider = parachains_assigner_coretime;
 
-		<span class="comment">// Pallet for sending XCM.
-		</span>XcmPallet: pallet_xcm = <span class="number">99</span>,
+	<span class="comment">// Parachain Onboarding Pallets. Start indices at 60 to leave room.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">60</span>)]
+	</span><span class="kw">pub type </span>Registrar = paras_registrar;
+	<span class="attr">#[runtime::pallet_index(<span class="number">61</span>)]
+	</span><span class="kw">pub type </span>Slots = slots;
+	<span class="attr">#[runtime::pallet_index(<span class="number">62</span>)]
+	</span><span class="kw">pub type </span>ParasSudoWrapper = paras_sudo_wrapper;
+	<span class="attr">#[runtime::pallet_index(<span class="number">63</span>)]
+	</span><span class="kw">pub type </span>Auctions = auctions;
+	<span class="attr">#[runtime::pallet_index(<span class="number">64</span>)]
+	</span><span class="kw">pub type </span>Crowdloan = crowdloan;
+	<span class="attr">#[runtime::pallet_index(<span class="number">65</span>)]
+	</span><span class="kw">pub type </span>AssignedSlots = assigned_slots;
+	<span class="attr">#[runtime::pallet_index(<span class="number">66</span>)]
+	</span><span class="kw">pub type </span>Coretime = coretime;
 
-		<span class="comment">// Generalized message queue
-		</span>MessageQueue: pallet_message_queue = <span class="number">100</span>,
+	<span class="comment">// Pallet for sending XCM.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">99</span>)]
+	</span><span class="kw">pub type </span>XcmPallet = pallet_xcm;
 
-		<span class="comment">// Asset rate.
-		</span>AssetRate: pallet_asset_rate = <span class="number">101</span>,
+	<span class="comment">// Generalized message queue
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">100</span>)]
+	</span><span class="kw">pub type </span>MessageQueue = pallet_message_queue;
 
-		<span class="comment">// Root testing pallet.
-		</span>RootTesting: pallet_root_testing = <span class="number">102</span>,
+	<span class="comment">// Asset rate.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">101</span>)]
+	</span><span class="kw">pub type </span>AssetRate = pallet_asset_rate;
 
-		<span class="comment">// BEEFY Bridges support.
-		</span>Beefy: pallet_beefy = <span class="number">200</span>,
-		<span class="comment">// MMR leaf construction must be after session in order to have a leaf&#39;s next_auth_set
-		// refer to block&lt;N&gt;. See issue polkadot-fellows/runtimes#160 for details.
-		</span>Mmr: pallet_mmr = <span class="number">201</span>,
-		BeefyMmrLeaf: pallet_beefy_mmr = <span class="number">202</span>,
+	<span class="comment">// Root testing pallet.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">102</span>)]
+	</span><span class="kw">pub type </span>RootTesting = pallet_root_testing;
 
-		<span class="comment">// Pallet for migrating Identity to a parachain. To be removed post-migration.
-		</span>IdentityMigrator: identity_migrator = <span class="number">248</span>,
-	}
+	<span class="comment">// BEEFY Bridges support.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">200</span>)]
+	</span><span class="kw">pub type </span>Beefy = pallet_beefy;
+	<span class="comment">// MMR leaf construction must be after session in order to have a leaf&#39;s next_auth_set
+	// refer to block&lt;N&gt;. See issue polkadot-fellows/runtimes#160 for details.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">201</span>)]
+	</span><span class="kw">pub type </span>Mmr = pallet_mmr;
+	<span class="attr">#[runtime::pallet_index(<span class="number">202</span>)]
+	</span><span class="kw">pub type </span>BeefyMmrLeaf = pallet_beefy_mmr;
+
+	<span class="comment">// Pallet for migrating Identity to a parachain. To be removed post-migration.
+	</span><span class="attr">#[runtime::pallet_index(<span class="number">248</span>)]
+	</span><span class="kw">pub type </span>IdentityMigrator = identity_migrator;
 }
 
 <span class="doccomment">/// The address format for describing accounts.
