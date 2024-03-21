@@ -45,7 +45,7 @@ use pallet_transaction_payment::CurrencyAdapter;
 const TEST_KEY: &[u8] = b":test:key:";
 
 #[frame_support::pallet(dev_mode)]
-mod custom {
+pub mod custom {
 	use super::*;
 
 	#[pallet::pallet]
@@ -163,7 +163,7 @@ mod custom {
 }
 
 #[frame_support::pallet(dev_mode)]
-mod custom2 {
+pub mod custom2 {
 	use super::*;
 
 	#[pallet::pallet]
@@ -366,13 +366,13 @@ type SignedExtra = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
-type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
+pub type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
 type TestBlock = Block<TestXt>;
 
 // Will contain `true` when the custom runtime logic was called.
 const CUSTOM_ON_RUNTIME_KEY: &[u8] = b":custom:on_runtime";
 
-struct CustomOnRuntimeUpgrade;
+pub struct CustomOnRuntimeUpgrade;
 impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 	fn on_runtime_upgrade() -> Weight {
 		sp_io::storage::set(TEST_KEY, "custom_upgrade".as_bytes());
@@ -385,7 +385,7 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 	}
 }
 
-type Executive = super::Executive<
+pub type Executive = super::Executive<
 	Runtime,
 	Block<TestXt>,
 	ChainContext<Runtime>,
@@ -439,7 +439,7 @@ impl MockedSystemCallbacks {
 		SystemCallbacksCalled::get() >= 3
 	}
 
-	fn reset() {
+	pub fn reset() {
 		SystemCallbacksCalled::set(0);
 		frame_support::storage::unhashed::kill(b":pre_inherent");
 		frame_support::storage::unhashed::kill(b":post_inherent");
@@ -471,7 +471,7 @@ fn extra(nonce: u64, fee: Balance) -> SignedExtra {
 	)
 }
 
-fn sign_extra(who: u64, nonce: u64, fee: Balance) -> Option<(u64, SignedExtra)> {
+pub fn sign_extra(who: u64, nonce: u64, fee: Balance) -> Option<(u64, SignedExtra)> {
 	Some((who, extra(nonce, fee)))
 }
 
@@ -502,7 +502,7 @@ fn balance_transfer_dispatch_works() {
 	});
 }
 
-fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
+pub fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Runtime> { balances: vec![(1, 111 * balance_factor)] }
 		.assimilate_storage(&mut t)

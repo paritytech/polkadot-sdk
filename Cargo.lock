@@ -9938,6 +9938,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-executive-fuzzer"
+version = "0.1.0"
+dependencies = [
+ "arbitrary",
+ "frame-executive",
+ "honggfuzz",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-fast-unstake"
 version = "27.0.0"
 dependencies = [

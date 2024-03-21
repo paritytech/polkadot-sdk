@@ -335,6 +335,7 @@ members = [
 	"substrate/frame/examples/split",
 	"substrate/frame/examples/tasks",
 	"substrate/frame/executive",
+	"substrate/frame/executive/fuzzer",
 	"substrate/frame/fast-unstake",
 	"substrate/frame/glutton",
 	"substrate/frame/grandpa",
