@@ -139,8 +139,8 @@ mod benchmarks {
 			TicketsIds::<T>::insert((epoch_tag as u8, i), id);
 			let body = TicketBody {
 				attempt_idx: i,
-				erased_public: EphemeralPublic([i as u8; 32]),
-				revealed_public: EphemeralPublic([i as u8; 32]),
+				erased_public: EphemeralPublic::from([i as u8; 32]),
+				revealed_public: EphemeralPublic::from([i as u8; 32]),
 			};
 			TicketsData::<T>::set(id, Some(body));
 		});
@@ -236,8 +236,8 @@ mod benchmarks {
 			.map(|i| {
 				let body = TicketBody {
 					attempt_idx: i,
-					erased_public: EphemeralPublic([i as u8; 32]),
-					revealed_public: EphemeralPublic([i as u8; 32]),
+					erased_public: EphemeralPublic::from([i as u8; 32]),
+					revealed_public: EphemeralPublic::from([i as u8; 32]),
 				};
 				let id_bytes = crate::hashing::blake2_128(&i.to_le_bytes());
 				let id = TicketId::from_le_bytes(id_bytes);
