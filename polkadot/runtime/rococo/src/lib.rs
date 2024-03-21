@@ -1663,6 +1663,8 @@ pub mod migrations {
 
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+
+		parachains_inclusion::migration::MigrateToV1<Runtime>,
 	);
 }
 

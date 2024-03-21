@@ -1781,6 +1781,7 @@ pub mod migrations {
 			crate::xcm_config::XcmRouter,
 			GetLegacyLeaseImpl,
 		>,
+		parachains_inclusion::migration::MigrateToV1<Runtime>,
 	);
 }
 
