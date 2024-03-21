@@ -67,12 +67,7 @@ fn construct_extrinsic(
 	);
 	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));
-	UncheckedExtrinsic::new_signed(
-		call,
-		account_id.into(),
-		Signature::Sr25519(signature.clone()),
-		extra,
-	)
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), extra)
 }
 
 fn construct_and_apply_extrinsic(
