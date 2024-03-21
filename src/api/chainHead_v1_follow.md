@@ -294,7 +294,7 @@ The `stop` event indicates that the JSON-RPC server was unable to provide a cons
 
 No more event will be generated with this `subscription`.
 
-Calling `chainHead_unstable_unfollow` on a subscription that has produced a `stop` event is optional.
+Calling `chainHead_v1_unfollow` on a subscription that has produced a `stop` event is optional.
 
 ## Pinning
 

@@ -1,4 +1,4 @@
-# chainHead_unstable_unfollow
+# chainHead_v1_unfollow
 
 **Parameters**:
 

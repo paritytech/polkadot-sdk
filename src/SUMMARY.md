@@ -23,7 +23,7 @@
     - [chainHead_unstable_header](api/chainHead_unstable_header.md)
     - [chainHead_unstable_stopOperation](api/chainHead_unstable_stopOperation.md)
     - [chainHead_v1_storage](api/chainHead_v1_storage.md)
-    - [chainHead_unstable_unfollow](api/chainHead_unstable_unfollow.md)
+    - [chainHead_v1_unfollow](api/chainHead_v1_unfollow.md)
     - [chainHead_v1_unpin](api/chainHead_v1_unpin.md)
   - [chainSpec](api/chainSpec.md)
     - [chainSpec_v1_chainName](api/chainSpec_v1_chainName.md)
