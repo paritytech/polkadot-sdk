@@ -47,7 +47,7 @@ fn main() -> Result<(), String> {
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let mut env = prepare_test(
+			let (mut env, _cfgs) = prepare_test(
 				&state,
 				polkadot_subsystem_bench::availability::TestDataAvailability::Write,
 				false,

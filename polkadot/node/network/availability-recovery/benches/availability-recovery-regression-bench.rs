@@ -48,7 +48,8 @@ fn main() -> Result<(), String> {
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let mut env = prepare_test(&state, TestDataAvailability::Read(options.clone()), false);
+			let (mut env, _cfgs) =
+				prepare_test(&state, TestDataAvailability::Read(options.clone()), false);
 			env.runtime().block_on(benchmark_availability_read(
 				"data_availability_read",
 				&mut env,
