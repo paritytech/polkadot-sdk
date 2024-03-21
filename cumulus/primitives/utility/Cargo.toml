@@ -1,0 +1,60 @@
+[package]
+name = "cumulus-primitives-utility"
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Helper datatypes for Cumulus"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+log = { workspace = true }
+
+# Substrate
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+pallet-asset-conversion = { path = "../../../substrate/frame/asset-conversion", default-features = false }
+
+# Polkadot
+polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false }
+polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
+
+# Cumulus
+cumulus-primitives-core = { path = "../core", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"log/std",
+	"pallet-asset-conversion/std",
+	"polkadot-runtime-common/std",
+	"polkadot-runtime-parachains/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]

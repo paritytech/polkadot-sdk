@@ -210,8 +210,8 @@ pub trait KeyOwnerProofSystem<Key> {
 impl<Key> KeyOwnerProofSystem<Key> for () {
 	// The proof and identification tuples is any bottom type to guarantee that the methods of this
 	// implementation can never be called or return anything other than `None`.
-	type Proof = crate::Void;
-	type IdentificationTuple = crate::Void;
+	type Proof = sp_core::Void;
+	type IdentificationTuple = sp_core::Void;
 
 	fn prove(_key: Key) -> Option<Self::Proof> {
 		None
@@ -251,10 +251,17 @@ pub trait ValidatorRegistration<ValidatorId> {
 pub trait DisabledValidators {
 	/// Returns true if the given validator is disabled.
 	fn is_disabled(index: u32) -> bool;
+
+	/// Returns all disabled validators
+	fn disabled_validators() -> Vec<u32>;
 }
 
 impl DisabledValidators for () {
 	fn is_disabled(_index: u32) -> bool {
 		false
+	}
+
+	fn disabled_validators() -> Vec<u32> {
+		vec![]
 	}
 }

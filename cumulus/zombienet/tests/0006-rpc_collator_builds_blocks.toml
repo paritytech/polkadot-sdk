@@ -1,0 +1,50 @@
+[relaychain]
+default_image = "{{RELAY_IMAGE}}"
+default_command = "polkadot"
+default_args = [ "-lparachain=debug" ]
+
+chain = "rococo-local"
+
+  [[relaychain.nodes]]
+  name = "alice"
+  validator = true
+
+  [[relaychain.nodes]]
+  name = "bob"
+  validator = true
+
+  [[relaychain.nodes]]
+  name = "charlie"
+  validator = true
+
+  [[relaychain.nodes]]
+  name = "one"
+  validator = false
+
+  [[relaychain.nodes]]
+  name = "two"
+  validator = false
+
+  [[relaychain.nodes]]
+  name = "three"
+  validator = false
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+
+  # run dave as parachain full node
+  [[parachains.collators]]
+  name = "dave"
+  validator = true
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=trace,blockchain-rpc-client=debug", "--relay-chain-rpc-urls {{'one'|zombie('wsUri')}} {{'two'|zombie('wsUri')}} {{'three'|zombie('wsUri')}}", "--", "--bootnodes {{'one'|zombie('multiAddress')}} {{'two'|zombie('multiAddress')}} {{'three'|zombie('multiAddress')}}"]
+
+  # run eve as parachain full node
+  [[parachains.collators]]
+  name = "eve"
+  validator = true
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=trace,blockchain-rpc-client=debug", "--relay-chain-rpc-urls {{'one'|zombie('wsUri')}} {{'two'|zombie('wsUri')}} {{'three'|zombie('wsUri')}}", "--", "--bootnodes {{'one'|zombie('multiAddress')}} {{'two'|zombie('multiAddress')}} {{'three'|zombie('multiAddress')}}"]

@@ -1,0 +1,52 @@
+[package]
+name = "bridge-hub-rococo-integration-tests"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Bridge Hub Rococo runtime integration tests with xcm-emulator"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+hex-literal = "0.4.1"
+
+# Substrate
+sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
+frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
+pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
+pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
+pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
+pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue" }
+sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
+pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
+
+# Bridges
+pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages", default-features = false }
+bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false }
+
+# Cumulus
+parachains-common = { path = "../../../../../../parachains/common" }
+testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["rococo"] }
+cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false }
+bridge-hub-rococo-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
+emulated-integration-tests-common = { path = "../../../common", default-features = false }
+rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
+rococo-system-emulated-network = { path = "../../../networks/rococo-system" }
+asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo", default-features = false }
+
+# Snowbridge
+snowbridge-core = { path = "../../../../../../../bridges/snowbridge/primitives/core", default-features = false }
+snowbridge-router-primitives = { path = "../../../../../../../bridges/snowbridge/primitives/router", default-features = false }
+snowbridge-pallet-system = { path = "../../../../../../../bridges/snowbridge/pallets/system", default-features = false }
+snowbridge-pallet-outbound-queue = { path = "../../../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
+snowbridge-pallet-inbound-queue = { path = "../../../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false }
+snowbridge-pallet-inbound-queue-fixtures = { path = "../../../../../../../bridges/snowbridge/pallets/inbound-queue/fixtures" }

@@ -16,8 +16,11 @@
 // limitations under the License.
 
 mod call;
+mod composite;
 mod config;
 mod constants;
+mod doc_only;
+mod documentation;
 mod error;
 mod event;
 mod genesis_build;
@@ -28,13 +31,13 @@ mod instances;
 mod origin;
 mod pallet_struct;
 mod storage;
-mod store_trait;
+mod tasks;
 mod tt_default_parts;
 mod type_value;
 mod validate_unsigned;
+mod warnings;
 
 use crate::pallet::Def;
-use frame_support_procedural_tools::get_doc_literals;
 use quote::ToTokens;
 
 /// Merge where clause together, `where` token span is taken from the first not none one.
@@ -52,16 +55,18 @@ pub fn merge_where_clauses(clauses: &[&Option<syn::WhereClause>]) -> Option<syn:
 /// * create some new types,
 /// * impl stuff on them.
 pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
+	// Remove the `pallet_doc` attribute first.
+	let metadata_docs = documentation::expand_documentation(&mut def);
 	let constants = constants::expand_constants(&mut def);
 	let pallet_struct = pallet_struct::expand_pallet_struct(&mut def);
 	let config = config::expand_config(&mut def);
 	let call = call::expand_call(&mut def);
+	let tasks = tasks::expand_tasks(&mut def);
 	let error = error::expand_error(&mut def);
 	let event = event::expand_event(&mut def);
 	let storages = storage::expand_storages(&mut def);
 	let inherents = inherent::expand_inherents(&mut def);
 	let instances = instances::expand_instances(&mut def);
-	let store_trait = store_trait::expand_store_trait(&mut def);
 	let hooks = hooks::expand_hooks(&mut def);
 	let genesis_build = genesis_build::expand_genesis_build(&mut def);
 	let genesis_config = genesis_config::expand_genesis_config(&mut def);
@@ -69,29 +74,40 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let origins = origin::expand_origins(&mut def);
 	let validate_unsigned = validate_unsigned::expand_validate_unsigned(&mut def);
 	let tt_default_parts = tt_default_parts::expand_tt_default_parts(&mut def);
+	let doc_only = doc_only::expand_doc_only(&mut def);
+	let composites = composite::expand_composites(&mut def);
 
-	if get_doc_literals(&def.item.attrs).is_empty() {
-		def.item.attrs.push(syn::parse_quote!(
-			#[doc = r"
-			The module that hosts all the
-			[FRAME](https://docs.substrate.io/main-docs/build/events-errors/)
-			types needed to add this pallet to a
-			runtime.
-			"]
-		));
-	}
+	def.item.attrs.insert(
+		0,
+		syn::parse_quote!(
+			#[doc = r"The `pallet` module in each FRAME pallet hosts the most important items needed
+to construct this pallet.
+
+The main components of this pallet are:
+- [`Pallet`], which implements all of the dispatchable extrinsics of the pallet, among
+other public functions.
+	- The subset of the functions that are dispatchable can be identified either in the
+	[`dispatchables`] module or in the [`Call`] enum.
+- [`storage_types`], which contains the list of all types that are representing a
+storage item. Otherwise, all storage items are listed among [*Type Definitions*](#types).
+- [`Config`], which contains the configuration trait of this pallet.
+- [`Event`] and [`Error`], which are listed among the [*Enums*](#enums).
+		"]
+		),
+	);
 
 	let new_items = quote::quote!(
+		#metadata_docs
 		#constants
 		#pallet_struct
 		#config
 		#call
+		#tasks
 		#error
 		#event
 		#storages
 		#inherents
 		#instances
-		#store_trait
 		#hooks
 		#genesis_build
 		#genesis_config
@@ -99,6 +115,8 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 		#origins
 		#validate_unsigned
 		#tt_default_parts
+		#doc_only
+		#composites
 	);
 
 	def.item

@@ -56,17 +56,17 @@ pub mod weights;
 
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{DispatchResult, Dispatchable, GetDispatchInfo},
+	dispatch::{DispatchResult, GetDispatchInfo},
 	ensure,
 	pallet_prelude::MaxEncodedLen,
 	storage::bounded_vec::BoundedVec,
 	traits::{Currency, ExistenceRequirement::KeepAlive, Get, Randomness, ReservableCurrency},
-	PalletId, RuntimeDebug,
+	PalletId,
 };
 pub use pallet::*;
 use sp_runtime::{
-	traits::{AccountIdConversion, Saturating, Zero},
-	ArithmeticError, DispatchError,
+	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
+	ArithmeticError, DispatchError, RuntimeDebug,
 };
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
@@ -123,7 +123,6 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	/// The pallet's config trait.
@@ -143,7 +142,7 @@ pub mod pallet {
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// Something that provides randomness in the runtime.
-		type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
+		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -209,7 +208,7 @@ pub mod pallet {
 	/// The configuration for the current lottery.
 	#[pallet::storage]
 	pub(crate) type Lottery<T: Config> =
-		StorageValue<_, LotteryConfig<T::BlockNumber, BalanceOf<T>>>;
+		StorageValue<_, LotteryConfig<BlockNumberFor<T>, BalanceOf<T>>>;
 
 	/// Users who have purchased a ticket. (Lottery Index, Tickets Purchased)
 	#[pallet::storage]
@@ -240,7 +239,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: T::BlockNumber) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			Lottery::<T>::mutate(|mut lottery| -> Weight {
 				if let Some(config) = &mut lottery {
 					let payout_block =
@@ -351,8 +350,8 @@ pub mod pallet {
 		pub fn start_lottery(
 			origin: OriginFor<T>,
 			price: BalanceOf<T>,
-			length: T::BlockNumber,
-			delay: T::BlockNumber,
+			length: BlockNumberFor<T>,
+			delay: BlockNumberFor<T>,
 			repeat: bool,
 		) -> DispatchResult {
 			T::ManagerOrigin::ensure_origin(origin)?;
@@ -369,7 +368,8 @@ pub mod pallet {
 			// Make sure pot exists.
 			let lottery_account = Self::account_id();
 			if T::Currency::total_balance(&lottery_account).is_zero() {
-				T::Currency::deposit_creating(&lottery_account, T::Currency::minimum_balance());
+				let _ =
+					T::Currency::deposit_creating(&lottery_account, T::Currency::minimum_balance());
 			}
 			Self::deposit_event(Event::<T>::LotteryStarted);
 			Ok(())

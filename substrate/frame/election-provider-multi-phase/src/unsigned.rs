@@ -23,12 +23,17 @@ use crate::{
 };
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
-use frame_support::{dispatch::DispatchResult, ensure, traits::Get, BoundedVec};
-use frame_system::offchain::SubmitTransaction;
+use frame_support::{
+	dispatch::DispatchResult,
+	ensure,
+	traits::{DefensiveResult, Get},
+	BoundedVec,
+};
+use frame_system::{offchain::SubmitTransaction, pallet_prelude::BlockNumberFor};
 use scale_info::TypeInfo;
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized, ElectionResult,
-	ElectionScore,
+	ElectionScore, EvaluateSupport,
 };
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageValueRef},
@@ -103,6 +108,27 @@ impl From<FeasibilityError> for MinerError {
 	}
 }
 
+/// Reports the trimming result of a mined solution
+#[derive(Debug, Clone)]
+pub struct TrimmingStatus {
+	weight: usize,
+	length: usize,
+}
+
+impl TrimmingStatus {
+	pub fn is_trimmed(&self) -> bool {
+		self.weight > 0 || self.length > 0
+	}
+
+	pub fn trimmed_weight(&self) -> usize {
+		self.weight
+	}
+
+	pub fn trimmed_length(&self) -> usize {
+		self.length
+	}
+}
+
 /// Save a given call into OCW storage.
 fn save_solution<T: Config>(call: &Call<T>) -> Result<(), MinerError> {
 	log!(debug, "saving a call to the offchain storage.");
@@ -157,16 +183,21 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The Npos Solver type, `S`, must have the same AccountId and Error type as the
 	/// [`crate::Config::Solver`] in order to create a unified return type.
-	pub fn mine_solution(
-	) -> Result<(RawSolution<SolutionOf<T::MinerConfig>>, SolutionOrSnapshotSize), MinerError> {
+	pub fn mine_solution() -> Result<
+		(RawSolution<SolutionOf<T::MinerConfig>>, SolutionOrSnapshotSize, TrimmingStatus),
+		MinerError,
+	> {
 		let RoundSnapshot { voters, targets } =
 			Self::snapshot().ok_or(MinerError::SnapshotUnAvailable)?;
 		let desired_targets = Self::desired_targets().ok_or(MinerError::SnapshotUnAvailable)?;
-		let (solution, score, size) = Miner::<T::MinerConfig>::mine_solution_with_snapshot::<
-			T::Solver,
-		>(voters, targets, desired_targets)?;
+		let (solution, score, size, is_trimmed) =
+			Miner::<T::MinerConfig>::mine_solution_with_snapshot::<T::Solver>(
+				voters,
+				targets,
+				desired_targets,
+			)?;
 		let round = Self::round();
-		Ok((RawSolution { solution, score, round }, size))
+		Ok((RawSolution { solution, score, round }, size, is_trimmed))
 	}
 
 	/// Attempt to restore a solution from cache. Otherwise, compute it fresh. Either way, submit
@@ -227,7 +258,7 @@ impl<T: Config> Pallet<T> {
 	/// Mine a new solution as a call. Performs all checks.
 	pub fn mine_checked_call() -> Result<Call<T>, MinerError> {
 		// get the solution, with a load of checks to ensure if submitted, IT IS ABSOLUTELY VALID.
-		let (raw_solution, witness) = Self::mine_and_check()?;
+		let (raw_solution, witness, _) = Self::mine_and_check()?;
 
 		let score = raw_solution.score;
 		let call: Call<T> = Call::submit_unsigned { raw_solution: Box::new(raw_solution), witness };
@@ -277,11 +308,13 @@ impl<T: Config> Pallet<T> {
 	/// If you want an unchecked solution, use [`Pallet::mine_solution`].
 	/// If you want a checked solution and submit it at the same time, use
 	/// [`Pallet::mine_check_save_submit`].
-	pub fn mine_and_check(
-	) -> Result<(RawSolution<SolutionOf<T::MinerConfig>>, SolutionOrSnapshotSize), MinerError> {
-		let (raw_solution, witness) = Self::mine_solution()?;
+	pub fn mine_and_check() -> Result<
+		(RawSolution<SolutionOf<T::MinerConfig>>, SolutionOrSnapshotSize, TrimmingStatus),
+		MinerError,
+	> {
+		let (raw_solution, witness, is_trimmed) = Self::mine_solution()?;
 		Self::basic_checks(&raw_solution, "mined")?;
-		Ok((raw_solution, witness))
+		Ok((raw_solution, witness, is_trimmed))
 	}
 
 	/// Checks if an execution of the offchain worker is permitted at the given block number, or
@@ -293,12 +326,12 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `Ok(())` if offchain worker limit is respected, `Err(reason)` otherwise. If `Ok()`
 	/// is returned, `now` is written in storage and will be used in further calls as the baseline.
-	pub fn ensure_offchain_repeat_frequency(now: T::BlockNumber) -> Result<(), MinerError> {
+	pub fn ensure_offchain_repeat_frequency(now: BlockNumberFor<T>) -> Result<(), MinerError> {
 		let threshold = T::OffchainRepeat::get();
 		let last_block = StorageValueRef::persistent(OFFCHAIN_LAST_BLOCK);
 
 		let mutate_stat = last_block.mutate::<_, &'static str, _>(
-			|maybe_head: Result<Option<T::BlockNumber>, _>| {
+			|maybe_head: Result<Option<BlockNumberFor<T>>, _>| {
 				match maybe_head {
 					Ok(Some(head)) if now < head => Err("fork."),
 					Ok(Some(head)) if now >= head && now <= head + threshold =>
@@ -351,9 +384,8 @@ impl<T: Config> Pallet<T> {
 
 		// ensure score is being improved. Panic henceforth.
 		ensure!(
-			Self::queued_solution().map_or(true, |q: ReadySolution<_>| raw_solution
-				.score
-				.strict_threshold_better(q.score, T::BetterUnsignedThreshold::get())),
+			Self::queued_solution()
+				.map_or(true, |q: ReadySolution<_, _>| raw_solution.score > q.score),
 			Error::<T>::PreDispatchWeakSubmission,
 		);
 
@@ -387,6 +419,8 @@ pub trait MinerConfig {
 	///
 	/// The weight is computed using `solution_weight`.
 	type MaxWeight: Get<Weight>;
+	/// The maximum number of winners that can be elected.
+	type MaxWinners: Get<u32>;
 	/// Something that can compute the weight of a solution.
 	///
 	/// This weight estimate is then used to trim the solution, based on [`MinerConfig::MaxWeight`].
@@ -401,7 +435,7 @@ impl<T: MinerConfig> Miner<T> {
 		voters: Vec<(T::AccountId, VoteWeight, BoundedVec<T::AccountId, T::MaxVotesPerVoter>)>,
 		targets: Vec<T::AccountId>,
 		desired_targets: u32,
-	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize), MinerError>
+	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize, TrimmingStatus), MinerError>
 	where
 		S: NposSolver<AccountId = T::AccountId>,
 	{
@@ -429,7 +463,8 @@ impl<T: MinerConfig> Miner<T> {
 		voters: Vec<(T::AccountId, VoteWeight, BoundedVec<T::AccountId, T::MaxVotesPerVoter>)>,
 		targets: Vec<T::AccountId>,
 		desired_targets: u32,
-	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize), MinerError> {
+	) -> Result<(SolutionOf<T>, ElectionScore, SolutionOrSnapshotSize, TrimmingStatus), MinerError>
+	{
 		// now make some helper closures.
 		let cache = helpers::generate_voter_cache::<T>(&voters);
 		let voter_index = helpers::voter_index_fn::<T>(&cache);
@@ -488,13 +523,13 @@ impl<T: MinerConfig> Miner<T> {
 		// trim assignments list for weight and length.
 		let size =
 			SolutionOrSnapshotSize { voters: voters.len() as u32, targets: targets.len() as u32 };
-		Self::trim_assignments_weight(
+		let weight_trimmed = Self::trim_assignments_weight(
 			desired_targets,
 			size,
 			T::MaxWeight::get(),
 			&mut index_assignments,
 		);
-		Self::trim_assignments_length(
+		let length_trimmed = Self::trim_assignments_length(
 			T::MaxLength::get(),
 			&mut index_assignments,
 			&encoded_size_of,
@@ -506,7 +541,9 @@ impl<T: MinerConfig> Miner<T> {
 		// re-calc score.
 		let score = solution.clone().score(stake_of, voter_at, target_at)?;
 
-		Ok((solution, score, size))
+		let is_trimmed = TrimmingStatus { weight: weight_trimmed, length: length_trimmed };
+
+		Ok((solution, score, size, is_trimmed))
 	}
 
 	/// Greedily reduce the size of the solution to fit into the block w.r.t length.
@@ -527,7 +564,7 @@ impl<T: MinerConfig> Miner<T> {
 		max_allowed_length: u32,
 		assignments: &mut Vec<IndexAssignmentOf<T>>,
 		encoded_size_of: impl Fn(&[IndexAssignmentOf<T>]) -> Result<usize, sp_npos_elections::Error>,
-	) -> Result<(), MinerError> {
+	) -> Result<usize, MinerError> {
 		// Perform a binary search for the max subset of which can fit into the allowed
 		// length. Having discovered that, we can truncate efficiently.
 		let max_allowed_length: usize = max_allowed_length.saturated_into();
@@ -536,7 +573,7 @@ impl<T: MinerConfig> Miner<T> {
 
 		// not much we can do if assignments are already empty.
 		if high == low {
-			return Ok(())
+			return Ok(0)
 		}
 
 		while high - low > 1 {
@@ -570,16 +607,18 @@ impl<T: MinerConfig> Miner<T> {
 		// after this point, we never error.
 		// check before edit.
 
+		let remove = assignments.len().saturating_sub(maximum_allowed_voters);
+
 		log_no_system!(
 			debug,
 			"from {} assignments, truncating to {} for length, removing {}",
 			assignments.len(),
 			maximum_allowed_voters,
-			assignments.len().saturating_sub(maximum_allowed_voters),
+			remove
 		);
 		assignments.truncate(maximum_allowed_voters);
 
-		Ok(())
+		Ok(remove)
 	}
 
 	/// Greedily reduce the size of the solution to fit into the block w.r.t. weight.
@@ -602,7 +641,7 @@ impl<T: MinerConfig> Miner<T> {
 		size: SolutionOrSnapshotSize,
 		max_weight: Weight,
 		assignments: &mut Vec<IndexAssignmentOf<T>>,
-	) {
+	) -> usize {
 		let maximum_allowed_voters =
 			Self::maximum_voter_for_weight(desired_targets, size, max_weight);
 		let removing: usize =
@@ -615,6 +654,8 @@ impl<T: MinerConfig> Miner<T> {
 			removing,
 		);
 		assignments.truncate(maximum_allowed_voters as usize);
+
+		removing
 	}
 
 	/// Find the maximum `len` that a solution can have in order to fit into the block weight.
@@ -689,6 +730,91 @@ impl<T: MinerConfig> Miner<T> {
 		);
 		final_decision
 	}
+
+	/// Checks the feasibility of a solution.
+	pub fn feasibility_check(
+		raw_solution: RawSolution<SolutionOf<T>>,
+		compute: ElectionCompute,
+		desired_targets: u32,
+		snapshot: RoundSnapshot<T::AccountId, MinerVoterOf<T>>,
+		current_round: u32,
+		minimum_untrusted_score: Option<ElectionScore>,
+	) -> Result<ReadySolution<T::AccountId, T::MaxWinners>, FeasibilityError> {
+		let RawSolution { solution, score, round } = raw_solution;
+		let RoundSnapshot { voters: snapshot_voters, targets: snapshot_targets } = snapshot;
+
+		// First, check round.
+		ensure!(current_round == round, FeasibilityError::InvalidRound);
+
+		// Winners are not directly encoded in the solution.
+		let winners = solution.unique_targets();
+
+		ensure!(winners.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
+		// Fail early if targets requested by data provider exceed maximum winners supported.
+		ensure!(desired_targets <= T::MaxWinners::get(), FeasibilityError::TooManyDesiredTargets);
+
+		// Ensure that the solution's score can pass absolute min-score.
+		let submitted_score = raw_solution.score;
+		ensure!(
+			minimum_untrusted_score.map_or(true, |min_score| {
+				submitted_score.strict_threshold_better(min_score, sp_runtime::Perbill::zero())
+			}),
+			FeasibilityError::UntrustedScoreTooLow
+		);
+
+		// ----- Start building. First, we need some closures.
+		let cache = helpers::generate_voter_cache::<T>(&snapshot_voters);
+		let voter_at = helpers::voter_at_fn::<T>(&snapshot_voters);
+		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
+		let voter_index = helpers::voter_index_fn_usize::<T>(&cache);
+
+		// Then convert solution -> assignment. This will fail if any of the indices are gibberish,
+		// namely any of the voters or targets.
+		let assignments = solution
+			.into_assignment(voter_at, target_at)
+			.map_err::<FeasibilityError, _>(Into::into)?;
+
+		// Ensure that assignments is correct.
+		let _ = assignments.iter().try_for_each(|assignment| {
+			// Check that assignment.who is actually a voter (defensive-only).
+			// NOTE: while using the index map from `voter_index` is better than a blind linear
+			// search, this *still* has room for optimization. Note that we had the index when
+			// we did `solution -> assignment` and we lost it. Ideal is to keep the index
+			// around.
+
+			// Defensive-only: must exist in the snapshot.
+			let snapshot_index =
+				voter_index(&assignment.who).ok_or(FeasibilityError::InvalidVoter)?;
+			// Defensive-only: index comes from the snapshot, must exist.
+			let (_voter, _stake, targets) =
+				snapshot_voters.get(snapshot_index).ok_or(FeasibilityError::InvalidVoter)?;
+
+			// Check that all of the targets are valid based on the snapshot.
+			if assignment.distribution.iter().any(|(d, _)| !targets.contains(d)) {
+				return Err(FeasibilityError::InvalidVote)
+			}
+			Ok(())
+		})?;
+
+		// ----- Start building support. First, we need one more closure.
+		let stake_of = helpers::stake_of_fn::<T>(&snapshot_voters, &cache);
+
+		// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
+		let staked_assignments = assignment_ratio_to_staked_normalized(assignments, stake_of)
+			.map_err::<FeasibilityError, _>(Into::into)?;
+		let supports = sp_npos_elections::to_supports(&staked_assignments);
+
+		// Finally, check that the claimed score was indeed correct.
+		let known_score = supports.evaluate();
+		ensure!(known_score == score, FeasibilityError::InvalidScore);
+
+		// Size of winners in miner solution is equal to `desired_targets` <= `MaxWinners`.
+		let supports = supports
+			.try_into()
+			.defensive_map_err(|_| FeasibilityError::BoundedConversionFailed)?;
+
+		Ok(ReadySolution { supports, compute, score })
+	}
 }
 
 #[cfg(test)]
@@ -701,345 +827,177 @@ mod max_weight {
 		let w = SolutionOrSnapshotSize { voters: 10, targets: 0 };
 		MockWeightInfo::set(crate::mock::MockedWeightInfo::Complex);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::zero().set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(0, u64::MAX)),
 			0
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1, u64::MAX)),
 			0
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(999).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(999, u64::MAX)),
 			0
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1000, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1001).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1001, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1990).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1990, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1999).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1999, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2000, u64::MAX)),
 			2
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2001).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2001, u64::MAX)),
 			2
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2010).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2010, u64::MAX)),
 			2
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2990).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2990, u64::MAX)),
 			2
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2999).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2999, u64::MAX)),
 			2
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(3000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(3000, u64::MAX)),
 			3
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(3333).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(3333, u64::MAX)),
 			3
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(5500).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(5500, u64::MAX)),
 			5
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(7777).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(7777, u64::MAX)),
 			7
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(9999).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(9999, u64::MAX)),
 			9
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(10_000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(10_000, u64::MAX)),
 			10
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(10_999).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(10_999, u64::MAX)),
 			10
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(11_000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(11_000, u64::MAX)),
 			10
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(22_000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(22_000, u64::MAX)),
 			10
 		);
 
 		let w = SolutionOrSnapshotSize { voters: 1, targets: 0 };
 
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(0).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(0, u64::MAX)),
 			0
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1, u64::MAX)),
 			0
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(999).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(999, u64::MAX)),
 			0
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1000, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1001).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1001, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1990).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1990, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1999).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1999, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2000, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2001).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2001, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2010).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2010, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(3333).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(3333, u64::MAX)),
 			1
 		);
 
 		let w = SolutionOrSnapshotSize { voters: 2, targets: 0 };
 
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(0).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(0, u64::MAX)),
 			0
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1, u64::MAX)),
 			0
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(999).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(999, u64::MAX)),
 			0
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1000, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1001).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1001, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(1999).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(1999, u64::MAX)),
 			1
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2000).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2000, u64::MAX)),
 			2
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2001).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2001, u64::MAX)),
 			2
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(2010).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(2010, u64::MAX)),
 			2
 		);
 		assert_eq!(
-			Miner::<Runtime>::maximum_voter_for_weight(
-				0,
-				w,
-				Weight::from_ref_time(3333).set_proof_size(u64::MAX)
-			),
+			Miner::<Runtime>::maximum_voter_for_weight(0, w, Weight::from_parts(3333, u64::MAX)),
 			2
 		);
 	}
@@ -1059,16 +1017,14 @@ mod tests {
 		TransactionValidityError,
 	};
 	use codec::Decode;
-	use frame_benchmarking::Zero;
 	use frame_election_provider_support::IndexAssignment;
-	use frame_support::{
-		assert_noop, assert_ok, bounded_vec, dispatch::Dispatchable, traits::OffchainWorker,
-	};
+	use frame_support::{assert_noop, assert_ok, traits::OffchainWorker};
 	use sp_npos_elections::ElectionScore;
 	use sp_runtime::{
+		bounded_vec,
 		offchain::storage_lock::{BlockAndTime, StorageLock},
-		traits::ValidateUnsigned,
-		ModuleError, PerU16, Perbill,
+		traits::{Dispatchable, ValidateUnsigned, Zero},
+		ModuleError, PerU16,
 	};
 
 	type Assignment = crate::unsigned::Assignment<Runtime>;
@@ -1308,7 +1264,7 @@ mod tests {
 			assert_eq!(MultiPhase::desired_targets().unwrap(), 2);
 
 			// mine seq_phragmen solution with 2 iters.
-			let (solution, witness) = MultiPhase::mine_solution().unwrap();
+			let (solution, witness, _) = MultiPhase::mine_solution().unwrap();
 
 			// ensure this solution is valid.
 			assert!(MultiPhase::queued_solution().is_none());
@@ -1340,13 +1296,13 @@ mod tests {
 	#[test]
 	fn miner_trims_weight() {
 		ExtBuilder::default()
-			.miner_weight(Weight::from_ref_time(100).set_proof_size(u64::MAX))
+			.miner_weight(Weight::from_parts(100, u64::MAX))
 			.mock_weight_info(crate::mock::MockedWeightInfo::Basic)
 			.build_and_execute(|| {
 				roll_to_unsigned();
 				assert!(MultiPhase::current_phase().is_unsigned());
 
-				let (raw, witness) = MultiPhase::mine_solution().unwrap();
+				let (raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
 					witness.voters,
 					witness.targets,
@@ -1354,13 +1310,14 @@ mod tests {
 					raw.solution.unique_targets().len() as u32,
 				);
 				// default solution will have 5 edges (5 * 5 + 10)
-				assert_eq!(solution_weight, Weight::from_ref_time(35));
+				assert_eq!(solution_weight, Weight::from_parts(35, 0));
 				assert_eq!(raw.solution.voter_count(), 5);
+				assert_eq!(t.trimmed_weight(), 0);
 
 				// now reduce the max weight
-				<MinerMaxWeight>::set(Weight::from_ref_time(25).set_proof_size(u64::MAX));
+				<MinerMaxWeight>::set(Weight::from_parts(25, u64::MAX));
 
-				let (raw, witness) = MultiPhase::mine_solution().unwrap();
+				let (raw, witness, t) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
 					witness.voters,
 					witness.targets,
@@ -1368,8 +1325,9 @@ mod tests {
 					raw.solution.unique_targets().len() as u32,
 				);
 				// default solution will have 5 edges (5 * 5 + 10)
-				assert_eq!(solution_weight, Weight::from_ref_time(25));
+				assert_eq!(solution_weight, Weight::from_parts(25, 0));
 				assert_eq!(raw.solution.voter_count(), 3);
+				assert_eq!(t.trimmed_weight(), 2);
 			})
 	}
 
@@ -1381,7 +1339,7 @@ mod tests {
 			assert!(MultiPhase::current_phase().is_unsigned());
 
 			// Force the number of winners to be bigger to fail
-			let (mut solution, _) = MultiPhase::mine_solution().unwrap();
+			let (mut solution, _, _) = MultiPhase::mine_solution().unwrap();
 			solution.solution.votes1[0].1 = 4;
 
 			assert_eq!(
@@ -1401,7 +1359,7 @@ mod tests {
 			.desired_targets(1)
 			.add_voter(7, 2, bounded_vec![10])
 			.add_voter(8, 5, bounded_vec![10])
-			.better_unsigned_threshold(Perbill::from_percent(50))
+			.add_voter(9, 1, bounded_vec![10])
 			.build_and_execute(|| {
 				roll_to_unsigned();
 				assert!(MultiPhase::current_phase().is_unsigned());
@@ -1409,18 +1367,21 @@ mod tests {
 
 				// an initial solution
 				let result = ElectionResult {
-					// note: This second element of backing stake is not important here.
-					winners: vec![(10, 10)],
-					assignments: vec![Assignment {
-						who: 10,
-						distribution: vec![(10, PerU16::one())],
-					}],
+					winners: vec![(10, 12)],
+					assignments: vec![
+						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
+						Assignment {
+							who: 7,
+							// note: this percent doesn't even matter, in solution it is 100%.
+							distribution: vec![(10, PerU16::one())],
+						},
+					],
 				};
 
 				let RoundSnapshot { voters, targets } = MultiPhase::snapshot().unwrap();
 				let desired_targets = MultiPhase::desired_targets().unwrap();
 
-				let (raw, score, witness) =
+				let (raw, score, witness, _) =
 					Miner::<Runtime>::prepare_election_result_with_snapshot(
 						result,
 						voters.clone(),
@@ -1435,9 +1396,35 @@ mod tests {
 					Box::new(solution),
 					witness
 				));
-				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 10);
+				assert_eq!(MultiPhase::queued_solution().unwrap().score.minimal_stake, 12);
 
-				// trial 1: a solution who's score is only 2, i.e. 20% better in the first element.
+				// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution
+				// of 12.
+				let result = ElectionResult {
+					winners: vec![(10, 10)],
+					assignments: vec![Assignment {
+						who: 10,
+						distribution: vec![(10, PerU16::one())],
+					}],
+				};
+				let (raw, score, _, _) = Miner::<Runtime>::prepare_election_result_with_snapshot(
+					result,
+					voters.clone(),
+					targets.clone(),
+					desired_targets,
+				)
+				.unwrap();
+				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				// 10 is not better than 12
+				assert_eq!(solution.score.minimal_stake, 10);
+				// submitting this will actually panic.
+				assert_noop!(
+					MultiPhase::unsigned_pre_dispatch_checks(&solution),
+					Error::<Runtime>::PreDispatchWeakSubmission,
+				);
+
+				// trial 2: try resubmitting another solution with same score (12) as the queued
+				// solution.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![
@@ -1449,7 +1436,8 @@ mod tests {
 						},
 					],
 				};
-				let (raw, score, _) = Miner::<Runtime>::prepare_election_result_with_snapshot(
+
+				let (raw, score, _, _) = Miner::<Runtime>::prepare_election_result_with_snapshot(
 					result,
 					voters.clone(),
 					targets.clone(),
@@ -1457,15 +1445,45 @@ mod tests {
 				)
 				.unwrap();
 				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
-				// 12 is not 50% more than 10
+				// 12 is not better than 12. We need score of atleast 13 to be accepted.
 				assert_eq!(solution.score.minimal_stake, 12);
+				// submitting this will panic.
 				assert_noop!(
 					MultiPhase::unsigned_pre_dispatch_checks(&solution),
 					Error::<Runtime>::PreDispatchWeakSubmission,
 				);
-				// submitting this will actually panic.
 
-				// trial 2: a solution who's score is only 7, i.e. 70% better in the first element.
+				// trial 3: a solution who's minimal stake is 13, i.e. 1 better than the queued
+				// solution of 12.
+				let result = ElectionResult {
+					winners: vec![(10, 12)],
+					assignments: vec![
+						Assignment { who: 10, distribution: vec![(10, PerU16::one())] },
+						Assignment { who: 7, distribution: vec![(10, PerU16::one())] },
+						Assignment { who: 9, distribution: vec![(10, PerU16::one())] },
+					],
+				};
+				let (raw, score, witness, _) =
+					Miner::<Runtime>::prepare_election_result_with_snapshot(
+						result,
+						voters.clone(),
+						targets.clone(),
+						desired_targets,
+					)
+					.unwrap();
+				let solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
+				assert_eq!(solution.score.minimal_stake, 13);
+
+				// this should work
+				assert_ok!(MultiPhase::unsigned_pre_dispatch_checks(&solution));
+				assert_ok!(MultiPhase::submit_unsigned(
+					RuntimeOrigin::none(),
+					Box::new(solution),
+					witness
+				));
+
+				// trial 4: a solution who's minimal stake is 17, i.e. 4 better than the last
+				// soluton.
 				let result = ElectionResult {
 					winners: vec![(10, 12)],
 					assignments: vec![
@@ -1478,7 +1496,7 @@ mod tests {
 						},
 					],
 				};
-				let (raw, score, witness) =
+				let (raw, score, witness, _) =
 					Miner::<Runtime>::prepare_election_result_with_snapshot(
 						result,
 						voters.clone(),
@@ -1847,7 +1865,7 @@ mod tests {
 			let solution_clone = solution.clone();
 
 			// when
-			Miner::<Runtime>::trim_assignments_length(
+			let trimmed_len = Miner::<Runtime>::trim_assignments_length(
 				encoded_len,
 				&mut assignments,
 				encoded_size_of,
@@ -1857,6 +1875,7 @@ mod tests {
 			// then
 			let solution = SolutionOf::<Runtime>::try_from(assignments.as_slice()).unwrap();
 			assert_eq!(solution, solution_clone);
+			assert_eq!(trimmed_len, 0);
 		});
 	}
 
@@ -1872,7 +1891,7 @@ mod tests {
 			let solution_clone = solution.clone();
 
 			// when
-			Miner::<Runtime>::trim_assignments_length(
+			let trimmed_len = Miner::<Runtime>::trim_assignments_length(
 				encoded_len as u32 - 1,
 				&mut assignments,
 				encoded_size_of,
@@ -1883,6 +1902,7 @@ mod tests {
 			let solution = SolutionOf::<Runtime>::try_from(assignments.as_slice()).unwrap();
 			assert_ne!(solution, solution_clone);
 			assert!(solution.encoded_size() < encoded_len);
+			assert_eq!(trimmed_len, 1);
 		});
 	}
 

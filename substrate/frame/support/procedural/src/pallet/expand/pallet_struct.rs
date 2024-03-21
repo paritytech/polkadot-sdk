@@ -54,7 +54,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	if let Some(field) = pallet_item.fields.iter_mut().next() {
 		if field.ty == syn::parse_quote!(_) {
 			field.ty = syn::parse_quote!(
-				#frame_support::sp_std::marker::PhantomData<(#type_use_gen)>
+				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen)>
 			);
 		}
 	}
@@ -62,8 +62,8 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	if get_doc_literals(&pallet_item.attrs).is_empty() {
 		pallet_item.attrs.push(syn::parse_quote!(
 			#[doc = r"
-			The [pallet](https://docs.substrate.io/reference/frame-pallets/#pallets) implementing
-			the on-chain logic.
+				The `Pallet` struct, the main type that implements traits and standalone
+				functions within the pallet.
 			"]
 		));
 	}
@@ -82,9 +82,9 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		quote::quote_spanned!(def.pallet_struct.attr_span =>
 			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #config_where_clause {
 				#[doc(hidden)]
-				pub fn error_metadata() -> Option<#frame_support::metadata::PalletErrorMetadata> {
-					Some(#frame_support::metadata::PalletErrorMetadata {
-						ty: #frame_support::scale_info::meta_type::<#error_ident<#type_use_gen>>()
+				pub fn error_metadata() -> Option<#frame_support::__private::metadata_ir::PalletErrorMetadataIR> {
+					Some(#frame_support::__private::metadata_ir::PalletErrorMetadataIR {
+						ty: #frame_support::__private::scale_info::meta_type::<#error_ident<#type_use_gen>>()
 					})
 				}
 			}
@@ -93,7 +93,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		quote::quote_spanned!(def.pallet_struct.attr_span =>
 			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #config_where_clause {
 				#[doc(hidden)]
-				pub fn error_metadata() -> Option<#frame_support::metadata::PalletErrorMetadata> {
+				pub fn error_metadata() -> Option<#frame_support::__private::metadata_ir::PalletErrorMetadataIR> {
 					None
 				}
 			}
@@ -139,10 +139,10 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			#storages_where_clauses
 		{
 			fn storage_info()
-				-> #frame_support::sp_std::vec::Vec<#frame_support::traits::StorageInfo>
+				-> #frame_support::__private::sp_std::vec::Vec<#frame_support::traits::StorageInfo>
 			{
 				#[allow(unused_mut)]
-				let mut res = #frame_support::sp_std::vec![];
+				let mut res = #frame_support::__private::sp_std::vec![];
 
 				#(
 					#(#storage_cfg_attrs)*
@@ -160,11 +160,15 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 	);
 
-	let storage_version = if let Some(v) = def.pallet_struct.storage_version.as_ref() {
-		quote::quote! { #v }
-	} else {
-		quote::quote! { #frame_support::traits::StorageVersion::default() }
-	};
+	let (storage_version, in_code_storage_version_ty) =
+		if let Some(v) = def.pallet_struct.storage_version.as_ref() {
+			(quote::quote! { #v }, quote::quote! { #frame_support::traits::StorageVersion })
+		} else {
+			(
+				quote::quote! { core::default::Default::default() },
+				quote::quote! { #frame_support::traits::NoStorageVersionSet },
+			)
+		};
 
 	let whitelisted_storage_idents: Vec<syn::Ident> = def
 		.storages
@@ -175,8 +179,8 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 	let whitelisted_storage_keys_impl = quote::quote![
 		use #frame_support::traits::{StorageInfoTrait, TrackedStorageKey, WhitelistedStorageKeys};
 		impl<#type_impl_gen> WhitelistedStorageKeys for #pallet_ident<#type_use_gen> #storages_where_clauses {
-			fn whitelisted_storage_keys() -> #frame_support::sp_std::vec::Vec<TrackedStorageKey> {
-				use #frame_support::sp_std::vec;
+			fn whitelisted_storage_keys() -> #frame_support::__private::sp_std::vec::Vec<TrackedStorageKey> {
+				use #frame_support::__private::sp_std::vec;
 				vec![#(
 					TrackedStorageKey::new(#whitelisted_storage_idents::<#type_use_gen>::hashed_key().to_vec())
 				),*]
@@ -199,7 +203,9 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			for #pallet_ident<#type_use_gen>
 			#config_where_clause
 		{
-			fn current_storage_version() -> #frame_support::traits::StorageVersion {
+			type InCodeStorageVersion = #in_code_storage_version_ty;
+
+			fn in_code_storage_version() -> Self::InCodeStorageVersion {
 				#storage_version
 			}
 
@@ -214,7 +220,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			#config_where_clause
 		{
 			fn on_genesis() {
-				let storage_version = #storage_version;
+				let storage_version: #frame_support::traits::StorageVersion = #storage_version;
 				storage_version.put::<Self>();
 			}
 		}
@@ -240,6 +246,14 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 						implemented by the runtime")
 			}
 
+			fn name_hash() -> [u8; 16] {
+				<
+					<T as #frame_system::Config>::PalletInfo as #frame_support::traits::PalletInfo
+				>::name_hash::<Self>()
+					.expect("Pallet is part of the runtime because pallet `Config` trait is \
+						implemented by the runtime")
+			}
+
 			fn module_name() -> &'static str {
 				<
 					<T as #frame_system::Config>::PalletInfo as #frame_support::traits::PalletInfo
@@ -258,7 +272,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			#config_where_clause
 		{
 			fn count() -> usize { 1 }
-			fn infos() -> #frame_support::sp_std::vec::Vec<#frame_support::traits::PalletInfoData> {
+			fn infos() -> #frame_support::__private::sp_std::vec::Vec<#frame_support::traits::PalletInfoData> {
 				use #frame_support::traits::PalletInfoAccess;
 				let item = #frame_support::traits::PalletInfoData {
 					index: Self::index(),
@@ -266,7 +280,7 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 					module_name: Self::module_name(),
 					crate_version: Self::crate_version(),
 				};
-				#frame_support::sp_std::vec![item]
+				#frame_support::__private::sp_std::vec![item]
 			}
 		}
 

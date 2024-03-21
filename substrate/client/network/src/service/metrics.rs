@@ -24,7 +24,7 @@ use prometheus_endpoint::{
 use std::{
 	str,
 	sync::{
-		atomic::{AtomicBool, AtomicUsize, Ordering},
+		atomic::{AtomicUsize, Ordering},
 		Arc,
 	},
 };
@@ -34,7 +34,6 @@ pub use prometheus_endpoint::{Histogram, HistogramVec};
 /// Registers all networking metrics with the given registry.
 pub fn register(registry: &Registry, sources: MetricSources) -> Result<Metrics, PrometheusError> {
 	BandwidthCounters::register(registry, sources.bandwidth)?;
-	MajorSyncingGauge::register(registry, sources.major_syncing)?;
 	NumConnectedGauge::register(registry, sources.connected_peers)?;
 	Metrics::register(registry)
 }
@@ -42,7 +41,6 @@ pub fn register(registry: &Registry, sources: MetricSources) -> Result<Metrics, 
 /// Predefined metric sources that are fed directly into prometheus.
 pub struct MetricSources {
 	pub bandwidth: Arc<BandwidthSinks>,
-	pub major_syncing: Arc<AtomicBool>,
 	pub connected_peers: Arc<AtomicUsize>,
 }
 
@@ -63,9 +61,6 @@ pub struct Metrics {
 	pub kbuckets_num_nodes: GaugeVec<U64>,
 	pub listeners_local_addresses: Gauge<U64>,
 	pub listeners_errors_total: Counter<U64>,
-	pub notifications_sizes: HistogramVec,
-	pub notifications_streams_closed_total: CounterVec<U64>,
-	pub notifications_streams_opened_total: CounterVec<U64>,
 	pub peerset_num_discovered: Gauge<U64>,
 	pub pending_connections: Gauge<U64>,
 	pub pending_connections_errors_total: CounterVec<U64>,
@@ -155,31 +150,6 @@ impl Metrics {
 				"substrate_sub_libp2p_listeners_errors_total",
 				"Total number of non-fatal errors reported by a listener"
 			)?, registry)?,
-			notifications_sizes: prometheus::register(HistogramVec::new(
-				HistogramOpts {
-					common_opts: Opts::new(
-						"substrate_sub_libp2p_notifications_sizes",
-						"Sizes of the notifications send to and received from all nodes"
-					),
-					buckets: prometheus::exponential_buckets(64.0, 4.0, 8)
-						.expect("parameters are always valid values; qed"),
-				},
-				&["direction", "protocol"]
-			)?, registry)?,
-			notifications_streams_closed_total: prometheus::register(CounterVec::new(
-				Opts::new(
-					"substrate_sub_libp2p_notifications_streams_closed_total",
-					"Total number of notification substreams that have been closed"
-				),
-				&["protocol"]
-			)?, registry)?,
-			notifications_streams_opened_total: prometheus::register(CounterVec::new(
-				Opts::new(
-					"substrate_sub_libp2p_notifications_streams_opened_total",
-					"Total number of notification substreams that have been opened"
-				),
-				&["protocol"]
-			)?, registry)?,
 			peerset_num_discovered: prometheus::register(Gauge::new(
 				"substrate_sub_libp2p_peerset_num_discovered",
 				"Number of nodes stored in the peerset manager",
@@ -263,37 +233,6 @@ impl MetricSource for BandwidthCounters {
 	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
 		set(&["in"], self.0.total_inbound());
 		set(&["out"], self.0.total_outbound());
-	}
-}
-
-/// The "major syncing" metric.
-#[derive(Clone)]
-pub struct MajorSyncingGauge(Arc<AtomicBool>);
-
-impl MajorSyncingGauge {
-	/// Registers the `MajorSyncGauge` metric whose value is
-	/// obtained from the given `AtomicBool`.
-	fn register(registry: &Registry, value: Arc<AtomicBool>) -> Result<(), PrometheusError> {
-		prometheus::register(
-			SourcedGauge::new(
-				&Opts::new(
-					"substrate_sub_libp2p_is_major_syncing",
-					"Whether the node is performing a major sync or not.",
-				),
-				MajorSyncingGauge(value),
-			)?,
-			registry,
-		)?;
-
-		Ok(())
-	}
-}
-
-impl MetricSource for MajorSyncingGauge {
-	type N = u64;
-
-	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
-		set(&[], self.0.load(Ordering::Relaxed) as u64);
 	}
 }
 

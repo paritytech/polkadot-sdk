@@ -30,10 +30,14 @@ mod tests;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::{Dispatchable, GetDispatchInfo},
-	traits::{Currency, OnUnbalanced, ReservableCurrency},
+	dispatch::GetDispatchInfo,
+	traits::{
+		fungible::{hold::Balanced, Inspect, Mutate, MutateHold},
+		tokens::fungible::Credit,
+		OnUnbalanced,
+	},
 };
-use sp_runtime::traits::{BlakeTwo256, Hash, One, Saturating, Zero};
+use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_std::{prelude::*, result};
 use sp_transaction_storage_proof::{
 	encode_index, random_chunk, InherentError, TransactionStorageProof, CHUNK_SIZE,
@@ -42,10 +46,8 @@ use sp_transaction_storage_proof::{
 
 /// A type alias for the balance type from this pallet's point of view.
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -89,6 +91,13 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as deposit for the used storage.
+		StorageFeeHold,
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
@@ -98,10 +107,14 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
-		/// The currency trait.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The fungible type for this pallet.
+		type Currency: Mutate<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ Balanced<Self::AccountId>;
+		/// The overarching runtime hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 		/// Handler for the unbalanced decrease when fees are burned.
-		type FeeDestination: OnUnbalanced<NegativeImbalanceOf<Self>>;
+		type FeeDestination: OnUnbalanced<CreditOf<Self>>;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 		/// Maximum number of indexed transactions in the block.
@@ -112,8 +125,6 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Insufficient account balance.
-		InsufficientFunds,
 		/// Invalid configuration.
 		NotConfigured,
 		/// Renewed extrinsic is not found.
@@ -141,12 +152,11 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: T::BlockNumber) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			// Drop obsolete roots. The proof for `obsolete` will be checked later
 			// in this block, so we drop `obsolete` - 1.
 			let period = <StoragePeriod<T>>::get();
@@ -159,7 +169,7 @@ pub mod pallet {
 			T::DbWeight::get().reads_writes(2, 4)
 		}
 
-		fn on_finalize(n: T::BlockNumber) {
+		fn on_finalize(n: BlockNumberFor<T>) {
 			assert!(
 				<ProofChecked<T>>::take() || {
 					// Proof is not required for early or empty blocks.
@@ -239,7 +249,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::renew())]
 		pub fn renew(
 			origin: OriginFor<T>,
-			block: T::BlockNumber,
+			block: BlockNumberFor<T>,
 			index: u32,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
@@ -343,7 +353,7 @@ pub mod pallet {
 	pub(super) type Transactions<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		T::BlockNumber,
+		BlockNumberFor<T>,
 		BoundedVec<TransactionInfo, T::MaxBlockTransactions>,
 		OptionQuery,
 	>;
@@ -351,7 +361,7 @@ pub mod pallet {
 	/// Count indexed chunks for each block.
 	#[pallet::storage]
 	pub(super) type ChunkCount<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::BlockNumber, u32, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, u32, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn byte_fee)]
@@ -366,7 +376,7 @@ pub mod pallet {
 	/// Storage period for data in blocks. Should match `sp_storage_proof::DEFAULT_STORAGE_PERIOD`
 	/// for block authoring.
 	#[pallet::storage]
-	pub(super) type StoragePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+	pub(super) type StoragePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	// Intermediates
 	#[pallet::storage]
@@ -381,10 +391,9 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub byte_fee: BalanceOf<T>,
 		pub entry_fee: BalanceOf<T>,
-		pub storage_period: T::BlockNumber,
+		pub storage_period: BlockNumberFor<T>,
 	}
 
-	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			Self {
@@ -396,7 +405,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			<ByteFee<T>>::put(&self.byte_fee);
 			<EntryFee<T>>::put(&self.entry_fee);
@@ -434,8 +443,10 @@ pub mod pallet {
 			let byte_fee = ByteFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let entry_fee = EntryFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let fee = byte_fee.saturating_mul(size.into()).saturating_add(entry_fee);
-			ensure!(T::Currency::can_slash(&sender, fee), Error::<T>::InsufficientFunds);
-			let (credit, _) = T::Currency::slash(&sender, fee);
+			T::Currency::hold(&HoldReason::StorageFeeHold.into(), &sender, fee)?;
+			let (credit, _remainder) =
+				T::Currency::slash(&HoldReason::StorageFeeHold.into(), &sender, fee);
+			debug_assert!(_remainder.is_zero());
 			T::FeeDestination::on_unbalanced(credit);
 			Ok(())
 		}

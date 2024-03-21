@@ -18,54 +18,23 @@
 //! Test environment for remarks pallet.
 
 use crate as pallet_remark;
-use frame_support::traits::{ConstU16, ConstU32, ConstU64};
-use sp_core::H256;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use frame_support::derive_impl;
+use sp_runtime::BuildStorage;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 pub type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Remark: pallet_remark::{ Pallet, Call, Event<T> },
+		System: frame_system,
+		Remark: pallet_remark,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Index = u64;
-	type BlockNumber = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
+	type Block = Block;
 }
 
 impl pallet_remark::Config for Test {
@@ -74,6 +43,6 @@ impl pallet_remark::Config for Test {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = GenesisConfig { system: Default::default() }.build_storage().unwrap();
+	let t = RuntimeGenesisConfig { system: Default::default() }.build_storage().unwrap();
 	t.into()
 }

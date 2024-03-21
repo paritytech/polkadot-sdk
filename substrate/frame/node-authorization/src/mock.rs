@@ -20,58 +20,23 @@
 use super::*;
 use crate as pallet_node_authorization;
 
-use frame_support::{
-	ord_parameter_types,
-	traits::{ConstU32, ConstU64, GenesisBuild},
-};
+use frame_support::{derive_impl, ord_parameter_types, traits::ConstU32};
 use frame_system::EnsureSignedBy;
-use sp_core::H256;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
+use sp_runtime::BuildStorage;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		NodeAuthorization: pallet_node_authorization::{
-			Pallet, Call, Storage, Config<T>, Event<T>,
-		},
+		System: frame_system,
+		NodeAuthorization: pallet_node_authorization,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type DbWeight = ();
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
+	type Block = Block;
 }
 
 ord_parameter_types! {
@@ -97,7 +62,7 @@ pub fn test_node(id: u8) -> PeerId {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_node_authorization::GenesisConfig::<Test> {
 		nodes: vec![(test_node(10), 10), (test_node(20), 20), (test_node(30), 30)],
 	}

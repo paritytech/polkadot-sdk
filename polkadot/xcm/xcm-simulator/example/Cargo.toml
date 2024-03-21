@@ -1,0 +1,51 @@
+[package]
+name = "xcm-simulator-example"
+description = "Examples of xcm-simulator usage."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+version = "7.0.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1" }
+scale-info = { version = "2.10.0", features = ["derive"] }
+log = { workspace = true }
+
+frame-system = { path = "../../../../substrate/frame/system" }
+frame-support = { path = "../../../../substrate/frame/support" }
+pallet-balances = { path = "../../../../substrate/frame/balances" }
+pallet-message-queue = { path = "../../../../substrate/frame/message-queue" }
+pallet-uniques = { path = "../../../../substrate/frame/uniques" }
+sp-std = { path = "../../../../substrate/primitives/std" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime" }
+sp-io = { path = "../../../../substrate/primitives/io" }
+sp-tracing = { path = "../../../../substrate/primitives/tracing" }
+
+xcm = { package = "staging-xcm", path = "../.." }
+xcm-simulator = { path = ".." }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm-executor" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder" }
+pallet-xcm = { path = "../../pallet-xcm" }
+polkadot-core-primitives = { path = "../../../core-primitives" }
+polkadot-runtime-parachains = { path = "../../../runtime/parachains" }
+polkadot-parachain-primitives = { path = "../../../parachain" }
+
+[features]
+default = []
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-uniques/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]

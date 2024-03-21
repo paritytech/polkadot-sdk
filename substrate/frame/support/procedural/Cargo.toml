@@ -1,12 +1,15 @@
 [package]
 name = "frame-support-procedural"
-version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "23.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Proc macro of Support code for the runtime."
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -17,14 +20,26 @@ proc-macro = true
 [dependencies]
 derive-syn-parse = "0.1.5"
 Inflector = "0.11.4"
-cfg-expr = "0.10.3"
+cfg-expr = "0.15.5"
 itertools = "0.10.3"
-proc-macro2 = "1.0.37"
-quote = "1.0.10"
-syn = { version = "1.0.98", features = ["full"] }
-frame-support-procedural-tools = { version = "4.0.0-dev", path = "./tools" }
+proc-macro2 = "1.0.56"
+quote = { workspace = true }
+syn = { features = ["full", "visit-mut"], workspace = true }
+frame-support-procedural-tools = { path = "tools" }
+macro_magic = { version = "0.5.0", features = ["proc_support"] }
+proc-macro-warning = { version = "1.0.0", default-features = false }
+expander = "2.0.0"
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing", default-features = false }
+
+[dev-dependencies]
+regex = "1"
 
 [features]
 default = ["std"]
-std = []
+std = ["sp-crypto-hashing/std"]
 no-metadata-docs = []
+experimental = []
+# Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of
+# pallets in a runtime grows. Does increase the compile time!
+tuples-96 = []
+tuples-128 = []

@@ -1,31 +1,34 @@
 [package]
 name = "frame-support-test-compile-pass"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 publish = false
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../../" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../../../system" }
-sp-core = { version = "7.0.0", default-features = false, path = "../../../../primitives/core" }
-sp-runtime = { version = "7.0.0", default-features = false, path = "../../../../primitives/runtime" }
-sp-version = { version = "5.0.0", default-features = false, path = "../../../../primitives/version" }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+renamed-frame-support = { package = "frame-support", path = "../..", default-features = false }
+renamed-frame-system = { package = "frame-system", path = "../../../system", default-features = false }
+sp-core = { path = "../../../../primitives/core", default-features = false }
+sp-runtime = { path = "../../../../primitives/runtime", default-features = false }
+sp-version = { path = "../../../../primitives/version", default-features = false }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-support/std",
-	"frame-system/std",
+	"renamed-frame-support/std",
+	"renamed-frame-system/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-runtime/std",

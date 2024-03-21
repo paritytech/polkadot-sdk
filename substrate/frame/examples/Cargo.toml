@@ -1,0 +1,51 @@
+[package]
+name = "pallet-examples"
+version = "4.0.0-dev"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+description = "The single package with examples of various types of FRAME pallets"
+publish = false
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+pallet-default-config-example = { path = "default-config", default-features = false }
+pallet-dev-mode = { path = "dev-mode", default-features = false }
+pallet-example-basic = { path = "basic", default-features = false }
+pallet-example-frame-crate = { path = "frame-crate", default-features = false }
+pallet-example-kitchensink = { path = "kitchensink", default-features = false }
+pallet-example-offchain-worker = { path = "offchain-worker", default-features = false }
+pallet-example-split = { path = "split", default-features = false }
+pallet-example-single-block-migrations = { path = "single-block-migrations", default-features = false }
+pallet-example-tasks = { path = "tasks", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"pallet-default-config-example/std",
+	"pallet-dev-mode/std",
+	"pallet-example-basic/std",
+	"pallet-example-frame-crate/std",
+	"pallet-example-kitchensink/std",
+	"pallet-example-offchain-worker/std",
+	"pallet-example-single-block-migrations/std",
+	"pallet-example-split/std",
+	"pallet-example-tasks/std",
+]
+try-runtime = [
+	"pallet-default-config-example/try-runtime",
+	"pallet-dev-mode/try-runtime",
+	"pallet-example-basic/try-runtime",
+	"pallet-example-kitchensink/try-runtime",
+	"pallet-example-offchain-worker/try-runtime",
+	"pallet-example-single-block-migrations/try-runtime",
+	"pallet-example-split/try-runtime",
+	"pallet-example-tasks/try-runtime",
+]

@@ -1,0 +1,13 @@
+error: use of deprecated constant `pallet::warnings::UncheckedWeightWitness_0::_w`:
+               It is deprecated to not check weight witness data.
+               Please instead ensure that all witness data for weight calculation is checked before usage.
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/pull/1818>
+  --> tests/pallet_ui/call_weight_unchecked_warning.rs:33:31
+   |
+33 |         pub fn foo(_: OriginFor<T>, _unused: u64) -> DispatchResult { Ok(()) }
+   |                                     ^^^^^^^
+   |
+   = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`

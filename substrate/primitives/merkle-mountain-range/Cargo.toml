@@ -1,42 +1,48 @@
 [package]
 name = "sp-mmr-primitives"
-version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "26.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Merkle Mountain Range primitives."
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+log = { workspace = true }
 mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.5.2", default-features = false }
-serde = { version = "1.0.136", features = ["derive"], optional = true }
-sp-api = { version = "4.0.0-dev", default-features = false, path = "../api" }
-sp-core = { version = "7.0.0", default-features = false, path = "../core" }
-sp-debug-derive = { version = "5.0.0", default-features = false, path = "../debug-derive" }
-sp-runtime = { version = "7.0.0", default-features = false, path = "../runtime" }
-sp-std = { version = "5.0.0", default-features = false, path = "../std" }
-thiserror = "1.0"
+serde = { features = ["alloc", "derive"], optional = true, workspace = true }
+sp-api = { path = "../api", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-debug-derive = { path = "../debug-derive", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
+thiserror = { optional = true, workspace = true }
 
 [dev-dependencies]
-array-bytes = "4.1"
+array-bytes = "6.1"
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"dep:thiserror",
 	"log/std",
 	"mmr-lib/std",
-	"serde",
+	"scale-info/std",
+	"serde/std",
 	"sp-api/std",
 	"sp-core/std",
 	"sp-debug-derive/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
+
+# Serde support without relying on std features.
+serde = ["dep:serde", "scale-info/serde", "sp-core/serde", "sp-runtime/serde"]

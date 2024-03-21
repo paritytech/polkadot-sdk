@@ -1,0 +1,5 @@
+error: expected integer literal
+  --> tests/pallet_ui/task_invalid_index.rs:31:24
+   |
+31 |         #[pallet::task_index("0")]
+   |                              ^^^

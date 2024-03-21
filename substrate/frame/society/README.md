@@ -11,16 +11,16 @@ and maintain a membership society.
 ### User Types
 
 At any point, a user in the society can be one of a:
-* Bidder - A user who has submitted intention of joining the society.
-* Candidate - A user who will be voted on to join the society.
-* Suspended Candidate - A user who failed to win a vote.
-* Member - A user who is a member of the society.
-* Suspended Member - A member of the society who has accumulated too many strikes
+- Bidder - A user who has submitted intention of joining the society.
+- Candidate - A user who will be voted on to join the society.
+- Suspended Candidate - A user who failed to win a vote.
+- Member - A user who is a member of the society.
+- Suspended Member - A member of the society who has accumulated too many strikes
 or failed their membership challenge.
 
 Of the non-suspended members, there is always a:
-* Head - A member who is exempt from suspension.
-* Defender - A member whose membership is under question and voted on again.
+- Head - A member who is exempt from suspension.
+- Defender - A member whose membership is under question and voted on again.
 
 Of the non-suspended members of the society, a random set of them are chosen as
 "skeptics". The mechanics of skeptics is explained in the
@@ -201,28 +201,28 @@ future payouts slashed.
 
 #### For General Users
 
-* `bid` - A user can make a bid to join the membership society by reserving a deposit.
-* `unbid` - A user can withdraw their bid for entry, the deposit is returned.
+- `bid` - A user can make a bid to join the membership society by reserving a deposit.
+- `unbid` - A user can withdraw their bid for entry, the deposit is returned.
 
 #### For Members
 
-* `vouch` - A member can place a bid on behalf of a user to join the membership society.
-* `unvouch` - A member can revoke their vouch for a user.
-* `vote` - A member can vote to approve or reject a candidate's request to join the society.
-* `defender_vote` - A member can vote to approve or reject a defender's continued membership
+- `vouch` - A member can place a bid on behalf of a user to join the membership society.
+- `unvouch` - A member can revoke their vouch for a user.
+- `vote` - A member can vote to approve or reject a candidate's request to join the society.
+- `defender_vote` - A member can vote to approve or reject a defender's continued membership
 to the society.
-* `payout` - A member can claim their first matured payment.
-* `unfound` - Allow the founder to unfound the society when they are the only member.
+- `payout` - A member can claim their first matured payment.
+- `unfound` - Allow the founder to unfound the society when they are the only member.
 
 #### For Super Users
 
-* `found` - The founder origin can initiate this society. Useful for bootstrapping the Society
+- `found` - The founder origin can initiate this society. Useful for bootstrapping the Society
 pallet on an already running chain.
-* `judge_suspended_member` - The suspension judgement origin is able to make
+- `judge_suspended_member` - The suspension judgement origin is able to make
 judgement on a suspended member.
-* `judge_suspended_candidate` - The suspension judgement origin is able to
+- `judge_suspended_candidate` - The suspension judgement origin is able to
 make judgement on a suspended candidate.
-* `set_max_membership` - The ROOT origin can update the maximum member count for the society.
+- `set_max_membership` - The ROOT origin can update the maximum member count for the society.
 The max membership count must be greater than 1.
 
 License: Apache-2.0

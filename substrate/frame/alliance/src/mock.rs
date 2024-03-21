@@ -17,22 +17,23 @@
 
 //! Test utilities
 
+use core::convert::{TryFrom, TryInto};
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, IdentifyAccount, Lazy, Verify},
 	BuildStorage,
 };
-use sp_std::convert::{TryFrom, TryInto};
 
 pub use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, GenesisBuild, SortedMembers},
-	BoundedVec,
+	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
+	traits::EitherOfDiverse, BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use pallet_identity::{Data, IdentityInfo, Judgement};
+use pallet_identity::{
+	legacy::{IdentityField, IdentityInfo},
+	Data, Judgement,
+};
 
 pub use crate as pallet_alliance;
 
@@ -43,32 +44,14 @@ type AccountId = u64;
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
+	pub BlockWeights: frame_system::limits::BlockWeights =
+		frame_system::limits::BlockWeights::simple_max(Weight::MAX);
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Index = u64;
-	type BlockNumber = BlockNumber;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<AccountId>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type Block = Block;
+	type AccountData = pallet_balances::AccountData<u64>;
 }
 
 parameter_types! {
@@ -85,6 +68,10 @@ impl pallet_balances::Config for Test {
 	type MaxLocks = MaxLocks;
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 }
 
 const MOTION_DURATION_IN_BLOCKS: BlockNumber = 3;
@@ -93,6 +80,7 @@ parameter_types! {
 	pub const MotionDuration: BlockNumber = MOTION_DURATION_IN_BLOCKS;
 	pub const MaxProposals: u32 = 100;
 	pub const MaxMembers: u32 = 100;
+	pub MaxProposalWeight: Weight = sp_runtime::Perbill::from_percent(50) * BlockWeights::get().max_block;
 }
 type AllianceCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<AllianceCollective> for Test {
@@ -105,15 +93,17 @@ impl pallet_collective::Config<AllianceCollective> for Test {
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+	type MaxProposalWeight = MaxProposalWeight;
 }
 
 parameter_types! {
-	pub const BasicDeposit: u64 = 10;
-	pub const FieldDeposit: u64 = 10;
-	pub const SubAccountDeposit: u64 = 10;
+	pub const BasicDeposit: u64 = 100;
+	pub const ByteDeposit: u64 = 10;
+	pub const SubAccountDeposit: u64 = 100;
 	pub const MaxSubAccounts: u32 = 2;
 	pub const MaxAdditionalFields: u32 = 2;
 	pub const MaxRegistrars: u32 = 20;
+	pub const PendingUsernameExpiration: u64 = 100;
 }
 ord_parameter_types! {
 	pub const One: u64 = 1;
@@ -129,26 +119,51 @@ impl pallet_identity::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type BasicDeposit = BasicDeposit;
-	type FieldDeposit = FieldDeposit;
+	type ByteDeposit = ByteDeposit;
 	type SubAccountDeposit = SubAccountDeposit;
 	type MaxSubAccounts = MaxSubAccounts;
-	type MaxAdditionalFields = MaxAdditionalFields;
+	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
 	type Slashed = ();
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;
+	type OffchainSignature = AccountU64;
+	type SigningPublicKey = AccountU64;
+	type UsernameAuthorityOrigin = EnsureOneOrRoot;
+	type PendingUsernameExpiration = PendingUsernameExpiration;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
+}
+
+#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+pub struct AccountU64(u64);
+impl IdentifyAccount for AccountU64 {
+	type AccountId = u64;
+	fn into_account(self) -> u64 {
+		0u64
+	}
+}
+impl Verify for AccountU64 {
+	type Signer = AccountU64;
+	fn verify<L: Lazy<[u8]>>(
+		&self,
+		_msg: L,
+		_signer: &<Self::Signer as IdentifyAccount>::AccountId,
+	) -> bool {
+		false
+	}
 }
 
 pub struct AllianceIdentityVerifier;
 impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
-	fn has_identity(who: &AccountId, fields: u64) -> bool {
-		Identity::has_identity(who, fields)
+	fn has_required_identities(who: &AccountId) -> bool {
+		Identity::has_identity(who, (IdentityField::Display | IdentityField::Web).bits())
 	}
 
 	fn has_good_judgement(who: &AccountId) -> bool {
 		if let Some(judgements) =
-			Identity::identity(who).map(|registration| registration.judgements)
+			Identity::identity(who).map(|(registration, _)| registration.judgements)
 		{
 			judgements
 				.iter()
@@ -193,7 +208,7 @@ impl ProposalProvider<AccountId, H256, RuntimeCall> for AllianceProposalProvider
 	}
 
 	fn proposal_of(proposal_hash: H256) -> Option<RuntimeCall> {
-		AllianceMotion::proposal_of(proposal_hash)
+		pallet_collective::ProposalOf::<Test, Instance1>::get(proposal_hash)
 	}
 }
 
@@ -230,14 +245,10 @@ impl Config for Test {
 	type RetirementPeriod = RetirementPeriod;
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -247,50 +258,58 @@ frame_support::construct_runtime!(
 	}
 );
 
+fn test_identity_info() -> IdentityInfo<MaxAdditionalFields> {
+	IdentityInfo {
+		additional: BoundedVec::default(),
+		display: Data::Raw(b"name".to_vec().try_into().unwrap()),
+		legal: Data::default(),
+		web: Data::Raw(b"website".to_vec().try_into().unwrap()),
+		riot: Data::default(),
+		email: Data::default(),
+		pgp_fingerprint: None,
+		image: Data::default(),
+		twitter: Data::default(),
+	}
+}
+
+pub(super) fn test_identity_info_deposit() -> <Test as pallet_balances::Config>::Balance {
+	let basic_deposit: u64 = <Test as pallet_identity::Config>::BasicDeposit::get();
+	let byte_deposit: u64 = <Test as pallet_identity::Config>::ByteDeposit::get();
+	byte_deposit * test_identity_info().encoded_size() as u64 + basic_deposit
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![
-			(1, 50),
-			(2, 50),
-			(3, 50),
-			(4, 50),
-			(5, 30),
-			(6, 50),
-			(7, 50),
-			(8, 50),
-			(9, 50),
+			(1, 1000),
+			(2, 1000),
+			(3, 1000),
+			(4, 1000),
+			(5, test_identity_info_deposit() + 10),
+			(6, 1000),
+			(7, 1000),
+			(8, 1000),
+			(9, 1000),
 		],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
 
-	GenesisBuild::<Test>::assimilate_storage(
-		&pallet_alliance::GenesisConfig {
-			fellows: vec![],
-			allies: vec![],
-			phantom: Default::default(),
-		},
-		&mut t,
-	)
+	pallet_alliance::GenesisConfig::<Test> {
+		fellows: vec![],
+		allies: vec![],
+		phantom: Default::default(),
+	}
+	.assimilate_storage(&mut t)
 	.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| {
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::signed(1), 1));
 
-		let info = IdentityInfo {
-			additional: BoundedVec::default(),
-			display: Data::Raw(b"name".to_vec().try_into().unwrap()),
-			legal: Data::default(),
-			web: Data::Raw(b"website".to_vec().try_into().unwrap()),
-			riot: Data::default(),
-			email: Data::default(),
-			pgp_fingerprint: None,
-			image: Data::default(),
-			twitter: Data::default(),
-		};
+		let info = test_identity_info();
 		assert_ok!(Identity::set_identity(RuntimeOrigin::signed(1), Box::new(info.clone())));
 		assert_ok!(Identity::provide_judgement(
 			RuntimeOrigin::signed(1),
@@ -364,15 +383,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 #[cfg(feature = "runtime-benchmarks")]
 pub fn new_bench_ext() -> sp_io::TestExternalities {
-	GenesisConfig::default().build_storage().unwrap().into()
+	RuntimeGenesisConfig::default().build_storage().unwrap().into()
 }
 
 pub fn test_cid() -> Cid {
-	use sha2::{Digest, Sha256};
-	let mut hasher = Sha256::new();
-	hasher.update(b"hello world");
-	let result = hasher.finalize();
-	Cid::new_v0(&*result)
+	let result = sp_crypto_hashing::sha2_256(b"hello world");
+	Cid::new_v0(result)
 }
 
 pub fn make_remark_proposal(value: u64) -> (RuntimeCall, u32, H256) {

@@ -1,0 +1,32 @@
+[package]
+name = "polkadot-node-network-protocol"
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Primitives types for the Node-side"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-channel = "1.8.0"
+async-trait = "0.1.74"
+hex = "0.4.3"
+polkadot-primitives = { path = "../../../primitives" }
+polkadot-node-primitives = { path = "../../primitives" }
+polkadot-node-jaeger = { path = "../../jaeger" }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+sc-network = { path = "../../../../substrate/client/network" }
+sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
+strum = { version = "0.24", features = ["derive"] }
+futures = "0.3.21"
+thiserror = { workspace = true }
+fatality = "0.0.6"
+rand = "0.8"
+derive_more = "0.99"
+gum = { package = "tracing-gum", path = "../../gum" }
+bitvec = "1"
+
+[dev-dependencies]
+rand_chacha = "0.3.1"

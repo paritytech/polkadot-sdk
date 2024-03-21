@@ -1,50 +1,60 @@
 [package]
 name = "sp-runtime-interface"
-version = "7.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "24.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Substrate runtime interface"
 documentation = "https://docs.rs/sp-runtime-interface/"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 bytes = { version = "1.1.0", default-features = false }
-sp-wasm-interface = { version = "7.0.0", path = "../wasm-interface", default-features = false }
-sp-std = { version = "5.0.0", default-features = false, path = "../std" }
-sp-tracing = { version = "6.0.0", default-features = false, path = "../tracing" }
-sp-runtime-interface-proc-macro = { version = "6.0.0", path = "proc-macro" }
-sp-externalities = { version = "0.13.0", default-features = false, path = "../externalities" }
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["bytes"] }
+sp-wasm-interface = { path = "../wasm-interface", default-features = false }
+sp-std = { path = "../std", default-features = false }
+sp-tracing = { path = "../tracing", default-features = false }
+sp-runtime-interface-proc-macro = { path = "proc-macro" }
+sp-externalities = { path = "../externalities", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bytes"] }
 static_assertions = "1.0.0"
 primitive-types = { version = "0.12.0", default-features = false }
-sp-storage = { version = "7.0.0", default-features = false, path = "../storage" }
+sp-storage = { path = "../storage", default-features = false }
 impl-trait-for-tuples = "0.2.2"
 
+[target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
+polkavm-derive = { workspace = true }
+
 [dev-dependencies]
-sp-runtime-interface-test-wasm = { version = "2.0.0", path = "test-wasm" }
-sp-state-machine = { version = "0.13.0", path = "../state-machine" }
-sp-core = { version = "7.0.0", path = "../core" }
-sp-io = { version = "7.0.0", path = "../io" }
+sp-runtime-interface-test-wasm = { path = "test-wasm" }
+sp-state-machine = { path = "../state-machine" }
+sp-core = { path = "../core" }
+sp-io = { path = "../io" }
 rustversion = "1.0.6"
-trybuild = "1.0.74"
+trybuild = "1.0.88"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"sp-storage/std",
 	"bytes/std",
-	"sp-wasm-interface/std",
-	"sp-std/std",
-	"sp-tracing/std",
 	"codec/std",
-	"sp-externalities/std",
 	"primitive-types/std",
+	"sp-core/std",
+	"sp-externalities/std",
+	"sp-io/std",
+	"sp-runtime-interface-test-wasm/std",
+	"sp-state-machine/std",
+	"sp-std/std",
+	"sp-storage/std",
+	"sp-tracing/std",
+	"sp-wasm-interface/std",
 ]
 
 # ATTENTION

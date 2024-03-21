@@ -1,0 +1,18 @@
+[package]
+name = "polkadot-primitives-test-helpers"
+publish = false
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+sp-keyring = { path = "../../../substrate/primitives/keyring" }
+sp-application-crypto = { package = "sp-application-crypto", path = "../../../substrate/primitives/application-crypto", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-core = { path = "../../../substrate/primitives/core", features = ["std"] }
+polkadot-primitives = { path = ".." }
+rand = "0.8.5"

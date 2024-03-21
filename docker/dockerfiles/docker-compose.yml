@@ -1,0 +1,129 @@
+version: '3.7'
+services:
+  node_alice:
+    image: "polkadot:${BRANCH:-cumulus-branch}"
+    ports:
+      - "30333:30333"
+      - "9933:9933"
+      - "9944:9944"
+    volumes:
+      - "polkadot-data-alice:/data"
+      - type: bind
+        source: ./test/parachain/chain-specs/polkadot_chainspec.json
+        target: /chainspec.json
+        read_only: true
+    command: >
+      polkadot
+      --chain=/chainspec.json
+      --base-path=/data
+      --port 30333
+      --rpc-port 9933
+      --ws-port 9944
+      --rpc-external
+      --rpc-cors all
+      --ws-external
+      --alice
+    networks:
+      testing_net:
+        ipv4_address: 172.28.1.1
+        aliases:
+          - alice
+
+  node_bob:
+    image: "polkadot:${BRANCH:-cumulus-branch}"
+    ports:
+      - "30344:30333"
+      - "9935:9933"
+      - "9945:9944"
+    volumes:
+      - "polkadot-data-bob:/data"
+      - type: bind
+        source: ./test/parachain/chain-specs/polkadot_chainspec.json
+        target: /chainspec.json
+        read_only: true
+    command: >
+      polkadot
+      --chain=/chainspec.json
+      --base-path=/data
+      --port 30333
+      --rpc-port 9933
+      --ws-port 9944
+      --rpc-external
+      --ws-external
+      --rpc-cors all
+      --bob
+    networks:
+      testing_net:
+        ipv4_address: 172.28.1.2
+        aliases:
+          - bob
+
+  genesis_state:
+    build:
+      context: .
+      dockerfile: ./docker/dockerfiles/test-parachain-collator.Dockerfile
+    image: "ctpc:latest"
+    volumes:
+      - "genesis-state:/data"
+    command: >
+      polkadot-parachain
+      export-genesis-state
+      /data/genesis-state
+
+  collator:
+    build:
+      context: .
+      dockerfile: ./docker/dockerfiles/test-parachain-collator.Dockerfile
+      target: collator
+    image: "ctpc:collator"
+    volumes:
+      - "collator-data:/data"
+    depends_on:
+      - node_alice
+      - node_bob
+    command: >
+      inject_bootnodes.sh
+      --base-path=/data
+    networks:
+      testing_net:
+
+  runtime:
+    build:
+      context: .
+      dockerfile: ./docker/dockerfiles/test-parachain-collator.Dockerfile
+      target: runtime
+    image: "ctpc:runtime"
+    volumes:
+      - "parachain-runtime:/runtime"
+
+
+  registrar:
+    build:
+      context: .
+      dockerfile: ./docker/dockerfiles/parachain-registrar.Dockerfile
+    image: para-reg:latest
+    volumes:
+      - "genesis-state:/genesis"
+      - "parachain-runtime:/runtime"
+    depends_on:
+      - node_alice
+      - runtime
+      - genesis_state
+    networks:
+      testing_net:
+
+
+volumes:
+  polkadot-data-alice:
+  polkadot-data-bob:
+  collator-data:
+  genesis-state:
+  parachain-runtime:
+
+
+networks:
+  testing_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16

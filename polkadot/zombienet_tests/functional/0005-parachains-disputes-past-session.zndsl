@@ -1,0 +1,57 @@
+Description: Past-session dispute slashing
+Network: ./0005-parachains-disputes-past-session.toml
+Creds: config
+
+# Ensure nodes are up and running
+honest-flaky-validator: reports node_roles is 4
+
+# Stop issuing disputes for now
+malus-validator: pause
+
+# Ensure parachain is registered
+honest-validator: parachain 1000 is registered within 100 seconds
+
+# Ensure parachain made progress
+honest-validator: parachain 1000 block height is at least 1 within 300 seconds
+
+# Start issuing disputes
+malus-validator: resume
+
+# Wait for malus to back garbage candidate
+malus-validator: log line matches "Suggesting malicious candidate" within 200 seconds
+
+# Pause first flaky node
+# Availability will continue with 3/4 nodes online (incl. malus)
+honest-flaky-validator-0: pause
+
+# Wait for the dispute
+honest-flaky-validator-1: reports parachain_candidate_disputes_total is at least 1 within 60 seconds
+
+# Pause second flaky node so that we do not revert blocks due to f+1 invalid votes
+# Availability and finality will stop
+honest-flaky-validator-1: pause
+
+# Wait for 1 full session to pass after the last unconcluded dispute.
+#
+# TODO: replace with assertion for "New session detected" in logs. I think that
+# would match on previous log lines, so we may need to programmatically wait for
+# a specific session, requiring zombienet v2.
+sleep 110 seconds
+
+# Now resume flaky validators
+honest-flaky-validator: resume
+
+# Stop issuing disputes
+malus-validator: pause
+
+# Disputes should start concluding now
+honest-validator: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"} is at least 1 within 200 seconds
+
+# Disputes should always end as "invalid"
+honest-validator: reports polkadot_parachain_candidate_dispute_concluded{validity="valid"} is 0
+
+# Check an unsigned extrinsic is submitted
+honest-validator: log line contains "Successfully reported pending slash" within 180 seconds
+
+# Finality should not lag after dispute resolution
+honest-validator: reports block height minus finalised block is lower than 8 within 100 seconds

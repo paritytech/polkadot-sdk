@@ -1,0 +1,48 @@
+[package]
+authors.workspace = true
+name = "cumulus-relay-chain-inprocess-interface"
+version = "0.7.0"
+edition.workspace = true
+description = "Implementation of the RelayChainInterface trait for Polkadot full-nodes."
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = "0.1.74"
+futures = "0.3.28"
+futures-timer = "3.0.2"
+
+# Substrate
+sc-cli = { path = "../../../substrate/client/cli" }
+sc-client-api = { path = "../../../substrate/client/api" }
+sc-telemetry = { path = "../../../substrate/client/telemetry" }
+sc-tracing = { path = "../../../substrate/client/tracing" }
+sc-sysinfo = { path = "../../../substrate/client/sysinfo" }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
+
+# Polkadot
+polkadot-cli = { path = "../../../polkadot/cli", default-features = false, features = ["cli"] }
+polkadot-service = { path = "../../../polkadot/node/service" }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
+
+[dev-dependencies]
+
+# Substrate
+sp-keyring = { path = "../../../substrate/primitives/keyring" }
+
+# Polkadot
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+polkadot-test-client = { path = "../../../polkadot/node/test/client" }
+metered = { package = "prioritized-metered-channel", version = "0.6.1", default-features = false, features = ["futures_channel"] }
+
+# Cumulus
+cumulus-test-service = { path = "../../test/service" }

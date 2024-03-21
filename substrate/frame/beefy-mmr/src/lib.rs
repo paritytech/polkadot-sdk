@@ -36,13 +36,15 @@
 use sp_runtime::traits::{Convert, Member};
 use sp_std::prelude::*;
 
-use beefy_primitives::{
+use codec::Decode;
+use pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
+use sp_consensus_beefy::{
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
 	ValidatorSet as BeefyValidatorSet,
 };
-use pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
 
 use frame_support::{crypto::ecdsa::ECDSAExt, traits::Get};
+use frame_system::pallet_prelude::BlockNumberFor;
 
 pub use pallet::*;
 
@@ -54,37 +56,37 @@ mod tests;
 /// A BEEFY consensus digest item with MMR root hash.
 pub struct DepositBeefyDigest<T>(sp_std::marker::PhantomData<T>);
 
-impl<T> pallet_mmr::primitives::OnNewRoot<beefy_primitives::MmrRootHash> for DepositBeefyDigest<T>
+impl<T> pallet_mmr::primitives::OnNewRoot<sp_consensus_beefy::MmrRootHash> for DepositBeefyDigest<T>
 where
-	T: pallet_mmr::Config<Hash = beefy_primitives::MmrRootHash>,
+	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing>,
 	T: pallet_beefy::Config,
 {
-	fn on_new_root(root: &<T as pallet_mmr::Config>::Hash) {
+	fn on_new_root(root: &sp_consensus_beefy::MmrRootHash) {
 		let digest = sp_runtime::generic::DigestItem::Consensus(
-			beefy_primitives::BEEFY_ENGINE_ID,
-			codec::Encode::encode(&beefy_primitives::ConsensusLog::<
+			sp_consensus_beefy::BEEFY_ENGINE_ID,
+			codec::Encode::encode(&sp_consensus_beefy::ConsensusLog::<
 				<T as pallet_beefy::Config>::BeefyId,
 			>::MmrRoot(*root)),
 		);
-		<frame_system::Pallet<T>>::deposit_log(digest);
+		frame_system::Pallet::<T>::deposit_log(digest);
 	}
 }
 
 /// Convert BEEFY secp256k1 public keys into Ethereum addresses
 pub struct BeefyEcdsaToEthereum;
-impl Convert<beefy_primitives::crypto::AuthorityId, Vec<u8>> for BeefyEcdsaToEthereum {
-	fn convert(beefy_id: beefy_primitives::crypto::AuthorityId) -> Vec<u8> {
+impl Convert<sp_consensus_beefy::ecdsa_crypto::AuthorityId, Vec<u8>> for BeefyEcdsaToEthereum {
+	fn convert(beefy_id: sp_consensus_beefy::ecdsa_crypto::AuthorityId) -> Vec<u8> {
 		sp_core::ecdsa::Public::from(beefy_id)
 			.to_eth_address()
 			.map(|v| v.to_vec())
 			.map_err(|_| {
-				log::error!(target: "runtime::beefy", "Failed to convert BEEFY PublicKey to ETH address!");
+				log::debug!(target: "runtime::beefy", "Failed to convert BEEFY PublicKey to ETH address!");
 			})
 			.unwrap_or_default()
 	}
 }
 
-type MerkleRootOf<T> = <T as pallet_mmr::Config>::Hash;
+type MerkleRootOf<T> = <<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -95,7 +97,6 @@ pub mod pallet {
 
 	/// BEEFY-MMR pallet.
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	/// The module's configuration trait.
@@ -125,7 +126,6 @@ pub mod pallet {
 
 	/// Details of current BEEFY authority set.
 	#[pallet::storage]
-	#[pallet::getter(fn beefy_authorities)]
 	pub type BeefyAuthorities<T: Config> =
 		StorageValue<_, BeefyAuthoritySet<MerkleRootOf<T>>, ValueQuery>;
 
@@ -133,14 +133,13 @@ pub mod pallet {
 	///
 	/// This storage entry is used as cache for calls to `update_beefy_next_authority_set`.
 	#[pallet::storage]
-	#[pallet::getter(fn beefy_next_authorities)]
 	pub type BeefyNextAuthorities<T: Config> =
 		StorageValue<_, BeefyNextAuthoritySet<MerkleRootOf<T>>, ValueQuery>;
 }
 
 impl<T: Config> LeafDataProvider for Pallet<T> {
 	type LeafData = MmrLeaf<
-		<T as frame_system::Config>::BlockNumber,
+		BlockNumberFor<T>,
 		<T as frame_system::Config>::Hash,
 		MerkleRootOf<T>,
 		T::LeafExtra,
@@ -151,12 +150,12 @@ impl<T: Config> LeafDataProvider for Pallet<T> {
 			version: T::LeafVersion::get(),
 			parent_number_and_hash: ParentNumberAndHash::<T>::leaf_data(),
 			leaf_extra: T::BeefyDataProvider::extra_data(),
-			beefy_next_authority_set: Pallet::<T>::beefy_next_authorities(),
+			beefy_next_authority_set: BeefyNextAuthorities::<T>::get(),
 		}
 	}
 }
 
-impl<T> beefy_primitives::OnNewValidatorSet<<T as pallet_beefy::Config>::BeefyId> for Pallet<T>
+impl<T> sp_consensus_beefy::OnNewValidatorSet<<T as pallet_beefy::Config>::BeefyId> for Pallet<T>
 where
 	T: pallet::Config,
 {
@@ -176,12 +175,12 @@ where
 impl<T: Config> Pallet<T> {
 	/// Return the currently active BEEFY authority set proof.
 	pub fn authority_set_proof() -> BeefyAuthoritySet<MerkleRootOf<T>> {
-		Pallet::<T>::beefy_authorities()
+		BeefyAuthorities::<T>::get()
 	}
 
 	/// Return the next/queued BEEFY authority set proof.
 	pub fn next_authority_set_proof() -> BeefyNextAuthoritySet<MerkleRootOf<T>> {
-		Pallet::<T>::beefy_next_authorities()
+		BeefyNextAuthorities::<T>::get()
 	}
 
 	/// Returns details of a BEEFY authority set.
@@ -199,12 +198,26 @@ impl<T: Config> Pallet<T> {
 			.cloned()
 			.map(T::BeefyAuthorityToMerkleLeaf::convert)
 			.collect::<Vec<_>>();
+		let default_eth_addr = [0u8; 20];
 		let len = beefy_addresses.len() as u32;
-		let root = binary_merkle_tree::merkle_root::<<T as pallet_mmr::Config>::Hashing, _>(
-			beefy_addresses,
-		)
+		let uninitialized_addresses = beefy_addresses
+			.iter()
+			.filter(|&addr| addr.as_slice().eq(&default_eth_addr))
+			.count();
+		if uninitialized_addresses > 0 {
+			log::error!(
+				target: "runtime::beefy",
+				"Failed to convert {} out of {} BEEFY PublicKeys to ETH addresses!",
+				uninitialized_addresses,
+				len,
+			);
+		}
+		let keyset_commitment = binary_merkle_tree::merkle_root::<
+			<T as pallet_mmr::Config>::Hashing,
+			_,
+		>(beefy_addresses)
 		.into();
-		BeefyAuthoritySet { id, len, root }
+		BeefyAuthoritySet { id, len, keyset_commitment }
 	}
 }
 
@@ -212,7 +225,7 @@ sp_api::decl_runtime_apis! {
 	/// API useful for BEEFY light clients.
 	pub trait BeefyMmrApi<H>
 	where
-		BeefyAuthoritySet<H>: sp_api::Decode,
+		BeefyAuthoritySet<H>: Decode,
 	{
 		/// Return the currently active BEEFY authority set proof.
 		fn authority_set_proof() -> BeefyAuthoritySet<H>;

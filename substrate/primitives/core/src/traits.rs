@@ -24,20 +24,34 @@ use std::{
 
 pub use sp_externalities::{Externalities, ExternalitiesExt};
 
+/// The context in which a call is done.
+///
+/// Depending on the context the executor may chooses different kind of heap sizes for the runtime
+/// instance.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd)]
+pub enum CallContext {
+	/// The call is happening in some offchain context.
+	Offchain,
+	/// The call is happening in some on-chain context like building or importing a block.
+	Onchain,
+}
+
 /// Code execution engine.
 pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'static {
 	/// Externalities error type.
 	type Error: Display + Debug + Send + Sync + 'static;
 
-	/// Call a given method in the runtime. Returns a tuple of the result (either the output data
-	/// or an execution error) together with a `bool`, which is true if native execution was used.
+	/// Call a given method in the runtime.
+	///
+	/// Returns a tuple of the result (either the output data or an execution error) together with a
+	/// `bool`, which is true if native execution was used.
 	fn call(
 		&self,
 		ext: &mut dyn Externalities,
 		runtime_code: &RuntimeCode,
 		method: &str,
 		data: &[u8],
-		use_native: bool,
+		context: CallContext,
 	) -> (Result<Vec<u8>, Self::Error>, bool);
 }
 
@@ -76,7 +90,7 @@ pub struct RuntimeCode<'a> {
 	///
 	/// If `None` are given, the default value of the executor will be used.
 	pub heap_pages: Option<u64>,
-	/// The SCALE encoded hash of `code`.
+	/// The hash of `code`.
 	///
 	/// The hashing algorithm isn't that important, as long as all runtime
 	/// code instances use the same.
@@ -142,6 +156,16 @@ pub trait ReadRuntimeVersion: Send + Sync {
 	) -> Result<Vec<u8>, String>;
 }
 
+impl ReadRuntimeVersion for std::sync::Arc<dyn ReadRuntimeVersion> {
+	fn read_runtime_version(
+		&self,
+		wasm_code: &[u8],
+		ext: &mut dyn Externalities,
+	) -> Result<Vec<u8>, String> {
+		(**self).read_runtime_version(wasm_code, ext)
+	}
+}
+
 sp_externalities::decl_extension! {
 	/// An extension that provides functionality to read version information from a given wasm blob.
 	pub struct ReadRuntimeVersionExt(Box<dyn ReadRuntimeVersion>);
@@ -152,31 +176,6 @@ impl ReadRuntimeVersionExt {
 	pub fn new<T: ReadRuntimeVersion + 'static>(inner: T) -> Self {
 		Self(Box::new(inner))
 	}
-}
-
-sp_externalities::decl_extension! {
-	/// Task executor extension.
-	pub struct TaskExecutorExt(Box<dyn SpawnNamed>);
-}
-
-impl TaskExecutorExt {
-	/// New instance of task executor extension.
-	pub fn new(spawn_handle: impl SpawnNamed + Send + 'static) -> Self {
-		Self(Box::new(spawn_handle))
-	}
-}
-
-/// Runtime spawn extension.
-pub trait RuntimeSpawn: Send {
-	/// Create new runtime instance and use dynamic dispatch to invoke with specified payload.
-	///
-	/// Returns handle of the spawned task.
-	///
-	/// Function pointers (`dispatcher_ref`, `func`) are WASM pointer types.
-	fn spawn_call(&self, dispatcher_ref: u32, func: u32, payload: Vec<u8>) -> u64;
-
-	/// Join the result of previously created runtime instance invocation.
-	fn join(&self, handle: u64) -> Vec<u8>;
 }
 
 /// Something that can spawn tasks (blocking and non-blocking) with an assigned name

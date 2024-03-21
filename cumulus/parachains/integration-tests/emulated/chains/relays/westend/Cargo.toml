@@ -1,0 +1,31 @@
+[package]
+name = "westend-emulated-chain"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Westend emulated chain"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+
+# Substrate
+sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
+sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
+sp-authority-discovery = { path = "../../../../../../../substrate/primitives/authority-discovery", default-features = false }
+sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false }
+beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy" }
+grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false }
+pallet-staking = { path = "../../../../../../../substrate/frame/staking", default-features = false }
+
+# Polkadot
+polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false }
+westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants", default-features = false }
+westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
+
+# Cumulus
+parachains-common = { path = "../../../../../../parachains/common" }
+emulated-integration-tests-common = { path = "../../../common", default-features = false }

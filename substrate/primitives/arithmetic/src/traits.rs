@@ -18,6 +18,9 @@
 //! Primitive traits for the runtime arithmetic.
 
 use codec::HasCompact;
+use core::ops::{
+	Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Shl, Shr, Sub, SubAssign,
+};
 pub use ensure::{
 	ensure_pow, Ensure, EnsureAdd, EnsureAddAssign, EnsureDiv, EnsureDivAssign,
 	EnsureFixedPointNumber, EnsureFrom, EnsureInto, EnsureMul, EnsureMulAssign, EnsureOp,
@@ -28,9 +31,8 @@ pub use num_traits::{
 	checked_pow, Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedShl,
 	CheckedShr, CheckedSub, One, Signed, Unsigned, Zero,
 };
-use sp_std::ops::{
-	Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Shl, Shr, Sub, SubAssign,
-};
+
+use crate::MultiplyRational;
 
 /// A meta trait for arithmetic type operations, regardless of any limitation on size.
 pub trait BaseArithmetic:
@@ -57,6 +59,7 @@ pub trait BaseArithmetic:
 	+ CheckedMul
 	+ CheckedDiv
 	+ CheckedRem
+	+ CheckedNeg
 	+ Ensure
 	+ Saturating
 	+ PartialOrd<Self>
@@ -114,6 +117,7 @@ impl<
 			+ CheckedMul
 			+ CheckedDiv
 			+ CheckedRem
+			+ CheckedNeg
 			+ Ensure
 			+ Saturating
 			+ PartialOrd<Self>
@@ -151,6 +155,34 @@ impl<
 /// A meta trait for arithmetic.
 ///
 /// Arithmetic types do all the usual stuff you'd expect numbers to do. They are guaranteed to
+/// be able to represent at least `u8` values without loss, hence the trait implies `From<u8>`
+/// and smaller integers. All other conversions are fallible.
+pub trait AtLeast8Bit: BaseArithmetic + From<u8> {}
+
+impl<T: BaseArithmetic + From<u8>> AtLeast8Bit for T {}
+
+/// A meta trait for arithmetic.  Same as [`AtLeast8Bit `], but also bounded to be unsigned.
+pub trait AtLeast8BitUnsigned: AtLeast8Bit + Unsigned {}
+
+impl<T: AtLeast8Bit + Unsigned> AtLeast8BitUnsigned for T {}
+
+/// A meta trait for arithmetic.
+///
+/// Arithmetic types do all the usual stuff you'd expect numbers to do. They are guaranteed to
+/// be able to represent at least `u16` values without loss, hence the trait implies `From<u16>`
+/// and smaller integers. All other conversions are fallible.
+pub trait AtLeast16Bit: BaseArithmetic + From<u16> {}
+
+impl<T: BaseArithmetic + From<u16>> AtLeast16Bit for T {}
+
+/// A meta trait for arithmetic.  Same as [`AtLeast16Bit `], but also bounded to be unsigned.
+pub trait AtLeast16BitUnsigned: AtLeast16Bit + Unsigned {}
+
+impl<T: AtLeast16Bit + Unsigned> AtLeast16BitUnsigned for T {}
+
+/// A meta trait for arithmetic.
+///
+/// Arithmetic types do all the usual stuff you'd expect numbers to do. They are guaranteed to
 /// be able to represent at least `u32` values without loss, hence the trait implies `From<u32>`
 /// and smaller integers. All other conversions are fallible.
 pub trait AtLeast32Bit: BaseArithmetic + From<u16> + From<u32> {}
@@ -158,9 +190,9 @@ pub trait AtLeast32Bit: BaseArithmetic + From<u16> + From<u32> {}
 impl<T: BaseArithmetic + From<u16> + From<u32>> AtLeast32Bit for T {}
 
 /// A meta trait for arithmetic.  Same as [`AtLeast32Bit `], but also bounded to be unsigned.
-pub trait AtLeast32BitUnsigned: AtLeast32Bit + Unsigned {}
+pub trait AtLeast32BitUnsigned: AtLeast32Bit + Unsigned + MultiplyRational {}
 
-impl<T: AtLeast32Bit + Unsigned> AtLeast32BitUnsigned for T {}
+impl<T: AtLeast32Bit + Unsigned + MultiplyRational> AtLeast32BitUnsigned for T {}
 
 /// Just like `From` except that if the source value is too big to fit into the destination type
 /// then it'll saturate the destination.
@@ -206,13 +238,31 @@ pub trait Saturating {
 	/// instead of overflowing.
 	fn saturating_pow(self, exp: usize) -> Self;
 
+	/// Decrement self by one, saturating at zero.
+	fn saturating_less_one(mut self) -> Self
+	where
+		Self: One,
+	{
+		self.saturating_dec();
+		self
+	}
+
+	/// Increment self by one, saturating at the numeric bounds instead of overflowing.
+	fn saturating_plus_one(mut self) -> Self
+	where
+		Self: One,
+	{
+		self.saturating_inc();
+		self
+	}
+
 	/// Increment self by one, saturating.
 	fn saturating_inc(&mut self)
 	where
 		Self: One,
 	{
 		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
+		core::mem::swap(&mut o, self);
 		*self = o.saturating_add(One::one());
 	}
 
@@ -222,7 +272,7 @@ pub trait Saturating {
 		Self: One,
 	{
 		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
+		core::mem::swap(&mut o, self);
 		*self = o.saturating_sub(One::one());
 	}
 
@@ -232,7 +282,7 @@ pub trait Saturating {
 		Self: One,
 	{
 		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
+		core::mem::swap(&mut o, self);
 		*self = o.saturating_add(amount);
 	}
 
@@ -242,7 +292,7 @@ pub trait Saturating {
 		Self: One,
 	{
 		let mut o = Self::one();
-		sp_std::mem::swap(&mut o, self);
+		core::mem::swap(&mut o, self);
 		*self = o.saturating_sub(amount);
 	}
 }
@@ -899,7 +949,7 @@ mod ensure {
 			}
 		}
 
-		impl sp_std::ops::Mul for Signum {
+		impl core::ops::Mul for Signum {
 			type Output = Self;
 
 			fn mul(self, rhs: Self) -> Self {

@@ -26,9 +26,6 @@
 //!
 //! To give you some examples:
 //!
-//! - wasmi allows reaching to non-exported mutable globals so that we could reset them. Wasmtime
-//!   doesn’t support that.
-//!
 //!   We need to reset the globals because when we
 //!   execute the Substrate Runtime, we do not drop and create the instance anew, instead
 //!   we restore some selected parts of the state.
@@ -49,10 +46,6 @@
 //! is free of any floating point operations, which is a useful step towards making instances
 //! produced from such a module deterministic.
 
-mod data_segments_snapshot;
-mod globals_snapshot;
 mod runtime_blob;
 
-pub use data_segments_snapshot::DataSegmentsSnapshot;
-pub use globals_snapshot::{ExposedMutableGlobalsSet, GlobalsSnapshot, InstanceGlobals};
 pub use runtime_blob::RuntimeBlob;

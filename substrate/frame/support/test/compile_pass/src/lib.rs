@@ -16,15 +16,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
-//! This crate tests that `construct_runtime!` expands the pallet parts
-//! correctly even when frame-support is renamed in Cargo.toml
+//! Test that `construct_runtime!` also works when `frame-support` or `frame-system` are renamed in
+//! the `Cargo.toml`.
 
-use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64},
+#![cfg_attr(not(feature = "std"), no_std)]
+
+use renamed_frame_support::{
+	construct_runtime, derive_impl, parameter_types,
+	traits::{ConstU16, ConstU32, ConstU64, Everything},
 };
 use sp_core::{sr25519, H256};
 use sp_runtime::{
@@ -47,26 +46,25 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub type Signature = sr25519::Signature;
 pub type AccountId = <Signature as Verify>::Signer;
 pub type BlockNumber = u64;
-pub type Index = u64;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
-impl frame_system::Config for Runtime {
-	type BaseCallFilter = frame_support::traits::Everything;
+#[derive_impl(renamed_frame_system::config_preludes::TestDefaultConfig)]
+impl renamed_frame_system::Config for Runtime {
+	type BaseCallFilter = Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
-	type Index = u128;
+	type Nonce = u128;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type Header = Header;
+	type Block = Block;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type BlockHashCount = ConstU64<2400>;
 	type Version = Version;
 	type AccountData = ();
 	type RuntimeOrigin = RuntimeOrigin;
-	type BlockNumber = BlockNumber;
 	type AccountId = AccountId;
 	type RuntimeEvent = RuntimeEvent;
 	type PalletInfo = PalletInfo;
@@ -85,11 +83,7 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Signature, ()>;
 
 construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic
-	{
-		System: frame_system,
+	pub enum Runtime {
+		System: renamed_frame_system,
 	}
 );

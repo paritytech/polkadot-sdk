@@ -1,50 +1,64 @@
 [package]
 name = "pallet-assets"
-version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "29.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "FRAME asset management pallet"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-sp-std = { version = "5.0.0", default-features = false, path = "../../primitives/std" }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+log = { workspace = true }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+sp-std = { path = "../../primitives/std", default-features = false }
 # Needed for various traits. In our case, `OnFinalize`.
-sp-runtime = { version = "7.0.0", default-features = false, path = "../../primitives/runtime" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
 # Needed for type-safe access to storage DB.
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
+frame-support = { path = "../support", default-features = false }
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "../benchmarking", optional = true }
-sp-core = { version = "7.0.0", default-features = false, path = "../../primitives/core" }
+frame-system = { path = "../system", default-features = false }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+sp-core = { path = "../../primitives/core", default-features = false }
 
 [dev-dependencies]
-sp-std = { version = "5.0.0", path = "../../primitives/std" }
-sp-io = { version = "7.0.0", path = "../../primitives/io" }
-pallet-balances = { version = "4.0.0-dev", path = "../balances" }
+sp-std = { path = "../../primitives/std" }
+sp-io = { path = "../../primitives/io" }
+pallet-balances = { path = "../balances" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
-	"scale-info/std",
-	"sp-core/std",
-	"sp-std/std",
-	"sp-runtime/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"frame-benchmarking?/std",
+	"log/std",
+	"pallet-balances/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
+]

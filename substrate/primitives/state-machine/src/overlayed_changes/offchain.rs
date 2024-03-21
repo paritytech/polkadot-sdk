@@ -18,8 +18,8 @@
 //! Overlayed changes for offchain indexing.
 
 use super::changeset::OverlayedMap;
+use alloc::vec::Vec;
 use sp_core::offchain::OffchainOverlayedChange;
-use sp_std::prelude::Vec;
 
 /// In-memory storage for offchain workers recoding changes for the actual offchain storage
 /// implementation.
@@ -48,7 +48,7 @@ impl OffchainOverlayedChanges {
 
 	/// Drain all elements of changeset.
 	pub fn drain(&mut self) -> impl Iterator<Item = OffchainOverlayedChangesItemOwned> {
-		sp_std::mem::take(self).into_iter()
+		core::mem::take(self).into_iter()
 	}
 
 	/// Remove a key and its associated value from the offchain database.

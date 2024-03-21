@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{biguint::BigUint, helpers_128bit, Rounding};
+use core::cmp::Ordering;
 use num_traits::{Bounded, One, Zero};
-use sp_std::{cmp::Ordering, prelude::*};
 
 /// A wrapper for any rational number with infinitely large numerator and denominator.
 ///
@@ -92,15 +92,15 @@ impl From<Rational128> for RationalInfinite {
 pub struct Rational128(u128, u128);
 
 #[cfg(feature = "std")]
-impl sp_std::fmt::Debug for Rational128 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for Rational128 {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Rational128({} / {} ≈ {:.8})", self.0, self.1, self.0 as f64 / self.1 as f64)
 	}
 }
 
 #[cfg(not(feature = "std"))]
-impl sp_std::fmt::Debug for Rational128 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for Rational128 {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "Rational128({} / {})", self.0, self.1)
 	}
 }
@@ -281,6 +281,54 @@ impl PartialEq for Rational128 {
 				helpers_128bit::to_big_uint(other.0) * helpers_128bit::to_big_uint(self.1);
 			self_n.eq(&other_n)
 		}
+	}
+}
+
+pub trait MultiplyRational: Sized {
+	fn multiply_rational(self, n: Self, d: Self, r: Rounding) -> Option<Self>;
+}
+
+macro_rules! impl_rrm {
+	($ulow:ty, $uhi:ty) => {
+		impl MultiplyRational for $ulow {
+			fn multiply_rational(self, n: Self, d: Self, r: Rounding) -> Option<Self> {
+				if d.is_zero() {
+					return None
+				}
+
+				let sn = (self as $uhi) * (n as $uhi);
+				let mut result = sn / (d as $uhi);
+				let remainder = (sn % (d as $uhi)) as $ulow;
+				if match r {
+					Rounding::Up => remainder > 0,
+					// cannot be `(d + 1) / 2` since `d` might be `max_value` and overflow.
+					Rounding::NearestPrefUp => remainder >= d / 2 + d % 2,
+					Rounding::NearestPrefDown => remainder > d / 2,
+					Rounding::Down => false,
+				} {
+					result = match result.checked_add(1) {
+						Some(v) => v,
+						None => return None,
+					};
+				}
+				if result > (<$ulow>::max_value() as $uhi) {
+					None
+				} else {
+					Some(result as $ulow)
+				}
+			}
+		}
+	};
+}
+
+impl_rrm!(u8, u16);
+impl_rrm!(u16, u32);
+impl_rrm!(u32, u64);
+impl_rrm!(u64, u128);
+
+impl MultiplyRational for u128 {
+	fn multiply_rational(self, n: Self, d: Self, r: Rounding) -> Option<Self> {
+		crate::helpers_128bit::multiply_by_rational_with_rounding(self, n, d, r)
 	}
 }
 

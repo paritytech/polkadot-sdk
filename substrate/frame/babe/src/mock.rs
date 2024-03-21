@@ -19,38 +19,37 @@
 
 use crate::{self as pallet_babe, Config, CurrentSlot};
 use codec::Encode;
-use frame_election_provider_support::{onchain, SequentialPhragmen};
+use frame_election_provider_support::{
+	bounds::{ElectionBounds, ElectionBoundsBuilder},
+	onchain, SequentialPhragmen,
+};
 use frame_support::{
-	parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, GenesisBuild, KeyOwnerProofSystem, OnInitialize},
+	derive_impl, parameter_types,
+	traits::{ConstU128, ConstU32, ConstU64, KeyOwnerProofSystem, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
-use sp_consensus_babe::{AuthorityId, AuthorityPair, Slot};
-use sp_consensus_vrf::schnorrkel::{VRFOutput, VRFProof};
+use pallet_staking::FixedNominationsQuota;
+use sp_consensus_babe::{AuthorityId, AuthorityPair, Randomness, Slot, VrfSignature};
 use sp_core::{
-	crypto::{IsWrappedBy, KeyTypeId, Pair},
-	H256, U256,
+	crypto::{KeyTypeId, Pair, VrfSecret},
+	U256,
 };
 use sp_io;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
 	testing::{Digest, DigestItem, Header, TestXt},
-	traits::{Header as _, IdentityLookup, OpaqueKeys},
-	Perbill,
+	traits::{Header as _, OpaqueKeys},
+	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
 type DummyValidatorId = u64;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
 		System: frame_system,
 		Authorship: pallet_authorship,
@@ -64,31 +63,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Version = ();
-	type Hashing = sp_runtime::traits::BlakeTwo256;
-	type AccountId = DummyValidatorId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type PalletInfo = PalletInfo;
+	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -144,6 +122,10 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -163,6 +145,7 @@ parameter_types! {
 	pub const SlashDeferDuration: EraIndex = 0;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(16);
+	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
 pub struct OnChainSeqPhragmen;
@@ -172,14 +155,12 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type MaxWinners = ConstU32<100>;
-	type VotersBound = ConstU32<{ u32::MAX }>;
-	type TargetsBound = ConstU32<{ u32::MAX }>;
+	type Bounds = ElectionsBounds;
 }
 
 impl pallet_staking::Config for Test {
-	type MaxNominations = ConstU32<16>;
 	type RewardRemainder = ();
-	type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
+	type CurrencyToVote = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
@@ -192,16 +173,18 @@ impl pallet_staking::Config for Test {
 	type SessionInterface = Self;
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type NominationsQuota = FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = ConstU32<84>;
-	type OnStakerSlash = ();
+	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
 }
@@ -223,22 +206,12 @@ impl Config for Test {
 	type ExpectedBlockTime = ConstU64<1>;
 	type EpochChangeTrigger = crate::ExternalTrigger;
 	type DisabledValidators = Session;
-
-	type KeyOwnerProofSystem = Historical;
-
-	type KeyOwnerProof =
-		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, AuthorityId)>>::Proof;
-
-	type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-		KeyTypeId,
-		AuthorityId,
-	)>>::IdentificationTuple;
-
-	type HandleEquivocation =
-		super::EquivocationHandler<Self::KeyOwnerIdentification, Offences, ReportLongevity>;
-
 	type WeightInfo = ();
 	type MaxAuthorities = ConstU32<10>;
+	type MaxNominators = ConstU32<100>;
+	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, AuthorityId)>>::Proof;
+	type EquivocationReportSystem =
+		super::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
 
 pub fn go_to_block(n: u64, s: u64) {
@@ -290,16 +263,10 @@ pub fn start_era(era_index: EraIndex) {
 pub fn make_primary_pre_digest(
 	authority_index: sp_consensus_babe::AuthorityIndex,
 	slot: sp_consensus_babe::Slot,
-	vrf_output: VRFOutput,
-	vrf_proof: VRFProof,
+	vrf_signature: VrfSignature,
 ) -> Digest {
 	let digest_data = sp_consensus_babe::digests::PreDigest::Primary(
-		sp_consensus_babe::digests::PrimaryPreDigest {
-			authority_index,
-			slot,
-			vrf_output,
-			vrf_proof,
-		},
+		sp_consensus_babe::digests::PrimaryPreDigest { authority_index, slot, vrf_signature },
 	);
 	let log = DigestItem::PreRuntime(sp_consensus_babe::BABE_ENGINE_ID, digest_data.encode());
 	Digest { logs: vec![log] }
@@ -319,34 +286,27 @@ pub fn make_secondary_plain_pre_digest(
 pub fn make_secondary_vrf_pre_digest(
 	authority_index: sp_consensus_babe::AuthorityIndex,
 	slot: sp_consensus_babe::Slot,
-	vrf_output: VRFOutput,
-	vrf_proof: VRFProof,
+	vrf_signature: VrfSignature,
 ) -> Digest {
 	let digest_data = sp_consensus_babe::digests::PreDigest::SecondaryVRF(
-		sp_consensus_babe::digests::SecondaryVRFPreDigest {
-			authority_index,
-			slot,
-			vrf_output,
-			vrf_proof,
-		},
+		sp_consensus_babe::digests::SecondaryVRFPreDigest { authority_index, slot, vrf_signature },
 	);
 	let log = DigestItem::PreRuntime(sp_consensus_babe::BABE_ENGINE_ID, digest_data.encode());
 	Digest { logs: vec![log] }
 }
 
-pub fn make_vrf_output(
+pub fn make_vrf_signature_and_randomness(
 	slot: Slot,
 	pair: &sp_consensus_babe::AuthorityPair,
-) -> (VRFOutput, VRFProof, [u8; 32]) {
-	let pair = sp_core::sr25519::Pair::from_ref(pair).as_ref();
-	let transcript = sp_consensus_babe::make_transcript(&Babe::randomness(), slot, 0);
-	let vrf_inout = pair.vrf_sign(transcript);
-	let vrf_randomness: sp_consensus_vrf::schnorrkel::Randomness =
-		vrf_inout.0.make_bytes::<[u8; 32]>(&sp_consensus_babe::BABE_VRF_INOUT_CONTEXT);
-	let vrf_output = VRFOutput(vrf_inout.0.to_output());
-	let vrf_proof = VRFProof(vrf_inout.1);
+) -> (VrfSignature, Randomness) {
+	let transcript = sp_consensus_babe::make_vrf_transcript(&Babe::randomness(), slot, 0);
 
-	(vrf_output, vrf_proof, vrf_randomness)
+	let randomness =
+		pair.as_ref().make_bytes(sp_consensus_babe::RANDOMNESS_VRF_CONTEXT, &transcript);
+
+	let signature = pair.as_ref().vrf_sign(&transcript.into());
+
+	(signature, randomness)
 }
 
 pub fn new_test_ext(authorities_len: usize) -> sp_io::TestExternalities {
@@ -366,7 +326,7 @@ pub fn new_test_ext_with_pairs(
 }
 
 pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
 
@@ -389,11 +349,9 @@ pub fn new_test_ext_raw_authorities(authorities: Vec<AuthorityId>) -> sp_io::Tes
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	// controllers are the index + 1000
+	// controllers are same as stash
 	let stakers: Vec<_> = (0..authorities.len())
-		.map(|i| {
-			(i as u64, i as u64 + 1000, 10_000, pallet_staking::StakerStatus::<u64>::Validator)
-		})
+		.map(|i| (i as u64, i as u64, 10_000, pallet_staking::StakerStatus::<u64>::Validator))
 		.collect();
 
 	let staking_config = pallet_staking::GenesisConfig::<Test> {

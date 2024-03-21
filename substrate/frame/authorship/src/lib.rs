@@ -45,16 +45,15 @@ pub mod pallet {
 		/// Find the author of a block.
 		type FindAuthor: FindAuthor<Self::AccountId>;
 		/// An event handler for authored blocks.
-		type EventHandler: EventHandler<Self::AccountId, Self::BlockNumber>;
+		type EventHandler: EventHandler<Self::AccountId, BlockNumberFor<Self>>;
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_: T::BlockNumber) -> Weight {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
 			if let Some(author) = Self::author() {
 				T::EventHandler::note_author(author);
 			}
@@ -62,7 +61,7 @@ pub mod pallet {
 			Weight::zero()
 		}
 
-		fn on_finalize(_: T::BlockNumber) {
+		fn on_finalize(_: BlockNumberFor<T>) {
 			// ensure we never go to trie with these values.
 			<Author<T>>::kill();
 		}
@@ -98,56 +97,25 @@ mod tests {
 	use super::*;
 	use crate as pallet_authorship;
 	use codec::{Decode, Encode};
-	use frame_support::{
-		traits::{ConstU32, ConstU64},
-		ConsensusEngineId,
-	};
+	use frame_support::{derive_impl, ConsensusEngineId};
 	use sp_core::H256;
 	use sp_runtime::{
-		generic::DigestItem,
-		testing::Header,
-		traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
+		generic::DigestItem, testing::Header, traits::Header as HeaderT, BuildStorage,
 	};
 
-	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlock<Test>;
 
 	frame_support::construct_runtime!(
-		pub enum Test where
-			Block = Block,
-			NodeBlock = Block,
-			UncheckedExtrinsic = UncheckedExtrinsic,
+		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-			Authorship: pallet_authorship::{Pallet, Storage},
+			System: frame_system,
+			Authorship: pallet_authorship,
 		}
 	);
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = ();
-		type DbWeight = ();
-		type RuntimeOrigin = RuntimeOrigin;
-		type Index = u64;
-		type BlockNumber = u64;
-		type RuntimeCall = RuntimeCall;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
-		type Header = Header;
-		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = ConstU64<250>;
-		type Version = ();
-		type PalletInfo = PalletInfo;
-		type AccountData = ();
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = ();
-		type OnSetCode = ();
-		type MaxConsumers = ConstU32<16>;
+		type Block = Block;
 	}
 
 	impl pallet::Config for Test {
@@ -189,7 +157,7 @@ mod tests {
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		t.into()
 	}
 

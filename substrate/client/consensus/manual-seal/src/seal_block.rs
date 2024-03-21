@@ -22,12 +22,12 @@ use crate::{rpc, ConsensusDataProvider, CreatedBlock, Error};
 use futures::prelude::*;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction};
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::{ProvideRuntimeApi, TransactionFor};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{self, BlockOrigin, Environment, Proposer, SelectChain};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 /// max duration for creating a proposal in secs
 pub const MAX_PROPOSAL_DURATION: u64 = 10;
@@ -52,8 +52,7 @@ pub struct SealBlockParams<'a, B: BlockT, BI, SC, C: ProvideRuntimeApi<B>, E, TP
 	/// SelectChain object
 	pub select_chain: &'a SC,
 	/// Digest provider for inclusion in blocks.
-	pub consensus_data_provider:
-		Option<&'a dyn ConsensusDataProvider<B, Proof = P, Transaction = TransactionFor<C, B>>>,
+	pub consensus_data_provider: Option<&'a dyn ConsensusDataProvider<B, Proof = P>>,
 	/// block import object
 	pub block_import: &'a mut BI,
 	/// Something that can create the inherent data providers.
@@ -77,18 +76,14 @@ pub async fn seal_block<B, BI, SC, C, E, TP, CIDP, P>(
 	}: SealBlockParams<'_, B, BI, SC, C, E, TP, CIDP, P>,
 ) where
 	B: BlockT,
-	BI: BlockImport<B, Error = sp_consensus::Error, Transaction = sp_api::TransactionFor<C, B>>
-		+ Send
-		+ Sync
-		+ 'static,
+	BI: BlockImport<B, Error = sp_consensus::Error> + Send + Sync + 'static,
 	C: HeaderBackend<B> + ProvideRuntimeApi<B>,
 	E: Environment<B>,
-	E::Proposer: Proposer<B, Proof = P, Transaction = TransactionFor<C, B>>,
+	E::Proposer: Proposer<B, Proof = P>,
 	TP: TransactionPool<Block = B>,
 	SC: SelectChain<B>,
-	TransactionFor<C, B>: 'static,
 	CIDP: CreateInherentDataProviders<B, ()>,
-	P: Send + Sync + 'static,
+	P: codec::Encode + Send + Sync + 'static,
 {
 	let future = async {
 		if pool.status().ready == 0 && !create_empty {
@@ -136,6 +131,7 @@ pub async fn seal_block<B, BI, SC, C, E, TP, CIDP, P>(
 
 		let (header, body) = proposal.block.deconstruct();
 		let proof = proposal.proof;
+		let proof_size = proof.encoded_size();
 		let mut params = BlockImportParams::new(BlockOrigin::Own, header.clone());
 		params.body = Some(body);
 		params.finalized = finalize;
@@ -153,9 +149,12 @@ pub async fn seal_block<B, BI, SC, C, E, TP, CIDP, P>(
 		let mut post_header = header.clone();
 		post_header.digest_mut().logs.extend(params.post_digests.iter().cloned());
 
-		match block_import.import_block(params, HashMap::new()).await? {
-			ImportResult::Imported(aux) =>
-				Ok(CreatedBlock { hash: <B as BlockT>::Header::hash(&post_header), aux }),
+		match block_import.import_block(params).await? {
+			ImportResult::Imported(aux) => Ok(CreatedBlock {
+				hash: <B as BlockT>::Header::hash(&post_header),
+				aux,
+				proof_size,
+			}),
 			other => Err(other.into()),
 		}
 	};

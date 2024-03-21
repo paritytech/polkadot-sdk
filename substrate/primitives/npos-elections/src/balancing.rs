@@ -19,7 +19,7 @@
 //!
 //! Given a committee `A` and an edge weight vector `w`, a balanced solution is one that
 //!
-//! 1.  it maximizes the sum of member supports, i.e `Argmax { sum(support(c)) }`. for all `c` in
+//! 1. it maximizes the sum of member supports, i.e `Argmax { sum(support(c)) }`. for all `c` in
 //! `A`.
 //! 2. it minimizes the sum of supports squared, i.e `Argmin { sum(support(c).pow(2)) }` for all `c`
 //! in `A`.
@@ -27,8 +27,8 @@
 //! See [`balance`] for more information.
 
 use crate::{BalancingConfig, Edge, ExtendedBalance, IdentifierT, Voter};
+use alloc::vec::Vec;
 use sp_arithmetic::traits::Zero;
-use sp_std::prelude::*;
 
 /// Balance the weight distribution of a given `voters` at most `iterations` times, or up until the
 /// point where the biggest difference created per iteration of all stakes is `tolerance`. If this

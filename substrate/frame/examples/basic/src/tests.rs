@@ -19,7 +19,7 @@
 
 use crate::*;
 use frame_support::{
-	assert_ok,
+	assert_ok, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{ConstU64, OnInitialize},
 };
@@ -27,43 +27,38 @@ use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use sp_runtime::{
-	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
 // Reexport crate as its pallet name for construct_runtime.
 use crate as pallet_example_basic;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // For testing the pallet, we construct a mock runtime.
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Example: pallet_example_basic::{Pallet, Call, Storage, Config<T>, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Example: pallet_example_basic,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
+	type Nonce = u64;
 	type Hash = H256;
 	type RuntimeCall = RuntimeCall;
 	type Hashing = BlakeTwo256;
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
+	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
@@ -87,6 +82,10 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 }
 
 impl Config for Test {
@@ -98,7 +97,7 @@ impl Config for Test {
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = GenesisConfig {
+	let t = RuntimeGenesisConfig {
 		// We use default for brevity, but you can configure as desired if needed.
 		system: Default::default(),
 		balances: Default::default(),
@@ -120,25 +119,25 @@ fn it_works_for_optional_value() {
 		// Check that GenesisBuilder works properly.
 		let val1 = 42;
 		let val2 = 27;
-		assert_eq!(Example::dummy(), Some(val1));
+		assert_eq!(Dummy::<Test>::get(), Some(val1));
 
 		// Check that accumulate works when we have Some value in Dummy already.
 		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), val2));
-		assert_eq!(Example::dummy(), Some(val1 + val2));
+		assert_eq!(Dummy::<Test>::get(), Some(val1 + val2));
 
 		// Check that accumulate works when we Dummy has None in it.
 		<Example as OnInitialize<u64>>::on_initialize(2);
 		assert_ok!(Example::accumulate_dummy(RuntimeOrigin::signed(1), val1));
-		assert_eq!(Example::dummy(), Some(val1 + val2 + val1));
+		assert_eq!(Dummy::<Test>::get(), Some(val1 + val2 + val1));
 	});
 }
 
 #[test]
 fn it_works_for_default_value() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Example::foo(), 24);
+		assert_eq!(Foo::<Test>::get(), 24);
 		assert_ok!(Example::accumulate_foo(RuntimeOrigin::signed(1), 1));
-		assert_eq!(Example::foo(), 25);
+		assert_eq!(Foo::<Test>::get(), 25);
 	});
 }
 
@@ -147,7 +146,7 @@ fn set_dummy_works() {
 	new_test_ext().execute_with(|| {
 		let test_val = 133;
 		assert_ok!(Example::set_dummy(RuntimeOrigin::root(), test_val.into()));
-		assert_eq!(Example::dummy(), Some(test_val));
+		assert_eq!(Dummy::<Test>::get(), Some(test_val));
 	});
 }
 
@@ -188,6 +187,7 @@ fn weights_work() {
 	// aka. `let info = <Call<Test> as GetDispatchInfo>::get_dispatch_info(&default_call);`
 	// TODO: account for proof size weight
 	assert!(info1.weight.ref_time() > 0);
+	assert_eq!(info1.weight, <Test as Config>::WeightInfo::accumulate_dummy());
 
 	// `set_dummy` is simpler than `accumulate_dummy`, and the weight
 	//   should be less.

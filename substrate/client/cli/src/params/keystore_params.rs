@@ -31,10 +31,6 @@ const DEFAULT_KEYSTORE_CONFIG_PATH: &str = "keystore";
 /// Parameters of the keystore
 #[derive(Debug, Clone, Args)]
 pub struct KeystoreParams {
-	/// Specify custom URIs to connect to for keystore-services
-	#[arg(long)]
-	pub keystore_uri: Option<String>,
-
 	/// Specify custom keystore path.
 	#[arg(long, value_name = "PATH")]
 	pub keystore_path: Option<PathBuf>,
@@ -43,8 +39,9 @@ pub struct KeystoreParams {
 	#[arg(long, conflicts_with_all = &["password", "password_filename"])]
 	pub password_interactive: bool,
 
-	/// Password used by the keystore. This allows appending an extra user-defined secret to the
-	/// seed.
+	/// Password used by the keystore.
+	///
+	/// This allows appending an extra user-defined secret to the seed.
 	#[arg(
 		long,
 		value_parser = secret_string_from_str,
@@ -61,16 +58,14 @@ pub struct KeystoreParams {
 	pub password_filename: Option<PathBuf>,
 }
 
-/// Parse a sercret string, returning a displayable error.
+/// Parse a secret string, returning a displayable error.
 pub fn secret_string_from_str(s: &str) -> std::result::Result<SecretString, String> {
 	std::str::FromStr::from_str(s).map_err(|_| "Could not get SecretString".to_string())
 }
 
 impl KeystoreParams {
 	/// Get the keystore configuration for the parameters
-	///
-	/// Returns a vector of remote-urls and the local Keystore configuration
-	pub fn keystore_config(&self, config_dir: &Path) -> Result<(Option<String>, KeystoreConfig)> {
+	pub fn keystore_config(&self, config_dir: &Path) -> Result<KeystoreConfig> {
 		let password = if self.password_interactive {
 			Some(SecretString::new(input_keystore_password()?))
 		} else if let Some(ref file) = self.password_filename {
@@ -85,7 +80,7 @@ impl KeystoreParams {
 			.clone()
 			.unwrap_or_else(|| config_dir.join(DEFAULT_KEYSTORE_CONFIG_PATH));
 
-		Ok((self.keystore_uri.clone(), KeystoreConfig::Path { path, password }))
+		Ok(KeystoreConfig::Path { path, password })
 	}
 
 	/// helper method to fetch password from `KeyParams` or read from stdin

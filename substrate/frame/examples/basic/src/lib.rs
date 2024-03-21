@@ -15,263 +15,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! <!-- markdown-link-check-disable -->
 //! # Basic Example Pallet
 //!
-//! <!-- Original author of paragraph: @gavofyork -->
-//! The Example: A simple example of a FRAME pallet demonstrating
-//! concepts, APIs and structures common to most FRAME runtimes.
-//!
-//! Run `cargo doc --package pallet-example-basic --open` to view this pallet's documentation.
+//! A pallet demonstrating concepts, APIs and structures common to most FRAME runtimes.
 //!
 //! **This pallet serves as an example and is not meant to be used in production.**
 //!
-//! ### Documentation Guidelines:
+//! > Made with *Substrate*, for *Polkadot*.
 //!
-//! <!-- Original author of paragraph: Various. Based on collation of review comments to PRs
-//! addressing issues with --> <!-- label 'S3-FRAME' in https://github.com/paritytech/substrate-developer-hub/issues -->
-//! <ul>
-//! <li>Documentation comments (i.e. <code>/// comment</code>) - should
-//! accompany pallet functions and be restricted to the pallet interface,
-//! not the internals of the pallet implementation. Only state inputs,
-//! outputs, and a brief description that mentions whether calling it
-//! requires root, but without repeating the source code details.
-//! Capitalize the first word of each documentation comment and end it with
-//! a full stop. See
-//! <a href="https://github.com/paritytech/substrate#72-contributing-to-documentation-for-substrate-packages"
-//! target="_blank"> Generic example of annotating source code with documentation comments</a></li>
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/basic)
+//! [![polkadot]](https://polkadot.network)
 //!
-//! <li>Self-documenting code - Try to refactor code to be self-documenting.</li>
+//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
+//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
 //!
-//! <li>Code comments - Supplement complex code with a brief explanation, not every line of
-//! code.</li>
+//! ## Pallet API
 //!
-//! <li>Identifiers - surround by backticks (i.e. <code>INHERENT_IDENTIFIER</code>,
-//! <code>InherentType</code>, <code>u64</code>)</li>
+//! See the [`pallet`] module for more information about the interfaces this pallet exposes,
+//! including its configuration trait, dispatchables, storage items, events and errors.
 //!
-//! <li>Usage scenarios - should be simple doctests. The compiler should ensure they stay
-//! valid.</li>
+//! ## Overview
 //!
-//! <li>Extended tutorials - should be moved to external files and refer to.</li>
+//! This pallet provides basic examples of using:
 //!
-//! <li>Mandatory - include all of the sections/subsections where <b>MUST</b> is specified.</li>
-//!
-//! <li>Optional - optionally include sections/subsections where <b>CAN</b> is specified.</li>
-//! </ul>
-//!
-//! ### Documentation Template:<br>
-//!
-//! Copy and paste this template from frame/examples/basic/src/lib.rs into file
-//! `frame/<INSERT_CUSTOM_PALLET_NAME>/src/lib.rs` of your own custom pallet and complete it.
-//! <details><p><pre>
-//! // Add heading with custom pallet name
-//!
-//! \# <INSERT_CUSTOM_PALLET_NAME> Pallet
-//!
-//! // Add simple description
-//!
-//! // Include the following links that shows what trait needs to be implemented to use the pallet
-//! // and the supported dispatchables that are documented in the Call enum.
-//!
-//! - \[`Config`]
-//! - \[`Call`]
-//! - \[`Pallet`]
-//!
-//! \## Overview
-//!
-//! <!-- Original author of paragraph: Various. See https://github.com/paritytech/substrate-developer-hub/issues/44 -->
-//! // Short description of pallet's purpose.
-//! // Links to Traits that should be implemented.
-//! // What this pallet is for.
-//! // What functionality the pallet provides.
-//! // When to use the pallet (use case examples).
-//! // How it is used.
-//! // Inputs it uses and the source of each input.
-//! // Outputs it produces.
-//!
-//! <!-- Original author of paragraph: @Kianenigma in PR https://github.com/paritytech/substrate/pull/1951 -->
-//! <!-- and comment https://github.com/paritytech/substrate-developer-hub/issues/44#issuecomment-471982710 -->
-//!
-//! \## Terminology
-//!
-//! // Add terminology used in the custom pallet. Include concepts, storage items, or actions that
-//! you think // deserve to be noted to give context to the rest of the documentation or pallet
-//! usage. The author needs to // use some judgment about what is included. We don't want a list of
-//! every storage item nor types - the user // can go to the code for that. For example, "transfer
-//! fee" is obvious and should not be included, but // "free balance" and "reserved balance" should
-//! be noted to give context to the pallet. // Please do not link to outside resources. The
-//! reference docs should be the ultimate source of truth.
-//!
-//! <!-- Original author of heading: @Kianenigma in PR https://github.com/paritytech/substrate/pull/1951 -->
-//!
-//! \## Goals
-//!
-//! // Add goals that the custom pallet is designed to achieve.
-//!
-//! <!-- Original author of heading: @Kianenigma in PR https://github.com/paritytech/substrate/pull/1951 -->
-//!
-//! \### Scenarios
-//!
-//! <!-- Original author of paragraph: @Kianenigma. Based on PR https://github.com/paritytech/substrate/pull/1951 -->
-//!
-//! \#### <INSERT_SCENARIO_NAME>
-//!
-//! // Describe requirements prior to interacting with the custom pallet.
-//! // Describe the process of interacting with the custom pallet for this scenario and public API
-//! functions used.
-//!
-//! \## Interface
-//!
-//! \### Supported Origins
-//!
-//! // What origins are used and supported in this pallet (root, signed, none)
-//! // i.e. root when <code>\`ensure_root\`</code> used
-//! // i.e. none when <code>\`ensure_none\`</code> used
-//! // i.e. signed when <code>\`ensure_signed\`</code> used
-//!
-//! <code>\`inherent\`</code> <INSERT_DESCRIPTION>
-//!
-//! <!-- Original author of paragraph: @Kianenigma in comment -->
-//! <!-- https://github.com/paritytech/substrate-developer-hub/issues/44#issuecomment-471982710 -->
-//!
-//! \### Types
-//!
-//! // Type aliases. Include any associated types and where the user would typically define them.
-//!
-//! <code>\`ExampleType\`</code> <INSERT_DESCRIPTION>
-//!
-//! <!-- Original author of paragraph: ??? -->
-//!
-//! // Reference documentation of aspects such as `storageItems` and `dispatchable` functions should
-//! // only be included in the <https://docs.rs> Rustdocs for Substrate and not repeated in the
-//! // README file.
-//!
-//! \### Dispatchable Functions
-//!
-//! <!-- Original author of paragraph: @AmarRSingh & @joepetrowski -->
-//!
-//! // A brief description of dispatchable functions and a link to the rustdoc with their actual
-//! documentation.
-//!
-//! // <b>MUST</b> have link to Call enum
-//! // <b>MUST</b> have origin information included in function doc
-//! // <b>CAN</b> have more info up to the user
-//!
-//! \### Public Functions
-//!
-//! <!-- Original author of paragraph: @joepetrowski -->
-//!
-//! // A link to the rustdoc and any notes about usage in the pallet, not for specific functions.
-//! // For example, in the Balances Pallet: "Note that when using the publicly exposed functions,
-//! // you (the runtime developer) are responsible for implementing any necessary checks
-//! // (e.g. that the sender is the signer) before calling a function that will affect storage."
-//!
-//! <!-- Original author of paragraph: @AmarRSingh -->
-//!
-//! // It is up to the writer of the respective pallet (with respect to how much information to
-//! provide).
-//!
-//! \#### Public Inspection functions - Immutable (getters)
-//!
-//! // Insert a subheading for each getter function signature
-//!
-//! \##### <code>\`example_getter_name()\`</code>
-//!
-//! // What it returns
-//! // Why, when, and how often to call it
-//! // When it could panic or error
-//! // When safety issues to consider
-//!
-//! \#### Public Mutable functions (changing state)
-//!
-//! // Insert a subheading for each setter function signature
-//!
-//! \##### <code>\`example_setter_name(origin, parameter_name: T::ExampleType)\`</code>
-//!
-//! // What state it changes
-//! // Why, when, and how often to call it
-//! // When it could panic or error
-//! // When safety issues to consider
-//! // What parameter values are valid and why
-//!
-//! \### Storage Items
-//!
-//! // Explain any storage items included in this pallet
-//!
-//! \### Digest Items
-//!
-//! // Explain any digest items included in this pallet
-//!
-//! \### Inherent Data
-//!
-//! // Explain what inherent data (if any) is defined in the pallet and any other related types
-//!
-//! \### Events:
-//!
-//! // Insert events for this pallet if any
-//!
-//! \### Errors:
-//!
-//! // Explain what generates errors
-//!
-//! \## Usage
-//!
-//! // Insert 2-3 examples of usage and code snippets that show how to
-//! // use <INSERT_CUSTOM_PALLET_NAME> Pallet in a custom pallet.
-//!
-//! \### Prerequisites
-//!
-//! // Show how to include necessary imports for <INSERT_CUSTOM_PALLET_NAME> and derive
-//! // your pallet configuration trait with the `INSERT_CUSTOM_PALLET_NAME` trait.
-//!
-//! \```rust
-//! use <INSERT_CUSTOM_PALLET_NAME>;
-//!
-//! pub trait Config: <INSERT_CUSTOM_PALLET_NAME>::Config { }
-//! \```
-//!
-//! \### Simple Code Snippet
-//!
-//! // Show a simple example (e.g. how to query a public getter function of
-//! <INSERT_CUSTOM_PALLET_NAME>)
-//!
-//! \### Example from FRAME
-//!
-//! // Show a usage example in an actual runtime
-//!
-//! // See:
-//! // - Substrate TCR <https://github.com/parity-samples/substrate-tcr>
-//! // - Substrate Kitties <https://shawntabrizi.github.io/substrate-collectables-workshop/#/>
-//!
-//! \## Genesis Config
-//!
-//! <!-- Original author of paragraph: @joepetrowski -->
-//!
-//! \## Dependencies
-//!
-//! // Dependencies on other FRAME pallets and the genesis config should be mentioned,
-//! // but not the Rust Standard Library.
-//! // Genesis configuration modifications that may be made to incorporate this pallet
-//! // Interaction with other pallets
-//!
-//! <!-- Original author of heading: @AmarRSingh -->
-//!
-//! \## Related Pallets
-//!
-//! // Interaction with other pallets in the form of a bullet point list
-//!
-//! \## References
-//!
-//! <!-- Original author of paragraph: @joepetrowski -->
-//!
-//! // Links to reference material, if applicable. For example, Phragmen, W3F research, etc.
-//! // that the implementation is based on.
-//! </pre></p></details>
+//! - A custom weight calculator able to classify a call's dispatch class (see:
+//!   [`frame_support::dispatch::DispatchClass`])
+//! - Pallet hooks to implement some custom logic that's executed before and after a block is
+//!   imported (see: [`frame_support::traits::Hooks`])
+//! - Inherited weight annotation for pallet calls, used to create less repetition for calls that
+//!   use the [`Config::WeightInfo`] trait to calculate call weights. This can also be overridden,
+//!   as demonstrated by [`Call::set_dummy`].
+//! - A private function that performs a storage update.
+//! - A simple signed extension implementation (see: [`sp_runtime::traits::SignedExtension`]) which
+//!   increases the priority of the [`Call::set_dummy`] if it's present and drops any transaction
+//!   with an encoded length higher than 200 bytes.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
 	traits::IsSubType,
@@ -286,7 +69,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
 };
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::vec::Vec;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -329,7 +112,7 @@ impl<T: pallet_balances::Config> WeighData<(&BalanceOf<T>,)> for WeightForSetDum
 		let multiplier = self.0;
 		// *target.0 is the amount passed into the extrinsic
 		let cents = *target.0 / <BalanceOf<T>>::from(MILLICENTS);
-		Weight::from_ref_time((cents * multiplier).saturated_into::<u64>())
+		Weight::from_parts((cents * multiplier).saturated_into::<u64>(), 0)
 	}
 }
 
@@ -379,31 +162,31 @@ pub mod pallet {
 	// Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
 	// method.
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
-	// Pallet implements [`Hooks`] trait to define some logic to execute in some context.
+	// This pallet implements the [`frame_support::traits::Hooks`] trait to define some logic to
+	// execute in some context.
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		// `on_initialize` is executed at the beginning of the block before any extrinsic are
 		// dispatched.
 		//
 		// This function must return the weight consumed by `on_initialize` and `on_finalize`.
-		fn on_initialize(_n: T::BlockNumber) -> Weight {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			// Anything that needs to be done at the start of the block.
 			// We don't do anything here.
 			Weight::zero()
 		}
 
 		// `on_finalize` is executed at the end of block after all extrinsic are dispatched.
-		fn on_finalize(_n: T::BlockNumber) {
+		fn on_finalize(_n: BlockNumberFor<T>) {
 			// Perform necessary data/state clean up here.
 		}
 
 		// A runtime code run after every block and have access to extended set of APIs.
 		//
 		// For instance you can generate extrinsics for the upcoming produced block.
-		fn offchain_worker(_n: T::BlockNumber) {
+		fn offchain_worker(_n: BlockNumberFor<T>) {
 			// We don't do anything here.
 			// but we could dispatch extrinsic (transaction/unsigned/inherent) using
 			// sp_io::submit_extrinsic.
@@ -442,7 +225,7 @@ pub mod pallet {
 	// against them as the first thing you do in your function. There are three convenience calls
 	// in system that do the matching for you and return a convenient result: `ensure_signed`,
 	// `ensure_root` and `ensure_none`.
-	#[pallet::call]
+	#[pallet::call(weight(<T as Config>::WeightInfo))]
 	impl<T: Config> Pallet<T> {
 		/// This is your public interface. Be extremely careful.
 		/// This is just a simple example of how to interact with the pallet from the external
@@ -498,17 +281,12 @@ pub mod pallet {
 		// The weight for this extrinsic we rely on the auto-generated `WeightInfo` from the
 		// benchmark toolchain.
 		#[pallet::call_index(0)]
-		#[pallet::weight(
-			<T as pallet::Config>::WeightInfo::accumulate_dummy()
-		)]
 		pub fn accumulate_dummy(origin: OriginFor<T>, increase_by: T::Balance) -> DispatchResult {
 			// This is a public call, so we ensure that the origin is some signed account.
 			let _sender = ensure_signed(origin)?;
 
 			// Read the value of dummy from storage.
-			// let dummy = Self::dummy();
-			// Will also work using the `::get` on the storage item type itself:
-			// let dummy = <Dummy<T>>::get();
+			// let dummy = Dummy::<T>::get();
 
 			// Calculate the new value.
 			// let new_dummy = dummy.map_or(increase_by, |dummy| dummy + increase_by);
@@ -601,20 +379,14 @@ pub mod pallet {
 	//   - `Foo::put(1); Foo::get()` returns `1`;
 	//   - `Foo::kill(); Foo::get()` returns `0` (u32::default()).
 	#[pallet::storage]
-	// The getter attribute generate a function on `Pallet` placeholder:
-	// `fn getter_name() -> Type` for basic value items or
-	// `fn getter_name(key: KeyType) -> ValueType` for map items.
-	#[pallet::getter(fn dummy)]
 	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
 
 	// A map that has enumerable entries.
 	#[pallet::storage]
-	#[pallet::getter(fn bar)]
 	pub(super) type Bar<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance>;
 
 	// this one uses the query kind: `ValueQuery`, we'll demonstrate the usage of 'mutate' API.
 	#[pallet::storage]
-	#[pallet::getter(fn foo)]
 	pub(super) type Foo<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
 
 	#[pallet::storage]
@@ -622,23 +394,16 @@ pub mod pallet {
 
 	// The genesis config type.
 	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub dummy: T::Balance,
 		pub bar: Vec<(T::AccountId, T::Balance)>,
 		pub foo: T::Balance,
 	}
 
-	// The default value for the genesis config type.
-	#[cfg(feature = "std")]
-	impl<T: Config> Default for GenesisConfig<T> {
-		fn default() -> Self {
-			Self { dummy: Default::default(), bar: Default::default(), foo: Default::default() }
-		}
-	}
-
 	// The build of genesis for the pallet.
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			<Dummy<T>>::put(&self.dummy);
 			for (a, b) in &self.bar {
@@ -660,10 +425,10 @@ impl<T: Config> Pallet<T> {
 	fn accumulate_foo(origin: T::RuntimeOrigin, increase_by: T::Balance) -> DispatchResult {
 		let _sender = ensure_signed(origin)?;
 
-		let prev = <Foo<T>>::get();
+		let prev = Foo::<T>::get();
 		// Because Foo has 'default', the type of 'foo' in closure is the raw type instead of an
 		// Option<> type.
-		let result = <Foo<T>>::mutate(|foo| {
+		let result = Foo::<T>::mutate(|foo| {
 			*foo = foo.saturating_add(increase_by);
 			*foo
 		});
@@ -685,7 +450,7 @@ impl<T: Config> Pallet<T> {
 // Note that a signed extension can also indicate that a particular data must be present in the
 // _signing payload_ of a transaction by providing an implementation for the `additional_signed`
 // method. This example will not cover this type of extension. See `CheckSpecVersion` in
-// [FRAME System](https://github.com/paritytech/substrate/tree/master/frame/system#signed-extensions)
+// [FRAME System](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/system#signed-extensions)
 // for an example.
 //
 // Using the extension, you can add some hooks to the life cycle of each transaction. Note that by
@@ -697,7 +462,7 @@ impl<T: Config> Pallet<T> {
 // sender of the transaction (if signed) are also provided.
 //
 // The full list of hooks that can be added to a signed extension can be found
-// [here](https://crates.parity.io/sp_runtime/traits/trait.SignedExtension.html).
+// [here](https://paritytech.github.io/polkadot-sdk/master/sp_runtime/traits/trait.SignedExtension.html).
 //
 // The signed extensions are aggregated in the runtime file of a substrate chain. All extensions
 // should be aggregated in a tuple and passed to the `CheckedExtrinsic` and `UncheckedExtrinsic`
@@ -713,8 +478,8 @@ impl<T: Config> Pallet<T> {
 #[scale_info(skip_type_params(T))]
 pub struct WatchDummy<T: Config + Send + Sync>(PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for WatchDummy<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<T: Config + Send + Sync> core::fmt::Debug for WatchDummy<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "WatchDummy")
 	}
 }
@@ -729,7 +494,7 @@ where
 	type AdditionalSigned = ();
 	type Pre = ();
 
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
 

@@ -1,0 +1,17 @@
+error[E0425]: cannot find function `bar` in module `test`
+  --> tests/ui/no_feature_gated_method.rs:33:8
+   |
+33 |     test::bar();
+   |           ^^^ not found in `test`
+   |
+note: found an item that was configured out
+  --> tests/ui/no_feature_gated_method.rs:25:5
+   |
+25 |     fn bar() {}
+   |        ^^^
+   = note: the item is gated behind the `bar-feature` feature
+note: found an item that was configured out
+  --> tests/ui/no_feature_gated_method.rs:25:5
+   |
+25 |     fn bar() {}
+   |        ^^^

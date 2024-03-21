@@ -35,22 +35,20 @@ pub mod weights;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	dispatch::{DispatchError, GetDispatchInfo},
+	dispatch::GetDispatchInfo,
 	ensure,
 	traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
-	RuntimeDebug,
 };
-use frame_system::{self as system};
+use frame_system::{self as system, ensure_signed, pallet_prelude::BlockNumberFor};
+pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
 	traits::{Dispatchable, Hash, Saturating, StaticLookup, TrailingZeroInput, Zero},
-	DispatchResult,
+	DispatchError, DispatchResult, RuntimeDebug,
 };
 use sp_std::prelude::*;
 pub use weights::WeightInfo;
-
-pub use pallet::*;
 
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
 
@@ -102,7 +100,6 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	/// Configuration trait.
@@ -229,7 +226,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			delegate: AccountIdLookupOf<T>,
 			proxy_type: T::ProxyType,
-			delay: T::BlockNumber,
+			delay: BlockNumberFor<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
@@ -249,7 +246,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			delegate: AccountIdLookupOf<T>,
 			proxy_type: T::ProxyType,
-			delay: T::BlockNumber,
+			delay: BlockNumberFor<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let delegate = T::Lookup::lookup(delegate)?;
@@ -266,9 +263,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::remove_proxies(T::MaxProxies::get()))]
 		pub fn remove_proxies(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let (_, old_deposit) = Proxies::<T>::take(&who);
-			T::Currency::unreserve(&who, old_deposit);
-
+			Self::remove_all_proxy_delegates(&who);
 			Ok(())
 		}
 
@@ -295,7 +290,7 @@ pub mod pallet {
 		pub fn create_pure(
 			origin: OriginFor<T>,
 			proxy_type: T::ProxyType,
-			delay: T::BlockNumber,
+			delay: BlockNumberFor<T>,
 			index: u16,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -345,7 +340,7 @@ pub mod pallet {
 			spawner: AccountIdLookupOf<T>,
 			proxy_type: T::ProxyType,
 			index: u16,
-			#[pallet::compact] height: T::BlockNumber,
+			#[pallet::compact] height: BlockNumberFor<T>,
 			#[pallet::compact] ext_index: u32,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -539,14 +534,14 @@ pub mod pallet {
 			delegator: T::AccountId,
 			delegatee: T::AccountId,
 			proxy_type: T::ProxyType,
-			delay: T::BlockNumber,
+			delay: BlockNumberFor<T>,
 		},
 		/// A proxy was removed.
 		ProxyRemoved {
 			delegator: T::AccountId,
 			delegatee: T::AccountId,
 			proxy_type: T::ProxyType,
-			delay: T::BlockNumber,
+			delay: BlockNumberFor<T>,
 		},
 	}
 
@@ -579,7 +574,10 @@ pub mod pallet {
 		Twox64Concat,
 		T::AccountId,
 		(
-			BoundedVec<ProxyDefinition<T::AccountId, T::ProxyType, T::BlockNumber>, T::MaxProxies>,
+			BoundedVec<
+				ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
+				T::MaxProxies,
+			>,
 			BalanceOf<T>,
 		),
 		ValueQuery,
@@ -593,7 +591,7 @@ pub mod pallet {
 		Twox64Concat,
 		T::AccountId,
 		(
-			BoundedVec<Announcement<T::AccountId, CallHashOf<T>, T::BlockNumber>, T::MaxPending>,
+			BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
 			BalanceOf<T>,
 		),
 		ValueQuery,
@@ -616,7 +614,7 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		proxy_type: &T::ProxyType,
 		index: u16,
-		maybe_when: Option<(T::BlockNumber, u32)>,
+		maybe_when: Option<(BlockNumberFor<T>, u32)>,
 	) -> T::AccountId {
 		let (height, ext_index) = maybe_when.unwrap_or_else(|| {
 			(
@@ -642,7 +640,7 @@ impl<T: Config> Pallet<T> {
 		delegator: &T::AccountId,
 		delegatee: T::AccountId,
 		proxy_type: T::ProxyType,
-		delay: T::BlockNumber,
+		delay: BlockNumberFor<T>,
 	) -> DispatchResult {
 		ensure!(delegator != &delegatee, Error::<T>::NoSelfProxy);
 		Proxies::<T>::try_mutate(delegator, |(ref mut proxies, ref mut deposit)| {
@@ -682,7 +680,7 @@ impl<T: Config> Pallet<T> {
 		delegator: &T::AccountId,
 		delegatee: T::AccountId,
 		proxy_type: T::ProxyType,
-		delay: T::BlockNumber,
+		delay: BlockNumberFor<T>,
 	) -> DispatchResult {
 		Proxies::<T>::try_mutate_exists(delegator, |x| {
 			let (mut proxies, old_deposit) = x.take().ok_or(Error::<T>::NotFound)?;
@@ -738,7 +736,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn edit_announcements<
-		F: FnMut(&Announcement<T::AccountId, CallHashOf<T>, T::BlockNumber>) -> bool,
+		F: FnMut(&Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>) -> bool,
 	>(
 		delegate: &T::AccountId,
 		f: F,
@@ -764,8 +762,8 @@ impl<T: Config> Pallet<T> {
 		real: &T::AccountId,
 		delegate: &T::AccountId,
 		force_proxy_type: Option<T::ProxyType>,
-	) -> Result<ProxyDefinition<T::AccountId, T::ProxyType, T::BlockNumber>, DispatchError> {
-		let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, T::BlockNumber>| -> bool {
+	) -> Result<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, DispatchError> {
+		let f = |x: &ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>| -> bool {
 			&x.delegate == delegate &&
 				force_proxy_type.as_ref().map_or(true, |y| &x.proxy_type == y)
 		};
@@ -773,7 +771,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_proxy(
-		def: ProxyDefinition<T::AccountId, T::ProxyType, T::BlockNumber>,
+		def: ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>,
 		real: T::AccountId,
 		call: <T as Config>::RuntimeCall,
 	) {
@@ -799,5 +797,14 @@ impl<T: Config> Pallet<T> {
 		});
 		let e = call.dispatch(origin);
 		Self::deposit_event(Event::ProxyExecuted { result: e.map(|_| ()).map_err(|e| e.error) });
+	}
+
+	/// Removes all proxy delegates for a given delegator.
+	///
+	/// Parameters:
+	/// - `delegator`: The delegator account.
+	pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
+		let (_, old_deposit) = Proxies::<T>::take(&delegator);
+		T::Currency::unreserve(&delegator, old_deposit);
 	}
 }

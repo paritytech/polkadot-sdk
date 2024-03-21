@@ -20,7 +20,7 @@
 use codec::{Decode, Encode};
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
+use sp_std::{ops::Add, prelude::*};
 
 /// Provides information about the pallet itself and its setup in the runtime.
 ///
@@ -31,6 +31,8 @@ pub trait PalletInfo {
 	fn index<P: 'static>() -> Option<usize>;
 	/// Convert the given pallet `P` into its name as configured in the runtime.
 	fn name<P: 'static>() -> Option<&'static str>;
+	/// The two128 hash of name.
+	fn name_hash<P: 'static>() -> Option<[u8; 16]>;
 	/// Convert the given pallet `P` into its Rust module name as used in `construct_runtime!`.
 	fn module_name<P: 'static>() -> Option<&'static str>;
 	/// Convert the given pallet `P` into its containing crate version.
@@ -59,6 +61,8 @@ pub trait PalletInfoAccess {
 	fn index() -> usize;
 	/// Name of the pallet as configured in the runtime.
 	fn name() -> &'static str;
+	/// Two128 hash of name.
+	fn name_hash() -> [u8; 16];
 	/// Name of the Rust module containing the pallet.
 	fn module_name() -> &'static str;
 	/// Version of the crate containing the pallet.
@@ -101,10 +105,18 @@ pub struct CallMetadata {
 
 /// Gets the function name of the Call.
 pub trait GetCallName {
-	/// Return all function names.
+	/// Return all function names in the same order as [`GetCallIndex`].
 	fn get_call_names() -> &'static [&'static str];
 	/// Return the function name of the Call.
 	fn get_call_name(&self) -> &'static str;
+}
+
+/// Gets the function index of the Call.
+pub trait GetCallIndex {
+	/// Return all call indices in the same order as [`GetCallName`].
+	fn get_call_indices() -> &'static [u8];
+	/// Return the index of this Call.
+	fn get_call_index(&self) -> u8;
 }
 
 /// Gets the metadata for the Call - function name and pallet name.
@@ -210,6 +222,23 @@ impl StorageVersion {
 
 		crate::storage::unhashed::get_or_default(&key)
 	}
+
+	/// Returns if the storage version key for the given pallet exists in storage.
+	///
+	/// See [`STORAGE_VERSION_STORAGE_KEY_POSTFIX`] on how this key is built.
+	///
+	/// # Panics
+	///
+	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
+	/// In a runtime that is put together using
+	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
+	///
+	/// It will also panic if this function isn't executed in an externalities
+	/// provided environment.
+	pub fn exists<P: PalletInfoAccess>() -> bool {
+		let key = Self::storage_key::<P>();
+		crate::storage::unhashed::exists(&key)
+	}
 }
 
 impl PartialEq<u16> for StorageVersion {
@@ -224,27 +253,79 @@ impl PartialOrd<u16> for StorageVersion {
 	}
 }
 
-/// Provides information about the storage version of a pallet.
+impl Add<u16> for StorageVersion {
+	type Output = StorageVersion;
+
+	fn add(self, rhs: u16) -> Self::Output {
+		Self::new(self.0 + rhs)
+	}
+}
+
+/// Special marker struct used when [`storage_version`](crate::pallet_macros::storage_version) is
+/// not defined for a pallet.
 ///
-/// It differentiates between current and on-chain storage version. Both should be only out of sync
-/// when a new runtime upgrade was applied and the runtime migrations did not yet executed.
-/// Otherwise it means that the pallet works with an unsupported storage version and unforeseen
-/// stuff can happen.
+/// If you (the reader) end up here, it probably means that you tried to compare
+/// [`GetStorageVersion::on_chain_storage_version`] against
+/// [`GetStorageVersion::in_code_storage_version`]. This basically means that the
+/// [`storage_version`](crate::pallet_macros::storage_version) is missing from the pallet where the
+/// mentioned functions are being called, and needs to be defined.
+#[derive(Debug, Default)]
+pub struct NoStorageVersionSet;
+
+/// Provides information about a pallet's storage versions.
 ///
-/// The current storage version is the version of the pallet as supported at runtime. The active
-/// storage version is the version of the pallet in the storage.
+/// Every pallet has two storage versions:
+/// 1. An in-code storage version
+/// 2. An on-chain storage version
 ///
-/// It is required to update the on-chain storage version manually when a migration was applied.
+/// The in-code storage version is the version of the pallet as defined in the runtime blob, and the
+/// on-chain storage version is the version of the pallet stored on-chain.
+///
+/// Storage versions should be only ever be out of sync when a pallet has been updated to a new
+/// version and the in-code version is incremented, but the migration has not yet been executed
+/// on-chain as part of a runtime upgrade.
+///
+/// It is the responsibility of the developer to ensure that the on-chain storage version is set
+/// correctly during a migration so that it matches the in-code storage version.
 pub trait GetStorageVersion {
-	/// Returns the current storage version as supported by the pallet.
-	fn current_storage_version() -> StorageVersion;
-	/// Returns the on-chain storage version of the pallet as stored in the storage.
+	/// This type is generated by the [`pallet`](crate::pallet) macro.
+	///
+	/// If the [`storage_version`](crate::pallet_macros::storage_version) attribute isn't specified,
+	/// this is set to [`NoStorageVersionSet`] to signify that it is missing.
+	///
+	/// If the [`storage_version`](crate::pallet_macros::storage_version) attribute is specified,
+	/// this is be set to a [`StorageVersion`] corresponding to the attribute.
+	///
+	/// The intention of using [`NoStorageVersionSet`] instead of defaulting to a [`StorageVersion`]
+	/// of zero is to prevent developers from forgetting to set
+	/// [`storage_version`](crate::pallet_macros::storage_version) when it is required, like in the
+	/// case that they wish to compare the in-code storage version to the on-chain storage version.
+	type InCodeStorageVersion;
+
+	#[deprecated(
+		note = "This method has been renamed to `in_code_storage_version` and will be removed after March 2024."
+	)]
+	/// DEPRECATED: Use [`Self::current_storage_version`] instead.
+	///
+	/// Returns the in-code storage version as specified in the
+	/// [`storage_version`](crate::pallet_macros::storage_version) attribute, or
+	/// [`NoStorageVersionSet`] if the attribute is missing.
+	fn current_storage_version() -> Self::InCodeStorageVersion {
+		Self::in_code_storage_version()
+	}
+
+	/// Returns the in-code storage version as specified in the
+	/// [`storage_version`](crate::pallet_macros::storage_version) attribute, or
+	/// [`NoStorageVersionSet`] if the attribute is missing.
+	fn in_code_storage_version() -> Self::InCodeStorageVersion;
+	/// Returns the storage version of the pallet as last set in the actual on-chain storage.
 	fn on_chain_storage_version() -> StorageVersion;
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use sp_crypto_hashing::twox_128;
 
 	struct Pallet1;
 	impl PalletInfoAccess for Pallet1 {
@@ -253,6 +334,9 @@ mod tests {
 		}
 		fn name() -> &'static str {
 			"Pallet1"
+		}
+		fn name_hash() -> [u8; 16] {
+			twox_128(Self::name().as_bytes())
 		}
 		fn module_name() -> &'static str {
 			"pallet1"
@@ -269,6 +353,11 @@ mod tests {
 		fn name() -> &'static str {
 			"Pallet2"
 		}
+
+		fn name_hash() -> [u8; 16] {
+			twox_128(Self::name().as_bytes())
+		}
+
 		fn module_name() -> &'static str {
 			"pallet2"
 		}

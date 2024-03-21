@@ -1,0 +1,296 @@
+name: Release - Publish Docker Image
+
+# This workflow listens to published releases or can be triggered manually.
+# It builds and published releases and rc candidates.
+
+on:
+  #TODO: activate automated run later
+  # release:
+  #  types:
+  #    - published
+  workflow_dispatch:
+    inputs:
+      image_type:
+        description: Type of the image to be published
+        required: true
+        default: rc
+        type: choice
+        options:
+          - rc
+          - release
+
+      binary:
+        description: Binary to be published
+        required: true
+        default: polkadot
+        type: choice
+        options:
+          - polkadot
+          - polkadot-parachain
+
+      release_id:
+        description: |
+          Release ID.
+          You can find it using the command:
+          curl -s \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" https://api.github.com/repos/$OWNER/$REPO/releases | \
+            jq '.[] | { name: .name, id: .id }'
+        required: true
+        type: number
+
+      registry:
+        description: Container registry
+        required: true
+        type: string
+        default: docker.io
+
+      # The owner is often the same than the Docker Hub username but does ont have to be.
+      # In our case, it is not.
+      owner:
+        description: Owner of the container image repo
+        required: true
+        type: string
+        default: parity
+
+      version:
+        description: version to build/release
+        default: v0.9.18
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  ENGINE: docker
+  REGISTRY: ${{ inputs.registry }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  DOCKER_OWNER: ${{ inputs.owner || github.repository_owner }}
+  REPO: ${{ github.repository }}
+  BINARY: ${{ inputs.binary }}
+  # EVENT_ACTION: ${{ github.event.action }}
+  EVENT_NAME: ${{ github.event_name }}
+  IMAGE_TYPE: ${{ inputs.image_type }}
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  fetch-artifacts: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      #TODO: this step will be needed when automated triggering will work
+        #this step runs only if the workflow is triggered automatically when new release is published
+        # if: ${{ env.EVENT_NAME == 'release' && env.EVENT_ACTION != '' && env.EVENT_ACTION == 'published' }}
+        # run: |
+        #   mkdir -p release-artifacts && cd release-artifacts
+
+        #   for f in $BINARY $BINARY.asc $BINARY.sha256; do
+        #     URL="https://github.com/${{ github.event.repository.full_name }}/releases/download/${{ github.event.release.tag_name }}/$f"
+        #     echo " - Fetching $f from $URL"
+        #     wget "$URL" -O "$f"
+        #   done
+        #   chmod a+x $BINARY
+        #   ls -al
+
+      - name: Fetch rc artifacts or release artifacts from s3 based on version
+        #this step runs only if the workflow is triggered manually
+        if: ${{ env.EVENT_NAME  == 'workflow_dispatch' }}
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          VERSION=$(filter_version_from_input "${{ inputs.version }}")
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+          fetch_release_artifacts_from_s3
+
+      - name: Cache the artifacts
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+        with:
+          key: artifacts-${{ env.BINARY }}-${{ github.sha }}
+          path: |
+            ./release-artifacts/${{ env.BINARY }}/**/*
+
+  build-container: # this job will be triggered for the polkadot-parachain rc and release or polkadot rc image build
+    if: ${{ inputs.binary == 'polkadot-parachain' || inputs.image_type == 'rc' }}
+    runs-on: ubuntu-latest
+    needs: fetch-artifacts
+    environment: release
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Get artifacts from cache
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+        with:
+          key: artifacts-${{ env.BINARY }}-${{ github.sha }}
+          fail-on-cache-miss: true
+          path: |
+            ./release-artifacts/${{ env.BINARY }}/**/*
+
+      - name: Check sha256 ${{ env.BINARY }}
+        working-directory: ./release-artifacts/${{ env.BINARY }}
+        run: |
+          . ../../.github/scripts/common/lib.sh
+
+          echo "Checking binary $BINARY"
+          check_sha256 $BINARY && echo "OK" || echo "ERR"
+
+      - name: Check GPG ${{ env.BINARY }}
+        working-directory: ./release-artifacts/${{ env.BINARY }}
+        run: |
+          . ../../.github/scripts/common/lib.sh
+          import_gpg_keys
+          check_gpg $BINARY
+
+      - name: Fetch rc commit and tag
+        if: ${{ env.IMAGE_TYPE == 'rc' }}
+        id: fetch_rc_refs
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          RELEASE_ID=$(check_release_id "${{ inputs.release_id }}")
+          release=release-$RELEASE_ID && \
+          echo "release=${release}" >> $GITHUB_OUTPUT
+
+          commit=$(git rev-parse --short HEAD) && \
+          echo "commit=${commit}" >> $GITHUB_OUTPUT
+
+          tag=$(git name-rev --tags --name-only $(git rev-parse HEAD)) && \
+          [ "${tag}" != "undefined" ] && echo "tag=${tag}" >> $GITHUB_OUTPUT || \
+          echo "No tag, doing without"
+
+      - name: Fetch release tags
+        working-directory: ./release-artifacts/${{ env.BINARY }}
+        if: ${{ env.IMAGE_TYPE == 'release'}}
+        id: fetch_release_refs
+        run: |
+          chmod a+rx $BINARY
+          VERSION=$(./$BINARY --version | awk '{ print $2 }' )
+          release=$( echo $VERSION | cut -f1 -d- )
+          echo "tag=latest" >> $GITHUB_OUTPUT
+          echo "release=${release}" >> $GITHUB_OUTPUT
+
+      - name: Build Injected Container image for polkadot rc
+        if: ${{ env.BINARY == 'polkadot' }}
+        env:
+          ARTIFACTS_FOLDER: ./release-artifacts
+          IMAGE_NAME: ${{ env.BINARY }}
+          OWNER: ${{ env.DOCKER_OWNER }}
+          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
+        run: |
+          ls -al
+          echo "Building container for $BINARY"
+          ./docker/scripts/build-injected.sh
+
+      - name: Build Injected Container image for polkadot-parachain
+        if: ${{ env.BINARY == 'polkadot-parachain' }}
+        env:
+          ARTIFACTS_FOLDER: ./release-artifacts
+          IMAGE_NAME: ${{ env.BINARY }}
+          OWNER: ${{ env.DOCKER_OWNER }}
+          DOCKERFILE: docker/dockerfiles/polkadot-parachain/polkadot-parachain_injected.Dockerfile
+          TAGS: ${{ join(steps.fetch_rc_refs.outputs.*, ',') || join(steps.fetch_release_refs.outputs.*, ',') }}
+        run: |
+          ls -al
+          mkdir -p $ARTIFACTS_FOLDER/specs
+          cp cumulus/parachains/chain-specs/*.json $ARTIFACTS_FOLDER/specs
+
+          echo "Building container for $BINARY"
+          ./docker/scripts/build-injected.sh
+
+      - name: Login to Dockerhub
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          username: ${{ secrets.CUMULUS_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.CUMULUS_DOCKERHUB_TOKEN }}
+
+      - name: Push Container image for ${{ env.BINARY }}
+        id: docker_push
+        run: |
+          $ENGINE images | grep ${BINARY}
+          $ENGINE push --all-tags ${REGISTRY}/${DOCKER_OWNER}/${BINARY}
+
+      - name: Check version for the published image for ${{ env.BINARY }}
+        env:
+          RELEASE_TAG: ${{ steps.fetch_rc_refs.outputs.release || steps.fetch_release_refs.outputs.release  }}
+        run: |
+          echo "Checking tag ${RELEASE_TAG} for image ${REGISTRY}/${DOCKER_OWNER}/${BINARY}"
+          $ENGINE run -i ${REGISTRY}/${DOCKER_OWNER}/${BINARY}:${RELEASE_TAG} --version
+
+  fetch-latest-debian-package-version: # this job will be triggered for polkadot release build
+    if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
+    runs-on: ubuntu-latest
+    outputs:
+      polkadot_apt_version: ${{ steps.fetch-latest-apt.outputs.polkadot_apt_version }}
+      polkadot_container_tag: ${{ steps.fetch-latest-apt.outputs.polkadot_container_tag }}
+    container:
+      image: paritytech/parity-keyring
+      options: --user root
+    steps:
+      - name: Get version
+        id: fetch-latest-apt
+        run: |
+          apt update
+          apt show polkadot
+          version=$(apt show polkadot 2>/dev/null | grep "Version:" | awk '{print $2}')
+          tag=$(echo $version | sed 's/-.*//')
+          echo "polkadot_apt_version=v$version" >> $GITHUB_OUTPUT
+          echo "polkadot_container_tag=v$tag" >> $GITHUB_OUTPUT
+          echo "You passed ${{ inputs.version }} but this is ignored"
+          echo "We use the version from the Debian Package: $version"
+
+  build-polkadot-release-container: # this job will be triggered for polkadot release build
+    if: ${{ inputs.binary == 'polkadot' && inputs.image_type == 'release' }}
+    runs-on: ubuntu-latest
+    needs: fetch-latest-debian-package-version
+    environment: release
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+
+      - name: Cache Docker layers
+        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+        with:
+         path: /tmp/.buildx-cache
+         key: ${{ runner.os }}-buildx-${{ github.sha }}
+         restore-keys: |
+           ${{ runner.os }}-buildx-
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          username: ${{ secrets.POLKADOT_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.POLKADOT_DOCKERHUB_TOKEN }}
+
+      - name: Fetch values
+        id: fetch-data
+        run: |
+          date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          echo "date=$date" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        id:   docker_build
+        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 #  v5.1.0
+        with:
+          push: true
+          file: docker/dockerfiles/polkadot/polkadot_injected_debian.Dockerfile
+          # TODO: The owner should be used below but buildx does not resolve the VARs
+          # TODO: It would be good to get rid of this GHA that we don't really need.
+          tags: |
+            parity/polkadot:latest
+            parity/polkadot:${{ needs.fetch-latest-debian-package-version.outputs.polkadot_container_tag }}
+          build-args: |
+            VCS_REF=${{ github.ref }}
+            POLKADOT_VERSION=${{ needs.fetch-latest-debian-package-version.outputs.polkadot_apt_version }}
+            BUILD_DATE=${{ steps.fetch-data.outputs.date }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+      - name: Image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}

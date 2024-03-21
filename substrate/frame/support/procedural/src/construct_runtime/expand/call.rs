@@ -68,10 +68,10 @@ pub fn expand_outer_dispatch(
 
 		#[derive(
 			Clone, PartialEq, Eq,
-			#scrate::codec::Encode,
-			#scrate::codec::Decode,
-			#scrate::scale_info::TypeInfo,
-			#scrate::RuntimeDebug,
+			#scrate::__private::codec::Encode,
+			#scrate::__private::codec::Decode,
+			#scrate::__private::scale_info::TypeInfo,
+			#scrate::__private::RuntimeDebug,
 		)]
 		pub enum RuntimeCall {
 			#variant_defs
@@ -123,19 +123,29 @@ pub fn expand_outer_dispatch(
 				}
 			}
 		}
-		// Deprecated, but will warn when used
-		#[allow(deprecated)]
-		impl #scrate::weights::GetDispatchInfo for RuntimeCall {}
-		impl #scrate::dispatch::GetCallMetadata for RuntimeCall {
-			fn get_call_metadata(&self) -> #scrate::dispatch::CallMetadata {
-				use #scrate::dispatch::GetCallName;
+
+		impl #scrate::dispatch::CheckIfFeeless for RuntimeCall {
+			type Origin = #system_path::pallet_prelude::OriginFor<#runtime>;
+			fn is_feeless(&self, origin: &Self::Origin) -> bool {
+				match self {
+					#(
+						#pallet_attrs
+						#variant_patterns => call.is_feeless(origin),
+					)*
+				}
+			}
+		}
+
+		impl #scrate::traits::GetCallMetadata for RuntimeCall {
+			fn get_call_metadata(&self) -> #scrate::traits::CallMetadata {
+				use #scrate::traits::GetCallName;
 				match self {
 					#(
 						#pallet_attrs
 						#variant_patterns => {
 							let function_name = call.get_call_name();
 							let pallet_name = stringify!(#pallet_names);
-							#scrate::dispatch::CallMetadata { function_name, pallet_name }
+							#scrate::traits::CallMetadata { function_name, pallet_name }
 						}
 					)*
 				}
@@ -149,7 +159,7 @@ pub fn expand_outer_dispatch(
 			}
 
 			fn get_call_names(module: &str) -> &'static [&'static str] {
-				use #scrate::dispatch::{Callable, GetCallName};
+				use #scrate::{dispatch::Callable, traits::GetCallName};
 				match module {
 					#(
 						#pallet_attrs
@@ -161,14 +171,14 @@ pub fn expand_outer_dispatch(
 				}
 			}
 		}
-		impl #scrate::dispatch::Dispatchable for RuntimeCall {
+		impl #scrate::__private::Dispatchable for RuntimeCall {
 			type RuntimeOrigin = RuntimeOrigin;
 			type Config = RuntimeCall;
 			type Info = #scrate::dispatch::DispatchInfo;
 			type PostInfo = #scrate::dispatch::PostDispatchInfo;
 			fn dispatch(self, origin: RuntimeOrigin) -> #scrate::dispatch::DispatchResultWithPostInfo {
 				if !<Self::RuntimeOrigin as #scrate::traits::OriginTrait>::filter_call(&origin, &self) {
-					return #scrate::sp_std::result::Result::Err(
+					return ::core::result::Result::Err(
 						#system_path::Error::<#runtime>::CallFiltered.into()
 					);
 				}

@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "std")]
 pub mod cache;
 mod error;
@@ -30,6 +32,11 @@ mod storage_proof;
 mod trie_codec;
 mod trie_stream;
 
+#[cfg(feature = "std")]
+pub mod proof_size_extension;
+
+use alloc::{borrow::Borrow, boxed::Box, vec, vec::Vec};
+use core::marker::PhantomData;
 /// Our `NodeCodec`-specific error.
 pub use error::Error;
 /// Various re-exports from the `hash-db` crate.
@@ -39,20 +46,19 @@ use hash_db::{Hasher, Prefix};
 pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
-use sp_std::{borrow::Borrow, boxed::Box, marker::PhantomData, vec::Vec};
 pub use storage_proof::{CompactProof, StorageProof};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
 pub use trie_codec::{decode_compact, encode_compact, Error as CompactProofError};
-pub use trie_db::proof::VerifyError;
 use trie_db::proof::{generate_proof, verify_proof};
 /// Various re-exports from the `trie-db` crate.
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
 	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
-	TrieDBKeyIterator, TrieLayout, TrieMut, TrieRecorder,
+	TrieDBKeyIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
 };
+pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
 
@@ -144,6 +150,29 @@ where
 	fn encode_index(input: u32) -> Vec<u8> {
 		codec::Encode::encode(&codec::Compact(input))
 	}
+}
+
+/// Type that is able to provide a [`trie_db::TrieRecorder`].
+///
+/// Types implementing this trait can be used to maintain recorded state
+/// across operations on different [`trie_db::TrieDB`] instances.
+pub trait TrieRecorderProvider<H: Hasher> {
+	/// Recorder type that is going to be returned by implementors of this trait.
+	type Recorder<'a>: trie_db::TrieRecorder<H::Out> + 'a
+	where
+		Self: 'a;
+
+	/// Create a [`StorageProof`] derived from the internal state.
+	fn drain_storage_proof(self) -> Option<StorageProof>;
+
+	/// Provide a recorder implementing [`trie_db::TrieRecorder`].
+	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_>;
+}
+
+/// Type that is able to provide a proof size estimation.
+pub trait ProofSizeProvider {
+	/// Returns the storage proof size.
+	fn estimate_encoded_size(&self) -> usize;
 }
 
 /// TrieDB error over `TrieConfiguration` trait.
@@ -295,6 +324,25 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 		.get(key)
 }
 
+/// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
+/// the provided key.
+pub fn read_trie_first_descedant_value<L: TrieLayout, DB>(
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
+where
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	TrieDBBuilder::<L>::new(db, root)
+		.with_optional_cache(cache)
+		.with_optional_recorder(recorder)
+		.build()
+		.lookup_first_descendant(key)
+}
+
 /// Read a value from the trie with given Query.
 pub fn read_trie_value_with<
 	L: TrieLayout,
@@ -397,6 +445,27 @@ where
 		.get_hash(key)
 }
 
+/// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
+/// the provided child key.
+pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
+	keyspace: &[u8],
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
+where
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let db = KeySpacedDB::new(db, keyspace);
+	TrieDBBuilder::<L>::new(&db, &root)
+		.with_optional_recorder(recorder)
+		.with_optional_cache(cache)
+		.build()
+		.lookup_first_descendant(key)
+}
+
 /// Read a value from the child trie with given query.
 pub fn read_child_trie_value_with<L, Q, DB>(
 	keyspace: &[u8],
@@ -434,7 +503,7 @@ pub struct KeySpacedDBMut<'a, DB: ?Sized, H>(&'a mut DB, &'a [u8], PhantomData<H
 /// Utility function used to merge some byte data (keyspace) and `prefix` data
 /// before calling key value database primitives.
 fn keyspace_as_prefix_alloc(ks: &[u8], prefix: Prefix) -> (Vec<u8>, Option<u8>) {
-	let mut result = sp_std::vec![0; ks.len() + prefix.0.len()];
+	let mut result = vec![0; ks.len() + prefix.0.len()];
 	result[..ks.len()].copy_from_slice(ks);
 	result[ks.len()..].copy_from_slice(prefix.0);
 	(result, prefix.1)
@@ -442,6 +511,7 @@ fn keyspace_as_prefix_alloc(ks: &[u8], prefix: Prefix) -> (Vec<u8>, Option<u8>) 
 
 impl<'a, DB: ?Sized, H> KeySpacedDB<'a, DB, H> {
 	/// instantiate new keyspaced db
+	#[inline]
 	pub fn new(db: &'a DB, ks: &'a [u8]) -> Self {
 		KeySpacedDB(db, ks, PhantomData)
 	}
@@ -646,7 +716,7 @@ mod tests {
 			count: 1000,
 		};
 		let mut d = st.make();
-		d.sort_by(|&(ref a, _), &(ref b, _)| a.cmp(b));
+		d.sort_by(|(a, _), (b, _)| a.cmp(b));
 		let dr = d.iter().map(|v| (&v.0[..], &v.1[..])).collect();
 		check_input(&dr);
 	}
@@ -715,10 +785,7 @@ mod tests {
 		t
 	}
 
-	fn unpopulate_trie<'db, T: TrieConfiguration>(
-		t: &mut TrieDBMut<'db, T>,
-		v: &[(Vec<u8>, Vec<u8>)],
-	) {
+	fn unpopulate_trie<T: TrieConfiguration>(t: &mut TrieDBMut<'_, T>, v: &[(Vec<u8>, Vec<u8>)]) {
 		for i in v {
 			let key: &[u8] = &i.0;
 			t.remove(key).unwrap();

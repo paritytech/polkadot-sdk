@@ -1,49 +1,64 @@
 [package]
 name = "sp-api"
-version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "26.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Substrate runtime api primitives"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
-sp-api-proc-macro = { version = "4.0.0-dev", path = "proc-macro" }
-sp-core = { version = "7.0.0", default-features = false, path = "../core" }
-sp-std = { version = "5.0.0", default-features = false, path = "../std" }
-sp-runtime = { version = "7.0.0", default-features = false, path = "../runtime" }
-sp-version = { version = "5.0.0", default-features = false, path = "../version" }
-sp-state-machine = { version = "0.13.0", default-features = false, optional = true, path = "../state-machine" }
-sp-trie = { version = "7.0.0", default-features = false, optional = true, path = "../trie" }
-hash-db = { version = "0.15.2", optional = true }
-thiserror = { version = "1.0.30", optional = true }
-
-log = { version = "0.4.17", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+sp-api-proc-macro = { path = "proc-macro", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-std = { path = "../std", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
+sp-runtime-interface = { path = "../runtime-interface", default-features = false }
+sp-externalities = { path = "../externalities", default-features = false, optional = true }
+sp-version = { path = "../version", default-features = false }
+sp-state-machine = { path = "../state-machine", default-features = false, optional = true }
+sp-trie = { path = "../trie", default-features = false, optional = true }
+hash-db = { version = "0.16.0", optional = true }
+thiserror = { optional = true, workspace = true }
+scale-info = { version = "2.10.0", default-features = false, features = [
+	"derive",
+] }
+sp-metadata-ir = { path = "../metadata-ir", default-features = false, optional = true }
+log = { workspace = true }
 
 [dev-dependencies]
-sp-test-primitives = { version = "2.0.0", path = "../test-primitives" }
+sp-test-primitives = { path = "../test-primitives" }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"hash-db",
+	"log/std",
+	"scale-info/std",
+	"sp-api-proc-macro/std",
 	"sp-core/std",
-	"sp-std/std",
+	"sp-externalities",
+	"sp-externalities?/std",
+	"sp-metadata-ir?/std",
+	"sp-runtime-interface/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
+	"sp-std/std",
+	"sp-test-primitives/std",
 	"sp-trie/std",
 	"sp-version/std",
-	"hash-db",
 	"thiserror",
-	"log/std",
 ]
-# Special feature to disable logging completly.
+# Special feature to disable logging completely.
 #
 # By default `sp-api` initializes the `RuntimeLogger` for each runtime api function. However,
 # logging functionality increases the code size. It is recommended to enable this feature when
@@ -51,3 +66,6 @@ std = [
 #
 # This sets the max logging level to `off` for `log`.
 disable-logging = ["log/max_level_off"]
+# Do not report the documentation in the metadata.
+no-metadata-docs = ["sp-api-proc-macro/no-metadata-docs"]
+frame-metadata = ["sp-api-proc-macro/frame-metadata", "sp-metadata-ir"]

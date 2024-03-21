@@ -1,4 +1,4 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -17,22 +17,31 @@
 //! Helper for handling (i.e. answering) block requests from a remote peer via the
 //! `crate::request_responses::RequestResponsesBehaviour`.
 
-use crate::schema::v1::{block_request::FromBlock, BlockResponse, Direction};
-use codec::{Decode, Encode};
-use futures::{
-	channel::{mpsc, oneshot},
-	stream::StreamExt,
+use crate::{
+	block_relay_protocol::{BlockDownloader, BlockRelayParams, BlockResponseError, BlockServer},
+	schema::v1::{
+		block_request::FromBlock as FromBlockSchema, BlockRequest as BlockRequestSchema,
+		BlockResponse as BlockResponseSchema, BlockResponse, Direction,
+	},
+	service::network::NetworkServiceHandle,
+	LOG_TARGET,
 };
+
+use codec::{Decode, DecodeAll, Encode};
+use futures::{channel::oneshot, stream::StreamExt};
 use libp2p::PeerId;
 use log::debug;
-use lru::LruCache;
 use prost::Message;
 use sc_client_api::BlockBackend;
-use sc_network_common::{
+use sc_network::{
 	config::ProtocolId,
-	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
-	sync::message::BlockAttributes,
+	request_responses::{
+		IfDisconnected, IncomingRequest, OutgoingResponse, ProtocolConfig, RequestFailure,
+	},
+	types::ProtocolName,
 };
+use sc_network_common::sync::message::{BlockAttributes, BlockData, BlockRequest, FromBlock};
+use schnellru::{ByLength, LruMap};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
 	generic::BlockId,
@@ -41,18 +50,18 @@ use sp_runtime::{
 use std::{
 	cmp::min,
 	hash::{Hash, Hasher},
-	num::NonZeroUsize,
 	sync::Arc,
 	time::Duration,
 };
 
-const LOG_TARGET: &str = "sync";
-const MAX_BLOCKS_IN_RESPONSE: usize = 128;
+/// Maximum blocks per response.
+pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
+
 const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
 mod rep {
-	use sc_peerset::ReputationChange as Rep;
+	use sc_network::ReputationChange as Rep;
 
 	/// Reputation change when a peer sent us the same request multiple times.
 	pub const SAME_REQUEST: Rep = Rep::new_fatal("Same block request multiple times");
@@ -105,7 +114,7 @@ struct SeenRequestsKey<B: BlockT> {
 	support_multiple_justifications: bool,
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 impl<B: BlockT> Hash for SeenRequestsKey<B> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.peer.hash(state);
@@ -128,14 +137,15 @@ enum SeenRequestsValue {
 	Fulfilled(usize),
 }
 
-/// Handler for incoming block requests from a remote peer.
+/// The full block server implementation of [`BlockServer`]. It handles
+/// the incoming block requests from a remote peer.
 pub struct BlockRequestHandler<B: BlockT, Client> {
 	client: Arc<Client>,
-	request_receiver: mpsc::Receiver<IncomingRequest>,
+	request_receiver: async_channel::Receiver<IncomingRequest>,
 	/// Maps from request to number of times we have seen this request.
 	///
 	/// This is used to check if a peer is spamming us with the same request.
-	seen_requests: LruCache<SeenRequestsKey<B>, SeenRequestsValue>,
+	seen_requests: LruMap<SeenRequestsKey<B>, SeenRequestsValue>,
 }
 
 impl<B, Client> BlockRequestHandler<B, Client>
@@ -145,14 +155,16 @@ where
 {
 	/// Create a new [`BlockRequestHandler`].
 	pub fn new(
+		network: NetworkServiceHandle,
 		protocol_id: &ProtocolId,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
 		num_peer_hint: usize,
-	) -> (Self, ProtocolConfig) {
+	) -> BlockRelayParams<B> {
 		// Reserve enough request slots for one request per peer when we are at the maximum
 		// number of peers.
-		let (tx, request_receiver) = mpsc::channel(num_peer_hint);
+		let capacity = std::cmp::max(num_peer_hint, 1);
+		let (tx, request_receiver) = async_channel::bounded(capacity);
 
 		let mut protocol_config = generate_protocol_config(
 			protocol_id,
@@ -165,15 +177,18 @@ where
 		);
 		protocol_config.inbound_queue = Some(tx);
 
-		let capacity =
-			NonZeroUsize::new(num_peer_hint.max(1) * 2).expect("cache capacity is not zero");
-		let seen_requests = LruCache::new(capacity);
+		let capacity = ByLength::new(num_peer_hint.max(1) as u32 * 2);
+		let seen_requests = LruMap::new(capacity);
 
-		(Self { client, request_receiver, seen_requests }, protocol_config)
+		BlockRelayParams {
+			server: Box::new(Self { client, request_receiver, seen_requests }),
+			downloader: Arc::new(FullBlockDownloader::new(protocol_config.name.clone(), network)),
+			request_response_config: protocol_config,
+		}
 	}
 
 	/// Run [`BlockRequestHandler`].
-	pub async fn run(mut self) {
+	async fn process_requests(&mut self) {
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
@@ -196,11 +211,11 @@ where
 		let request = crate::schema::v1::BlockRequest::decode(&payload[..])?;
 
 		let from_block_id = match request.from_block.ok_or(HandleRequestError::MissingFromField)? {
-			FromBlock::Hash(ref h) => {
+			FromBlockSchema::Hash(ref h) => {
 				let h = Decode::decode(&mut h.as_ref())?;
 				BlockId::<B>::Hash(h)
 			},
-			FromBlock::Number(ref n) => {
+			FromBlockSchema::Number(ref n) => {
 				let n = Decode::decode(&mut n.as_ref())?;
 				BlockId::<B>::Number(n)
 			},
@@ -213,7 +228,7 @@ where
 		};
 
 		let direction =
-			Direction::from_i32(request.direction).ok_or(HandleRequestError::ParseDirection)?;
+			i32::try_into(request.direction).map_err(|_| HandleRequestError::ParseDirection)?;
 
 		let attributes = BlockAttributes::from_be_u32(request.fields)?;
 
@@ -234,7 +249,7 @@ where
 			.difference(BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION)
 			.is_empty();
 
-		match self.seen_requests.get_mut(&key) {
+		match self.seen_requests.get(&key) {
 			Some(SeenRequestsValue::First) => {},
 			Some(SeenRequestsValue::Fulfilled(ref mut requests)) => {
 				*requests = requests.saturating_add(1);
@@ -248,7 +263,7 @@ where
 				}
 			},
 			None => {
-				self.seen_requests.put(key.clone(), SeenRequestsValue::First);
+				self.seen_requests.insert(key.clone(), SeenRequestsValue::First);
 			},
 		}
 
@@ -275,7 +290,7 @@ where
 				.iter()
 				.any(|b| !b.header.is_empty() || !b.body.is_empty() || b.is_empty_justification)
 			{
-				if let Some(value) = self.seen_requests.get_mut(&key) {
+				if let Some(value) = self.seen_requests.get(&key) {
 					// If this is the first time we have processed this request, we need to change
 					// it to `Fulfilled`.
 					if let SeenRequestsValue::First = value {
@@ -447,6 +462,17 @@ where
 	}
 }
 
+#[async_trait::async_trait]
+impl<B, Client> BlockServer<B> for BlockRequestHandler<B, Client>
+where
+	B: BlockT,
+	Client: HeaderBackend<B> + BlockBackend<B> + Send + Sync + 'static,
+{
+	async fn run(&mut self) {
+		self.process_requests().await;
+	}
+}
+
 #[derive(Debug, thiserror::Error)]
 enum HandleRequestError {
 	#[error("Failed to decode request: {0}.")]
@@ -463,4 +489,123 @@ enum HandleRequestError {
 	Client(#[from] sp_blockchain::Error),
 	#[error("Failed to send response.")]
 	SendResponse,
+}
+
+/// The full block downloader implementation of [`BlockDownloader].
+pub struct FullBlockDownloader {
+	protocol_name: ProtocolName,
+	network: NetworkServiceHandle,
+}
+
+impl FullBlockDownloader {
+	fn new(protocol_name: ProtocolName, network: NetworkServiceHandle) -> Self {
+		Self { protocol_name, network }
+	}
+
+	/// Extracts the blocks from the response schema.
+	fn blocks_from_schema<B: BlockT>(
+		&self,
+		request: &BlockRequest<B>,
+		response: BlockResponseSchema,
+	) -> Result<Vec<BlockData<B>>, String> {
+		response
+			.blocks
+			.into_iter()
+			.map(|block_data| {
+				Ok(BlockData::<B> {
+					hash: Decode::decode(&mut block_data.hash.as_ref())?,
+					header: if !block_data.header.is_empty() {
+						Some(Decode::decode(&mut block_data.header.as_ref())?)
+					} else {
+						None
+					},
+					body: if request.fields.contains(BlockAttributes::BODY) {
+						Some(
+							block_data
+								.body
+								.iter()
+								.map(|body| Decode::decode(&mut body.as_ref()))
+								.collect::<Result<Vec<_>, _>>()?,
+						)
+					} else {
+						None
+					},
+					indexed_body: if request.fields.contains(BlockAttributes::INDEXED_BODY) {
+						Some(block_data.indexed_body)
+					} else {
+						None
+					},
+					receipt: if !block_data.receipt.is_empty() {
+						Some(block_data.receipt)
+					} else {
+						None
+					},
+					message_queue: if !block_data.message_queue.is_empty() {
+						Some(block_data.message_queue)
+					} else {
+						None
+					},
+					justification: if !block_data.justification.is_empty() {
+						Some(block_data.justification)
+					} else if block_data.is_empty_justification {
+						Some(Vec::new())
+					} else {
+						None
+					},
+					justifications: if !block_data.justifications.is_empty() {
+						Some(DecodeAll::decode_all(&mut block_data.justifications.as_ref())?)
+					} else {
+						None
+					},
+				})
+			})
+			.collect::<Result<_, _>>()
+			.map_err(|error: codec::Error| error.to_string())
+	}
+}
+
+#[async_trait::async_trait]
+impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
+	async fn download_blocks(
+		&self,
+		who: PeerId,
+		request: BlockRequest<B>,
+	) -> Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled> {
+		// Build the request protobuf.
+		let bytes = BlockRequestSchema {
+			fields: request.fields.to_be_u32(),
+			from_block: match request.from {
+				FromBlock::Hash(h) => Some(FromBlockSchema::Hash(h.encode())),
+				FromBlock::Number(n) => Some(FromBlockSchema::Number(n.encode())),
+			},
+			direction: request.direction as i32,
+			max_blocks: request.max.unwrap_or(0),
+			support_multiple_justifications: true,
+		}
+		.encode_to_vec();
+
+		let (tx, rx) = oneshot::channel();
+		self.network.start_request(
+			who,
+			self.protocol_name.clone(),
+			bytes,
+			tx,
+			IfDisconnected::ImmediateError,
+		);
+		rx.await
+	}
+
+	fn block_response_into_blocks(
+		&self,
+		request: &BlockRequest<B>,
+		response: Vec<u8>,
+	) -> Result<Vec<BlockData<B>>, BlockResponseError> {
+		// Decode the response protobuf
+		let response_schema = BlockResponseSchema::decode(response.as_slice())
+			.map_err(|error| BlockResponseError::DecodeFailed(error.to_string()))?;
+
+		// Extract the block data from the protobuf
+		self.blocks_from_schema::<B>(request, response_schema)
+			.map_err(|error| BlockResponseError::ExtractionFailed(error.to_string()))
+	}
 }

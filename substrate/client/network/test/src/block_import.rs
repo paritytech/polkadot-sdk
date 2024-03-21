@@ -20,7 +20,6 @@
 
 use super::*;
 use futures::executor::block_on;
-use sc_block_builder::BlockBuilderProvider;
 use sc_consensus::{
 	import_single_block, BasicQueue, BlockImportError, BlockImportStatus, ImportedAux,
 	IncomingBlock,
@@ -34,7 +33,14 @@ use substrate_test_runtime_client::{
 
 fn prepare_good_block() -> (TestClient, Hash, u64, PeerId, IncomingBlock<Block>) {
 	let mut client = substrate_test_runtime_client::new();
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	block_on(client.import(BlockOrigin::File, block)).unwrap();
 
 	let (hash, number) = (client.block_hash(1).unwrap().unwrap(), 1);

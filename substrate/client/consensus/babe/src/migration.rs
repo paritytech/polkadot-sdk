@@ -18,7 +18,7 @@
 
 use crate::{
 	AuthorityId, BabeAuthorityWeight, BabeConfiguration, BabeEpochConfiguration, Epoch,
-	NextEpochDescriptor, VRF_OUTPUT_LENGTH,
+	NextEpochDescriptor, Randomness,
 };
 use codec::{Decode, Encode};
 use sc_consensus_epochs::Epoch as EpochT;
@@ -36,7 +36,7 @@ pub struct EpochV0 {
 	/// The authorities and their weights.
 	pub authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
 	/// Randomness for this epoch.
-	pub randomness: [u8; VRF_OUTPUT_LENGTH],
+	pub randomness: Randomness,
 }
 
 impl EpochT for EpochV0 {
@@ -62,10 +62,11 @@ impl EpochT for EpochV0 {
 	}
 }
 
+// Implement From<EpochV0> for Epoch
 impl EpochV0 {
 	/// Migrate the sturct to current epoch version.
 	pub fn migrate(self, config: &BabeConfiguration) -> Epoch {
-		Epoch {
+		sp_consensus_babe::Epoch {
 			epoch_index: self.epoch_index,
 			start_slot: self.start_slot,
 			duration: self.duration,
@@ -73,5 +74,6 @@ impl EpochV0 {
 			randomness: self.randomness,
 			config: BabeEpochConfiguration { c: config.c, allowed_slots: config.allowed_slots },
 		}
+		.into()
 	}
 }

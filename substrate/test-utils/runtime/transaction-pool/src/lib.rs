@@ -22,6 +22,7 @@
 use codec::Encode;
 use futures::future::ready;
 use parking_lot::RwLock;
+use sc_transaction_pool::ChainApi;
 use sp_blockchain::{CachedHeaderMetadata, TreeRoute};
 use sp_runtime::{
 	generic::{self, BlockId},
@@ -35,7 +36,10 @@ use sp_runtime::{
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 use substrate_test_runtime_client::{
-	runtime::{AccountId, Block, BlockNumber, Extrinsic, Hash, Header, Index, Transfer},
+	runtime::{
+		AccountId, Block, BlockNumber, Extrinsic, ExtrinsicBuilder, Hash, Header, Nonce, Transfer,
+		TransferData,
+	},
 	AccountKeyring::{self, *},
 };
 
@@ -77,6 +81,7 @@ pub struct ChainState {
 	pub block_by_hash: HashMap<Hash, Block>,
 	pub nonces: HashMap<AccountId, u64>,
 	pub invalid_hashes: HashSet<Hash>,
+	pub priorities: HashMap<Hash, u64>,
 }
 
 /// Test Api for transaction pool.
@@ -210,6 +215,22 @@ impl TestApi {
 		self.chain.write().invalid_hashes.insert(Self::hash_and_length_inner(xts).0);
 	}
 
+	/// Remove a transaction that was previously declared as invalid via `[Self::add_invalid]`.
+	///
+	/// Next time transaction pool will try to validate this
+	/// extrinsic, api will succeed.
+	pub fn remove_invalid(&self, xts: &Extrinsic) {
+		self.chain.write().invalid_hashes.remove(&Self::hash_and_length_inner(xts).0);
+	}
+
+	/// Set a transaction priority.
+	pub fn set_priority(&self, xts: &Extrinsic, priority: u64) {
+		self.chain
+			.write()
+			.priorities
+			.insert(Self::hash_and_length_inner(xts).0, priority);
+	}
+
 	/// Query validation requests received.
 	pub fn validation_requests(&self) -> Vec<Extrinsic> {
 		self.validation_requests.read().clone()
@@ -234,9 +255,14 @@ impl TestApi {
 	) -> Result<sp_blockchain::TreeRoute<Block>, Error> {
 		sp_blockchain::tree_route(self, from, to)
 	}
+
+	/// Helper function for mapping block number to hash. Use if mapping shall not fail.
+	pub fn expect_hash_from_number(&self, n: BlockNumber) -> Hash {
+		self.block_id_to_hash(&BlockId::Number(n)).unwrap().unwrap()
+	}
 }
 
-impl sc_transaction_pool::ChainApi for TestApi {
+impl ChainApi for TestApi {
 	type Block = Block;
 	type Error = Error;
 	type ValidationFuture = futures::future::Ready<Result<TransactionValidity, Error>>;
@@ -244,13 +270,13 @@ impl sc_transaction_pool::ChainApi for TestApi {
 
 	fn validate_transaction(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: <Self::Block as BlockT>::Extrinsic,
 	) -> Self::ValidationFuture {
 		self.validation_requests.write().push(uxt.clone());
 
-		match self.block_id_to_number(at) {
+		match self.block_id_to_number(&BlockId::Hash(at)) {
 			Ok(Some(number)) => {
 				let found_best = self
 					.chain
@@ -276,7 +302,7 @@ impl sc_transaction_pool::ChainApi for TestApi {
 			Err(e) => return ready(Err(e)),
 		}
 
-		let (requires, provides) = if let Some(transfer) = uxt.try_transfer() {
+		let (requires, provides) = if let Ok(transfer) = TransferData::try_from(&uxt) {
 			let chain_nonce = self.chain.read().nonces.get(&transfer.from).cloned().unwrap_or(0);
 			let requires =
 				if chain_nonce == transfer.nonce { vec![] } else { vec![vec![chain_nonce as u8]] };
@@ -291,8 +317,14 @@ impl sc_transaction_pool::ChainApi for TestApi {
 			return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)))))
 		}
 
-		let mut validity =
-			ValidTransaction { priority: 1, requires, provides, longevity: 64, propagate: true };
+		let priority = self.chain.read().priorities.get(&self.hash_and_length(&uxt).0).cloned();
+		let mut validity = ValidTransaction {
+			priority: priority.unwrap_or(1),
+			requires,
+			provides,
+			longevity: 64,
+			propagate: true,
+		};
 
 		(self.valid_modifier.read())(&mut validity);
 
@@ -374,9 +406,8 @@ impl sp_blockchain::HeaderMetadata<Block> for TestApi {
 /// Generate transfer extrinsic with a given nonce.
 ///
 /// Part of the test api.
-pub fn uxt(who: AccountKeyring, nonce: Index) -> Extrinsic {
+pub fn uxt(who: AccountKeyring, nonce: Nonce) -> Extrinsic {
 	let dummy = codec::Decode::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 	let transfer = Transfer { from: who.into(), to: dummy, nonce, amount: 1 };
-	let signature = transfer.using_encoded(|e| who.sign(e));
-	Extrinsic::Transfer { transfer, signature, exhaust_resources_when_not_first: false }
+	ExtrinsicBuilder::new_transfer(transfer).build()
 }

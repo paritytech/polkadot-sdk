@@ -94,7 +94,7 @@ impl<Balance: AtLeast32BitUnsigned + Copy> FeeDetails<Balance> {
 /// Information related to a dispatchable's class, weight, and fee that can be queried from the
 /// runtime.
 #[derive(Eq, PartialEq, Encode, Decode, Default, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Clone))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 #[cfg_attr(
 	feature = "std",
@@ -144,7 +144,7 @@ mod tests {
 	#[test]
 	fn should_serialize_and_deserialize_properly_with_string() {
 		let info = RuntimeDispatchInfo {
-			weight: Weight::from_ref_time(5),
+			weight: Weight::from_parts(5, 0),
 			class: DispatchClass::Normal,
 			partial_fee: 1_000_000_u64,
 		};
@@ -162,7 +162,7 @@ mod tests {
 	#[test]
 	fn should_serialize_and_deserialize_properly_large_value() {
 		let info = RuntimeDispatchInfo {
-			weight: Weight::from_ref_time(5),
+			weight: Weight::from_parts(5, 0),
 			class: DispatchClass::Normal,
 			partial_fee: u128::max_value(),
 		};

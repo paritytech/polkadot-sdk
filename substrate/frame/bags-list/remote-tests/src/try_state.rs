@@ -1,4 +1,4 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -39,8 +39,8 @@ pub async fn execute<Runtime, Block>(
 			pallets: vec![pallet_bags_list::Pallet::<Runtime, pallet_bags_list::Instance1>::name()
 				.to_string()],
 			hashed_prefixes: vec![
-				<pallet_staking::Bonded<Runtime>>::prefix_hash(),
-				<pallet_staking::Ledger<Runtime>>::prefix_hash(),
+				<pallet_staking::Bonded<Runtime>>::prefix_hash().to_vec(),
+				<pallet_staking::Ledger<Runtime>>::prefix_hash().to_vec(),
 			],
 			..Default::default()
 		}))

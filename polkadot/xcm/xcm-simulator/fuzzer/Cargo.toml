@@ -1,0 +1,66 @@
+[package]
+name = "xcm-simulator-fuzzer"
+description = "Examples of xcm-simulator usage."
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1" }
+honggfuzz = "0.5.55"
+arbitrary = "1.3.2"
+scale-info = { version = "2.10.0", features = ["derive"] }
+
+frame-system = { path = "../../../../substrate/frame/system" }
+frame-support = { path = "../../../../substrate/frame/support" }
+frame-executive = { path = "../../../../substrate/frame/executive" }
+frame-try-runtime = { path = "../../../../substrate/frame/try-runtime" }
+pallet-balances = { path = "../../../../substrate/frame/balances" }
+pallet-message-queue = { path = "../../../../substrate/frame/message-queue" }
+sp-std = { path = "../../../../substrate/primitives/std" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime" }
+sp-io = { path = "../../../../substrate/primitives/io" }
+
+xcm = { package = "staging-xcm", path = "../.." }
+xcm-simulator = { path = ".." }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm-executor" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder" }
+pallet-xcm = { path = "../../pallet-xcm" }
+polkadot-core-primitives = { path = "../../../core-primitives" }
+polkadot-runtime-parachains = { path = "../../../runtime/parachains" }
+polkadot-parachain-primitives = { path = "../../../parachain" }
+
+[features]
+try-runtime = [
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"pallet-xcm/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
+	"sp-runtime/try-runtime",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]
+
+[[bin]]
+path = "src/fuzz.rs"
+name = "xcm-fuzzer"

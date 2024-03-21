@@ -16,8 +16,8 @@ claimed within a specified duration of time, the sender may cancel it.
 
 ### Dispatchable Functions
 
-* `create_swap` - called by a sender to register a new atomic swap
-* `claim_swap` - called by the target to approve a swap
-* `cancel_swap` - may be called by a sender after a specified duration
+- `create_swap` - called by a sender to register a new atomic swap
+- `claim_swap` - called by the target to approve a swap
+- `cancel_swap` - may be called by a sender after a specified duration
 
 License: Apache-2.0

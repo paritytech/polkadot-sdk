@@ -1,43 +1,49 @@
 [package]
 name = "sp-runtime"
-version = "7.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "31.0.1"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Runtime Modules shared primitive types."
 documentation = "https://docs.rs/sp-runtime"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 either = { version = "1.5", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 impl-trait-for-tuples = "0.2.2"
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 paste = "1.0"
 rand = { version = "0.8.5", optional = true }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-serde = { version = "1.0.136", features = ["derive"], optional = true }
-sp-application-crypto = { version = "7.0.0", default-features = false, path = "../application-crypto" }
-sp-arithmetic = { version = "6.0.0", default-features = false, path = "../arithmetic" }
-sp-core = { version = "7.0.0", default-features = false, path = "../core" }
-sp-io = { version = "7.0.0", default-features = false, path = "../io" }
-sp-std = { version = "5.0.0", default-features = false, path = "../std" }
-sp-weights = { version = "4.0.0", default-features = false, path = "../weights" }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { features = ["alloc", "derive"], optional = true, workspace = true }
+sp-application-crypto = { path = "../application-crypto", default-features = false }
+sp-arithmetic = { path = "../arithmetic", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-io = { path = "../io", default-features = false }
+sp-std = { path = "../std", default-features = false }
+sp-weights = { path = "../weights", default-features = false }
+docify = { version = "0.2.7" }
+
+simple-mermaid = { version = "0.1.1", optional = true }
 
 [dev-dependencies]
 rand = "0.8.5"
-serde_json = "1.0.85"
-zstd = { version = "0.11.2", default-features = false }
-sp-api = { version = "4.0.0-dev", path = "../api" }
-sp-state-machine = { version = "0.13.0", path = "../state-machine" }
-sp-tracing = { version = "6.0.0", path = "../../primitives/tracing" }
-substrate-test-runtime-client = { version = "2.0.0", path = "../../test-utils/runtime/client" }
+serde_json = { workspace = true, default-features = true }
+zstd = { version = "0.12.4", default-features = false }
+sp-api = { path = "../api" }
+sp-state-machine = { path = "../state-machine" }
+sp-tracing = { path = "../tracing" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
 runtime-benchmarks = []
@@ -50,11 +56,25 @@ std = [
 	"log/std",
 	"rand",
 	"scale-info/std",
-	"serde",
+	"serde/std",
+	"simple-mermaid",
+	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
+	"sp-state-machine/std",
 	"sp-std/std",
+	"sp-tracing/std",
 	"sp-weights/std",
+]
+
+# Serde support without relying on std features.
+serde = [
+	"dep:serde",
+	"scale-info/serde",
+	"sp-application-crypto/serde",
+	"sp-arithmetic/serde",
+	"sp-core/serde",
+	"sp-weights/serde",
 ]

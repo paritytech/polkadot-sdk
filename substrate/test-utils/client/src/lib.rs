@@ -21,28 +21,28 @@
 
 pub mod client_ext;
 
-pub use self::client_ext::{ClientBlockImportExt, ClientExt};
-pub use sc_client_api::{
-	execution_extensions::{ExecutionExtensions, ExecutionStrategies},
-	BadBlocks, ForkBlocks,
-};
+pub use self::client_ext::{BlockOrigin, ClientBlockImportExt, ClientExt};
+pub use sc_client_api::{execution_extensions::ExecutionExtensions, BadBlocks, ForkBlocks};
 pub use sc_client_db::{self, Backend, BlocksPruning};
-pub use sc_executor::{self, NativeElseWasmExecutor, WasmExecutionMethod};
+pub use sc_executor::{self, NativeElseWasmExecutor, WasmExecutionMethod, WasmExecutor};
 pub use sc_service::{client, RpcHandlers};
 pub use sp_consensus;
 pub use sp_keyring::{
 	ed25519::Keyring as Ed25519Keyring, sr25519::Keyring as Sr25519Keyring, AccountKeyring,
 };
-pub use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
+pub use sp_keystore::{Keystore, KeystorePtr};
 pub use sp_runtime::{Storage, StorageChild};
-pub use sp_state_machine::ExecutionStrategy;
 
 use futures::{future::Future, stream::StreamExt};
 use sc_client_api::BlockchainEvents;
 use sc_service::client::{ClientConfig, LocalCallExecutor};
 use serde::Deserialize;
 use sp_core::{storage::ChildInfo, testing::TaskExecutor};
-use sp_runtime::{codec::Encode, traits::Block as BlockT, OpaqueExtrinsic};
+use sp_runtime::{
+	codec::Encode,
+	traits::{Block as BlockT, Header},
+	OpaqueExtrinsic,
+};
 use std::{
 	collections::{HashMap, HashSet},
 	pin::Pin,
@@ -63,17 +63,16 @@ impl GenesisInit for () {
 
 /// A builder for creating a test client instance.
 pub struct TestClientBuilder<Block: BlockT, ExecutorDispatch, Backend: 'static, G: GenesisInit> {
-	execution_strategies: ExecutionStrategies,
 	genesis_init: G,
 	/// The key is an unprefixed storage key, this only contains
 	/// default child trie content.
 	child_storage_extension: HashMap<Vec<u8>, StorageChild>,
 	backend: Arc<Backend>,
 	_executor: std::marker::PhantomData<ExecutorDispatch>,
-	keystore: Option<SyncCryptoStorePtr>,
 	fork_blocks: ForkBlocks<Block>,
 	bad_blocks: BadBlocks<Block>,
 	enable_offchain_indexing_api: bool,
+	enable_import_proof_recording: bool,
 	no_genesis: bool,
 }
 
@@ -115,22 +114,15 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 	pub fn with_backend(backend: Arc<Backend>) -> Self {
 		TestClientBuilder {
 			backend,
-			execution_strategies: ExecutionStrategies::default(),
 			child_storage_extension: Default::default(),
 			genesis_init: Default::default(),
 			_executor: Default::default(),
-			keystore: None,
 			fork_blocks: None,
 			bad_blocks: None,
 			enable_offchain_indexing_api: false,
 			no_genesis: false,
+			enable_import_proof_recording: false,
 		}
-	}
-
-	/// Set the keystore that should be used by the externalities.
-	pub fn set_keystore(mut self, keystore: SyncCryptoStorePtr) -> Self {
-		self.keystore = Some(keystore);
-		self
 	}
 
 	/// Alter the genesis storage parameters.
@@ -158,18 +150,6 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		self
 	}
 
-	/// Set the execution strategy that should be used by all contexts.
-	pub fn set_execution_strategy(mut self, execution_strategy: ExecutionStrategy) -> Self {
-		self.execution_strategies = ExecutionStrategies {
-			syncing: execution_strategy,
-			importing: execution_strategy,
-			block_construction: execution_strategy,
-			offchain_worker: execution_strategy,
-			other: execution_strategy,
-		};
-		self
-	}
-
 	/// Sets custom block rules.
 	pub fn set_block_rules(
 		mut self,
@@ -184,6 +164,12 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 	/// Enable the offchain indexing api.
 	pub fn enable_offchain_indexing_api(mut self) -> Self {
 		self.enable_offchain_indexing_api = true;
+		self
+	}
+
+	/// Enable proof recording on import.
+	pub fn enable_import_proof_recording(mut self) -> Self {
+		self.enable_import_proof_recording = true;
 		self
 	}
 
@@ -224,6 +210,7 @@ impl<Block: BlockT, ExecutorDispatch, Backend, G: GenesisInit>
 		};
 
 		let client_config = ClientConfig {
+			enable_import_proof_recording: self.enable_import_proof_recording,
 			offchain_indexing_api: self.enable_offchain_indexing_api,
 			no_genesis: self.no_genesis,
 			..Default::default()
@@ -285,19 +272,15 @@ impl<Block: BlockT, D, Backend, G: GenesisInit>
 		D: sc_executor::NativeExecutionDispatch + 'static,
 		Backend: sc_client_api::backend::Backend<Block> + 'static,
 	{
-		let executor = executor.into().unwrap_or_else(|| {
-			NativeElseWasmExecutor::new(WasmExecutionMethod::Interpreted, None, 8, 2)
+		let mut executor = executor.into().unwrap_or_else(|| {
+			NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build())
 		});
+		executor.disable_use_native();
 		let executor = LocalCallExecutor::new(
 			self.backend.clone(),
-			executor,
-			Box::new(sp_core::testing::TaskExecutor::new()),
+			executor.clone(),
 			Default::default(),
-			ExecutionExtensions::new(
-				self.execution_strategies.clone(),
-				self.keystore.clone(),
-				sc_offchain::OffchainDb::factory_from_backend(&*self.backend),
-			),
+			ExecutionExtensions::new(None, Arc::new(executor)),
 		)
 		.expect("Creates LocalCallExecutor");
 
@@ -310,7 +293,7 @@ pub struct RpcTransactionOutput {
 	/// The output string of the transaction if any.
 	pub result: String,
 	/// An async receiver if data will be returned via a callback.
-	pub receiver: futures::channel::mpsc::UnboundedReceiver<String>,
+	pub receiver: tokio::sync::mpsc::Receiver<String>,
 }
 
 impl std::fmt::Debug for RpcTransactionOutput {
@@ -370,7 +353,7 @@ impl RpcHandlersExt for RpcHandlers {
 
 pub(crate) fn parse_rpc_result(
 	result: String,
-	receiver: futures::channel::mpsc::UnboundedReceiver<String>,
+	receiver: tokio::sync::mpsc::Receiver<String>,
 ) -> Result<RpcTransactionOutput, RpcTransactionError> {
 	let json: serde_json::Value =
 		serde_json::from_str(&result).expect("the result can only be a JSONRPC string; qed");
@@ -410,7 +393,7 @@ where
 		Box::pin(async move {
 			while let Some(notification) = import_notification_stream.next().await {
 				if notification.is_new_best {
-					blocks.insert(notification.hash);
+					blocks.insert(*notification.header.number());
 					if blocks.len() == count {
 						break
 					}
@@ -424,7 +407,7 @@ where
 mod tests {
 	#[test]
 	fn parses_error_properly() {
-		let (_, rx) = futures::channel::mpsc::unbounded();
+		let (_, rx) = tokio::sync::mpsc::channel(1);
 		assert!(super::parse_rpc_result(
 			r#"{
 				"jsonrpc": "2.0",
@@ -436,7 +419,7 @@ mod tests {
 		)
 		.is_ok());
 
-		let (_, rx) = futures::channel::mpsc::unbounded();
+		let (_, rx) = tokio::sync::mpsc::channel(1);
 		let error = super::parse_rpc_result(
 			r#"{
 				"jsonrpc": "2.0",
@@ -454,7 +437,7 @@ mod tests {
 		assert_eq!(error.message, "Method not found");
 		assert!(error.data.is_none());
 
-		let (_, rx) = futures::channel::mpsc::unbounded();
+		let (_, rx) = tokio::sync::mpsc::channel(1);
 		let error = super::parse_rpc_result(
 			r#"{
 				"jsonrpc": "2.0",

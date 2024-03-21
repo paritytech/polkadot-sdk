@@ -1,11 +1,11 @@
 error: Two pallets with the same name!
-  --> $DIR/conflicting_module_name.rs:10:3
+  --> tests/construct_runtime_ui/conflicting_module_name.rs:24:3
    |
-10 |         Balance: balances::{Pallet},
+24 |         Balance: balances::{Pallet},
    |         ^^^^^^^
 
 error: Two pallets with the same name!
-  --> $DIR/conflicting_module_name.rs:11:3
+  --> tests/construct_runtime_ui/conflicting_module_name.rs:25:3
    |
-11 |         Balance: balances::{Pallet},
+25 |         Balance: balances::{Pallet},
    |         ^^^^^^^

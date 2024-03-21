@@ -68,10 +68,10 @@ pub use self::{
 };
 
 use libp2p::{multiaddr, PeerId};
-use sc_network_common::{
-	protocol::ProtocolName,
-	service::{NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers},
+use sc_network::{
+	types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
 };
+use sc_network_sync::SyncEventStream;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use std::iter;
 
@@ -80,9 +80,7 @@ mod state_machine;
 mod validator;
 
 /// Abstraction over a network.
-pub trait Network<B: BlockT>:
-	NetworkPeers + NetworkEventStream + NetworkNotification + NetworkBlock<B::Hash, NumberFor<B>>
-{
+pub trait Network<B: BlockT>: NetworkPeers + NetworkEventStream + NetworkNotification {
 	fn add_set_reserved(&self, who: PeerId, protocol: ProtocolName) {
 		let addr =
 			iter::once(multiaddr::Protocol::P2p(who.into())).collect::<multiaddr::Multiaddr>();
@@ -91,12 +89,17 @@ pub trait Network<B: BlockT>:
 			log::error!(target: "gossip", "add_set_reserved failed: {}", err);
 		}
 	}
+	fn remove_set_reserved(&self, who: PeerId, protocol: ProtocolName) {
+		let result = self.remove_peers_from_reserved_set(protocol, iter::once(who).collect());
+		if let Err(err) = result {
+			log::error!(target: "gossip", "remove_set_reserved failed: {}", err);
+		}
+	}
 }
 
-impl<T, B: BlockT> Network<B> for T where
-	T: NetworkPeers
-		+ NetworkEventStream
-		+ NetworkNotification
-		+ NetworkBlock<B::Hash, NumberFor<B>>
-{
-}
+impl<T, B: BlockT> Network<B> for T where T: NetworkPeers + NetworkEventStream + NetworkNotification {}
+
+/// Abstraction over the syncing subsystem.
+pub trait Syncing<B: BlockT>: SyncEventStream + NetworkBlock<B::Hash, NumberFor<B>> {}
+
+impl<T, B: BlockT> Syncing<B> for T where T: SyncEventStream + NetworkBlock<B::Hash, NumberFor<B>> {}

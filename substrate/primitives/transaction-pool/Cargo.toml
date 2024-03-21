@@ -1,25 +1,25 @@
 [package]
 name = "sp-transaction-pool"
-version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "26.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Transaction pool runtime facing API."
 documentation = "https://docs.rs/sp-transaction-pool"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { version = "4.0.0-dev", default-features = false, path = "../api" }
-sp-runtime = { version = "7.0.0", default-features = false, path = "../runtime" }
+sp-api = { path = "../api", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [
-	"sp-api/std",
-	"sp-runtime/std",
-]
+default = ["std"]
+std = ["sp-api/std", "sp-runtime/std"]

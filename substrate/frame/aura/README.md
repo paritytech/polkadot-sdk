@@ -23,6 +23,7 @@ consensus rounds (via `slots`).
 If you're interested in hacking on this module, it is useful to understand the interaction with
 `substrate/primitives/inherents/src/lib.rs` and, specifically, the required implementation of
 [`ProvideInherent`](https://docs.rs/sp-inherents/latest/sp_inherents/trait.ProvideInherent.html) and
-[`ProvideInherentData`](https://docs.rs/sp-inherents/latest/sp_inherents/trait.ProvideInherentData.html) to create and check inherents.
+[`ProvideInherentData`](https://docs.rs/sp-inherents/latest/sp_inherents/trait.ProvideInherentData.html) to create and
+check inherents.
 
 License: Apache-2.0

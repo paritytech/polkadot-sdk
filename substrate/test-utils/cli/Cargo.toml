@@ -1,0 +1,32 @@
+[package]
+name = "substrate-cli-test-utils"
+description = "CLI testing utilities"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+substrate-rpc-client = { path = "../../utils/frame/rpc/client" }
+sp-rpc = { path = "../../primitives/rpc" }
+assert_cmd = "2.0.10"
+nix = "0.26.2"
+regex = "1.7.3"
+tokio = { version = "1.22.0", features = ["full"] }
+node-primitives = { path = "../../bin/node/primitives" }
+node-cli = { package = "staging-node-cli", path = "../../bin/node/cli" }
+sc-cli = { path = "../../client/cli" }
+sc-service = { path = "../../client/service" }
+futures = "0.3.28"
+
+[features]
+try-runtime = ["node-cli/try-runtime"]

@@ -1,0 +1,5 @@
+error: Invalid duplicated `LockId` definition
+  --> tests/pallet_ui/lock_id_duplicate.rs:30:14
+   |
+30 |     pub enum LockId {}
+   |              ^^^^^^

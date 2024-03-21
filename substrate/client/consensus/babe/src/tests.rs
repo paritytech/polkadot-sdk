@@ -20,30 +20,23 @@
 
 use super::*;
 use authorship::claim_slot;
-use rand_chacha::{
-	rand_core::{RngCore, SeedableRng},
-	ChaChaRng,
-};
-use sc_block_builder::{BlockBuilder, BlockBuilderProvider};
-use sc_client_api::{backend::TransactionFor, BlockchainEvents, Finalizer};
+use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
+use sc_client_api::{BlockchainEvents, Finalizer};
 use sc_consensus::{BoxBlockImport, BoxJustificationImport};
 use sc_consensus_epochs::{EpochIdentifier, EpochIdentifierPosition};
 use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_network_test::{Block as TestBlock, *};
+use sc_transaction_pool_api::RejectAllTxPool;
 use sp_application_crypto::key_types::BABE;
 use sp_consensus::{DisableProofRecording, NoNetwork as DummyOracle, Proposal};
 use sp_consensus_babe::{
-	inherents::InherentDataProvider, make_transcript, make_transcript_data, AllowedSlots,
-	AuthorityId, AuthorityPair, Slot,
+	inherents::InherentDataProvider, make_vrf_sign_data, AllowedSlots, AuthorityId, AuthorityPair,
+	Slot,
 };
 use sp_consensus_slots::SlotDuration;
-use sp_consensus_vrf::schnorrkel::VRFOutput;
 use sp_core::crypto::Pair;
 use sp_keyring::Sr25519Keyring;
-use sp_keystore::{
-	testing::KeyStore as TestKeyStore, vrf::make_transcript as transcript_from_data,
-	SyncCryptoStore,
-};
+use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Block as BlockT,
@@ -79,15 +72,12 @@ const SLOT_DURATION_MS: u64 = 1000;
 struct DummyFactory {
 	client: Arc<TestClient>,
 	epoch_changes: SharedEpochChanges<TestBlock, Epoch>,
-	config: BabeConfiguration,
 	mutator: Mutator,
 }
 
 struct DummyProposer {
 	factory: DummyFactory,
 	parent_hash: Hash,
-	parent_number: u64,
-	parent_slot: Slot,
 }
 
 impl Environment<TestBlock> for DummyFactory {
@@ -96,15 +86,9 @@ impl Environment<TestBlock> for DummyFactory {
 	type Error = Error;
 
 	fn init(&mut self, parent_header: &<TestBlock as BlockT>::Header) -> Self::CreateProposer {
-		let parent_slot = crate::find_pre_digest::<TestBlock>(parent_header)
-			.expect("parent header has a pre-digest")
-			.slot();
-
 		future::ready(Ok(DummyProposer {
 			factory: self.clone(),
 			parent_hash: parent_header.hash(),
-			parent_number: *parent_header.number(),
-			parent_slot,
 		}))
 	}
 }
@@ -113,56 +97,19 @@ impl DummyProposer {
 	fn propose_with(
 		&mut self,
 		pre_digests: Digest,
-	) -> future::Ready<
-		Result<
-			Proposal<
-				TestBlock,
-				sc_client_api::TransactionFor<substrate_test_runtime_client::Backend, TestBlock>,
-				(),
-			>,
-			Error,
-		>,
-	> {
-		let block_builder =
-			self.factory.client.new_block_at(self.parent_hash, pre_digests, false).unwrap();
+	) -> future::Ready<Result<Proposal<TestBlock, ()>, Error>> {
+		let block_builder = BlockBuilderBuilder::new(&*self.factory.client)
+			.on_parent_block(self.parent_hash)
+			.fetch_parent_block_number(&*self.factory.client)
+			.unwrap()
+			.with_inherent_digests(pre_digests)
+			.build()
+			.unwrap();
 
 		let mut block = match block_builder.build().map_err(|e| e.into()) {
 			Ok(b) => b.block,
 			Err(e) => return future::ready(Err(e)),
 		};
-
-		let this_slot = crate::find_pre_digest::<TestBlock>(block.header())
-			.expect("baked block has valid pre-digest")
-			.slot();
-
-		// figure out if we should add a consensus digest, since the test runtime
-		// doesn't.
-		let epoch_changes = self.factory.epoch_changes.shared_data();
-		let epoch = epoch_changes
-			.epoch_data_for_child_of(
-				descendent_query(&*self.factory.client),
-				&self.parent_hash,
-				self.parent_number,
-				this_slot,
-				|slot| Epoch::genesis(&self.factory.config, slot),
-			)
-			.expect("client has data to find epoch")
-			.expect("can compute epoch for baked block");
-
-		let first_in_epoch = self.parent_slot < epoch.start_slot;
-		if first_in_epoch {
-			// push a `Consensus` digest signalling next change.
-			// we just reuse the same randomness and authorities as the prior
-			// epoch. this will break when we add light client support, since
-			// that will re-check the randomness logic off-chain.
-			let digest_data = ConsensusLog::NextEpochData(NextEpochDescriptor {
-				authorities: epoch.authorities.clone(),
-				randomness: epoch.randomness,
-			})
-			.encode();
-			let digest = DigestItem::Consensus(BABE_ENGINE_ID, digest_data);
-			block.header.digest_mut().push(digest)
-		}
 
 		// mutate the block header according to the mutator.
 		(self.factory.mutator)(&mut block.header, Stage::PreSeal);
@@ -173,9 +120,7 @@ impl DummyProposer {
 
 impl Proposer<TestBlock> for DummyProposer {
 	type Error = Error;
-	type Transaction =
-		sc_client_api::TransactionFor<substrate_test_runtime_client::Backend, TestBlock>;
-	type Proposal = future::Ready<Result<Proposal<TestBlock, Self::Transaction, ()>, Error>>;
+	type Proposal = future::Ready<Result<Proposal<TestBlock, ()>, Error>>;
 	type ProofRecording = DisableProofRecording;
 	type Proof = ();
 
@@ -200,18 +145,15 @@ pub struct PanickingBlockImport<B>(B);
 #[async_trait::async_trait]
 impl<B: BlockImport<TestBlock>> BlockImport<TestBlock> for PanickingBlockImport<B>
 where
-	B::Transaction: Send,
 	B: Send,
 {
 	type Error = B::Error;
-	type Transaction = B::Transaction;
 
 	async fn import_block(
 		&mut self,
-		block: BlockImportParams<TestBlock, Self::Transaction>,
-		new_cache: HashMap<CacheKeyId, Vec<u8>>,
+		block: BlockImportParams<TestBlock>,
 	) -> Result<ImportResult, Self::Error> {
-		Ok(self.0.import_block(block, new_cache).await.expect("importing block failed"))
+		Ok(self.0.import_block(block).await.expect("importing block failed"))
 	}
 
 	async fn check_block(
@@ -257,8 +199,8 @@ impl Verifier<TestBlock> for TestVerifier {
 	/// presented to the User in the logs.
 	async fn verify(
 		&mut self,
-		mut block: BlockImportParams<TestBlock, ()>,
-	) -> Result<(BlockImportParams<TestBlock, ()>, Option<Vec<(CacheKeyId, Vec<u8>)>>), String> {
+		mut block: BlockImportParams<TestBlock>,
+	) -> Result<BlockImportParams<TestBlock>, String> {
 		// apply post-sealing mutations (i.e. stripping seal, if desired).
 		(self.mutator)(&mut block.header, Stage::PostSeal);
 		self.inner.verify(block).await
@@ -267,14 +209,7 @@ impl Verifier<TestBlock> for TestVerifier {
 
 pub struct PeerData {
 	link: BabeLink<TestBlock>,
-	block_import: Mutex<
-		Option<
-			BoxBlockImport<
-				TestBlock,
-				TransactionFor<substrate_test_runtime_client::Backend, TestBlock>,
-			>,
-		>,
-	>,
+	block_import: Mutex<Option<BoxBlockImport<TestBlock>>>,
 }
 
 impl TestNetFactory for BabeTestNet {
@@ -299,7 +234,7 @@ impl TestNetFactory for BabeTestNet {
 		let block_import = PanickingBlockImport(block_import);
 
 		let data_block_import =
-			Mutex::new(Some(Box::new(block_import.clone()) as BoxBlockImport<_, _>));
+			Mutex::new(Some(Box::new(block_import.clone()) as BoxBlockImport<_>));
 		(
 			BlockImportAdapter::new(block_import),
 			None,
@@ -334,6 +269,9 @@ impl TestNetFactory for BabeTestNet {
 				config: data.link.config.clone(),
 				epoch_changes: data.link.epoch_changes.clone(),
 				telemetry: None,
+				offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
+					RejectAllTxPool::default(),
+				),
 			},
 			mutator: MUTATOR.with(|m| m.borrow().clone()),
 		}
@@ -349,27 +287,33 @@ impl TestNetFactory for BabeTestNet {
 		&self.peers
 	}
 
+	fn peers_mut(&mut self) -> &mut Vec<BabePeer> {
+		trace!(target: "babe", "Retrieving peers, mutable");
+		&mut self.peers
+	}
+
 	fn mut_peers<F: FnOnce(&mut Vec<BabePeer>)>(&mut self, closure: F) {
 		closure(&mut self.peers);
 	}
 }
 
 #[tokio::test]
-#[should_panic]
+#[should_panic(expected = "No BABE pre-runtime digest found")]
 async fn rejects_empty_block() {
 	sp_tracing::try_init_simple();
 	let mut net = BabeTestNet::new(3);
-	let block_builder = |builder: BlockBuilder<_, _, _>| builder.build().unwrap().block;
+	let block_builder = |builder: BlockBuilder<_, _>| builder.build().unwrap().block;
 	net.mut_peers(|peer| {
 		peer[0].generate_blocks(1, BlockOrigin::NetworkInitialSync, block_builder);
 	})
 }
 
-fn create_keystore(authority: Sr25519Keyring) -> SyncCryptoStorePtr {
-	let keystore = Arc::new(TestKeyStore::new());
-	SyncCryptoStore::sr25519_generate_new(&*keystore, BABE, Some(&authority.to_seed()))
-		.expect("Generates authority key");
+fn create_keystore(authority: Sr25519Keyring) -> KeystorePtr {
+	let keystore = MemoryKeystore::new();
 	keystore
+		.sr25519_generate_new(BABE, Some(&authority.to_seed()))
+		.expect("Generates authority key");
+	keystore.into()
 }
 
 async fn run_one_test(mutator: impl Fn(&mut TestHeader, Stage) + Send + Sync + 'static) {
@@ -401,7 +345,6 @@ async fn run_one_test(mutator: impl Fn(&mut TestHeader, Stage) + Send + Sync + '
 
 		let environ = DummyFactory {
 			client: client.clone(),
-			config: data.link.config.clone(),
 			epoch_changes: data.link.epoch_changes.clone(),
 			mutator: mutator.clone(),
 		};
@@ -468,7 +411,7 @@ async fn run_one_test(mutator: impl Fn(&mut TestHeader, Stage) + Send + Sync + '
 			let mut net = net.lock();
 			net.poll(cx);
 			for p in net.peers() {
-				for (h, e) in p.failed_verifications() {
+				if let Some((h, e)) = p.failed_verifications().into_iter().next() {
 					panic!("Verification failed for {:?}: {}", h, e);
 				}
 			}
@@ -486,7 +429,7 @@ async fn authoring_blocks() {
 }
 
 #[tokio::test]
-#[should_panic]
+#[should_panic(expected = "valid babe headers must contain a predigest")]
 async fn rejects_missing_inherent_digest() {
 	run_one_test(|header: &mut TestHeader, stage| {
 		let v = std::mem::take(&mut header.digest_mut().logs);
@@ -499,7 +442,7 @@ async fn rejects_missing_inherent_digest() {
 }
 
 #[tokio::test]
-#[should_panic]
+#[should_panic(expected = "has a bad seal")]
 async fn rejects_missing_seals() {
 	run_one_test(|header: &mut TestHeader, stage| {
 		let v = std::mem::take(&mut header.digest_mut().logs);
@@ -512,7 +455,7 @@ async fn rejects_missing_seals() {
 }
 
 #[tokio::test]
-#[should_panic]
+#[should_panic(expected = "Expected epoch change to happen")]
 async fn rejects_missing_consensus_digests() {
 	run_one_test(|header: &mut TestHeader, stage| {
 		let v = std::mem::take(&mut header.digest_mut().logs);
@@ -563,7 +506,7 @@ fn claim_epoch_slots() {
 	let authority = Sr25519Keyring::Alice;
 	let keystore = create_keystore(authority);
 
-	let mut epoch = Epoch {
+	let mut epoch: Epoch = sp_consensus_babe::Epoch {
 		start_slot: 0.into(),
 		authorities: vec![(authority.public().into(), 1)],
 		randomness: [0; 32],
@@ -573,7 +516,8 @@ fn claim_epoch_slots() {
 			c: (3, 10),
 			allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
 		},
-	};
+	}
+	.into();
 
 	let claim_slot_wrap = |s, e| match claim_slot(Slot::from(s as u64), &e, &keystore) {
 		None => 0,
@@ -613,7 +557,7 @@ fn claim_vrf_check() {
 
 	let public = authority.public();
 
-	let epoch = Epoch {
+	let epoch: Epoch = sp_consensus_babe::Epoch {
 		start_slot: 0.into(),
 		authorities: vec![(public.into(), 1)],
 		randomness: [0; 32],
@@ -623,7 +567,8 @@ fn claim_vrf_check() {
 			c: (3, 10),
 			allowed_slots: AllowedSlots::PrimaryAndSecondaryVRFSlots,
 		},
-	};
+	}
+	.into();
 
 	// We leverage the predictability of claim types given a constant randomness.
 
@@ -633,22 +578,18 @@ fn claim_vrf_check() {
 		PreDigest::Primary(d) => d,
 		v => panic!("Unexpected pre-digest variant {:?}", v),
 	};
-	let transcript = make_transcript_data(&epoch.randomness.clone(), 0.into(), epoch.epoch_index);
-	let sign = SyncCryptoStore::sr25519_vrf_sign(&*keystore, AuthorityId::ID, &public, transcript)
-		.unwrap()
-		.unwrap();
-	assert_eq!(pre_digest.vrf_output, VRFOutput(sign.output));
+	let data = make_vrf_sign_data(&epoch.randomness.clone(), 0.into(), epoch.epoch_index);
+	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
+	assert_eq!(pre_digest.vrf_signature.pre_output, sign.pre_output);
 
 	// We expect a SecondaryVRF claim for slot 1
 	let pre_digest = match claim_slot(1.into(), &epoch, &keystore).unwrap().0 {
 		PreDigest::SecondaryVRF(d) => d,
 		v => panic!("Unexpected pre-digest variant {:?}", v),
 	};
-	let transcript = make_transcript_data(&epoch.randomness.clone(), 1.into(), epoch.epoch_index);
-	let sign = SyncCryptoStore::sr25519_vrf_sign(&*keystore, AuthorityId::ID, &public, transcript)
-		.unwrap()
-		.unwrap();
-	assert_eq!(pre_digest.vrf_output, VRFOutput(sign.output));
+	let data = make_vrf_sign_data(&epoch.randomness.clone(), 1.into(), epoch.epoch_index);
+	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
+	assert_eq!(pre_digest.vrf_signature.pre_output, sign.pre_output);
 
 	// Check that correct epoch index has been used if epochs are skipped (primary VRF)
 	let slot = Slot::from(103);
@@ -657,12 +598,10 @@ fn claim_vrf_check() {
 		v => panic!("Unexpected claim variant {:?}", v),
 	};
 	let fixed_epoch = epoch.clone_for_slot(slot);
-	let transcript = make_transcript_data(&epoch.randomness.clone(), slot, fixed_epoch.epoch_index);
-	let sign = SyncCryptoStore::sr25519_vrf_sign(&*keystore, AuthorityId::ID, &public, transcript)
-		.unwrap()
-		.unwrap();
+	let data = make_vrf_sign_data(&epoch.randomness.clone(), slot, fixed_epoch.epoch_index);
+	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
 	assert_eq!(fixed_epoch.epoch_index, 11);
-	assert_eq!(claim.vrf_output, VRFOutput(sign.output));
+	assert_eq!(claim.vrf_signature.pre_output, sign.pre_output);
 
 	// Check that correct epoch index has been used if epochs are skipped (secondary VRF)
 	let slot = Slot::from(100);
@@ -671,20 +610,18 @@ fn claim_vrf_check() {
 		v => panic!("Unexpected claim variant {:?}", v),
 	};
 	let fixed_epoch = epoch.clone_for_slot(slot);
-	let transcript = make_transcript_data(&epoch.randomness.clone(), slot, fixed_epoch.epoch_index);
-	let sign = SyncCryptoStore::sr25519_vrf_sign(&*keystore, AuthorityId::ID, &public, transcript)
-		.unwrap()
-		.unwrap();
+	let data = make_vrf_sign_data(&epoch.randomness.clone(), slot, fixed_epoch.epoch_index);
+	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
 	assert_eq!(fixed_epoch.epoch_index, 11);
-	assert_eq!(pre_digest.vrf_output, VRFOutput(sign.output));
+	assert_eq!(pre_digest.vrf_signature.pre_output, sign.pre_output);
 }
 
 // Propose and import a new BABE block on top of the given parent.
-async fn propose_and_import_block<Transaction: Send + 'static>(
+async fn propose_and_import_block(
 	parent: &TestHeader,
 	slot: Option<Slot>,
 	proposer_factory: &mut DummyFactory,
-	block_import: &mut BoxBlockImport<TestBlock, Transaction>,
+	block_import: &mut BoxBlockImport<TestBlock>,
 ) -> Hash {
 	let mut proposer = proposer_factory.init(parent).await.unwrap();
 
@@ -738,7 +675,7 @@ async fn propose_and_import_block<Transaction: Send + 'static>(
 	import
 		.insert_intermediate(INTERMEDIATE_KEY, BabeIntermediate::<TestBlock> { epoch_descriptor });
 	import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
-	let import_result = block_import.import_block(import, Default::default()).await.unwrap();
+	let import_result = block_import.import_block(import).await.unwrap();
 
 	match import_result {
 		ImportResult::Imported(_) => {},
@@ -751,10 +688,10 @@ async fn propose_and_import_block<Transaction: Send + 'static>(
 // Propose and import n valid BABE blocks that are built on top of the given parent.
 // The proposer takes care of producing epoch change digests according to the epoch
 // duration (which is set to 6 slots in the test runtime).
-async fn propose_and_import_blocks<Transaction: Send + 'static>(
+async fn propose_and_import_blocks(
 	client: &PeersFullClient,
 	proposer_factory: &mut DummyFactory,
-	block_import: &mut BoxBlockImport<TestBlock, Transaction>,
+	block_import: &mut BoxBlockImport<TestBlock>,
 	parent_hash: Hash,
 	n: usize,
 ) -> Vec<Hash> {
@@ -781,7 +718,6 @@ async fn importing_block_one_sets_genesis_epoch() {
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
-		config: data.link.config.clone(),
 		epoch_changes: data.link.epoch_changes.clone(),
 		mutator: Arc::new(|_, _| ()),
 	};
@@ -825,7 +761,6 @@ async fn revert_prunes_epoch_changes_and_removes_weights() {
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
-		config: data.link.config.clone(),
 		epoch_changes: data.link.epoch_changes.clone(),
 		mutator: Arc::new(|_, _| ()),
 	};
@@ -913,7 +848,6 @@ async fn revert_not_allowed_for_finalized() {
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
-		config: data.link.config.clone(),
 		epoch_changes: data.link.epoch_changes.clone(),
 		mutator: Arc::new(|_, _| ()),
 	};
@@ -954,7 +888,6 @@ async fn importing_epoch_change_block_prunes_tree() {
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
-		config: data.link.config.clone(),
 		epoch_changes: data.link.epoch_changes.clone(),
 		mutator: Arc::new(|_, _| ()),
 	};
@@ -1041,7 +974,7 @@ async fn importing_epoch_change_block_prunes_tree() {
 }
 
 #[tokio::test]
-#[should_panic]
+#[should_panic(expected = "Slot number must increase: parent slot: 999, this slot: 999")]
 async fn verify_slots_are_strictly_increasing() {
 	let mut net = BabeTestNet::new(1);
 
@@ -1053,7 +986,6 @@ async fn verify_slots_are_strictly_increasing() {
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
-		config: data.link.config.clone(),
 		epoch_changes: data.link.epoch_changes.clone(),
 		mutator: Arc::new(|_, _| ()),
 	};
@@ -1076,36 +1008,6 @@ async fn verify_slots_are_strictly_increasing() {
 	propose_and_import_block(&b1, Some(999.into()), &mut proposer_factory, &mut block_import).await;
 }
 
-#[test]
-fn babe_transcript_generation_match() {
-	sp_tracing::try_init_simple();
-
-	let authority = Sr25519Keyring::Alice;
-	let _keystore = create_keystore(authority);
-
-	let epoch = Epoch {
-		start_slot: 0.into(),
-		authorities: vec![(authority.public().into(), 1)],
-		randomness: [0; 32],
-		epoch_index: 1,
-		duration: 100,
-		config: BabeEpochConfiguration {
-			c: (3, 10),
-			allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
-		},
-	};
-
-	let orig_transcript = make_transcript(&epoch.randomness.clone(), 1.into(), epoch.epoch_index);
-	let new_transcript = make_transcript_data(&epoch.randomness, 1.into(), epoch.epoch_index);
-
-	let test = |t: merlin::Transcript| -> [u8; 16] {
-		let mut b = [0u8; 16];
-		t.build_rng().finalize(&mut ChaChaRng::from_seed([0u8; 32])).fill_bytes(&mut b);
-		b
-	};
-	debug_assert!(test(orig_transcript) == test(transcript_from_data(new_transcript)));
-}
-
 #[tokio::test]
 async fn obsolete_blocks_aux_data_cleanup() {
 	let mut net = BabeTestNet::new(1);
@@ -1123,7 +1025,6 @@ async fn obsolete_blocks_aux_data_cleanup() {
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
-		config: data.link.config.clone(),
 		epoch_changes: data.link.epoch_changes.clone(),
 		mutator: Arc::new(|_, _| ()),
 	};
@@ -1209,7 +1110,6 @@ async fn allows_skipping_epochs() {
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
-		config: data.link.config.clone(),
 		epoch_changes: data.link.epoch_changes.clone(),
 		mutator: Arc::new(|_, _| ()),
 	};
@@ -1339,7 +1239,6 @@ async fn allows_skipping_epochs_on_some_forks() {
 
 	let mut proposer_factory = DummyFactory {
 		client: client.clone(),
-		config: data.link.config.clone(),
 		epoch_changes: data.link.epoch_changes.clone(),
 		mutator: Arc::new(|_, _| ()),
 	};

@@ -1,15 +1,18 @@
 [package]
 name = "sp-maybe-compressed-blob"
-version = "4.1.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "11.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Handling of blobs, usually Wasm code, which may be compresed"
 documentation = "https://docs.rs/sp-maybe-compressed-blob"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [dependencies]
-thiserror = "1.0"
-zstd = { version = "0.11.2", default-features = false }
+thiserror = { workspace = true }
+zstd = { version = "0.12.4", default-features = false }

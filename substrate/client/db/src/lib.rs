@@ -68,8 +68,8 @@ use sc_client_api::{
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{
-	well_known_cache_keys, Backend as _, CachedHeaderMetadata, Error as ClientError, HeaderBackend,
-	HeaderMetadata, HeaderMetadataCache, Result as ClientResult,
+	Backend as _, CachedHeaderMetadata, Error as ClientError, HeaderBackend, HeaderMetadata,
+	HeaderMetadataCache, Result as ClientResult,
 };
 use sp_core::{
 	offchain::OffchainOverlayedChange,
@@ -79,17 +79,18 @@ use sp_database::Transaction;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{
-		Block as BlockT, Hash, HashFor, Header as HeaderT, NumberFor, One, SaturatedConversion,
+		Block as BlockT, Hash, HashingFor, Header as HeaderT, NumberFor, One, SaturatedConversion,
 		Zero,
 	},
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
-	ChildStorageCollection, DBValue, IndexOperation, OffchainChangesCollection, StateMachineStats,
-	StorageCollection, UsageInfo as StateUsageInfo,
+	BackendTransaction, ChildStorageCollection, DBValue, IndexOperation, IterArgs,
+	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
+	StorageValue, UsageInfo as StateUsageInfo,
 };
-use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, PrefixedMemoryDB};
+use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
@@ -100,14 +101,11 @@ pub use bench::BenchmarkingState;
 const CACHE_HEADERS: usize = 8;
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
-pub type DbState<B> =
-	sp_state_machine::TrieBackend<Arc<dyn sp_state_machine::Storage<HashFor<B>>>, HashFor<B>>;
+pub type DbState<H> = sp_state_machine::TrieBackend<Arc<dyn sp_state_machine::Storage<H>>, H>;
 
 /// Builder for [`DbState`].
-pub type DbStateBuilder<B> = sp_state_machine::TrieBackendBuilder<
-	Arc<dyn sp_state_machine::Storage<HashFor<B>>>,
-	HashFor<B>,
->;
+pub type DbStateBuilder<Hasher> =
+	sp_state_machine::TrieBackendBuilder<Arc<dyn sp_state_machine::Storage<Hasher>>, Hasher>;
 
 /// Length of a [`DbHash`].
 const DB_HASH_LEN: usize = 32;
@@ -134,13 +132,17 @@ enum DbExtrinsic<B: BlockT> {
 /// It makes sure that the hash we are using stays pinned in storage
 /// until this structure is dropped.
 pub struct RefTrackingState<Block: BlockT> {
-	state: DbState<Block>,
+	state: DbState<HashingFor<Block>>,
 	storage: Arc<StorageDb<Block>>,
 	parent_hash: Option<Block::Hash>,
 }
 
 impl<B: BlockT> RefTrackingState<B> {
-	fn new(state: DbState<B>, storage: Arc<StorageDb<B>>, parent_hash: Option<B::Hash>) -> Self {
+	fn new(
+		state: DbState<HashingFor<B>>,
+		storage: Arc<StorageDb<B>>,
+		parent_hash: Option<B::Hash>,
+	) -> Self {
 		RefTrackingState { state, parent_hash, storage }
 	}
 }
@@ -159,10 +161,36 @@ impl<Block: BlockT> std::fmt::Debug for RefTrackingState<Block> {
 	}
 }
 
-impl<B: BlockT> StateBackend<HashFor<B>> for RefTrackingState<B> {
-	type Error = <DbState<B> as StateBackend<HashFor<B>>>::Error;
-	type Transaction = <DbState<B> as StateBackend<HashFor<B>>>::Transaction;
-	type TrieBackendStorage = <DbState<B> as StateBackend<HashFor<B>>>::TrieBackendStorage;
+/// A raw iterator over the `RefTrackingState`.
+pub struct RawIter<B: BlockT> {
+	inner: <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::RawIter,
+}
+
+impl<B: BlockT> StorageIterator<HashingFor<B>> for RawIter<B> {
+	type Backend = RefTrackingState<B>;
+	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
+
+	fn next_key(&mut self, backend: &Self::Backend) -> Option<Result<StorageKey, Self::Error>> {
+		self.inner.next_key(&backend.state)
+	}
+
+	fn next_pair(
+		&mut self,
+		backend: &Self::Backend,
+	) -> Option<Result<(StorageKey, StorageValue), Self::Error>> {
+		self.inner.next_pair(&backend.state)
+	}
+
+	fn was_complete(&self) -> bool {
+		self.inner.was_complete()
+	}
+}
+
+impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
+	type Error = <DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::Error;
+	type TrieBackendStorage =
+		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
+	type RawIter = RawIter<B>;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
 		self.state.storage(key)
@@ -186,6 +214,21 @@ impl<B: BlockT> StateBackend<HashFor<B>> for RefTrackingState<B> {
 		key: &[u8],
 	) -> Result<Option<B::Hash>, Self::Error> {
 		self.state.child_storage_hash(child_info, key)
+	}
+
+	fn closest_merkle_value(
+		&self,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
+		self.state.closest_merkle_value(key)
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<Option<MerkleValue<B::Hash>>, Self::Error> {
+		self.state.child_closest_merkle_value(child_info, key)
 	}
 
 	fn exists_storage(&self, key: &[u8]) -> Result<bool, Self::Error> {
@@ -212,53 +255,11 @@ impl<B: BlockT> StateBackend<HashFor<B>> for RefTrackingState<B> {
 		self.state.next_child_storage_key(child_info, key)
 	}
 
-	fn for_keys_with_prefix<F: FnMut(&[u8])>(&self, prefix: &[u8], f: F) {
-		self.state.for_keys_with_prefix(prefix, f)
-	}
-
-	fn for_key_values_with_prefix<F: FnMut(&[u8], &[u8])>(&self, prefix: &[u8], f: F) {
-		self.state.for_key_values_with_prefix(prefix, f)
-	}
-
-	fn apply_to_key_values_while<F: FnMut(Vec<u8>, Vec<u8>) -> bool>(
-		&self,
-		child_info: Option<&ChildInfo>,
-		prefix: Option<&[u8]>,
-		start_at: Option<&[u8]>,
-		f: F,
-		allow_missing: bool,
-	) -> Result<bool, Self::Error> {
-		self.state
-			.apply_to_key_values_while(child_info, prefix, start_at, f, allow_missing)
-	}
-
-	fn apply_to_keys_while<F: FnMut(&[u8]) -> bool>(
-		&self,
-		child_info: Option<&ChildInfo>,
-		prefix: Option<&[u8]>,
-		start_at: Option<&[u8]>,
-		f: F,
-	) {
-		self.state.apply_to_keys_while(child_info, prefix, start_at, f)
-	}
-
-	fn for_child_keys_with_prefix<F: FnMut(&[u8])>(
-		&self,
-		child_info: &ChildInfo,
-		prefix: &[u8],
-		f: F,
-	) {
-		self.state.for_child_keys_with_prefix(child_info, prefix, f)
-	}
-
 	fn storage_root<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (B::Hash, Self::Transaction)
-	where
-		B::Hash: Ord,
-	{
+	) -> (B::Hash, BackendTransaction<HashingFor<B>>) {
 		self.state.storage_root(delta, state_version)
 	}
 
@@ -267,23 +268,12 @@ impl<B: BlockT> StateBackend<HashFor<B>> for RefTrackingState<B> {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (B::Hash, bool, Self::Transaction)
-	where
-		B::Hash: Ord,
-	{
+	) -> (B::Hash, bool, BackendTransaction<HashingFor<B>>) {
 		self.state.child_storage_root(child_info, delta, state_version)
 	}
 
-	fn pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
-		self.state.pairs()
-	}
-
-	fn keys(&self, prefix: &[u8]) -> Vec<Vec<u8>> {
-		self.state.keys(prefix)
-	}
-
-	fn child_keys(&self, child_info: &ChildInfo, prefix: &[u8]) -> Vec<Vec<u8>> {
-		self.state.child_keys(child_info, prefix)
+	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
+		self.state.raw_iter(args).map(|inner| RawIter { inner })
 	}
 
 	fn register_overlay_stats(&self, stats: &StateMachineStats) {
@@ -295,12 +285,13 @@ impl<B: BlockT> StateBackend<HashFor<B>> for RefTrackingState<B> {
 	}
 }
 
-impl<B: BlockT> AsTrieBackend<HashFor<B>> for RefTrackingState<B> {
-	type TrieBackendStorage = <DbState<B> as StateBackend<HashFor<B>>>::TrieBackendStorage;
+impl<B: BlockT> AsTrieBackend<HashingFor<B>> for RefTrackingState<B> {
+	type TrieBackendStorage =
+		<DbState<HashingFor<B>> as StateBackend<HashingFor<B>>>::TrieBackendStorage;
 
 	fn as_trie_backend(
 		&self,
-	) -> &sp_state_machine::TrieBackend<Self::TrieBackendStorage, HashFor<B>> {
+	) -> &sp_state_machine::TrieBackend<Self::TrieBackendStorage, HashingFor<B>> {
 		&self.state.as_trie_backend()
 	}
 }
@@ -330,6 +321,16 @@ pub enum BlocksPruning {
 	KeepFinalized,
 	/// Keep N recent finalized blocks.
 	Some(u32),
+}
+
+impl BlocksPruning {
+	/// True if this is an archive pruning mode (either KeepAll or KeepFinalized).
+	pub fn is_archive(&self) -> bool {
+		match *self {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => true,
+			BlocksPruning::Some(_) => false,
+		}
+	}
 }
 
 /// Where to find the database..
@@ -844,7 +845,7 @@ impl<Block: BlockT> HeaderMetadata<Block> for BlockchainDb<Block> {
 /// Database transaction
 pub struct BlockImportOperation<Block: BlockT> {
 	old_state: RecordStatsState<RefTrackingState<Block>, Block>,
-	db_updates: PrefixedMemoryDB<HashFor<Block>>,
+	db_updates: PrefixedMemoryDB<HashingFor<Block>>,
 	storage_updates: StorageCollection,
 	child_storage_updates: ChildStorageCollection,
 	offchain_storage_updates: OffchainChangesCollection,
@@ -933,11 +934,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 		Ok(())
 	}
 
-	fn update_cache(&mut self, _cache: HashMap<well_known_cache_keys::Id, Vec<u8>>) {
-		// Currently cache isn't implemented on full nodes.
-	}
-
-	fn update_db_storage(&mut self, update: PrefixedMemoryDB<HashFor<Block>>) -> ClientResult<()> {
+	fn update_db_storage(
+		&mut self,
+		update: PrefixedMemoryDB<HashingFor<Block>>,
+	) -> ClientResult<()> {
 		self.db_updates = update;
 		Ok(())
 	}
@@ -1016,10 +1016,10 @@ struct StorageDb<Block: BlockT> {
 	prefix_keys: bool,
 }
 
-impl<Block: BlockT> sp_state_machine::Storage<HashFor<Block>> for StorageDb<Block> {
+impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for StorageDb<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix) -> Result<Option<DBValue>, String> {
 		if self.prefix_keys {
-			let key = prefixed_key::<HashFor<Block>>(key, prefix);
+			let key = prefixed_key::<HashingFor<Block>>(key, prefix);
 			self.state_db.get(&key, self)
 		} else {
 			self.state_db.get(key.as_ref(), self)
@@ -1039,16 +1039,16 @@ impl<Block: BlockT> sc_state_db::NodeDb for StorageDb<Block> {
 
 struct DbGenesisStorage<Block: BlockT> {
 	root: Block::Hash,
-	storage: PrefixedMemoryDB<HashFor<Block>>,
+	storage: PrefixedMemoryDB<HashingFor<Block>>,
 }
 
 impl<Block: BlockT> DbGenesisStorage<Block> {
-	pub fn new(root: Block::Hash, storage: PrefixedMemoryDB<HashFor<Block>>) -> Self {
+	pub fn new(root: Block::Hash, storage: PrefixedMemoryDB<HashingFor<Block>>) -> Self {
 		DbGenesisStorage { root, storage }
 	}
 }
 
-impl<Block: BlockT> sp_state_machine::Storage<HashFor<Block>> for DbGenesisStorage<Block> {
+impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for DbGenesisStorage<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix) -> Result<Option<DBValue>, String> {
 		use hash_db::HashDB;
 		Ok(self.storage.get(key, prefix))
@@ -1060,14 +1060,15 @@ struct EmptyStorage<Block: BlockT>(pub Block::Hash);
 impl<Block: BlockT> EmptyStorage<Block> {
 	pub fn new() -> Self {
 		let mut root = Block::Hash::default();
-		let mut mdb = MemoryDB::<HashFor<Block>>::default();
+		let mut mdb = MemoryDB::<HashingFor<Block>>::default();
 		// both triedbmut are the same on empty storage.
-		sp_trie::trie_types::TrieDBMutBuilderV1::<HashFor<Block>>::new(&mut mdb, &mut root).build();
+		sp_trie::trie_types::TrieDBMutBuilderV1::<HashingFor<Block>>::new(&mut mdb, &mut root)
+			.build();
 		EmptyStorage(root)
 	}
 }
 
-impl<Block: BlockT> sp_state_machine::Storage<HashFor<Block>> for EmptyStorage<Block> {
+impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for EmptyStorage<Block> {
 	fn get(&self, _key: &Block::Hash, _prefix: Prefix) -> Result<Option<DBValue>, String> {
 		Ok(None)
 	}
@@ -1128,7 +1129,7 @@ pub struct Backend<Block: BlockT> {
 	io_stats: FrozenForDuration<(kvdb::IoStats, StateUsageInfo)>,
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
-	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashFor<Block>>>,
+	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -1152,6 +1153,13 @@ impl<Block: BlockT> Backend<Block> {
 			};
 
 		Self::from_database(db as Arc<_>, canonicalization_delay, &db_config, needs_init)
+	}
+
+	/// Reset the shared trie cache.
+	pub fn reset_trie_cache(&self) {
+		if let Some(cache) = &self.shared_trie_cache {
+			cache.reset();
+		}
 	}
 
 	/// Create new memory-backed client backend for tests.
@@ -1196,7 +1204,7 @@ impl<Block: BlockT> Backend<Block> {
 	///
 	/// Should only be needed for benchmarking.
 	#[cfg(any(feature = "runtime-benchmarks"))]
-	pub fn expose_storage(&self) -> Arc<dyn sp_state_machine::Storage<HashFor<Block>>> {
+	pub fn expose_storage(&self) -> Arc<dyn sp_state_machine::Storage<HashingFor<Block>>> {
 		self.storage.clone()
 	}
 
@@ -1931,7 +1939,7 @@ impl<Block: BlockT> Backend<Block> {
 
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
 		let root = EmptyStorage::<Block>::new().0; // Empty trie
-		let db_state = DbStateBuilder::<Block>::new(self.storage.clone(), root)
+		let db_state = DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
 			.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
 			.build();
 		let state = RefTrackingState::new(db_state, self.storage.clone(), None);
@@ -2423,9 +2431,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if hash == self.blockchain.meta.read().genesis_hash {
 			if let Some(genesis_state) = &*self.genesis_state.read() {
 				let root = genesis_state.root;
-				let db_state = DbStateBuilder::<Block>::new(genesis_state.clone(), root)
-					.with_optional_cache(self.shared_trie_cache.as_ref().map(|c| c.local_cache()))
-					.build();
+				let db_state =
+					DbStateBuilder::<HashingFor<Block>>::new(genesis_state.clone(), root)
+						.with_optional_cache(
+							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+						)
+						.build();
 
 				let state = RefTrackingState::new(db_state, self.storage.clone(), None);
 				return Ok(RecordStatsState::new(state, None, self.state_usage.clone()))
@@ -2444,11 +2455,12 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 					self.storage.state_db.pin(&hash, hdr.number.saturated_into::<u64>(), hint)
 				{
 					let root = hdr.state_root;
-					let db_state = DbStateBuilder::<Block>::new(self.storage.clone(), root)
-						.with_optional_cache(
-							self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-						)
-						.build();
+					let db_state =
+						DbStateBuilder::<HashingFor<Block>>::new(self.storage.clone(), root)
+							.with_optional_cache(
+								self.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+							)
+							.build();
 					let state = RefTrackingState::new(db_state, self.storage.clone(), Some(hash));
 					Ok(RecordStatsState::new(state, Some(hash), self.state_usage.clone()))
 				} else {
@@ -2519,7 +2531,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			self.storage.state_db.pin(&hash, number.saturated_into::<u64>(), hint).map_err(
 				|_| {
 					sp_blockchain::Error::UnknownBlock(format!(
-						"State already discarded for `{:?}`",
+						"Unable to pin: state already discarded for `{:?}`",
 						hash
 					))
 				},
@@ -3565,8 +3577,8 @@ pub(crate) mod tests {
 
 		let x0 = ExtrinsicWrapper::from(0u64).encode();
 		let x1 = ExtrinsicWrapper::from(1u64).encode();
-		let x0_hash = <HashFor<Block> as sp_core::Hasher>::hash(&x0[1..]);
-		let x1_hash = <HashFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
+		let x0_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x0[1..]);
+		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
 		let index = vec![
 			IndexOperation::Insert {
 				extrinsic: 0,
@@ -3609,8 +3621,8 @@ pub(crate) mod tests {
 
 		let x0 = ExtrinsicWrapper::from(0u64).encode();
 		let x1 = ExtrinsicWrapper::from(1u64).encode();
-		let x0_hash = <HashFor<Block> as sp_core::Hasher>::hash(&x0[..]);
-		let x1_hash = <HashFor<Block> as sp_core::Hasher>::hash(&x1[..]);
+		let x0_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x0[..]);
+		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[..]);
 		let index = vec![
 			IndexOperation::Insert {
 				extrinsic: 0,
@@ -3644,7 +3656,7 @@ pub(crate) mod tests {
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
 		let x1 = ExtrinsicWrapper::from(0u64).encode();
-		let x1_hash = <HashFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
+		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
 		for i in 0..10 {
 			let mut index = Vec::new();
 			if i == 0 {
@@ -3935,6 +3947,38 @@ pub(crate) mod tests {
 
 		assert_eq!(backend.blockchain.leaves().unwrap(), vec![block1]);
 		assert_eq!(1, backend.blockchain.leaves.read().highest_leaf().unwrap().0);
+	}
+
+	#[test]
+	fn revert_finalized_blocks() {
+		let pruning_modes = [BlocksPruning::Some(10), BlocksPruning::KeepAll];
+
+		// we will create a chain with 11 blocks, finalize block #8 and then
+		// attempt to revert 5 blocks.
+		for pruning_mode in pruning_modes {
+			let backend = Backend::<Block>::new_test_with_tx_storage(pruning_mode, 1);
+
+			let mut parent = Default::default();
+			for i in 0..=10 {
+				parent = insert_block(&backend, i, parent, None, Default::default(), vec![], None)
+					.unwrap();
+			}
+
+			assert_eq!(backend.blockchain().info().best_number, 10);
+
+			let block8 = backend.blockchain().hash(8).unwrap().unwrap();
+			backend.finalize_block(block8, None).unwrap();
+			backend.revert(5, true).unwrap();
+
+			match pruning_mode {
+				// we can only revert to blocks for which we have state, if pruning is enabled
+				// then the last state available will be that of the latest finalized block
+				BlocksPruning::Some(_) =>
+					assert_eq!(backend.blockchain().info().finalized_number, 8),
+				// otherwise if we're not doing state pruning we can revert past finalized blocks
+				_ => assert_eq!(backend.blockchain().info().finalized_number, 5),
+			}
+		}
 	}
 
 	#[test]

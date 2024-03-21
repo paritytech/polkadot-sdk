@@ -1,0 +1,26 @@
+[package]
+name = "polkadot-erasure-coding"
+version = "7.0.0"
+description = "Erasure coding used for Polkadot's availability system"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+polkadot-primitives = { path = "../primitives" }
+polkadot-node-primitives = { package = "polkadot-node-primitives", path = "../node/primitives" }
+novelpoly = { package = "reed-solomon-novelpoly", version = "2.0.0" }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "std"] }
+sp-core = { path = "../../substrate/primitives/core" }
+sp-trie = { path = "../../substrate/primitives/trie" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "scaling_with_validators"
+harness = false

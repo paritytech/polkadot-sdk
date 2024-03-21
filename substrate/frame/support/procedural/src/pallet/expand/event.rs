@@ -87,7 +87,7 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			#[doc(hidden)]
 			#[codec(skip)]
 			__Ignore(
-				#frame_support::sp_std::marker::PhantomData<(#event_use_gen)>,
+				::core::marker::PhantomData<(#event_use_gen)>,
 				#frame_support::Never,
 			)
 		);
@@ -97,12 +97,9 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 
 	if get_doc_literals(&event_item.attrs).is_empty() {
-		event_item.attrs.push(syn::parse_quote!(
-			#[doc = r"
-			The [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted
-			by this pallet.
-			"]
-		));
+		event_item
+			.attrs
+			.push(syn::parse_quote!(#[doc = "The `Event` enum of this pallet"]));
 	}
 
 	// derive some traits because system event require Clone, FullCodec, Eq, PartialEq and Debug
@@ -112,9 +109,9 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 			#frame_support::EqNoBound,
 			#frame_support::PartialEqNoBound,
 			#frame_support::RuntimeDebugNoBound,
-			#frame_support::codec::Encode,
-			#frame_support::codec::Decode,
-			#frame_support::scale_info::TypeInfo,
+			#frame_support::__private::codec::Encode,
+			#frame_support::__private::codec::Decode,
+			#frame_support::__private::scale_info::TypeInfo,
 		)]
 	));
 
@@ -130,11 +127,12 @@ pub fn expand_event(def: &mut Def) -> proc_macro2::TokenStream {
 		let trait_use_gen = &def.trait_use_generics(event.attr_span);
 		let type_impl_gen = &def.type_impl_generics(event.attr_span);
 		let type_use_gen = &def.type_use_generics(event.attr_span);
+		let pallet_ident = &def.pallet_struct.pallet;
 
 		let PalletEventDepositAttr { fn_vis, fn_span, .. } = deposit_event;
 
 		quote::quote_spanned!(*fn_span =>
-			impl<#type_impl_gen> Pallet<#type_use_gen> #completed_where_clause {
+			impl<#type_impl_gen> #pallet_ident<#type_use_gen> #completed_where_clause {
 				#fn_vis fn deposit_event(event: Event<#event_use_gen>) {
 					let event = <
 						<T as Config #trait_use_gen>::RuntimeEvent as

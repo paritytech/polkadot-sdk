@@ -20,10 +20,11 @@
 use super::*;
 use crate::{self as bags_list};
 use frame_election_provider_support::VoteWeight;
-use frame_support::parameter_types;
+use frame_support::{derive_impl, parameter_types};
+use sp_runtime::BuildStorage;
 use std::collections::HashMap;
 
-pub type AccountId = u32;
+pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 pub type Balance = u32;
 
 parameter_types! {
@@ -40,37 +41,17 @@ impl frame_election_provider_support::ScoreProvider<AccountId> for StakingMock {
 		*NextVoteWeightMap::get().get(id).unwrap_or(&NextVoteWeight::get())
 	}
 
-	#[cfg(any(feature = "runtime-benchmarks", feature = "fuzz", test))]
-	fn set_score_of(id: &AccountId, weight: Self::Score) {
-		NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().insert(*id, weight));
+	frame_election_provider_support::runtime_benchmarks_fuzz_or_std_enabled! {
+		fn set_score_of(id: &AccountId, weight: Self::Score) {
+			NEXT_VOTE_WEIGHT_MAP.with(|m| m.borrow_mut().insert(*id, weight));
+		}
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SS58Prefix = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
-	type Header = sp_runtime::testing::Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type DbWeight = ();
-	type BlockLength = ();
-	type BlockWeights = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
+	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
@@ -85,16 +66,11 @@ impl bags_list::Config for Runtime {
 	type Score = VoteWeight;
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system::{Pallet, Call, Storage, Event<T>, Config},
-		BagsList: bags_list::{Pallet, Call, Storage, Event<T>},
+	pub enum Runtime {
+		System: frame_system,
+		BagsList: bags_list,
 	}
 );
 
@@ -126,7 +102,7 @@ impl ExtBuilder {
 
 	pub(crate) fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
-		let storage = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		let ids_with_weight: Vec<_> = if self.skip_genesis_ids {
 			self.ids.iter().collect()

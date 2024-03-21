@@ -24,17 +24,17 @@ use crate::{
 };
 use log::warn;
 use names::{Generator, Name};
-use sc_client_api::execution_extensions::ExecutionStrategies;
 use sc_service::{
 	config::{
 		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role, RpcMethods,
-		TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
+		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
+		RpcBatchRequestConfig, RpcMethods, TelemetryEndpoints, TransactionPoolOptions,
+		WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
 use sc_tracing::logging::LoggerBuilder;
-use std::{net::SocketAddr, path::PathBuf};
+use std::{net::SocketAddr, num::NonZeroU32, path::PathBuf};
 
 /// The maximum number of characters for a node name.
 pub(crate) const NODE_NAME_MAX_LENGTH: usize = 64;
@@ -44,6 +44,20 @@ pub(crate) const DEFAULT_NETWORK_CONFIG_PATH: &str = "network";
 
 /// The recommended open file descriptor limit to be configured for the process.
 const RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT: u64 = 10_000;
+
+/// The default port.
+pub const RPC_DEFAULT_PORT: u16 = 9944;
+/// The default max number of subscriptions per connection.
+pub const RPC_DEFAULT_MAX_SUBS_PER_CONN: u32 = 1024;
+/// The default max request size in MB.
+pub const RPC_DEFAULT_MAX_REQUEST_SIZE_MB: u32 = 15;
+/// The default max response size in MB.
+pub const RPC_DEFAULT_MAX_RESPONSE_SIZE_MB: u32 = 15;
+/// The default concurrent connection limit.
+pub const RPC_DEFAULT_MAX_CONNECTIONS: u32 = 100;
+/// The default number of messages the RPC server
+/// is allowed to keep in memory per connection.
+pub const RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN: u32 = 64;
 
 /// Default configuration values used by Substrate
 ///
@@ -57,18 +71,11 @@ pub trait DefaultConfigurationValues {
 		30333
 	}
 
-	/// The port Substrate should listen on for websocket connections.
+	/// The port Substrate should listen on for JSON-RPC connections.
 	///
 	/// By default this is `9944`.
-	fn rpc_ws_listen_port() -> u16 {
-		9944
-	}
-
-	/// The port Substrate should listen on for http connections.
-	///
-	/// By default this is `9933`.
-	fn rpc_http_listen_port() -> u16 {
-		9933
+	fn rpc_listen_port() -> u16 {
+		RPC_DEFAULT_PORT
 	}
 
 	/// The port Substrate should listen on for prometheus connections.
@@ -185,10 +192,10 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	///
 	/// By default this is retrieved from `KeystoreParams` if it is available. Otherwise it uses
 	/// `KeystoreConfig::InMemory`.
-	fn keystore_config(&self, config_dir: &PathBuf) -> Result<(Option<String>, KeystoreConfig)> {
+	fn keystore_config(&self, config_dir: &PathBuf) -> Result<KeystoreConfig> {
 		self.keystore_params()
 			.map(|x| x.keystore_config(config_dir))
-			.unwrap_or_else(|| Ok((None, KeystoreConfig::InMemory)))
+			.unwrap_or_else(|| Ok(KeystoreConfig::InMemory))
 	}
 
 	/// Get the database cache size.
@@ -287,55 +294,22 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		self.import_params().map(|x| x.wasm_runtime_overrides()).unwrap_or_default()
 	}
 
-	/// Get the execution strategies.
-	///
-	/// By default this is retrieved from `ImportParams` if it is available. Otherwise its
-	/// `ExecutionStrategies::default()`.
-	fn execution_strategies(
-		&self,
-		is_dev: bool,
-		is_validator: bool,
-	) -> Result<ExecutionStrategies> {
-		Ok(self
-			.import_params()
-			.map(|x| x.execution_strategies(is_dev, is_validator))
-			.unwrap_or_default())
-	}
-
-	/// Get the RPC HTTP address (`None` if disabled).
-	///
-	/// By default this is `None`.
-	fn rpc_http(&self, _default_listen_port: u16) -> Result<Option<SocketAddr>> {
-		Ok(None)
-	}
-
-	/// Get the RPC IPC path (`None` if disabled).
-	///
-	/// By default this is `None`.
-	fn rpc_ipc(&self) -> Result<Option<String>> {
-		Ok(None)
-	}
-
-	/// Get the RPC websocket address (`None` if disabled).
-	///
-	/// By default this is `None`.
-	fn rpc_ws(&self, _default_listen_port: u16) -> Result<Option<SocketAddr>> {
+	/// Get the RPC address.
+	fn rpc_addr(&self, _default_listen_port: u16) -> Result<Option<SocketAddr>> {
 		Ok(None)
 	}
 
 	/// Returns the RPC method set to expose.
 	///
 	/// By default this is `RpcMethods::Auto` (unsafe RPCs are denied iff
-	/// `{rpc,ws}_external` returns true, respectively).
+	/// `rpc_external` returns true, respectively).
 	fn rpc_methods(&self) -> Result<RpcMethods> {
 		Ok(Default::default())
 	}
 
-	/// Get the RPC websockets maximum connections (`None` if unlimited).
-	///
-	/// By default this is `None`.
-	fn rpc_ws_max_connections(&self) -> Result<Option<usize>> {
-		Ok(None)
+	/// Get the maximum number of RPC server connections.
+	fn rpc_max_connections(&self) -> Result<u32> {
+		Ok(RPC_DEFAULT_MAX_CONNECTIONS)
 	}
 
 	/// Get the RPC cors (`None` if disabled)
@@ -345,28 +319,33 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(Some(Vec::new()))
 	}
 
-	/// Get maximum RPC payload.
-	fn rpc_max_payload(&self) -> Result<Option<usize>> {
-		Ok(None)
-	}
-
 	/// Get maximum RPC request payload size.
-	fn rpc_max_request_size(&self) -> Result<Option<usize>> {
-		Ok(None)
+	fn rpc_max_request_size(&self) -> Result<u32> {
+		Ok(RPC_DEFAULT_MAX_REQUEST_SIZE_MB)
 	}
 
 	/// Get maximum RPC response payload size.
-	fn rpc_max_response_size(&self) -> Result<Option<usize>> {
-		Ok(None)
+	fn rpc_max_response_size(&self) -> Result<u32> {
+		Ok(RPC_DEFAULT_MAX_RESPONSE_SIZE_MB)
 	}
 
 	/// Get maximum number of subscriptions per connection.
-	fn rpc_max_subscriptions_per_connection(&self) -> Result<Option<usize>> {
-		Ok(None)
+	fn rpc_max_subscriptions_per_connection(&self) -> Result<u32> {
+		Ok(RPC_DEFAULT_MAX_SUBS_PER_CONN)
 	}
 
-	/// Get maximum WS output buffer capacity.
-	fn ws_max_out_buffer_capacity(&self) -> Result<Option<usize>> {
+	/// The number of messages the RPC server is allowed to keep in memory per connection.
+	fn rpc_buffer_capacity_per_connection(&self) -> Result<u32> {
+		Ok(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)
+	}
+
+	/// RPC server batch request configuration.
+	fn rpc_batch_config(&self) -> Result<RpcBatchRequestConfig> {
+		Ok(RpcBatchRequestConfig::Unlimited)
+	}
+
+	/// RPC rate limit configuration.
+	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
 		Ok(None)
 	}
 
@@ -505,7 +484,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let role = self.role(is_dev)?;
 		let max_runtime_instances = self.max_runtime_instances()?.unwrap_or(8);
 		let is_validator = role.is_authority();
-		let (keystore_remote, keystore) = self.keystore_config(&config_dir)?;
+		let keystore = self.keystore_config(&config_dir)?;
 		let telemetry_endpoints = self.telemetry_endpoints(&chain_spec)?;
 		let runtime_cache_size = self.runtime_cache_size()?;
 
@@ -524,27 +503,26 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				node_key,
 				DCV::p2p_listen_port(),
 			)?,
-			keystore_remote,
 			keystore,
 			database: self.database_config(&config_dir, database_cache_size, database)?,
+			data_path: config_dir,
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
 			wasm_method: self.wasm_method()?,
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
-			execution_strategies: self.execution_strategies(is_dev, is_validator)?,
-			rpc_http: self.rpc_http(DCV::rpc_http_listen_port())?,
-			rpc_ws: self.rpc_ws(DCV::rpc_ws_listen_port())?,
-			rpc_ipc: self.rpc_ipc()?,
+			rpc_addr: self.rpc_addr(DCV::rpc_listen_port())?,
 			rpc_methods: self.rpc_methods()?,
-			rpc_ws_max_connections: self.rpc_ws_max_connections()?,
+			rpc_max_connections: self.rpc_max_connections()?,
 			rpc_cors: self.rpc_cors(is_dev)?,
-			rpc_max_payload: self.rpc_max_payload()?,
 			rpc_max_request_size: self.rpc_max_request_size()?,
 			rpc_max_response_size: self.rpc_max_response_size()?,
 			rpc_id_provider: None,
 			rpc_max_subs_per_conn: self.rpc_max_subscriptions_per_connection()?,
-			ws_max_out_buffer_capacity: self.ws_max_out_buffer_capacity()?,
+			rpc_port: DCV::rpc_listen_port(),
+			rpc_message_buffer_capacity: self.rpc_buffer_capacity_per_connection()?,
+			rpc_batch_config: self.rpc_batch_config()?,
+			rpc_rate_limit: self.rpc_rate_limit()?,
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,
 			telemetry_endpoints,
@@ -559,8 +537,8 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			max_runtime_instances,
 			announce_block: self.announce_block()?,
 			role,
-			base_path: Some(base_path),
-			informant_output_format: Default::default(),
+			base_path,
+			informant_output_format: OutputFormat { enable_color: !self.disable_log_color()? },
 			runtime_cache_size,
 		})
 	}
@@ -649,14 +627,25 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 
 		logger.init()?;
 
-		if let Some(new_limit) = fdlimit::raise_fd_limit() {
-			if new_limit < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
+		match fdlimit::raise_fd_limit() {
+			Ok(fdlimit::Outcome::LimitRaised { to, .. }) =>
+				if to < RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT {
+					warn!(
+						"Low open file descriptor limit configured for the process. \
+						Current value: {:?}, recommended value: {:?}.",
+						to, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
+					);
+				},
+			Ok(fdlimit::Outcome::Unsupported) => {
+				// Unsupported platform (non-Linux)
+			},
+			Err(error) => {
 				warn!(
-					"Low open file descriptor limit configured for the process. \
-					Current value: {:?}, recommended value: {:?}.",
-					new_limit, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
+					"Failed to configure file descriptor limit for the process: \
+					{}, recommended value: {:?}.",
+					error, RECOMMENDED_OPEN_FILE_DESCRIPTOR_LIMIT,
 				);
-			}
+			},
 		}
 
 		Ok(())

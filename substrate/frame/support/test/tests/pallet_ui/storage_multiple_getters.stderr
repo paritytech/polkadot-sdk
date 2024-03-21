@@ -1,5 +1,5 @@
 error: Invalid attribute: Duplicate attribute
-  --> $DIR/storage_multiple_getters.rs:20:3
+  --> tests/pallet_ui/storage_multiple_getters.rs:37:3
    |
-20 |     #[pallet::getter(fn foo_error)]
+37 |     #[pallet::getter(fn foo_error)]
    |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

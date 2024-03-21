@@ -1,0 +1,35 @@
+[package]
+name = "polkadot-availability-bitfield-distribution"
+version = "7.0.0"
+description = "Polkadot Bitfiled Distribution subsystem, which gossips signed availability bitfields used to compactly determine which backed candidates are available or not based on a 2/3+ quorum."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+always-assert = "0.1"
+futures = "0.3.21"
+futures-timer = "3.0.2"
+gum = { package = "tracing-gum", path = "../../gum" }
+polkadot-primitives = { path = "../../../primitives" }
+polkadot-node-subsystem = { path = "../../subsystem" }
+polkadot-node-subsystem-util = { path = "../../subsystem-util" }
+polkadot-node-network-protocol = { path = "../protocol" }
+rand = "0.8"
+
+[dev-dependencies]
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
+sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
+sp-keystore = { path = "../../../../substrate/primitives/keystore" }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+maplit = "1.0.2"
+log = { workspace = true, default-features = true }
+env_logger = "0.9.0"
+assert_matches = "1.4.0"
+rand_chacha = "0.3.1"

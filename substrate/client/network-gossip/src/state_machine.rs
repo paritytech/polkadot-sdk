@@ -20,11 +20,13 @@ use crate::{MessageIntent, Network, ValidationResult, Validator, ValidatorContex
 
 use ahash::AHashSet;
 use libp2p::PeerId;
-use lru::LruCache;
+use schnellru::{ByLength, LruMap};
+
 use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
-use sc_network_common::protocol::{role::ObservedRole, ProtocolName};
-use sp_runtime::traits::{Block as BlockT, Hash, HashFor};
-use std::{collections::HashMap, iter, num::NonZeroUsize, sync::Arc, time, time::Instant};
+use sc_network::{types::ProtocolName, NotificationService};
+use sc_network_common::role::ObservedRole;
+use sp_runtime::traits::{Block as BlockT, Hash, HashingFor};
+use std::{collections::HashMap, iter, sync::Arc, time, time::Instant};
 
 // FIXME: Add additional spam/DoS attack protection: https://github.com/paritytech/substrate/issues/1115
 // NOTE: The current value is adjusted based on largest production network deployment (Kusama) and
@@ -35,14 +37,14 @@ use std::{collections::HashMap, iter, num::NonZeroUsize, sync::Arc, time, time::
 //
 // Assuming that each known message is tracked with a 32 byte hash (common for `Block::Hash`), then
 // this cache should take about 256 KB of memory.
-const KNOWN_MESSAGES_CACHE_SIZE: usize = 8192;
+const KNOWN_MESSAGES_CACHE_SIZE: u32 = 8192;
 
 const REBROADCAST_INTERVAL: time::Duration = time::Duration::from_millis(750);
 
 pub(crate) const PERIODIC_MAINTENANCE_INTERVAL: time::Duration = time::Duration::from_millis(1100);
 
 mod rep {
-	use sc_peerset::ReputationChange as Rep;
+	use sc_network::ReputationChange as Rep;
 	/// Reputation change when a peer sends us a gossip message that we didn't know about.
 	pub const GOSSIP_SUCCESS: Rep = Rep::new(1 << 4, "Successful gossip");
 	/// Reputation change when a peer sends us a gossip message that we already knew about.
@@ -72,33 +74,33 @@ struct MessageEntry<B: BlockT> {
 /// Local implementation of `ValidatorContext`.
 struct NetworkContext<'g, 'p, B: BlockT> {
 	gossip: &'g mut ConsensusGossip<B>,
-	network: &'p mut dyn Network<B>,
+	notification_service: &'p mut Box<dyn NotificationService>,
 }
 
 impl<'g, 'p, B: BlockT> ValidatorContext<B> for NetworkContext<'g, 'p, B> {
 	/// Broadcast all messages with given topic to peers that do not have it yet.
 	fn broadcast_topic(&mut self, topic: B::Hash, force: bool) {
-		self.gossip.broadcast_topic(self.network, topic, force);
+		self.gossip.broadcast_topic(self.notification_service, topic, force);
 	}
 
 	/// Broadcast a message to all peers that have not received it previously.
 	fn broadcast_message(&mut self, topic: B::Hash, message: Vec<u8>, force: bool) {
-		self.gossip.multicast(self.network, topic, message, force);
+		self.gossip.multicast(self.notification_service, topic, message, force);
 	}
 
 	/// Send addressed message to a peer.
 	fn send_message(&mut self, who: &PeerId, message: Vec<u8>) {
-		self.network.write_notification(*who, self.gossip.protocol.clone(), message);
+		self.notification_service.send_sync_notification(who, message);
 	}
 
 	/// Send all messages with given topic to a peer.
 	fn send_topic(&mut self, who: &PeerId, topic: B::Hash, force: bool) {
-		self.gossip.send_topic(self.network, who, topic, force);
+		self.gossip.send_topic(self.notification_service, who, topic, force);
 	}
 }
 
 fn propagate<'a, B: BlockT, I>(
-	network: &mut dyn Network<B>,
+	notification_service: &mut Box<dyn NotificationService>,
 	protocol: ProtocolName,
 	messages: I,
 	intent: MessageIntent,
@@ -145,7 +147,7 @@ where
 				?message,
 				"Propagating message",
 			);
-			network.write_notification(*id, protocol.clone(), message.clone());
+			notification_service.send_sync_notification(id, message.clone());
 		}
 	}
 }
@@ -154,7 +156,7 @@ where
 pub struct ConsensusGossip<B: BlockT> {
 	peers: HashMap<PeerId, PeerConsensus<B::Hash>>,
 	messages: Vec<MessageEntry<B>>,
-	known_messages: LruCache<B::Hash, ()>,
+	known_messages: LruMap<B::Hash, ()>,
 	protocol: ProtocolName,
 	validator: Arc<dyn Validator<B>>,
 	next_broadcast: Instant,
@@ -180,11 +182,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 		ConsensusGossip {
 			peers: HashMap::new(),
 			messages: Default::default(),
-			known_messages: {
-				let cap = NonZeroUsize::new(KNOWN_MESSAGES_CACHE_SIZE)
-					.expect("cache capacity is not zero");
-				LruCache::new(cap)
-			},
+			known_messages: { LruMap::new(ByLength::new(KNOWN_MESSAGES_CACHE_SIZE)) },
 			protocol,
 			validator,
 			next_broadcast: Instant::now() + REBROADCAST_INTERVAL,
@@ -193,7 +191,12 @@ impl<B: BlockT> ConsensusGossip<B> {
 	}
 
 	/// Handle new connected peer.
-	pub fn new_peer(&mut self, network: &mut dyn Network<B>, who: PeerId, role: ObservedRole) {
+	pub fn new_peer(
+		&mut self,
+		notification_service: &mut Box<dyn NotificationService>,
+		who: PeerId,
+		role: ObservedRole,
+	) {
 		tracing::trace!(
 			target:"gossip",
 			%who,
@@ -204,7 +207,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 		self.peers.insert(who, PeerConsensus { known_messages: Default::default() });
 
 		let validator = self.validator.clone();
-		let mut context = NetworkContext { gossip: self, network };
+		let mut context = NetworkContext { gossip: self, notification_service };
 		validator.new_peer(&mut context, &who, role);
 	}
 
@@ -215,7 +218,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 		message: Vec<u8>,
 		sender: Option<PeerId>,
 	) {
-		if self.known_messages.put(message_hash, ()).is_none() {
+		if self.known_messages.insert(message_hash, ()) {
 			self.messages.push(MessageEntry { message_hash, topic, message, sender });
 
 			if let Some(ref metrics) = self.metrics {
@@ -230,35 +233,40 @@ impl<B: BlockT> ConsensusGossip<B> {
 	/// message is already expired it should be dropped on the next garbage
 	/// collection.
 	pub fn register_message(&mut self, topic: B::Hash, message: Vec<u8>) {
-		let message_hash = HashFor::<B>::hash(&message[..]);
+		let message_hash = HashingFor::<B>::hash(&message[..]);
 		self.register_message_hashed(message_hash, topic, message, None);
 	}
 
 	/// Call when a peer has been disconnected to stop tracking gossip status.
-	pub fn peer_disconnected(&mut self, network: &mut dyn Network<B>, who: PeerId) {
+	pub fn peer_disconnected(
+		&mut self,
+		notification_service: &mut Box<dyn NotificationService>,
+		who: PeerId,
+	) {
 		let validator = self.validator.clone();
-		let mut context = NetworkContext { gossip: self, network };
+		let mut context = NetworkContext { gossip: self, notification_service };
 		validator.peer_disconnected(&mut context, &who);
 		self.peers.remove(&who);
 	}
 
 	/// Perform periodic maintenance
-	pub fn tick(&mut self, network: &mut dyn Network<B>) {
+	pub fn tick(&mut self, notification_service: &mut Box<dyn NotificationService>) {
 		self.collect_garbage();
 		if Instant::now() >= self.next_broadcast {
-			self.rebroadcast(network);
+			self.rebroadcast(notification_service);
 			self.next_broadcast = Instant::now() + REBROADCAST_INTERVAL;
 		}
 	}
 
 	/// Rebroadcast all messages to all peers.
-	fn rebroadcast(&mut self, network: &mut dyn Network<B>) {
+	fn rebroadcast(&mut self, notification_service: &mut Box<dyn NotificationService>) {
 		let messages = self
 			.messages
 			.iter()
 			.map(|entry| (&entry.message_hash, &entry.topic, &entry.message));
+
 		propagate(
-			network,
+			notification_service,
 			self.protocol.clone(),
 			messages,
 			MessageIntent::PeriodicRebroadcast,
@@ -268,7 +276,12 @@ impl<B: BlockT> ConsensusGossip<B> {
 	}
 
 	/// Broadcast all messages with given topic.
-	pub fn broadcast_topic(&mut self, network: &mut dyn Network<B>, topic: B::Hash, force: bool) {
+	pub fn broadcast_topic(
+		&mut self,
+		notification_service: &mut Box<dyn NotificationService>,
+		topic: B::Hash,
+		force: bool,
+	) {
 		let messages = self.messages.iter().filter_map(|entry| {
 			if entry.topic == topic {
 				Some((&entry.message_hash, &entry.topic, &entry.message))
@@ -278,7 +291,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 		});
 		let intent = if force { MessageIntent::ForcedBroadcast } else { MessageIntent::Broadcast };
 		propagate(
-			network,
+			notification_service,
 			self.protocol.clone(),
 			messages,
 			intent,
@@ -312,7 +325,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 		);
 
 		for (_, ref mut peer) in self.peers.iter_mut() {
-			peer.known_messages.retain(|h| known_messages.contains(h));
+			peer.known_messages.retain(|h| known_messages.get(h).is_some());
 		}
 	}
 
@@ -329,6 +342,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 	pub fn on_incoming(
 		&mut self,
 		network: &mut dyn Network<B>,
+		notification_service: &mut Box<dyn NotificationService>,
 		who: PeerId,
 		messages: Vec<Vec<u8>>,
 	) -> Vec<(B::Hash, TopicNotification)> {
@@ -345,23 +359,31 @@ impl<B: BlockT> ConsensusGossip<B> {
 		}
 
 		for message in messages {
-			let message_hash = HashFor::<B>::hash(&message[..]);
+			let message_hash = HashingFor::<B>::hash(&message[..]);
 
-			if self.known_messages.contains(&message_hash) {
+			if self.known_messages.get(&message_hash).is_some() {
 				tracing::trace!(
 					target: "gossip",
 					%who,
 					protocol = %self.protocol,
 					"Ignored already known message",
 				);
-				network.report_peer(who, rep::DUPLICATE_GOSSIP);
+
+				// If the peer already send us the message once, let's report them.
+				if self
+					.peers
+					.get_mut(&who)
+					.map_or(false, |p| !p.known_messages.insert(message_hash))
+				{
+					network.report_peer(who, rep::DUPLICATE_GOSSIP);
+				}
 				continue
 			}
 
 			// validate the message
 			let validation = {
 				let validator = self.validator.clone();
-				let mut context = NetworkContext { gossip: self, network };
+				let mut context = NetworkContext { gossip: self, notification_service };
 				validator.validate(&mut context, &who, &message)
 			};
 
@@ -408,7 +430,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 	/// Send all messages with given topic to a peer.
 	pub fn send_topic(
 		&mut self,
-		network: &mut dyn Network<B>,
+		notification_service: &mut Box<dyn NotificationService>,
 		who: &PeerId,
 		topic: B::Hash,
 		force: bool,
@@ -437,7 +459,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 					?entry.message,
 					"Sending topic message",
 				);
-				network.write_notification(*who, self.protocol.clone(), entry.message.clone());
+				notification_service.send_sync_notification(who, entry.message.clone());
 			}
 		}
 	}
@@ -445,16 +467,16 @@ impl<B: BlockT> ConsensusGossip<B> {
 	/// Multicast a message to all peers.
 	pub fn multicast(
 		&mut self,
-		network: &mut dyn Network<B>,
+		notification_service: &mut Box<dyn NotificationService>,
 		topic: B::Hash,
 		message: Vec<u8>,
 		force: bool,
 	) {
-		let message_hash = HashFor::<B>::hash(&message);
+		let message_hash = HashingFor::<B>::hash(&message);
 		self.register_message_hashed(message_hash, topic, message.clone(), None);
 		let intent = if force { MessageIntent::ForcedBroadcast } else { MessageIntent::Broadcast };
 		propagate(
-			network,
+			notification_service,
 			self.protocol.clone(),
 			iter::once((&message_hash, &topic, &message)),
 			intent,
@@ -465,13 +487,18 @@ impl<B: BlockT> ConsensusGossip<B> {
 
 	/// Send addressed message to a peer. The message is not kept or multicast
 	/// later on.
-	pub fn send_message(&mut self, network: &mut dyn Network<B>, who: &PeerId, message: Vec<u8>) {
+	pub fn send_message(
+		&mut self,
+		notification_service: &mut Box<dyn NotificationService>,
+		who: &PeerId,
+		message: Vec<u8>,
+	) {
 		let peer = match self.peers.get_mut(who) {
 			None => return,
 			Some(peer) => peer,
 		};
 
-		let message_hash = HashFor::<B>::hash(&message);
+		let message_hash = HashingFor::<B>::hash(&message);
 
 		tracing::trace!(
 			target: "gossip",
@@ -482,7 +509,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 		);
 
 		peer.known_messages.insert(message_hash);
-		network.write_notification(*who, self.protocol.clone(), message);
+		notification_service.send_sync_notification(who, message)
 	}
 }
 
@@ -517,15 +544,11 @@ mod tests {
 	use super::*;
 	use crate::multiaddr::Multiaddr;
 	use futures::prelude::*;
-	use sc_network_common::{
-		config::MultiaddrWithPeerId,
-		protocol::event::Event,
-		service::{
-			NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
-			NotificationSender, NotificationSenderError,
-		},
+	use sc_network::{
+		config::MultiaddrWithPeerId, event::Event, service::traits::NotificationEvent, MessageSink,
+		NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
+		NotificationSenderError, NotificationSenderT as NotificationSender, ReputationChange,
 	};
-	use sc_peerset::ReputationChange;
 	use sp_runtime::{
 		testing::{Block as RawBlock, ExtrinsicWrapper, H256},
 		traits::NumberFor,
@@ -540,7 +563,7 @@ mod tests {
 
 	macro_rules! push_msg {
 		($consensus:expr, $topic:expr, $hash: expr, $m:expr) => {
-			if $consensus.known_messages.put($hash, ()).is_none() {
+			if $consensus.known_messages.insert($hash, ()) {
 				$consensus.messages.push(MessageEntry {
 					message_hash: $hash,
 					topic: $topic,
@@ -598,11 +621,15 @@ mod tests {
 			unimplemented!();
 		}
 
-		fn report_peer(&self, who: PeerId, cost_benefit: ReputationChange) {
-			self.inner.lock().unwrap().peer_reports.push((who, cost_benefit));
+		fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange) {
+			self.inner.lock().unwrap().peer_reports.push((peer_id, cost_benefit));
 		}
 
-		fn disconnect_peer(&self, _who: PeerId, _protocol: ProtocolName) {
+		fn peer_reputation(&self, _peer_id: &PeerId) -> i32 {
+			unimplemented!()
+		}
+
+		fn disconnect_peer(&self, _peer_id: PeerId, _protocol: ProtocolName) {
 			unimplemented!();
 		}
 
@@ -638,22 +665,20 @@ mod tests {
 			unimplemented!();
 		}
 
-		fn remove_peers_from_reserved_set(&self, _protocol: ProtocolName, _peers: Vec<PeerId>) {}
-
-		fn add_to_peers_set(
+		fn remove_peers_from_reserved_set(
 			&self,
 			_protocol: ProtocolName,
-			_peers: HashSet<Multiaddr>,
+			_peers: Vec<PeerId>,
 		) -> Result<(), String> {
-			unimplemented!();
-		}
-
-		fn remove_from_peers_set(&self, _protocol: ProtocolName, _peers: Vec<PeerId>) {
 			unimplemented!();
 		}
 
 		fn sync_num_connected(&self) -> usize {
 			unimplemented!();
+		}
+
+		fn peer_role(&self, _peer_id: PeerId, _handshake: Vec<u8>) -> Option<ObservedRole> {
+			None
 		}
 	}
 
@@ -675,6 +700,10 @@ mod tests {
 		) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
 			unimplemented!();
 		}
+
+		fn set_notification_handshake(&self, _protocol: ProtocolName, _handshake: Vec<u8>) {
+			unimplemented!();
+		}
 	}
 
 	impl NetworkBlock<<Block as BlockT>::Hash, NumberFor<Block>> for NoOpNetwork {
@@ -687,6 +716,62 @@ mod tests {
 			_hash: <Block as BlockT>::Hash,
 			_number: NumberFor<Block>,
 		) {
+			unimplemented!();
+		}
+	}
+
+	#[derive(Debug, Default)]
+	struct NoOpNotificationService {}
+
+	#[async_trait::async_trait]
+	impl NotificationService for NoOpNotificationService {
+		/// Instruct `Notifications` to open a new substream for `peer`.
+		async fn open_substream(&mut self, _peer: PeerId) -> Result<(), ()> {
+			unimplemented!();
+		}
+
+		/// Instruct `Notifications` to close substream for `peer`.
+		async fn close_substream(&mut self, _peer: PeerId) -> Result<(), ()> {
+			unimplemented!();
+		}
+
+		/// Send synchronous `notification` to `peer`.
+		fn send_sync_notification(&self, _peer: &PeerId, _notification: Vec<u8>) {
+			unimplemented!();
+		}
+
+		/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
+		async fn send_async_notification(
+			&self,
+			_peer: &PeerId,
+			_notification: Vec<u8>,
+		) -> Result<(), sc_network::error::Error> {
+			unimplemented!();
+		}
+
+		/// Set handshake for the notification protocol replacing the old handshake.
+		async fn set_handshake(&mut self, _handshake: Vec<u8>) -> Result<(), ()> {
+			unimplemented!();
+		}
+
+		fn try_set_handshake(&mut self, _handshake: Vec<u8>) -> Result<(), ()> {
+			unimplemented!();
+		}
+
+		/// Get next event from the `Notifications` event stream.
+		async fn next_event(&mut self) -> Option<NotificationEvent> {
+			None
+		}
+
+		fn clone(&mut self) -> Result<Box<dyn NotificationService>, ()> {
+			unimplemented!();
+		}
+
+		fn protocol(&self) -> &ProtocolName {
+			unimplemented!();
+		}
+
+		fn message_sink(&self, _peer: &PeerId) -> Option<Box<dyn MessageSink>> {
 			unimplemented!();
 		}
 	}
@@ -723,8 +808,8 @@ mod tests {
 
 		push_msg!(consensus, prev_hash, m1_hash, m1);
 		push_msg!(consensus, best_hash, m2_hash, m2);
-		consensus.known_messages.put(m1_hash, ());
-		consensus.known_messages.put(m2_hash, ());
+		consensus.known_messages.insert(m1_hash, ());
+		consensus.known_messages.insert(m2_hash, ());
 
 		consensus.collect_garbage();
 		assert_eq!(consensus.messages.len(), 2);
@@ -737,7 +822,7 @@ mod tests {
 		assert_eq!(consensus.messages.len(), 1);
 		// known messages are only pruned based on size.
 		assert_eq!(consensus.known_messages.len(), 2);
-		assert!(consensus.known_messages.contains(&m2_hash));
+		assert!(consensus.known_messages.get(&m2_hash).is_some());
 	}
 
 	#[test]
@@ -746,7 +831,7 @@ mod tests {
 
 		// Register message.
 		let message = vec![4, 5, 6];
-		let topic = HashFor::<Block>::hash(&[1, 2, 3]);
+		let topic = HashingFor::<Block>::hash(&[1, 2, 3]);
 		consensus.register_message(topic, message.clone());
 
 		assert_eq!(
@@ -773,20 +858,28 @@ mod tests {
 	fn peer_is_removed_on_disconnect() {
 		let mut consensus = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None);
 
-		let mut network = NoOpNetwork::default();
+		let mut notification_service: Box<dyn NotificationService> =
+			Box::new(NoOpNotificationService::default());
 
 		let peer_id = PeerId::random();
-		consensus.new_peer(&mut network, peer_id, ObservedRole::Full);
+		consensus.new_peer(&mut notification_service, peer_id, ObservedRole::Full);
 		assert!(consensus.peers.contains_key(&peer_id));
 
-		consensus.peer_disconnected(&mut network, peer_id);
+		consensus.peer_disconnected(&mut notification_service, peer_id);
 		assert!(!consensus.peers.contains_key(&peer_id));
 	}
 
 	#[test]
 	fn on_incoming_ignores_discarded_messages() {
+		let mut notification_service: Box<dyn NotificationService> =
+			Box::new(NoOpNotificationService::default());
 		let to_forward = ConsensusGossip::<Block>::new(Arc::new(DiscardAll), "/foo".into(), None)
-			.on_incoming(&mut NoOpNetwork::default(), PeerId::random(), vec![vec![1, 2, 3]]);
+			.on_incoming(
+				&mut NoOpNetwork::default(),
+				&mut notification_service,
+				PeerId::random(),
+				vec![vec![1, 2, 3]],
+			);
 
 		assert!(
 			to_forward.is_empty(),
@@ -798,11 +891,14 @@ mod tests {
 	#[test]
 	fn on_incoming_ignores_unregistered_peer() {
 		let mut network = NoOpNetwork::default();
+		let mut notification_service: Box<dyn NotificationService> =
+			Box::new(NoOpNotificationService::default());
 		let remote = PeerId::random();
 
 		let to_forward = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None)
 			.on_incoming(
 				&mut network,
+				&mut notification_service,
 				// Unregistered peer.
 				remote,
 				vec![vec![1, 2, 3]],
@@ -812,6 +908,34 @@ mod tests {
 			to_forward.is_empty(),
 			"Expected `on_incoming` to ignore message from unregistered peer but got {:?}",
 			to_forward,
+		);
+	}
+
+	// Two peers can send us the same gossip message. We should not report the second peer
+	// sending the gossip message as long as its the first time the peer send us this message.
+	#[test]
+	fn do_not_report_peer_for_first_time_duplicate_gossip_message() {
+		let mut consensus = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None);
+
+		let mut network = NoOpNetwork::default();
+		let mut notification_service: Box<dyn NotificationService> =
+			Box::new(NoOpNotificationService::default());
+
+		let peer_id = PeerId::random();
+		consensus.new_peer(&mut notification_service, peer_id, ObservedRole::Full);
+		assert!(consensus.peers.contains_key(&peer_id));
+
+		let peer_id2 = PeerId::random();
+		consensus.new_peer(&mut notification_service, peer_id2, ObservedRole::Full);
+		assert!(consensus.peers.contains_key(&peer_id2));
+
+		let message = vec![vec![1, 2, 3]];
+		consensus.on_incoming(&mut network, &mut notification_service, peer_id, message.clone());
+		consensus.on_incoming(&mut network, &mut notification_service, peer_id2, message.clone());
+
+		assert_eq!(
+			vec![(peer_id, rep::GOSSIP_SUCCESS)],
+			network.inner.lock().unwrap().peer_reports
 		);
 	}
 }

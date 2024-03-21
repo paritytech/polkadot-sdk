@@ -19,8 +19,15 @@
 #![allow(non_snake_case)]
 
 //! API trait of the chain head.
-use crate::chain_head::event::{ChainHeadEvent, FollowEvent, NetworkConfig};
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use crate::{
+	chain_head::{
+		error::Error,
+		event::{FollowEvent, MethodResponse},
+	},
+	common::events::StorageQuery,
+};
+use jsonrpsee::{proc_macros::rpc, server::ResponsePayload};
+use sp_rpc::list::ListOrValue;
 
 #[rpc(client, server)]
 pub trait ChainHeadApi<Hash> {
@@ -30,11 +37,11 @@ pub trait ChainHeadApi<Hash> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[subscription(
-		name = "chainHead_unstable_follow",
+		name = "chainHead_unstable_follow" => "chainHead_unstable_followEvent",
 		unsubscribe = "chainHead_unstable_unfollow",
 		item = FollowEvent<Hash>,
 	)]
-	fn chain_head_unstable_follow(&self, runtime_updates: bool);
+	fn chain_head_unstable_follow(&self, with_runtime: bool);
 
 	/// Retrieves the body (list of transactions) of a pinned block.
 	///
@@ -47,17 +54,12 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[subscription(
-		name = "chainHead_unstable_body",
-		unsubscribe = "chainHead_unstable_stopBody",
-		item = ChainHeadEvent<String>,
-	)]
+	#[method(name = "chainHead_unstable_body", blocking)]
 	fn chain_head_unstable_body(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
-		network_config: Option<NetworkConfig>,
-	);
+	) -> ResponsePayload<'static, MethodResponse>;
 
 	/// Retrieves the header of a pinned block.
 	///
@@ -76,62 +78,77 @@ pub trait ChainHeadApi<Hash> {
 		&self,
 		follow_subscription: String,
 		hash: Hash,
-	) -> RpcResult<Option<String>>;
+	) -> Result<Option<String>, Error>;
 
-	/// Get the chain's genesis hash.
+	/// Returns storage entries at a specific block's state.
 	///
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_genesisHash", blocking)]
-	fn chain_head_unstable_genesis_hash(&self) -> RpcResult<String>;
-
-	/// Return a storage entry at a specific block's state.
-	///
-	/// # Unstable
-	///
-	/// This method is unstable and subject to change in the future.
-	#[subscription(
-		name = "chainHead_unstable_storage",
-		unsubscribe = "chainHead_unstable_stopStorage",
-		item = ChainHeadEvent<String>,
-	)]
+	#[method(name = "chainHead_unstable_storage", blocking)]
 	fn chain_head_unstable_storage(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
-		key: String,
-		child_key: Option<String>,
-		network_config: Option<NetworkConfig>,
-	);
+		items: Vec<StorageQuery<String>>,
+		child_trie: Option<String>,
+	) -> ResponsePayload<'static, MethodResponse>;
 
 	/// Call into the Runtime API at a specified block's state.
 	///
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[subscription(
-		name = "chainHead_unstable_call",
-		unsubscribe = "chainHead_unstable_stopCall",
-		item = ChainHeadEvent<String>,
-	)]
+	#[method(name = "chainHead_unstable_call", blocking)]
 	fn chain_head_unstable_call(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
 		function: String,
 		call_parameters: String,
-		network_config: Option<NetworkConfig>,
-	);
+	) -> ResponsePayload<'static, MethodResponse>;
 
-	/// Unpin a block reported by the `follow` method.
+	/// Unpin a block or multiple blocks reported by the `follow` method.
 	///
 	/// Ongoing operations that require the provided block
 	/// will continue normally.
+	///
+	/// When this method returns an error, it is guaranteed that no blocks have been unpinned.
 	///
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "chainHead_unstable_unpin", blocking)]
-	fn chain_head_unstable_unpin(&self, follow_subscription: String, hash: Hash) -> RpcResult<()>;
+	fn chain_head_unstable_unpin(
+		&self,
+		follow_subscription: String,
+		hash_or_hashes: ListOrValue<Hash>,
+	) -> Result<(), Error>;
+
+	/// Resumes a storage fetch started with `chainHead_storage` after it has generated an
+	/// `operationWaitingForContinue` event.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	#[method(name = "chainHead_unstable_continue", blocking)]
+	fn chain_head_unstable_continue(
+		&self,
+		follow_subscription: String,
+		operation_id: String,
+	) -> Result<(), Error>;
+
+	/// Stops an operation started with chainHead_unstable_body, chainHead_unstable_call, or
+	/// chainHead_unstable_storage. If the operation was still in progress, this interrupts it. If
+	/// the operation was already finished, this call has no effect.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	#[method(name = "chainHead_unstable_stopOperation", blocking)]
+	fn chain_head_unstable_stop_operation(
+		&self,
+		follow_subscription: String,
+		operation_id: String,
+	) -> Result<(), Error>;
 }

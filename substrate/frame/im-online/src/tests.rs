@@ -22,17 +22,11 @@
 use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, dispatch};
-use sp_core::{
-	offchain::{
-		testing::{TestOffchainExt, TestTransactionPoolExt},
-		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
-	},
-	OpaquePeerId,
+use sp_core::offchain::{
+	testing::{TestOffchainExt, TestTransactionPoolExt},
+	OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 };
-use sp_runtime::{
-	testing::UintAuthorityId,
-	transaction_validity::{InvalidTransaction, TransactionValidityError},
-};
+use sp_runtime::testing::UintAuthorityId;
 
 #[test]
 fn test_unresponsiveness_slash_fraction() {
@@ -56,6 +50,9 @@ fn test_unresponsiveness_slash_fraction() {
 		dummy_offence.slash_fraction(17),
 		Perbill::from_parts(46200000), // 4.62%
 	);
+
+	// Offline offences should never lead to being disabled.
+	assert_eq!(dummy_offence.disable_strategy(), DisableStrategy::Never);
 }
 
 #[test]
@@ -118,14 +115,8 @@ fn heartbeat(
 	id: UintAuthorityId,
 	validators: Vec<u64>,
 ) -> dispatch::DispatchResult {
-	use frame_support::unsigned::ValidateUnsigned;
-
 	let heartbeat = Heartbeat {
 		block_number,
-		network_state: OpaqueNetworkState {
-			peer_id: OpaquePeerId(vec![1]),
-			external_addresses: vec![],
-		},
 		session_index,
 		authority_index,
 		validators_len: validators.len() as u32,
@@ -209,8 +200,6 @@ fn late_heartbeat_and_invalid_keys_len_should_fail() {
 
 #[test]
 fn should_generate_heartbeats() {
-	use frame_support::traits::OffchainWorker;
-
 	let mut ext = new_test_ext();
 	let (offchain, _state) = TestOffchainExt::new();
 	let (pool, state) = TestTransactionPoolExt::new();
@@ -249,7 +238,6 @@ fn should_generate_heartbeats() {
 			heartbeat,
 			Heartbeat {
 				block_number: block,
-				network_state: sp_io::offchain::network_state().unwrap(),
 				session_index: 2,
 				authority_index: 2,
 				validators_len: 3,
@@ -276,14 +264,14 @@ fn should_cleanup_received_heartbeats_on_session_end() {
 		let _ = heartbeat(1, 2, 0, 1.into(), Session::validators()).unwrap();
 
 		// the heartbeat is stored
-		assert!(!ImOnline::received_heartbeats(&2, &0).is_none());
+		assert!(!super::pallet::ReceivedHeartbeats::<Runtime>::get(2, 0).is_none());
 
 		advance_session();
 
 		// after the session has ended we have already processed the heartbeat
 		// message, so any messages received on the previous session should have
 		// been pruned.
-		assert!(ImOnline::received_heartbeats(&2, &0).is_none());
+		assert!(super::pallet::ReceivedHeartbeats::<Runtime>::get(2, 0).is_none());
 	});
 }
 
@@ -362,21 +350,13 @@ fn should_not_send_a_report_if_already_online() {
 
 		assert_eq!(
 			heartbeat,
-			Heartbeat {
-				block_number: 4,
-				network_state: sp_io::offchain::network_state().unwrap(),
-				session_index: 2,
-				authority_index: 0,
-				validators_len: 3,
-			}
+			Heartbeat { block_number: 4, session_index: 2, authority_index: 0, validators_len: 3 }
 		);
 	});
 }
 
 #[test]
 fn should_handle_missing_progress_estimates() {
-	use frame_support::traits::OffchainWorker;
-
 	let mut ext = new_test_ext();
 	let (offchain, _state) = TestOffchainExt::new();
 	let (pool, state) = TestTransactionPoolExt::new();

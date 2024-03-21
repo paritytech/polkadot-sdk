@@ -1,0 +1,33 @@
+[package]
+name = "polkadot-node-core-pvf-checker"
+description = "Polkadot crate that implements the PVF pre-checking subsystem. Responsible for checking and voting for PVFs that are pending approval."
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+futures = "0.3.21"
+thiserror = { workspace = true }
+gum = { package = "tracing-gum", path = "../../gum" }
+
+polkadot-node-primitives = { path = "../../primitives" }
+polkadot-node-subsystem = { path = "../../subsystem" }
+polkadot-primitives = { path = "../../../primitives" }
+polkadot-node-subsystem-util = { path = "../../subsystem-util" }
+polkadot-overseer = { path = "../../overseer" }
+
+sp-keystore = { path = "../../../../substrate/primitives/keystore" }
+
+[dev-dependencies]
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime" }
+sc-keystore = { path = "../../../../substrate/client/keystore" }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
+futures-timer = "3.0.2"

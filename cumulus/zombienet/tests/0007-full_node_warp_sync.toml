@@ -1,0 +1,94 @@
+[relaychain]
+default_image = "{{RELAY_IMAGE}}"
+default_command = "polkadot"
+default_args = [ "-lparachain=debug" ]
+chain = "rococo-local"
+chain_spec_path = "0007-warp-sync-relaychain-spec.json"
+
+  [[relaychain.nodes]]
+  name = "alice"
+  validator = true
+  db_snapshot = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/relaychain-1964f8b557f10085cdc18f4105ad0bbb3df4c4c6.tgz"
+
+  [[relaychain.nodes]]
+  name = "bob"
+  validator = true
+  db_snapshot = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/relaychain-1964f8b557f10085cdc18f4105ad0bbb3df4c4c6.tgz"
+
+  [[relaychain.nodes]]
+  name = "charlie"
+  validator = true
+  db_snapshot = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/relaychain-1964f8b557f10085cdc18f4105ad0bbb3df4c4c6.tgz"
+
+  [[relaychain.nodes]]
+  name = "dave"
+  validator = true
+  args = ["--no-beefy", "--sync warp", "--reserved-only", "--reserved-nodes {{'alice'|zombie('multiAddress')}} {{'bob'|zombie('multiAddress')}} {{'charlie'|zombie('multiAddress')}}"]
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+chain_spec_path = "0007-warp-sync-parachain-spec.json"
+add_to_genesis = false
+
+  # Run 'dave' as parachain collator.
+  [[parachains.collators]]
+  name = "dave"
+  validator = true
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=debug"]
+  db_snapshot = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/parachain-587c1ed24ddd7de05c237cf7c158fff53b8f5b26.tgz"
+
+  # Run 'eve' as parachain collator.
+  [[parachains.collators]]
+  name = "eve"
+  validator = true
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=debug"]
+  db_snapshot = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/parachain-587c1ed24ddd7de05c237cf7c158fff53b8f5b26.tgz"
+
+  # Run 'ferdie' as parachain collator.
+  [[parachains.collators]]
+  name = "ferdie"
+  validator = true
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=debug"]
+  db_snapshot = "https://storage.googleapis.com/zombienet-db-snaps/cumulus/0007-full_node_warp_sync/parachain-587c1ed24ddd7de05c237cf7c158fff53b8f5b26.tgz"
+
+  # Run 'one' as parachain full node. Parachain and relay chain are warpsyncing.
+  [[parachains.collators]]
+  name = "one"
+  validator = false
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lsync=debug","--sync warp","--","--sync warp"]
+
+  # Run 'two' as parachain full node. Parachain is warpsyncing and the node
+  # uses relay chain node 'alice' as external RPC node.
+  [[parachains.collators]]
+  name = "two"
+  validator = false
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lsync=debug","--sync warp","--relay-chain-rpc-urls {{'alice'|zombie('wsUri')}}"]
+
+  # Run 'three' as parachain full node. Parachain is warpsyncing and the node
+  # uses relay chain node 'dave' as external RPC node.
+  [[parachains.collators]]
+  name = "three"
+  validator = false
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lsync=debug","--sync warp","--relay-chain-rpc-urls {{'dave'|zombie('wsUri')}}"]
+
+  # Run 'four' as parachain full node. Parachain is warpsyncing and the node
+  # uses an internal relay chain light client.
+  [[parachains.collators]]
+  name = "four"
+  validator = false
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lsync=debug","--sync warp","--relay-chain-light-client"]

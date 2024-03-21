@@ -18,16 +18,13 @@
 use sp_api::{
 	decl_runtime_apis, impl_runtime_apis, mock_impl_runtime_apis, ApiError, ApiExt, RuntimeApiInfo,
 };
-use sp_runtime::traits::{Block as BlockT, GetNodeBlockType};
+use sp_runtime::traits::Block as BlockT;
 
 use substrate_test_runtime_client::runtime::{Block, Hash};
 
-/// The declaration of the `Runtime` type and the implementation of the `GetNodeBlockType`
-/// trait are done by the `construct_runtime!` macro in a real runtime.
-pub struct Runtime {}
-impl GetNodeBlockType for Runtime {
-	type NodeBlock = Block;
-}
+/// The declaration of the `Runtime` type is done by the `construct_runtime!` macro in a real
+/// runtime.
+pub enum Runtime {}
 
 decl_runtime_apis! {
 	pub trait Api {
@@ -53,6 +50,29 @@ decl_runtime_apis! {
 		#[api_version(4)]
 		fn glory_one();
 	}
+
+	pub trait ApiWithStagingMethod {
+		fn stable_one(data: u64);
+		#[api_version(99)]
+		fn staging_one();
+	}
+
+	pub trait ApiWithStagingAndVersionedMethods {
+		fn stable_one(data: u64);
+		#[api_version(2)]
+		fn new_one();
+		#[api_version(99)]
+		fn staging_one();
+	}
+
+	#[api_version(2)]
+	pub trait ApiWithStagingAndChangedBase {
+		fn stable_one(data: u64);
+		fn new_one();
+		#[api_version(99)]
+		fn staging_one();
+	}
+
 }
 
 impl_runtime_apis! {
@@ -85,6 +105,33 @@ impl_runtime_apis! {
 		fn new_one() {}
 	}
 
+	#[cfg_attr(feature = "enable-staging-api", api_version(99))]
+	impl self::ApiWithStagingMethod<Block> for Runtime {
+		fn stable_one(_: u64) {}
+
+		#[cfg(feature = "enable-staging-api")]
+		fn staging_one() { }
+	}
+
+	#[cfg_attr(feature = "enable-staging-api", api_version(99))]
+	#[api_version(2)]
+	impl self::ApiWithStagingAndVersionedMethods<Block> for Runtime {
+		fn stable_one(_: u64) {}
+		fn new_one() {}
+
+		#[cfg(feature = "enable-staging-api")]
+		fn staging_one() {}
+	}
+
+	#[cfg_attr(feature = "enable-staging-api", api_version(99))]
+	impl self::ApiWithStagingAndChangedBase<Block> for Runtime {
+		fn stable_one(_: u64) {}
+		fn new_one() {}
+
+		#[cfg(feature = "enable-staging-api")]
+		fn staging_one() {}
+	}
+
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> sp_version::RuntimeVersion {
 			unimplemented!()
@@ -92,7 +139,7 @@ impl_runtime_apis! {
 		fn execute_block(_: Block) {
 			unimplemented!()
 		}
-		fn initialize_block(_: &<Block as BlockT>::Header) {
+		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			unimplemented!()
 		}
 	}
@@ -166,26 +213,52 @@ fn test_client_side_function_signature() {
 
 #[test]
 fn check_runtime_api_info() {
-	assert_eq!(&<dyn Api::<Block>>::ID, &runtime_decl_for_Api::ID);
-	assert_eq!(<dyn Api::<Block>>::VERSION, runtime_decl_for_Api::VERSION);
+	assert_eq!(&<dyn Api::<Block>>::ID, &runtime_decl_for_api::ID);
+	assert_eq!(<dyn Api::<Block>>::VERSION, runtime_decl_for_api::VERSION);
 	assert_eq!(<dyn Api::<Block>>::VERSION, 1);
 
 	assert_eq!(
 		<dyn ApiWithCustomVersion::<Block>>::VERSION,
-		runtime_decl_for_ApiWithCustomVersion::VERSION,
+		runtime_decl_for_api_with_custom_version::VERSION,
 	);
 	assert_eq!(
 		&<dyn ApiWithCustomVersion::<Block>>::ID,
-		&runtime_decl_for_ApiWithCustomVersion::ID,
+		&runtime_decl_for_api_with_custom_version::ID,
 	);
 	assert_eq!(<dyn ApiWithCustomVersion::<Block>>::VERSION, 2);
 
 	// The stable version of the API
 	assert_eq!(<dyn ApiWithMultipleVersions::<Block>>::VERSION, 2);
+
+	assert_eq!(<dyn ApiWithStagingMethod::<Block>>::VERSION, 1);
+	assert_eq!(<dyn ApiWithStagingAndVersionedMethods::<Block>>::VERSION, 1);
+	assert_eq!(<dyn ApiWithStagingAndChangedBase::<Block>>::VERSION, 2);
 }
 
 fn check_runtime_api_versions_contains<T: RuntimeApiInfo + ?Sized>() {
 	assert!(RUNTIME_API_VERSIONS.iter().any(|v| v == &(T::ID, T::VERSION)));
+}
+
+fn check_staging_runtime_api_versions<T: RuntimeApiInfo + ?Sized>(_staging_ver: u32) {
+	// Staging APIs should contain staging version if the feature is set...
+	#[cfg(feature = "enable-staging-api")]
+	assert!(RUNTIME_API_VERSIONS.iter().any(|v| v == &(T::ID, _staging_ver)));
+	//... otherwise the base version should be set
+	#[cfg(not(feature = "enable-staging-api"))]
+	check_runtime_api_versions_contains::<dyn ApiWithStagingMethod<Block>>();
+}
+
+#[allow(unused_assignments)]
+fn check_staging_multiver_runtime_api_versions<T: RuntimeApiInfo + ?Sized>(
+	_staging_ver: u32,
+	_stable_ver: u32,
+) {
+	// Staging APIs should contain staging version if the feature is set...
+	#[cfg(feature = "enable-staging-api")]
+	assert!(RUNTIME_API_VERSIONS.iter().any(|v| v == &(T::ID, _staging_ver)));
+	//... otherwise the base version should be set
+	#[cfg(not(feature = "enable-staging-api"))]
+	assert!(RUNTIME_API_VERSIONS.iter().any(|v| v == &(T::ID, _stable_ver)));
 }
 
 #[test]
@@ -195,6 +268,13 @@ fn check_runtime_api_versions() {
 	assert!(RUNTIME_API_VERSIONS
 		.iter()
 		.any(|v| v == &(<dyn ApiWithMultipleVersions<Block>>::ID, 3)));
+
+	check_staging_runtime_api_versions::<dyn ApiWithStagingMethod<Block>>(99);
+	check_staging_multiver_runtime_api_versions::<dyn ApiWithStagingAndVersionedMethods<Block>>(
+		99, 2,
+	);
+	check_staging_runtime_api_versions::<dyn ApiWithStagingAndChangedBase<Block>>(99);
+
 	check_runtime_api_versions_contains::<dyn sp_api::Core<Block>>();
 }
 

@@ -39,18 +39,16 @@ use kitchensink_runtime::{
 	RuntimeCall, Signature, SystemCall, UncheckedExtrinsic,
 };
 use node_primitives::Block;
-use sc_block_builder::BlockBuilderProvider;
-use sc_client_api::{
-	execution_extensions::{ExecutionExtensions, ExecutionStrategies},
-	ExecutionStrategy,
-};
+use sc_block_builder::BlockBuilderBuilder;
+use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 use sc_client_db::PruningMode;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedAux};
-use sc_executor::{NativeElseWasmExecutor, WasmExecutionMethod, WasmtimeInstantiationStrategy};
+use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_consensus::BlockOrigin;
-use sp_core::{blake2_256, ed25519, sr25519, traits::SpawnNamed, ExecutionContext, Pair, Public};
+use sp_core::{ed25519, sr25519, traits::SpawnNamed, Pair, Public};
+use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
@@ -308,7 +306,7 @@ impl<'a> Iterator for BlockContentIterator<'a> {
 							value: kitchensink_runtime::ExistentialDeposit::get() + 1,
 						}),
 					BlockType::RandomTransfersReaping => {
-						RuntimeCall::Balances(BalancesCall::transfer {
+						RuntimeCall::Balances(BalancesCall::transfer_allow_death {
 							dest: sp_runtime::MultiAddress::Id(receiver),
 							// Transfer so that ending balance would be 1 less than existential
 							// deposit so that we kill the sender account.
@@ -354,7 +352,7 @@ impl BenchDb {
 			dir.path().to_string_lossy(),
 		);
 		let (_client, _backend, _task_executor) =
-			Self::bench_client(database_type, dir.path(), Profile::Native, &keyring);
+			Self::bench_client(database_type, dir.path(), &keyring);
 		let directory_guard = Guard(dir);
 
 		BenchDb { keyring, directory_guard, database_type }
@@ -380,7 +378,6 @@ impl BenchDb {
 	fn bench_client(
 		database_type: DatabaseType,
 		dir: &std::path::Path,
-		profile: Profile,
 		keyring: &BenchKeyring,
 	) -> (Client, std::sync::Arc<Backend>, TaskExecutor) {
 		let db_config = sc_client_db::DatabaseSettings {
@@ -392,17 +389,15 @@ impl BenchDb {
 		let task_executor = TaskExecutor::new();
 
 		let backend = sc_service::new_db_backend(db_config).expect("Should not fail");
-		let executor = NativeElseWasmExecutor::new(
-			WasmExecutionMethod::Compiled {
+		let executor = sc_executor::WasmExecutor::builder()
+			.with_execution_method(WasmExecutionMethod::Compiled {
 				instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
-			},
-			None,
-			8,
-			2,
-		);
+			})
+			.build();
+
 		let client_config = sc_service::ClientConfig::default();
 		let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
-			&keyring.generate_genesis(),
+			keyring.as_storage_builder(),
 			!client_config.no_genesis,
 			backend.clone(),
 			executor.clone(),
@@ -411,11 +406,11 @@ impl BenchDb {
 
 		let client = sc_service::new_client(
 			backend.clone(),
-			executor,
+			executor.clone(),
 			genesis_block_builder,
 			None,
 			None,
-			ExecutionExtensions::new(profile.into_execution_strategies(), None, None),
+			ExecutionExtensions::new(None, Arc::new(executor)),
 			Box::new(task_executor.clone()),
 			None,
 			None,
@@ -439,11 +434,7 @@ impl BenchDb {
 
 		client
 			.runtime_api()
-			.inherent_extrinsics_with_context(
-				client.chain_info().genesis_hash,
-				ExecutionContext::BlockConstruction,
-				inherent_data,
-			)
+			.inherent_extrinsics(client.chain_info().genesis_hash, inherent_data)
 			.expect("Get inherents failed")
 	}
 
@@ -454,12 +445,8 @@ impl BenchDb {
 
 	/// Get cliet for this database operations.
 	pub fn client(&mut self) -> Client {
-		let (client, _backend, _task_executor) = Self::bench_client(
-			self.database_type,
-			self.directory_guard.path(),
-			Profile::Wasm,
-			&self.keyring,
-		);
+		let (client, _backend, _task_executor) =
+			Self::bench_client(self.database_type, self.directory_guard.path(), &self.keyring);
 
 		client
 	}
@@ -467,8 +454,13 @@ impl BenchDb {
 	/// Generate new block using this database.
 	pub fn generate_block(&mut self, content: BlockContent) -> Block {
 		let client = self.client();
+		let chain = client.usage_info().chain;
 
-		let mut block = client.new_block(Default::default()).expect("Block creation failed");
+		let mut block = BlockBuilderBuilder::new(&client)
+			.on_parent_block(chain.best_hash)
+			.with_parent_block_number(chain.best_number)
+			.build()
+			.expect("Failed to create block builder.");
 
 		for extrinsic in self.generate_inherents(&client) {
 			block.push(extrinsic).expect("Push inherent failed");
@@ -502,10 +494,10 @@ impl BenchDb {
 	}
 
 	/// Clone this database and create context for testing/benchmarking.
-	pub fn create_context(&self, profile: Profile) -> BenchContext {
+	pub fn create_context(&self) -> BenchContext {
 		let BenchDb { directory_guard, keyring, database_type } = self.clone();
 		let (client, backend, task_executor) =
-			Self::bench_client(database_type, directory_guard.path(), profile, &keyring);
+			Self::bench_client(database_type, directory_guard.path(), &keyring);
 
 		BenchContext {
 			client: Arc::new(client),
@@ -583,7 +575,7 @@ impl BenchKeyring {
 				let key = self.accounts.get(&signed).expect("Account id not found in keyring");
 				let signature = payload.using_encoded(|b| {
 					if b.len() > 256 {
-						key.sign(&sp_io::hashing::blake2_256(b))
+						key.sign(&blake2_256(b))
 					} else {
 						key.sign(b)
 					}
@@ -597,42 +589,20 @@ impl BenchKeyring {
 		}
 	}
 
-	/// Generate genesis with accounts from this keyring endowed with some balance.
-	pub fn generate_genesis(&self) -> kitchensink_runtime::GenesisConfig {
-		crate::genesis::config_endowed(
-			Some(kitchensink_runtime::wasm_binary_unwrap()),
-			self.collect_account_ids(),
-		)
+	/// Generate genesis with accounts from this keyring endowed with some balance and
+	/// kitchensink_runtime code blob.
+	pub fn as_storage_builder(&self) -> &dyn sp_runtime::BuildStorage {
+		self
 	}
 }
 
-/// Profile for exetion strategies.
-#[derive(Clone, Copy, Debug)]
-pub enum Profile {
-	/// As native as possible.
-	Native,
-	/// As wasm as possible.
-	Wasm,
-}
-
-impl Profile {
-	fn into_execution_strategies(self) -> ExecutionStrategies {
-		match self {
-			Profile::Wasm => ExecutionStrategies {
-				syncing: ExecutionStrategy::AlwaysWasm,
-				importing: ExecutionStrategy::AlwaysWasm,
-				block_construction: ExecutionStrategy::AlwaysWasm,
-				offchain_worker: ExecutionStrategy::AlwaysWasm,
-				other: ExecutionStrategy::AlwaysWasm,
-			},
-			Profile::Native => ExecutionStrategies {
-				syncing: ExecutionStrategy::NativeElseWasm,
-				importing: ExecutionStrategy::NativeElseWasm,
-				block_construction: ExecutionStrategy::NativeElseWasm,
-				offchain_worker: ExecutionStrategy::NativeElseWasm,
-				other: ExecutionStrategy::NativeElseWasm,
-			},
-		}
+impl sp_runtime::BuildStorage for BenchKeyring {
+	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
+		storage.top.insert(
+			sp_core::storage::well_known_keys::CODE.to_vec(),
+			kitchensink_runtime::wasm_binary_unwrap().into(),
+		);
+		crate::genesis::config_endowed(self.collect_account_ids()).assimilate_storage(storage)
 	}
 }
 
@@ -682,10 +652,8 @@ impl BenchContext {
 		assert_eq!(self.client.chain_info().best_number, 0);
 
 		assert_eq!(
-			futures::executor::block_on(
-				self.client.import_block(import_params, Default::default())
-			)
-			.expect("Failed to import block"),
+			futures::executor::block_on(self.client.import_block(import_params))
+				.expect("Failed to import block"),
 			ImportResult::Imported(ImportedAux {
 				header_only: false,
 				clear_justification_requests: false,

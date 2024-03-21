@@ -25,13 +25,13 @@ use super::{
 	error::{Error, Result},
 	ChildStateBackend, StateBackend,
 };
-use crate::{DenyUnsafe, SubscriptionTaskExecutor};
-
-use futures::{future, stream, FutureExt, StreamExt};
-use jsonrpsee::{
-	core::{async_trait, Error as JsonRpseeError},
-	SubscriptionSink,
+use crate::{
+	utils::{pipe_from_stream, spawn_subscription_task},
+	DenyUnsafe, SubscriptionTaskExecutor,
 };
+
+use futures::{future, stream, StreamExt};
+use jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, ProofProvider,
 	StorageProvider,
@@ -46,6 +46,7 @@ use sp_core::{
 	storage::{
 		ChildInfo, ChildType, PrefixedStorageKey, StorageChangeSet, StorageData, StorageKey,
 	},
+	traits::CallContext,
 	Bytes,
 };
 use sp_runtime::traits::Block as BlockT;
@@ -65,7 +66,6 @@ pub struct FullState<BE, Block: BlockT, Client> {
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
 	_phantom: PhantomData<(BE, Block)>,
-	rpc_max_payload: Option<usize>,
 }
 
 impl<BE, Block: BlockT, Client> FullState<BE, Block, Client>
@@ -78,12 +78,8 @@ where
 	Block: BlockT + 'static,
 {
 	/// Create new state API backend for full nodes.
-	pub fn new(
-		client: Arc<Client>,
-		executor: SubscriptionTaskExecutor,
-		rpc_max_payload: Option<usize>,
-	) -> Self {
-		Self { client, executor, _phantom: PhantomData, rpc_max_payload }
+	pub fn new(client: Arc<Client>, executor: SubscriptionTaskExecutor) -> Self {
+		Self { client, executor, _phantom: PhantomData }
 	}
 
 	/// Returns given block hash or best block hash if None is passed.
@@ -202,34 +198,35 @@ where
 			.and_then(|block| {
 				self.client
 					.executor()
-					.call(
-						block,
-						&method,
-						&call_data,
-						self.client.execution_extensions().strategies().other,
-					)
+					.call(block, &method, &call_data, CallContext::Offchain)
 					.map(Into::into)
 			})
 			.map_err(client_err)
 	}
 
+	// TODO: This is horribly broken; either remove it, or make it streaming.
 	fn storage_keys(
 		&self,
 		block: Option<Block::Hash>,
 		prefix: StorageKey,
 	) -> std::result::Result<Vec<StorageKey>, Error> {
+		// TODO: Remove the `.collect`.
 		self.block_or_best(block)
-			.and_then(|block| self.client.storage_keys(block, &prefix))
+			.and_then(|block| self.client.storage_keys(block, Some(&prefix), None))
+			.map(|iter| iter.collect())
 			.map_err(client_err)
 	}
 
+	// TODO: This is horribly broken; either remove it, or make it streaming.
 	fn storage_pairs(
 		&self,
 		block: Option<Block::Hash>,
 		prefix: StorageKey,
 	) -> std::result::Result<Vec<(StorageKey, StorageData)>, Error> {
+		// TODO: Remove the `.collect`.
 		self.block_or_best(block)
-			.and_then(|block| self.client.storage_pairs(block, &prefix))
+			.and_then(|block| self.client.storage_pairs(block, Some(&prefix), None))
+			.map(|iter| iter.collect())
 			.map_err(client_err)
 	}
 
@@ -241,9 +238,7 @@ where
 		start_key: Option<StorageKey>,
 	) -> std::result::Result<Vec<StorageKey>, Error> {
 		self.block_or_best(block)
-			.and_then(|block| {
-				self.client.storage_keys_iter(block, prefix.as_ref(), start_key.as_ref())
-			})
+			.and_then(|block| self.client.storage_keys(block, prefix.as_ref(), start_key.as_ref()))
 			.map(|iter| iter.take(count as usize).collect())
 			.map_err(client_err)
 	}
@@ -284,7 +279,7 @@ where
 			}
 
 			// The key doesn't point to anything, so it's probably a prefix.
-			let iter = match client.storage_keys_iter(block, Some(&key), None).map_err(client_err) {
+			let iter = match client.storage_keys(block, Some(&key), None).map_err(client_err) {
 				Ok(iter) => iter,
 				Err(e) => return Ok(Err(e)),
 			};
@@ -376,9 +371,7 @@ where
 			.map_err(client_err)
 	}
 
-	fn subscribe_runtime_version(&self, mut sink: SubscriptionSink) {
-		let client = self.client.clone();
-
+	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink) {
 		let initial = match self
 			.block_or_best(None)
 			.and_then(|block| self.client.runtime_version_at(block).map_err(Into::into))
@@ -386,12 +379,13 @@ where
 		{
 			Ok(initial) => initial,
 			Err(e) => {
-				let _ = sink.reject(JsonRpseeError::from(e));
+				spawn_subscription_task(&self.executor, pending.reject(e));
 				return
 			},
 		};
 
 		let mut previous_version = initial.clone();
+		let client = self.client.clone();
 
 		// A stream of new versions
 		let version_stream = client
@@ -411,24 +405,33 @@ where
 			});
 
 		let stream = futures::stream::once(future::ready(initial)).chain(version_stream);
-
-		let fut = async move {
-			sink.pipe_from_stream(stream).await;
-		};
-
-		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
 	}
 
-	fn subscribe_storage(&self, mut sink: SubscriptionSink, keys: Option<Vec<StorageKey>>) {
+	fn subscribe_storage(
+		&self,
+		pending: PendingSubscriptionSink,
+		keys: Option<Vec<StorageKey>>,
+		deny_unsafe: DenyUnsafe,
+	) {
+		if keys.is_none() {
+			if let Err(err) = deny_unsafe.check_if_safe() {
+				spawn_subscription_task(&self.executor, pending.reject(ErrorObject::from(err)));
+				return
+			}
+		}
+
 		let stream = match self.client.storage_changes_notification_stream(keys.as_deref(), None) {
 			Ok(stream) => stream,
 			Err(blockchain_err) => {
-				let _ = sink.reject(JsonRpseeError::from(Error::Client(Box::new(blockchain_err))));
+				spawn_subscription_task(
+					&self.executor,
+					pending.reject(Error::Client(Box::new(blockchain_err))),
+				);
 				return
 			},
 		};
 
-		// initial values
 		let initial = stream::iter(keys.map(|keys| {
 			let block = self.client.info().best_hash;
 			let changes = keys
@@ -441,7 +444,6 @@ where
 			StorageChangeSet { block, changes }
 		}));
 
-		// let storage_stream = stream.map(|(block, changes)| StorageChangeSet {
 		let storage_stream = stream.map(|storage_notif| StorageChangeSet {
 			block: storage_notif.block,
 			changes: storage_notif
@@ -455,11 +457,7 @@ where
 			.chain(storage_stream)
 			.filter(|storage| future::ready(!storage.changes.is_empty()));
 
-		let fut = async move {
-			sink.pipe_from_stream(stream).await;
-		};
-
-		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
 	}
 
 	fn trace_block(
@@ -475,7 +473,6 @@ where
 			targets,
 			storage_keys,
 			methods,
-			self.rpc_max_payload,
 		)
 		.trace_block()
 		.map_err(|e| invalid_block::<Block>(block, None, e.to_string()))
@@ -531,6 +528,7 @@ where
 		storage_key: PrefixedStorageKey,
 		prefix: StorageKey,
 	) -> std::result::Result<Vec<StorageKey>, Error> {
+		// TODO: Remove the `.collect`.
 		self.block_or_best(block)
 			.and_then(|block| {
 				let child_info = match ChildType::from_prefixed_key(&storage_key) {
@@ -538,8 +536,9 @@ where
 						ChildInfo::new_default(storage_key),
 					None => return Err(sp_blockchain::Error::InvalidChildStorageKey),
 				};
-				self.client.child_storage_keys(block, &child_info, &prefix)
+				self.client.child_storage_keys(block, child_info, Some(&prefix), None)
 			})
+			.map(|iter| iter.collect())
 			.map_err(client_err)
 	}
 
@@ -558,7 +557,7 @@ where
 						ChildInfo::new_default(storage_key),
 					None => return Err(sp_blockchain::Error::InvalidChildStorageKey),
 				};
-				self.client.child_storage_keys_iter(
+				self.client.child_storage_keys(
 					block,
 					child_info,
 					prefix.as_ref(),

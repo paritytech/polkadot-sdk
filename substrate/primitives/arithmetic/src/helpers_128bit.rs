@@ -22,7 +22,7 @@
 //! multiplication implementation provided there.
 
 use crate::{biguint, Rounding};
-use sp_std::cmp::{max, min};
+use core::cmp::{max, min};
 
 /// Helper gcd function used in Rational128 implementation.
 pub fn gcd(a: u128, b: u128) -> u128 {
@@ -182,8 +182,8 @@ mod double128 {
 	}
 }
 
-/// Returns `a * b / c` and `(a * b) % c` (wrapping to 128 bits) or `None` in the case of
-/// overflow and c = 0.
+/// Returns `a * b / c` (wrapping to 128 bits) or `None` in the case of
+/// overflow.
 pub const fn multiply_by_rational_with_rounding(
 	a: u128,
 	b: u128,
@@ -287,7 +287,7 @@ mod tests {
 	}
 
 	fn random_u128(seed: u32) -> u128 {
-		u128::decode(&mut &seed.using_encoded(sp_core::hashing::twox_128)[..]).unwrap_or(0)
+		u128::decode(&mut &seed.using_encoded(sp_crypto_hashing::twox_128)[..]).unwrap_or(0)
 	}
 
 	#[test]

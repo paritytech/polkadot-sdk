@@ -27,9 +27,9 @@
 //! instantiated. The `BasicQueue` and `BasicVerifier` traits allow serial
 //! queues to be instantiated simply.
 
-use std::{collections::HashMap, iter::FromIterator};
-
 use log::{debug, trace};
+
+use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as _, NumberFor},
 	Justifications,
@@ -42,31 +42,29 @@ use crate::{
 	},
 	metrics::Metrics,
 };
+
 pub use basic_queue::BasicQueue;
-use sp_consensus::{error::Error as ConsensusError, BlockOrigin, CacheKeyId};
 
 const LOG_TARGET: &str = "sync::import-queue";
 
 /// A commonly-used Import Queue type.
 ///
 /// This defines the transaction type of the `BasicQueue` to be the transaction type for a client.
-pub type DefaultImportQueue<Block, Client> =
-	BasicQueue<Block, sp_api::TransactionFor<Client, Block>>;
+pub type DefaultImportQueue<Block> = BasicQueue<Block>;
 
 mod basic_queue;
 pub mod buffered_link;
 pub mod mock;
 
 /// Shared block import struct used by the queue.
-pub type BoxBlockImport<B, Transaction> =
-	Box<dyn BlockImport<B, Error = ConsensusError, Transaction = Transaction> + Send + Sync>;
+pub type BoxBlockImport<B> = Box<dyn BlockImport<B, Error = ConsensusError> + Send + Sync>;
 
 /// Shared justification import struct used by the queue.
 pub type BoxJustificationImport<B> =
 	Box<dyn JustificationImport<B, Error = ConsensusError> + Send + Sync>;
 
 /// Maps to the RuntimeOrigin used by the network.
-pub type RuntimeOrigin = libp2p::PeerId;
+pub type RuntimeOrigin = libp2p_identity::PeerId;
 
 /// Block data used by the queue.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -95,14 +93,11 @@ pub struct IncomingBlock<B: BlockT> {
 
 /// Verify a justification of a block
 #[async_trait::async_trait]
-pub trait Verifier<B: BlockT>: Send + Sync {
-	/// Verify the given data and return the BlockImportParams and an optional
-	/// new set of validators to import. If not, err with an Error-Message
-	/// presented to the User in the logs.
-	async fn verify(
-		&mut self,
-		block: BlockImportParams<B, ()>,
-	) -> Result<(BlockImportParams<B, ()>, Option<Vec<(CacheKeyId, Vec<u8>)>>), String>;
+pub trait Verifier<B: BlockT>: Send {
+	/// Verify the given block data and return the `BlockImportParams` to
+	/// continue the block import process.
+	async fn verify(&mut self, block: BlockImportParams<B>)
+		-> Result<BlockImportParams<B>, String>;
 }
 
 /// Blocks import queue API.
@@ -222,8 +217,8 @@ pub enum BlockImportError {
 type BlockImportResult<B> = Result<BlockImportStatus<NumberFor<B>>, BlockImportError>;
 
 /// Single block import function.
-pub async fn import_single_block<B: BlockT, V: Verifier<B>, Transaction: Send + 'static>(
-	import_handle: &mut impl BlockImport<B, Transaction = Transaction, Error = ConsensusError>,
+pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
+	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
 	block_origin: BlockOrigin,
 	block: IncomingBlock<B>,
 	verifier: &mut V,
@@ -232,12 +227,8 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>, Transaction: Send + 
 }
 
 /// Single block import function with metering.
-pub(crate) async fn import_single_block_metered<
-	B: BlockT,
-	V: Verifier<B>,
-	Transaction: Send + 'static,
->(
-	import_handle: &mut impl BlockImport<B, Transaction = Transaction, Error = ConsensusError>,
+pub(crate) async fn import_single_block_metered<B: BlockT, V: Verifier<B>>(
+	import_handle: &mut impl BlockImport<B, Error = ConsensusError>,
 	block_origin: BlockOrigin,
 	block: IncomingBlock<B>,
 	verifier: &mut V,
@@ -328,7 +319,7 @@ pub(crate) async fn import_single_block_metered<
 		import_block.state_action = StateAction::ExecuteIfPossible;
 	}
 
-	let (import_block, maybe_keys) = verifier.verify(import_block).await.map_err(|msg| {
+	let import_block = verifier.verify(import_block).await.map_err(|msg| {
 		if let Some(ref peer) = peer {
 			trace!(
 				target: LOG_TARGET,
@@ -351,9 +342,7 @@ pub(crate) async fn import_single_block_metered<
 		metrics.report_verification(true, started.elapsed());
 	}
 
-	let cache = HashMap::from_iter(maybe_keys.unwrap_or_default());
-	let import_block = import_block.clear_storage_changes_and_mutate();
-	let imported = import_handle.import_block(import_block, cache).await;
+	let imported = import_handle.import_block(import_block).await;
 	if let Some(metrics) = metrics.as_ref() {
 		metrics.report_verification_and_import(started.elapsed());
 	}

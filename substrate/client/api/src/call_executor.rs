@@ -19,12 +19,14 @@
 //! A method call executor interface.
 
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
-use sp_runtime::traits::Block as BlockT;
-use sp_state_machine::{ExecutionStrategy, OverlayedChanges, StorageProof};
+use sp_core::traits::CallContext;
+use sp_externalities::Extensions;
+use sp_runtime::traits::{Block as BlockT, HashingFor};
+use sp_state_machine::{OverlayedChanges, StorageProof};
 use std::cell::RefCell;
 
 use crate::execution_extensions::ExecutionExtensions;
-use sp_api::{ExecutionContext, ProofRecorder, StorageTransactionCache};
+use sp_api::ProofRecorder;
 
 /// Executor Provider
 pub trait ExecutorProvider<Block: BlockT> {
@@ -57,7 +59,7 @@ pub trait CallExecutor<B: BlockT>: RuntimeVersionOf {
 		at_hash: B::Hash,
 		method: &str,
 		call_data: &[u8],
-		strategy: ExecutionStrategy,
+		context: CallContext,
 	) -> Result<Vec<u8>, sp_blockchain::Error>;
 
 	/// Execute a contextual call on top of state in a block of a given hash.
@@ -70,14 +72,10 @@ pub trait CallExecutor<B: BlockT>: RuntimeVersionOf {
 		at_hash: B::Hash,
 		method: &str,
 		call_data: &[u8],
-		changes: &RefCell<OverlayedChanges>,
-		storage_transaction_cache: Option<
-			&RefCell<
-				StorageTransactionCache<B, <Self::Backend as crate::backend::Backend<B>>::State>,
-			>,
-		>,
+		changes: &RefCell<OverlayedChanges<HashingFor<B>>>,
 		proof_recorder: &Option<ProofRecorder<B>>,
-		context: ExecutionContext,
+		call_context: CallContext,
+		extensions: &RefCell<Extensions>,
 	) -> sp_blockchain::Result<Vec<u8>>;
 
 	/// Extract RuntimeVersion of given block

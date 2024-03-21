@@ -1,3 +1,21 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // Make the WASM binary available.
@@ -163,7 +181,7 @@ sp_core::wasm_export_functions! {
 		sig.copy_from_slice(&input[32..96]);
 
 		let msg = b"all ok!";
-		ed25519_verify(&ed25519::Signature(sig), &msg[..], &ed25519::Public(pubkey))
+		ed25519_verify(&ed25519::Signature::from(sig), &msg[..], &ed25519::Public::from(pubkey))
 	}
 
 	fn test_sr25519_verify(input: Vec<u8>) -> bool {
@@ -174,7 +192,7 @@ sp_core::wasm_export_functions! {
 		sig.copy_from_slice(&input[32..96]);
 
 		let msg = b"all ok!";
-		sr25519_verify(&sr25519::Signature(sig), &msg[..], &sr25519::Public(pubkey))
+		sr25519_verify(&sr25519::Signature::from(sig), &msg[..], &sr25519::Public::from(pubkey))
 	}
 
 	fn test_ordered_trie_root() -> Vec<u8> {
@@ -326,6 +344,15 @@ sp_core::wasm_export_functions! {
 
 	fn test_take_i8(value: i8) {
 		assert_eq!(value, -66);
+	}
+
+	fn allocate_two_gigabyte() -> u32 {
+		let mut data = Vec::new();
+		for _ in 0..205 {
+			data.push(Vec::<u8>::with_capacity(10 * 1024 * 1024));
+		}
+
+		data.iter().map(|d| d.capacity() as u32).sum()
 	}
 
 	fn test_abort_on_panic() {

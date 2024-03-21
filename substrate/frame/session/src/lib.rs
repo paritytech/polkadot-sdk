@@ -115,9 +115,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use codec::{Decode, MaxEncodedLen};
 use frame_support::{
-	codec::{Decode, MaxEncodedLen},
-	dispatch::{DispatchError, DispatchResult},
+	dispatch::DispatchResult,
 	ensure,
 	traits::{
 		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get, OneSessionHandler,
@@ -126,9 +126,10 @@ use frame_support::{
 	weights::Weight,
 	Parameter,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
-	ConsensusEngineId, KeyTypeId, Permill, RuntimeAppPublic,
+	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
 use sp_std::{
@@ -284,7 +285,11 @@ pub trait SessionHandler<ValidatorId> {
 	/// before initialization of your pallet.
 	///
 	/// `changed` is true whenever any of the session keys or underlying economic
-	/// identities or weightings behind those keys has changed.
+	/// identities or weightings behind `validators` keys has changed. `queued_validators`
+	/// could change without `validators` changing. Example of possible sequent calls:
+	///     Session N: on_new_session(false, unchanged_validators, unchanged_queued_validators)
+	///     Session N + 1: on_new_session(false, unchanged_validators, new_queued_validators)
+	/// 	Session N + 2: on_new_session(true, new_queued_validators, new_queued_validators)
 	fn on_new_session<Ks: OpaqueKeys>(
 		changed: bool,
 		validators: &[(ValidatorId, Ks)],
@@ -367,11 +372,10 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -394,12 +398,12 @@ pub mod pallet {
 		type ValidatorIdOf: Convert<Self::AccountId, Option<Self::ValidatorId>>;
 
 		/// Indicator for when to end the session.
-		type ShouldEndSession: ShouldEndSession<Self::BlockNumber>;
+		type ShouldEndSession: ShouldEndSession<BlockNumberFor<Self>>;
 
 		/// Something that can predict the next session rotation. This should typically come from
 		/// the same logical unit that provides [`ShouldEndSession`], yet, it gives a best effort
 		/// estimate. It is helpful to implement [`EstimateNextNewSession`].
-		type NextSessionRotation: EstimateNextSessionRotation<Self::BlockNumber>;
+		type NextSessionRotation: EstimateNextSessionRotation<BlockNumberFor<Self>>;
 
 		/// Handler for managing new session.
 		type SessionManager: SessionManager<Self::ValidatorId>;
@@ -415,19 +419,13 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		pub keys: Vec<(T::AccountId, T::ValidatorId, T::Keys)>,
 	}
 
-	#[cfg(feature = "std")]
-	impl<T: Config> Default for GenesisConfig<T> {
-		fn default() -> Self {
-			Self { keys: Default::default() }
-		}
-	}
-
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			if T::SessionHandler::KEY_TYPE_IDS.len() != T::Keys::key_ids().len() {
 				panic!("Number of keys in session handler and session keys does not match");
@@ -466,27 +464,13 @@ pub mod pallet {
 					);
 					self.keys.iter().map(|x| x.1.clone()).collect()
 				});
-			assert!(
-				!initial_validators_0.is_empty(),
-				"Empty validator set for session 0 in genesis block!"
-			);
 
 			let initial_validators_1 = T::SessionManager::new_session_genesis(1)
 				.unwrap_or_else(|| initial_validators_0.clone());
-			assert!(
-				!initial_validators_1.is_empty(),
-				"Empty validator set for session 1 in genesis block!"
-			);
 
 			let queued_keys: Vec<_> = initial_validators_1
-				.iter()
-				.cloned()
-				.map(|v| {
-					(
-						v.clone(),
-						Pallet::<T>::load_keys(&v).expect("Validator in session 1 missing keys!"),
-					)
-				})
+				.into_iter()
+				.filter_map(|v| Pallet::<T>::load_keys(&v).map(|k| (v, k)))
 				.collect();
 
 			// Tell everyone about the genesis session keys
@@ -566,7 +550,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Called when a block is initialized. Will rotate session if it is the last
 		/// block of the current session.
-		fn on_initialize(n: T::BlockNumber) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			if T::ShouldEndSession::should_end_session(n) {
 				Self::rotate_session();
 				T::BlockWeights::get().max_block
@@ -679,7 +663,7 @@ impl<T: Config> Pallet<T> {
 				// since a new validator set always leads to `changed` starting
 				// as true, we can ensure that `now_session_keys` and `next_validators`
 				// have the same length. this function is called once per iteration.
-				if let Some(&(_, ref old_keys)) = now_session_keys.next() {
+				if let Some((_, old_keys)) = now_session_keys.next() {
 					if old_keys != keys {
 						changed = true;
 					}
@@ -908,14 +892,14 @@ impl<T: Config> ValidatorSet<T::AccountId> for Pallet<T> {
 	}
 }
 
-impl<T: Config> EstimateNextNewSession<T::BlockNumber> for Pallet<T> {
-	fn average_session_length() -> T::BlockNumber {
+impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
+	fn average_session_length() -> BlockNumberFor<T> {
 		T::NextSessionRotation::average_session_length()
 	}
 
 	/// This session pallet always calls new_session and next_session at the same time, hence we
 	/// do a simple proxy and pass the function to next rotation.
-	fn estimate_next_new_session(now: T::BlockNumber) -> (Option<T::BlockNumber>, Weight) {
+	fn estimate_next_new_session(now: BlockNumberFor<T>) -> (Option<BlockNumberFor<T>>, Weight) {
 		T::NextSessionRotation::estimate_next_session_rotation(now)
 	}
 }
@@ -923,6 +907,10 @@ impl<T: Config> EstimateNextNewSession<T::BlockNumber> for Pallet<T> {
 impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
 		<Pallet<T>>::disabled_validators().binary_search(&index).is_ok()
+	}
+
+	fn disabled_validators() -> Vec<u32> {
+		<Pallet<T>>::disabled_validators()
 	}
 }
 

@@ -21,12 +21,15 @@ use std::{convert::TryInto, sync::Arc};
 
 use codec::{Codec, Decode};
 use jsonrpsee::{
-	core::{Error as JsonRpseeError, RpcResult},
+	core::RpcResult,
 	proc_macros::rpc,
-	types::error::{CallError, ErrorCode, ErrorObject},
+	types::{
+		error::{ErrorCode, ErrorObject},
+		ErrorObjectOwned,
+	},
 };
 use pallet_transaction_payment_rpc_runtime_api::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_rpc::number::NumberOrHex;
@@ -81,7 +84,7 @@ impl From<Error> for i32 {
 impl<C, Block, Balance>
 	TransactionPaymentApiServer<
 		<Block as BlockT>::Hash,
-		RuntimeDispatchInfo<Balance, sp_weights::OldWeight>,
+		RuntimeDispatchInfo<Balance, sp_weights::Weight>,
 	> for TransactionPayment<C, Block>
 where
 	Block: BlockT,
@@ -93,54 +96,33 @@ where
 		&self,
 		encoded_xt: Bytes,
 		at: Option<Block::Hash>,
-	) -> RpcResult<RuntimeDispatchInfo<Balance, sp_weights::OldWeight>> {
+	) -> RpcResult<RuntimeDispatchInfo<Balance, sp_weights::Weight>> {
 		let api = self.client.runtime_api();
 		let at_hash = at.unwrap_or_else(|| self.client.info().best_hash);
 
 		let encoded_len = encoded_xt.len() as u32;
 
 		let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| {
-			CallError::Custom(ErrorObject::owned(
+			ErrorObject::owned(
 				Error::DecodeError.into(),
 				"Unable to query dispatch info.",
 				Some(format!("{:?}", e)),
-			))
+			)
 		})?;
 
-		fn map_err(error: impl ToString, desc: &'static str) -> CallError {
-			CallError::Custom(ErrorObject::owned(
-				Error::RuntimeError.into(),
-				desc,
-				Some(error.to_string()),
-			))
+		fn map_err(error: impl ToString, desc: &'static str) -> ErrorObjectOwned {
+			ErrorObject::owned(Error::RuntimeError.into(), desc, Some(error.to_string()))
 		}
 
-		let api_version = api
-			.api_version::<dyn TransactionPaymentRuntimeApi<Block, Balance>>(at_hash)
-			.map_err(|e| map_err(e, "Failed to get transaction payment runtime api version"))?
-			.ok_or_else(|| {
-				CallError::Custom(ErrorObject::owned(
-					Error::RuntimeError.into(),
-					"Transaction payment runtime api wasn't found in the runtime",
-					None::<String>,
-				))
-			})?;
+		let res = api
+			.query_info(at_hash, uxt, encoded_len)
+			.map_err(|e| map_err(e, "Unable to query dispatch info."))?;
 
-		if api_version < 2 {
-			#[allow(deprecated)]
-			api.query_info_before_version_2(at_hash, uxt, encoded_len)
-				.map_err(|e| map_err(e, "Unable to query dispatch info.").into())
-		} else {
-			let res = api
-				.query_info(at_hash, uxt, encoded_len)
-				.map_err(|e| map_err(e, "Unable to query dispatch info."))?;
-
-			Ok(RuntimeDispatchInfo {
-				weight: sp_weights::OldWeight(res.weight.ref_time()),
-				class: res.class,
-				partial_fee: res.partial_fee,
-			})
-		}
+		Ok(RuntimeDispatchInfo {
+			weight: res.weight,
+			class: res.class,
+			partial_fee: res.partial_fee,
+		})
 	}
 
 	fn query_fee_details(
@@ -154,27 +136,27 @@ where
 		let encoded_len = encoded_xt.len() as u32;
 
 		let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| {
-			CallError::Custom(ErrorObject::owned(
+			ErrorObject::owned(
 				Error::DecodeError.into(),
 				"Unable to query fee details.",
 				Some(format!("{:?}", e)),
-			))
+			)
 		})?;
 		let fee_details = api.query_fee_details(at_hash, uxt, encoded_len).map_err(|e| {
-			CallError::Custom(ErrorObject::owned(
+			ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to query fee details.",
 				Some(e.to_string()),
-			))
+			)
 		})?;
 
 		let try_into_rpc_balance = |value: Balance| {
 			value.try_into().map_err(|_| {
-				JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					ErrorCode::InvalidParams.code(),
 					format!("{} doesn't fit in NumberOrHex representation", value),
 					None::<()>,
-				)))
+				)
 			})
 		};
 

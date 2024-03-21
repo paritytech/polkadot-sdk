@@ -18,7 +18,7 @@
 //! Contains the [`BlockCmd`] as entry point for the CLI to execute
 //! the *block* benchmark.
 
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_block_builder::BlockBuilderApi;
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
 use sc_client_api::{Backend as ClientBackend, BlockBackend, StorageProvider, UsageProvider};
 use sp_api::{ApiExt, ProvideRuntimeApi};
@@ -39,12 +39,12 @@ use super::bench::{Benchmark, BenchmarkParams};
 /// did not use more weight than declared which would otherwise be an issue.
 /// To test this with a dev node, first create one with a temp directory:
 ///
-/// $ substrate --dev -d /tmp/my-dev --execution wasm --wasm-execution compiled
+/// $ substrate --dev -d /tmp/my-dev --wasm-execution compiled
 ///
 /// And wait some time to let it produce 3 blocks. Then benchmark them with:
 ///
 /// $ substrate benchmark-block --from 1 --to 3 --dev -d /tmp/my-dev
-///   --execution wasm --wasm-execution compiled --pruning archive
+///   --wasm-execution compiled --pruning archive
 ///
 /// The output will be similar to this:
 ///
@@ -84,13 +84,12 @@ impl BlockCmd {
 	where
 		Block: BlockT<Extrinsic = OpaqueExtrinsic>,
 		BA: ClientBackend<Block>,
-		C: BlockBuilderProvider<BA, Block, C>
-			+ BlockBackend<Block>
+		C: BlockBackend<Block>
 			+ ProvideRuntimeApi<Block>
 			+ StorageProvider<Block, BA>
 			+ UsageProvider<Block>
 			+ HeaderBackend<Block>,
-		C::Api: ApiExt<Block, StateBackend = BA::State> + BlockBuilderApi<Block>,
+		C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	{
 		// Put everything in the benchmark type to have the generic types handy.
 		Benchmark::new(client, self.params.clone()).run()

@@ -1,0 +1,22 @@
+[book]
+authors = ["Parity Technologies <admin@parity.io>"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The Polkadot Parachain Host Implementers' Guide"
+
+[preprocessor.graphviz]
+command = "mdbook-graphviz"
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+[preprocessor.last-changed]
+command = "mdbook-last-changed"
+renderer = ["html"]
+
+[output.html]
+additional-css = ["last-changed.css"]
+additional-js = ["mermaid-init.js", "mermaid.min.js"]
+# Repository URL used in the last-changed link.
+git-repository-url = "https://github.com/paritytech/polkadot-sdk"
+
+[output.linkcheck]

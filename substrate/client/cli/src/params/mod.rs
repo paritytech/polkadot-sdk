@@ -19,11 +19,15 @@ mod database_params;
 mod import_params;
 mod keystore_params;
 mod message_params;
+mod mixnet_params;
 mod network_params;
 mod node_key_params;
 mod offchain_worker_params;
+mod prometheus_params;
 mod pruning_params;
+mod runtime_params;
 mod shared_params;
+mod telemetry_params;
 mod transaction_pool_params;
 
 use crate::arg_enums::{CryptoScheme, OutputType};
@@ -36,8 +40,9 @@ use sp_runtime::{
 use std::{fmt::Debug, str::FromStr};
 
 pub use crate::params::{
-	database_params::*, import_params::*, keystore_params::*, message_params::*, network_params::*,
-	node_key_params::*, offchain_worker_params::*, pruning_params::*, shared_params::*,
+	database_params::*, import_params::*, keystore_params::*, message_params::*, mixnet_params::*,
+	network_params::*, node_key_params::*, offchain_worker_params::*, prometheus_params::*,
+	pruning_params::*, runtime_params::*, shared_params::*, telemetry_params::*,
 	transaction_pool_params::*,
 };
 
@@ -110,7 +115,6 @@ impl BlockNumberOrHash {
 	/// Parse the inner value as `BlockId`.
 	pub fn parse<B: BlockT>(&self) -> Result<BlockId<B>, String>
 	where
-		B::Hash: FromStr,
 		<B::Hash as FromStr>::Err: std::fmt::Debug,
 		NumberFor<B>: FromStr,
 		<NumberFor<B> as FromStr>::Err: std::fmt::Debug,

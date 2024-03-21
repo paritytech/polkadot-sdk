@@ -15,9 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{assert_noop, assert_ok, assert_storage_noop, dispatch::EncodeLike};
+use codec::EncodeLike;
+use frame_support::{assert_noop, assert_ok, assert_storage_noop};
 use frame_system::RawOrigin;
-use sp_runtime::traits::{BadOrigin, Identity};
+use sp_runtime::{
+	traits::{BadOrigin, Identity},
+	TokenError,
+};
 
 use super::{Vesting as VestingStorage, *};
 use crate::mock::{Balances, ExtBuilder, System, Test, Vesting};
@@ -180,10 +184,8 @@ fn unvested_balance_should_not_transfer() {
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
 									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
-		assert_noop!(
-			Balances::transfer(Some(1).into(), 2, 56),
-			pallet_balances::Error::<Test, _>::LiquidityRestrictions,
-		); // Account 1 cannot send more than vested amount
+		// Account 1 cannot send more than vested amount...
+		assert_noop!(Balances::transfer_allow_death(Some(1).into(), 2, 56), TokenError::Frozen);
 	});
 }
 
@@ -195,7 +197,7 @@ fn vested_balance_should_transfer() {
 									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		assert_ok!(Vesting::vest(Some(1).into()));
-		assert_ok!(Balances::transfer(Some(1).into(), 2, 55));
+		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 55));
 	});
 }
 
@@ -213,7 +215,7 @@ fn vested_balance_should_transfer_with_multi_sched() {
 		// Account 1 has only 256 units unlocking at block 1 (plus 1280 already fee).
 		assert_eq!(Vesting::vesting_balance(&1), Some(2304));
 		assert_ok!(Vesting::vest(Some(1).into()));
-		assert_ok!(Balances::transfer(Some(1).into(), 2, 1536));
+		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 1536));
 	});
 }
 
@@ -233,7 +235,7 @@ fn vested_balance_should_transfer_using_vest_other() {
 									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		assert_ok!(Vesting::vest_other(Some(2).into(), 1));
-		assert_ok!(Balances::transfer(Some(1).into(), 2, 55));
+		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 55));
 	});
 }
 
@@ -251,7 +253,7 @@ fn vested_balance_should_transfer_using_vest_other_with_multi_sched() {
 		// Account 1 has only 256 units unlocking at block 1 (plus 1280 already free).
 		assert_eq!(Vesting::vesting_balance(&1), Some(2304));
 		assert_ok!(Vesting::vest_other(Some(2).into(), 1));
-		assert_ok!(Balances::transfer(Some(1).into(), 2, 1536));
+		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 1536));
 	});
 }
 
@@ -266,8 +268,8 @@ fn non_vested_cannot_vest_other() {
 #[test]
 fn extra_balance_should_transfer() {
 	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
-		assert_ok!(Balances::transfer(Some(3).into(), 1, 100));
-		assert_ok!(Balances::transfer(Some(3).into(), 2, 100));
+		assert_ok!(Balances::transfer_allow_death(Some(3).into(), 1, 100));
+		assert_ok!(Balances::transfer_allow_death(Some(3).into(), 2, 100));
 
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 200); // Account 1 has 100 more free balance than normal
@@ -278,12 +280,13 @@ fn extra_balance_should_transfer() {
 		// Account 1 has only 5 units vested at block 1 (plus 150 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		assert_ok!(Vesting::vest(Some(1).into()));
-		assert_ok!(Balances::transfer(Some(1).into(), 3, 155)); // Account 1 can send extra units gained
+		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 3, 155)); // Account 1 can send extra units gained
 
 		// Account 2 has no units vested at block 1, but gained 100
 		assert_eq!(Vesting::vesting_balance(&2), Some(200));
 		assert_ok!(Vesting::vest(Some(2).into()));
-		assert_ok!(Balances::transfer(Some(2).into(), 3, 100)); // Account 2 can send extra units gained
+		assert_ok!(Balances::transfer_allow_death(Some(2).into(), 3, 100)); // Account 2 can send extra
+		                                                            // units gained
 	});
 }
 
@@ -305,7 +308,7 @@ fn liquid_funds_should_transfer_with_delayed_vesting() {
 		assert_eq!(Vesting::vesting(&12).unwrap(), vec![user12_vesting_schedule]);
 
 		// Account 12 can still send liquid funds
-		assert_ok!(Balances::transfer(Some(12).into(), 3, 256 * 5));
+		assert_ok!(Balances::transfer_allow_death(Some(12).into(), 3, 256 * 5));
 	});
 }
 
@@ -1144,14 +1147,47 @@ fn vested_transfer_less_than_existential_deposit_fails() {
 		);
 
 		// vested_transfer fails.
-		assert_noop!(
-			Vesting::vested_transfer(Some(3).into(), 99, sched),
-			pallet_balances::Error::<Test, _>::ExistentialDeposit,
-		);
+		assert_noop!(Vesting::vested_transfer(Some(3).into(), 99, sched), TokenError::BelowMinimum,);
 		// force_vested_transfer fails.
 		assert_noop!(
 			Vesting::force_vested_transfer(RawOrigin::Root.into(), 3, 99, sched),
-			pallet_balances::Error::<Test, _>::ExistentialDeposit,
+			TokenError::BelowMinimum,
+		);
+	});
+}
+
+#[test]
+fn remove_vesting_schedule() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		assert_eq!(Balances::free_balance(&3), 256 * 30);
+		assert_eq!(Balances::free_balance(&4), 256 * 40);
+		// Account 4 should not have any vesting yet.
+		assert_eq!(Vesting::vesting(&4), None);
+		// Make the schedule for the new transfer.
+		let new_vesting_schedule = VestingInfo::new(
+			ED * 5,
+			(ED * 5) / 20, // Vesting over 20 blocks
+			10,
+		);
+		assert_ok!(Vesting::vested_transfer(Some(3).into(), 4, new_vesting_schedule));
+		// Now account 4 should have vesting.
+		assert_eq!(Vesting::vesting(&4).unwrap(), vec![new_vesting_schedule]);
+		// Account 4 has 5 * 256 locked.
+		assert_eq!(Vesting::vesting_balance(&4), Some(256 * 5));
+		// Verify only root can call.
+		assert_noop!(Vesting::force_remove_vesting_schedule(Some(4).into(), 4, 0), BadOrigin);
+		// Verify that root can remove the schedule.
+		assert_ok!(Vesting::force_remove_vesting_schedule(RawOrigin::Root.into(), 4, 0));
+		// Verify that last event is VestingCompleted.
+		System::assert_last_event(Event::VestingCompleted { account: 4 }.into());
+		// Appropriate storage is cleaned up.
+		assert!(!<VestingStorage<Test>>::contains_key(4));
+		// Check the vesting balance is zero.
+		assert_eq!(Vesting::vesting(&4), None);
+		// Verifies that trying to remove a schedule when it doesnt exist throws error.
+		assert_noop!(
+			Vesting::force_remove_vesting_schedule(RawOrigin::Root.into(), 4, 0),
+			Error::<Test>::InvalidScheduleParams
 		);
 	});
 }

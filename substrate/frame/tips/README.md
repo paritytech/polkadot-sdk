@@ -11,7 +11,7 @@ entered where any remaining members can declare their tip amounts also. After th
 countdown period, the median of all declared tips is paid to the reported beneficiary, along with
 any finders fee, in case of a public (and bonded) original report.
 
-### Terminology
+## Terminology
 
 - **Tipping:** The process of gathering declarations of amounts to tip and taking the median amount
   to be transferred from the treasury to a beneficiary account.

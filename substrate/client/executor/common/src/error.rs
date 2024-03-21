@@ -18,8 +18,6 @@
 
 //! Rust executor possible errors.
 
-use wasmi;
-
 /// Result type alias.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -27,9 +25,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum Error {
-	#[error(transparent)]
-	Wasmi(#[from] wasmi::Error),
-
 	#[error("Error calling api function: {0}")]
 	ApiError(Box<dyn std::error::Error + Send + Sync>),
 
@@ -47,9 +42,6 @@ pub enum Error {
 
 	#[error("Invalid type returned (should be u64)")]
 	InvalidReturn,
-
-	#[error("Runtime error")]
-	Runtime,
 
 	#[error("Runtime panicked: {0}")]
 	RuntimePanicked(String),
@@ -104,9 +96,10 @@ pub enum Error {
 
 	#[error("Execution aborted due to trap: {0}")]
 	AbortedDueToTrap(MessageWithBacktrace),
-}
 
-impl wasmi::HostError for Error {}
+	#[error("Output exceeds bounds of wasm memory")]
+	OutputExceedsBounds,
+}
 
 impl From<&'static str> for Error {
 	fn from(err: &'static str) -> Error {
@@ -153,8 +146,26 @@ pub enum WasmError {
 	Instantiation(String),
 
 	/// Other error happenend.
-	#[error("{0}")]
+	#[error("Other error happened while constructing the runtime: {0}")]
 	Other(String),
+}
+
+impl From<polkavm::ProgramParseError> for WasmError {
+	fn from(error: polkavm::ProgramParseError) -> Self {
+		WasmError::Other(error.to_string())
+	}
+}
+
+impl From<polkavm::Error> for WasmError {
+	fn from(error: polkavm::Error) -> Self {
+		WasmError::Other(error.to_string())
+	}
+}
+
+impl From<polkavm::Error> for Error {
+	fn from(error: polkavm::Error) -> Self {
+		Error::Other(error.to_string())
+	}
 }
 
 /// An error message with an attached backtrace.

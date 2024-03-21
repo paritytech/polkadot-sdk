@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![allow(missing_docs)]
+
 //! Std setup helpers for testing and benchmarking.
 //!
 //! Cannot be put into mock.rs since benchmarks require no-std and mock.rs is std.
@@ -47,32 +49,39 @@ impl From<u32> for MessageOrigin {
 	}
 }
 
-/// Processes any message and consumes (1, 1) weight per message.
-pub struct NoopMessageProcessor;
-impl ProcessMessage for NoopMessageProcessor {
-	type Origin = MessageOrigin;
+/// Processes any message and consumes `(REQUIRED_WEIGHT, REQUIRED_WEIGHT)` weight.
+///
+/// Returns [ProcessMessageError::Overweight] error if the weight limit is not sufficient.
+pub struct NoopMessageProcessor<Origin, const REQUIRED_WEIGHT: u64 = 1>(PhantomData<Origin>);
+impl<Origin, const REQUIRED_WEIGHT: u64> ProcessMessage
+	for NoopMessageProcessor<Origin, REQUIRED_WEIGHT>
+where
+	Origin: codec::FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
+{
+	type Origin = Origin;
 
 	fn process_message(
 		_message: &[u8],
 		_origin: Self::Origin,
-		weight_limit: Weight,
-	) -> Result<(bool, Weight), ProcessMessageError> {
-		let weight = Weight::from_parts(1, 1);
+		meter: &mut WeightMeter,
+		_id: &mut [u8; 32],
+	) -> Result<bool, ProcessMessageError> {
+		let required = Weight::from_parts(REQUIRED_WEIGHT, REQUIRED_WEIGHT);
 
-		if weight.all_lte(weight_limit) {
-			Ok((true, weight))
+		if meter.try_consume(required).is_ok() {
+			Ok(true)
 		} else {
-			Err(ProcessMessageError::Overweight(weight))
+			Err(ProcessMessageError::Overweight(required))
 		}
 	}
 }
 
 /// Create a message from the given data.
-pub fn msg<N: Get<u32>>(x: &'static str) -> BoundedSlice<u8, N> {
+pub fn msg<N: Get<u32>>(x: &str) -> BoundedSlice<u8, N> {
 	BoundedSlice::defensive_truncate_from(x.as_bytes())
 }
 
-pub fn vmsg(x: &'static str) -> Vec<u8> {
+pub fn vmsg(x: &str) -> Vec<u8> {
 	x.as_bytes().to_vec()
 }
 
@@ -81,12 +90,14 @@ pub fn page<T: Config>(msg: &[u8]) -> PageOf<T> {
 	PageOf::<T>::from_message::<T>(msg.try_into().unwrap())
 }
 
+/// Create a book with a single message of one byte.
 pub fn single_page_book<T: Config>() -> BookStateOf<T> {
-	BookState { begin: 0, end: 1, count: 1, ready_neighbours: None, message_count: 0, size: 0 }
+	BookState { begin: 0, end: 1, count: 1, message_count: 1, size: 1, ..Default::default() }
 }
 
+/// Create an empty book.
 pub fn empty_book<T: Config>() -> BookStateOf<T> {
-	BookState { begin: 0, end: 1, count: 1, ready_neighbours: None, message_count: 0, size: 0 }
+	BookState { begin: 0, end: 1, count: 1, ..Default::default() }
 }
 
 /// Returns a full page of messages with their index as payload and the number of messages.
@@ -111,9 +122,9 @@ pub fn book_for<T: Config>(page: &PageOf<T>) -> BookStateOf<T> {
 		count: 1,
 		begin: 0,
 		end: 1,
-		ready_neighbours: None,
 		message_count: page.remaining.into() as u64,
 		size: page.remaining_size.into() as u64,
+		..Default::default()
 	}
 }
 
@@ -132,10 +143,8 @@ pub fn setup_bump_service_head<T: Config>(
 	current: <<T as Config>::MessageProcessor as ProcessMessage>::Origin,
 	next: <<T as Config>::MessageProcessor as ProcessMessage>::Origin,
 ) {
-	let mut book = single_page_book::<T>();
-	book.ready_neighbours = Some(Neighbours::<MessageOriginOf<T>> { prev: next.clone(), next });
-	ServiceHead::<T>::put(&current);
-	BookStateFor::<T>::insert(&current, &book);
+	crate::Pallet::<T>::enqueue_message(msg("1"), current);
+	crate::Pallet::<T>::enqueue_message(msg("1"), next);
 }
 
 /// Knit a queue into the ready-ring and write it back to storage.
@@ -157,11 +166,8 @@ pub fn unknit<T: Config>(o: &<<T as Config>::MessageProcessor as ProcessMessage>
 pub fn build_ring<T: Config>(
 	queues: &[<<T as Config>::MessageProcessor as ProcessMessage>::Origin],
 ) {
-	for queue in queues {
-		BookStateFor::<T>::insert(queue, empty_book::<T>());
-	}
-	for queue in queues {
-		knit::<T>(queue);
+	for queue in queues.iter() {
+		crate::Pallet::<T>::enqueue_message(msg("1"), queue.clone());
 	}
 	assert_ring::<T>(queues);
 }

@@ -1,26 +1,27 @@
 [package]
 name = "sp-npos-elections-fuzzer"
 version = "2.0.0-alpha.5"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Fuzzer for phragmén implementation."
 documentation = "https://docs.rs/sp-npos-elections-fuzzer"
 publish = false
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { version = "4.0.9", features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
+clap = { version = "4.5.3", features = ["derive"] }
 honggfuzz = "0.5"
-rand = { version = "0.8", features = ["std", "small_rng"] }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-sp-npos-elections = { version = "4.0.0-dev", path = ".." }
-sp-runtime = { version = "7.0.0", path = "../../runtime" }
+rand = { version = "0.8", features = ["small_rng", "std"] }
+sp-npos-elections = { path = ".." }
+sp-runtime = { path = "../../runtime" }
 
 [[bin]]
 name = "reduce"

@@ -19,12 +19,12 @@ use crate::construct_runtime::Pallet;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::str::FromStr;
-use syn::{Ident, TypePath};
+use syn::Ident;
 
 pub fn expand_outer_inherent(
 	runtime: &Ident,
-	block: &TypePath,
-	unchecked_extrinsic: &TypePath,
+	block: &TokenStream,
+	unchecked_extrinsic: &TokenStream,
 	pallet_decls: &[Pallet],
 	scrate: &TokenStream,
 ) -> TokenStream {
@@ -58,22 +58,22 @@ pub fn expand_outer_inherent(
 
 		trait InherentDataExt {
 			fn create_extrinsics(&self) ->
-				#scrate::inherent::Vec<<#block as #scrate::inherent::BlockT>::Extrinsic>;
+				#scrate::__private::sp_std::vec::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>;
 			fn check_extrinsics(&self, block: &#block) -> #scrate::inherent::CheckInherentsResult;
 		}
 
 		impl InherentDataExt for #scrate::inherent::InherentData {
 			fn create_extrinsics(&self) ->
-				#scrate::inherent::Vec<<#block as #scrate::inherent::BlockT>::Extrinsic>
+				#scrate::__private::sp_std::vec::Vec<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic>
 			{
 				use #scrate::inherent::ProvideInherent;
 
-				let mut inherents = Vec::new();
+				let mut inherents = #scrate::__private::sp_std::vec::Vec::new();
 
 				#(
 					#pallet_attrs
 					if let Some(inherent) = #pallet_names::create_inherent(self) {
-						let inherent = <#unchecked_extrinsic as #scrate::inherent::Extrinsic>::new(
+						let inherent = <#unchecked_extrinsic as #scrate::sp_runtime::traits::Extrinsic>::new(
 							inherent.into(),
 							None,
 						).expect("Runtime UncheckedExtrinsic is not Opaque, so it has to return \
@@ -90,13 +90,40 @@ pub fn expand_outer_inherent(
 				use #scrate::inherent::{ProvideInherent, IsFatalError};
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 				use #scrate::sp_runtime::traits::Block as _;
+				use #scrate::__private::{sp_inherents::Error, log};
 
 				let mut result = #scrate::inherent::CheckInherentsResult::new();
+
+				// This handle assume we abort on the first fatal error.
+				fn handle_put_error_result(res: Result<(), Error>) {
+					const LOG_TARGET: &str = "runtime::inherent";
+					match res {
+						Ok(()) => (),
+						Err(Error::InherentDataExists(id)) =>
+							log::debug!(
+								target: LOG_TARGET,
+								"Some error already reported for inherent {:?}, new non fatal \
+								error is ignored",
+								id
+							),
+						Err(Error::FatalErrorReported) =>
+							log::error!(
+								target: LOG_TARGET,
+								"Fatal error already reported, unexpected considering there is \
+								only one fatal error",
+							),
+						Err(_) =>
+							log::error!(
+								target: LOG_TARGET,
+								"Unexpected error from `put_error` operation",
+							),
+					}
+				}
 
 				for xt in block.extrinsics() {
 					// Inherents are before any other extrinsics.
 					// And signed extrinsics are not inherents.
-					if #scrate::inherent::Extrinsic::is_signed(xt).unwrap_or(false) {
+					if #scrate::sp_runtime::traits::Extrinsic::is_signed(xt).unwrap_or(false) {
 						break
 					}
 
@@ -110,9 +137,9 @@ pub fn expand_outer_inherent(
 								if #pallet_names::is_inherent(call) {
 									is_inherent = true;
 									if let Err(e) = #pallet_names::check_inherent(call, self) {
-										result.put_error(
+										handle_put_error_result(result.put_error(
 											#pallet_names::INHERENT_IDENTIFIER, &e
-										).expect("There is only one fatal error; qed");
+										));
 										if e.is_fatal_error() {
 											return result;
 										}
@@ -134,7 +161,7 @@ pub fn expand_outer_inherent(
 					match #pallet_names::is_inherent_required(self) {
 						Ok(Some(e)) => {
 							let found = block.extrinsics().iter().any(|xt| {
-								let is_signed = #scrate::inherent::Extrinsic::is_signed(xt)
+								let is_signed = #scrate::sp_runtime::traits::Extrinsic::is_signed(xt)
 									.unwrap_or(false);
 
 								if !is_signed {
@@ -153,9 +180,9 @@ pub fn expand_outer_inherent(
 							});
 
 							if !found {
-								result.put_error(
+								handle_put_error_result(result.put_error(
 									#pallet_names::INHERENT_IDENTIFIER, &e
-								).expect("There is only one fatal error; qed");
+								));
 								if e.is_fatal_error() {
 									return result;
 								}
@@ -163,9 +190,9 @@ pub fn expand_outer_inherent(
 						},
 						Ok(None) => (),
 						Err(e) => {
-							result.put_error(
+							handle_put_error_result(result.put_error(
 								#pallet_names::INHERENT_IDENTIFIER, &e
-							).expect("There is only one fatal error; qed");
+							));
 							if e.is_fatal_error() {
 								return result;
 							}
@@ -177,46 +204,50 @@ pub fn expand_outer_inherent(
 			}
 		}
 
+		impl #scrate::traits::IsInherent<<#block as #scrate::sp_runtime::traits::Block>::Extrinsic> for #runtime {
+			fn is_inherent(ext: &<#block as #scrate::sp_runtime::traits::Block>::Extrinsic) -> bool {
+				use #scrate::inherent::ProvideInherent;
+				use #scrate::traits::{IsSubType, ExtrinsicCall};
+
+				if #scrate::sp_runtime::traits::Extrinsic::is_signed(ext).unwrap_or(false) {
+					// Signed extrinsics are never inherents.
+					return false
+				}
+
+				#(
+					#pallet_attrs
+					{
+						let call = <#unchecked_extrinsic as ExtrinsicCall>::call(ext);
+						if let Some(call) = IsSubType::<_>::is_sub_type(call) {
+							if <#pallet_names as ProvideInherent>::is_inherent(&call) {
+								return true;
+							}
+						}
+					}
+				)*
+				false
+			}
+		}
+
 		impl #scrate::traits::EnsureInherentsAreFirst<#block> for #runtime {
-			fn ensure_inherents_are_first(block: &#block) -> Result<(), u32> {
+			fn ensure_inherents_are_first(block: &#block) -> Result<u32, u32> {
 				use #scrate::inherent::ProvideInherent;
 				use #scrate::traits::{IsSubType, ExtrinsicCall};
 				use #scrate::sp_runtime::traits::Block as _;
 
-				let mut first_signed_observed = false;
+				let mut num_inherents = 0u32;
 
 				for (i, xt) in block.extrinsics().iter().enumerate() {
-					let is_signed = #scrate::inherent::Extrinsic::is_signed(xt).unwrap_or(false);
+					if <Self as #scrate::traits::IsInherent<_>>::is_inherent(xt) {
+						if num_inherents != i as u32 {
+							return Err(i as u32);
+						}
 
-					let is_inherent = if is_signed {
-						// Signed extrinsics are not inherents.
-						false
-					} else {
-						let mut is_inherent = false;
-						#(
-							#pallet_attrs
-							{
-								let call = <#unchecked_extrinsic as ExtrinsicCall>::call(xt);
-								if let Some(call) = IsSubType::<_>::is_sub_type(call) {
-									if #pallet_names::is_inherent(&call) {
-										is_inherent = true;
-									}
-								}
-							}
-						)*
-						is_inherent
-					};
-
-					if !is_inherent {
-						first_signed_observed = true;
-					}
-
-					if first_signed_observed && is_inherent {
-						return Err(i as u32)
+						num_inherents += 1; // Safe since we are in an `enumerate` loop.
 					}
 				}
 
-				Ok(())
+				Ok(num_inherents)
 			}
 		}
 	}

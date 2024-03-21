@@ -1,70 +1,74 @@
 [package]
 description = "Substrate network protocol"
 name = "sc-network"
-version = "0.10.0-dev"
+version = "0.34.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 documentation = "https://docs.rs/sc-network"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = "4.1"
+array-bytes = "6.1"
+async-channel = "1.8.0"
 async-trait = "0.1"
 asynchronous-codec = "0.6"
-backtrace = "0.3.67"
 bytes = "1"
-codec = { package = "parity-scale-codec", version = "3.2.2", features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 either = "1.5.3"
 fnv = "1.0.6"
 futures = "0.3.21"
 futures-timer = "3.0.2"
 ip_network = "0.4.1"
-libp2p = { version = "0.50.0", features = ["dns", "identify", "kad", "macros", "mdns", "mplex", "noise", "ping", "tcp",  "tokio", "yamux", "websocket"] }
-log = "0.4.17"
-lru = "0.8.1"
+libp2p = { version = "0.51.4", features = ["dns", "identify", "kad", "macros", "mdns", "noise", "ping", "request-response", "tcp", "tokio", "websocket", "yamux"] }
+linked_hash_set = "0.1.3"
+log = { workspace = true, default-features = true }
 mockall = "0.11.3"
 parking_lot = "0.12.1"
+partial_sort = "0.2.0"
 pin-project = "1.0.12"
 rand = "0.8.5"
-serde = { version = "1.0.136", features = ["derive"] }
-serde_json = "1.0.85"
-smallvec = "1.8.0"
-thiserror = "1.0"
-unsigned-varint = { version = "0.7.1", features = ["futures", "asynchronous_codec"] }
+serde = { features = ["derive"], workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+smallvec = "1.11.0"
+thiserror = { workspace = true }
+tokio = { version = "1.22.0", features = ["macros", "sync"] }
+tokio-stream = "0.1.7"
+unsigned-varint = { version = "0.7.1", features = ["asynchronous_codec", "futures"] }
 zeroize = "1.4.3"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", version = "0.10.0-dev", path = "../../utils/prometheus" }
-sc-block-builder = { version = "0.10.0-dev", path = "../block-builder" }
-sc-client-api = { version = "4.0.0-dev", path = "../api" }
-sc-consensus = { version = "0.10.0-dev", path = "../consensus/common" }
-sc-network-common = { version = "0.10.0-dev", path = "./common" }
-sc-peerset = { version = "4.0.0-dev", path = "../peerset" }
-sc-utils = { version = "4.0.0-dev", path = "../utils" }
-sp-arithmetic = { version = "6.0.0", path = "../../primitives/arithmetic" }
-sp-blockchain = { version = "4.0.0-dev", path = "../../primitives/blockchain" }
-sp-consensus = { version = "0.10.0-dev", path = "../../primitives/consensus/common" }
-sp-core = { version = "7.0.0", path = "../../primitives/core" }
-sp-runtime = { version = "7.0.0", path = "../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+sc-client-api = { path = "../api" }
+sc-network-common = { path = "common" }
+sc-utils = { path = "../utils" }
+sp-arithmetic = { path = "../../primitives/arithmetic" }
+sp-blockchain = { path = "../../primitives/blockchain" }
+sp-core = { path = "../../primitives/core" }
+sp-runtime = { path = "../../primitives/runtime" }
+wasm-timer = "0.2"
 
 [dev-dependencies]
 assert_matches = "1.3"
+mockall = "0.11.3"
 multistream-select = "0.12.1"
 rand = "0.8.5"
 tempfile = "3.1.0"
 tokio = { version = "1.22.0", features = ["macros"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 tokio-test = "0.4.2"
-sc-network-light = { version = "0.10.0-dev", path = "./light" }
-sc-network-sync = { version = "0.10.0-dev", path = "./sync" }
-sp-test-primitives = { version = "2.0.0", path = "../../primitives/test-primitives" }
-sp-tracing = { version = "6.0.0", path = "../../primitives/tracing" }
-substrate-test-runtime = { version = "2.0.0", path = "../../test-utils/runtime" }
-substrate-test-runtime-client = { version = "2.0.0", path = "../../test-utils/runtime/client" }
+sc-network-light = { path = "light" }
+sc-network-sync = { path = "sync" }
+sp-test-primitives = { path = "../../primitives/test-primitives" }
+sp-tracing = { path = "../../primitives/tracing" }
+substrate-test-runtime = { path = "../../test-utils/runtime" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
 default = []

@@ -20,13 +20,8 @@ use crate::OutputFormat;
 use ansi_term::Colour;
 use log::info;
 use sc_client_api::ClientInfo;
-use sc_network_common::{
-	service::NetworkStatus,
-	sync::{
-		warp::{WarpSyncPhase, WarpSyncProgress},
-		SyncState,
-	},
-};
+use sc_network::NetworkStatus;
+use sc_network_sync::{SyncState, SyncStatus, WarpSyncPhase, WarpSyncProgress};
 use sp_runtime::traits::{Block as BlockT, CheckedDiv, NumberFor, Saturating, Zero};
 use std::{fmt, time::Instant};
 
@@ -69,11 +64,16 @@ impl<B: BlockT> InformantDisplay<B> {
 	}
 
 	/// Displays the informant by calling `info!`.
-	pub fn display(&mut self, info: &ClientInfo<B>, net_status: NetworkStatus<B>) {
+	pub fn display(
+		&mut self,
+		info: &ClientInfo<B>,
+		net_status: NetworkStatus,
+		sync_status: SyncStatus<B>,
+	) {
 		let best_number = info.chain.best_number;
 		let best_hash = info.chain.best_hash;
 		let finalized_number = info.chain.finalized_number;
-		let num_connected_peers = net_status.num_connected_peers;
+		let num_connected_peers = sync_status.num_connected_peers;
 		let speed = speed::<B>(best_number, self.last_number, self.last_update);
 		let total_bytes_inbound = net_status.total_bytes_inbound;
 		let total_bytes_outbound = net_status.total_bytes_outbound;
@@ -94,31 +94,43 @@ impl<B: BlockT> InformantDisplay<B> {
 		};
 
 		let (level, status, target) =
-			match (net_status.sync_state, net_status.state_sync, net_status.warp_sync) {
+			match (sync_status.state, sync_status.state_sync, sync_status.warp_sync) {
+				// Do not set status to "Block history" when we are doing a major sync.
+				//
+				// A node could for example have been warp synced to the tip of the chain and
+				// shutdown. At the next start we still need to download the block history, but
+				// first will sync to the tip of the chain.
 				(
-					_,
+					sync_status,
 					_,
 					Some(WarpSyncProgress { phase: WarpSyncPhase::DownloadingBlocks(n), .. }),
-				) => ("⏩", "Block history".into(), format!(", #{}", n)),
+				) if !sync_status.is_major_syncing() => ("⏩", "Block history".into(), format!(", #{}", n)),
 				(
 					_,
 					_,
 					Some(WarpSyncProgress { phase: WarpSyncPhase::AwaitingTargetBlock, .. }),
 				) => ("⏩", "Waiting for pending target block".into(), "".into()),
-				(_, _, Some(warp)) => (
-					"⏩",
-					"Warping".into(),
-					format!(
-						", {}, {:.2} Mib",
+				// Handle all phases besides the two phases we already handle above.
+				(_, _, Some(warp))
+					if !matches!(
 						warp.phase,
-						(warp.total_bytes as f32) / (1024f32 * 1024f32)
+						WarpSyncPhase::AwaitingTargetBlock | WarpSyncPhase::DownloadingBlocks(_)
+					) =>
+					(
+						"⏩",
+						"Warping".into(),
+						format!(
+							", {}, {:.2} Mib",
+							warp.phase,
+							(warp.total_bytes as f32) / (1024f32 * 1024f32)
+						),
 					),
-				),
 				(_, Some(state), _) => (
 					"⚙️ ",
-					"Downloading state".into(),
+					"State sync".into(),
 					format!(
-						", {}%, {:.2} Mib",
+						", {}, {}%, {:.2} Mib",
+						state.phase,
 						state.percentage,
 						(state.size as f32) / (1024f32 * 1024f32)
 					),
@@ -130,37 +142,20 @@ impl<B: BlockT> InformantDisplay<B> {
 					("⚙️ ", format!("Preparing{}", speed), format!(", target=#{target}")),
 			};
 
-		if self.format.enable_color {
-			info!(
-				target: "substrate",
-				"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
-				level,
-				Colour::White.bold().paint(&status),
-				target,
-				Colour::White.bold().paint(format!("{}", num_connected_peers)),
-				Colour::White.bold().paint(format!("{}", best_number)),
-				best_hash,
-				Colour::White.bold().paint(format!("{}", finalized_number)),
-				info.chain.finalized_hash,
-				Colour::Green.paint(format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
-				Colour::Red.paint(format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
-			)
-		} else {
-			info!(
-				target: "substrate",
-				"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}",
-				level,
-				status,
-				target,
-				num_connected_peers,
-				best_number,
-				best_hash,
-				finalized_number,
-				info.chain.finalized_hash,
-				TransferRateFormat(avg_bytes_per_sec_inbound),
-				TransferRateFormat(avg_bytes_per_sec_outbound),
-			)
-		}
+		info!(
+			target: "substrate",
+			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
+			level,
+			self.format.print_with_color(Colour::White.bold(), status),
+			target,
+			self.format.print_with_color(Colour::White.bold(), num_connected_peers),
+			self.format.print_with_color(Colour::White.bold(), best_number),
+			best_hash,
+			self.format.print_with_color(Colour::White.bold(), finalized_number),
+			info.chain.finalized_hash,
+			self.format.print_with_color(Colour::Green, format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
+			self.format.print_with_color(Colour::Red, format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
+		)
 	}
 }
 

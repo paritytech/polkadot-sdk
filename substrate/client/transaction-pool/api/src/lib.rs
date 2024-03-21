@@ -22,13 +22,12 @@
 pub mod error;
 
 use async_trait::async_trait;
+use codec::Codec;
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Member, NumberFor},
-};
-use std::{collections::HashMap, hash::Hash, pin::Pin, sync::Arc};
+use sp_core::offchain::TransactionPoolExt;
+use sp_runtime::traits::{Block as BlockT, Member, NumberFor};
+use std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
 const LOG_TARGET: &str = "txpool::api";
 
@@ -63,20 +62,27 @@ impl PoolStatus {
 ///
 /// The status events can be grouped based on their kinds as:
 /// 1. Entering/Moving within the pool:
-/// 		- `Future`
-/// 		- `Ready`
+/// 		- [Future](TransactionStatus::Future)
+/// 		- [Ready](TransactionStatus::Ready)
 /// 2. Inside `Ready` queue:
-/// 		- `Broadcast`
+/// 		- [Broadcast](TransactionStatus::Broadcast)
 /// 3. Leaving the pool:
-/// 		- `InBlock`
-/// 		- `Invalid`
-/// 		- `Usurped`
-/// 		- `Dropped`
+/// 		- [InBlock](TransactionStatus::InBlock)
+/// 		- [Invalid](TransactionStatus::Invalid)
+/// 		- [Usurped](TransactionStatus::Usurped)
+/// 		- [Dropped](TransactionStatus::Dropped)
 /// 	4. Re-entering the pool:
-/// 		- `Retracted`
+/// 		- [Retracted](TransactionStatus::Retracted)
 /// 	5. Block finalized:
-/// 		- `Finalized`
-/// 		- `FinalityTimeout`
+/// 		- [Finalized](TransactionStatus::Finalized)
+/// 		- [FinalityTimeout](TransactionStatus::FinalityTimeout)
+///
+/// Transactions are first placed in either the `Ready` or `Future` queues of the transaction pool.
+/// Substrate validates the transaction before it enters the pool.
+///
+/// A transaction is placed in the `Future` queue if it will become valid at a future time.
+/// For example, submitting a transaction with a higher account nonce than the current
+/// expected nonce will place the transaction in the `Future` queue.
 ///
 /// The events will always be received in the order described above, however
 /// there might be cases where transactions alternate between `Future` and `Ready`
@@ -89,19 +95,37 @@ impl PoolStatus {
 /// 1. Due to possible forks, the transaction that ends up being in included
 /// in one block, may later re-enter the pool or be marked as invalid.
 /// 2. Transaction `Dropped` at one point, may later re-enter the pool if some other
-/// transactions are removed.
+/// transactions are removed. A `Dropped` transaction may re-enter the pool only if it is
+/// resubmitted.
 /// 3. `Invalid` transaction may become valid at some point in the future.
 /// (Note that runtimes are encouraged to use `UnknownValidity` to inform the pool about
-/// such case).
+/// such case). An `Invalid` transaction may re-enter the pool only if it is resubmitted.
 /// 4. `Retracted` transactions might be included in some next block.
 ///
-/// The stream is considered finished only when either `Finalized` or `FinalityTimeout`
-/// event is triggered. You are however free to unsubscribe from notifications at any point.
-/// The first one will be emitted when the block, in which transaction was included gets
-/// finalized. The `FinalityTimeout` event will be emitted when the block did not reach finality
+/// The `FinalityTimeout` event will be emitted when the block did not reach finality
 /// within 512 blocks. This either indicates that finality is not available for your chain,
 /// or that finality gadget is lagging behind. If you choose to wait for finality longer, you can
 /// re-subscribe for a particular transaction hash manually again.
+///
+/// ### Last Event
+///
+/// The stream is considered finished when one of the following events happen:
+/// - [Finalized](TransactionStatus::Finalized)
+/// - [FinalityTimeout](TransactionStatus::FinalityTimeout)
+/// - [Usurped](TransactionStatus::Usurped)
+/// - [Invalid](TransactionStatus::Invalid)
+/// - [Dropped](TransactionStatus::Dropped)
+///
+/// See [`TransactionStatus::is_final`] for more details.
+///
+/// ### Resubmit Transactions
+///
+/// Users might resubmit the transaction at a later time for the following events:
+/// - [FinalityTimeout](TransactionStatus::FinalityTimeout)
+/// - [Invalid](TransactionStatus::Invalid)
+/// - [Dropped](TransactionStatus::Dropped)
+///
+/// See [`TransactionStatus::is_retriable`] for more details.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TransactionStatus<Hash, BlockHash> {
@@ -130,6 +154,38 @@ pub enum TransactionStatus<Hash, BlockHash> {
 	Dropped,
 	/// Transaction is no longer valid in the current state.
 	Invalid,
+}
+
+impl<Hash, BlockHash> TransactionStatus<Hash, BlockHash> {
+	/// Returns true if this is the last event emitted by [`TransactionStatusStream`].
+	pub fn is_final(&self) -> bool {
+		// The state must be kept in sync with `crate::graph::Sender`.
+		match self {
+			Self::Usurped(_) |
+			Self::Finalized(_) |
+			Self::FinalityTimeout(_) |
+			Self::Invalid |
+			Self::Dropped => true,
+			_ => false,
+		}
+	}
+
+	/// Returns true if the transaction could be re-submitted to the pool in the future.
+	///
+	/// For example, `TransactionStatus::Dropped` is retriable, because the transaction
+	/// may enter the pool if there is space for it in the future.
+	pub fn is_retriable(&self) -> bool {
+		match self {
+			// The number of finality watchers has been reached.
+			Self::FinalityTimeout(_) |
+			// An invalid transaction might be valid at a later time.
+			Self::Invalid |
+			// The transaction was dropped because of the limits of the pool.
+			// It can reenter the pool when other transactions are removed / finalized.
+			Self::Dropped => true,
+			_ => false,
+		}
+	}
 }
 
 /// The stream of transaction events.
@@ -186,7 +242,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Block type.
 	type Block: BlockT;
 	/// Transaction hash type.
-	type Hash: Hash + Eq + Member + Serialize + DeserializeOwned;
+	type Hash: Hash + Eq + Member + Serialize + DeserializeOwned + Codec;
 	/// In-pool transaction type.
 	type InPoolTransaction: InPoolTransaction<
 		Transaction = TransactionFor<Self>,
@@ -200,7 +256,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Returns a future that imports a bunch of unverified transactions to the pool.
 	fn submit_at(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error>;
@@ -208,7 +264,7 @@ pub trait TransactionPool: Send + Sync {
 	/// Returns a future that imports one unverified transaction to the pool.
 	fn submit_one(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error>;
@@ -217,7 +273,7 @@ pub trait TransactionPool: Send + Sync {
 	/// pool.
 	fn submit_and_watch(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error>;
@@ -246,6 +302,9 @@ pub trait TransactionPool: Send + Sync {
 	fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>>;
 
 	// *** logging
+	/// Get futures transaction list.
+	fn futures(&self) -> Vec<Self::InPoolTransaction>;
+
 	/// Returns pool status.
 	fn status(&self) -> PoolStatus;
 
@@ -305,6 +364,20 @@ pub enum ChainEvent<B: BlockT> {
 	},
 }
 
+impl<B: BlockT> ChainEvent<B> {
+	/// Returns the block hash associated to the event.
+	pub fn hash(&self) -> B::Hash {
+		match self {
+			Self::NewBestBlock { hash, .. } | Self::Finalized { hash, .. } => *hash,
+		}
+	}
+
+	/// Is `self == Self::Finalized`?
+	pub fn is_finalized(&self) -> bool {
+		matches!(self, Self::Finalized { .. })
+	}
+}
+
 /// Trait for transaction pool maintenance.
 #[async_trait]
 pub trait MaintainedTransactionPool: TransactionPool {
@@ -329,29 +402,43 @@ pub trait LocalTransactionPool: Send + Sync {
 	/// `TransactionSource::Local`.
 	fn submit_local(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		xt: LocalTransactionFor<Self>,
 	) -> Result<Self::Hash, Self::Error>;
 }
 
-/// An abstraction for transaction pool.
+impl<T: LocalTransactionPool> LocalTransactionPool for Arc<T> {
+	type Block = T::Block;
+
+	type Hash = T::Hash;
+
+	type Error = T::Error;
+
+	fn submit_local(
+		&self,
+		at: <Self::Block as BlockT>::Hash,
+		xt: LocalTransactionFor<Self>,
+	) -> Result<Self::Hash, Self::Error> {
+		(**self).submit_local(at, xt)
+	}
+}
+
+/// An abstraction for [`LocalTransactionPool`]
 ///
-/// This trait is used by offchain calls to be able to submit transactions.
-/// The main use case is for offchain workers, to feed back the results of computations,
-/// but since the transaction pool access is a separate `ExternalitiesExtension` it can
-/// be also used in context of other offchain calls. For one may generate and submit
-/// a transaction for some misbehavior reports (say equivocation).
-pub trait OffchainSubmitTransaction<Block: BlockT>: Send + Sync {
+/// We want to use a transaction pool in [`OffchainTransactionPoolFactory`] in a `Arc` without
+/// bleeding the associated types besides the `Block`. Thus, this abstraction here exists to achieve
+/// the wrapping in a `Arc`.
+trait OffchainSubmitTransaction<Block: BlockT>: Send + Sync {
 	/// Submit transaction.
 	///
 	/// The transaction will end up in the pool and be propagated to others.
-	fn submit_at(&self, at: &BlockId<Block>, extrinsic: Block::Extrinsic) -> Result<(), ()>;
+	fn submit_at(&self, at: Block::Hash, extrinsic: Block::Extrinsic) -> Result<(), ()>;
 }
 
 impl<TPool: LocalTransactionPool> OffchainSubmitTransaction<TPool::Block> for TPool {
 	fn submit_at(
 		&self,
-		at: &BlockId<TPool::Block>,
+		at: <TPool::Block as BlockT>::Hash,
 		extrinsic: <TPool::Block as BlockT>::Extrinsic,
 	) -> Result<(), ()> {
 		log::debug!(
@@ -369,6 +456,54 @@ impl<TPool: LocalTransactionPool> OffchainSubmitTransaction<TPool::Block> for TP
 				e
 			)
 		})
+	}
+}
+
+/// Factory for creating [`TransactionPoolExt`]s.
+///
+/// This provides an easy way for creating [`TransactionPoolExt`] extensions for registering them in
+/// the wasm execution environment to send transactions from an offchain call to the  runtime.
+#[derive(Clone)]
+pub struct OffchainTransactionPoolFactory<Block: BlockT> {
+	pool: Arc<dyn OffchainSubmitTransaction<Block>>,
+}
+
+impl<Block: BlockT> OffchainTransactionPoolFactory<Block> {
+	/// Creates a new instance using the given `tx_pool`.
+	pub fn new<T: LocalTransactionPool<Block = Block> + 'static>(tx_pool: T) -> Self {
+		Self { pool: Arc::new(tx_pool) as Arc<_> }
+	}
+
+	/// Returns an instance of [`TransactionPoolExt`] bound to the given `block_hash`.
+	///
+	/// Transactions that are being submitted by this instance will be submitted with `block_hash`
+	/// as context for validation.
+	pub fn offchain_transaction_pool(&self, block_hash: Block::Hash) -> TransactionPoolExt {
+		TransactionPoolExt::new(OffchainTransactionPool { pool: self.pool.clone(), block_hash })
+	}
+}
+
+/// Wraps a `pool` and `block_hash` to implement [`sp_core::offchain::TransactionPool`].
+struct OffchainTransactionPool<Block: BlockT> {
+	block_hash: Block::Hash,
+	pool: Arc<dyn OffchainSubmitTransaction<Block>>,
+}
+
+impl<Block: BlockT> sp_core::offchain::TransactionPool for OffchainTransactionPool<Block> {
+	fn submit_transaction(&mut self, extrinsic: Vec<u8>) -> Result<(), ()> {
+		let extrinsic = match codec::Decode::decode(&mut &extrinsic[..]) {
+			Ok(t) => t,
+			Err(e) => {
+				log::error!(
+					target: LOG_TARGET,
+					"Failed to decode extrinsic in `OffchainTransactionPool::submit_transaction`: {e:?}"
+				);
+
+				return Err(())
+			},
+		};
+
+		self.pool.submit_at(self.block_hash, extrinsic)
 	}
 }
 
@@ -392,6 +527,29 @@ mod v1_compatible {
 	{
 		let hash: H = serde::Deserialize::deserialize(deserializer)?;
 		Ok((hash, 0))
+	}
+}
+
+/// Transaction pool that rejects all submitted transactions.
+///
+/// Could be used for example in tests.
+pub struct RejectAllTxPool<Block>(PhantomData<Block>);
+
+impl<Block> Default for RejectAllTxPool<Block> {
+	fn default() -> Self {
+		Self(PhantomData)
+	}
+}
+
+impl<Block: BlockT> LocalTransactionPool for RejectAllTxPool<Block> {
+	type Block = Block;
+
+	type Hash = Block::Hash;
+
+	type Error = error::Error;
+
+	fn submit_local(&self, _: Block::Hash, _: Block::Extrinsic) -> Result<Self::Hash, Self::Error> {
+		Err(error::Error::ImmediatelyDropped)
 	}
 }
 

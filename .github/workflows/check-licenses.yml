@@ -1,0 +1,45 @@
+name: Check licenses
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  packages: read
+
+jobs:
+  check-licenses:
+    runs-on: ubuntu-latest
+    env:
+      LICENSES: "'Apache-2.0' 'GPL-3.0-only' 'GPL-3.0-or-later WITH Classpath-exception-2.0'"
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-node@v4.0.1
+        with:
+          node-version: "18.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paritytech"
+
+      - name: Check the licenses in Polkadot
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses ${{ env.LICENSES }} \
+            -- ./polkadot/**/*.rs
+
+      - name: Check the licenses in Cumulus
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses ${{ env.LICENSES }} \
+            --exclude ./cumulus/parachain-template \
+            -- ./cumulus/**/*.rs
+
+      - name: Check the licenses in Substrate
+        run: |
+          shopt -s globstar
+          npx @paritytech/license-scanner scan \
+            --ensure-licenses ${{ env.LICENSES }} \
+            -- ./substrate/**/*.rs

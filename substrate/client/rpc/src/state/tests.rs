@@ -21,23 +21,30 @@ use super::*;
 use crate::testing::{test_executor, timeout_secs};
 use assert_matches::assert_matches;
 use futures::executor;
-use jsonrpsee::{
-	core::Error as RpcError,
-	types::{error::CallError as RpcCallError, EmptyServerParams as EmptyParams, ErrorObject},
-};
-use sc_block_builder::BlockBuilderProvider;
+use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as RpcError};
+use sc_block_builder::BlockBuilderBuilder;
 use sc_rpc_api::DenyUnsafe;
 use sp_consensus::BlockOrigin;
 use sp_core::{hash::H256, storage::ChildInfo};
-use sp_io::hashing::blake2_256;
 use std::sync::Arc;
-use substrate_test_runtime_client::{prelude::*, runtime};
+use substrate_test_runtime_client::{
+	prelude::*,
+	runtime::{ExtrinsicBuilder, Transfer},
+};
 
 const STORAGE_KEY: &[u8] = b"child";
 
 fn prefixed_storage_key() -> PrefixedStorageKey {
 	let child_info = ChildInfo::new_default(STORAGE_KEY);
 	child_info.prefixed_storage_key()
+}
+
+fn init_logger() {
+	use tracing_subscriber::{EnvFilter, FmtSubscriber};
+
+	let _ = FmtSubscriber::builder()
+		.with_env_filter(EnvFilter::from_default_env())
+		.try_init();
 }
 
 #[tokio::test]
@@ -55,7 +62,7 @@ async fn should_return_storage() {
 		.add_extra_storage(b":map:acc2".to_vec(), vec![1, 2, 3])
 		.build();
 	let genesis_hash = client.genesis_hash();
-	let (client, child) = new_full(Arc::new(client), test_executor(), DenyUnsafe::No, None);
+	let (client, child) = new_full(Arc::new(client), test_executor(), DenyUnsafe::No);
 	let key = StorageKey(KEY.to_vec());
 
 	assert_eq!(
@@ -103,7 +110,7 @@ async fn should_return_storage_entries() {
 		.add_extra_child_storage(&child_info, KEY2.to_vec(), CHILD_VALUE2.to_vec())
 		.build();
 	let genesis_hash = client.genesis_hash();
-	let (_client, child) = new_full(Arc::new(client), test_executor(), DenyUnsafe::No, None);
+	let (_client, child) = new_full(Arc::new(client), test_executor(), DenyUnsafe::No);
 
 	let keys = &[StorageKey(KEY1.to_vec()), StorageKey(KEY2.to_vec())];
 	assert_eq!(
@@ -134,7 +141,7 @@ async fn should_return_child_storage() {
 			.build(),
 	);
 	let genesis_hash = client.genesis_hash();
-	let (_client, child) = new_full(client, test_executor(), DenyUnsafe::No, None);
+	let (_client, child) = new_full(client, test_executor(), DenyUnsafe::No);
 	let child_key = prefixed_storage_key();
 	let key = StorageKey(b"key".to_vec());
 
@@ -165,7 +172,7 @@ async fn should_return_child_storage_entries() {
 			.build(),
 	);
 	let genesis_hash = client.genesis_hash();
-	let (_client, child) = new_full(client, test_executor(), DenyUnsafe::No, None);
+	let (_client, child) = new_full(client, test_executor(), DenyUnsafe::No);
 	let child_key = prefixed_storage_key();
 	let keys = vec![StorageKey(b"key1".to_vec()), StorageKey(b"key2".to_vec())];
 
@@ -196,29 +203,36 @@ async fn should_return_child_storage_entries() {
 async fn should_call_contract() {
 	let client = Arc::new(substrate_test_runtime_client::new());
 	let genesis_hash = client.genesis_hash();
-	let (client, _child) = new_full(client, test_executor(), DenyUnsafe::No, None);
-
-	use jsonrpsee::{core::Error, types::error::CallError};
+	let (client, _child) = new_full(client, test_executor(), DenyUnsafe::No);
 
 	assert_matches!(
 		client.call("balanceOf".into(), Bytes(vec![1, 2, 3]), Some(genesis_hash).into()),
-		Err(Error::Call(CallError::Failed(_)))
+		Err(Error::Client(_))
 	)
 }
 
 #[tokio::test]
 async fn should_notify_about_storage_changes() {
+	init_logger();
+
 	let mut sub = {
 		let mut client = Arc::new(substrate_test_runtime_client::new());
-		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No, None);
+		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No);
 
 		let api_rpc = api.into_rpc();
-		let sub = api_rpc.subscribe("state_subscribeStorage", EmptyParams::new()).await.unwrap();
+		let sub = api_rpc
+			.subscribe_unbounded("state_subscribeStorage", EmptyParams::new())
+			.await
+			.unwrap();
 
 		// Cause a change:
-		let mut builder = client.new_block(Default::default()).unwrap();
+		let mut builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap();
 		builder
-			.push_transfer(runtime::Transfer {
+			.push_transfer(Transfer {
 				from: AccountKeyring::Alice.into(),
 				to: AccountKeyring::Ferdie.into(),
 				amount: 42,
@@ -235,27 +249,43 @@ async fn should_notify_about_storage_changes() {
 	// NOTE: previous versions of the subscription code used to return an empty value for the
 	// "initial" storage change here
 	assert_matches!(timeout_secs(1, sub.next::<StorageChangeSet<H256>>()).await, Ok(Some(_)));
-	assert_matches!(timeout_secs(1, sub.next::<StorageChangeSet<H256>>()).await, Ok(None));
 }
 
 #[tokio::test]
 async fn should_send_initial_storage_changes_and_notifications() {
+	init_logger();
+
 	let mut sub = {
 		let mut client = Arc::new(substrate_test_runtime_client::new());
-		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No, None);
+		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No);
 
-		let alice_balance_key =
-			blake2_256(&runtime::system::balance_of_key(AccountKeyring::Alice.into()));
+		let alice_balance_key = [
+			sp_crypto_hashing::twox_128(b"System"),
+			sp_crypto_hashing::twox_128(b"Account"),
+			sp_crypto_hashing::blake2_128(&AccountKeyring::Alice.public()),
+		]
+		.concat()
+		.iter()
+		.chain(AccountKeyring::Alice.public().0.iter())
+		.cloned()
+		.collect::<Vec<u8>>();
 
 		let api_rpc = api.into_rpc();
 		let sub = api_rpc
-			.subscribe("state_subscribeStorage", [[StorageKey(alice_balance_key.to_vec())]])
+			.subscribe_unbounded(
+				"state_subscribeStorage",
+				[[StorageKey(alice_balance_key.to_vec())]],
+			)
 			.await
 			.unwrap();
 
-		let mut builder = client.new_block(Default::default()).unwrap();
+		let mut builder = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap();
 		builder
-			.push_transfer(runtime::Transfer {
+			.push_transfer(Transfer {
 				from: AccountKeyring::Alice.into(),
 				to: AccountKeyring::Ferdie.into(),
 				amount: 42,
@@ -270,32 +300,53 @@ async fn should_send_initial_storage_changes_and_notifications() {
 
 	assert_matches!(timeout_secs(1, sub.next::<StorageChangeSet<H256>>()).await, Ok(Some(_)));
 	assert_matches!(timeout_secs(1, sub.next::<StorageChangeSet<H256>>()).await, Ok(Some(_)));
-
-	// No more messages to follow
-	assert_matches!(timeout_secs(1, sub.next::<StorageChangeSet<H256>>()).await, Ok(None));
 }
 
 #[tokio::test]
 async fn should_query_storage() {
 	async fn run_tests(mut client: Arc<TestClient>) {
-		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No, None);
+		let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No);
 
-		let mut add_block = |nonce| {
-			let mut builder = client.new_block(Default::default()).unwrap();
+		let mut add_block = |index| {
+			let mut builder = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(client.chain_info().best_hash)
+				.with_parent_block_number(client.chain_info().best_number)
+				.build()
+				.unwrap();
 			// fake change: None -> None -> None
-			builder.push_storage_change(vec![1], None).unwrap();
+			builder
+				.push(ExtrinsicBuilder::new_storage_change(vec![1], None).build())
+				.unwrap();
 			// fake change: None -> Some(value) -> Some(value)
-			builder.push_storage_change(vec![2], Some(vec![2])).unwrap();
+			builder
+				.push(ExtrinsicBuilder::new_storage_change(vec![2], Some(vec![2])).build())
+				.unwrap();
 			// actual change: None -> Some(value) -> None
 			builder
-				.push_storage_change(vec![3], if nonce == 0 { Some(vec![3]) } else { None })
+				.push(
+					ExtrinsicBuilder::new_storage_change(
+						vec![3],
+						if index == 0 { Some(vec![3]) } else { None },
+					)
+					.build(),
+				)
 				.unwrap();
 			// actual change: None -> Some(value)
 			builder
-				.push_storage_change(vec![4], if nonce == 0 { None } else { Some(vec![4]) })
+				.push(
+					ExtrinsicBuilder::new_storage_change(
+						vec![4],
+						if index == 0 { None } else { Some(vec![4]) },
+					)
+					.build(),
+				)
 				.unwrap();
 			// actual change: Some(value1) -> Some(value2)
-			builder.push_storage_change(vec![5], Some(vec![nonce as u8])).unwrap();
+			builder
+				.push(
+					ExtrinsicBuilder::new_storage_change(vec![5], Some(vec![index as u8])).build(),
+				)
+				.unwrap();
 			let block = builder.build().unwrap().block;
 			let hash = block.header.hash();
 			executor::block_on(client.import(BlockOrigin::Own, block)).unwrap();
@@ -351,108 +402,48 @@ async fn should_query_storage() {
 		assert_eq!(result.unwrap(), expected);
 
 		// Inverted range.
-		let result = api.query_storage(keys.clone(), block1_hash, Some(genesis_hash));
-
-		assert_eq!(
-			result.map_err(|e| e.to_string()),
-			Err(RpcError::Call(RpcCallError::Custom(ErrorObject::owned(
-				4001,
-				Error::InvalidBlockRange {
-					from: format!("1 ({:?})", block1_hash),
-					to: format!("0 ({:?})", genesis_hash),
-					details: "from number > to number".to_owned(),
-				}
-				.to_string(),
-				None::<()>,
-			))))
-			.map_err(|e| e.to_string())
+		assert_matches!(
+			api.query_storage(keys.clone(), block1_hash, Some(genesis_hash)),
+			Err(Error::InvalidBlockRange { from, to, details }) if from == format!("1 ({:?})", block1_hash) && to == format!("0 ({:?})", genesis_hash) && details == "from number > to number".to_owned()
 		);
 
 		let random_hash1 = H256::random();
 		let random_hash2 = H256::random();
 
 		// Invalid second hash.
-		let result = api.query_storage(keys.clone(), genesis_hash, Some(random_hash1));
-
-		assert_eq!(
-			result.map_err(|e| e.to_string()),
-			Err(RpcError::Call(RpcCallError::Custom(ErrorObject::owned(
-				4001,
-				Error::InvalidBlockRange {
-					from: format!("{:?}", genesis_hash),
-					to: format!("{:?}", Some(random_hash1)),
-					details: format!(
-						"UnknownBlock: Header was not found in the database: {:?}",
-						random_hash1
-					),
-				}
-				.to_string(),
-				None::<()>,
-			))))
-			.map_err(|e| e.to_string())
+		assert_matches!(
+			api.query_storage(keys.clone(), genesis_hash, Some(random_hash1)),
+			Err(Error::InvalidBlockRange { from, to, details }) if from == format!("{:?}", genesis_hash) && to == format!("{:?}", Some(random_hash1)) && details == format!(
+				"UnknownBlock: Header was not found in the database: {:?}",
+				random_hash1
+			)
 		);
 
 		// Invalid first hash with Some other hash.
-		let result = api.query_storage(keys.clone(), random_hash1, Some(genesis_hash));
-
-		assert_eq!(
-			result.map_err(|e| e.to_string()),
-			Err(RpcError::Call(RpcCallError::Custom(ErrorObject::owned(
-				4001,
-				Error::InvalidBlockRange {
-					from: format!("{:?}", random_hash1),
-					to: format!("{:?}", Some(genesis_hash)),
-					details: format!(
-						"UnknownBlock: Header was not found in the database: {:?}",
-						random_hash1
-					),
-				}
-				.to_string(),
-				None::<()>,
-			))))
-			.map_err(|e| e.to_string()),
+		assert_matches!(
+			api.query_storage(keys.clone(), random_hash1, Some(genesis_hash)),
+			Err(Error::InvalidBlockRange { from, to, details }) if from == format!("{:?}", random_hash1) && to == format!("{:?}", Some(genesis_hash)) && details == format!(
+				"UnknownBlock: Header was not found in the database: {:?}",
+				random_hash1
+			)
 		);
 
 		// Invalid first hash with None.
-		let result = api.query_storage(keys.clone(), random_hash1, None);
-
-		assert_eq!(
-			result.map_err(|e| e.to_string()),
-			Err(RpcError::Call(RpcCallError::Custom(ErrorObject::owned(
-				4001,
-				Error::InvalidBlockRange {
-					from: format!("{:?}", random_hash1),
-					to: format!("{:?}", Some(block2_hash)), // Best block hash.
-					details: format!(
-						"UnknownBlock: Header was not found in the database: {:?}",
-						random_hash1
-					),
-				}
-				.to_string(),
-				None::<()>,
-			))))
-			.map_err(|e| e.to_string()),
+		assert_matches!(
+			api.query_storage(keys.clone(), random_hash1, None),
+			Err(Error::InvalidBlockRange { from, to, details }) if from == format!("{:?}", random_hash1) && to == format!("{:?}", Some(block2_hash)) && details == format!(
+				"UnknownBlock: Header was not found in the database: {:?}",
+				random_hash1
+			)
 		);
 
 		// Both hashes invalid.
-		let result = api.query_storage(keys.clone(), random_hash1, Some(random_hash2));
-
-		assert_eq!(
-			result.map_err(|e| e.to_string()),
-			Err(RpcError::Call(RpcCallError::Custom(ErrorObject::owned(
-				4001,
-				Error::InvalidBlockRange {
-					from: format!("{:?}", random_hash1), // First hash not found.
-					to: format!("{:?}", Some(random_hash2)),
-					details: format!(
-						"UnknownBlock: Header was not found in the database: {:?}",
-						random_hash1
-					),
-				}
-				.to_string(),
-				None::<()>
-			))))
-			.map_err(|e| e.to_string()),
+		assert_matches!(
+			api.query_storage(keys.clone(), random_hash1, Some(random_hash2)),
+			Err(Error::InvalidBlockRange { from, to, details }) if from == format!("{:?}", random_hash1) && to == format!("{:?}", Some(random_hash2)) && details == format!(
+				"UnknownBlock: Header was not found in the database: {:?}",
+				random_hash1
+			)
 		);
 
 		// single block range
@@ -480,18 +471,19 @@ async fn should_query_storage() {
 #[tokio::test]
 async fn should_return_runtime_version() {
 	let client = Arc::new(substrate_test_runtime_client::new());
-	let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No, None);
+	let (api, _child) = new_full(client.clone(), test_executor(), DenyUnsafe::No);
 
+	// it is basically json-encoded substrate_test_runtime_client::runtime::VERSION
 	let result = "{\"specName\":\"test\",\"implName\":\"parity-test\",\"authoringVersion\":1,\
-		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",4],\
-		[\"0x37e397fc7c91f5e4\",1],[\"0xd2bc9897eed08f15\",3],[\"0x40fe3ad401f8959a\",6],\
-		[\"0xc6e9a76309f39b09\",1],[\"0xdd718d5cc53262d4\",1],[\"0xcbca25e39f142387\",2],\
-		[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",1],[\"0xbc9d89904f5b923f\",1]],\
-		\"transactionVersion\":1,\"stateVersion\":1}";
+		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",5],\
+		[\"0x37e397fc7c91f5e4\",2],[\"0xd2bc9897eed08f15\",3],[\"0x40fe3ad401f8959a\",6],\
+		[\"0xbc9d89904f5b923f\",1],[\"0xc6e9a76309f39b09\",2],[\"0xdd718d5cc53262d4\",1],\
+		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",1],\
+		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"stateVersion\":1}";
 
 	let runtime_version = api.runtime_version(None.into()).unwrap();
 	let serialized = serde_json::to_string(&runtime_version).unwrap();
-	assert_eq!(serialized, result);
+	pretty_assertions::assert_eq!(serialized, result);
 
 	let deserialized: RuntimeVersion = serde_json::from_str(result).unwrap();
 	assert_eq!(deserialized, runtime_version);
@@ -501,11 +493,11 @@ async fn should_return_runtime_version() {
 async fn should_notify_on_runtime_version_initially() {
 	let mut sub = {
 		let client = Arc::new(substrate_test_runtime_client::new());
-		let (api, _child) = new_full(client, test_executor(), DenyUnsafe::No, None);
+		let (api, _child) = new_full(client, test_executor(), DenyUnsafe::No);
 
 		let api_rpc = api.into_rpc();
 		let sub = api_rpc
-			.subscribe("state_subscribeRuntimeVersion", EmptyParams::new())
+			.subscribe_unbounded("state_subscribeRuntimeVersion", EmptyParams::new())
 			.await
 			.unwrap();
 
@@ -514,9 +506,6 @@ async fn should_notify_on_runtime_version_initially() {
 
 	// assert initial version sent.
 	assert_matches!(timeout_secs(10, sub.next::<RuntimeVersion>()).await, Ok(Some(_)));
-
-	sub.close();
-	assert_matches!(timeout_secs(10, sub.next::<RuntimeVersion>()).await, Ok(None));
 }
 
 #[test]
@@ -529,22 +518,24 @@ fn should_deserialize_storage_key() {
 
 #[tokio::test]
 async fn wildcard_storage_subscriptions_are_rpc_unsafe() {
+	init_logger();
+
 	let client = Arc::new(substrate_test_runtime_client::new());
-	let (api, _child) = new_full(client, test_executor(), DenyUnsafe::Yes, None);
+	let (api, _child) = new_full(client, test_executor(), DenyUnsafe::Yes);
 
 	let api_rpc = api.into_rpc();
-	let err = api_rpc.subscribe("state_subscribeStorage", EmptyParams::new()).await;
-	assert_matches!(err, Err(RpcError::Call(RpcCallError::Custom(e))) if e.message() == "RPC call is unsafe to be called externally");
+	let err = api_rpc.subscribe_unbounded("state_subscribeStorage", EmptyParams::new()).await;
+	assert_matches!(err, Err(RpcError::JsonRpc(e)) if e.message() == "RPC call is unsafe to be called externally");
 }
 
 #[tokio::test]
 async fn concrete_storage_subscriptions_are_rpc_safe() {
 	let client = Arc::new(substrate_test_runtime_client::new());
-	let (api, _child) = new_full(client, test_executor(), DenyUnsafe::Yes, None);
+	let (api, _child) = new_full(client, test_executor(), DenyUnsafe::Yes);
 	let api_rpc = api.into_rpc();
 
 	let key = StorageKey(STORAGE_KEY.to_vec());
-	let sub = api_rpc.subscribe("state_subscribeStorage", [[key]]).await;
+	let sub = api_rpc.subscribe_unbounded("state_subscribeStorage", [[key]]).await;
 
 	assert!(sub.is_ok());
 }

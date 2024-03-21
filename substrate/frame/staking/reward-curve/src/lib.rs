@@ -81,11 +81,12 @@ pub fn build(input: TokenStream) -> TokenStream {
 
 	let imports = match crate_name("sp-runtime") {
 		Ok(FoundCrate::Itself) => quote!(
-			extern crate sp_runtime as _sp_runtime;
+			#[doc(hidden)]
+			pub use sp_runtime as _sp_runtime;
 		),
 		Ok(FoundCrate::Name(sp_runtime)) => {
 			let ident = syn::Ident::new(&sp_runtime, Span::call_site());
-			quote!( extern crate #ident as _sp_runtime; )
+			quote!( #[doc(hidden)] pub use #ident as _sp_runtime; )
 		},
 		Err(e) => syn::Error::new(Span::call_site(), e).to_compile_error(),
 	};

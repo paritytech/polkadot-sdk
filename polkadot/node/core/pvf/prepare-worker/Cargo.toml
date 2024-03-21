@@ -1,0 +1,50 @@
+[package]
+name = "polkadot-node-core-pvf-prepare-worker"
+description = "Polkadot crate that contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary."
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+blake3 = "1.5"
+cfg-if = "1.0"
+gum = { package = "tracing-gum", path = "../../../gum" }
+libc = "0.2.152"
+rayon = "1.5.1"
+tracking-allocator = { package = "staging-tracking-allocator", path = "../../../tracking-allocator" }
+tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
+tikv-jemallocator = { version = "0.5.0", optional = true }
+nix = { version = "0.27.1", features = ["process", "resource", "sched"] }
+
+parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+
+polkadot-node-core-pvf-common = { path = "../common" }
+polkadot-primitives = { path = "../../../../primitives" }
+
+sc-executor-common = { path = "../../../../../substrate/client/executor/common" }
+sc-executor-wasmtime = { path = "../../../../../substrate/client/executor/wasmtime" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemallocator = "0.5.0"
+tikv-jemalloc-ctl = "0.5.0"
+
+[features]
+builder = []
+jemalloc-allocator = [
+	"dep:tikv-jemalloc-ctl",
+	"dep:tikv-jemallocator",
+	"polkadot-node-core-pvf-common/jemalloc-allocator",
+]
+
+[dev-dependencies]
+criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support"] }
+rococo-runtime = { path = "../../../../runtime/rococo" }
+sp-maybe-compressed-blob = { path = "../../../../../substrate/primitives/maybe-compressed-blob" }
+
+[[bench]]
+name = "prepare_rococo_runtime"
+harness = false

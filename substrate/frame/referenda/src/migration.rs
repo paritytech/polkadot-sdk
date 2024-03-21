@@ -22,6 +22,9 @@ use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 use log;
 
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
+
 /// Initial version of storage types.
 pub mod v0 {
 	use super::*;
@@ -34,7 +37,7 @@ pub mod v0 {
 	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 		TrackIdOf<T, I>,
 		PalletsOriginOf<T>,
-		<T as frame_system::Config>::BlockNumber,
+		frame_system::pallet_prelude::BlockNumberFor<T>,
 		BoundedCallOf<T, I>,
 		BalanceOf<T, I>,
 		TallyOf<T, I>,
@@ -95,9 +98,7 @@ pub mod v1 {
 	pub struct MigrateV0ToV1<T, I = ()>(PhantomData<(T, I)>);
 	impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for MigrateV0ToV1<T, I> {
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-			let onchain_version = Pallet::<T, I>::on_chain_storage_version();
-			assert_eq!(onchain_version, 0, "migration from version 0 to 1.");
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			let referendum_count = v0::ReferendumInfoFor::<T, I>::iter().count();
 			log::info!(
 				target: TARGET,
@@ -108,16 +109,16 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let current_version = Pallet::<T, I>::current_storage_version();
-			let onchain_version = Pallet::<T, I>::on_chain_storage_version();
+			let in_code_version = Pallet::<T, I>::in_code_storage_version();
+			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
 			let mut weight = T::DbWeight::get().reads(1);
 			log::info!(
 				target: TARGET,
-				"running migration with current storage version {:?} / onchain {:?}.",
-				current_version,
-				onchain_version
+				"running migration with in-code storage version {:?} / onchain {:?}.",
+				in_code_version,
+				on_chain_version
 			);
-			if onchain_version != 0 {
+			if on_chain_version != 0 {
 				log::warn!(target: TARGET, "skipping migration from v0 to v1.");
 				return weight
 			}
@@ -147,16 +148,13 @@ pub mod v1 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
-			let onchain_version = Pallet::<T, I>::on_chain_storage_version();
-			assert_eq!(onchain_version, 1, "must upgrade from version 0 to 1.");
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+			ensure!(on_chain_version == 1, "must upgrade from version 0 to 1.");
 			let pre_referendum_count: u32 = Decode::decode(&mut &state[..])
 				.expect("failed to decode the state from pre-upgrade.");
 			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
-			assert_eq!(
-				post_referendum_count, pre_referendum_count,
-				"must migrate all referendums."
-			);
+			ensure!(post_referendum_count == pre_referendum_count, "must migrate all referendums.");
 			log::info!(target: TARGET, "migrated all referendums.");
 			Ok(())
 		}
@@ -191,7 +189,7 @@ pub mod test {
 	#[test]
 	pub fn referendum_status_v0() {
 		// make sure the bytes of the encoded referendum v0 is decodable.
-		let ongoing_encoded = sp_core::Bytes::from_str("0x00000000013001012a000000000000000400000100000000000000010000000000000001000000000000000a00000000000000000000000000000000000100").unwrap();
+		let ongoing_encoded = sp_core::Bytes::from_str("0x00000000012c01082a0000000000000004000100000000000000010000000000000001000000000000000a00000000000000000000000000000000000100").unwrap();
 		let ongoing_dec = v0::ReferendumInfoOf::<T, ()>::decode(&mut &*ongoing_encoded).unwrap();
 		let ongoing = v0::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0());
 		assert_eq!(ongoing, ongoing_dec);
@@ -199,10 +197,11 @@ pub mod test {
 
 	#[test]
 	fn migration_v0_to_v1_works() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// create and insert into the storage an ongoing referendum v0.
 			let status_v0 = create_status_v0();
 			let ongoing_v0 = v0::ReferendumInfoOf::<T, ()>::Ongoing(status_v0.clone());
+			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
 			v0::ReferendumInfoFor::<T, ()>::insert(2, ongoing_v0);
 			// create and insert into the storage an approved referendum v0.
 			let approved_v0 = v0::ReferendumInfoOf::<T, ()>::Approved(
@@ -210,6 +209,7 @@ pub mod test {
 				Deposit { who: 1, amount: 10 },
 				Some(Deposit { who: 2, amount: 20 }),
 			);
+			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
 			v0::ReferendumInfoFor::<T, ()>::insert(5, approved_v0);
 			// run migration from v0 to v1.
 			v1::MigrateV0ToV1::<T, ()>::on_runtime_upgrade();

@@ -24,19 +24,12 @@ use crate::historical as pallet_session_historical;
 
 use std::collections::BTreeMap;
 
-use sp_core::{crypto::key_types::DUMMY, H256};
-use sp_runtime::{
-	impl_opaque_keys,
-	testing::{Header, UintAuthorityId},
-	traits::{BlakeTwo256, IdentityLookup},
-};
+use sp_core::crypto::key_types::DUMMY;
+use sp_runtime::{impl_opaque_keys, testing::UintAuthorityId, BuildStorage};
 use sp_staking::SessionIndex;
+use sp_state_machine::BasicExternalities;
 
-use frame_support::{
-	parameter_types,
-	traits::{ConstU32, ConstU64, GenesisBuild},
-	BasicExternalities,
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU64};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -75,31 +68,24 @@ impl OpaqueKeys for PreUpgradeMockSessionKeys {
 	}
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 #[cfg(feature = "historical")]
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Historical: pallet_session_historical::{Pallet},
+		System: frame_system,
+		Session: pallet_session,
+		Historical: pallet_session_historical,
 	}
 );
 
 #[cfg(not(feature = "historical"))]
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		System: frame_system,
+		Session: pallet_session,
 	}
 );
 
@@ -215,7 +201,7 @@ pub fn reset_before_session_end_called() {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let keys: Vec<_> = NextValidators::get()
 		.iter()
 		.cloned()
@@ -238,31 +224,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_io::TestExternalities::new(t)
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
+	type Block = Block;
 }
 
 impl pallet_timestamp::Config for Test {

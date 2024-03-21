@@ -15,23 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::vec;
-
-use beefy_primitives::{
-	check_equivocation_proof, generate_equivocation_proof, known_payloads::MMR_ROOT_ID,
-	Keyring as BeefyKeyring, Payload, ValidatorSet,
-};
 use codec::Encode;
-
-use sp_runtime::DigestItem;
+use std::vec;
 
 use frame_support::{
 	assert_err, assert_ok,
 	dispatch::{GetDispatchInfo, Pays},
 	traits::{Currency, KeyOwnerProofSystem, OnInitialize},
 };
+use sp_consensus_beefy::{
+	check_equivocation_proof,
+	known_payloads::MMR_ROOT_ID,
+	test_utils::{generate_equivocation_proof, Keyring as BeefyKeyring},
+	Payload, ValidatorSet, KEY_TYPE as BEEFY_KEY_TYPE,
+};
+use sp_runtime::DigestItem;
 
-use crate::{mock::*, Call, Config, Error, Weight, WeightInfo};
+use crate::{self as beefy, mock::*, Call, Config, Error, Weight, WeightInfo};
 
 fn init_block(block: u64) {
 	System::set_block_number(block);
@@ -48,15 +48,15 @@ fn genesis_session_initializes_authorities() {
 	let want = authorities.clone();
 
 	new_test_ext_raw_authorities(authorities).execute_with(|| {
-		let authorities = Beefy::authorities();
+		let authorities = beefy::Authorities::<Test>::get();
 
 		assert_eq!(authorities.len(), 4);
 		assert_eq!(want[0], authorities[0]);
 		assert_eq!(want[1], authorities[1]);
 
-		assert!(Beefy::validator_set_id() == 0);
+		assert!(beefy::ValidatorSetId::<Test>::get() == 0);
 
-		let next_authorities = Beefy::next_authorities();
+		let next_authorities = beefy::NextAuthorities::<Test>::get();
 
 		assert_eq!(next_authorities.len(), 4);
 		assert_eq!(want[0], next_authorities[0]);
@@ -70,11 +70,11 @@ fn session_change_updates_authorities() {
 	let want_validators = authorities.clone();
 
 	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
-		assert!(0 == Beefy::validator_set_id());
+		assert!(0 == beefy::ValidatorSetId::<Test>::get());
 
 		init_block(1);
 
-		assert!(1 == Beefy::validator_set_id());
+		assert!(1 == beefy::ValidatorSetId::<Test>::get());
 
 		let want = beefy_log(ConsensusLog::AuthoritiesChange(
 			ValidatorSet::new(want_validators, 1).unwrap(),
@@ -85,7 +85,7 @@ fn session_change_updates_authorities() {
 
 		init_block(2);
 
-		assert!(2 == Beefy::validator_set_id());
+		assert!(2 == beefy::ValidatorSetId::<Test>::get());
 
 		let want = beefy_log(ConsensusLog::AuthoritiesChange(
 			ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(4)], 2).unwrap(),
@@ -101,7 +101,7 @@ fn session_change_updates_next_authorities() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
 	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
-		let next_authorities = Beefy::next_authorities();
+		let next_authorities = beefy::NextAuthorities::<Test>::get();
 
 		assert_eq!(next_authorities.len(), 4);
 		assert_eq!(want[0], next_authorities[0]);
@@ -111,7 +111,7 @@ fn session_change_updates_next_authorities() {
 
 		init_block(1);
 
-		let next_authorities = Beefy::next_authorities();
+		let next_authorities = beefy::NextAuthorities::<Test>::get();
 
 		assert_eq!(next_authorities.len(), 2);
 		assert_eq!(want[1], next_authorities[0]);
@@ -177,7 +177,7 @@ fn cleans_up_old_set_id_session_mappings() {
 		// we should have a session id mapping for all the set ids from
 		// `max_set_id_session_entries` eras we have observed
 		for i in 1..=max_set_id_session_entries {
-			assert!(Beefy::session_for_set(i as u64).is_some());
+			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		// go through another `max_set_id_session_entries` sessions
@@ -185,12 +185,12 @@ fn cleans_up_old_set_id_session_mappings() {
 
 		// we should keep tracking the new mappings for new sessions
 		for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
-			assert!(Beefy::session_for_set(i as u64).is_some());
+			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
 		// but the old ones should have been pruned by now
 		for i in 1..=max_set_id_session_entries {
-			assert!(Beefy::session_for_set(i as u64).is_none());
+			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_none());
 		}
 	});
 }
@@ -277,7 +277,7 @@ fn report_equivocation_current_set_works() {
 			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
 
 			assert_eq!(
-				Staking::eras_stakers(1, validator),
+				Staking::eras_stakers(1, &validator),
 				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
 			);
 		}
@@ -297,8 +297,7 @@ fn report_equivocation_current_set_works() {
 		);
 
 		// create the key ownership proof
-		let key_owner_proof =
-			Historical::prove((beefy_primitives::KEY_TYPE, &equivocation_key)).unwrap();
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
 		// report the equivocation and the tx should be dispatched successfully
 		assert_ok!(Beefy::report_equivocation_unsigned(
@@ -315,7 +314,7 @@ fn report_equivocation_current_set_works() {
 		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		assert_eq!(
-			Staking::eras_stakers(2, equivocation_validator_id),
+			Staking::eras_stakers(2, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -329,7 +328,7 @@ fn report_equivocation_current_set_works() {
 			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
 
 			assert_eq!(
-				Staking::eras_stakers(2, validator),
+				Staking::eras_stakers(2, &validator),
 				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
 			);
 		}
@@ -354,8 +353,7 @@ fn report_equivocation_old_set_works() {
 		let equivocation_key = &authorities[equivocation_authority_index];
 
 		// create the key ownership proof in the "old" set
-		let key_owner_proof =
-			Historical::prove((beefy_primitives::KEY_TYPE, &equivocation_key)).unwrap();
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
 		start_era(2);
 
@@ -365,7 +363,7 @@ fn report_equivocation_old_set_works() {
 			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
 
 			assert_eq!(
-				Staking::eras_stakers(2, validator),
+				Staking::eras_stakers(2, &validator),
 				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
 			);
 		}
@@ -399,7 +397,7 @@ fn report_equivocation_old_set_works() {
 		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		assert_eq!(
-			Staking::eras_stakers(3, equivocation_validator_id),
+			Staking::eras_stakers(3, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -413,7 +411,7 @@ fn report_equivocation_old_set_works() {
 			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
 
 			assert_eq!(
-				Staking::eras_stakers(3, validator),
+				Staking::eras_stakers(3, &validator),
 				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
 			);
 		}
@@ -436,8 +434,7 @@ fn report_equivocation_invalid_set_id() {
 		let equivocation_key = &authorities[equivocation_authority_index];
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
 
-		let key_owner_proof =
-			Historical::prove((beefy_primitives::KEY_TYPE, &equivocation_key)).unwrap();
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
 		let payload1 = Payload::from_single_entry(MMR_ROOT_ID, vec![42]);
 		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![128]);
@@ -475,8 +472,7 @@ fn report_equivocation_invalid_session() {
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
 
 		// generate a key ownership proof at current era set id
-		let key_owner_proof =
-			Historical::prove((beefy_primitives::KEY_TYPE, &equivocation_key)).unwrap();
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
 		start_era(2);
 
@@ -520,7 +516,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 
 		// generate a key ownership proof for the authority at index 1
 		let invalid_key_owner_proof =
-			Historical::prove((beefy_primitives::KEY_TYPE, &invalid_owner_key)).unwrap();
+			Historical::prove((BEEFY_KEY_TYPE, &invalid_owner_key)).unwrap();
 
 		let equivocation_authority_index = 0;
 		let equivocation_key = &authorities[equivocation_authority_index];
@@ -568,8 +564,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 		let equivocation_keyring = BeefyKeyring::from_public(equivocation_key).unwrap();
 
 		// generate a key ownership proof at set id in era 1
-		let key_owner_proof =
-			Historical::prove((beefy_primitives::KEY_TYPE, &equivocation_key)).unwrap();
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
 		let assert_invalid_equivocation_proof = |equivocation_proof| {
 			assert_err!(
@@ -649,8 +644,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 			(block_num, payload2, set_id, &equivocation_keyring),
 		);
 
-		let key_owner_proof =
-			Historical::prove((beefy_primitives::KEY_TYPE, &equivocation_key)).unwrap();
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
 		let call = Call::report_equivocation_unsigned {
 			equivocation_proof: Box::new(equivocation_proof.clone()),
@@ -716,7 +710,7 @@ fn report_equivocation_has_valid_weight() {
 	// the weight depends on the size of the validator set,
 	// but there's a lower bound of 100 validators.
 	assert!((1..=100)
-		.map(<Test as Config>::WeightInfo::report_equivocation)
+		.map(|validators| <Test as Config>::WeightInfo::report_equivocation(validators, 1000))
 		.collect::<Vec<_>>()
 		.windows(2)
 		.all(|w| w[0] == w[1]));
@@ -724,7 +718,7 @@ fn report_equivocation_has_valid_weight() {
 	// after 100 validators the weight should keep increasing
 	// with every extra validator.
 	assert!((100..=1000)
-		.map(<Test as Config>::WeightInfo::report_equivocation)
+		.map(|validators| <Test as Config>::WeightInfo::report_equivocation(validators, 1000))
 		.collect::<Vec<_>>()
 		.windows(2)
 		.all(|w| w[0].ref_time() < w[1].ref_time()));
@@ -755,8 +749,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 		);
 
 		// create the key ownership proof.
-		let key_owner_proof =
-			Historical::prove((beefy_primitives::KEY_TYPE, &equivocation_key)).unwrap();
+		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
 		// check the dispatch info for the call.
 		let info = Call::<Test>::report_equivocation_unsigned {
@@ -797,4 +790,26 @@ fn valid_equivocation_reports_dont_pay_fees() {
 		assert!(post_info.actual_weight.is_none());
 		assert_eq!(post_info.pays_fee, Pays::Yes);
 	})
+}
+
+#[test]
+fn set_new_genesis_works() {
+	let authorities = test_authorities();
+
+	new_test_ext_raw_authorities(authorities).execute_with(|| {
+		start_era(1);
+
+		let new_genesis_delay = 10u64;
+		// the call for setting new genesis should work
+		assert_ok!(Beefy::set_new_genesis(RuntimeOrigin::root(), new_genesis_delay,));
+		let expected = System::block_number() + new_genesis_delay;
+		// verify new genesis was set
+		assert_eq!(beefy::GenesisBlock::<Test>::get(), Some(expected));
+
+		// setting delay < 1 should fail
+		assert_err!(
+			Beefy::set_new_genesis(RuntimeOrigin::root(), 0u64,),
+			Error::<Test>::InvalidConfiguration,
+		);
+	});
 }

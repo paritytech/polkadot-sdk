@@ -42,6 +42,9 @@ use sp_std::{
 	prelude::*,
 };
 
+#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
+use sp_runtime::TryRuntimeError;
+
 #[derive(Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, PalletError)]
 pub enum ListError {
 	/// A duplicate id has been detected.
@@ -512,11 +515,11 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// * and sanity-checks all bags and nodes. This will cascade down all the checks and makes sure
 	/// all bags and nodes are checked per *any* update to `List`.
 	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
-	pub(crate) fn do_try_state() -> Result<(), &'static str> {
+	pub(crate) fn do_try_state() -> Result<(), TryRuntimeError> {
 		let mut seen_in_list = BTreeSet::new();
 		ensure!(
 			Self::iter().map(|node| node.id).all(|id| seen_in_list.insert(id)),
-			"duplicate identified",
+			"duplicate identified"
 		);
 
 		let iter_count = Self::iter().count() as u32;
@@ -540,7 +543,16 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			thresholds.into_iter().filter_map(|t| Bag::<T, I>::get(t))
 		};
 
-		let _ = active_bags.clone().try_for_each(|b| b.do_try_state())?;
+		// build map of bags and the corresponding nodes to avoid multiple lookups
+		let mut bags_map = BTreeMap::<T::Score, Vec<T::AccountId>>::new();
+
+		let _ = active_bags.clone().try_for_each(|b| {
+			bags_map.insert(
+				b.bag_upper,
+				b.iter().map(|n: Node<T, I>| n.id().clone()).collect::<Vec<_>>(),
+			);
+			b.do_try_state()
+		})?;
 
 		let nodes_in_bags_count =
 			active_bags.clone().fold(0u32, |acc, cur| acc + cur.iter().count() as u32);
@@ -551,6 +563,13 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// check that all nodes are sane. We check the `ListNodes` storage item directly in case we
 		// have some "stale" nodes that are not in a bag.
 		for (_id, node) in crate::ListNodes::<T, I>::iter() {
+			// check that the node is in the correct bag
+			let expected_bag = bags_map
+				.get(&node.bag_upper)
+				.ok_or("bag not found for the node in active bags")?;
+			frame_support::ensure!(expected_bag.contains(node.id()), "node not found in the bag");
+
+			// verify node state
 			node.do_try_state()?
 		}
 
@@ -750,7 +769,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	/// * Ensures tail has no next.
 	/// * Ensures there are no loops, traversal from head to tail is correct.
 	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
-	fn do_try_state(&self) -> Result<(), &'static str> {
+	fn do_try_state(&self) -> Result<(), TryRuntimeError> {
 		frame_support::ensure!(
 			self.head()
 				.map(|head| head.prev().is_none())
@@ -786,12 +805,6 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 	#[allow(dead_code)]
 	pub fn std_iter(&self) -> impl Iterator<Item = Node<T, I>> {
 		sp_std::iter::successors(self.head(), |prev| prev.next())
-	}
-
-	/// Check if the bag contains a node with `id`.
-	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
-	fn contains(&self, id: &T::AccountId) -> bool {
-		self.iter().any(|n| n.id() == id)
 	}
 }
 
@@ -895,15 +908,9 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 	}
 
 	#[cfg(any(test, feature = "try-runtime", feature = "fuzz"))]
-	fn do_try_state(&self) -> Result<(), &'static str> {
+	fn do_try_state(&self) -> Result<(), TryRuntimeError> {
 		let expected_bag = Bag::<T, I>::get(self.bag_upper).ok_or("bag not found for node")?;
-
 		let id = self.id();
-
-		frame_support::ensure!(
-			expected_bag.contains(id),
-			"node does not exist in the expected bag"
-		);
 
 		let non_terminal_check = !self.is_terminal() &&
 			expected_bag.head.as_ref() != Some(id) &&

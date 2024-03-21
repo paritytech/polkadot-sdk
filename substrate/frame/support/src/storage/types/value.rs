@@ -18,23 +18,49 @@
 //! Storage value type. Implements StorageValue trait and its method directly.
 
 use crate::{
-	metadata::{StorageEntryMetadata, StorageEntryType},
 	storage::{
 		generator::StorageValue as StorageValueT,
 		types::{OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder},
 		StorageAppend, StorageDecodeLength, StorageTryAppend,
 	},
-	traits::{GetDefault, StorageInfo, StorageInstance},
+	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
+use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
-/// A type that allow to store a value.
+/// A type representing a *value* in storage. A *storage value* is a single value of a given type
+/// stored on-chain.
 ///
-/// Each value is stored at:
-/// ```nocompile
-/// Twox128(Prefix::pallet_prefix()) ++ Twox128(Prefix::STORAGE_PREFIX)
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
+/// [`crate::pallet_macros::storage`].
+///
+/// # Example
+///
+/// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+///     # use frame_support::pallet_prelude::*;
+///     # #[pallet::config]
+///     # pub trait Config: frame_system::Config {}
+///     # #[pallet::pallet]
+///     # pub struct Pallet<T>(_);
+/// 	/// A kitchen-sink StorageValue, with all possible additional attributes.
+///     #[pallet::storage]
+/// 	#[pallet::getter(fn foo)]
+/// 	#[pallet::storage_prefix = "OtherFoo"]
+/// 	#[pallet::unbounded]
+///     pub type Foo<T> = StorageValue<_, u32,ValueQuery>;
+///
+/// 	/// Named alternative syntax.
+///     #[pallet::storage]
+///     pub type Bar<T> = StorageValue<
+/// 		Value = u32,
+/// 		QueryKind = ValueQuery
+/// 	>;
+/// }
 /// ```
 pub struct StorageValue<Prefix, Value, QueryKind = OptionQuery, OnEmpty = GetDefault>(
 	core::marker::PhantomData<(Prefix, Value, QueryKind, OnEmpty)>,
@@ -46,10 +72,10 @@ where
 	Prefix: StorageInstance,
 	Value: FullCodec,
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
-	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
+	OnEmpty: Get<QueryKind::Query> + 'static,
 {
 	type Query = QueryKind::Query;
-	fn module_prefix() -> &'static [u8] {
+	fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 	fn storage_prefix() -> &'static [u8] {
@@ -60,6 +86,9 @@ where
 	}
 	fn from_query_to_optional_value(v: Self::Query) -> Option<Value> {
 		QueryKind::from_query_to_optional_value(v)
+	}
+	fn storage_value_final_key() -> [u8; 32] {
+		Prefix::prefix_hash()
 	}
 }
 
@@ -135,6 +164,11 @@ where
 		<Self as crate::storage::StorageValue<Value>>::mutate(f)
 	}
 
+	/// Mutate the value under a key iff it exists. Do nothing and return the default value if not.
+	pub fn mutate_extant<R: Default, F: FnOnce(&mut Value) -> R>(f: F) -> R {
+		<Self as crate::storage::StorageValue<Value>>::mutate_extant(f)
+	}
+
 	/// Mutate the value if closure returns `Ok`
 	pub fn try_mutate<R, E, F: FnOnce(&mut QueryKind::Query) -> Result<R, E>>(
 		f: F,
@@ -200,6 +234,27 @@ where
 		<Self as crate::storage::StorageValue<Value>>::decode_len()
 	}
 
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `Value` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	pub fn decode_non_dedup_len() -> Option<usize>
+	where
+		Value: StorageDecodeNonDedupLength,
+	{
+		<Self as crate::storage::StorageValue<Value>>::decode_non_dedup_len()
+	}
+
 	/// Try and append the given item to the value in the storage.
 	///
 	/// Is only available if `Value` of the storage implements [`StorageTryAppend`].
@@ -221,13 +276,13 @@ where
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
 	OnEmpty: crate::traits::Get<QueryKind::Query> + 'static,
 {
-	fn build_metadata(docs: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadata>) {
+	fn build_metadata(docs: Vec<&'static str>, entries: &mut Vec<StorageEntryMetadataIR>) {
 		let docs = if cfg!(feature = "no-metadata-docs") { vec![] } else { docs };
 
-		let entry = StorageEntryMetadata {
+		let entry = StorageEntryMetadataIR {
 			name: Prefix::STORAGE_PREFIX,
 			modifier: QueryKind::METADATA,
-			ty: StorageEntryType::Plain(scale_info::meta_type::<Value>()),
+			ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<Value>()),
 			default: OnEmpty::get().encode(),
 			docs,
 		};
@@ -246,7 +301,7 @@ where
 {
 	fn storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::hashed_key().to_vec(),
 			max_values: Some(1),
@@ -266,7 +321,7 @@ where
 {
 	fn partial_storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::hashed_key().to_vec(),
 			max_values: Some(1),
@@ -278,8 +333,9 @@ where
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::{metadata::StorageEntryModifier, storage::types::ValueQuery};
+	use crate::storage::types::ValueQuery;
 	use sp_io::{hashing::twox_128, TestExternalities};
+	use sp_metadata_ir::StorageEntryModifierIR;
 
 	struct Prefix;
 	impl StorageInstance for Prefix {
@@ -363,17 +419,17 @@ mod test {
 			assert_eq!(
 				entries,
 				vec![
-					StorageEntryMetadata {
+					StorageEntryMetadataIR {
 						name: "foo",
-						modifier: StorageEntryModifier::Optional,
-						ty: StorageEntryType::Plain(scale_info::meta_type::<u32>()),
+						modifier: StorageEntryModifierIR::Optional,
+						ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<u32>()),
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
 					},
-					StorageEntryMetadata {
+					StorageEntryMetadataIR {
 						name: "foo",
-						modifier: StorageEntryModifier::Default,
-						ty: StorageEntryType::Plain(scale_info::meta_type::<u32>()),
+						modifier: StorageEntryModifierIR::Default,
+						ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<u32>()),
 						default: 97u32.encode(),
 						docs: vec![],
 					}

@@ -94,29 +94,25 @@ pub mod migration;
 mod types;
 pub mod weights;
 
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
-	traits::{Saturating, StaticLookup, Zero},
-	RuntimeDebug,
+	traits::{Dispatchable, Saturating, StaticLookup, Zero},
+	DispatchError, RuntimeDebug,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
 use frame_support::{
-	codec::{Decode, Encode, MaxEncodedLen},
-	dispatch::{
-		DispatchError, DispatchResult, DispatchResultWithPostInfo, Dispatchable, GetDispatchInfo,
-		PostDispatchInfo,
-	},
+	dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
 	ensure,
-	scale_info::TypeInfo,
 	traits::{
 		ChangeMembers, Currency, Get, InitializeMembers, IsSubType, OnUnbalanced,
 		ReservableCurrency,
 	},
-	weights::{OldWeight, Weight},
+	weights::Weight,
 };
-use pallet_identity::IdentityField;
+use scale_info::TypeInfo;
 
 pub use pallet::*;
 pub use types::*;
@@ -138,9 +134,9 @@ type NegativeImbalanceOf<T, I> = <<T as Config<I>>::Currency as Currency<
 
 /// Interface required for identity verification.
 pub trait IdentityVerifier<AccountId> {
-	/// Function that returns whether an account has an identity registered with the identity
-	/// provider.
-	fn has_identity(who: &AccountId, fields: u64) -> bool;
+	/// Function that returns whether an account has the required identities registered with the
+	/// identity provider.
+	fn has_required_identities(who: &AccountId) -> bool;
 
 	/// Whether an account has been deemed "good" by the provider.
 	fn has_good_judgement(who: &AccountId) -> bool;
@@ -152,7 +148,7 @@ pub trait IdentityVerifier<AccountId> {
 
 /// The non-provider. Imposes no restrictions on account identity.
 impl<AccountId> IdentityVerifier<AccountId> for () {
-	fn has_identity(_who: &AccountId, _fields: u64) -> bool {
+	fn has_required_identities(_who: &AccountId) -> bool {
 		true
 	}
 
@@ -222,7 +218,6 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
@@ -310,7 +305,7 @@ pub mod pallet {
 
 		/// The number of blocks a member must wait between giving a retirement notice and retiring.
 		/// Supposed to be greater than time required to `kick_member`.
-		type RetirementPeriod: Get<Self::BlockNumber>;
+		type RetirementPeriod: Get<BlockNumberFor<Self>>;
 	}
 
 	#[pallet::error]
@@ -343,7 +338,7 @@ pub mod pallet {
 		/// Balance is insufficient for the required deposit.
 		InsufficientFunds,
 		/// The account's identity does not have display field and website field.
-		WithoutIdentityDisplayAndWebsite,
+		WithoutRequiredIdentityFields,
 		/// The account's identity has no good judgement.
 		WithoutGoodIdentityJudgement,
 		/// The proposal hash is not found.
@@ -402,21 +397,16 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		pub fellows: Vec<T::AccountId>,
 		pub allies: Vec<T::AccountId>,
+		#[serde(skip)]
 		pub phantom: PhantomData<(T, I)>,
 	}
 
-	#[cfg(feature = "std")]
-	impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
-		fn default() -> Self {
-			Self { fellows: Vec::new(), allies: Vec::new(), phantom: Default::default() }
-		}
-	}
-
 	#[pallet::genesis_build]
-	impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+	impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
 		fn build(&self) {
 			for m in self.fellows.iter().chain(self.allies.iter()) {
 				assert!(Pallet::<T, I>::has_identity(m).is_ok(), "Member does not set identity!");
@@ -483,7 +473,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn retiring_members)]
 	pub type RetiringMembers<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, T::BlockNumber, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, T::AccountId, BlockNumberFor<T>, OptionQuery>;
 
 	/// The current list of accounts deemed unscrupulous. These accounts non grata cannot submit
 	/// candidacy.
@@ -498,7 +488,7 @@ pub mod pallet {
 	pub type UnscrupulousWebsites<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<UrlOf<T, I>, T::MaxUnscrupulousItems>, ValueQuery>;
 
-	#[pallet::call]
+	#[pallet::call(weight(<T as Config<I>>::WeightInfo))]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Add a new proposal to be voted on.
 		///
@@ -540,36 +530,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Close a vote that is either approved, disapproved, or whose voting period has ended.
-		///
-		/// Must be called by a Fellow.
-		#[pallet::call_index(2)]
-		#[pallet::weight({
-			let b = *length_bound;
-			let m = T::MaxFellows::get();
-			let p1 = *proposal_weight_bound;
-			let p2 = T::MaxProposals::get();
-			T::WeightInfo::close_early_approved(b, m, p2)
-				.max(T::WeightInfo::close_early_disapproved(m, p2))
-				.max(T::WeightInfo::close_approved(b, m, p2))
-				.max(T::WeightInfo::close_disapproved(m, p2))
-				.saturating_add(p1.into())
-		})]
-		#[allow(deprecated)]
-		#[deprecated(note = "1D weight is used in this extrinsic, please migrate to use `close`")]
-		pub fn close_old_weight(
-			origin: OriginFor<T>,
-			proposal_hash: T::Hash,
-			#[pallet::compact] index: ProposalIndex,
-			#[pallet::compact] proposal_weight_bound: OldWeight,
-			#[pallet::compact] length_bound: u32,
-		) -> DispatchResultWithPostInfo {
-			let proposal_weight_bound: Weight = proposal_weight_bound.into();
-			let who = ensure_signed(origin)?;
-			ensure!(Self::has_voting_rights(&who), Error::<T, I>::NoVotingRights);
-
-			Self::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
-		}
+		// Index 2 was `close_old_weight`; it was removed due to weights v1 deprecation.
 
 		/// Initialize the Alliance, onboard fellows and allies.
 		///
@@ -679,7 +640,6 @@ pub mod pallet {
 
 		/// Set a new IPFS CID to the alliance rule.
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::set_rule())]
 		pub fn set_rule(origin: OriginFor<T>, rule: Cid) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
 
@@ -691,7 +651,6 @@ pub mod pallet {
 
 		/// Make an announcement of a new IPFS CID about alliance issues.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::announce())]
 		pub fn announce(origin: OriginFor<T>, announcement: Cid) -> DispatchResult {
 			T::AnnouncementOrigin::ensure_origin(origin)?;
 
@@ -707,7 +666,6 @@ pub mod pallet {
 
 		/// Remove an announcement.
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::remove_announcement())]
 		pub fn remove_announcement(origin: OriginFor<T>, announcement: Cid) -> DispatchResult {
 			T::AnnouncementOrigin::ensure_origin(origin)?;
 
@@ -725,7 +683,6 @@ pub mod pallet {
 
 		/// Submit oneself for candidacy. A fixed deposit is reserved.
 		#[pallet::call_index(8)]
-		#[pallet::weight(T::WeightInfo::join_alliance())]
 		pub fn join_alliance(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -762,7 +719,6 @@ pub mod pallet {
 		/// A Fellow can nominate someone to join the alliance as an Ally. There is no deposit
 		/// required from the nominator or nominee.
 		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::nominate_ally())]
 		pub fn nominate_ally(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResult {
 			let nominator = ensure_signed(origin)?;
 			ensure!(Self::has_voting_rights(&nominator), Error::<T, I>::NoVotingRights);
@@ -787,7 +743,6 @@ pub mod pallet {
 
 		/// Elevate an Ally to Fellow.
 		#[pallet::call_index(10)]
-		#[pallet::weight(T::WeightInfo::elevate_ally())]
 		pub fn elevate_ally(origin: OriginFor<T>, ally: AccountIdLookupOf<T>) -> DispatchResult {
 			T::MembershipManager::ensure_origin(origin)?;
 			let ally = T::Lookup::lookup(ally)?;
@@ -804,7 +759,6 @@ pub mod pallet {
 		/// As a member, give a retirement notice and start a retirement period required to pass in
 		/// order to retire.
 		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::give_retirement_notice())]
 		pub fn give_retirement_notice(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let role = Self::member_role_of(&who).ok_or(Error::<T, I>::NotMember)?;
@@ -827,7 +781,6 @@ pub mod pallet {
 		/// This can only be done once you have called `give_retirement_notice` and the
 		/// `RetirementPeriod` has passed.
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::WeightInfo::retire())]
 		pub fn retire(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let retirement_period_end = RetiringMembers::<T, I>::get(&who)
@@ -850,7 +803,6 @@ pub mod pallet {
 
 		/// Kick a member from the Alliance and slash its deposit.
 		#[pallet::call_index(13)]
-		#[pallet::weight(T::WeightInfo::kick_member())]
 		pub fn kick_member(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResult {
 			T::MembershipManager::ensure_origin(origin)?;
 			let member = T::Lookup::lookup(who)?;
@@ -952,7 +904,6 @@ pub mod pallet {
 		/// who do not want to leave the Alliance but do not have the capacity to participate
 		/// operationally for some time.
 		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::abdicate_fellow_status())]
 		pub fn abdicate_fellow_status(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let role = Self::member_role_of(&who).ok_or(Error::<T, I>::NotMember)?;
@@ -1130,13 +1081,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	fn has_identity(who: &T::AccountId) -> DispatchResult {
-		const IDENTITY_FIELD_DISPLAY: u64 = IdentityField::Display as u64;
-		const IDENTITY_FIELD_WEB: u64 = IdentityField::Web as u64;
-
 		let judgement = |who: &T::AccountId| -> DispatchResult {
 			ensure!(
-				T::IdentityVerifier::has_identity(who, IDENTITY_FIELD_DISPLAY | IDENTITY_FIELD_WEB),
-				Error::<T, I>::WithoutIdentityDisplayAndWebsite
+				T::IdentityVerifier::has_required_identities(who),
+				Error::<T, I>::WithoutRequiredIdentityFields
 			);
 			ensure!(
 				T::IdentityVerifier::has_good_judgement(who),

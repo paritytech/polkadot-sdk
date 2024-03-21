@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use substrate_test_runtime_client::{prelude::*, runtime::Block};
@@ -27,7 +27,30 @@ async fn block_stats_work() {
 	let mut client = Arc::new(substrate_test_runtime_client::new());
 	let api = <Dev<Block, _>>::new(client.clone(), DenyUnsafe::No).into_rpc();
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+
+	let (expected_witness_len, expected_witness_compact_len, expected_block_len) = {
+		let genesis_hash = client.chain_info().genesis_hash;
+		let mut runtime_api = client.runtime_api();
+		runtime_api.record_proof();
+		runtime_api.execute_block(genesis_hash, block.clone()).unwrap();
+		let witness = runtime_api.extract_proof().unwrap();
+		let pre_root = *client.header(genesis_hash).unwrap().unwrap().state_root();
+
+		(
+			witness.clone().encoded_size() as u64,
+			witness.into_compact_proof::<HasherOf<Block>>(pre_root).unwrap().encoded_size() as u64,
+			block.encoded_size() as u64,
+		)
+	};
+
 	client.import(BlockOrigin::Own, block).await.unwrap();
 
 	// Can't gather stats for a block without a parent.
@@ -43,9 +66,9 @@ async fn block_stats_work() {
 			.await
 			.unwrap(),
 		Some(BlockStats {
-			witness_len: 630,
-			witness_compact_len: 534,
-			block_len: 99,
+			witness_len: expected_witness_len,
+			witness_compact_len: expected_witness_compact_len,
+			block_len: expected_block_len,
 			num_extrinsics: 0,
 		}),
 	);
@@ -56,7 +79,14 @@ async fn deny_unsafe_works() {
 	let mut client = Arc::new(substrate_test_runtime_client::new());
 	let api = <Dev<Block, _>>::new(client.clone(), DenyUnsafe::Yes).into_rpc();
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block).await.unwrap();
 
 	let best_hash = client.info().best_hash;
@@ -67,10 +97,10 @@ async fn deny_unsafe_works() {
 		"{{\"jsonrpc\":\"2.0\",\"method\":\"dev_getBlockStats\",\"params\":[{}],\"id\":1}}",
 		best_hash_param
 	);
-	let (resp, _) = api.raw_json_request(&request).await.expect("Raw calls should succeed");
+	let (resp, _) = api.raw_json_request(&request, 1).await.expect("Raw calls should succeed");
 
 	assert_eq!(
-		resp.result,
+		resp,
 		r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"RPC call is unsafe to be called externally"},"id":1}"#
 	);
 }

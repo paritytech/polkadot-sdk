@@ -187,8 +187,10 @@ pub trait ChildBountyManager<Balance> {
 pub mod pallet {
 	use super::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::config]
@@ -199,11 +201,11 @@ pub mod pallet {
 
 		/// The delay period for which a bounty beneficiary need to wait before claim the payout.
 		#[pallet::constant]
-		type BountyDepositPayoutDelay: Get<Self::BlockNumber>;
+		type BountyDepositPayoutDelay: Get<BlockNumberFor<Self>>;
 
 		/// Bounty duration in blocks.
 		#[pallet::constant]
-		type BountyUpdatePeriod: Get<Self::BlockNumber>;
+		type BountyUpdatePeriod: Get<BlockNumberFor<Self>>;
 
 		/// The curator deposit is calculated as a percentage of the curator fee.
 		///
@@ -289,6 +291,14 @@ pub mod pallet {
 		BountyCanceled { index: BountyIndex },
 		/// A bounty expiry is extended.
 		BountyExtended { index: BountyIndex },
+		/// A bounty is approved.
+		BountyApproved { index: BountyIndex },
+		/// A bounty curator is proposed.
+		CuratorProposed { bounty_id: BountyIndex, curator: T::AccountId },
+		/// A bounty curator is unassigned.
+		CuratorUnassigned { bounty_id: BountyIndex },
+		/// A bounty curator is accepted.
+		CuratorAccepted { bounty_id: BountyIndex, curator: T::AccountId },
 	}
 
 	/// Number of bounty proposals that have been made.
@@ -303,7 +313,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		BountyIndex,
-		Bounty<T::AccountId, BalanceOf<T, I>, T::BlockNumber>,
+		Bounty<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>>,
 	>;
 
 	/// The description of each bounty.
@@ -359,7 +369,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
-				let mut bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 				ensure!(
 					bounty.value <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
@@ -373,10 +383,12 @@ pub mod pallet {
 
 				Ok(())
 			})?;
+
+			Self::deposit_event(Event::<T, I>::BountyApproved { index: bounty_id });
 			Ok(())
 		}
 
-		/// Assign a curator to a funded bounty.
+		/// Propose a curator to a funded bounty.
 		///
 		/// May only be called from `T::SpendOrigin`.
 		///
@@ -394,7 +406,7 @@ pub mod pallet {
 
 			let curator = T::Lookup::lookup(curator)?;
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
-				let mut bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 				ensure!(
 					bounty.value <= max_amount,
 					pallet_treasury::Error::<T, I>::InsufficientPermission
@@ -406,8 +418,10 @@ pub mod pallet {
 
 				ensure!(fee < bounty.value, Error::<T, I>::InvalidFee);
 
-				bounty.status = BountyStatus::CuratorProposed { curator };
+				bounty.status = BountyStatus::CuratorProposed { curator: curator.clone() };
 				bounty.fee = fee;
+
+				Self::deposit_event(Event::<T, I>::CuratorProposed { bounty_id, curator });
 
 				Ok(())
 			})?;
@@ -442,7 +456,7 @@ pub mod pallet {
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
-				let mut bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 				let slash_curator = |curator: &T::AccountId,
 				                     curator_deposit: &mut BalanceOf<T, I>| {
@@ -506,6 +520,8 @@ pub mod pallet {
 				bounty.status = BountyStatus::Funded;
 				Ok(())
 			})?;
+
+			Self::deposit_event(Event::<T, I>::CuratorUnassigned { bounty_id });
 			Ok(())
 		}
 
@@ -525,7 +541,7 @@ pub mod pallet {
 			let signer = ensure_signed(origin)?;
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
-				let mut bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 				match bounty.status {
 					BountyStatus::CuratorProposed { ref curator } => {
@@ -540,6 +556,10 @@ pub mod pallet {
 						bounty.status =
 							BountyStatus::Active { curator: curator.clone(), update_due };
 
+						Self::deposit_event(Event::<T, I>::CuratorAccepted {
+							bounty_id,
+							curator: signer,
+						});
 						Ok(())
 					},
 					_ => Err(Error::<T, I>::UnexpectedStatus.into()),
@@ -569,7 +589,7 @@ pub mod pallet {
 			let beneficiary = T::Lookup::lookup(beneficiary)?;
 
 			Bounties::<T, I>::try_mutate_exists(bounty_id, |maybe_bounty| -> DispatchResult {
-				let mut bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
+				let bounty = maybe_bounty.as_mut().ok_or(Error::<T, I>::InvalidIndex)?;
 
 				// Ensure no active child bounties before processing the call.
 				ensure!(

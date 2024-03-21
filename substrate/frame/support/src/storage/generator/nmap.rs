@@ -61,18 +61,15 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	/// The type that get/take returns.
 	type Query;
 
-	/// Module prefix. Used for generating final key.
-	fn module_prefix() -> &'static [u8];
+	/// Pallet prefix. Used for generating final key.
+	fn pallet_prefix() -> &'static [u8];
 
 	/// Storage prefix. Used for generating final key.
 	fn storage_prefix() -> &'static [u8];
 
-	/// The full prefix; just the hash of `module_prefix` concatenated to the hash of
+	/// The full prefix; just the hash of `pallet_prefix` concatenated to the hash of
 	/// `storage_prefix`.
-	fn prefix_hash() -> Vec<u8> {
-		let result = storage_prefix(Self::module_prefix(), Self::storage_prefix());
-		result.to_vec()
-	}
+	fn prefix_hash() -> [u8; 32];
 
 	/// Convert an optional value retrieved from storage to the type queried.
 	fn from_optional_value_to_query(v: Option<V>) -> Self::Query;
@@ -85,7 +82,7 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	where
 		K: HasKeyPrefix<KP>,
 	{
-		let storage_prefix = storage_prefix(Self::module_prefix(), Self::storage_prefix());
+		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
 		let key_hashed = <K as HasKeyPrefix<KP>>::partial_key(key);
 
 		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
@@ -102,7 +99,7 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 		KG: KeyGenerator,
 		KArg: EncodeLikeTuple<KG::KArg> + TupleToEncodedIter,
 	{
-		let storage_prefix = storage_prefix(Self::module_prefix(), Self::storage_prefix());
+		let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
 		let key_hashed = KG::final_key(key);
 
 		let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
@@ -299,7 +296,7 @@ where
 		KArg: EncodeLikeTuple<K::KArg> + TupleToEncodedIter,
 	{
 		let old_key = {
-			let storage_prefix = storage_prefix(Self::module_prefix(), Self::storage_prefix());
+			let storage_prefix = storage_prefix(Self::pallet_prefix(), Self::storage_prefix());
 			let key_hashed = K::migrate_key(&key, hash_fns);
 
 			let mut final_key = Vec::with_capacity(storage_prefix.len() + key_hashed.len());
@@ -386,11 +383,11 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 	}
 
 	fn iter() -> Self::Iterator {
-		Self::iter_from(G::prefix_hash())
+		Self::iter_from(G::prefix_hash().to_vec())
 	}
 
 	fn iter_from(starting_raw_key: Vec<u8>) -> Self::Iterator {
-		let prefix = G::prefix_hash();
+		let prefix = G::prefix_hash().to_vec();
 		Self::Iterator {
 			prefix,
 			previous_key: starting_raw_key,
@@ -404,11 +401,11 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 	}
 
 	fn iter_keys() -> Self::KeyIterator {
-		Self::iter_keys_from(G::prefix_hash())
+		Self::iter_keys_from(G::prefix_hash().to_vec())
 	}
 
 	fn iter_keys_from(starting_raw_key: Vec<u8>) -> Self::KeyIterator {
-		let prefix = G::prefix_hash();
+		let prefix = G::prefix_hash().to_vec();
 		Self::KeyIterator {
 			prefix,
 			previous_key: starting_raw_key,
@@ -427,7 +424,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 	}
 
 	fn translate<O: Decode, F: FnMut(K::Key, O) -> Option<V>>(mut f: F) {
-		let prefix = G::prefix_hash();
+		let prefix = G::prefix_hash().to_vec();
 		let mut previous_key = prefix.clone();
 		while let Some(next) =
 			sp_io::storage::next_key(&previous_key).filter(|n| n.starts_with(&prefix))
@@ -462,43 +459,12 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 mod test_iterators {
 	use crate::{
 		hash::StorageHasher,
-		storage::{generator::StorageNMap, unhashed, IterableStorageNMap},
+		storage::{
+			generator::{tests::*, StorageNMap},
+			unhashed,
+		},
 	};
-	use codec::{Decode, Encode};
-
-	pub trait Config: 'static {
-		type RuntimeOrigin;
-		type BlockNumber;
-		type PalletInfo: crate::traits::PalletInfo;
-		type DbWeight: crate::traits::Get<crate::weights::RuntimeDbWeight>;
-	}
-
-	crate::decl_module! {
-		pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin, system=self {}
-	}
-
-	#[derive(PartialEq, Eq, Clone, Encode, Decode)]
-	struct NoDef(u32);
-
-	crate::decl_storage! {
-		trait Store for Module<T: Config> as Test {
-			NMap: nmap hasher(blake2_128_concat) u16, hasher(twox_64_concat) u32 => u64;
-		}
-	}
-
-	fn key_before_prefix(mut prefix: Vec<u8>) -> Vec<u8> {
-		let last = prefix.iter_mut().last().unwrap();
-		assert!(*last != 0, "mock function not implemented for this prefix");
-		*last -= 1;
-		prefix
-	}
-
-	fn key_after_prefix(mut prefix: Vec<u8>) -> Vec<u8> {
-		let last = prefix.iter_mut().last().unwrap();
-		assert!(*last != 255, "mock function not implemented for this prefix");
-		*last += 1;
-		prefix
-	}
+	use codec::Encode;
 
 	#[test]
 	fn n_map_iter_from() {
@@ -545,22 +511,18 @@ mod test_iterators {
 	#[test]
 	fn n_map_double_map_identical_key() {
 		sp_io::TestExternalities::default().execute_with(|| {
+			use crate::hash::{Blake2_128Concat, Twox64Concat};
+
+			type NMap = self::frame_system::NMap<Runtime>;
+
 			NMap::insert((1, 2), 50);
 			let key_hash = NMap::hashed_key_for((1, 2));
 
 			{
 				#[crate::storage_alias]
-				type NMap = StorageDoubleMap<
-					Test,
-					crate::Blake2_128Concat,
-					u16,
-					crate::Twox64Concat,
-					u32,
-					u64,
-				>;
+				type NMap = StorageDoubleMap<System, Blake2_128Concat, u16, Twox64Concat, u32, u64>;
 
-				let value = NMap::get(1, 2).unwrap();
-				assert_eq!(value, 50);
+				assert_eq!(NMap::get(1, 2), Some(50));
 				assert_eq!(NMap::hashed_key_for(1, 2), key_hash);
 			}
 		});
@@ -569,8 +531,10 @@ mod test_iterators {
 	#[test]
 	fn n_map_reversible_reversible_iteration() {
 		sp_io::TestExternalities::default().execute_with(|| {
+			type NMap = self::frame_system::NMap<Runtime>;
+
 			// All map iterator
-			let prefix = NMap::prefix_hash();
+			let prefix = NMap::prefix_hash().to_vec();
 
 			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
 			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);
@@ -627,7 +591,7 @@ mod test_iterators {
 			assert_eq!(unhashed::get(&key_after_prefix(prefix.clone())), Some(1u64));
 
 			// Translate
-			let prefix = NMap::prefix_hash();
+			let prefix = NMap::prefix_hash().to_vec();
 
 			unhashed::put(&key_before_prefix(prefix.clone()), &1u64);
 			unhashed::put(&key_after_prefix(prefix.clone()), &1u64);

@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode};
 
 #[cfg(feature = "std")]
@@ -26,28 +28,12 @@ use sp_api::ProvideRuntimeApi;
 #[cfg(feature = "std")]
 use sp_runtime::traits::Block as BlockT;
 
-use sp_core::{crypto::KeyTypeId, RuntimeDebug};
+use alloc::vec::Vec;
+use sp_core::RuntimeDebug;
 use sp_staking::SessionIndex;
-use sp_std::vec::Vec;
 
-sp_api::decl_runtime_apis! {
-	/// Session keys runtime api.
-	pub trait SessionKeys {
-		/// Generate a set of session keys with optionally using the given seed.
-		/// The keys should be stored within the keystore exposed via runtime
-		/// externalities.
-		///
-		/// The seed needs to be a valid `utf8` string.
-		///
-		/// Returns the concatenated SCALE encoded public keys.
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8>;
-
-		/// Decode the given public session keys.
-		///
-		/// Returns the list of public raw public keys + key type.
-		fn decode_session_keys(encoded: Vec<u8>) -> Option<Vec<(Vec<u8>, KeyTypeId)>>;
-	}
-}
+pub mod runtime_api;
+pub use runtime_api::*;
 
 /// Number of validators in a given session.
 pub type ValidatorCount = u32;
@@ -112,17 +98,22 @@ pub fn generate_initial_session_keys<Block, T>(
 	client: std::sync::Arc<T>,
 	at: Block::Hash,
 	seeds: Vec<String>,
+	keystore: sp_keystore::KeystorePtr,
 ) -> Result<(), sp_api::ApiError>
 where
 	Block: BlockT,
 	T: ProvideRuntimeApi<Block>,
 	T::Api: SessionKeys<Block>,
 {
+	use sp_api::ApiExt;
+
 	if seeds.is_empty() {
 		return Ok(())
 	}
 
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = client.runtime_api();
+
+	runtime_api.register_extension(sp_keystore::KeystoreExt::from(keystore));
 
 	for seed in seeds {
 		runtime_api.generate_session_keys(at, Some(seed.as_bytes().to_vec()))?;

@@ -1,0 +1,25 @@
+Description: PoV recovery test
+Network: ./0002-pov_recovery.toml
+Creds: config
+
+# wait 20 blocks and register parachain
+validator-3: reports block height is at least 20 within 250 seconds
+validator-0: js-script ./register-para.js with "2000" within 240 seconds
+validator-0: parachain 2000 is registered within 300 seconds
+
+# check block production
+bob: reports block height is at least 20 within 600 seconds
+alice: reports block height is at least 20 within 600 seconds
+charlie: reports block height is at least 20 within 600 seconds
+one: reports block height is at least 20 within 800 seconds
+two: reports block height is at least 20 within 800 seconds
+# Re-enable once we upgraded from smoldot 0.11.0 and https://github.com/paritytech/polkadot-sdk/pull/1631 is merged
+# three: reports block height is at least 20 within 800 seconds
+eve: reports block height is at least 20 within 800 seconds
+
+one: count of log lines containing "Importing block retrieved using pov_recovery" is greater than 19 within 10 seconds
+two: count of log lines containing "Importing block retrieved using pov_recovery" is greater than 19 within 10 seconds
+three: count of log lines containing "Importing block retrieved using pov_recovery" is greater than 19 within 10 seconds
+eve: count of log lines containing "Importing block retrieved using pov_recovery" is greater than 19 within 10 seconds
+charlie: count of log lines containing "Importing block retrieved using pov_recovery" is greater than 19 within 10 seconds
+alice: count of log lines containing "Importing block retrieved using pov_recovery" is greater than 19 within 10 seconds

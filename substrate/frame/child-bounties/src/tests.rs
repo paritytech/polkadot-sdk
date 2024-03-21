@@ -23,74 +23,50 @@ use super::*;
 use crate as pallet_child_bounties;
 
 use frame_support::{
-	assert_noop, assert_ok,
-	pallet_prelude::GenesisBuild,
-	parameter_types,
-	traits::{ConstU32, ConstU64, OnInitialize},
+	assert_noop, assert_ok, derive_impl, parameter_types,
+	traits::{
+		tokens::{PayFromAccount, UnityAssetBalanceConversion},
+		ConstU32, ConstU64, OnInitialize,
+	},
 	weights::Weight,
 	PalletId,
 };
 
-use sp_core::H256;
 use sp_runtime::{
-	testing::Header,
-	traits::{BadOrigin, BlakeTwo256, IdentityLookup},
-	Perbill, Permill,
+	traits::{BadOrigin, IdentityLookup},
+	BuildStorage, Perbill, Permill, TokenError,
 };
 
 use super::Event as ChildBountiesEvent;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 type BountiesError = pallet_bounties::Error<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Bounties: pallet_bounties::{Pallet, Call, Storage, Event<T>},
-		Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>},
-		ChildBounties: pallet_child_bounties::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Bounties: pallet_bounties,
+		Treasury: pallet_treasury,
+		ChildBounties: pallet_child_bounties,
 	}
 );
 
 parameter_types! {
-	pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
+	pub const MaximumBlockWeight: Weight = Weight::from_parts(1024, 0);
 	pub const MaximumBlockLength: u32 = 2 * 1024;
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
 type Balance = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = u128;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
+	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -103,11 +79,16 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 }
 parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);
 	pub const Burn: Permill = Permill::from_percent(50);
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+	pub TreasuryAccount: u128 = Treasury::account_id();
 	pub const SpendLimit: Balance = u64::MAX;
 }
 
@@ -128,6 +109,14 @@ impl pallet_treasury::Config for Test {
 	type SpendFunds = Bounties;
 	type MaxApprovals = ConstU32<100>;
 	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit>;
+	type AssetKind = ();
+	type Beneficiary = Self::AccountId;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
+	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
+	type BalanceConverter = UnityAssetBalanceConversion;
+	type PayoutPeriod = ConstU64<10>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 parameter_types! {
 	// This will be 50% of the bounty fee.
@@ -158,14 +147,16 @@ impl pallet_child_bounties::Config for Test {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
 		// Total issuance will be 200 with treasury account initialized at ED.
 		balances: vec![(0, 100), (1, 98), (2, 1)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	GenesisBuild::<Test>::assimilate_storage(&pallet_treasury::GenesisConfig, &mut t).unwrap();
+	pallet_treasury::GenesisConfig::<Test>::default()
+		.assimilate_storage(&mut t)
+		.unwrap();
 	t.into()
 }
 
@@ -248,7 +239,7 @@ fn add_child_bounty() {
 
 		assert_noop!(
 			ChildBounties::add_child_bounty(RuntimeOrigin::signed(4), 0, 50, b"12345-p1".to_vec()),
-			pallet_balances::Error::<Test>::KeepAlive,
+			TokenError::NotExpendable,
 		);
 
 		assert_noop!(

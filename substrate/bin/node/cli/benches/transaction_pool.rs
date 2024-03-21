@@ -23,11 +23,10 @@ use futures::{future, StreamExt};
 use kitchensink_runtime::{constants::currency::*, BalancesCall, SudoCall};
 use node_cli::service::{create_extrinsic, fetch_nonce, FullClient, TransactionPool};
 use node_primitives::AccountId;
-use sc_client_api::execution_extensions::ExecutionStrategies;
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, NetworkConfiguration, OffchainWorkerConfig,
-		PruningMode, TransactionPoolOptions, WasmExecutionMethod,
+		PruningMode, RpcBatchRequestConfig, TransactionPoolOptions,
 	},
 	BasePath, Configuration, Role,
 };
@@ -35,7 +34,8 @@ use sc_transaction_pool::PoolLimit;
 use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, TransactionStatus};
 use sp_core::{crypto::Pair, sr25519};
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{generic::BlockId, OpaqueExtrinsic};
+use sp_runtime::OpaqueExtrinsic;
+use staging_node_cli as node_cli;
 use tokio::runtime::Handle;
 
 fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
@@ -55,7 +55,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		impl_name: "BenchmarkImpl".into(),
 		impl_version: "1.0".into(),
 		role: Role::Authority,
-		tokio_handle,
+		tokio_handle: tokio_handle.clone(),
 		transaction_pool: TransactionPoolOptions {
 			ready: PoolLimit { count: 100_000, total_bytes: 100 * 1024 * 1024 },
 			future: PoolLimit { count: 100_000, total_bytes: 100 * 1024 * 1024 },
@@ -64,33 +64,24 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		},
 		network: network_config,
 		keystore: KeystoreConfig::InMemory,
-		keystore_remote: Default::default(),
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
-		wasm_method: WasmExecutionMethod::Interpreted,
-		// NOTE: we enforce the use of the native runtime to make the errors more debuggable
-		execution_strategies: ExecutionStrategies {
-			syncing: sc_client_api::ExecutionStrategy::NativeWhenPossible,
-			importing: sc_client_api::ExecutionStrategy::NativeWhenPossible,
-			block_construction: sc_client_api::ExecutionStrategy::NativeWhenPossible,
-			offchain_worker: sc_client_api::ExecutionStrategy::NativeWhenPossible,
-			other: sc_client_api::ExecutionStrategy::NativeWhenPossible,
-		},
-		rpc_http: None,
-		rpc_ws: None,
-		rpc_ipc: None,
-		rpc_ws_max_connections: None,
+		wasm_method: Default::default(),
+		rpc_addr: None,
+		rpc_max_connections: Default::default(),
 		rpc_cors: None,
 		rpc_methods: Default::default(),
-		rpc_max_payload: None,
-		rpc_max_request_size: None,
-		rpc_max_response_size: None,
-		rpc_id_provider: None,
-		rpc_max_subs_per_conn: None,
-		ws_max_out_buffer_capacity: None,
+		rpc_max_request_size: Default::default(),
+		rpc_max_response_size: Default::default(),
+		rpc_id_provider: Default::default(),
+		rpc_max_subs_per_conn: Default::default(),
+		rpc_port: 9944,
+		rpc_message_buffer_capacity: Default::default(),
+		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
+		rpc_rate_limit: None,
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -103,12 +94,15 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		max_runtime_instances: 8,
 		runtime_cache_size: 2,
 		announce_block: true,
-		base_path: Some(base_path),
+		data_path: base_path.path().into(),
+		base_path,
 		informant_output_format: Default::default(),
 		wasm_runtime_overrides: None,
 	};
 
-	node_cli::service::new_full_base(config, false, |_, _| ()).expect("Creates node")
+	tokio_handle.block_on(async move {
+		node_cli::service::new_full_base(config, None, false, |_, _| ()).expect("Creates node")
+	})
 }
 
 fn create_accounts(num: usize) -> Vec<sr25519::Pair> {
@@ -140,10 +134,9 @@ fn create_account_extrinsics(
 					Sr25519Keyring::Alice.pair(),
 					SudoCall::sudo {
 						call: Box::new(
-							BalancesCall::set_balance {
+							BalancesCall::force_set_balance {
 								who: AccountId::from(a.public()).into(),
 								new_free: 0,
-								new_reserved: 0,
 							}
 							.into(),
 						),
@@ -156,10 +149,9 @@ fn create_account_extrinsics(
 					Sr25519Keyring::Alice.pair(),
 					SudoCall::sudo {
 						call: Box::new(
-							BalancesCall::set_balance {
+							BalancesCall::force_set_balance {
 								who: AccountId::from(a.public()).into(),
 								new_free: 1_000_000 * DOLLARS,
-								new_reserved: 0,
 							}
 							.into(),
 						),
@@ -184,7 +176,7 @@ fn create_benchmark_extrinsics(
 				create_extrinsic(
 					client,
 					account.clone(),
-					BalancesCall::transfer {
+					BalancesCall::transfer_allow_death {
 						dest: Sr25519Keyring::Bob.to_account_id().into(),
 						value: 1 * DOLLARS,
 					},
@@ -205,7 +197,7 @@ async fn submit_tx_and_wait_for_inclusion(
 	let best_hash = client.chain_info().best_hash;
 
 	let mut watch = tx_pool
-		.submit_and_watch(&BlockId::Hash(best_hash), TransactionSource::External, tx.clone())
+		.submit_and_watch(best_hash, TransactionSource::External, tx.clone())
 		.await
 		.expect("Submits tx to pool")
 		.fuse();

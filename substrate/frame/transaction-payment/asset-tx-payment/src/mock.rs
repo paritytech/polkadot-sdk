@@ -18,6 +18,7 @@ use crate as pallet_asset_tx_payment;
 
 use codec;
 use frame_support::{
+	derive_impl,
 	dispatch::DispatchClass,
 	pallet_prelude::*,
 	parameter_types,
@@ -29,22 +30,14 @@ use frame_system as system;
 use frame_system::EnsureRoot;
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_core::H256;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, ConvertInto, IdentityLookup, SaturatedConversion},
-};
+use sp_runtime::traits::{BlakeTwo256, ConvertInto, IdentityLookup, SaturatedConversion};
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
 type Block = frame_system::mocking::MockBlock<Runtime>;
 type Balance = u64;
 type AccountId = u64;
 
 frame_support::construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
+	pub enum Runtime {
 		System: system,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
@@ -67,7 +60,7 @@ impl Get<frame_system::limits::BlockWeights> for BlockWeights {
 				weights.base_extrinsic = ExtrinsicBaseWeight::get().into();
 			})
 			.for_class(DispatchClass::non_mandatory(), |weights| {
-				weights.max_total = Weight::from_ref_time(1024).set_proof_size(u64::MAX).into();
+				weights.max_total = Weight::from_parts(1024, u64::MAX).into();
 			})
 			.build_or_panic()
 	}
@@ -78,20 +71,20 @@ parameter_types! {
 	pub static TransactionByteFee: u64 = 1;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
 	type BlockLength = ();
 	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
+	type Nonce = u64;
 	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
+	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
@@ -119,6 +112,10 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -139,6 +136,7 @@ impl WeightToFeeT for TransactionByteFee {
 	}
 }
 
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
@@ -192,7 +190,7 @@ impl pallet_authorship::Config for Runtime {
 
 pub struct CreditToBlockAuthor;
 impl HandleCredit<AccountId, Assets> for CreditToBlockAuthor {
-	fn handle_credit(credit: CreditOf<AccountId, Assets>) {
+	fn handle_credit(credit: Credit<AccountId, Assets>) {
 		if let Some(author) = pallet_authorship::Pallet::<Runtime>::author() {
 			// What to do in case paying the author fails (e.g. because `fee < min_balance`)
 			// default: drop the result which will trigger the `OnDrop` of the imbalance.

@@ -1,0 +1,23 @@
+[package]
+name = "polkadot-node-jaeger"
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Polkadot Jaeger primitives, but equally useful for Grafana/Tempo"
+
+[lints]
+workspace = true
+
+[dependencies]
+mick-jaeger = "0.1.8"
+lazy_static = "1.4"
+parking_lot = "0.12.1"
+polkadot-primitives = { path = "../../primitives" }
+polkadot-node-primitives = { path = "../primitives" }
+sc-network = { path = "../../../substrate/client/network" }
+sp-core = { path = "../../../substrate/primitives/core" }
+thiserror = { workspace = true }
+tokio = "1.24.2"
+log = { workspace = true, default-features = true }
+parity-scale-codec = { version = "3.6.1", default-features = false }

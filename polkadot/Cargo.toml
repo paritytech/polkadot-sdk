@@ -1,0 +1,110 @@
+[[bin]]
+name = "polkadot"
+path = "src/main.rs"
+
+[[bin]]
+name = "polkadot-execute-worker"
+path = "src/bin/execute-worker.rs"
+
+[[bin]]
+name = "polkadot-prepare-worker"
+path = "src/bin/prepare-worker.rs"
+
+[package]
+name = "polkadot"
+description = "Implementation of a `https://polkadot.network` node in Rust based on the Substrate framework."
+license = "GPL-3.0-only"
+rust-version = "1.64.0"
+readme = "README.md"
+authors.workspace = true
+edition.workspace = true
+version = "6.0.0"
+default-run = "polkadot"
+
+[lints]
+workspace = true
+
+[dependencies]
+color-eyre = { version = "0.6.1", default-features = false }
+tikv-jemallocator = { version = "0.5.0", optional = true, features = ["unprefixed_malloc_on_supported_platforms"] }
+
+# Crates in our workspace, defined as dependencies so we can pass them feature flags.
+polkadot-cli = { path = "cli", features = ["rococo-native", "westend-native"] }
+polkadot-node-core-pvf = { path = "node/core/pvf" }
+polkadot-node-core-pvf-prepare-worker = { path = "node/core/pvf/prepare-worker" }
+polkadot-overseer = { path = "node/overseer" }
+
+# Needed for worker binaries.
+polkadot-node-core-pvf-common = { path = "node/core/pvf/common" }
+polkadot-node-core-pvf-execute-worker = { path = "node/core/pvf/execute-worker" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_supported_platforms"] }
+
+[dev-dependencies]
+assert_cmd = "2.0.4"
+nix = { version = "0.26.1", features = ["signal"] }
+tempfile = "3.2.0"
+tokio = "1.24.2"
+substrate-rpc-client = { path = "../substrate/utils/frame/rpc/client/" }
+polkadot-core-primitives = { path = "core-primitives" }
+
+[build-dependencies]
+substrate-build-script-utils = { path = "../substrate/utils/build-script-utils" }
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+runtime-benchmarks = ["polkadot-cli/runtime-benchmarks"]
+try-runtime = ["polkadot-cli/try-runtime"]
+fast-runtime = ["polkadot-cli/fast-runtime"]
+runtime-metrics = ["polkadot-cli/runtime-metrics"]
+pyroscope = ["polkadot-cli/pyroscope"]
+jemalloc-allocator = [
+	"dep:tikv-jemallocator",
+	"polkadot-node-core-pvf-prepare-worker/jemalloc-allocator",
+	"polkadot-node-core-pvf/jemalloc-allocator",
+	"polkadot-overseer/jemalloc-allocator",
+]
+
+
+# Enables timeout-based tests supposed to be run only in CI environment as they may be flaky
+# when run locally depending on system load
+ci-only-tests = ["polkadot-node-core-pvf/ci-only-tests"]
+
+# Configuration for building a .deb package - for use with `cargo-deb`
+[package.metadata.deb]
+name = "polkadot"
+extended-description = "Implementation of a https://polkadot.network node in Rust based on the Substrate framework."
+section = "misc"
+maintainer = "security@parity.io"
+license-file = ["LICENSE", "0"]
+# https://www.debian.org/doc/debian-policy/ch-maintainerscripts.html
+maintainer-scripts = "scripts/packaging/deb-maintainer-scripts"
+assets = [
+	[
+		"target/release/polkadot",
+		"/usr/bin/",
+		"755",
+	],
+	[
+		"target/release/polkadot-prepare-worker",
+		"/usr/lib/polkadot/",
+		"755",
+	],
+	[
+		"target/release/polkadot-execute-worker",
+		"/usr/lib/polkadot/",
+		"755",
+	],
+	[
+		"scripts/packaging/polkadot.service",
+		"/lib/systemd/system/",
+		"644",
+	],
+]
+conf-files = ["/etc/default/polkadot"]
+
+[package.metadata.spellcheck]
+config = "./scripts/ci/gitlab/spellcheck.toml"

@@ -16,9 +16,9 @@
 // limitations under the License.
 
 use super::helper;
-use frame_support_procedural_tools::get_doc_literals;
+use frame_support_procedural_tools::{get_doc_literals, is_using_frame_crate};
 use quote::ToTokens;
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, token, Token};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -27,12 +27,24 @@ mod keyword {
 	syn::custom_keyword!(T);
 	syn::custom_keyword!(I);
 	syn::custom_keyword!(config);
+	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(IsType);
 	syn::custom_keyword!(RuntimeEvent);
 	syn::custom_keyword!(Event);
-	syn::custom_keyword!(constant);
 	syn::custom_keyword!(frame_system);
 	syn::custom_keyword!(disable_frame_system_supertrait_check);
+	syn::custom_keyword!(no_default);
+	syn::custom_keyword!(no_default_bounds);
+	syn::custom_keyword!(constant);
+}
+
+#[derive(Default)]
+pub struct DefaultTrait {
+	/// A bool for each sub-trait item indicates whether the item has
+	/// `#[pallet::no_default_bounds]` attached to it. If true, the item will not have any bounds
+	/// in the generated default sub-trait.
+	pub items: Vec<(syn::TraitItem, bool)>,
+	pub has_system: bool,
 }
 
 /// Input definition for the pallet config.
@@ -52,6 +64,12 @@ pub struct ConfigDef {
 	pub where_clause: Option<syn::WhereClause>,
 	/// The span of the pallet::config attribute.
 	pub attr_span: proc_macro2::Span,
+	/// Whether a default sub-trait should be generated.
+	///
+	/// Contains default sub-trait items (instantiated by `#[pallet::config(with_default)]`).
+	/// Vec will be empty if `#[pallet::config(with_default)]` is not specified or if there are
+	/// no trait items.
+	pub default_sub_trait: Option<DefaultTrait>,
 }
 
 /// Input definition for a constant in pallet config.
@@ -61,7 +79,7 @@ pub struct ConstMetadataDef {
 	/// The type in Get, e.g. `u32` in `type Foo: Get<u32>;`, but `Self` is replaced by `T`
 	pub type_: syn::Type,
 	/// The doc associated
-	pub doc: Vec<syn::Lit>,
+	pub doc: Vec<syn::Expr>,
 }
 
 impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
@@ -123,46 +141,32 @@ impl syn::parse::Parse for DisableFrameSystemSupertraitCheck {
 	}
 }
 
-/// Parse for `#[pallet::constant]`
-pub struct TypeAttrConst(proc_macro2::Span);
-
-impl Spanned for TypeAttrConst {
-	fn span(&self) -> proc_macro2::Span {
-		self.0
-	}
+/// Parsing for the `typ` portion of `PalletAttr`
+#[derive(derive_syn_parse::Parse, PartialEq, Eq)]
+pub enum PalletAttrType {
+	#[peek(keyword::no_default, name = "no_default")]
+	NoDefault(keyword::no_default),
+	#[peek(keyword::no_default_bounds, name = "no_default_bounds")]
+	NoBounds(keyword::no_default_bounds),
+	#[peek(keyword::constant, name = "constant")]
+	Constant(keyword::constant),
 }
 
-impl syn::parse::Parse for TypeAttrConst {
-	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-		input.parse::<syn::Token![#]>()?;
-		let content;
-		syn::bracketed!(content in input);
-		content.parse::<syn::Ident>()?;
-		content.parse::<syn::Token![::]>()?;
-
-		Ok(TypeAttrConst(content.parse::<keyword::constant>()?.span()))
-	}
+/// Parsing for `#[pallet::X]`
+#[derive(derive_syn_parse::Parse)]
+pub struct PalletAttr {
+	_pound: Token![#],
+	#[bracket]
+	_bracket: token::Bracket,
+	#[inside(_bracket)]
+	_pallet: keyword::pallet,
+	#[prefix(Token![::] in _bracket)]
+	#[inside(_bracket)]
+	typ: PalletAttrType,
 }
 
-/// Parse for `$ident::Config`
-pub struct ConfigBoundParse(syn::Ident);
-
-impl syn::parse::Parse for ConfigBoundParse {
-	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-		let ident = input.parse::<syn::Ident>()?;
-		input.parse::<syn::Token![::]>()?;
-		input.parse::<keyword::Config>()?;
-
-		if input.peek(syn::token::Lt) {
-			input.parse::<syn::AngleBracketedGenericArguments>()?;
-		}
-
-		Ok(Self(ident))
-	}
-}
-
-/// Parse for `IsType<<Sef as $ident::Config>::RuntimeEvent>` and retrieve `$ident`
-pub struct IsTypeBoundEventParse(syn::Ident);
+/// Parse for `IsType<<Self as $path>::RuntimeEvent>` and retrieve `$path`
+pub struct IsTypeBoundEventParse(syn::Path);
 
 impl syn::parse::Parse for IsTypeBoundEventParse {
 	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
@@ -171,15 +175,13 @@ impl syn::parse::Parse for IsTypeBoundEventParse {
 		input.parse::<syn::Token![<]>()?;
 		input.parse::<syn::Token![Self]>()?;
 		input.parse::<syn::Token![as]>()?;
-		let ident = input.parse::<syn::Ident>()?;
-		input.parse::<syn::Token![::]>()?;
-		input.parse::<keyword::Config>()?;
+		let config_path = input.parse::<syn::Path>()?;
 		input.parse::<syn::Token![>]>()?;
 		input.parse::<syn::Token![::]>()?;
 		input.parse::<keyword::RuntimeEvent>()?;
 		input.parse::<syn::Token![>]>()?;
 
-		Ok(Self(ident))
+		Ok(Self(config_path))
 	}
 }
 
@@ -217,7 +219,7 @@ impl syn::parse::Parse for FromEventParse {
 /// Check if trait_item is `type RuntimeEvent`, if so checks its bounds are those expected.
 /// (Event type is reserved type)
 fn check_event_type(
-	frame_system: &syn::Ident,
+	frame_system: &syn::Path,
 	trait_item: &syn::TraitItem,
 	trait_has_instance: bool,
 ) -> syn::Result<bool> {
@@ -229,19 +231,16 @@ fn check_event_type(
 					no generics nor where_clause";
 				return Err(syn::Error::new(trait_item.span(), msg))
 			}
-			// Check bound contains IsType and From
 
+			// Check bound contains IsType and From
 			let has_is_type_bound = type_.bounds.iter().any(|s| {
 				syn::parse2::<IsTypeBoundEventParse>(s.to_token_stream())
-					.map_or(false, |b| b.0 == *frame_system)
+					.map_or(false, |b| has_expected_system_config(b.0, frame_system))
 			});
 
 			if !has_is_type_bound {
-				let msg = format!(
-					"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
-					bound: `IsType<<Self as {}::Config>::RuntimeEvent>`",
-					frame_system,
-				);
+				let msg = "Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
+					bound: `IsType<<Self as frame_system::Config>::RuntimeEvent>`".to_string();
 				return Err(syn::Error::new(type_.span(), msg))
 			}
 
@@ -275,6 +274,43 @@ fn check_event_type(
 	}
 }
 
+/// Check that the path to `frame_system::Config` is valid, this is that the path is just
+/// `frame_system::Config` or when using the `frame` crate it is `frame::xyz::frame_system::Config`.
+fn has_expected_system_config(path: syn::Path, frame_system: &syn::Path) -> bool {
+	// Check if `frame_system` is actually 'frame_system'.
+	if path.segments.iter().all(|s| s.ident != "frame_system") {
+		return false
+	}
+
+	let mut expected_system_config =
+		match (is_using_frame_crate(&path), is_using_frame_crate(&frame_system)) {
+			(true, false) =>
+			// We can't use the path to `frame_system` from `frame` if `frame_system` is not being
+			// in scope through `frame`.
+				return false,
+			(false, true) =>
+			// We know that the only valid frame_system path is one that is `frame_system`, as
+			// `frame` re-exports it as such.
+				syn::parse2::<syn::Path>(quote::quote!(frame_system)).expect("is a valid path; qed"),
+			(_, _) =>
+			// They are either both `frame_system` or both `frame::xyz::frame_system`.
+				frame_system.clone(),
+		};
+
+	expected_system_config
+		.segments
+		.push(syn::PathSegment::from(syn::Ident::new("Config", path.span())));
+
+	// the parse path might be something like `frame_system::Config<...>`, so we
+	// only compare the idents along the path.
+	expected_system_config
+		.segments
+		.into_iter()
+		.map(|ps| ps.ident)
+		.collect::<Vec<_>>() ==
+		path.segments.into_iter().map(|ps| ps.ident).collect::<Vec<_>>()
+}
+
 /// Replace ident `Self` by `T`
 pub fn replace_self_by_t(input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
 	input
@@ -291,10 +327,11 @@ pub fn replace_self_by_t(input: proc_macro2::TokenStream) -> proc_macro2::TokenS
 
 impl ConfigDef {
 	pub fn try_from(
-		frame_system: &syn::Ident,
+		frame_system: &syn::Path,
 		attr_span: proc_macro2::Span,
 		index: usize,
 		item: &mut syn::Item,
+		enable_default: bool,
 	) -> syn::Result<Self> {
 		let item = if let syn::Item::Trait(item) = item {
 			item
@@ -330,46 +367,96 @@ impl ConfigDef {
 			false
 		};
 
+		let has_frame_system_supertrait = item.supertraits.iter().any(|s| {
+			syn::parse2::<syn::Path>(s.to_token_stream())
+				.map_or(false, |b| has_expected_system_config(b, frame_system))
+		});
+
 		let mut has_event_type = false;
 		let mut consts_metadata = vec![];
+		let mut default_sub_trait = if enable_default {
+			Some(DefaultTrait {
+				items: Default::default(),
+				has_system: has_frame_system_supertrait,
+			})
+		} else {
+			None
+		};
 		for trait_item in &mut item.items {
-			// Parse for event
-			has_event_type =
-				has_event_type || check_event_type(frame_system, trait_item, has_instance)?;
+			let is_event = check_event_type(frame_system, trait_item, has_instance)?;
+			has_event_type = has_event_type || is_event;
 
-			// Parse for constant
-			let type_attrs_const: Vec<TypeAttrConst> = helper::take_item_pallet_attrs(trait_item)?;
+			let mut already_no_default = false;
+			let mut already_constant = false;
+			let mut already_no_default_bounds = false;
 
-			if type_attrs_const.len() > 1 {
-				let msg = "Invalid attribute in pallet::config, only one attribute is expected";
-				return Err(syn::Error::new(type_attrs_const[1].span(), msg))
-			}
-
-			if type_attrs_const.len() == 1 {
-				match trait_item {
-					syn::TraitItem::Type(ref type_) => {
-						let constant = ConstMetadataDef::try_from(type_)?;
-						consts_metadata.push(constant);
+			while let Ok(Some(pallet_attr)) =
+				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)
+			{
+				match (pallet_attr.typ, &trait_item) {
+					(PalletAttrType::Constant(_), syn::TraitItem::Type(ref typ)) => {
+						if already_constant {
+							return Err(syn::Error::new(
+								pallet_attr._bracket.span.join(),
+								"Duplicate #[pallet::constant] attribute not allowed.",
+							))
+						}
+						already_constant = true;
+						consts_metadata.push(ConstMetadataDef::try_from(typ)?);
 					},
-					_ => {
-						let msg =
-							"Invalid pallet::constant in pallet::config, expected type trait \
-							item";
-						return Err(syn::Error::new(trait_item.span(), msg))
+					(PalletAttrType::Constant(_), _) =>
+						return Err(syn::Error::new(
+							trait_item.span(),
+							"Invalid #[pallet::constant] in #[pallet::config], expected type item",
+						)),
+					(PalletAttrType::NoDefault(_), _) => {
+						if !enable_default {
+							return Err(syn::Error::new(
+								pallet_attr._bracket.span.join(),
+								"`#[pallet:no_default]` can only be used if `#[pallet::config(with_default)]` \
+								has been specified"
+							))
+						}
+						if already_no_default {
+							return Err(syn::Error::new(
+								pallet_attr._bracket.span.join(),
+								"Duplicate #[pallet::no_default] attribute not allowed.",
+							))
+						}
+
+						already_no_default = true;
+					},
+					(PalletAttrType::NoBounds(_), _) => {
+						if !enable_default {
+							return Err(syn::Error::new(
+								pallet_attr._bracket.span.join(),
+								"`#[pallet:no_default_bounds]` can only be used if `#[pallet::config(with_default)]` \
+								has been specified"
+							))
+						}
+						if already_no_default_bounds {
+							return Err(syn::Error::new(
+								pallet_attr._bracket.span.join(),
+								"Duplicate #[pallet::no_default_bounds] attribute not allowed.",
+							))
+						}
+						already_no_default_bounds = true;
 					},
 				}
+			}
+
+			if !already_no_default && enable_default {
+				default_sub_trait
+					.as_mut()
+					.expect("is 'Some(_)' if 'enable_default'; qed")
+					.items
+					.push((trait_item.clone(), already_no_default_bounds));
 			}
 		}
 
 		let attr: Option<DisableFrameSystemSupertraitCheck> =
 			helper::take_first_item_pallet_attr(&mut item.attrs)?;
-
 		let disable_system_supertrait_check = attr.is_some();
-
-		let has_frame_system_supertrait = item.supertraits.iter().any(|s| {
-			syn::parse2::<ConfigBoundParse>(s.to_token_stream())
-				.map_or(false, |b| b.0 == *frame_system)
-		});
 
 		if !has_frame_system_supertrait && !disable_system_supertrait_check {
 			let found = if item.supertraits.is_empty() {
@@ -390,11 +477,114 @@ impl ConfigDef {
 				(try `pub trait Config: frame_system::Config {{ ...` or \
 				`pub trait Config<I: 'static>: frame_system::Config {{ ...`). \
 				To disable this check, use `#[pallet::disable_frame_system_supertrait_check]`",
-				frame_system, found,
+				frame_system.to_token_stream(),
+				found,
 			);
 			return Err(syn::Error::new(item.span(), msg))
 		}
 
-		Ok(Self { index, has_instance, consts_metadata, has_event_type, where_clause, attr_span })
+		Ok(Self {
+			index,
+			has_instance,
+			consts_metadata,
+			has_event_type,
+			where_clause,
+			attr_span,
+			default_sub_trait,
+		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	#[test]
+	fn has_expected_system_config_works() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_assoc_type() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame_system::Config<RuntimeCall = Call>))
+				.unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_frame() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_works_with_other_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config)).unwrap();
+		assert!(has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_does_not_works_with_mixed_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_does_not_works_with_other_mixed_frame_full_path() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_does_not_work_with_frame_full_path_if_not_frame_crate() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
+		let path =
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_unexpected_frame_system() {
+		let frame_system =
+			syn::parse2::<syn::Path>(quote::quote!(framez::deps::frame_system)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_unexpected_path() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(frame_system)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(frame_system::ConfigSystem)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
+	}
+
+	#[test]
+	fn has_expected_system_config_not_frame_system() {
+		let frame_system = syn::parse2::<syn::Path>(quote::quote!(something)).unwrap();
+		let path = syn::parse2::<syn::Path>(quote::quote!(something::Config)).unwrap();
+		assert!(!has_expected_system_config(path, &frame_system));
 	}
 }

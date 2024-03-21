@@ -24,8 +24,10 @@ use prometheus::{
 	Error as PrometheusError, Registry,
 };
 
-#[cfg(feature = "metered")]
-use prometheus::{core::GenericCounterVec, Opts};
+use prometheus::{
+	core::{GenericCounterVec, GenericGaugeVec},
+	Opts,
+};
 
 lazy_static! {
 	pub static ref TOKIO_THREADS_TOTAL: GenericCounter<AtomicU64> =
@@ -36,22 +38,33 @@ lazy_static! {
 			.expect("Creating of statics doesn't fail. qed");
 }
 
-#[cfg(feature = "metered")]
 lazy_static! {
-	pub static ref UNBOUNDED_CHANNELS_COUNTER : GenericCounterVec<AtomicU64> = GenericCounterVec::new(
-		Opts::new("substrate_unbounded_channel_len", "Items in each mpsc::unbounded instance"),
-		&["entity", "action"] // 'name of channel, send|received|dropped
+	pub static ref UNBOUNDED_CHANNELS_COUNTER: GenericCounterVec<AtomicU64> = GenericCounterVec::new(
+		Opts::new(
+			"substrate_unbounded_channel_len",
+			"Items sent/received/dropped on each mpsc::unbounded instance"
+		),
+		&["entity", "action"], // name of channel, send|received|dropped
 	).expect("Creating of statics doesn't fail. qed");
-
+	pub static ref UNBOUNDED_CHANNELS_SIZE: GenericGaugeVec<AtomicU64> = GenericGaugeVec::new(
+		Opts::new(
+			"substrate_unbounded_channel_size",
+			"Size (number of messages to be processed) of each mpsc::unbounded instance",
+		),
+		&["entity"], // name of channel
+	).expect("Creating of statics doesn't fail. qed");
 }
+
+pub static SENT_LABEL: &'static str = "send";
+pub static RECEIVED_LABEL: &'static str = "received";
+pub static DROPPED_LABEL: &'static str = "dropped";
 
 /// Register the statics to report to registry
 pub fn register_globals(registry: &Registry) -> Result<(), PrometheusError> {
 	registry.register(Box::new(TOKIO_THREADS_ALIVE.clone()))?;
 	registry.register(Box::new(TOKIO_THREADS_TOTAL.clone()))?;
-
-	#[cfg(feature = "metered")]
 	registry.register(Box::new(UNBOUNDED_CHANNELS_COUNTER.clone()))?;
+	registry.register(Box::new(UNBOUNDED_CHANNELS_SIZE.clone()))?;
 
 	Ok(())
 }

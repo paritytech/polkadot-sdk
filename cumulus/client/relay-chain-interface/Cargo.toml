@@ -1,0 +1,26 @@
+[package]
+authors.workspace = true
+name = "cumulus-relay-chain-interface"
+version = "0.7.0"
+edition.workspace = true
+description = "Common interface for different relay chain datasources."
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+polkadot-overseer = { path = "../../../polkadot/node/overseer" }
+
+cumulus-primitives-core = { path = "../../primitives/core" }
+
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
+sc-client-api = { path = "../../../substrate/client/api" }
+
+futures = "0.3.28"
+async-trait = "0.1.74"
+thiserror = { workspace = true }
+jsonrpsee-core = "0.22"
+parity-scale-codec = "3.6.4"

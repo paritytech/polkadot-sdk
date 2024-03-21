@@ -19,15 +19,11 @@
 use crate::{
 	arg_enums::{
 		ExecutionStrategy, WasmExecutionMethod, WasmtimeInstantiationStrategy,
-		DEFAULT_EXECUTION_BLOCK_CONSTRUCTION, DEFAULT_EXECUTION_IMPORT_BLOCK,
-		DEFAULT_EXECUTION_IMPORT_BLOCK_VALIDATOR, DEFAULT_EXECUTION_OFFCHAIN_WORKER,
-		DEFAULT_EXECUTION_OTHER, DEFAULT_EXECUTION_SYNCING,
 		DEFAULT_WASMTIME_INSTANTIATION_STRATEGY, DEFAULT_WASM_EXECUTION_METHOD,
 	},
 	params::{DatabaseParams, PruningParams},
 };
 use clap::Args;
-use sc_client_api::execution_extensions::ExecutionStrategies;
 use std::path::PathBuf;
 
 /// Parameters for block import.
@@ -54,13 +50,10 @@ pub struct ImportParams {
 	/// The WASM instantiation method to use.
 	///
 	/// Only has an effect when `wasm-execution` is set to `compiled`.
-	///
 	/// The copy-on-write strategies are only supported on Linux.
 	/// If the copy-on-write variant of a strategy is unsupported
 	/// the executor will fall back to the non-CoW equivalent.
-	///
 	/// The fastest (and the default) strategy available is `pooling-copy-on-write`.
-	///
 	/// The `legacy-instance-reuse` strategy is deprecated and will
 	/// be removed in the future. It should only be used in case of
 	/// issues with the default instantiation strategy.
@@ -88,9 +81,7 @@ pub struct ImportParams {
 	#[arg(long, value_name = "Bytes", default_value_t = 67108864)]
 	pub trie_cache_size: usize,
 
-	/// DEPRECATED
-	///
-	/// Switch to `--trie-cache-size`.
+	/// DEPRECATED: switch to `--trie-cache-size`.
 	#[arg(long)]
 	state_cache_size: Option<usize>,
 }
@@ -111,6 +102,8 @@ impl ImportParams {
 
 	/// Get the WASM execution method from the parameters
 	pub fn wasm_method(&self) -> sc_service::config::WasmExecutionMethod {
+		self.execution_strategies.check_usage_and_print_deprecation_warning();
+
 		crate::execution_method_from_cli(self.wasm_method, self.wasmtime_instantiation_strategy)
 	}
 
@@ -119,61 +112,28 @@ impl ImportParams {
 	pub fn wasm_runtime_overrides(&self) -> Option<PathBuf> {
 		self.wasm_runtime_overrides.clone()
 	}
-
-	/// Get execution strategies for the parameters
-	pub fn execution_strategies(&self, is_dev: bool, is_validator: bool) -> ExecutionStrategies {
-		let exec = &self.execution_strategies;
-		let exec_all_or = |strat: Option<ExecutionStrategy>, default: ExecutionStrategy| {
-			let default = if is_dev { ExecutionStrategy::Native } else { default };
-
-			exec.execution.unwrap_or_else(|| strat.unwrap_or(default)).into()
-		};
-
-		let default_execution_import_block = if is_validator {
-			DEFAULT_EXECUTION_IMPORT_BLOCK_VALIDATOR
-		} else {
-			DEFAULT_EXECUTION_IMPORT_BLOCK
-		};
-
-		ExecutionStrategies {
-			syncing: exec_all_or(exec.execution_syncing, DEFAULT_EXECUTION_SYNCING),
-			importing: exec_all_or(exec.execution_import_block, default_execution_import_block),
-			block_construction: exec_all_or(
-				exec.execution_block_construction,
-				DEFAULT_EXECUTION_BLOCK_CONSTRUCTION,
-			),
-			offchain_worker: exec_all_or(
-				exec.execution_offchain_worker,
-				DEFAULT_EXECUTION_OFFCHAIN_WORKER,
-			),
-			other: exec_all_or(exec.execution_other, DEFAULT_EXECUTION_OTHER),
-		}
-	}
 }
 
 /// Execution strategies parameters.
 #[derive(Debug, Clone, Args)]
 pub struct ExecutionStrategiesParams {
-	/// The means of execution used when calling into the runtime for importing blocks as
-	/// part of an initial sync.
+	/// Runtime execution strategy for importing blocks during initial sync.
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_syncing: Option<ExecutionStrategy>,
 
-	/// The means of execution used when calling into the runtime for general block import
-	/// (including locally authored blocks).
+	/// Runtime execution strategy for general block import (including locally authored blocks).
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_import_block: Option<ExecutionStrategy>,
 
-	/// The means of execution used when calling into the runtime while constructing blocks.
+	/// Runtime execution strategy for constructing blocks.
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_block_construction: Option<ExecutionStrategy>,
 
-	/// The means of execution used when calling into the runtime while using an off-chain worker.
+	/// Runtime execution strategy for offchain workers.
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_offchain_worker: Option<ExecutionStrategy>,
 
-	/// The means of execution used when calling into the runtime while not syncing, importing or
-	/// constructing blocks.
+	/// Runtime execution strategy when not syncing, importing or constructing blocks.
 	#[arg(long, value_name = "STRATEGY", value_enum, ignore_case = true)]
 	pub execution_other: Option<ExecutionStrategy>,
 
@@ -192,4 +152,24 @@ pub struct ExecutionStrategiesParams {
 		]
 	)]
 	pub execution: Option<ExecutionStrategy>,
+}
+
+impl ExecutionStrategiesParams {
+	/// Check if one of the parameters is still passed and print a warning if so.
+	fn check_usage_and_print_deprecation_warning(&self) {
+		for (param, name) in [
+			(&self.execution_syncing, "execution-syncing"),
+			(&self.execution_import_block, "execution-import-block"),
+			(&self.execution_block_construction, "execution-block-construction"),
+			(&self.execution_offchain_worker, "execution-offchain-worker"),
+			(&self.execution_other, "execution-other"),
+			(&self.execution, "execution"),
+		] {
+			if param.is_some() {
+				eprintln!(
+					"CLI parameter `--{name}` has no effect anymore and will be removed in the future!"
+				);
+			}
+		}
+	}
 }

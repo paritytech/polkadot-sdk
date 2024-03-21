@@ -1,0 +1,56 @@
+[package]
+name = "cumulus-pallet-aura-ext"
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+description = "AURA consensus extension pallet for parachains"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+
+# Substrate
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+pallet-aura = { path = "../../../substrate/frame/aura", default-features = false }
+pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
+sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+
+# Cumulus
+cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false }
+
+[dev-dependencies]
+
+# Cumulus
+cumulus-pallet-parachain-system = { path = "../parachain-system" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-aura/std",
+	"pallet-timestamp/std",
+	"scale-info/std",
+	"sp-application-crypto/std",
+	"sp-consensus-aura/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+try-runtime = [
+	"cumulus-pallet-parachain-system/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-aura/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
+]

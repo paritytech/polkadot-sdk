@@ -1,0 +1,5 @@
+error: Invalid pallet::composite_enum, `HoldReason` must be public
+  --> tests/pallet_ui/hold_reason_not_pub.rs:27:5
+   |
+27 |     enum HoldReason {}
+   |     ^^^^

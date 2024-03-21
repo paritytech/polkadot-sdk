@@ -1,0 +1,66 @@
+[package]
+name = "assets-common"
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+description = "Assets common utilities"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+log = { workspace = true }
+impl-trait-for-tuples = "0.2.2"
+
+# Substrate
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
+
+# Polkadot
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
+
+# Cumulus
+parachains-common = { path = "../../../common", default-features = false }
+cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
+
+[build-dependencies]
+substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"log/std",
+	"pallet-asset-conversion/std",
+	"pallet-xcm/std",
+	"parachains-common/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+
+runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]

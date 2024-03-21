@@ -1,0 +1,277 @@
+cargo-clippy:
+  stage: check
+  extends:
+    - .docker-env
+    - .common-refs
+    - .pipeline-stopper-artifacts
+  variables:
+    RUSTFLAGS: "-D warnings"
+  script:
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --all-features --locked --workspace
+
+check-try-runtime:
+  stage: check
+  extends:
+    - .docker-env
+    - .common-refs
+  script:
+    - time cargo check --locked --all --features try-runtime
+    # this is taken from cumulus
+    # Check that parachain-template will compile with `try-runtime` feature flag.
+    - time cargo check --locked -p parachain-template-node --features try-runtime
+    # add after https://github.com/paritytech/substrate/pull/14502 is merged
+    # experimental code may rely on try-runtime and vice-versa
+    - time cargo check --locked --all --features try-runtime,experimental
+
+# FIXME
+.cargo-deny-licenses:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+  variables:
+    CARGO_DENY_CMD: "cargo deny --all-features check licenses -c ./substrate/scripts/ci/deny.toml"
+  script:
+    - $CARGO_DENY_CMD --hide-inclusion-graph
+  after_script:
+    - echo "___The complete log is in the artifacts___"
+    - $CARGO_DENY_CMD 2> deny.log
+    - if [ $CI_JOB_STATUS != 'success' ]; then
+      echo 'Please check license of your crate or add an exception to scripts/ci/deny.toml';
+      fi
+  allow_failure: true
+  artifacts:
+    name: $CI_COMMIT_SHORT_SHA
+    expire_in: 3 days
+    when: always
+    paths:
+      - deny.log
+
+# from substrate
+# not sure if it's needed in monorepo
+check-dependency-rules:
+  stage: check
+  extends:
+    - .kubernetes-env
+    - .test-refs-no-trigger-prs-only
+  variables:
+    CI_IMAGE: "paritytech/tools:latest"
+  allow_failure: true
+  script:
+    - cd substrate/
+    - ../.gitlab/ensure-deps.sh
+
+test-rust-features:
+  stage: check
+  extends:
+    - .kubernetes-env
+    - .test-refs-no-trigger-prs-only
+  script:
+    - bash .gitlab/rust-features.sh .
+
+job-starter:
+  stage: check
+  image: paritytech/tools:latest
+  extends:
+    - .kubernetes-env
+    - .common-refs
+  allow_failure: true
+  script:
+    - echo ok
+
+check-rust-feature-propagation:
+  stage: check
+  extends:
+    - .kubernetes-env
+    - .common-refs
+  script:
+    - zepter run check
+
+check-toml-format:
+  stage: check
+  extends:
+    - .kubernetes-env
+    - .common-refs
+  script:
+    - taplo format --check --config .config/taplo.toml
+    - echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
+
+# More info can be found here: https://github.com/paritytech/polkadot/pull/5865
+.check-runtime-migration:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+  script:
+    - |
+      export RUST_LOG=remote-ext=debug,runtime=debug
+
+      echo "---------- Downloading try-runtime CLI ----------"
+      curl -sL https://github.com/paritytech/try-runtime-cli/releases/download/v0.5.4/try-runtime-x86_64-unknown-linux-musl -o try-runtime
+      chmod +x ./try-runtime
+      echo "Using try-runtime-cli version:"
+      ./try-runtime --version
+
+      echo "---------- Building ${PACKAGE} runtime ----------"
+      time cargo build --release --locked -p "$PACKAGE" --features try-runtime
+
+      echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
+      time ./try-runtime ${COMMAND_EXTRA_ARGS} \
+          --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
+          on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
+      sleep 5
+
+# Check runtime migrations for Parity managed relay chains
+check-runtime-migration-westend:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "westend"
+    PACKAGE: "westend-runtime"
+    WASM: "westend_runtime.compact.compressed.wasm"
+    URI: "wss://westend-try-runtime-node.parity-chains.parity.io:443"
+    SUBCOMMAND_EXTRA_ARGS: "--no-weight-warnings"
+  allow_failure: true
+
+check-runtime-migration-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "rococo"
+    PACKAGE: "rococo-runtime"
+    WASM: "rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-try-runtime-node.parity-chains.parity.io:443"
+    SUBCOMMAND_EXTRA_ARGS: "--no-weight-warnings"
+
+# Check runtime migrations for Parity managed asset hub chains
+check-runtime-migration-asset-hub-westend:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "asset-hub-westend"
+    PACKAGE: "asset-hub-westend-runtime"
+    WASM: "asset_hub_westend_runtime.compact.compressed.wasm"
+    URI: "wss://westend-asset-hub-rpc.polkadot.io:443"
+
+check-runtime-migration-asset-hub-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "asset-hub-rococo"
+    PACKAGE: "asset-hub-rococo-runtime"
+    WASM: "asset_hub_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-asset-hub-rpc.polkadot.io:443"
+
+# Check runtime migrations for Parity managed bridge hub chains
+check-runtime-migration-bridge-hub-westend:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "bridge-hub-westend"
+    PACKAGE: "bridge-hub-westend-runtime"
+    WASM: "bridge_hub_westend_runtime.compact.compressed.wasm"
+    URI: "wss://westend-bridge-hub-rpc.polkadot.io:443"
+
+check-runtime-migration-bridge-hub-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "bridge-hub-rococo"
+    PACKAGE: "bridge-hub-rococo-runtime"
+    WASM: "bridge_hub_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-bridge-hub-rpc.polkadot.io:443"
+
+# Check runtime migrations for Parity managed contract chains
+check-runtime-migration-contracts-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "contracts-rococo"
+    PACKAGE: "contracts-rococo-runtime"
+    WASM: "contracts_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-contracts-rpc.polkadot.io:443"
+
+# Check runtime migrations for Parity managed collectives chains
+check-runtime-migration-collectives-westend:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "collectives-westend"
+    PACKAGE: "collectives-westend-runtime"
+    WASM: "collectives_westend_runtime.compact.compressed.wasm"
+    URI: "wss://westend-collectives-rpc.polkadot.io:443"
+    COMMAND_EXTRA_ARGS: "--disable-spec-name-check"
+
+# Check runtime migrations for Parity managed coretime chain
+check-runtime-migration-coretime-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "coretime-rococo"
+    PACKAGE: "coretime-rococo-runtime"
+    WASM: "coretime_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-coretime-rpc.polkadot.io:443"
+
+find-fail-ci-phrase:
+  stage: check
+  variables:
+    CI_IMAGE: "paritytech/tools:latest"
+    ASSERT_REGEX: "FAIL-CI"
+    GIT_DEPTH: 1
+  extends:
+    - .kubernetes-env
+    - .test-pr-refs
+  script:
+    - set +e
+    - rg --line-number --hidden --type rust --glob '!{.git,target}' "$ASSERT_REGEX" .; exit_status=$?
+    - if [ $exit_status -eq 0 ]; then
+      echo "$ASSERT_REGEX was found, exiting with 1";
+      exit 1;
+      else
+      echo "No $ASSERT_REGEX was found, exiting with 0";
+      exit 0;
+      fi
+
+check-core-crypto-features:
+  stage: check
+  extends:
+    - .docker-env
+    - .common-refs
+  script:
+    - pushd substrate/primitives/core
+    - ./check-features-variants.sh
+    - popd
+    - pushd substrate/primitives/application-crypto
+    - ./check-features-variants.sh
+    - popd
+    - pushd substrate/primitives/keyring
+    - ./check-features-variants.sh
+    - popd

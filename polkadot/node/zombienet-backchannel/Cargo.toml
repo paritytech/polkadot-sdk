@@ -1,0 +1,25 @@
+[package]
+name = "zombienet-backchannel"
+description = "Zombienet backchannel to notify test runner and coordinate with malus actors."
+readme = "README.md"
+publish = false
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tokio = { version = "1.24.2", default-features = false, features = ["macros", "net", "rt-multi-thread", "sync"] }
+url = "2.3.1"
+tokio-tungstenite = "0.17"
+futures-util = "0.3.30"
+lazy_static = "1.4.0"
+parity-scale-codec = { version = "3.6.1", features = ["derive"] }
+reqwest = { version = "0.11", features = ["rustls-tls"], default-features = false }
+thiserror = { workspace = true }
+gum = { package = "tracing-gum", path = "../gum" }
+serde = { features = ["derive"], workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }

@@ -1,0 +1,25 @@
+error: use of deprecated constant `pallet::warnings::ImplicitCallIndex_0::_w`:
+               It is deprecated to use implicit call indices.
+               Please instead ensure that all calls have a `pallet::call_index` attribute or put the pallet into `dev` mode.
+
+               For more info see:
+                   <https://github.com/paritytech/substrate/pull/12891>
+                   <https://github.com/paritytech/substrate/pull/11381>
+  --> tests/pallet_ui/dev_mode_without_arg_call_index.rs:39:10
+   |
+39 |         pub fn my_call(_origin: OriginFor<T>) -> DispatchResult {
+   |                ^^^^^^^
+   |
+   = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
+
+error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
+               It is deprecated to use hard-coded constant as call weight.
+               Please instead benchmark all calls or put the pallet into `dev` mode.
+
+               For more info see:
+                   <https://github.com/paritytech/substrate/pull/13798>
+  --> tests/pallet_ui/dev_mode_without_arg_call_index.rs:38:20
+   |
+38 |         #[pallet::weight(0)]
+   |                          ^

@@ -23,10 +23,7 @@ use futures::{
 	channel::{mpsc, oneshot},
 	SinkExt,
 };
-use jsonrpsee::{
-	core::{async_trait, Error as JsonRpseeError, RpcResult},
-	proc_macros::rpc,
-};
+use jsonrpsee::{core::async_trait, proc_macros::rpc};
 use sc_consensus::ImportedAux;
 use serde::{Deserialize, Serialize};
 use sp_runtime::EncodedJustification;
@@ -74,7 +71,7 @@ pub trait ManualSealApi<Hash> {
 		create_empty: bool,
 		finalize: bool,
 		parent_hash: Option<Hash>,
-	) -> RpcResult<CreatedBlock<Hash>>;
+	) -> Result<CreatedBlock<Hash>, Error>;
 
 	/// Instructs the manual-seal authorship task to finalize a block
 	#[method(name = "engine_finalizeBlock")]
@@ -82,7 +79,7 @@ pub trait ManualSealApi<Hash> {
 		&self,
 		hash: Hash,
 		justification: Option<EncodedJustification>,
-	) -> RpcResult<bool>;
+	) -> Result<bool, Error>;
 }
 
 /// A struct that implements the [`ManualSealApiServer`].
@@ -91,12 +88,14 @@ pub struct ManualSeal<Hash> {
 }
 
 /// return type of `engine_createBlock`
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct CreatedBlock<Hash> {
 	/// hash of the created block.
 	pub hash: Hash,
 	/// some extra details about the import operation
 	pub aux: ImportedAux,
+	/// uncompacted storage proof size (zero mean that there is no proof)
+	pub proof_size: usize,
 }
 
 impl<Hash> ManualSeal<Hash> {
@@ -113,7 +112,7 @@ impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
 		create_empty: bool,
 		finalize: bool,
 		parent_hash: Option<Hash>,
-	) -> RpcResult<CreatedBlock<Hash>> {
+	) -> Result<CreatedBlock<Hash>, Error> {
 		let mut sink = self.import_block_channel.clone();
 		let (sender, receiver) = oneshot::channel();
 		// NOTE: this sends a Result over the channel.
@@ -129,7 +128,7 @@ impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
 		match receiver.await {
 			Ok(Ok(rx)) => Ok(rx),
 			Ok(Err(e)) => Err(e.into()),
-			Err(e) => Err(JsonRpseeError::to_call_error(e)),
+			Err(e) => Err(e.into()),
 		}
 	}
 
@@ -137,12 +136,12 @@ impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
 		&self,
 		hash: Hash,
 		justification: Option<EncodedJustification>,
-	) -> RpcResult<bool> {
+	) -> Result<bool, Error> {
 		let mut sink = self.import_block_channel.clone();
 		let (sender, receiver) = oneshot::channel();
 		let command = EngineCommand::FinalizeBlock { hash, sender: Some(sender), justification };
 		sink.send(command).await?;
-		receiver.await.map(|_| true).map_err(|e| JsonRpseeError::to_call_error(e))
+		receiver.await.map(|_| true).map_err(Into::into)
 	}
 }
 
@@ -160,10 +159,11 @@ pub fn send_result<T: std::fmt::Debug>(
 			}
 		}
 	} else {
-		// instant seal doesn't report errors over rpc, simply log them.
+		// Sealing/Finalization with no RPC sender such as instant seal or delayed finalize doesn't
+		// report errors over rpc, simply log them.
 		match result {
-			Ok(r) => log::info!("Instant Seal success: {:?}", r),
-			Err(e) => log::error!("Instant Seal encountered an error: {}", e),
+			Ok(r) => log::info!("Consensus with no RPC sender success: {:?}", r),
+			Err(e) => log::error!("Consensus with no RPC sender encountered an error: {}", e),
 		}
 	}
 }

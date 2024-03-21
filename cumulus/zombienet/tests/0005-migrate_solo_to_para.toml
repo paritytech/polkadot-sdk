@@ -1,0 +1,45 @@
+[relaychain]
+default_image = "{{RELAY_IMAGE}}"
+default_command = "polkadot"
+default_args = [ "-lparachain=debug" ]
+
+chain = "rococo-local"
+
+  [[relaychain.nodes]]
+  name = "alice"
+  validator = true
+
+  [[relaychain.nodes]]
+  name = "bob"
+  validator = true
+
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+
+  # run the solo chain (in our case this is also already a parachain, but as it has a different genesis it will not produce any blocks.)
+  [[parachains.collators]]
+  name = "dave"
+  validator = true
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=debug"]
+
+[[parachains]]
+id = 2000
+cumulus_based = true
+add_to_genesis = false
+register_para = false
+# Set some random value in the genesis state to create a different genesis hash.
+[parachains.genesis.runtimeGenesis.patch.sudo]
+key = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+
+  # run the parachain that will be used to return the header of the solo chain.
+  [[parachains.collators]]
+  name = "eve"
+  validator = true
+  add_to_bootnodes = true
+  image = "{{COL_IMAGE}}"
+  command = "test-parachain"
+  args = ["-lparachain=debug"]

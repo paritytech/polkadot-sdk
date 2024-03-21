@@ -1,0 +1,5 @@
+error: Duplicate #[pallet::no_default] attribute not allowed.
+  --> tests/pallet_ui/trait_item_duplicate_no_default.rs:27:4
+   |
+27 |         #[pallet::no_default]
+   |          ^^^^^^^^^^^^^^^^^^^^

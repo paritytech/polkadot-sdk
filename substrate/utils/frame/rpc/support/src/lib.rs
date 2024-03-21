@@ -23,7 +23,7 @@
 use codec::{DecodeAll, FullCodec, FullEncode};
 use core::marker::PhantomData;
 use frame_support::storage::generator::{StorageDoubleMap, StorageMap, StorageValue};
-use jsonrpsee::core::Error as RpcError;
+use jsonrpsee::core::ClientError as RpcError;
 use sc_rpc_api::state::StateApiClient;
 use serde::{de::DeserializeOwned, Serialize};
 use sp_storage::{StorageData, StorageKey};
@@ -31,41 +31,39 @@ use sp_storage::{StorageData, StorageKey};
 /// A typed query on chain state usable from an RPC client.
 ///
 /// ```no_run
-/// # use jsonrpsee::core::Error as RpcError;
+/// # use jsonrpsee::core::ClientError as RpcError;
 /// # use jsonrpsee::ws_client::WsClientBuilder;
 /// # use codec::Encode;
-/// # use frame_support::{construct_runtime, traits::ConstU32};
+/// # use frame_support::{construct_runtime, derive_impl, traits::ConstU32};
 /// # use substrate_frame_rpc_support::StorageQuery;
 /// # use sc_rpc_api::state::StateApiClient;
 /// # use sp_runtime::{traits::{BlakeTwo256, IdentityLookup}, testing::Header};
 /// #
 /// # construct_runtime!(
-/// # 	pub enum TestRuntime where
-/// # 		Block = frame_system::mocking::MockBlock<TestRuntime>,
-/// # 		NodeBlock = frame_system::mocking::MockBlock<TestRuntime>,
-/// # 		UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>,
+/// # 	pub enum TestRuntime
 /// # 	{
-/// # 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-/// # 		Test: pallet_test::{Pallet, Storage},
+/// # 		System: frame_system,
+/// # 		Test: pallet_test,
 /// # 	}
 /// # );
 /// #
 /// # type Hash = sp_core::H256;
 /// #
+/// # #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 /// # impl frame_system::Config for TestRuntime {
 /// # 	type BaseCallFilter = ();
 /// # 	type BlockWeights = ();
 /// # 	type BlockLength = ();
 /// # 	type RuntimeOrigin = RuntimeOrigin;
 /// # 	type RuntimeCall = RuntimeCall;
-/// # 	type Index = u64;
-/// # 	type BlockNumber = u64;
+/// # 	type Nonce = u64;
 /// # 	type Hash = Hash;
 /// # 	type Hashing = BlakeTwo256;
 /// # 	type AccountId = u64;
 /// # 	type Lookup = IdentityLookup<Self::AccountId>;
-/// # 	type Header = Header;
+/// # 	type Block = frame_system::mocking::MockBlock<TestRuntime>;
 /// # 	type RuntimeEvent = RuntimeEvent;
+/// # 	type RuntimeTask = RuntimeTask;
 /// # 	type BlockHashCount = ();
 /// # 	type DbWeight = ();
 /// # 	type Version = ();
@@ -94,8 +92,7 @@ use sp_storage::{StorageData, StorageKey};
 /// 	use frame_support::pallet_prelude::*;
 ///
 /// 	#[pallet::pallet]
-/// 	#[pallet::generate_store(pub(super) trait Store)]
-/// 	pub struct Pallet<T>(PhantomData<T>);
+/// 	pub struct Pallet<T>(_);
 ///
 /// 	#[pallet::config]
 /// 	pub trait Config: frame_system::Config {}

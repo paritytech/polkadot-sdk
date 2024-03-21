@@ -18,8 +18,9 @@
 //! Tests for Uniques pallet.
 
 use crate::{mock::*, Event, *};
-use frame_support::{assert_noop, assert_ok, dispatch::Dispatchable, traits::Currency};
+use frame_support::{assert_noop, assert_ok, traits::Currency};
 use pallet_balances::Error as BalancesError;
+use sp_runtime::traits::Dispatchable;
 use sp_std::prelude::*;
 
 fn items() -> Vec<(u64, u32, u32)> {
@@ -253,8 +254,11 @@ fn transfer_owner_should_work() {
 			Uniques::transfer_ownership(RuntimeOrigin::signed(1), 0, 2),
 			Error::<Test>::Unaccepted
 		);
+		assert_eq!(System::consumers(&2), 0);
 		assert_ok!(Uniques::set_accept_ownership(RuntimeOrigin::signed(2), Some(0)));
+		assert_eq!(System::consumers(&2), 1);
 		assert_ok!(Uniques::transfer_ownership(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(System::consumers(&2), 1);
 
 		assert_eq!(collections(), vec![(2, 0)]);
 		assert_eq!(Balances::total_balance(&1), 98);

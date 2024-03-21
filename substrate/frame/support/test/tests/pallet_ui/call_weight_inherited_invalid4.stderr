@@ -1,0 +1,11 @@
+error[E0599]: no function or associated item named `foo` found for associated type `<T as parentheses::Config>::WeightInfo` in the current scope
+  --> tests/pallet_ui/call_weight_inherited_invalid4.rs:41:10
+   |
+41 |         pub fn foo(_: OriginFor<T>) -> DispatchResult {
+   |                ^^^ function or associated item not found in `<T as Config>::WeightInfo`
+
+error[E0599]: no function or associated item named `foo` found for associated type `<T as assign::Config>::WeightInfo` in the current scope
+  --> tests/pallet_ui/call_weight_inherited_invalid4.rs:62:10
+   |
+62 |         pub fn foo(_: OriginFor<T>) -> DispatchResult {
+   |                ^^^ function or associated item not found in `<T as Config>::WeightInfo`

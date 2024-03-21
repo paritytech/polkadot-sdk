@@ -15,10 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! This module contains helper methods to perform functionality associated with creating and
+//! destroying collections for the NFTs pallet.
+
 use crate::*;
 use frame_support::pallet_prelude::*;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Create a new collection with the given `collection`, `owner`, `admin`, `config`, `deposit`,
+	/// and `event`.
+	///
+	/// This function creates a new collection with the provided parameters. It reserves the
+	/// required deposit from the owner's account, sets the collection details, assigns admin roles,
+	/// and inserts the provided configuration. Finally, it emits the specified event upon success.
+	///
+	/// # Errors
+	///
+	/// This function returns a [`CollectionIdInUse`](crate::Error::CollectionIdInUse) error if the
+	/// collection ID is already in use.
 	pub fn do_create_collection(
 		collection: T::CollectionId,
 		owner: T::AccountId,
@@ -38,6 +52,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				owner_deposit: deposit,
 				items: 0,
 				item_metadatas: 0,
+				item_configs: 0,
 				attributes: 0,
 			},
 		);
@@ -49,17 +64,39 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			),
 		);
 
-		let next_id = collection.increment();
-
 		CollectionConfigOf::<T, I>::insert(&collection, config);
 		CollectionAccount::<T, I>::insert(&owner, &collection, ());
-		NextCollectionId::<T, I>::set(Some(next_id));
 
-		Self::deposit_event(Event::NextCollectionIdIncremented { next_id });
 		Self::deposit_event(event);
+
+		if let Some(max_supply) = config.max_supply {
+			Self::deposit_event(Event::CollectionMaxSupplySet { collection, max_supply });
+		}
+
 		Ok(())
 	}
 
+	/// Destroy the specified collection with the given `collection`, `witness`, and
+	/// `maybe_check_owner`.
+	///
+	/// This function destroys the specified collection if it exists and meets the necessary
+	/// conditions. It checks the provided `witness` against the actual collection details and
+	/// removes the collection along with its associated metadata, attributes, and configurations.
+	/// The necessary deposits are returned to the corresponding accounts, and the roles and
+	/// configurations for the collection are cleared. Finally, it emits the `Destroyed` event upon
+	/// successful destruction.
+	///
+	/// # Errors
+	///
+	/// This function returns a dispatch error in the following cases:
+	/// - If the collection ID is not found
+	///   ([`UnknownCollection`](crate::Error::UnknownCollection)).
+	/// - If the provided `maybe_check_owner` does not match the actual owner
+	///   ([`NoPermission`](crate::Error::NoPermission)).
+	/// - If the collection is not empty (contains items)
+	///   ([`CollectionNotEmpty`](crate::Error::CollectionNotEmpty)).
+	/// - If the `witness` does not match the actual collection details
+	///   ([`BadWitness`](crate::Error::BadWitness)).
 	pub fn do_destroy_collection(
 		collection: T::CollectionId,
 		witness: DestroyWitness,
@@ -71,24 +108,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			if let Some(check_owner) = maybe_check_owner {
 				ensure!(collection_details.owner == check_owner, Error::<T, I>::NoPermission);
 			}
-			ensure!(collection_details.items == witness.items, Error::<T, I>::BadWitness);
+			ensure!(collection_details.items == 0, Error::<T, I>::CollectionNotEmpty);
+			ensure!(collection_details.attributes == witness.attributes, Error::<T, I>::BadWitness);
 			ensure!(
 				collection_details.item_metadatas == witness.item_metadatas,
 				Error::<T, I>::BadWitness
 			);
-			ensure!(collection_details.attributes == witness.attributes, Error::<T, I>::BadWitness);
+			ensure!(
+				collection_details.item_configs == witness.item_configs,
+				Error::<T, I>::BadWitness
+			);
 
-			for (item, details) in Item::<T, I>::drain_prefix(&collection) {
-				Account::<T, I>::remove((&details.owner, &collection, &item));
-				T::Currency::unreserve(&details.deposit.account, details.deposit.amount);
-			}
 			for (_, metadata) in ItemMetadataOf::<T, I>::drain_prefix(&collection) {
 				if let Some(depositor) = metadata.deposit.account {
 					T::Currency::unreserve(&depositor, metadata.deposit.amount);
 				}
 			}
-			let _ = ItemPriceOf::<T, I>::clear_prefix(&collection, witness.items, None);
-			let _ = PendingSwapOf::<T, I>::clear_prefix(&collection, witness.items, None);
+
 			CollectionMetadataOf::<T, I>::remove(&collection);
 			Self::clear_roles(&collection)?;
 
@@ -103,15 +139,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			CollectionAccount::<T, I>::remove(&collection_details.owner, &collection);
 			T::Currency::unreserve(&collection_details.owner, collection_details.owner_deposit);
 			CollectionConfigOf::<T, I>::remove(&collection);
-			let _ = ItemConfigOf::<T, I>::clear_prefix(&collection, witness.items, None);
-			let _ =
-				ItemAttributesApprovalsOf::<T, I>::clear_prefix(&collection, witness.items, None);
+			let _ = ItemConfigOf::<T, I>::clear_prefix(&collection, witness.item_configs, None);
 
 			Self::deposit_event(Event::Destroyed { collection });
 
 			Ok(DestroyWitness {
-				items: collection_details.items,
 				item_metadatas: collection_details.item_metadatas,
+				item_configs: collection_details.item_configs,
 				attributes: collection_details.attributes,
 			})
 		})

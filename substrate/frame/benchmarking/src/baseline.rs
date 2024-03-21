@@ -20,13 +20,13 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::*;
 use crate::benchmarks;
 use frame_system::Pallet as System;
 use sp_runtime::{
 	traits::{AppVerify, Hash},
 	RuntimeAppPublic,
 };
+use sp_std::{vec, vec::Vec};
 
 mod crypto {
 	use sp_application_crypto::{app_crypto, sr25519, KeyTypeId};
@@ -110,40 +110,35 @@ benchmarks! {
 
 #[cfg(test)]
 pub mod mock {
-	use super::*;
-	use sp_runtime::testing::H256;
+	use frame_support::derive_impl;
+	use sp_runtime::{testing::H256, BuildStorage};
 
 	type AccountId = u64;
-	type AccountIndex = u32;
-	type BlockNumber = u64;
+	type Nonce = u32;
 
-	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlock<Test>;
 
 	frame_support::construct_runtime!(
-		pub enum Test where
-			Block = Block,
-			NodeBlock = Block,
-			UncheckedExtrinsic = UncheckedExtrinsic,
+		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+			System: frame_system,
 		}
 	);
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
 		type BlockLength = ();
 		type DbWeight = ();
 		type RuntimeOrigin = RuntimeOrigin;
-		type Index = AccountIndex;
-		type BlockNumber = BlockNumber;
+		type Nonce = Nonce;
 		type RuntimeCall = RuntimeCall;
 		type Hash = H256;
 		type Hashing = ::sp_runtime::traits::BlakeTwo256;
 		type AccountId = AccountId;
 		type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
-		type Header = sp_runtime::testing::Header;
+		type Block = Block;
 		type RuntimeEvent = RuntimeEvent;
 		type BlockHashCount = ();
 		type Version = ();
@@ -160,12 +155,11 @@ pub mod mock {
 	impl super::Config for Test {}
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
-		use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStorePtr};
-		use sp_std::sync::Arc;
+		use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 
-		let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
-		ext.register_extension(KeystoreExt(Arc::new(KeyStore::new()) as SyncCryptoStorePtr));
+		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 
 		ext
 	}

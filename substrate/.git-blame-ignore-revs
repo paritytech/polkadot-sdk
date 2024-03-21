@@ -10,6 +10,6 @@
 #
 # You should add new commit hashes to this file when you create or find such big
 # automated refactorings while reading code history. If you only know the short hash,
-# use `git rev-parse 1d5abf01` to expand it to the full SHA1 hash needed in this file.
+# use `git rev-parse 7b56ab15b4` to expand it to the full SHA1 hash needed in this file.
 
-1d5abf01abafdb6c15bcd0172f5de09fd87c5fbf # Run cargo fmt on the whole code base (#9394)
+7b56ab15b4a8e06df5eefc17e600e3c1419aede5 # Run cargo fmt on the whole code base (#9394)

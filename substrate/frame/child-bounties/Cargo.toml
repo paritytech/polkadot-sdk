@@ -1,44 +1,48 @@
 [package]
 name = "pallet-child-bounties"
-version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "27.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "FRAME pallet to manage child bounties"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 ] }
-log = { version = "0.4.17", default-features = false }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true, path = "../benchmarking" }
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../support" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../system" }
-pallet-bounties = { version = "4.0.0-dev", default-features = false, path = "../bounties" }
-pallet-treasury = { version = "4.0.0-dev", default-features = false, path = "../treasury" }
-sp-core = { version = "7.0.0", default-features = false, path = "../../primitives/core" }
-sp-io = { version = "7.0.0", default-features = false, path = "../../primitives/io" }
-sp-runtime = { version = "7.0.0", default-features = false, path = "../../primitives/runtime" }
-sp-std = { version = "5.0.0", default-features = false, path = "../../primitives/std" }
+log = { workspace = true }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+pallet-bounties = { path = "../bounties", default-features = false }
+pallet-treasury = { path = "../treasury", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
-pallet-balances = { version = "4.0.0-dev", path = "../balances" }
+pallet-balances = { path = "../balances" }
 
 [features]
 default = ["std"]
 std = [
-	"frame-benchmarking?/std",
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-balances/std",
 	"pallet-bounties/std",
 	"pallet-treasury/std",
 	"scale-info/std",
@@ -49,7 +53,19 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-bounties/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-bounties/try-runtime",
+	"pallet-treasury/try-runtime",
+	"sp-runtime/try-runtime",
+]

@@ -28,14 +28,14 @@ use futures::Future;
 use std::{borrow::Cow, collections::HashMap, pin::Pin, sync::Arc};
 
 use node_primitives::Block;
-use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes, Profile};
+use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 use sc_transaction_pool_api::{
 	ImportNotificationStream, PoolFuture, PoolStatus, ReadyTransactions, TransactionFor,
 	TransactionSource, TransactionStatusStreamFor, TxHash,
 };
 use sp_consensus::{Environment, Proposer};
 use sp_inherents::InherentDataProvider;
-use sp_runtime::{generic::BlockId, traits::NumberFor, OpaqueExtrinsic};
+use sp_runtime::{traits::NumberFor, OpaqueExtrinsic};
 
 use crate::{
 	common::SizeType,
@@ -43,7 +43,6 @@ use crate::{
 };
 
 pub struct ConstructionBenchmarkDescription {
-	pub profile: Profile,
 	pub key_types: KeyTypes,
 	pub block_type: BlockType,
 	pub size: SizeType,
@@ -51,7 +50,6 @@ pub struct ConstructionBenchmarkDescription {
 }
 
 pub struct ConstructionBenchmark {
-	profile: Profile,
 	database: BenchDb,
 	transactions: Transactions,
 }
@@ -59,11 +57,6 @@ pub struct ConstructionBenchmark {
 impl core::BenchmarkDescription for ConstructionBenchmarkDescription {
 	fn path(&self) -> Path {
 		let mut path = Path::new(&["node", "proposer"]);
-
-		match self.profile {
-			Profile::Wasm => path.push("wasm"),
-			Profile::Native => path.push("native"),
-		}
 
 		match self.key_types {
 			KeyTypes::Sr25519 => path.push("sr25519"),
@@ -99,7 +92,6 @@ impl core::BenchmarkDescription for ConstructionBenchmarkDescription {
 		}
 
 		Box::new(ConstructionBenchmark {
-			profile: self.profile,
 			database: bench_db,
 			transactions: Transactions(extrinsics),
 		})
@@ -107,8 +99,8 @@ impl core::BenchmarkDescription for ConstructionBenchmarkDescription {
 
 	fn name(&self) -> Cow<'static, str> {
 		format!(
-			"Block construction ({:?}/{}, {:?}, {:?} backend)",
-			self.block_type, self.size, self.profile, self.database_type,
+			"Block construction ({:?}/{}, {:?} backend)",
+			self.block_type, self.size, self.database_type,
 		)
 		.into()
 	}
@@ -116,7 +108,7 @@ impl core::BenchmarkDescription for ConstructionBenchmarkDescription {
 
 impl core::Benchmark for ConstructionBenchmark {
 	fn run(&mut self, mode: Mode) -> std::time::Duration {
-		let context = self.database.create_context(self.profile);
+		let context = self.database.create_context();
 
 		let _ = context
 			.client
@@ -241,7 +233,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	/// Returns a future that imports a bunch of unverified transactions to the pool.
 	fn submit_at(
 		&self,
-		_at: &BlockId<Self::Block>,
+		_at: Self::Hash,
 		_source: TransactionSource,
 		_xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<node_primitives::Hash, Self::Error>>, Self::Error> {
@@ -251,7 +243,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	/// Returns a future that imports one unverified transaction to the pool.
 	fn submit_one(
 		&self,
-		_at: &BlockId<Self::Block>,
+		_at: Self::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
@@ -260,7 +252,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 
 	fn submit_and_watch(
 		&self,
-		_at: &BlockId<Self::Block>,
+		_at: Self::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
@@ -288,6 +280,10 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 
 	fn remove_invalid(&self, _hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
 		Default::default()
+	}
+
+	fn futures(&self) -> Vec<Self::InPoolTransaction> {
+		unimplemented!()
 	}
 
 	fn status(&self) -> PoolStatus {

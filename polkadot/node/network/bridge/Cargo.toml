@@ -1,0 +1,37 @@
+[package]
+name = "polkadot-network-bridge"
+version = "7.0.0"
+description = "The Network Bridge Subsystem — protocol multiplexer for Polkadot."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+always-assert = "0.1"
+async-trait = "0.1.74"
+futures = "0.3.21"
+gum = { package = "tracing-gum", path = "../../gum" }
+polkadot-primitives = { path = "../../../primitives" }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+sc-network = { path = "../../../../substrate/client/network" }
+sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
+polkadot-node-metrics = { path = "../../metrics" }
+polkadot-node-network-protocol = { path = "../protocol" }
+polkadot-node-subsystem = { path = "../../subsystem" }
+polkadot-overseer = { path = "../../overseer" }
+parking_lot = "0.12.1"
+bytes = "1"
+fatality = "0.0.6"
+thiserror = { workspace = true }
+
+[dev-dependencies]
+assert_matches = "1.4.0"
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-node-subsystem-util = { path = "../../subsystem-util" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+futures-timer = "3"
+polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }

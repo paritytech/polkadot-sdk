@@ -1,1 +1,2 @@
 Cargo.lock linguist-generated=true
+frame/**/src/weights.rs linguist-generated=true

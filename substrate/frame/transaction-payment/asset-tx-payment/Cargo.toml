@@ -1,61 +1,79 @@
 [package]
 name = "pallet-asset-tx-payment"
-version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "28.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "pallet to manage transaction payments in assets"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # Substrate dependencies
-sp-core = { version = "7.0.0", default-features = false, path = "../../../primitives/core" }
-sp-io = { version = "7.0.0", default-features = false, path = "../../../primitives/io" }
-sp-runtime = { version = "7.0.0", default-features = false, path = "../../../primitives/runtime" }
-sp-std = { version = "5.0.0", default-features = false, path = "../../../primitives/std" }
+sp-core = { path = "../../../primitives/core", default-features = false }
+sp-io = { path = "../../../primitives/io", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false }
+sp-std = { path = "../../../primitives/std", default-features = false }
 
-frame-support = { version = "4.0.0-dev", default-features = false, path = "../../support" }
-frame-system = { version = "4.0.0-dev", default-features = false, path = "../../system" }
-pallet-transaction-payment = { version = "4.0.0-dev", default-features = false, path = ".." }
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, path = "../../benchmarking", optional = true }
+frame-support = { path = "../../support", default-features = false }
+frame-system = { path = "../../system", default-features = false }
+pallet-transaction-payment = { path = "..", default-features = false }
+frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
 
 # Other dependencies
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-serde = { version = "1.0.136", optional = true }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
-serde_json = "1.0.85"
+serde_json = { workspace = true, default-features = true }
 
-sp-storage = { version = "7.0.0", default-features = false, path = "../../../primitives/storage" }
+sp-storage = { path = "../../../primitives/storage", default-features = false }
 
-pallet-assets = { version = "4.0.0-dev", path = "../../assets" }
-pallet-authorship = { version = "4.0.0-dev", path = "../../authorship" }
-pallet-balances = { version = "4.0.0-dev", path = "../../balances" }
+pallet-assets = { path = "../../assets" }
+pallet-authorship = { path = "../../authorship" }
+pallet-balances = { path = "../../balances" }
 
 [features]
 default = ["std"]
 std = [
-	"scale-info/std",
-	"serde",
 	"codec/std",
-	"sp-std/std",
-	"sp-runtime/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"sp-io/std",
-	"sp-core/std",
+	"pallet-assets/std",
+	"pallet-authorship/std",
+	"pallet-balances/std",
 	"pallet-transaction-payment/std",
-	"frame-benchmarking?/std",
+	"scale-info/std",
+	"serde",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-storage/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"sp-runtime/try-runtime",
+]

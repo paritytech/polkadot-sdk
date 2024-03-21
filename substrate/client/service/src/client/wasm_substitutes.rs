@@ -126,7 +126,7 @@ where
 				let runtime_code = RuntimeCode {
 					code_fetcher: &WrappedRuntimeCode((&code).into()),
 					heap_pages: None,
-					hash: Vec::new(),
+					hash: make_hash(&code),
 				};
 				let version = Self::runtime_version(&executor, &runtime_code)?;
 				let spec_version = version.spec_version;

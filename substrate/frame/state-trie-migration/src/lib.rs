@@ -79,7 +79,11 @@ pub mod pallet {
 		dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 		ensure,
 		pallet_prelude::*,
-		traits::{Currency, Get},
+		traits::{
+			fungible::{hold::Balanced, Inspect, InspectHold, Mutate, MutateHold},
+			tokens::{Fortitude, Precision},
+			Get,
+		},
 	};
 	use frame_system::{self, pallet_prelude::*};
 	use sp_core::{
@@ -92,7 +96,7 @@ pub mod pallet {
 	use sp_std::{ops::Deref, prelude::*};
 
 	pub(crate) type BalanceOf<T> =
-		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	/// The progress of either the top or child keys.
 	#[derive(
@@ -439,23 +443,60 @@ pub mod pallet {
 
 	/// The outer Pallet struct.
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(crate) trait Store)]
 	pub struct Pallet<T>(_);
 
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::derive_impl;
+
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
+		}
+	}
+
+	/// The reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as a deposit for slashing.
+		#[codec(index = 0)]
+		SlashForMigrate,
+	}
+
 	/// Configurations of this pallet.
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// Origin that can control the configurations of this pallet.
-		type ControlOrigin: frame_support::traits::EnsureOrigin<Self::RuntimeOrigin>;
+		#[pallet::no_default]
+		type ControlOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Filter on which origin that trigger the manual migrations.
+		#[pallet::no_default]
 		type SignedFilter: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency provider type.
-		type Currency: Currency<Self::AccountId>;
+		#[pallet::no_default]
+		type Currency: InspectHold<Self::AccountId>
+			+ Mutate<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ Balanced<Self::AccountId>;
+
+		/// The overarching runtime hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Maximal number of bytes that a key can have.
 		///
@@ -477,22 +518,26 @@ pub mod pallet {
 		/// - [`frame_support::storage::StorageDoubleMap`]: 96 byte
 		///
 		/// For more info see
-		/// <https://www.shawntabrizi.com/substrate/querying-substrate-storage-via-rpc/>
+		/// <https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/>
 
 		#[pallet::constant]
+		#[pallet::no_default]
 		type MaxKeyLen: Get<u32>;
 
 		/// The amount of deposit collected per item in advance, for signed migrations.
 		///
 		/// This should reflect the average storage value size in the worse case.
+		#[pallet::no_default]
 		type SignedDepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The base value of [`Config::SignedDepositPerItem`].
 		///
 		/// Final deposit is `items * SignedDepositPerItem + SignedDepositBase`.
+		#[pallet::no_default]
 		type SignedDepositBase: Get<BalanceOf<Self>>;
 
 		/// The weight information of this pallet.
+		#[pallet::no_default]
 		type WeightInfo: WeightInfo;
 	}
 
@@ -601,8 +646,11 @@ pub mod pallet {
 			);
 
 			// ensure they can pay more than the fee.
-			let deposit = T::SignedDepositPerItem::get().saturating_mul(limits.item.into());
-			ensure!(T::Currency::can_slash(&who, deposit), Error::<T>::NotEnoughFunds);
+			let deposit = Self::calculate_deposit_for(limits.item);
+			ensure!(
+				T::Currency::can_hold(&HoldReason::SlashForMigrate.into(), &who, deposit),
+				Error::<T>::NotEnoughFunds
+			);
 
 			let mut task = Self::migration_process();
 			ensure!(
@@ -619,10 +667,7 @@ pub mod pallet {
 
 			// ensure that the migration witness data was correct.
 			if real_size_upper < task.dyn_size {
-				// let the imbalance burn.
-				let (_imbalance, _remainder) = T::Currency::slash(&who, deposit);
-				Self::deposit_event(Event::<T>::Slashed { who, amount: deposit });
-				debug_assert!(_remainder.is_zero());
+				Self::slash(who, deposit)?;
 				return Ok(().into())
 			}
 
@@ -666,10 +711,11 @@ pub mod pallet {
 			let who = T::SignedFilter::ensure_origin(origin)?;
 
 			// ensure they can pay more than the fee.
-			let deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul((keys.len() as u32).into()),
+			let deposit = Self::calculate_deposit_for(keys.len() as u32);
+			ensure!(
+				T::Currency::can_hold(&HoldReason::SlashForMigrate.into(), &who, deposit),
+				Error::<T>::NotEnoughFunds
 			);
-			ensure!(T::Currency::can_slash(&who, deposit), "not enough funds");
 
 			let mut dyn_size = 0u32;
 			for key in &keys {
@@ -680,9 +726,7 @@ pub mod pallet {
 			}
 
 			if dyn_size > witness_size {
-				let (_imbalance, _remainder) = T::Currency::slash(&who, deposit);
-				Self::deposit_event(Event::<T>::Slashed { who, amount: deposit });
-				debug_assert!(_remainder.is_zero());
+				Self::slash(who, deposit)?;
 				Ok(().into())
 			} else {
 				Self::deposit_event(Event::<T>::Migrated {
@@ -725,13 +769,11 @@ pub mod pallet {
 			let who = T::SignedFilter::ensure_origin(origin)?;
 
 			// ensure they can pay more than the fee.
-			let deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul((child_keys.len() as u32).into()),
+			let deposit = Self::calculate_deposit_for(child_keys.len() as u32);
+			ensure!(
+				T::Currency::can_hold(&HoldReason::SlashForMigrate.into(), &who, deposit),
+				Error::<T>::NotEnoughFunds
 			);
-			sp_std::if_std! {
-				println!("+ {:?} / {:?} / {:?}", who, deposit, T::Currency::free_balance(&who));
-			}
-			ensure!(T::Currency::can_slash(&who, deposit), "not enough funds");
 
 			let mut dyn_size = 0u32;
 			let transformed_child_key = Self::transform_child_key(&root).ok_or("bad child key")?;
@@ -743,9 +785,7 @@ pub mod pallet {
 			}
 
 			if dyn_size != total_size {
-				let (_imbalance, _remainder) = T::Currency::slash(&who, deposit);
-				debug_assert!(_remainder.is_zero());
-				Self::deposit_event(Event::<T>::Slashed { who, amount: deposit });
+				Self::slash(who, deposit)?;
 				Ok(PostDispatchInfo {
 					actual_weight: Some(T::WeightInfo::migrate_custom_child_fail()),
 					pays_fee: Pays::Yes,
@@ -888,19 +928,46 @@ pub mod pallet {
 			string.extend_from_slice(root.as_ref());
 			string
 		}
+
+		/// Calculate the deposit required for migrating a specific number of keys.
+		pub(crate) fn calculate_deposit_for(keys_count: u32) -> BalanceOf<T> {
+			T::SignedDepositBase::get()
+				.saturating_add(T::SignedDepositPerItem::get().saturating_mul(keys_count.into()))
+		}
+
+		/// Slash an account for migration.
+		fn slash(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+			T::Currency::hold(&HoldReason::SlashForMigrate.into(), &who, amount)?;
+			// let the imbalance burn.
+			let _burned = T::Currency::burn_all_held(
+				&HoldReason::SlashForMigrate.into(),
+				&who,
+				Precision::BestEffort,
+				Fortitude::Force,
+			)?;
+			debug_assert!(amount.saturating_sub(_burned).is_zero());
+			Self::deposit_event(Event::<T>::Slashed { who, amount });
+			Ok(())
+		}
 	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
-	use frame_support::traits::{Currency, Get};
-	use sp_runtime::traits::Saturating;
+	use frame_support::traits::fungible::{Inspect, Mutate};
 	use sp_std::prelude::*;
 
 	// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
 	const KEY: &[u8] = b"key";
+
+	fn set_balance_for_deposit<T: Config>(caller: &T::AccountId, item: u32) -> BalanceOf<T> {
+		let deposit = StateTrieMigration::<T>::calculate_deposit_for(item);
+		let stash = T::Currency::minimum_balance() * BalanceOf::<T>::from(1000u32) + deposit;
+		T::Currency::set_balance(caller, stash);
+		stash
+	}
 
 	frame_benchmarking::benchmarks! {
 		continue_migrate {
@@ -909,11 +976,13 @@ mod benchmarks {
 			// function.
 			let null = MigrationLimits::default();
 			let caller = frame_benchmarking::whitelisted_caller();
+			let stash = set_balance_for_deposit::<T>(&caller, null.item);
 			// Allow signed migrations.
 			SignedMigrationMaxLimits::<T>::put(MigrationLimits { size: 1024, item: 5 });
-		}: _(frame_system::RawOrigin::Signed(caller), null, 0, StateTrieMigration::<T>::migration_process())
+		}: _(frame_system::RawOrigin::Signed(caller.clone()), null, 0, StateTrieMigration::<T>::migration_process())
 		verify {
-			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default())
+			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
+			assert_eq!(T::Currency::balance(&caller), stash)
 		}
 
 		continue_migrate_wrong_witness {
@@ -937,26 +1006,18 @@ mod benchmarks {
 
 		migrate_custom_top_success {
 			let null = MigrationLimits::default();
-			let caller = frame_benchmarking::whitelisted_caller();
-			let deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul(1u32.into()),
-			);
-			let stash = T::Currency::minimum_balance() * BalanceOf::<T>::from(1000u32) + deposit;
-			T::Currency::make_free_balance_be(&caller, stash);
+			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			let stash = set_balance_for_deposit::<T>(&caller, null.item);
 		}: migrate_custom_top(frame_system::RawOrigin::Signed(caller.clone()), Default::default(), 0)
 		verify {
 			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
-			assert_eq!(T::Currency::free_balance(&caller), stash)
+			assert_eq!(T::Currency::balance(&caller), stash)
 		}
 
 		migrate_custom_top_fail {
 			let null = MigrationLimits::default();
-			let caller = frame_benchmarking::whitelisted_caller();
-			let deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul(1u32.into()),
-			);
-			let stash = T::Currency::minimum_balance() * BalanceOf::<T>::from(1000u32) + deposit;
-			T::Currency::make_free_balance_be(&caller, stash);
+			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			let stash = set_balance_for_deposit::<T>(&caller, null.item);
 			// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
 			sp_io::storage::set(b"foo", vec![1u8;33].as_ref());
@@ -972,24 +1033,19 @@ mod benchmarks {
 			frame_system::Pallet::<T>::assert_last_event(
 				<T as Config>::RuntimeEvent::from(crate::Event::Slashed {
 					who: caller.clone(),
-					amount: T::SignedDepositBase::get()
-						.saturating_add(T::SignedDepositPerItem::get().saturating_mul(1u32.into())),
+					amount: StateTrieMigration::<T>::calculate_deposit_for(1u32),
 				}).into(),
 			);
 		}
 		verify {
 			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
 			// must have gotten slashed
-			assert!(T::Currency::free_balance(&caller) < stash)
+			assert!(T::Currency::balance(&caller) < stash)
 		}
 
 		migrate_custom_child_success {
-			let caller = frame_benchmarking::whitelisted_caller();
-			let deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul(1u32.into()),
-			);
-			let stash = T::Currency::minimum_balance() * BalanceOf::<T>::from(1000u32) + deposit;
-			T::Currency::make_free_balance_be(&caller, stash);
+			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			let stash = set_balance_for_deposit::<T>(&caller, 0);
 		}: migrate_custom_child(
 			frame_system::RawOrigin::Signed(caller.clone()),
 			StateTrieMigration::<T>::childify(Default::default()),
@@ -998,16 +1054,12 @@ mod benchmarks {
 		)
 		verify {
 			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
-			assert_eq!(T::Currency::free_balance(&caller), stash);
+			assert_eq!(T::Currency::balance(&caller), stash);
 		}
 
 		migrate_custom_child_fail {
-			let caller = frame_benchmarking::whitelisted_caller();
-			let deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul(1u32.into()),
-			);
-			let stash = T::Currency::minimum_balance() * BalanceOf::<T>::from(1000u32) + deposit;
-			T::Currency::make_free_balance_be(&caller, stash);
+			let caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			let stash = set_balance_for_deposit::<T>(&caller, 1);
 			// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
 			sp_io::default_child_storage::set(b"top", b"foo", vec![1u8;33].as_ref());
@@ -1024,7 +1076,7 @@ mod benchmarks {
 		verify {
 			assert_eq!(StateTrieMigration::<T>::migration_process(), Default::default());
 			// must have gotten slashed
-			assert!(T::Currency::free_balance(&caller) < stash)
+			assert!(T::Currency::balance(&caller) < stash)
 		}
 
 		process_top_key {
@@ -1052,8 +1104,8 @@ mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
 	use frame_support::{
-		parameter_types,
-		traits::{ConstU32, ConstU64, Hooks},
+		derive_impl, parameter_types,
+		traits::{ConstU32, Hooks},
 		weights::Weight,
 	};
 	use frame_system::{EnsureRoot, EnsureSigned};
@@ -1061,24 +1113,17 @@ mod mock {
 		storage::{ChildInfo, StateVersion},
 		H256,
 	};
-	use sp_runtime::{
-		traits::{BlakeTwo256, Header as _, IdentityLookup},
-		StorageChild,
-	};
+	use sp_runtime::{traits::Header as _, BuildStorage, StorageChild};
 
-	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-	type Block = frame_system::mocking::MockBlock<Test>;
+	type Block = frame_system::mocking::MockBlockU32<Test>;
 
 	// Configure a mock runtime to test the pallet.
 	frame_support::construct_runtime!(
-		pub enum Test where
-			Block = Block,
-			NodeBlock = Block,
-			UncheckedExtrinsic = UncheckedExtrinsic,
+		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-			StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			StateTrieMigration: pallet_state_trie_migration,
 		}
 	);
 
@@ -1086,31 +1131,11 @@ mod mock {
 		pub const SS58Prefix: u8 = 42;
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = ();
-		type RuntimeOrigin = RuntimeOrigin;
-		type RuntimeCall = RuntimeCall;
-		type Index = u64;
-		type BlockNumber = u32;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
-		type Header = sp_runtime::generic::Header<Self::BlockNumber, BlakeTwo256>;
-		type RuntimeEvent = RuntimeEvent;
+		type Block = Block;
 		type BlockHashCount = ConstU32<250>;
-		type DbWeight = ();
-		type Version = ();
-		type PalletInfo = PalletInfo;
 		type AccountData = pallet_balances::AccountData<u64>;
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = SS58Prefix;
-		type OnSetCode = ();
-		type MaxConsumers = ConstU32<16>;
 	}
 
 	parameter_types! {
@@ -1119,16 +1144,10 @@ mod mock {
 		pub const MigrationMaxKeyLen: u32 = 512;
 	}
 
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
-		type Balance = u64;
-		type RuntimeEvent = RuntimeEvent;
-		type DustRemoval = ();
-		type ExistentialDeposit = ConstU64<1>;
-		type AccountStore = System;
-		type MaxLocks = ();
-		type MaxReserves = ();
 		type ReserveIdentifier = [u8; 8];
-		type WeightInfo = ();
+		type AccountStore = System;
 	}
 
 	/// Test only Weights for state migration.
@@ -1136,30 +1155,30 @@ mod mock {
 
 	impl WeightInfo for StateMigrationTestWeight {
 		fn process_top_key(_: u32) -> Weight {
-			Weight::from_ref_time(1000000)
+			Weight::from_parts(1000000, 0)
 		}
 		fn continue_migrate() -> Weight {
-			Weight::from_ref_time(1000000)
+			Weight::from_parts(1000000, 0)
 		}
 		fn continue_migrate_wrong_witness() -> Weight {
-			Weight::from_ref_time(1000000)
+			Weight::from_parts(1000000, 0)
 		}
 		fn migrate_custom_top_fail() -> Weight {
-			Weight::from_ref_time(1000000)
+			Weight::from_parts(1000000, 0)
 		}
 		fn migrate_custom_top_success() -> Weight {
-			Weight::from_ref_time(1000000)
+			Weight::from_parts(1000000, 0)
 		}
 		fn migrate_custom_child_fail() -> Weight {
-			Weight::from_ref_time(1000000)
+			Weight::from_parts(1000000, 0)
 		}
 		fn migrate_custom_child_success() -> Weight {
-			Weight::from_ref_time(1000000)
+			Weight::from_parts(1000000, 0)
 		}
 	}
 
+	#[derive_impl(super::config_preludes::TestDefaultConfig)]
 	impl pallet_state_trie_migration::Config for Test {
-		type RuntimeEvent = RuntimeEvent;
 		type ControlOrigin = EnsureRoot<u64>;
 		type Currency = Balances;
 		type MaxKeyLen = MigrationMaxKeyLen;
@@ -1238,8 +1257,8 @@ mod mock {
 		};
 
 		if with_pallets {
-			frame_system::GenesisConfig::default()
-				.assimilate_storage::<Test>(&mut custom_storage)
+			frame_system::GenesisConfig::<Test>::default()
+				.assimilate_storage(&mut custom_storage)
 				.unwrap();
 			pallet_balances::GenesisConfig::<Test> { balances: vec![(1, 1000)] }
 				.assimilate_storage(&mut custom_storage)
@@ -1270,8 +1289,8 @@ mod mock {
 #[cfg(test)]
 mod test {
 	use super::{mock::*, *};
-	use frame_support::{bounded_vec, dispatch::*};
-	use sp_runtime::{traits::Bounded, StateVersion};
+	use frame_support::assert_ok;
+	use sp_runtime::{bounded_vec, traits::Bounded, StateVersion};
 
 	#[test]
 	fn fails_if_no_migration() {
@@ -1500,10 +1519,9 @@ mod test {
 			while !MigrationProcess::<Test>::get().finished() {
 				// first we compute the task to get the accurate consumption.
 				let mut task = StateTrieMigration::migration_process();
-				let result = task.migrate_until_exhaustion(
+				assert_ok!(task.migrate_until_exhaustion(
 					StateTrieMigration::signed_migration_max_limits().unwrap(),
-				);
-				assert!(result.is_ok());
+				));
 
 				frame_support::assert_ok!(StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(1),
@@ -1514,6 +1532,7 @@ mod test {
 
 				// no funds should remain reserved.
 				assert_eq!(Balances::reserved_balance(&1), 0);
+				assert_eq!(Balances::free_balance(&1), 1000);
 
 				// and the task should be updated
 				assert!(matches!(
@@ -1521,6 +1540,37 @@ mod test {
 					MigrationTask { size: x, .. } if x > 0,
 				));
 			}
+		});
+	}
+
+	#[test]
+	fn continue_migrate_slashing_works() {
+		new_test_ext(StateVersion::V0, true, None, None).execute_with(|| {
+			assert_eq!(MigrationProcess::<Test>::get(), Default::default());
+
+			// Allow signed migrations.
+			SignedMigrationMaxLimits::<Test>::put(MigrationLimits { size: 1024, item: 5 });
+
+			// first we compute the task to get the accurate consumption.
+			let mut task = StateTrieMigration::migration_process();
+			assert_ok!(task.migrate_until_exhaustion(
+				StateTrieMigration::signed_migration_max_limits().unwrap(),
+			));
+
+			// can't submit with `real_size_upper` < `task.dyn_size` expect slashing
+			frame_support::assert_ok!(StateTrieMigration::continue_migrate(
+				RuntimeOrigin::signed(1),
+				StateTrieMigration::signed_migration_max_limits().unwrap(),
+				task.dyn_size - 1,
+				MigrationProcess::<Test>::get()
+			));
+			// no funds should remain reserved.
+			assert_eq!(Balances::reserved_balance(&1), 0);
+			// user was slashed
+			assert_eq!(
+				Balances::free_balance(&1),
+				1000 - StateTrieMigration::calculate_deposit_for(5)
+			);
 		});
 	}
 
@@ -1566,7 +1616,7 @@ mod test {
 			assert_eq!(Balances::reserved_balance(&1), 0);
 			assert_eq!(
 				Balances::free_balance(&1),
-				1000 - (3 * SignedDepositPerItem::get() + SignedDepositBase::get())
+				1000 - StateTrieMigration::calculate_deposit_for(3)
 			);
 		});
 	}
@@ -1601,7 +1651,7 @@ mod test {
 			assert_eq!(Balances::reserved_balance(&1), 0);
 			assert_eq!(
 				Balances::free_balance(&1),
-				1000 - (2 * SignedDepositPerItem::get() + SignedDepositBase::get())
+				1000 - StateTrieMigration::calculate_deposit_for(2)
 			);
 		});
 	}
@@ -1616,18 +1666,18 @@ pub(crate) mod remote_tests {
 		traits::{Get, Hooks},
 		weights::Weight,
 	};
-	use frame_system::Pallet as System;
+	use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System};
 	use remote_externalities::Mode;
 	use sp_core::H256;
 	use sp_runtime::{
-		traits::{Block as BlockT, HashFor, Header as _, One, Zero},
+		traits::{Block as BlockT, HashingFor, Header as _, One, Zero},
 		DeserializeOwned,
 	};
 	use thousands::Separable;
 
 	#[allow(dead_code)]
 	fn run_to_block<Runtime: crate::Config<Hash = H256>>(
-		n: <Runtime as frame_system::Config>::BlockNumber,
+		n: BlockNumberFor<Runtime>,
 	) -> (H256, Weight) {
 		let mut root = Default::default();
 		let mut weight_sum = Weight::zero();
@@ -1638,7 +1688,7 @@ pub(crate) mod remote_tests {
 			weight_sum +=
 				StateTrieMigration::<Runtime>::on_initialize(System::<Runtime>::block_number());
 
-			root = System::<Runtime>::finalize().state_root().clone();
+			root = *System::<Runtime>::finalize().state_root();
 			System::<Runtime>::on_finalize(System::<Runtime>::block_number());
 		}
 		(root, weight_sum)
@@ -1667,7 +1717,7 @@ pub(crate) mod remote_tests {
 			frame_system::Pallet::<Runtime>::block_number()
 		});
 
-		let mut duration: <Runtime as frame_system::Config>::BlockNumber = Zero::zero();
+		let mut duration: BlockNumberFor<Runtime> = Zero::zero();
 		// set the version to 1, as if the upgrade happened.
 		ext.state_version = sp_core::storage::StateVersion::V1;
 
@@ -1688,7 +1738,7 @@ pub(crate) mod remote_tests {
 		);
 
 		loop {
-			let last_state_root = ext.backend.root().clone();
+			let last_state_root = *ext.backend.root();
 			let ((finished, weight), proof) = ext.execute_and_prove(|| {
 				let weight = run_to_block::<Runtime>(now + One::one()).1;
 				if StateTrieMigration::<Runtime>::migration_process().finished() {
@@ -1700,7 +1750,7 @@ pub(crate) mod remote_tests {
 			});
 
 			let compact_proof =
-				proof.clone().into_compact_proof::<HashFor<Block>>(last_state_root).unwrap();
+				proof.clone().into_compact_proof::<HashingFor<Block>>(last_state_root).unwrap();
 			log::info!(
 				target: LOG_TARGET,
 				"proceeded to #{}, weight: [{} / {}], proof: [{} / {} / {}]",

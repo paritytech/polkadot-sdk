@@ -68,12 +68,17 @@ use sp_std::prelude::*;
 
 use codec::{Decode, Encode};
 use frame_support::{
+	ensure,
 	traits::{
 		ContainsLengthBound, Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get,
 		OnUnbalanced, ReservableCurrency, SortedMembers,
 	},
 	Parameter,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
+
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -117,11 +122,10 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T, I = ()>(_);
@@ -144,15 +148,19 @@ pub mod pallet {
 
 		/// The period for which a tip remains open after is has achieved threshold tippers.
 		#[pallet::constant]
-		type TipCountdown: Get<Self::BlockNumber>;
+		type TipCountdown: Get<BlockNumberFor<Self>>;
 
 		/// The percent of the final tip which goes to the original reporter of the tip.
 		#[pallet::constant]
 		type TipFindersFee: Get<Percent>;
 
-		/// The amount held on deposit for placing a tip report.
+		/// The non-zero amount held on deposit for placing a tip report.
 		#[pallet::constant]
 		type TipReportDepositBase: Get<BalanceOf<Self, I>>;
+
+		/// The maximum amount for a single tip.
+		#[pallet::constant]
+		type MaxTipAmount: Get<BalanceOf<Self, I>>;
 
 		/// Origin from which tippers must come.
 		///
@@ -174,7 +182,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::Hash,
-		OpenTip<T::AccountId, BalanceOf<T, I>, T::BlockNumber, T::Hash>,
+		OpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>,
 		OptionQuery,
 	>;
 
@@ -208,6 +216,8 @@ pub mod pallet {
 		AlreadyKnown,
 		/// The tip hash is unknown.
 		UnknownTip,
+		/// The tip given was too generous.
+		MaxTipAmountExceeded,
 		/// The account attempting to retract the tip is not the finder of the tip.
 		NotFinder,
 		/// The tip cannot be claimed/closed because there are not enough tippers yet.
@@ -336,10 +346,13 @@ pub mod pallet {
 			let tipper = ensure_signed(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			ensure!(T::Tippers::contains(&tipper), BadOrigin);
+
+			ensure!(T::MaxTipAmount::get() >= tip_value, Error::<T, I>::MaxTipAmountExceeded);
+
 			let reason_hash = T::Hashing::hash(&reason[..]);
 			ensure!(!Reasons::<T, I>::contains_key(&reason_hash), Error::<T, I>::AlreadyKnown);
-			let hash = T::Hashing::hash_of(&(&reason_hash, &who));
 
+			let hash = T::Hashing::hash_of(&(&reason_hash, &who));
 			Reasons::<T, I>::insert(&reason_hash, &reason);
 			Self::deposit_event(Event::NewTip { tip_hash: hash });
 			let tips = vec![(tipper.clone(), tip_value)];
@@ -387,7 +400,10 @@ pub mod pallet {
 			let tipper = ensure_signed(origin)?;
 			ensure!(T::Tippers::contains(&tipper), BadOrigin);
 
+			ensure!(T::MaxTipAmount::get() >= tip_value, Error::<T, I>::MaxTipAmountExceeded);
+
 			let mut tip = Tips::<T, I>::get(hash).ok_or(Error::<T, I>::UnknownTip)?;
+
 			if Self::insert_tip_and_check_closing(&mut tip, tipper, tip_value) {
 				Self::deposit_event(Event::TipClosing { tip_hash: hash });
 			}
@@ -453,6 +469,21 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		fn integrity_test() {
+			assert!(
+				!T::TipReportDepositBase::get().is_zero(),
+				"`TipReportDepositBase` should not be zero",
+			);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -471,7 +502,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// `O(T)` and one storage access.
 	fn insert_tip_and_check_closing(
-		tip: &mut OpenTip<T::AccountId, BalanceOf<T, I>, T::BlockNumber, T::Hash>,
+		tip: &mut OpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>,
 		tipper: T::AccountId,
 		tip_value: BalanceOf<T, I>,
 	) -> bool {
@@ -516,7 +547,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Plus `O(T)` (`T` is Tippers length).
 	fn payout_tip(
 		hash: T::Hash,
-		tip: OpenTip<T::AccountId, BalanceOf<T, I>, T::BlockNumber, T::Hash>,
+		tip: OpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>,
 	) {
 		let mut tips = tip.tips;
 		Self::retain_active_tips(&mut tips);
@@ -578,7 +609,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		for (hash, old_tip) in storage_key_iter::<
 			T::Hash,
-			OldOpenTip<T::AccountId, BalanceOf<T, I>, T::BlockNumber, T::Hash>,
+			OldOpenTip<T::AccountId, BalanceOf<T, I>, BlockNumberFor<T>, T::Hash>,
 			Twox64Concat,
 		>(module, item)
 		.drain()
@@ -598,5 +629,43 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			};
 			Tips::<T, I>::insert(hash, new_tip)
 		}
+	}
+
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before and after each state transition of this pallet.
+	///
+	/// ## Invariants:
+	/// 1. The number of entries in `Tips` should be equal to `Reasons`.
+	/// 2. Reasons exists for each Tip[`OpenTip.reason`].
+	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		let reasons = Reasons::<T, I>::iter_keys().collect::<Vec<_>>();
+		let tips = Tips::<T, I>::iter_keys().collect::<Vec<_>>();
+
+		ensure!(
+			reasons.len() == tips.len(),
+			TryRuntimeError::Other("Equal length of entries in `Tips` and `Reasons` Storage")
+		);
+
+		for tip in Tips::<T, I>::iter_keys() {
+			let open_tip = Tips::<T, I>::get(&tip).expect("All map keys are valid; qed");
+
+			if open_tip.finders_fee {
+				ensure!(
+					!open_tip.deposit.is_zero(),
+					TryRuntimeError::Other(
+						"Tips with `finders_fee` should have non-zero `deposit`."
+					)
+				)
+			}
+
+			ensure!(
+				reasons.contains(&open_tip.reason),
+				TryRuntimeError::Other("no reason for this tip")
+			);
+		}
+		Ok(())
 	}
 }

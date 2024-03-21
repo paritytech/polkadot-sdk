@@ -17,12 +17,13 @@
 
 //! Smaller traits used in FRAME which don't need their own file.
 
-use crate::dispatch::Parameter;
+use crate::dispatch::{DispatchResult, Parameter};
 use codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
 use sp_core::bounded::bounded_vec::TruncateFrom;
+
 #[doc(hidden)]
 pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16, ConstU32,
@@ -36,22 +37,40 @@ pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been trigge
 #[doc(hidden)]
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
 
+/// Trait to get the number of variants in any enum.
+pub trait VariantCount {
+	/// Get the number of variants.
+	const VARIANT_COUNT: u32;
+}
+
+impl VariantCount for () {
+	const VARIANT_COUNT: u32 = 0;
+}
+
+/// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
+pub struct VariantCountOf<T: VariantCount>(sp_std::marker::PhantomData<T>);
+impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
+	fn get() -> u32 {
+		T::VARIANT_COUNT
+	}
+}
+
 /// Generic function to mark an execution path as ONLY defensive.
 ///
 /// Similar to mark a match arm or `if/else` branch as `unreachable!`.
 #[macro_export]
 macro_rules! defensive {
 	() => {
-		frame_support::log::error!(
-			target: "runtime",
+		frame_support::__private::log::error!(
+			target: "runtime::defensive",
 			"{}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
 		);
 		debug_assert!(false, "{}", $crate::traits::DEFENSIVE_OP_INTERNAL_ERROR);
 	};
 	($error:expr $(,)?) => {
-		frame_support::log::error!(
-			target: "runtime",
+		frame_support::__private::log::error!(
+			target: "runtime::defensive",
 			"{}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error
@@ -59,8 +78,8 @@ macro_rules! defensive {
 		debug_assert!(false, "{}: {:?}", $crate::traits::DEFENSIVE_OP_INTERNAL_ERROR, $error);
 	};
 	($error:expr, $proof:expr $(,)?) => {
-		frame_support::log::error!(
-			target: "runtime",
+		frame_support::__private::log::error!(
+			target: "runtime::defensive",
 			"{}: {:?}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error,
@@ -877,11 +896,21 @@ pub trait GetBacking {
 /// A trait to ensure the inherent are before non-inherent in a block.
 ///
 /// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block> {
+pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
+	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
+{
 	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
 	///
-	/// On error return the index of the inherent with invalid position (counting from 0).
-	fn ensure_inherents_are_first(block: &Block) -> Result<(), u32>;
+	/// On error return the index of the inherent with invalid position (counting from 0). On
+	/// success it returns the index of the last inherent. `0` therefore means that there are no
+	/// inherents.
+	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
+}
+
+/// A trait to check if an extrinsic is an inherent.
+pub trait IsInherent<Extrinsic> {
+	/// Whether this extrinsic is an inherent.
+	fn is_inherent(ext: &Extrinsic) -> bool;
 }
 
 /// An extrinsic on which we can get access to call.
@@ -893,7 +922,8 @@ pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
 #[cfg(feature = "std")]
 impl<Call, Extra> ExtrinsicCall for sp_runtime::testing::TestXt<Call, Extra>
 where
-	Call: codec::Codec + Sync + Send,
+	Call: codec::Codec + Sync + Send + TypeInfo,
+	Extra: TypeInfo,
 {
 	fn call(&self) -> &Self::Call {
 		&self.call
@@ -903,7 +933,10 @@ where
 impl<Address, Call, Signature, Extra> ExtrinsicCall
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
-	Extra: sp_runtime::traits::SignedExtension,
+	Address: TypeInfo,
+	Call: TypeInfo,
+	Signature: TypeInfo,
+	Extra: sp_runtime::traits::SignedExtension + TypeInfo,
 {
 	fn call(&self) -> &Self::Call {
 		&self.function
@@ -1152,6 +1185,28 @@ impl<Hash> PreimageRecipient<Hash> for () {
 	type MaxSize = ();
 	fn note_preimage(_: crate::BoundedVec<u8, Self::MaxSize>) {}
 	fn unnote_preimage(_: &Hash) {}
+}
+
+/// Trait for touching/creating an asset account with a deposit taken from a designated depositor
+/// specified by the client.
+///
+/// Ensures that transfers to the touched account will succeed without being denied by the account
+/// creation requirements. For example, it is useful for the account creation of non-sufficient
+/// assets when its system account may not have the free consumer reference required for it. If
+/// there is no risk of failing to meet those requirements, the touch operation can be a no-op, as
+/// is common for native assets.
+pub trait AccountTouch<AssetId, AccountId> {
+	/// The type for currency units of the deposit.
+	type Balance;
+
+	/// The deposit amount of a native currency required for touching an account of the `asset`.
+	fn deposit_required(asset: AssetId) -> Self::Balance;
+
+	/// Check if an account for a given asset should be touched to meet the existence requirements.
+	fn should_touch(asset: AssetId, who: &AccountId) -> bool;
+
+	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
+	fn touch(asset: AssetId, who: &AccountId, depositor: &AccountId) -> DispatchResult;
 }
 
 #[cfg(test)]

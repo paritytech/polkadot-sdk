@@ -1,0 +1,45 @@
+[package]
+name = "xcm-emulator"
+description = "Test kit to emulate XCM program execution."
+version = "0.5.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+paste = "1.0.14"
+log = { workspace = true }
+lazy_static = "1.4.0"
+impl-trait-for-tuples = "0.2.2"
+
+# Substrate
+frame-support = { path = "../../../substrate/frame/support" }
+frame-system = { path = "../../../substrate/frame/system" }
+sp-io = { path = "../../../substrate/primitives/io" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
+sp-std = { path = "../../../substrate/primitives/std" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
+sp-tracing = { path = "../../../substrate/primitives/tracing" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
+cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
+cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+parachains-common = { path = "../../parachains/common" }
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor" }
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
+polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains" }

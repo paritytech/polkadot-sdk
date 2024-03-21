@@ -20,9 +20,12 @@
 #![cfg(test)]
 
 use super::*;
-use frame_election_provider_support::{onchain, SequentialPhragmen};
+use frame_election_provider_support::{
+	bounds::{ElectionBounds, ElectionBoundsBuilder},
+	onchain, SequentialPhragmen,
+};
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use frame_system as system;
@@ -30,27 +33,27 @@ use pallet_session::historical as pallet_session_historical;
 use sp_runtime::{
 	testing::{Header, UintAuthorityId},
 	traits::IdentityLookup,
+	BuildStorage,
 };
 
 type AccountId = u64;
-type AccountIndex = u32;
-type BlockNumber = u64;
+type Nonce = u32;
 type Balance = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
-	type Index = AccountIndex;
-	type BlockNumber = BlockNumber;
+	type Nonce = Nonce;
 	type RuntimeCall = RuntimeCall;
 	type Hash = sp_core::H256;
 	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = sp_runtime::testing::Header;
+	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ();
 	type Version = ();
@@ -65,7 +68,7 @@ impl frame_system::Config for Test {
 }
 
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
+	type MaxLocks = ConstU32<128>;
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
@@ -74,6 +77,10 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<10>;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -138,6 +145,7 @@ pallet_staking_reward_curve::build! {
 }
 parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
+	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 }
 
 pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
@@ -149,16 +157,14 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type MaxWinners = ConstU32<100>;
-	type VotersBound = ConstU32<{ u32::MAX }>;
-	type TargetsBound = ConstU32<{ u32::MAX }>;
+	type Bounds = ElectionsBounds;
 }
 
 impl pallet_staking::Config for Test {
-	type MaxNominations = ConstU32<16>;
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
+	type CurrencyToVote = ();
 	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
@@ -170,15 +176,17 @@ impl pallet_staking::Config for Test {
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = ConstU32<84>;
-	type OnStakerSlash = ();
+	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
 }
@@ -193,7 +201,6 @@ impl pallet_im_online::Config for Test {
 	type WeightInfo = ();
 	type MaxKeys = ConstU32<10_000>;
 	type MaxPeerInHeartbeats = ConstU32<10_000>;
-	type MaxPeerDataEncodingSize = ConstU32<1_000>;
 }
 
 impl pallet_offences::Config for Test {
@@ -216,15 +223,12 @@ pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
 
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic
+	pub enum Test
 	{
 		System: system::{Pallet, Call, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		Balances: pallet_balances,
+		Staking: pallet_staking,
+		Session: pallet_session,
 		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
 		Offences: pallet_offences::{Pallet, Storage, Event},
 		Historical: pallet_session_historical::{Pallet},
@@ -232,6 +236,6 @@ frame_support::construct_runtime!(
 );
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	sp_io::TestExternalities::new(t)
 }

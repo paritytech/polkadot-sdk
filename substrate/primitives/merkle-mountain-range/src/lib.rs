@@ -20,14 +20,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
+extern crate alloc;
+
 pub use mmr_lib;
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use core::fmt;
 use scale_info::TypeInfo;
 use sp_debug_derive::RuntimeDebug;
 use sp_runtime::traits;
-use sp_std::fmt;
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::Vec;
 
 pub mod utils;
 
@@ -101,13 +103,13 @@ impl<T: codec::Encode + codec::Decode + Clone + PartialEq + fmt::Debug> FullLeaf
 /// This type does not implement SCALE encoding/decoding on purpose to avoid confusion,
 /// it would have to be SCALE-compatible with the concrete leaf type, but due to SCALE limitations
 /// it's not possible to know how many bytes the encoding of concrete leaf type uses.
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(RuntimeDebug, Clone, PartialEq)]
 pub struct OpaqueLeaf(
 	/// Raw bytes of the leaf type encoded in its compact form.
 	///
 	/// NOTE it DOES NOT include length prefix (like `Vec<u8>` encoding would).
-	#[cfg_attr(feature = "std", serde(with = "sp_core::bytes"))]
+	#[cfg_attr(feature = "serde", serde(with = "sp_core::bytes"))]
 	pub Vec<u8>,
 );
 
@@ -248,10 +250,10 @@ impl<H: traits::Hash, L: FullLeaf> DataOrHash<H, L> {
 pub struct Compact<H, T> {
 	/// Internal tuple representation.
 	pub tuple: T,
-	_hash: sp_std::marker::PhantomData<H>,
+	_hash: core::marker::PhantomData<H>,
 }
 
-impl<H, T> sp_std::ops::Deref for Compact<H, T> {
+impl<H, T> core::ops::Deref for Compact<H, T> {
 	type Target = T;
 
 	fn deref(&self) -> &Self::Target {
@@ -422,6 +424,7 @@ impl Error {
 
 sp_api::decl_runtime_apis! {
 	/// API to interact with MMR pallet.
+	#[api_version(2)]
 	pub trait MmrApi<Hash: codec::Codec, BlockNumber: codec::Codec> {
 		/// Return the on-chain MMR root hash.
 		fn mmr_root() -> Result<Hash, Error>;

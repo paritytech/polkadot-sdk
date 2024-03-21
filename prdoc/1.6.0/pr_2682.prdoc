@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Add Authorize Upgrade Pattern to Frame System"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Adds the `authorize_upgrade` -> `enact_authorized_upgrade` pattern to `frame-system`. This
+      will be useful for upgrading bridged chains that are under the governance of Polkadot without
+      passing entire runtime Wasm blobs over a bridge.
+      
+      Notes:
+      
+      - Changed `enact_authorized_upgrade` to `apply_authorized_upgrade`.
+      - Left calls in `parachain-system` and marked as deprecated to prevent breaking the API. They
+      just call into the `frame-system` functions.
+      - Deprecated calls will be removed no earlier than June 2024.
+      - Updated `frame-system` benchmarks to v2 syntax.
+
+crates: [ ]

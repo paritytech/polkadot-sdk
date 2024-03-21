@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Various basic types for use in the Nfts pallet.
+//! This module contains various basic types and data structures used in the NFTs pallet.
 
 use super::*;
 use crate::macros::*;
@@ -26,53 +26,66 @@ use frame_support::{
 	traits::Get,
 	BoundedBTreeMap, BoundedBTreeSet,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 
+/// A type alias for handling balance deposits.
 pub(super) type DepositBalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+/// A type alias representing the details of a collection.
 pub(super) type CollectionDetailsFor<T, I> =
 	CollectionDetails<<T as SystemConfig>::AccountId, DepositBalanceOf<T, I>>;
+/// A type alias for keeping track of approvals used by a single item.
 pub(super) type ApprovalsOf<T, I = ()> = BoundedBTreeMap<
 	<T as SystemConfig>::AccountId,
-	Option<<T as SystemConfig>::BlockNumber>,
+	Option<BlockNumberFor<T>>,
 	<T as Config<I>>::ApprovalsLimit,
 >;
+/// A type alias for keeping track of approvals for an item's attributes.
 pub(super) type ItemAttributesApprovals<T, I = ()> =
 	BoundedBTreeSet<<T as SystemConfig>::AccountId, <T as Config<I>>::ItemAttributesApprovalsLimit>;
+/// A type that holds the deposit for a single item.
 pub(super) type ItemDepositOf<T, I> =
 	ItemDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
+/// A type that holds the deposit amount for an item's attribute.
 pub(super) type AttributeDepositOf<T, I> =
 	AttributeDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
+/// A type that holds the deposit amount for an item's metadata.
 pub(super) type ItemMetadataDepositOf<T, I> =
 	ItemMetadataDeposit<DepositBalanceOf<T, I>, <T as SystemConfig>::AccountId>;
+/// A type that holds the details of a single item.
 pub(super) type ItemDetailsFor<T, I> =
 	ItemDetails<<T as SystemConfig>::AccountId, ItemDepositOf<T, I>, ApprovalsOf<T, I>>;
+/// A type alias for an accounts balance.
 pub(super) type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as SystemConfig>::AccountId>>::Balance;
+/// A type alias to represent the price of an item.
 pub(super) type ItemPrice<T, I = ()> = BalanceOf<T, I>;
+/// A type alias for the tips held by a single item.
 pub(super) type ItemTipOf<T, I = ()> = ItemTip<
 	<T as Config<I>>::CollectionId,
 	<T as Config<I>>::ItemId,
 	<T as SystemConfig>::AccountId,
 	BalanceOf<T, I>,
 >;
-pub(super) type CollectionConfigFor<T, I = ()> = CollectionConfig<
-	BalanceOf<T, I>,
-	<T as SystemConfig>::BlockNumber,
-	<T as Config<I>>::CollectionId,
->;
+/// A type alias for the settings configuration of a collection.
+pub(super) type CollectionConfigFor<T, I = ()> =
+	CollectionConfig<BalanceOf<T, I>, BlockNumberFor<T>, <T as Config<I>>::CollectionId>;
+/// A type alias for the pre-signed minting configuration for a specified collection.
 pub(super) type PreSignedMintOf<T, I = ()> = PreSignedMint<
 	<T as Config<I>>::CollectionId,
 	<T as Config<I>>::ItemId,
 	<T as SystemConfig>::AccountId,
-	<T as SystemConfig>::BlockNumber,
+	BlockNumberFor<T>,
+	BalanceOf<T, I>,
 >;
-
-pub trait Incrementable {
-	fn increment(&self) -> Self;
-	fn initial_value() -> Self;
-}
-impl_incrementable!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+/// A type alias for the pre-signed minting configuration on the attribute level of an item.
+pub(super) type PreSignedAttributesOf<T, I = ()> = PreSignedAttributes<
+	<T as Config<I>>::CollectionId,
+	<T as Config<I>>::ItemId,
+	<T as SystemConfig>::AccountId,
+	BlockNumberFor<T>,
+>;
 
 /// Information about a collection.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -86,6 +99,8 @@ pub struct CollectionDetails<AccountId, DepositBalance> {
 	pub(super) items: u32,
 	/// The total number of outstanding item metadata of this collection.
 	pub(super) item_metadatas: u32,
+	/// The total number of outstanding item configs of this collection.
+	pub(super) item_configs: u32,
 	/// The total number of attributes for this collection.
 	pub(super) attributes: u32,
 }
@@ -93,12 +108,12 @@ pub struct CollectionDetails<AccountId, DepositBalance> {
 /// Witness data for the destroy transactions.
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct DestroyWitness {
-	/// The total number of outstanding items of this collection.
-	#[codec(compact)]
-	pub items: u32,
 	/// The total number of items in this collection that have outstanding item metadata.
 	#[codec(compact)]
 	pub item_metadatas: u32,
+	/// The total number of outstanding item configs of this collection.
+	#[codec(compact)]
+	pub item_configs: u32,
 	/// The total number of attributes for this collection.
 	#[codec(compact)]
 	pub attributes: u32,
@@ -107,18 +122,20 @@ pub struct DestroyWitness {
 impl<AccountId, DepositBalance> CollectionDetails<AccountId, DepositBalance> {
 	pub fn destroy_witness(&self) -> DestroyWitness {
 		DestroyWitness {
-			items: self.items,
 			item_metadatas: self.item_metadatas,
+			item_configs: self.item_configs,
 			attributes: self.attributes,
 		}
 	}
 }
 
 /// Witness data for items mint transactions.
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct MintWitness<ItemId> {
+#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct MintWitness<ItemId, Balance> {
 	/// Provide the id of the item in a required collection.
-	pub owner_of_item: ItemId,
+	pub owned_item: Option<ItemId>,
+	/// The price specified in mint settings.
+	pub mint_price: Option<Balance>,
 }
 
 /// Information concerning the ownership of a single unique item.
@@ -311,6 +328,21 @@ impl<Price, BlockNumber, CollectionId> Default for MintSettings<Price, BlockNumb
 	}
 }
 
+/// Attribute namespaces for non-fungible tokens.
+#[derive(
+	Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+)]
+pub enum AttributeNamespace<AccountId> {
+	/// An attribute was set by the pallet.
+	Pallet,
+	/// An attribute was set by collection's owner.
+	CollectionOwner,
+	/// An attribute was set by item's owner.
+	ItemOwner,
+	/// An attribute was set by pre-approved account.
+	Account(AccountId),
+}
+
 /// A witness data to cancel attributes approval operation.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct CancelAttributesApprovalWitness {
@@ -323,6 +355,8 @@ pub struct CancelAttributesApprovalWitness {
 pub enum PalletAttributes<CollectionId> {
 	/// Marks an item as being used in order to claim another item.
 	UsedToClaim(CollectionId),
+	/// Marks an item as being restricted from transferring.
+	TransferDisabled,
 }
 
 /// Collection's configuration.
@@ -393,7 +427,7 @@ impl_codec_bitflags!(ItemSettings, u64, ItemSetting);
 )]
 pub struct ItemConfig {
 	/// Item's settings.
-	pub(super) settings: ItemSettings,
+	pub settings: ItemSettings,
 }
 
 impl ItemConfig {
@@ -481,10 +515,10 @@ impl CollectionRoles {
 impl_codec_bitflags!(CollectionRoles, u8, CollectionRole);
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct PreSignedMint<CollectionId, ItemId, AccountId, Deadline> {
+pub struct PreSignedMint<CollectionId, ItemId, AccountId, Deadline, Balance> {
 	/// A collection of the item to be minted.
 	pub(super) collection: CollectionId,
-	/// Item's id.
+	/// Item's ID.
 	pub(super) item: ItemId,
 	/// Additional item's key-value attributes.
 	pub(super) attributes: Vec<(Vec<u8>, Vec<u8>)>,
@@ -492,6 +526,22 @@ pub struct PreSignedMint<CollectionId, ItemId, AccountId, Deadline> {
 	pub(super) metadata: Vec<u8>,
 	/// Restrict the claim to a particular account.
 	pub(super) only_account: Option<AccountId>,
+	/// A deadline for the signature.
+	pub(super) deadline: Deadline,
+	/// An optional price the claimer would need to pay for the mint.
+	pub(super) mint_price: Option<Balance>,
+}
+
+#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct PreSignedAttributes<CollectionId, ItemId, AccountId, Deadline> {
+	/// Collection's ID.
+	pub(super) collection: CollectionId,
+	/// Item's ID.
+	pub(super) item: ItemId,
+	/// Key-value attributes.
+	pub(super) attributes: Vec<(Vec<u8>, Vec<u8>)>,
+	/// Attributes' namespace.
+	pub(super) namespace: AttributeNamespace<AccountId>,
 	/// A deadline for the signature.
 	pub(super) deadline: Deadline,
 }

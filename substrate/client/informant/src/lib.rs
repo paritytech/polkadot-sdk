@@ -18,12 +18,13 @@
 
 //! Console informant. Prints sync progress and block events. Runs on the calling thread.
 
-use ansi_term::Colour;
+use ansi_term::{Colour, Style};
 use futures::prelude::*;
 use futures_timer::Delay;
 use log::{debug, info, trace};
 use sc_client_api::{BlockchainEvents, UsageProvider};
-use sc_network_common::service::NetworkStatusProvider;
+use sc_network::NetworkStatusProvider;
+use sc_network_sync::SyncStatusProvider;
 use sp_blockchain::HeaderMetadata;
 use sp_runtime::traits::{Block as BlockT, Header};
 use std::{collections::VecDeque, fmt::Display, sync::Arc, time::Duration};
@@ -50,10 +51,52 @@ impl Default for OutputFormat {
 	}
 }
 
+enum ColorOrStyle {
+	Color(Colour),
+	Style(Style),
+}
+
+impl From<Colour> for ColorOrStyle {
+	fn from(value: Colour) -> Self {
+		Self::Color(value)
+	}
+}
+
+impl From<Style> for ColorOrStyle {
+	fn from(value: Style) -> Self {
+		Self::Style(value)
+	}
+}
+
+impl ColorOrStyle {
+	fn paint(&self, data: String) -> impl Display {
+		match self {
+			Self::Color(c) => c.paint(data),
+			Self::Style(s) => s.paint(data),
+		}
+	}
+}
+
+impl OutputFormat {
+	/// Print with color if `self.enable_color == true`.
+	fn print_with_color(
+		&self,
+		color: impl Into<ColorOrStyle>,
+		data: impl ToString,
+	) -> impl Display {
+		if self.enable_color {
+			color.into().paint(data.to_string()).to_string()
+		} else {
+			data.to_string()
+		}
+	}
+}
+
 /// Builds the informant and returns a `Future` that drives the informant.
-pub async fn build<B: BlockT, C, N>(client: Arc<C>, network: N, format: OutputFormat)
+pub async fn build<B: BlockT, C, N, S>(client: Arc<C>, network: N, syncing: S, format: OutputFormat)
 where
-	N: NetworkStatusProvider<B>,
+	N: NetworkStatusProvider,
+	S: SyncStatusProvider<B>,
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
 {
@@ -63,10 +106,15 @@ where
 
 	let display_notifications = interval(Duration::from_millis(5000))
 		.filter_map(|_| async {
-			let status = network.status().await;
-			status.ok()
+			let net_status = network.status().await;
+			let sync_status = syncing.status().await;
+
+			match (net_status.ok(), sync_status.ok()) {
+				(Some(net), Some(sync)) => Some((net, sync)),
+				_ => None,
+			}
 		})
-		.for_each(move |net_status| {
+		.for_each(move |(net_status, sync_status)| {
 			let info = client_1.usage_info();
 			if let Some(ref usage) = info.usage {
 				trace!(target: "usage", "Usage statistics: {}", usage);
@@ -76,17 +124,20 @@ where
 					"Usage statistics not displayed as backend does not provide it",
 				)
 			}
-			display.display(&info, net_status);
+			display.display(&info, net_status, sync_status);
 			future::ready(())
 		});
 
 	futures::select! {
 		() = display_notifications.fuse() => (),
-		() = display_block_import(client).fuse() => (),
+		() = display_block_import(client, format).fuse() => (),
 	};
 }
 
-fn display_block_import<B: BlockT, C>(client: Arc<C>) -> impl Future<Output = ()>
+fn display_block_import<B: BlockT, C>(
+	client: Arc<C>,
+	format: OutputFormat,
+) -> impl Future<Output = ()>
 where
 	C: UsageProvider<B> + HeaderMetadata<B> + BlockchainEvents<B>,
 	<C as HeaderMetadata<B>>::Error: Display,
@@ -110,11 +161,11 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						Colour::Red.bold().paint(format!("{}", last_num)),
+						format.print_with_color(Colour::Red.bold(), last_num),
 						last_hash,
-						Colour::Green.bold().paint(format!("{}", n.header.number())),
+						format.print_with_color(Colour::Green.bold(), n.header.number()),
 						n.hash,
-						Colour::White.bold().paint(format!("{}", ancestor.number)),
+						format.print_with_color(Colour::White.bold(), ancestor.number),
 						ancestor.hash,
 					),
 					Ok(_) => {},
@@ -139,7 +190,7 @@ where
 			info!(
 				target: "substrate",
 				"✨ Imported #{} ({})",
-				Colour::White.bold().paint(format!("{}", n.header.number())),
+				format.print_with_color(Colour::White.bold(), n.header.number()),
 				n.hash,
 			);
 		}

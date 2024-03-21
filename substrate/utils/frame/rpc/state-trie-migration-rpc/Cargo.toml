@@ -1,34 +1,35 @@
 [package]
 name = "substrate-state-trie-migration-rpc"
-version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+version = "27.0.0"
+authors.workspace = true
+edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+repository.workspace = true
 description = "Node-specific RPC methods for interaction with state trie migration."
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false }
-serde = { version = "1", features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+serde = { features = ["derive"], workspace = true, default-features = true }
 
 sp-core = { path = "../../../../primitives/core" }
 sp-state-machine = { path = "../../../../primitives/state-machine" }
 sp-trie = { path = "../../../../primitives/trie" }
-trie-db = "0.24.0"
+trie-db = "0.28.0"
 
-jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
+jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
 
 # Substrate Dependencies
-sc-client-api = { version = "4.0.0-dev", path = "../../../../client/api" }
-sc-rpc-api = { version = "0.10.0-dev", path = "../../../../client/rpc-api" }
-sp-runtime = { version = "7.0.0", path = "../../../../primitives/runtime" }
+sc-client-api = { path = "../../../../client/api" }
+sc-rpc-api = { path = "../../../../client/rpc-api" }
+sp-runtime = { path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
-serde_json = "1"
+serde_json = { workspace = true, default-features = true }

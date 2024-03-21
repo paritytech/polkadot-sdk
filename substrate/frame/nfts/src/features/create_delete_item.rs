@@ -15,10 +15,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! This module contains helper methods to perform functionality associated with minting and burning
+//! items for the NFTs pallet.
+
 use crate::*;
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::ExistenceRequirement};
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Mint a new unique item with the given `collection`, `item`, and other minting configuration
+	/// details.
+	///
+	/// This function performs the minting of a new unique item. It checks if the item does not
+	/// already exist in the given collection, and if the max supply limit (if configured) is not
+	/// reached. It also reserves the required deposit for the item and sets the item details
+	/// accordingly.
+	///
+	/// # Errors
+	///
+	/// This function returns a dispatch error in the following cases:
+	/// - If the collection ID is invalid ([`UnknownCollection`](crate::Error::UnknownCollection)).
+	/// - If the item already exists in the collection
+	///   ([`AlreadyExists`](crate::Error::AlreadyExists)).
+	/// - If the item configuration already exists
+	///   ([`InconsistentItemConfig`](crate::Error::InconsistentItemConfig)).
+	/// - If the max supply limit (if configured) for the collection is reached
+	///   ([`MaxSupplyReached`](crate::Error::MaxSupplyReached)).
+	/// - If any error occurs in the `with_details_and_config` closure.
 	pub fn do_mint(
 		collection: T::CollectionId,
 		item: T::ItemId,
@@ -66,6 +88,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					ensure!(existing_config == item_config, Error::<T, I>::InconsistentItemConfig);
 				} else {
 					ItemConfigOf::<T, I>::insert(&collection, &item, item_config);
+					collection_details.item_configs.saturating_inc();
 				}
 
 				T::Currency::reserve(&deposit_account, deposit_amount)?;
@@ -85,13 +108,33 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
+	/// Mints a new item using a pre-signed message.
+	///
+	/// This function allows minting a new item using a pre-signed message. The minting process is
+	/// similar to the regular minting process, but it is performed by a pre-authorized account. The
+	/// `mint_to` account receives the newly minted item. The minting process is configurable
+	/// through the provided `mint_data`. The attributes, metadata, and price of the item are set
+	/// according to the provided `mint_data`. The `with_details_and_config` closure is called to
+	/// validate the provided `collection_details` and `collection_config` before minting the item.
+	///
+	/// - `mint_to`: The account that receives the newly minted item.
+	/// - `mint_data`: The pre-signed minting data containing the `collection`, `item`,
+	///   `attributes`, `metadata`, `deadline`, `only_account`, and `mint_price`.
+	/// - `signer`: The account that is authorized to mint the item using the pre-signed message.
 	pub(crate) fn do_mint_pre_signed(
 		mint_to: T::AccountId,
 		mint_data: PreSignedMintOf<T, I>,
 		signer: T::AccountId,
 	) -> DispatchResult {
-		let PreSignedMint { collection, item, attributes, metadata, deadline, only_account } =
-			mint_data;
+		let PreSignedMint {
+			collection,
+			item,
+			attributes,
+			metadata,
+			deadline,
+			only_account,
+			mint_price,
+		} = mint_data;
 		let metadata = Self::construct_metadata(metadata)?;
 
 		ensure!(
@@ -105,9 +148,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let now = frame_system::Pallet::<T>::block_number();
 		ensure!(deadline >= now, Error::<T, I>::DeadlineExpired);
 
-		let collection_details =
-			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
-		ensure!(collection_details.owner == signer, Error::<T, I>::NoPermission);
+		ensure!(
+			Self::has_role(&collection, &signer, CollectionRole::Issuer),
+			Error::<T, I>::NoPermission
+		);
 
 		let item_config = ItemConfig { settings: Self::get_default_item_settings(&collection)? };
 		Self::do_mint(
@@ -116,38 +160,65 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Some(mint_to.clone()),
 			mint_to.clone(),
 			item_config,
-			|_, _| Ok(()),
+			|collection_details, _| {
+				if let Some(price) = mint_price {
+					T::Currency::transfer(
+						&mint_to,
+						&collection_details.owner,
+						price,
+						ExistenceRequirement::KeepAlive,
+					)?;
+				}
+				Ok(())
+			},
 		)?;
-		for (key, value) in attributes {
-			Self::do_set_attribute(
-				collection_details.owner.clone(),
-				collection,
-				Some(item),
-				AttributeNamespace::CollectionOwner,
-				Self::construct_attribute_key(key)?,
-				Self::construct_attribute_value(value)?,
-				mint_to.clone(),
-			)?;
-		}
-		if !metadata.len().is_zero() {
-			Self::do_set_item_metadata(
-				Some(collection_details.owner.clone()),
-				collection,
-				item,
-				metadata,
-				Some(mint_to.clone()),
-			)?;
+		let admin_account = Self::find_account_by_role(&collection, CollectionRole::Admin);
+		if let Some(admin_account) = admin_account {
+			for (key, value) in attributes {
+				Self::do_set_attribute(
+					admin_account.clone(),
+					collection,
+					Some(item),
+					AttributeNamespace::CollectionOwner,
+					Self::construct_attribute_key(key)?,
+					Self::construct_attribute_value(value)?,
+					mint_to.clone(),
+				)?;
+			}
+			if !metadata.len().is_zero() {
+				Self::do_set_item_metadata(
+					Some(admin_account.clone()),
+					collection,
+					item,
+					metadata,
+					Some(mint_to.clone()),
+				)?;
+			}
 		}
 		Ok(())
 	}
 
+	/// Burns the specified item with the given `collection`, `item`, and `with_details`.
+	///
+	/// # Errors
+	///
+	/// This function returns a dispatch error in the following cases:
+	/// - If the collection ID is invalid ([`UnknownCollection`](crate::Error::UnknownCollection)).
+	/// - If the item is locked ([`ItemLocked`](crate::Error::ItemLocked)).
 	pub fn do_burn(
 		collection: T::CollectionId,
 		item: T::ItemId,
 		with_details: impl FnOnce(&ItemDetailsFor<T, I>) -> DispatchResult,
 	) -> DispatchResult {
 		ensure!(!T::Locker::is_locked(collection, item), Error::<T, I>::ItemLocked);
+		ensure!(
+			!Self::has_system_attribute(&collection, &item, PalletAttributes::TransferDisabled)?,
+			Error::<T, I>::ItemLocked
+		);
 		let item_config = Self::get_item_config(&collection, &item)?;
+		// NOTE: if item's settings are not empty (e.g. item's metadata is locked)
+		// then we keep the config record and don't remove it
+		let remove_config = !item_config.has_disabled_settings();
 		let owner = Collection::<T, I>::try_mutate(
 			&collection,
 			|maybe_collection_details| -> Result<T::AccountId, DispatchError> {
@@ -160,6 +231,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// Return the deposit.
 				T::Currency::unreserve(&details.deposit.account, details.deposit.amount);
 				collection_details.items.saturating_dec();
+
+				if remove_config {
+					collection_details.item_configs.saturating_dec();
+				}
 
 				// Clear the metadata if it's not locked.
 				if item_config.is_setting_enabled(ItemSetting::UnlockedMetadata) {
@@ -188,9 +263,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		PendingSwapOf::<T, I>::remove(&collection, &item);
 		ItemAttributesApprovalsOf::<T, I>::remove(&collection, &item);
 
-		// NOTE: if item's settings are not empty (e.g. item's metadata is locked)
-		// then we keep the record and don't remove it
-		if !item_config.has_disabled_settings() {
+		if remove_config {
 			ItemConfigOf::<T, I>::remove(&collection, &item);
 		}
 

@@ -1,0 +1,41 @@
+[package]
+name = "polkadot-node-core-av-store"
+description = "The Availability Store subsystem. Wrapper over the DB that stores availability data and chunks."
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+futures = "0.3.21"
+futures-timer = "3.0.2"
+kvdb = "0.13.0"
+thiserror = { workspace = true }
+gum = { package = "tracing-gum", path = "../../gum" }
+bitvec = "1.0.0"
+
+parity-scale-codec = { version = "3.6.1", features = ["derive"] }
+erasure = { package = "polkadot-erasure-coding", path = "../../../erasure-coding" }
+polkadot-node-subsystem = { path = "../../subsystem" }
+polkadot-node-subsystem-util = { path = "../../subsystem-util" }
+polkadot-overseer = { path = "../../overseer" }
+polkadot-primitives = { path = "../../../primitives" }
+polkadot-node-primitives = { path = "../../primitives" }
+sp-consensus = { path = "../../../../substrate/primitives/consensus/common", default-features = false }
+polkadot-node-jaeger = { path = "../../jaeger" }
+
+[dev-dependencies]
+log = { workspace = true, default-features = true }
+env_logger = "0.9.0"
+assert_matches = "1.4.0"
+kvdb-memorydb = "0.13.0"
+
+sp-core = { path = "../../../../substrate/primitives/core" }
+polkadot-node-subsystem-util = { path = "../../subsystem-util" }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+parking_lot = "0.12.1"
+test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }

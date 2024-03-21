@@ -1,4 +1,4 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
 // Substrate is free software: you can redistribute it and/or modify
@@ -17,22 +17,27 @@
 //! Helper for handling (i.e. answering) grandpa warp sync requests from a remote peer.
 
 use codec::Decode;
-use futures::{
-	channel::{mpsc, oneshot},
-	stream::StreamExt,
-};
+use futures::{channel::oneshot, stream::StreamExt};
 use log::debug;
-use sc_network_common::{
+
+use crate::{
+	strategy::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider},
+	LOG_TARGET,
+};
+use sc_network::{
 	config::ProtocolId,
 	request_responses::{
 		IncomingRequest, OutgoingResponse, ProtocolConfig as RequestResponseConfig,
 	},
-	sync::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider},
 };
 use sp_runtime::traits::Block as BlockT;
+
 use std::{sync::Arc, time::Duration};
 
 const MAX_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;
+
+/// Incoming warp requests bounded queue size.
+const MAX_WARP_REQUEST_QUEUE: usize = 20;
 
 /// Generates a [`RequestResponseConfig`] for the grandpa warp sync request protocol, refusing
 /// incoming requests.
@@ -70,7 +75,7 @@ fn generate_legacy_protocol_name(protocol_id: ProtocolId) -> String {
 /// Handler for incoming grandpa warp sync requests from a remote peer.
 pub struct RequestHandler<TBlock: BlockT> {
 	backend: Arc<dyn WarpSyncProvider<TBlock>>,
-	request_receiver: mpsc::Receiver<IncomingRequest>,
+	request_receiver: async_channel::Receiver<IncomingRequest>,
 }
 
 impl<TBlock: BlockT> RequestHandler<TBlock> {
@@ -81,7 +86,7 @@ impl<TBlock: BlockT> RequestHandler<TBlock> {
 		fork_id: Option<&str>,
 		backend: Arc<dyn WarpSyncProvider<TBlock>>,
 	) -> (Self, RequestResponseConfig) {
-		let (tx, request_receiver) = mpsc::channel(20);
+		let (tx, request_receiver) = async_channel::bounded(MAX_WARP_REQUEST_QUEUE);
 
 		let mut request_response_config =
 			generate_request_response_config(protocol_id, genesis_hash, fork_id);
@@ -118,10 +123,10 @@ impl<TBlock: BlockT> RequestHandler<TBlock> {
 
 			match self.handle_request(payload, pending_response) {
 				Ok(()) => {
-					debug!(target: "sync", "Handled grandpa warp sync request from {}.", peer)
+					debug!(target: LOG_TARGET, "Handled grandpa warp sync request from {}.", peer)
 				},
 				Err(e) => debug!(
-					target: "sync",
+					target: LOG_TARGET,
 					"Failed to handle grandpa warp sync request from {}: {}",
 					peer, e,
 				),

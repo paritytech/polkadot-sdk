@@ -21,25 +21,20 @@ use super::*;
 
 use crate as pallet_preimage;
 use frame_support::{
-	ord_parameter_types,
-	traits::{ConstU32, ConstU64, Everything},
-	weights::constants::RocksDbWeight,
+	derive_impl, ord_parameter_types, parameter_types,
+	traits::{fungible::HoldConsideration, ConstU32, ConstU64},
 };
 use frame_system::EnsureSignedBy;
 use sp_core::H256;
 use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, Convert},
+	BuildStorage,
 };
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -47,31 +42,10 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Index = u64;
-	type BlockNumber = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
+	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -84,10 +58,25 @@ impl pallet_balances::Config for Test {
 	type MaxLocks = ();
 	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
+	type FreezeIdentifier = ();
+	type MaxFreezes = ConstU32<1>;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = ();
 }
 
 ord_parameter_types! {
 	pub const One: u64 = 1;
+}
+
+parameter_types! {
+	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
+}
+
+pub struct ConvertDeposit;
+impl Convert<Footprint, u64> for ConvertDeposit {
+	fn convert(a: Footprint) -> u64 {
+		a.count * 2 + a.size
+	}
 }
 
 impl Config for Test {
@@ -95,12 +84,11 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureSignedBy<One, u64>;
-	type BaseDeposit = ConstU64<2>;
-	type ByteDeposit = ConstU64<1>;
+	type Consideration = HoldConsideration<u64, Balances, PreimageHoldReason, ConvertDeposit>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let balances = pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100)],
 	};
@@ -110,4 +98,21 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 pub fn hashed(data: impl AsRef<[u8]>) -> H256 {
 	BlakeTwo256::hash(data.as_ref())
+}
+
+/// Insert an un-migrated preimage.
+pub fn insert_old_unrequested<T: Config>(
+	s: u32,
+	acc: T::AccountId,
+) -> <T as frame_system::Config>::Hash {
+	// The preimage size does not matter here as it is not touched.
+	let preimage = s.to_le_bytes();
+	let hash = <T as frame_system::Config>::Hashing::hash(&preimage[..]);
+
+	#[allow(deprecated)]
+	StatusFor::<T>::insert(
+		&hash,
+		OldRequestStatus::Unrequested { deposit: (acc, 123u32.into()), len: preimage.len() as u32 },
+	);
+	hash
 }

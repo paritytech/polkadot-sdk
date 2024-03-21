@@ -1,0 +1,37 @@
+[package]
+name = "cumulus-test-relay-sproof-builder"
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Mocked relay state proof builder for testing Cumulus."
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+
+# Substrate
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false }
+sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+
+# Polkadot
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"polkadot-primitives/std",
+	"sp-runtime/std",
+	"sp-state-machine/std",
+	"sp-std/std",
+	"sp-trie/std",
+]

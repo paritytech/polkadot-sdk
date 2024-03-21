@@ -1,0 +1,53 @@
+[package]
+name = "sp-consensus-grandpa"
+version = "13.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+description = "Primitives for GRANDPA integration, suitable for WASM compilation."
+documentation = "https://docs.rs/sp-consensus-grandpa"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+grandpa = { package = "finality-grandpa", version = "0.16.2", default-features = false, features = ["derive-codec"] }
+log = { workspace = true }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { features = ["alloc", "derive"], optional = true, workspace = true }
+sp-api = { path = "../../api", default-features = false }
+sp-application-crypto = { path = "../../application-crypto", default-features = false }
+sp-core = { path = "../../core", default-features = false }
+sp-keystore = { path = "../../keystore", default-features = false, optional = true }
+sp-runtime = { path = "../../runtime", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"grandpa/std",
+	"log/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-api/std",
+	"sp-application-crypto/std",
+	"sp-core/std",
+	"sp-keystore/std",
+	"sp-runtime/std",
+]
+
+# Serde support without relying on std features.
+serde = [
+	"dep:serde",
+	"scale-info/serde",
+	"sp-application-crypto/serde",
+	"sp-core/serde",
+	"sp-runtime/serde",
+]

@@ -1,0 +1,5 @@
+error: expected `BenchmarkError`
+  --> tests/benchmark_ui/bad_return_non_benchmark_err.rs:27:27
+   |
+27 |     fn bench() -> Result<(), BenchmarkException> {
+   |                              ^^^^^^^^^^^^^^^^^^

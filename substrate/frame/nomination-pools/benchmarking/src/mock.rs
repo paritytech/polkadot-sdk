@@ -17,31 +17,31 @@
 
 use crate::VoterBagsListInstance;
 use frame_election_provider_support::VoteWeight;
-use frame_support::{pallet_prelude::*, parameter_types, traits::ConstU64, PalletId};
+use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::ConstU64, PalletId};
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
-	FixedU128,
+	BuildStorage, FixedU128, Perbill,
 };
 
 type AccountId = u128;
-type AccountIndex = u32;
+type Nonce = u32;
 type BlockNumber = u64;
 type Balance = u128;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
 	type RuntimeOrigin = RuntimeOrigin;
-	type Index = AccountIndex;
-	type BlockNumber = BlockNumber;
+	type Nonce = Nonce;
 	type RuntimeCall = RuntimeCall;
 	type Hash = sp_core::H256;
 	type Hashing = sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = sp_runtime::testing::Header;
+	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = ();
 	type Version = ();
@@ -75,6 +75,10 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<1>;
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -91,11 +95,10 @@ parameter_types! {
 	pub const RewardCurve: &'static sp_runtime::curve::PiecewiseLinear<'static> = &I_NPOS;
 }
 impl pallet_staking::Config for Runtime {
-	type MaxNominations = ConstU32<16>;
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
+	type CurrencyToVote = ();
 	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
@@ -107,16 +110,18 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = ();
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, ())>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
+	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type HistoryDepth = ConstU32<84>;
-	type OnStakerSlash = Pools;
+	type EventListeners = Pools;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
 }
@@ -157,6 +162,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
@@ -171,30 +177,27 @@ impl pallet_nomination_pools::Config for Runtime {
 impl crate::Config for Runtime {}
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
+
 frame_support::construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic
-	{
-		System: frame_system::{Pallet, Call, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
-		VoterList: pallet_bags_list::<Instance1>::{Pallet, Call, Storage, Event<T>},
-		Pools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>},
+	pub enum Runtime {
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		Staking: pallet_staking,
+		VoterList: pallet_bags_list::<Instance1>,
+		Pools: pallet_nomination_pools,
 	}
 );
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut storage = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+	let mut storage = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	let _ = pallet_nomination_pools::GenesisConfig::<Runtime> {
 		min_join_bond: 2,
 		min_create_bond: 2,
 		max_pools: Some(3),
 		max_members_per_pool: Some(3),
 		max_members: Some(3 * 3),
+		global_max_commission: Some(Perbill::from_percent(50)),
 	}
 	.assimilate_storage(&mut storage);
 	sp_io::TestExternalities::from(storage)

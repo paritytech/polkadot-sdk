@@ -1,0 +1,25 @@
+[package]
+name = "xcm-simulator"
+description = "Test kit to simulate cross-chain message passing and XCM execution"
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1" }
+paste = "1.0.7"
+
+frame-support = { path = "../../../substrate/frame/support" }
+sp-io = { path = "../../../substrate/primitives/io" }
+sp-std = { path = "../../../substrate/primitives/std" }
+
+xcm = { package = "staging-xcm", path = ".." }
+xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor" }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
+polkadot-core-primitives = { path = "../../core-primitives" }
+polkadot-parachain-primitives = { path = "../../parachain" }
+polkadot-runtime-parachains = { path = "../../runtime/parachains" }

@@ -24,19 +24,13 @@ use crate::{
 };
 use frame_benchmarking_cli::*;
 use kitchensink_runtime::{ExistentialDeposit, RuntimeApi};
-use node_executor::ExecutorDispatch;
 use node_primitives::Block;
-use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
+use sc_cli::{Result, SubstrateCli};
 use sc_service::PartialComponents;
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::HashingFor;
 
 use std::sync::Arc;
-
-#[cfg(feature = "try-runtime")]
-use {
-	kitchensink_runtime::constants::time::SLOT_DURATION,
-	try_runtime_cli::block_building_info::substrate_info,
-};
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -56,7 +50,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/paritytech/substrate/issues/new".into()
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -79,10 +73,6 @@ impl SubstrateCli for Cli {
 		};
 		Ok(spec)
 	}
-
-	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&kitchensink_runtime::VERSION
-	}
 }
 
 /// Parse command line arguments into service configuration.
@@ -99,7 +89,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Inspect(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 
-			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, ExecutorDispatch>(config))
+			runner.sync_run(|config| cmd.run::<Block, RuntimeApi>(config))
 		},
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
@@ -117,11 +107,11 @@ pub fn run() -> Result<()> {
 							)
 						}
 
-						cmd.run::<Block, ExecutorDispatch>(config)
+						cmd.run::<HashingFor<Block>, sp_statement_store::runtime_api::HostFunctions>(config)
 					},
 					BenchmarkCmd::Block(cmd) => {
 						// ensure that we keep the task manager alive
-						let partial = new_partial(&config)?;
+						let partial = new_partial(&config, None)?;
 						cmd.run(partial.client)
 					},
 					#[cfg(not(feature = "runtime-benchmarks"))]
@@ -132,7 +122,7 @@ pub fn run() -> Result<()> {
 					#[cfg(feature = "runtime-benchmarks")]
 					BenchmarkCmd::Storage(cmd) => {
 						// ensure that we keep the task manager alive
-						let partial = new_partial(&config)?;
+						let partial = new_partial(&config, None)?;
 						let db = partial.backend.expose_db();
 						let storage = partial.backend.expose_storage();
 
@@ -140,7 +130,7 @@ pub fn run() -> Result<()> {
 					},
 					BenchmarkCmd::Overhead(cmd) => {
 						// ensure that we keep the task manager alive
-						let partial = new_partial(&config)?;
+						let partial = new_partial(&config, None)?;
 						let ext_builder = RemarkBuilder::new(partial.client.clone());
 
 						cmd.run(
@@ -153,7 +143,7 @@ pub fn run() -> Result<()> {
 					},
 					BenchmarkCmd::Extrinsic(cmd) => {
 						// ensure that we keep the task manager alive
-						let partial = service::new_partial(&config)?;
+						let partial = service::new_partial(&config, None)?;
 						// Register the *Remark* and *TKA* builders.
 						let ext_factory = ExtrinsicFactory(vec![
 							Box::new(RemarkBuilder::new(partial.client.clone())),
@@ -188,21 +178,21 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, .. } =
-					new_partial(&config)?;
+					new_partial(&config, None)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, .. } = new_partial(&config)?;
+				let PartialComponents { client, task_manager, .. } = new_partial(&config, None)?;
 				Ok((cmd.run(client, config.database), task_manager))
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, .. } = new_partial(&config)?;
+				let PartialComponents { client, task_manager, .. } = new_partial(&config, None)?;
 				Ok((cmd.run(client, config.chain_spec), task_manager))
 			})
 		},
@@ -210,7 +200,7 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, .. } =
-					new_partial(&config)?;
+					new_partial(&config, None)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
@@ -221,7 +211,8 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, backend, .. } = new_partial(&config)?;
+				let PartialComponents { client, task_manager, backend, .. } =
+					new_partial(&config, None)?;
 				let aux_revert = Box::new(|client: Arc<FullClient>, backend, blocks| {
 					sc_consensus_babe::revert(client.clone(), backend, blocks)?;
 					grandpa::revert(client, blocks)?;
@@ -231,28 +222,7 @@ pub fn run() -> Result<()> {
 			})
 		},
 		#[cfg(feature = "try-runtime")]
-		Some(Subcommand::TryRuntime(cmd)) => {
-			use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
-			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				// we don't need any of the components of new_partial, just a runtime, or a task
-				// manager to do `async_run`.
-				let registry = config.prometheus_config.as_ref().map(|cfg| &cfg.registry);
-				let task_manager =
-					sc_service::TaskManager::new(config.tokio_handle.clone(), registry)
-						.map_err(|e| sc_cli::Error::Service(sc_service::Error::Prometheus(e)))?;
-
-				let info_provider = substrate_info(SLOT_DURATION);
-
-				Ok((
-					cmd.run::<Block, ExtendedHostFunctions<
-						sp_io::SubstrateHostFunctions,
-						<ExecutorDispatch as NativeExecutionDispatch>::ExtendHostFunctions,
-					>, _>(Some(info_provider)),
-					task_manager,
-				))
-			})
-		},
+		Some(Subcommand::TryRuntime) => Err(try_runtime_cli::DEPRECATION_NOTICE.into()),
 		#[cfg(not(feature = "try-runtime"))]
 		Some(Subcommand::TryRuntime) => Err("TryRuntime wasn't enabled when building the node. \
 				You can enable it with `--features try-runtime`."

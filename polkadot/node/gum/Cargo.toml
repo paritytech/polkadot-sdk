@@ -1,0 +1,16 @@
+[package]
+name = "tracing-gum"
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Stick logs together with the TraceID as provided by tempo"
+
+[lints]
+workspace = true
+
+[dependencies]
+coarsetime = "0.1.22"
+tracing = "0.1.35"
+gum-proc-macro = { package = "tracing-gum-proc-macro", path = "proc-macro" }
+polkadot-primitives = { path = "../../primitives", features = ["std"] }

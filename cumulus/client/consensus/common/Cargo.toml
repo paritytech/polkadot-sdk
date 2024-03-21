@@ -1,0 +1,50 @@
+[package]
+name = "cumulus-client-consensus-common"
+description = "Cumulus specific common consensus implementations"
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = "0.1.74"
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
+dyn-clone = "1.0.16"
+futures = "0.3.28"
+log = { workspace = true, default-features = true }
+tracing = "0.1.37"
+
+# Substrate
+sc-client-api = { path = "../../../../substrate/client/api" }
+sc-consensus = { path = "../../../../substrate/client/consensus/common" }
+sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
+sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
+sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
+sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime" }
+sp-timestamp = { path = "../../../../substrate/primitives/timestamp" }
+sp-trie = { path = "../../../../substrate/primitives/trie" }
+substrate-prometheus-endpoint = { path = "../../../../substrate/utils/prometheus" }
+
+# Polkadot
+polkadot-primitives = { path = "../../../../polkadot/primitives" }
+
+# Cumulus
+cumulus-primitives-core = { path = "../../../primitives/core" }
+cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
+cumulus-client-pov-recovery = { path = "../../pov-recovery" }
+schnellru = "0.2.1"
+
+[dev-dependencies]
+futures-timer = "3.0.2"
+
+# Substrate
+sp-tracing = { path = "../../../../substrate/primitives/tracing" }
+
+# Cumulus
+cumulus-test-client = { path = "../../../test/client" }
+cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder" }

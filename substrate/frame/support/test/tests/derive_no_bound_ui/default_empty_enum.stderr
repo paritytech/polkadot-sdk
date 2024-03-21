@@ -1,5 +1,5 @@
 error: cannot derive Default for an empty enum
- --> tests/derive_no_bound_ui/default_empty_enum.rs:2:6
-  |
-2 | enum Empty {}
-  |      ^^^^^
+  --> tests/derive_no_bound_ui/default_empty_enum.rs:19:6
+   |
+19 | enum Empty {}
+   |      ^^^^^

@@ -18,31 +18,31 @@
 //! Test utilities
 
 use crate::{self as pallet_staking, *};
-use frame_election_provider_support::{onchain, SequentialPhragmen, VoteWeight};
+use frame_election_provider_support::{
+	bounds::{ElectionBounds, ElectionBoundsBuilder},
+	onchain, SequentialPhragmen, VoteWeight,
+};
 use frame_support::{
-	assert_ok, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU32, ConstU64, Currency, EitherOfDiverse, FindAuthor, GenesisBuild, Get, Hooks,
-		Imbalance, OnUnbalanced, OneSessionHandler,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
+		OneSessionHandler,
 	},
 	weights::constants::RocksDbWeight,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_core::H256;
 use sp_io;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	testing::{Header, UintAuthorityId},
-	traits::{IdentityLookup, Zero},
+use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
+use sp_staking::{
+	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+	OnStakingUpdate,
 };
-use sp_staking::offence::{DisableStrategy, OffenceDetails, OnOffenceHandler};
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
 
 /// The AccountId alias in this test module.
 pub(crate) type AccountId = u64;
-pub(crate) type AccountIndex = u64;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
 
@@ -73,7 +73,7 @@ impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
 }
 
 pub fn is_disabled(controller: AccountId) -> bool {
-	let stash = Staking::ledger(&controller).unwrap().stash;
+	let stash = Ledger::<Test>::get(&controller).unwrap().stash;
 	let validator_index = match Session::validators().iter().position(|v| *v == stash) {
 		Some(index) => index as u32,
 		None => return false,
@@ -82,14 +82,10 @@ pub fn is_disabled(controller: AccountId) -> bool {
 	Session::disabled_validators().contains(&validator_index)
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
 		System: frame_system,
 		Authorship: pallet_authorship,
@@ -119,33 +115,14 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
+	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
 	type DbWeight = RocksDbWeight;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = AccountIndex;
-	type BlockNumber = BlockNumber;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = frame_support::traits::ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
+	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
@@ -157,6 +134,10 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type FreezeIdentifier = ();
+	type MaxFreezes = ();
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -228,12 +209,13 @@ const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 
 parameter_types! {
 	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
-	pub static MaxNominations: u32 = 16;
 	pub static HistoryDepth: u32 = 80;
+	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
 	pub static RewardOnUnbalanceWasCalled: bool = false;
-	pub static LedgerSlashPerEra: (BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) = (Zero::zero(), BTreeMap::new());
 	pub static MaxWinners: u32 = 100;
+	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
+	pub static AbsoluteMaxNominations: u32 = 16;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -253,8 +235,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type DataProvider = Staking;
 	type WeightInfo = ();
 	type MaxWinners = MaxWinners;
-	type VotersBound = ConstU32<{ u32::MAX }>;
-	type TargetsBound = ConstU32<{ u32::MAX }>;
+	type Bounds = ElectionsBounds;
 }
 
 pub struct MockReward {}
@@ -264,23 +245,29 @@ impl OnUnbalanced<PositiveImbalanceOf<Test>> for MockReward {
 	}
 }
 
-pub struct OnStakerSlashMock<T: Config>(core::marker::PhantomData<T>);
-impl<T: Config> sp_staking::OnStakerSlash<AccountId, Balance> for OnStakerSlashMock<T> {
+parameter_types! {
+	pub static LedgerSlashPerEra:
+		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
+		(Zero::zero(), BTreeMap::new());
+}
+
+pub struct EventListenerMock;
+impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
 		_pool_account: &AccountId,
 		slashed_bonded: Balance,
 		slashed_chunks: &BTreeMap<EraIndex, Balance>,
+		_total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
 	}
 }
 
 impl crate::pallet::pallet::Config for Test {
-	type MaxNominations = MaxNominations;
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
 	type UnixTime = Timestamp;
-	type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
+	type CurrencyToVote = ();
 	type RewardRemainder = RewardRemainderMock;
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
@@ -292,22 +279,48 @@ impl crate::pallet::pallet::Config for Test {
 	type SessionInterface = Self;
 	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = MaxExposurePageSize;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// NOTE: consider a macro and use `UseNominatorsAndValidatorsMap<Self>` as well.
 	type VoterList = VoterBagsList;
 	type TargetList = UseValidatorsMap<Self>;
+	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
-	type OnStakerSlash = OnStakerSlashMock<Test>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
+	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
 }
 
+pub struct WeightedNominationsQuota<const MAX: u32>;
+impl<Balance, const MAX: u32> NominationsQuota<Balance> for WeightedNominationsQuota<MAX>
+where
+	u128: From<Balance>,
+{
+	type MaxNominations = AbsoluteMaxNominations;
+
+	fn curve(balance: Balance) -> u32 {
+		match balance.into() {
+			// random curve for testing.
+			0..=110 => MAX,
+			111 => 0,
+			222 => 2,
+			333 => MAX + 10,
+			_ => MAX,
+		}
+	}
+}
+
 pub(crate) type StakingCall = crate::Call<Test>;
 pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
+
+parameter_types! {
+	// if true, skips the try-state for the test running.
+	pub static SkipTryStateCheck: bool = false;
+}
 
 pub struct ExtBuilder {
 	nominate: bool,
@@ -418,9 +431,13 @@ impl ExtBuilder {
 		self.balance_factor = factor;
 		self
 	}
+	pub fn try_state(self, enable: bool) -> Self {
+		SkipTryStateCheck::set(!enable);
+		self
+	}
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
-		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let _ = pallet_balances::GenesisConfig::<Test> {
 			balances: vec![
@@ -428,7 +445,7 @@ impl ExtBuilder {
 				(2, 20 * self.balance_factor),
 				(3, 300 * self.balance_factor),
 				(4, 400 * self.balance_factor),
-				// controllers
+				// controllers (still used in some tests. Soon to be deprecated).
 				(10, self.balance_factor),
 				(20, self.balance_factor),
 				(30, self.balance_factor),
@@ -461,18 +478,18 @@ impl ExtBuilder {
 			stakers = vec![
 				// (stash, ctrl, stake, status)
 				// these two will be elected in the default test where we elect 2.
-				(11, 10, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
-				(21, 20, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
+				(11, 11, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
+				(21, 21, self.balance_factor * 1000, StakerStatus::<AccountId>::Validator),
 				// a loser validator
-				(31, 30, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
+				(31, 31, self.balance_factor * 500, StakerStatus::<AccountId>::Validator),
 				// an idle validator
-				(41, 40, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
+				(41, 41, self.balance_factor * 1000, StakerStatus::<AccountId>::Idle),
 			];
 			// optionally add a nominator
 			if self.nominate {
 				stakers.push((
 					101,
-					100,
+					101,
 					self.balance_factor * 500,
 					StakerStatus::<AccountId>::Nominator(vec![11, 21]),
 				))
@@ -546,7 +563,9 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			if !SkipTryStateCheck::get() {
+				Staking::do_try_state(System::block_number()).unwrap();
+			}
 		});
 	}
 }
@@ -559,35 +578,24 @@ pub(crate) fn current_era() -> EraIndex {
 	Staking::current_era().unwrap()
 }
 
-pub(crate) fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
-	let _ = Balances::make_free_balance_be(&stash, val);
-	let _ = Balances::make_free_balance_be(&ctrl, val);
-	assert_ok!(Staking::bond(
-		RuntimeOrigin::signed(stash),
-		ctrl,
-		val,
-		RewardDestination::Controller
-	));
+pub(crate) fn bond(who: AccountId, val: Balance) {
+	let _ = Balances::make_free_balance_be(&who, val);
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Stash));
 }
 
-pub(crate) fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
-	bond(stash, ctrl, val);
-	assert_ok!(Staking::validate(RuntimeOrigin::signed(ctrl), ValidatorPrefs::default()));
+pub(crate) fn bond_validator(who: AccountId, val: Balance) {
+	bond(who, val);
+	assert_ok!(Staking::validate(RuntimeOrigin::signed(who), ValidatorPrefs::default()));
 	assert_ok!(Session::set_keys(
-		RuntimeOrigin::signed(ctrl),
-		SessionKeys { other: ctrl.into() },
+		RuntimeOrigin::signed(who),
+		SessionKeys { other: who.into() },
 		vec![]
 	));
 }
 
-pub(crate) fn bond_nominator(
-	stash: AccountId,
-	ctrl: AccountId,
-	val: Balance,
-	target: Vec<AccountId>,
-) {
-	bond(stash, ctrl, val);
-	assert_ok!(Staking::nominate(RuntimeOrigin::signed(ctrl), target));
+pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId>) {
+	bond(who, val);
+	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
 /// Progress to the given block, triggering session and era changes as we progress.
@@ -739,7 +747,7 @@ pub(crate) fn on_offence_now(
 pub(crate) fn add_slash(who: &AccountId) {
 	on_offence_now(
 		&[OffenceDetails {
-			offender: (*who, Staking::eras_stakers(active_era(), *who)),
+			offender: (*who, Staking::eras_stakers(active_era(), who)),
 			reporters: vec![],
 		}],
 		&[Perbill::from_percent(10)],
@@ -757,8 +765,76 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
 	// reward validators
 	for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
 		let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), ledger.stash, era));
+		for page in 0..EraInfo::<Test>::get_page_count(era, &ledger.stash) {
+			assert_ok!(Staking::payout_stakers_by_page(
+				RuntimeOrigin::signed(1337),
+				ledger.stash,
+				era,
+				page
+			));
+		}
 	}
+}
+
+pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> Result<(), String> {
+	<Bonded<Test>>::get(&stash).map_or(Ok(()), |_| Err("stash already bonded"))?;
+	<Ledger<Test>>::get(&controller).map_or(Ok(()), |_| Err("controller already bonded"))?;
+
+	<Bonded<Test>>::insert(stash, controller);
+	<Ledger<Test>>::insert(controller, StakingLedger::<Test>::default_from(stash));
+
+	Ok(())
+}
+
+pub(crate) fn setup_double_bonded_ledgers() {
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 10, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(2), 20, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 20, RewardDestination::Staked));
+	// not relevant to the test case, but ensures try-runtime checks pass.
+	[1, 2, 3]
+		.iter()
+		.for_each(|s| Payee::<Test>::insert(s, RewardDestination::Staked));
+
+	// we want to test the case where a controller can also be a stash of another ledger.
+	// for that, we change the controller/stash bonding so that:
+	// * 2 becomes controller of 1.
+	// * 3 becomes controller of 2.
+	// * 4 becomes controller of 3.
+	let ledger_1 = Ledger::<Test>::get(1).unwrap();
+	let ledger_2 = Ledger::<Test>::get(2).unwrap();
+	let ledger_3 = Ledger::<Test>::get(3).unwrap();
+
+	// 4 becomes controller of 3.
+	Bonded::<Test>::mutate(3, |controller| *controller = Some(4));
+	Ledger::<Test>::insert(4, ledger_3);
+
+	// 3 becomes controller of 2.
+	Bonded::<Test>::mutate(2, |controller| *controller = Some(3));
+	Ledger::<Test>::insert(3, ledger_2);
+
+	// 2 becomes controller of 1
+	Bonded::<Test>::mutate(1, |controller| *controller = Some(2));
+	Ledger::<Test>::insert(2, ledger_1);
+	// 1 is not controller anymore.
+	Ledger::<Test>::remove(1);
+
+	// checks. now we have:
+	// * 3 ledgers
+	assert_eq!(Ledger::<Test>::iter().count(), 3);
+	// * stash 1 has controller 2.
+	assert_eq!(Bonded::<Test>::get(1), Some(2));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(1)), Some(2));
+	assert_eq!(Ledger::<Test>::get(2).unwrap().stash, 1);
+
+	// * stash 2 has controller 3.
+	assert_eq!(Bonded::<Test>::get(2), Some(3));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(2)), Some(3));
+	assert_eq!(Ledger::<Test>::get(3).unwrap().stash, 2);
+
+	// * stash 3 has controller 4.
+	assert_eq!(Bonded::<Test>::get(3), Some(4));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(3)), Some(4));
+	assert_eq!(Ledger::<Test>::get(4).unwrap().stash, 3);
 }
 
 #[macro_export]

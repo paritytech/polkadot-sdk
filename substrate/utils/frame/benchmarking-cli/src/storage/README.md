@@ -1,17 +1,19 @@
 # The `benchmark storage` command
 
-The cost of storage operations in a Substrate chain depends on the current chain state.  
-It is therefore important to regularly update these weights as the chain grows.  
-This sub-command measures the cost of storage operations for a concrete snapshot.  
+The cost of storage operations in a Substrate chain depends on the current chain state.
+It is therefore important to regularly update these weights as the chain grows.
+This sub-command measures the cost of storage operations for a concrete snapshot.
 
-For the Substrate node it looks like this (for debugging you can use `--release`):  
+For the Substrate node it looks like this (for debugging you can use `--release`):
 ```sh
 cargo run --profile=production -- benchmark storage --dev --state-version=1
 ```
 
-Running the command on Substrate itself is not verify meaningful, since the genesis state of the `--dev` chain spec is used.  
+Running the command on Substrate itself is not verify meaningful, since the genesis state of the `--dev` chain spec is
+used.
 
-The output for the Polkadot client with a recent chain snapshot will give you a better impression. A recent snapshot can be downloaded from [Polkachu].  
+The output for the Polkadot client with a recent chain snapshot will give you a better impression. A recent snapshot can
+be downloaded from [Polkachu].
 Then run (remove the `--db=paritydb` if you have a RocksDB snapshot):
 ```sh
 cargo run --profile=production -- benchmark storage --dev --state-version=0 --db=paritydb --weight-path runtime/polkadot/constants/src/weights
@@ -20,8 +22,8 @@ cargo run --profile=production -- benchmark storage --dev --state-version=0 --db
 This takes a while since reads and writes all keys from the snapshot:
 ```pre
 # The 'read' benchmark
-Preparing keys from block BlockId::Number(9939462)    
-Reading 1379083 keys    
+Preparing keys from block BlockId::Number(9939462)
+Reading 1379083 keys
 Time summary [ns]:
 Total: 19668919930
 Min: 6450, Max: 1217259
@@ -31,11 +33,11 @@ Value size summary:
 Total: 265702275
 Min: 1, Max: 1381859
 Average: 192, Median: 80, Stddev: 3427.53
-Percentiles 99th, 95th, 75th: 3368, 383, 80    
+Percentiles 99th, 95th, 75th: 3368, 383, 80
 
 # The 'write' benchmark
-Preparing keys from block BlockId::Number(9939462)    
-Writing 1379083 keys    
+Preparing keys from block BlockId::Number(9939462)
+Writing 1379083 keys
 Time summary [ns]:
 Total: 98393809781
 Min: 12969, Max: 13282577
@@ -49,12 +51,13 @@ Percentiles 99th, 95th, 75th: 3368, 383, 80
 
 Writing weights to "paritydb_weights.rs"
 ```
-You will see that the [paritydb_weights.rs] files was modified and now contains new weights. 
-The exact command for Polkadot can be seen at the top of the file.  
-This uses the most recent block from your snapshot which is printed at the top.  
-The value size summary tells us that the pruned Polkadot chain state is ~253 MiB in size.  
-Reading a value on average takes (in this examples) 14.3 µs and writing 71.3 µs.  
-The interesting part in the generated weight file tells us the weight constants and some statistics about the measurements:
+You will see that the [paritydb_weights.rs] files was modified and now contains new weights. The exact command for
+Polkadot can be seen at the top of the file.
+This uses the most recent block from your snapshot which is printed at the top.
+The value size summary tells us that the pruned Polkadot chain state is ~253 MiB in size.
+Reading a value on average takes (in this examples) 14.3 µs and writing 71.3 µs.
+The interesting part in the generated weight file tells us the weight constants and some statistics about the
+measurements:
 ```rust
 /// Time to read one storage item.
 /// Calculated by multiplying the *Average* of all values with `1.1` and adding `0`.
@@ -90,7 +93,8 @@ write: 71_347 * constants::WEIGHT_REF_TIME_PER_NANOS,
 ## Arguments
 
 - `--db` Specify which database backend to use. This greatly influences the results.
-- `--state-version` Set the version of the state encoding that this snapshot uses. Should be set to `1` for Substrate `--dev` and `0` for Polkadot et al. Using the wrong version can corrupt the snapshot.
+- `--state-version` Set the version of the state encoding that this snapshot uses. Should be set to `1` for Substrate
+  `--dev` and `0` for Polkadot et al. Using the wrong version can corrupt the snapshot.
 - [`--mul`](../shared/README.md#arguments)
 - [`--add`](../shared/README.md#arguments)
 - [`--metric`](../shared/README.md#arguments)
@@ -103,4 +107,5 @@ License: Apache-2.0
 
 <!-- LINKS -->
 [Polkachu]: https://polkachu.com/snapshots
-[paritydb_weights.rs]: https://github.com/paritytech/polkadot/blob/c254e5975711a6497af256f6831e9a6c752d28f5/runtime/polkadot/constants/src/weights/paritydb_weights.rs#L60
+[paritydb_weights.rs]:
+    https://github.com/paritytech/polkadot/blob/c254e5975711a6497af256f6831e9a6c752d28f5/runtime/polkadot/constants/src/weights/paritydb_weights.rs#L60

@@ -15,9 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use quote::ToTokens;
-use std::str::FromStr;
 
 // Derive `PalletError`
 pub fn derive_pallet_error(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -26,7 +25,7 @@ pub fn derive_pallet_error(input: proc_macro::TokenStream) -> proc_macro::TokenS
 		Err(e) => return e.to_compile_error().into(),
 	};
 
-	let frame_support = match generate_crate_access_2018("frame-support") {
+	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
 		Ok(c) => c,
 		Err(e) => return e.into_compile_error().into(),
 	};
@@ -112,43 +111,29 @@ pub fn derive_pallet_error(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
 fn generate_field_types(
 	field: &syn::Field,
-	scrate: &syn::Ident,
+	scrate: &syn::Path,
 ) -> syn::Result<Option<proc_macro2::TokenStream>> {
 	let attrs = &field.attrs;
 
 	for attr in attrs {
-		if attr.path.is_ident("codec") {
-			match attr.parse_meta()? {
-				syn::Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-					match meta_list
-						.nested
-						.first()
-						.expect("Just checked that there is one item; qed")
-					{
-						syn::NestedMeta::Meta(syn::Meta::Path(path))
-							if path.get_ident().map_or(false, |i| i == "skip") =>
-							return Ok(None),
+		if attr.path().is_ident("codec") {
+			let mut res = None;
 
-						syn::NestedMeta::Meta(syn::Meta::Path(path))
-							if path.get_ident().map_or(false, |i| i == "compact") =>
-						{
-							let field_ty = &field.ty;
-							return Ok(Some(quote::quote!(#scrate::codec::Compact<#field_ty>)))
-						},
+			attr.parse_nested_meta(|meta| {
+				if meta.path.is_ident("skip") {
+					res = Some(None);
+				} else if meta.path.is_ident("compact") {
+					let field_ty = &field.ty;
+					res = Some(Some(quote::quote!(#scrate::__private::codec::Compact<#field_ty>)));
+				} else if meta.path.is_ident("compact") {
+					res = Some(Some(meta.value()?.parse()?));
+				}
 
-						syn::NestedMeta::Meta(syn::Meta::NameValue(syn::MetaNameValue {
-							path,
-							lit: syn::Lit::Str(lit_str),
-							..
-						})) if path.get_ident().map_or(false, |i| i == "encoded_as") => {
-							let ty = proc_macro2::TokenStream::from_str(&lit_str.value())?;
-							return Ok(Some(ty))
-						},
+				Ok(())
+			})?;
 
-						_ => (),
-					}
-				},
-				_ => (),
+			if let Some(v) = res {
+				return Ok(v)
 			}
 		}
 	}
@@ -158,27 +143,23 @@ fn generate_field_types(
 
 fn generate_variant_field_types(
 	variant: &syn::Variant,
-	scrate: &syn::Ident,
+	scrate: &syn::Path,
 ) -> syn::Result<Option<Vec<proc_macro2::TokenStream>>> {
 	let attrs = &variant.attrs;
 
 	for attr in attrs {
-		if attr.path.is_ident("codec") {
-			match attr.parse_meta()? {
-				syn::Meta::List(ref meta_list) if meta_list.nested.len() == 1 => {
-					match meta_list
-						.nested
-						.first()
-						.expect("Just checked that there is one item; qed")
-					{
-						syn::NestedMeta::Meta(syn::Meta::Path(path))
-							if path.get_ident().map_or(false, |i| i == "skip") =>
-							return Ok(None),
+		if attr.path().is_ident("codec") {
+			let mut skip = false;
 
-						_ => (),
-					}
-				},
-				_ => (),
+			// We ignore the error intentionally as this isn't `codec(skip)` when
+			// `parse_nested_meta` fails.
+			let _ = attr.parse_nested_meta(|meta| {
+				skip = meta.path.is_ident("skip");
+				Ok(())
+			});
+
+			if skip {
+				return Ok(None)
 			}
 		}
 	}

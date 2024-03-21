@@ -90,7 +90,6 @@ struct CmdData {
 	repeat: u32,
 	lowest_range_values: Vec<u32>,
 	highest_range_values: Vec<u32>,
-	execution: String,
 	wasm_execution: String,
 	chain: String,
 	db_cache: u32,
@@ -154,8 +153,8 @@ fn map_results(
 			continue
 		}
 
-		let pallet_string = String::from_utf8(batch.pallet.clone()).unwrap();
-		let instance_string = String::from_utf8(batch.instance.clone()).unwrap();
+		let pallet_name = String::from_utf8(batch.pallet.clone()).unwrap();
+		let instance_name = String::from_utf8(batch.instance.clone()).unwrap();
 		let benchmark_data = get_benchmark_data(
 			batch,
 			storage_info,
@@ -167,7 +166,7 @@ fn map_results(
 			worst_case_map_values,
 			additional_trie_layers,
 		);
-		let pallet_benchmarks = all_benchmarks.entry((pallet_string, instance_string)).or_default();
+		let pallet_benchmarks = all_benchmarks.entry((pallet_name, instance_name)).or_default();
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
@@ -278,6 +277,7 @@ fn get_benchmark_data(
 				used_recorded_proof_size.push(ComponentSlope { name: name.clone(), slope, error });
 			}
 		});
+	used_recorded_proof_size.sort_by(|a, b| a.name.cmp(&b.name));
 
 	// We add additional comments showing which storage items were touched.
 	// We find the worst case proof size, and use that as the final proof size result.
@@ -315,12 +315,12 @@ fn get_benchmark_data(
 	let mut base_calculated_proof_size = 0;
 	// Sum up the proof sizes per component
 	for (_, slope, base) in proof_size_per_components.iter() {
-		base_calculated_proof_size += base;
+		base_calculated_proof_size = base_calculated_proof_size.max(*base);
 		for component in slope.iter() {
 			let mut found = false;
 			for used_component in used_calculated_proof_size.iter_mut() {
 				if used_component.name == component.name {
-					used_component.slope += component.slope;
+					used_component.slope = used_component.slope.max(component.slope);
 					found = true;
 					break
 				}
@@ -337,6 +337,7 @@ fn get_benchmark_data(
 			}
 		}
 	}
+	used_calculated_proof_size.sort_by(|a, b| a.name.cmp(&b.name));
 
 	// This puts a marker on any component which is entirely unused in the weight formula.
 	let components = batch.time_results[0]
@@ -373,7 +374,7 @@ fn get_benchmark_data(
 	}
 }
 
-// Create weight file from benchmark data and Handlebars template.
+/// Create weight file from benchmark data and Handlebars template.
 pub(crate) fn write_results(
 	batches: &[BenchmarkBatchSplitResults],
 	storage_info: &[StorageInfo],
@@ -382,7 +383,7 @@ pub(crate) fn write_results(
 	default_pov_mode: PovEstimationMode,
 	path: &PathBuf,
 	cmd: &PalletCmd,
-) -> Result<(), std::io::Error> {
+) -> Result<(), sc_cli::Error> {
 	// Use custom template if provided.
 	let template: String = match &cmd.template {
 		Some(template_file) => fs::read_to_string(template_file)?,
@@ -423,7 +424,6 @@ pub(crate) fn write_results(
 		repeat: cmd.repeat,
 		lowest_range_values: cmd.lowest_range_values.clone(),
 		highest_range_values: cmd.highest_range_values.clone(),
-		execution: format!("{:?}", cmd.execution),
 		wasm_execution: cmd.wasm_method.to_string(),
 		chain: format!("{:?}", cmd.shared_params.chain),
 		db_cache: cmd.database_cache_size,
@@ -490,10 +490,21 @@ pub(crate) fn write_results(
 		created_files.push(file_path);
 	}
 
-	for file in created_files.iter().duplicates() {
-		// This can happen when there are multiple instances of a pallet deployed
-		// and `--output` forces the output of all instances into the same file.
-		println!("Multiple benchmarks were written to the same file: {:?}.", file);
+	let overwritten_files = created_files.iter().duplicates().collect::<Vec<_>>();
+	if !overwritten_files.is_empty() {
+		let msg = format!(
+			"Multiple results were written to the same file. This can happen when \
+		there are multiple instances of a pallet deployed and `--output` forces the output of all \
+		instances into the same file. Use `--unsafe-overwrite-results` to ignore this error. The \
+		affected files are: {:?}",
+			overwritten_files
+		);
+
+		if cmd.unsafe_overwrite_results {
+			println!("{msg}");
+		} else {
+			return Err(msg.into())
+		}
 	}
 	Ok(())
 }
@@ -560,19 +571,22 @@ pub(crate) fn process_storage_results(
 
 			let mut prefix_result = result.clone();
 			let key_info = storage_info_map.get(&prefix);
+			let pallet_name = match key_info {
+				Some(k) => String::from_utf8(k.pallet_name.clone()).expect("encoded from string"),
+				None => "".to_string(),
+			};
+			let storage_name = match key_info {
+				Some(k) => String::from_utf8(k.storage_name.clone()).expect("encoded from string"),
+				None => "".to_string(),
+			};
 			let max_size = key_info.and_then(|k| k.max_size);
 
 			let override_pov_mode = match key_info {
-				Some(StorageInfo { pallet_name, storage_name, .. }) => {
-					let pallet_name =
-						String::from_utf8(pallet_name.clone()).expect("encoded from string");
-					let storage_name =
-						String::from_utf8(storage_name.clone()).expect("encoded from string");
-
+				Some(_) => {
 					// Is there an override for the storage key?
-					pov_modes.get(&(pallet_name.clone(), storage_name)).or(
+					pov_modes.get(&(pallet_name.clone(), storage_name.clone())).or(
 						// .. or for the storage prefix?
-						pov_modes.get(&(pallet_name, "ALL".to_string())).or(
+						pov_modes.get(&(pallet_name.clone(), "ALL".to_string())).or(
 							// .. or for the benchmark?
 							pov_modes.get(&("ALL".to_string(), "ALL".to_string())),
 						),
@@ -626,7 +640,7 @@ pub(crate) fn process_storage_results(
 				},
 			};
 			// Add the additional trie layer overhead for every new prefix.
-			if *reads > 0 {
+			if *reads > 0 && !is_all_ignored {
 				prefix_result.proof_size += 15 * 33 * additional_trie_layers as u32;
 			}
 			storage_per_prefix.entry(prefix.clone()).or_default().push(prefix_result);
@@ -651,21 +665,16 @@ pub(crate) fn process_storage_results(
 			// writes.
 			if !is_prefix_identified {
 				match key_info {
-					Some(key_info) => {
+					Some(_) => {
 						let comment = format!(
-							"Storage: {} {} (r:{} w:{})",
-							String::from_utf8(key_info.pallet_name.clone())
-								.expect("encoded from string"),
-							String::from_utf8(key_info.storage_name.clone())
-								.expect("encoded from string"),
-							reads,
-							writes,
+							"Storage: `{}::{}` (r:{} w:{})",
+							pallet_name, storage_name, reads, writes,
 						);
 						comments.push(comment)
 					},
 					None => {
 						let comment = format!(
-							"Storage: unknown `0x{}` (r:{} w:{})",
+							"Storage: UNKNOWN KEY `0x{}` (r:{} w:{})",
 							HexDisplay::from(key),
 							reads,
 							writes,
@@ -687,11 +696,7 @@ pub(crate) fn process_storage_results(
 						) {
 							Some(new_pov) => {
 								let comment = format!(
-									"Proof: {} {} (max_values: {:?}, max_size: {:?}, added: {}, mode: {:?})",
-									String::from_utf8(key_info.pallet_name.clone())
-										.expect("encoded from string"),
-									String::from_utf8(key_info.storage_name.clone())
-										.expect("encoded from string"),
+									"Proof: `{pallet_name}::{storage_name}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)",
 									key_info.max_values,
 									key_info.max_size,
 									new_pov,
@@ -700,13 +705,9 @@ pub(crate) fn process_storage_results(
 								comments.push(comment)
 							},
 							None => {
-								let pallet = String::from_utf8(key_info.pallet_name.clone())
-									.expect("encoded from string");
-								let item = String::from_utf8(key_info.storage_name.clone())
-									.expect("encoded from string");
 								let comment = format!(
-									"Proof Skipped: {} {} (max_values: {:?}, max_size: {:?}, mode: {:?})",
-									pallet, item, key_info.max_values, key_info.max_size,
+									"Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, mode: `{:?}`)",
+									pallet_name, storage_name, key_info.max_values, key_info.max_size,
 									used_pov_mode,
 								);
 								comments.push(comment);
@@ -715,7 +716,7 @@ pub(crate) fn process_storage_results(
 					},
 					None => {
 						let comment = format!(
-							"Proof Skipped: unknown `0x{}` (r:{} w:{})",
+							"Proof: UNKNOWN KEY `0x{}` (r:{} w:{})",
 							HexDisplay::from(key),
 							reads,
 							writes,
@@ -768,6 +769,7 @@ fn worst_case_pov(
 
 /// A simple match statement which outputs the log 16 of some value.
 fn easy_log_16(i: u32) -> u32 {
+	#[allow(clippy::redundant_guards)]
 	match i {
 		i if i == 0 => 0,
 		i if i <= 16 => 1,

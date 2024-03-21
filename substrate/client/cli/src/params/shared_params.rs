@@ -22,12 +22,12 @@ use sc_service::config::BasePath;
 use std::path::PathBuf;
 
 /// Shared parameters used by all `CoreParams`.
-#[derive(Debug, Clone, PartialEq, Args)]
+#[derive(Debug, Clone, Args)]
 pub struct SharedParams {
 	/// Specify the chain specification.
 	///
-	/// It can be one of the predefined ones (dev, local, or staging) or it can be a path to a file
-	/// with the chainspec (such as one exported by the `build-spec` subcommand).
+	/// It can be one of the predefined ones (dev, local, or staging) or it can be a path to
+	/// a file with the chainspec (such as one exported by the `build-spec` subcommand).
 	#[arg(long, value_name = "CHAIN_SPEC")]
 	pub chain: Option<String>,
 
@@ -35,6 +35,7 @@ pub struct SharedParams {
 	///
 	/// This flag sets `--chain=dev`, `--force-authoring`, `--rpc-cors=all`,
 	/// `--alice`, and `--tmp` flags, unless explicitly overridden.
+	/// It also disables local peer discovery (see --no-mdns and --discover-local)
 	#[arg(long, conflicts_with_all = &["chain"])]
 	pub dev: bool,
 
@@ -42,16 +43,22 @@ pub struct SharedParams {
 	#[arg(long, short = 'd', value_name = "PATH")]
 	pub base_path: Option<PathBuf>,
 
-	/// Sets a custom logging filter. Syntax is `<target>=<level>`, e.g. -lsync=debug.
+	/// Sets a custom logging filter (syntax: `<target>=<level>`).
 	///
-	/// Log levels (least to most verbose) are error, warn, info, debug, and trace.
+	/// Log levels (least to most verbose) are `error`, `warn`, `info`, `debug`, and `trace`.
+	///
 	/// By default, all targets log `info`. The global log level can be set with `-l<level>`.
+	///
+	/// Multiple `<target>=<level>` entries can be specified and separated by a comma.
+	///
+	/// *Example*: `--log error,sync=debug,grandpa=warn`.
+	/// Sets Global log level to `error`, sets `sync` target to debug and grandpa target to `warn`.
 	#[arg(short = 'l', long, value_name = "LOG_PATTERN", num_args = 1..)]
 	pub log: Vec<String>,
 
 	/// Enable detailed log output.
 	///
-	/// This includes displaying the log target, log level and thread name.
+	/// Includes displaying the log target, log level and thread name.
 	///
 	/// This is automatically enabled when something is logged with any higher level than `info`.
 	#[arg(long)]
@@ -71,7 +78,9 @@ pub struct SharedParams {
 	#[arg(long)]
 	pub enable_log_reloading: bool,
 
-	/// Sets a custom profiling filter. Syntax is the same as for logging: `<target>=<level>`.
+	/// Sets a custom profiling filter.
+	///
+	/// Syntax is the same as for logging (`--log`).
 	#[arg(long, value_name = "TARGETS")]
 	pub tracing_targets: Option<String>,
 

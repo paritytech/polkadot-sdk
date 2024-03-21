@@ -1,0 +1,5 @@
+error: expected `without_storage_info` or `storage_version`
+  --> tests/pallet_ui/pallet_struct_invalid_attr.rs:24:12
+   |
+24 |     #[pallet::generate_storage_info] // invalid
+   |               ^^^^^^^^^^^^^^^^^^^^^

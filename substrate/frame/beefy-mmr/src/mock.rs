@@ -17,26 +17,25 @@
 
 use std::vec;
 
-use beefy_primitives::mmr::MmrLeafVersion;
 use codec::Encode;
 use frame_support::{
-	construct_runtime, parameter_types,
-	sp_io::TestExternalities,
-	traits::{ConstU16, ConstU32, ConstU64, GenesisBuild, KeyOwnerProofSystem},
-	BasicExternalities,
+	construct_runtime, derive_impl, parameter_types,
+	traits::{ConstU32, ConstU64},
 };
-use sp_core::{crypto::KeyTypeId, Hasher, H256};
+use sp_consensus_beefy::mmr::MmrLeafVersion;
+use sp_io::TestExternalities;
 use sp_runtime::{
 	app_crypto::ecdsa::Public,
 	impl_opaque_keys,
-	testing::Header,
-	traits::{BlakeTwo256, ConvertInto, IdentityLookup, Keccak256, OpaqueKeys},
+	traits::{ConvertInto, Keccak256, OpaqueKeys},
+	BuildStorage,
 };
+use sp_state_machine::BasicExternalities;
 
 use crate as pallet_beefy_mmr;
 
-pub use beefy_primitives::{
-	crypto::AuthorityId as BeefyId, mmr::BeefyDataProvider, ConsensusLog, BEEFY_ENGINE_ID,
+pub use sp_consensus_beefy::{
+	ecdsa_crypto::AuthorityId as BeefyId, mmr::BeefyDataProvider, ConsensusLog, BEEFY_ENGINE_ID,
 };
 
 impl_opaque_keys! {
@@ -45,48 +44,22 @@ impl_opaque_keys! {
 	}
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Mmr: pallet_mmr::{Pallet, Storage},
-		Beefy: pallet_beefy::{Pallet, Config<T>, Storage},
-		BeefyMmr: pallet_beefy_mmr::{Pallet, Storage},
+		System: frame_system,
+		Session: pallet_session,
+		Mmr: pallet_mmr,
+		Beefy: pallet_beefy,
+		BeefyMmr: pallet_beefy_mmr,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
+	type Block = Block;
 }
 
 impl pallet_session::Config for Test {
@@ -101,10 +74,10 @@ impl pallet_session::Config for Test {
 	type WeightInfo = ();
 }
 
-pub type MmrLeaf = beefy_primitives::mmr::MmrLeaf<
-	<Test as frame_system::Config>::BlockNumber,
+pub type MmrLeaf = sp_consensus_beefy::mmr::MmrLeaf<
+	frame_system::pallet_prelude::BlockNumberFor<Test>,
 	<Test as frame_system::Config>::Hash,
-	<Test as pallet_mmr::Config>::Hash,
+	crate::MerkleRootOf<Test>,
 	Vec<u8>,
 >;
 
@@ -112,8 +85,6 @@ impl pallet_mmr::Config for Test {
 	const INDEXING_PREFIX: &'static [u8] = b"mmr";
 
 	type Hashing = Keccak256;
-
-	type Hash = <Keccak256 as Hasher>::Out;
 
 	type LeafData = BeefyMmr;
 
@@ -124,18 +95,13 @@ impl pallet_mmr::Config for Test {
 
 impl pallet_beefy::Config for Test {
 	type BeefyId = BeefyId;
-	type KeyOwnerProofSystem = ();
-	type KeyOwnerProof =
-		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, BeefyId)>>::Proof;
-	type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-		KeyTypeId,
-		BeefyId,
-	)>>::IdentificationTuple;
-	type HandleEquivocation = ();
 	type MaxAuthorities = ConstU32<100>;
+	type MaxNominators = ConstU32<1000>;
 	type MaxSetIdSessionEntries = ConstU64<100>;
 	type OnNewValidatorSet = BeefyMmr;
 	type WeightInfo = ();
+	type KeyOwnerProof = sp_core::Void;
+	type EquivocationReportSystem = ();
 }
 
 parameter_types! {
@@ -201,7 +167,7 @@ pub fn new_test_ext(ids: Vec<u8>) -> TestExternalities {
 }
 
 pub fn new_test_ext_raw_authorities(authorities: Vec<(u64, BeefyId)>) -> TestExternalities {
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let session_keys: Vec<_> = authorities
 		.iter()

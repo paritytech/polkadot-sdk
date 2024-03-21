@@ -1,0 +1,88 @@
+[package]
+name = "bridge-hub-test-utils"
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+description = "Utils for BridgeHub testing"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+impl-trait-for-tuples = "0.2"
+log = { workspace = true }
+
+# Substrate
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
+sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
+pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
+
+# Cumulus
+asset-test-utils = { path = "../../assets/test-utils" }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
+parachains-common = { path = "../../../common", default-features = false }
+parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
+
+# Bridges
+bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false }
+bp-messages = { path = "../../../../../bridges/primitives/messages", default-features = false }
+bp-polkadot-core = { path = "../../../../../bridges/primitives/polkadot-core", default-features = false }
+bp-relayers = { path = "../../../../../bridges/primitives/relayers", default-features = false }
+bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
+bp-test-utils = { path = "../../../../../bridges/primitives/test-utils", default-features = false }
+pallet-bridge-grandpa = { path = "../../../../../bridges/modules/grandpa", default-features = false }
+pallet-bridge-parachains = { path = "../../../../../bridges/modules/parachains", default-features = false }
+pallet-bridge-messages = { path = "../../../../../bridges/modules/messages", default-features = false }
+pallet-bridge-relayers = { path = "../../../../../bridges/modules/relayers", default-features = false }
+bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"asset-test-utils/std",
+	"bp-header-chain/std",
+	"bp-messages/std",
+	"bp-polkadot-core/std",
+	"bp-relayers/std",
+	"bp-runtime/std",
+	"bp-test-utils/std",
+	"bridge-runtime-common/std",
+	"codec/std",
+	"cumulus-pallet-parachain-system/std",
+	"cumulus-pallet-xcmp-queue/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-balances/std",
+	"pallet-bridge-grandpa/std",
+	"pallet-bridge-messages/std",
+	"pallet-bridge-parachains/std",
+	"pallet-bridge-relayers/std",
+	"pallet-timestamp/std",
+	"pallet-utility/std",
+	"parachains-common/std",
+	"parachains-runtimes-test-utils/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+]

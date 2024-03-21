@@ -1,0 +1,47 @@
+[package]
+name = "cumulus-client-service"
+version = "0.7.0"
+authors.workspace = true
+edition.workspace = true
+description = "Common functions used to assemble the components of a parachain node."
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+futures = "0.3.28"
+
+# Substrate
+sc-client-api = { path = "../../../substrate/client/api" }
+sc-consensus = { path = "../../../substrate/client/consensus/common" }
+sc-transaction-pool = { path = "../../../substrate/client/transaction-pool" }
+sc-rpc = { path = "../../../substrate/client/rpc" }
+sc-service = { path = "../../../substrate/client/service" }
+sc-sysinfo = { path = "../../../substrate/client/sysinfo" }
+sc-telemetry = { path = "../../../substrate/client/telemetry" }
+sc-network = { path = "../../../substrate/client/network" }
+sc-network-sync = { path = "../../../substrate/client/network/sync" }
+sc-utils = { path = "../../../substrate/client/utils" }
+sc-network-transactions = { path = "../../../substrate/client/network/transactions" }
+sp-api = { path = "../../../substrate/primitives/api" }
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-transaction-pool = { path = "../../../substrate/primitives/transaction-pool" }
+
+# Polkadot
+polkadot-primitives = { path = "../../../polkadot/primitives" }
+
+# Cumulus
+cumulus-client-cli = { path = "../cli" }
+cumulus-client-collator = { path = "../collator" }
+cumulus-client-consensus-common = { path = "../consensus/common" }
+cumulus-client-pov-recovery = { path = "../pov-recovery" }
+cumulus-client-network = { path = "../network" }
+cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction" }
+cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
+cumulus-relay-chain-inprocess-interface = { path = "../relay-chain-inprocess-interface" }
+cumulus-relay-chain-minimal-node = { path = "../relay-chain-minimal-node" }

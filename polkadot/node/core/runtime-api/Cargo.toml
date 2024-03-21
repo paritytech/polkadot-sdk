@@ -1,0 +1,32 @@
+[package]
+name = "polkadot-node-core-runtime-api"
+version = "7.0.0"
+description = "Wrapper around the parachain-related runtime APIs"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+futures = "0.3.21"
+gum = { package = "tracing-gum", path = "../../gum" }
+schnellru = "0.2.1"
+
+sp-consensus-babe = { path = "../../../../substrate/primitives/consensus/babe" }
+
+polkadot-primitives = { path = "../../../primitives" }
+polkadot-node-metrics = { path = "../../metrics" }
+polkadot-node-subsystem = { path = "../../subsystem" }
+polkadot-node-subsystem-types = { path = "../../subsystem-types" }
+
+[dev-dependencies]
+sp-api = { path = "../../../../substrate/primitives/api" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+async-trait = "0.1.74"
+futures = { version = "0.3.21", features = ["thread-pool"] }
+polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-node-primitives = { path = "../../primitives" }
+test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }

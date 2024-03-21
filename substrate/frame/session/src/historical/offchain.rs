@@ -17,13 +17,11 @@
 
 //! Off-chain logic for creating a proof based data provided by on-chain logic.
 //!
-//! Validator-set extracting an iterator from an off-chain worker stored list containing
-//! historical validator-sets.
-//! Based on the logic of historical slashing, but the validation is done off-chain.
+//! Validator-set extracting an iterator from an off-chain worker stored list containing historical
+//! validator-sets. Based on the logic of historical slashing, but the validation is done off-chain.
 //! Use [`fn store_current_session_validator_set_to_offchain()`](super::onchain) to store the
-//! required data to the offchain validator set.
-//! This is used in conjunction with [`ProvingTrie`](super::ProvingTrie) and
-//! the off-chain indexing API.
+//! required data to the offchain validator set. This is used in conjunction with [`ProvingTrie`]
+//! and the off-chain indexing API.
 
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
@@ -149,18 +147,16 @@ mod tests {
 		crypto::key_types::DUMMY,
 		offchain::{testing::TestOffchainExt, OffchainDbExt, OffchainWorkerExt, StorageKind},
 	};
-	use sp_runtime::testing::UintAuthorityId;
+	use sp_runtime::{testing::UintAuthorityId, BuildStorage};
+	use sp_state_machine::BasicExternalities;
 
-	use frame_support::{
-		traits::{GenesisBuild, KeyOwnerProofSystem, OnInitialize},
-		BasicExternalities,
-	};
+	use frame_support::traits::{KeyOwnerProofSystem, OnInitialize};
 
 	type Historical = Pallet<Test>;
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default()
-			.build_storage::<Test>()
+		let mut t = frame_system::GenesisConfig::<Test>::default()
+			.build_storage()
 			.expect("Failed to create test externalities.");
 
 		let keys: Vec<_> = NextValidators::get()

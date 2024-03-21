@@ -1,0 +1,25 @@
+[package]
+name = "test-parachains"
+description = "Integration tests using the test-parachains"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+
+adder = { package = "test-parachain-adder", path = "adder" }
+halt = { package = "test-parachain-halt", path = "halt" }
+
+[dev-dependencies]
+sp-core = { path = "../../../substrate/primitives/core" }
+
+[features]
+default = ["std"]
+std = ["adder/std", "halt/std", "parity-scale-codec/std"]

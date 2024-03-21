@@ -1,4 +1,4 @@
-## Substrate Dashboard
+# Substrate Dashboard
 
 Shared templated Grafana dashboards.
 

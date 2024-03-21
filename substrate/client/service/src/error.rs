@@ -40,7 +40,7 @@ pub enum Error {
 	Consensus(#[from] sp_consensus::Error),
 
 	#[error(transparent)]
-	Network(#[from] sc_network_common::error::Error),
+	Network(#[from] sc_network::error::Error),
 
 	#[error(transparent)]
 	Keystore(#[from] sc_keystore::Error),
@@ -48,19 +48,16 @@ pub enum Error {
 	#[error(transparent)]
 	Telemetry(#[from] sc_telemetry::Error),
 
-	#[error(transparent)]
-	Storage(#[from] sc_storage_monitor::Error),
-
 	#[error("Best chain selection strategy (SelectChain) is not provided.")]
 	SelectChainRequired,
 
 	#[error("Tasks executor hasn't been provided.")]
 	TaskExecutorRequired,
 
-	#[error("Prometheus metrics error")]
+	#[error("Prometheus metrics error: {0}")]
 	Prometheus(#[from] prometheus_endpoint::PrometheusError),
 
-	#[error("Application")]
+	#[error("Application: {0}")]
 	Application(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 
 	#[error("Other: {0}")]

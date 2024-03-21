@@ -17,12 +17,13 @@
 
 //! Client extension for tests.
 
-use codec::alloc::collections::hash_map::HashMap;
 use sc_client_api::{backend::Finalizer, client::BlockBackend};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sc_service::client::Client;
-use sp_consensus::{BlockOrigin, Error as ConsensusError};
+use sp_consensus::Error as ConsensusError;
 use sp_runtime::{traits::Block as BlockT, Justification, Justifications};
+
+pub use sp_consensus::BlockOrigin;
 
 /// Extension trait for a test client.
 pub trait ClientExt<Block: BlockT>: Sized {
@@ -88,10 +89,9 @@ where
 
 /// This implementation is required, because of the weird api requirements around `BlockImport`.
 #[async_trait::async_trait]
-impl<Block: BlockT, T, Transaction> ClientBlockImportExt<Block> for std::sync::Arc<T>
+impl<Block: BlockT, T> ClientBlockImportExt<Block> for std::sync::Arc<T>
 where
-	for<'r> &'r T: BlockImport<Block, Error = ConsensusError, Transaction = Transaction>,
-	Transaction: Send + 'static,
+	for<'r> &'r T: BlockImport<Block, Error = ConsensusError>,
 	T: Send + Sync,
 {
 	async fn import(&mut self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
@@ -100,7 +100,7 @@ where
 		import.body = Some(extrinsics);
 		import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 
-		BlockImport::import_block(self, import, HashMap::new()).await.map(|_| ())
+		BlockImport::import_block(self, import).await.map(|_| ())
 	}
 
 	async fn import_as_best(
@@ -113,7 +113,7 @@ where
 		import.body = Some(extrinsics);
 		import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 
-		BlockImport::import_block(self, import, HashMap::new()).await.map(|_| ())
+		BlockImport::import_block(self, import).await.map(|_| ())
 	}
 
 	async fn import_as_final(
@@ -127,7 +127,7 @@ where
 		import.finalized = true;
 		import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 
-		BlockImport::import_block(self, import, HashMap::new()).await.map(|_| ())
+		BlockImport::import_block(self, import).await.map(|_| ())
 	}
 
 	async fn import_justified(
@@ -143,7 +143,7 @@ where
 		import.finalized = true;
 		import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 
-		BlockImport::import_block(self, import, HashMap::new()).await.map(|_| ())
+		BlockImport::import_block(self, import).await.map(|_| ())
 	}
 }
 
@@ -154,7 +154,6 @@ where
 	RA: Send,
 	B: Send + Sync,
 	E: Send,
-	<Self as BlockImport<Block>>::Transaction: Send,
 {
 	async fn import(&mut self, origin: BlockOrigin, block: Block) -> Result<(), ConsensusError> {
 		let (header, extrinsics) = block.deconstruct();
@@ -162,7 +161,7 @@ where
 		import.body = Some(extrinsics);
 		import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 
-		BlockImport::import_block(self, import, HashMap::new()).await.map(|_| ())
+		BlockImport::import_block(self, import).await.map(|_| ())
 	}
 
 	async fn import_as_best(
@@ -175,7 +174,7 @@ where
 		import.body = Some(extrinsics);
 		import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 
-		BlockImport::import_block(self, import, HashMap::new()).await.map(|_| ())
+		BlockImport::import_block(self, import).await.map(|_| ())
 	}
 
 	async fn import_as_final(
@@ -189,7 +188,7 @@ where
 		import.finalized = true;
 		import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
 
-		BlockImport::import_block(self, import, HashMap::new()).await.map(|_| ())
+		BlockImport::import_block(self, import).await.map(|_| ())
 	}
 
 	async fn import_justified(
@@ -205,6 +204,6 @@ where
 		import.finalized = true;
 		import.fork_choice = Some(ForkChoiceStrategy::LongestChain);
 
-		BlockImport::import_block(self, import, HashMap::new()).await.map(|_| ())
+		BlockImport::import_block(self, import).await.map(|_| ())
 	}
 }

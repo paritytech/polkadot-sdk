@@ -15,10 +15,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! This module contains helper methods to configure attributes for items and collections in the
+//! NFTs pallet.
+//! The bitflag [`PalletFeature::Attributes`] needs to be set in [`Config::Features`] for NFTs
+//! to have the functionality defined in this module.
+
 use crate::*;
 use frame_support::pallet_prelude::*;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Sets the attribute of an item or a collection.
+	///
+	/// This function is used to set an attribute for an item or a collection. It checks the
+	/// provided `namespace` and verifies the permission of the caller to perform the action. The
+	/// `collection` and `maybe_item` parameters specify the target for the attribute.
+	///
+	/// - `origin`: The account attempting to set the attribute.
+	/// - `collection`: The identifier of the collection to which the item belongs, or the
+	///   collection itself if setting a collection attribute.
+	/// - `maybe_item`: The identifier of the item to which the attribute belongs, or `None` if
+	///   setting a collection attribute.
+	/// - `namespace`: The namespace in which the attribute is being set. It can be either
+	///   `CollectionOwner`, `ItemOwner`, or `Account` (pre-approved external address).
+	/// - `key`: The key of the attribute. It should be a vector of bytes within the limits defined
+	///   by `T::KeyLimit`.
+	/// - `value`: The value of the attribute. It should be a vector of bytes within the limits
+	///   defined by `T::ValueLimit`.
+	/// - `depositor`: The account that is paying the deposit for the attribute.
+	///
+	/// Note: For the `CollectionOwner` namespace, the collection/item must have the
+	/// `UnlockedAttributes` setting enabled.
+	/// The deposit for setting an attribute is based on the `T::DepositPerByte` and
+	/// `T::AttributeDepositBase` configuration.
 	pub(crate) fn do_set_attribute(
 		origin: T::AccountId,
 		collection: T::CollectionId,
@@ -33,17 +61,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::MethodDisabled
 		);
 
-		let mut collection_details =
-			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
-
 		ensure!(
-			Self::is_valid_namespace(
-				&origin,
-				&namespace,
-				&collection,
-				&collection_details.owner,
-				&maybe_item,
-			)?,
+			Self::is_valid_namespace(&origin, &namespace, &collection, &maybe_item)?,
 			Error::<T, I>::NoPermission
 		);
 
@@ -65,6 +84,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			},
 			_ => (),
 		}
+
+		let mut collection_details =
+			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 
 		let attribute = Attribute::<T, I>::get((collection, maybe_item, &namespace, &key));
 		let attribute_exists = attribute.is_some();
@@ -134,6 +156,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
+	/// Sets the attribute of an item or a collection without performing deposit checks.
+	///
+	/// This function is used to force-set an attribute for an item or a collection without
+	/// performing the deposit checks. It bypasses the deposit requirement and should only be used
+	/// in specific situations where deposit checks are not necessary or handled separately.
+	///
+	/// - `set_as`: The account that would normally pay for the deposit.
+	/// - `collection`: The identifier of the collection to which the item belongs, or the
+	///   collection itself if setting a collection attribute.
+	/// - `maybe_item`: The identifier of the item to which the attribute belongs, or `None` if
+	///   setting a collection attribute.
+	/// - `namespace`: The namespace in which the attribute is being set. It can be either
+	///   `CollectionOwner`, `ItemOwner`, or `Account` (pre-approved external address).
+	/// - `key`: The key of the attribute. It should be a vector of bytes within the limits defined
+	///   by `T::KeyLimit`.
+	/// - `value`: The value of the attribute. It should be a vector of bytes within the limits
+	///   defined by `T::ValueLimit`.
 	pub(crate) fn do_force_set_attribute(
 		set_as: Option<T::AccountId>,
 		collection: T::CollectionId,
@@ -165,8 +204,86 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
+	/// Sets multiple attributes for an item or a collection.
+	///
+	/// This function checks the pre-signed data is valid and updates the attributes of an item or
+	/// collection. It is limited by [`Config::MaxAttributesPerCall`] to prevent excessive storage
+	/// consumption in a single transaction.
+	///
+	/// - `origin`: The account initiating the transaction.
+	/// - `data`: The data containing the details of the pre-signed attributes to be set.
+	/// - `signer`: The account of the pre-signed attributes signer.
+	pub(crate) fn do_set_attributes_pre_signed(
+		origin: T::AccountId,
+		data: PreSignedAttributesOf<T, I>,
+		signer: T::AccountId,
+	) -> DispatchResult {
+		let PreSignedAttributes { collection, item, attributes, namespace, deadline } = data;
+
+		ensure!(
+			attributes.len() <= T::MaxAttributesPerCall::get() as usize,
+			Error::<T, I>::MaxAttributesLimitReached
+		);
+
+		let now = frame_system::Pallet::<T>::block_number();
+		ensure!(deadline >= now, Error::<T, I>::DeadlineExpired);
+
+		let item_details =
+			Item::<T, I>::get(&collection, &item).ok_or(Error::<T, I>::UnknownItem)?;
+		ensure!(item_details.owner == origin, Error::<T, I>::NoPermission);
+
+		// Only the CollectionOwner and Account() namespaces could be updated in this way.
+		// For the Account() namespace we check and set the approval if it wasn't set before.
+		match &namespace {
+			AttributeNamespace::CollectionOwner => {},
+			AttributeNamespace::Account(account) => {
+				ensure!(account == &signer, Error::<T, I>::NoPermission);
+				let approvals = ItemAttributesApprovalsOf::<T, I>::get(&collection, &item);
+				if !approvals.contains(account) {
+					Self::do_approve_item_attributes(
+						origin.clone(),
+						collection,
+						item,
+						account.clone(),
+					)?;
+				}
+			},
+			_ => return Err(Error::<T, I>::WrongNamespace.into()),
+		}
+
+		for (key, value) in attributes {
+			Self::do_set_attribute(
+				signer.clone(),
+				collection,
+				Some(item),
+				namespace.clone(),
+				Self::construct_attribute_key(key)?,
+				Self::construct_attribute_value(value)?,
+				origin.clone(),
+			)?;
+		}
+		Self::deposit_event(Event::PreSignedAttributesSet { collection, item, namespace });
+		Ok(())
+	}
+
+	/// Clears an attribute of an item or a collection.
+	///
+	/// This function allows clearing an attribute from an item or a collection. It verifies the
+	/// permission of the caller to perform the action based on the provided `namespace` and
+	/// `depositor` account. The deposit associated with the attribute, if any, will be unreserved.
+	///
+	/// - `maybe_check_origin`: An optional account that acts as an additional security check when
+	/// clearing the attribute. This can be `None` if no additional check is required.
+	/// - `collection`: The identifier of the collection to which the item belongs, or the
+	///   collection itself if clearing a collection attribute.
+	/// - `maybe_item`: The identifier of the item to which the attribute belongs, or `None` if
+	///   clearing a collection attribute.
+	/// - `namespace`: The namespace in which the attribute is being cleared. It can be either
+	///   `CollectionOwner`, `ItemOwner`, or `Account`.
+	/// - `key`: The key of the attribute to be cleared. It should be a vector of bytes within the
+	///   limits defined by `T::KeyLimit`.
 	pub(crate) fn do_clear_attribute(
-		maybe_check_owner: Option<T::AccountId>,
+		maybe_check_origin: Option<T::AccountId>,
 		collection: T::CollectionId,
 		maybe_item: Option<T::ItemId>,
 		namespace: AttributeNamespace<T::AccountId>,
@@ -174,21 +291,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> DispatchResult {
 		let (_, deposit) = Attribute::<T, I>::take((collection, maybe_item, &namespace, &key))
 			.ok_or(Error::<T, I>::AttributeNotFound)?;
-		let mut collection_details =
-			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 
-		if let Some(check_owner) = &maybe_check_owner {
+		if let Some(check_origin) = &maybe_check_origin {
 			// validate the provided namespace when it's not a root call and the caller is not
 			// the same as the `deposit.account` (e.g. the deposit was paid by different account)
-			if deposit.account != maybe_check_owner {
+			if deposit.account != maybe_check_origin {
 				ensure!(
-					Self::is_valid_namespace(
-						&check_owner,
-						&namespace,
-						&collection,
-						&collection_details.owner,
-						&maybe_item,
-					)?,
+					Self::is_valid_namespace(&check_origin, &namespace, &collection, &maybe_item)?,
 					Error::<T, I>::NoPermission
 				);
 			}
@@ -211,23 +320,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 							.map_or(None, |c| {
 								Some(c.has_disabled_setting(ItemSetting::UnlockedAttributes))
 							});
-						match maybe_is_locked {
-							Some(is_locked) => {
-								// when item exists, then only the collection's owner can clear that
-								// attribute
-								ensure!(
-									check_owner == &collection_details.owner,
-									Error::<T, I>::NoPermission
-								);
-								ensure!(!is_locked, Error::<T, I>::LockedItemAttributes);
-							},
-							None => (),
+						if let Some(is_locked) = maybe_is_locked {
+							ensure!(!is_locked, Error::<T, I>::LockedItemAttributes);
+							// Only the collection's admin can clear attributes in that namespace.
+							// e.g. in off-chain mints, the attribute's depositor will be the item's
+							// owner, that's why we need to do this extra check.
+							ensure!(
+								Self::has_role(&collection, &check_origin, CollectionRole::Admin),
+								Error::<T, I>::NoPermission
+							);
 						}
 					},
 				},
 				_ => (),
 			};
 		}
+
+		let mut collection_details =
+			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 
 		collection_details.attributes.saturating_dec();
 
@@ -248,6 +358,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
+	/// Approves a delegate to set attributes on behalf of the item's owner.
+	///
+	/// This function allows the owner of an item to approve a delegate to set attributes in the
+	/// `Account(delegate)` namespace. The maximum number of approvals is determined by
+	/// the configuration `T::MaxAttributesApprovals`.
+	///
+	/// - `check_origin`: The account of the item's owner attempting to approve the delegate.
+	/// - `collection`: The identifier of the collection to which the item belongs.
+	/// - `item`: The identifier of the item for which the delegate is being approved.
+	/// - `delegate`: The account that is being approved to set attributes on behalf of the item's
+	///   owner.
 	pub(crate) fn do_approve_item_attributes(
 		check_origin: T::AccountId,
 		collection: T::CollectionId,
@@ -272,6 +393,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
+	/// Cancels the approval of an item's attributes by a delegate.
+	///
+	/// This function allows the owner of an item to cancel the approval of a delegate to set
+	/// attributes in the `Account(delegate)` namespace. The delegate's approval is removed, in
+	/// addition to attributes the `delegate` previously created, and any unreserved deposit
+	/// is returned. The number of attributes that the delegate has set for the item must
+	/// not exceed the `account_attributes` provided in the `witness`.
+	/// This function is used to prevent unintended or malicious cancellations.
+	///
+	/// - `check_origin`: The account of the item's owner attempting to cancel the delegate's
+	///   approval.
+	/// - `collection`: The identifier of the collection to which the item belongs.
+	/// - `item`: The identifier of the item for which the delegate's approval is being canceled.
+	/// - `delegate`: The account whose approval is being canceled.
+	/// - `witness`: The witness containing the number of attributes set by the delegate for the
+	///   item.
 	pub(crate) fn do_cancel_item_attributes_approval(
 		check_origin: T::AccountId,
 		collection: T::CollectionId,
@@ -315,16 +452,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})
 	}
 
+	/// A helper method to check whether an attribute namespace is valid.
 	fn is_valid_namespace(
 		origin: &T::AccountId,
 		namespace: &AttributeNamespace<T::AccountId>,
 		collection: &T::CollectionId,
-		collection_owner: &T::AccountId,
 		maybe_item: &Option<T::ItemId>,
 	) -> Result<bool, DispatchError> {
 		let mut result = false;
 		match namespace {
-			AttributeNamespace::CollectionOwner => result = origin == collection_owner,
+			AttributeNamespace::CollectionOwner =>
+				result = Self::has_role(&collection, &origin, CollectionRole::Admin),
 			AttributeNamespace::ItemOwner =>
 				if let Some(item) = maybe_item {
 					let item_details =
@@ -341,17 +479,47 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(result)
 	}
 
-	/// A helper method to construct attribute's key.
+	/// A helper method to construct an attribute's key.
+	///
+	/// # Errors
+	///
+	/// This function returns an [`IncorrectData`](crate::Error::IncorrectData) error if the
+	/// provided attribute `key` is too long.
 	pub fn construct_attribute_key(
 		key: Vec<u8>,
 	) -> Result<BoundedVec<u8, T::KeyLimit>, DispatchError> {
 		Ok(BoundedVec::try_from(key).map_err(|_| Error::<T, I>::IncorrectData)?)
 	}
 
-	/// A helper method to construct attribute's value.
+	/// A helper method to construct an attribute's value.
+	///
+	/// # Errors
+	///
+	/// This function returns an [`IncorrectData`](crate::Error::IncorrectData) error if the
+	/// provided `value` is too long.
 	pub fn construct_attribute_value(
 		value: Vec<u8>,
 	) -> Result<BoundedVec<u8, T::ValueLimit>, DispatchError> {
 		Ok(BoundedVec::try_from(value).map_err(|_| Error::<T, I>::IncorrectData)?)
+	}
+
+	/// A helper method to check whether a system attribute is set for a given item.
+	///
+	/// # Errors
+	///
+	/// This function returns an [`IncorrectData`](crate::Error::IncorrectData) error if the
+	/// provided pallet attribute is too long.
+	pub fn has_system_attribute(
+		collection: &T::CollectionId,
+		item: &T::ItemId,
+		attribute_key: PalletAttributes<T::CollectionId>,
+	) -> Result<bool, DispatchError> {
+		let attribute = (
+			&collection,
+			Some(item),
+			AttributeNamespace::Pallet,
+			&Self::construct_attribute_key(attribute_key.encode())?,
+		);
+		Ok(Attribute::<T, I>::contains_key(attribute))
 	}
 }

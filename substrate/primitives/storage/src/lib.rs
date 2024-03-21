@@ -19,27 +19,28 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::fmt::Display;
+extern crate alloc;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_debug_derive::RuntimeDebug;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use ref_cast::RefCast;
-use sp_std::{
+use core::{
+	fmt::Display,
 	ops::{Deref, DerefMut},
-	vec::Vec,
 };
+use ref_cast::RefCast;
 
 /// Storage key.
 #[derive(PartialEq, Eq, RuntimeDebug)]
 #[cfg_attr(
-	feature = "std",
+	feature = "serde",
 	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode)
 )]
 pub struct StorageKey(
-	#[cfg_attr(feature = "std", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
+	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
 );
 
 impl AsRef<[u8]> for StorageKey {
@@ -49,9 +50,7 @@ impl AsRef<[u8]> for StorageKey {
 }
 
 /// Storage key with read/write tracking information.
-#[derive(
-	PartialEq, Eq, Ord, PartialOrd, sp_std::hash::Hash, RuntimeDebug, Clone, Encode, Decode,
-)]
+#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, RuntimeDebug, Clone, Encode, Decode)]
 pub struct TrackedStorageKey {
 	pub key: Vec<u8>,
 	pub reads: u32,
@@ -100,11 +99,11 @@ impl From<Vec<u8>> for TrackedStorageKey {
 
 /// Storage key of a child trie, it contains the prefix to the key.
 #[derive(PartialEq, Eq, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone))]
 #[repr(transparent)]
 #[derive(RefCast)]
 pub struct PrefixedStorageKey(
-	#[cfg_attr(feature = "std", serde(with = "impl_serde::serialize"))] Vec<u8>,
+	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] Vec<u8>,
 );
 
 impl Deref for PrefixedStorageKey {
@@ -142,11 +141,11 @@ impl PrefixedStorageKey {
 /// Storage data associated to a [`StorageKey`].
 #[derive(PartialEq, Eq, RuntimeDebug)]
 #[cfg_attr(
-	feature = "std",
+	feature = "serde",
 	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)
 )]
 pub struct StorageData(
-	#[cfg_attr(feature = "std", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
+	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
 );
 
 /// Map of data to use in a storage, it is a collection of
@@ -178,8 +177,8 @@ pub struct Storage {
 
 /// Storage change set
 #[derive(RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, PartialEq, Eq))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, PartialEq, Eq, Clone))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct StorageChangeSet<Hash> {
 	/// Block hash
 	pub block: Hash,
@@ -203,6 +202,11 @@ pub mod well_known_keys {
 	///
 	/// Encodes to `0x3a65787472696e7369635f696e646578`.
 	pub const EXTRINSIC_INDEX: &[u8] = b":extrinsic_index";
+
+	/// Current intra-block entropy (a universally unique `[u8; 32]` value) is stored here.
+	///
+	/// Encodes to `0x3a696e747261626c6f636b5f656e74726f7079`.
+	pub const INTRABLOCK_ENTROPY: &[u8] = b":intrablock_entropy";
 
 	/// Prefix of child storage keys.
 	pub const CHILD_STORAGE_KEY_PREFIX: &[u8] = b":child_storage:";
@@ -242,7 +246,7 @@ pub const TRIE_VALUE_NODE_THRESHOLD: u32 = 33;
 
 /// Information related to a child state.
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "std", derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
+#[cfg_attr(feature = "serde", derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
 pub enum ChildInfo {
 	/// This is the one used by default.
 	ParentKeyId(ChildTrieParentKeyId),
@@ -273,6 +277,7 @@ impl ChildInfo {
 	/// Returns byte sequence (keyspace) that can be use by underlying db to isolate keys.
 	/// This is a unique id of the child trie. The collision resistance of this value
 	/// depends on the type of child info use. For `ChildInfo::Default` it is and need to be.
+	#[inline]
 	pub fn keyspace(&self) -> &[u8] {
 		match self {
 			ChildInfo::ParentKeyId(..) => self.storage_key(),
@@ -388,7 +393,7 @@ impl ChildType {
 /// to be a unique id that will be use only once. Those unique id also required to be long enough to
 /// avoid any unique id to be prefixed by an other unique id.
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "std", derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
+#[cfg_attr(feature = "serde", derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
 pub struct ChildTrieParentKeyId {
 	/// Data is the storage key without prefix.
 	data: Vec<u8>,
@@ -408,12 +413,13 @@ impl ChildTrieParentKeyId {
 ///
 /// V0 and V1 uses a same trie implementation, but V1 will write external value node in the trie for
 /// value with size at least `TRIE_VALUE_NODE_THRESHOLD`.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Encode, Decode))]
 pub enum StateVersion {
 	/// Old state version, no value nodes.
 	V0 = 0,
 	/// New state version can use value nodes.
+	#[default]
 	V1 = 1,
 }
 
@@ -426,12 +432,6 @@ impl Display for StateVersion {
 	}
 }
 
-impl Default for StateVersion {
-	fn default() -> Self {
-		StateVersion::V1
-	}
-}
-
 impl From<StateVersion> for u8 {
 	fn from(version: StateVersion) -> u8 {
 		version as u8
@@ -440,7 +440,7 @@ impl From<StateVersion> for u8 {
 
 impl TryFrom<u8> for StateVersion {
 	type Error = ();
-	fn try_from(val: u8) -> sp_std::result::Result<StateVersion, ()> {
+	fn try_from(val: u8) -> core::result::Result<StateVersion, ()> {
 		match val {
 			0 => Ok(StateVersion::V0),
 			1 => Ok(StateVersion::V1),

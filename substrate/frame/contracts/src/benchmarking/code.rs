@@ -24,22 +24,19 @@
 //! we define this simple definition of a contract that can be passed to `create_code` that
 //! compiles it down into a `WasmModule` that can be used as a contract's code.
 
-use crate::{Config, Determinism};
+use crate::Config;
 use frame_support::traits::Get;
-use sp_runtime::traits::Hash;
+use sp_runtime::{traits::Hash, Saturating};
 use sp_std::{borrow::ToOwned, prelude::*};
-use wasm_instrument::{
-	gas_metering,
-	parity_wasm::{
-		builder,
-		elements::{
-			self, BlockType, CustomSection, External, FuncBody, Instruction, Instructions, Module,
-			Section, ValueType,
-		},
+use wasm_instrument::parity_wasm::{
+	builder,
+	elements::{
+		self, BlockType, CustomSection, FuncBody, Instruction, Instructions, Local, Section,
+		ValueType,
 	},
 };
 
-/// The location where to put the genrated code.
+/// The location where to put the generated code.
 pub enum Location {
 	/// Generate all code into the `call` exported function.
 	Call,
@@ -125,7 +122,7 @@ impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
 		// internal functions start at that offset.
 		let func_offset = u32::try_from(def.imported_functions.len()).unwrap();
 
-		// Every contract must export "deploy" and "call" functions
+		// Every contract must export "deploy" and "call" functions.
 		let mut contract = builder::module()
 			// deploy function (first internal function)
 			.function()
@@ -166,15 +163,16 @@ impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
 		}
 
 		// Grant access to linear memory.
-		if let Some(memory) = &def.memory {
-			contract = contract
-				.import()
-				.module("env")
-				.field("memory")
-				.external()
-				.memory(memory.min_pages, Some(memory.max_pages))
-				.build();
-		}
+		// Every contract module is required to have an imported memory.
+		// If no memory is specified in the passed ModuleDefenition, then
+		// default to (1, 1).
+		let (init, max) = if let Some(memory) = &def.memory {
+			(memory.min_pages, Some(memory.max_pages))
+		} else {
+			(1, Some(1))
+		};
+
+		contract = contract.import().path("env", "memory").external().memory(init, max).build();
 
 		// Import supervisor functions. They start with idx 0.
 		for func in def.imported_functions {
@@ -240,30 +238,6 @@ impl<T: Config> From<ModuleDefinition> for WasmModule<T> {
 }
 
 impl<T: Config> WasmModule<T> {
-	/// Uses the supplied wasm module and instruments it when requested.
-	pub fn instrumented(code: &[u8], inject_gas: bool) -> Self {
-		let module = {
-			let mut module = Module::from_bytes(code).unwrap();
-			if inject_gas {
-				module = inject_gas_metering::<T>(module);
-			}
-			module
-		};
-		let limits = *module
-			.import_section()
-			.unwrap()
-			.entries()
-			.iter()
-			.find_map(|e| if let External::Memory(mem) = e.external() { Some(mem) } else { None })
-			.unwrap()
-			.limits();
-		let code = module.into_bytes().unwrap();
-		let hash = T::Hashing::hash(&code);
-		let memory =
-			ImportedMemory { min_pages: limits.initial(), max_pages: limits.maximum().unwrap() };
-		Self { code: code.into(), hash, memory: Some(memory) }
-	}
-
 	/// Creates a wasm module with an empty `call` and `deploy` function and nothing else.
 	pub fn dummy() -> Self {
 		ModuleDefinition::default().into()
@@ -288,18 +262,25 @@ impl<T: Config> WasmModule<T> {
 	/// `instantiate_with_code` for different sizes of wasm modules. The generated module maximizes
 	/// instrumentation runtime by nesting blocks as deeply as possible given the byte budget.
 	/// `code_location`: Whether to place the code into `deploy` or `call`.
-	pub fn sized(target_bytes: u32, code_location: Location) -> Self {
-		use self::elements::Instruction::{End, I32Const, If, Return};
+	pub fn sized(target_bytes: u32, code_location: Location, use_float: bool) -> Self {
+		use self::elements::Instruction::{End, GetLocal, If, Return};
 		// Base size of a contract is 63 bytes and each expansion adds 6 bytes.
 		// We do one expansion less to account for the code section and function body
 		// size fields inside the binary wasm module representation which are leb128 encoded
 		// and therefore grow in size when the contract grows. We are not allowed to overshoot
 		// because of the maximum code size that is enforced by `instantiate_with_code`.
-		let expansions = (target_bytes.saturating_sub(63) / 6).saturating_sub(1);
-		const EXPANSION: [Instruction; 4] = [I32Const(0), If(BlockType::NoResult), Return, End];
+		let mut expansions = (target_bytes.saturating_sub(63) / 6).saturating_sub(1);
+		const EXPANSION: [Instruction; 4] = [GetLocal(0), If(BlockType::NoResult), Return, End];
+		let mut locals = vec![Local::new(1, ValueType::I32)];
+		if use_float {
+			locals.push(Local::new(1, ValueType::F32));
+			locals.push(Local::new(2, ValueType::F32));
+			locals.push(Local::new(3, ValueType::F32));
+			expansions.saturating_dec();
+		}
 		let mut module =
 			ModuleDefinition { memory: Some(ImportedMemory::max::<T>()), ..Default::default() };
-		let body = Some(body::repeated(expansions, &EXPANSION));
+		let body = Some(body::repeated_with_locals(&locals, expansions, &EXPANSION));
 		match code_location {
 			Location::Call => module.call_body = body,
 			Location::Deploy => module.deploy_body = body,
@@ -366,37 +347,13 @@ impl<T: Config> WasmModule<T> {
 		}
 		.into()
 	}
-
-	pub fn unary_instr(instr: Instruction, repeat: u32) -> Self {
-		use body::DynInstr::{RandomI64Repeated, Regular};
-		ModuleDefinition {
-			call_body: Some(body::repeated_dyn(
-				repeat,
-				vec![RandomI64Repeated(1), Regular(instr), Regular(Instruction::Drop)],
-			)),
-			..Default::default()
-		}
-		.into()
-	}
-
-	pub fn binary_instr(instr: Instruction, repeat: u32) -> Self {
-		use body::DynInstr::{RandomI64Repeated, Regular};
-		ModuleDefinition {
-			call_body: Some(body::repeated_dyn(
-				repeat,
-				vec![RandomI64Repeated(2), Regular(instr), Regular(Instruction::Drop)],
-			)),
-			..Default::default()
-		}
-		.into()
-	}
 }
 
 /// Mechanisms to generate a function body that can be used inside a `ModuleDefinition`.
 pub mod body {
 	use super::*;
 
-	/// When generating contract code by repeating a wasm sequence, it's sometimes necessary
+	/// When generating contract code by repeating a Wasm sequence, it's sometimes necessary
 	/// to change those instructions on each repetition. The variants of this enum describe
 	/// various ways in which this can happen.
 	pub enum DynInstr {
@@ -405,31 +362,6 @@ pub mod body {
 		/// Insert a I32Const with incrementing value for each insertion.
 		/// (start_at, increment_by)
 		Counter(u32, u32),
-		/// Insert a I32Const with a random value in [low, high) not divisible by two.
-		/// (low, high)
-		RandomUnaligned(u32, u32),
-		/// Insert a I32Const with a random value in [low, high).
-		/// (low, high)
-		RandomI32(i32, i32),
-		/// Insert the specified amount of I32Const with a random value.
-		RandomI32Repeated(usize),
-		/// Insert the specified amount of I64Const with a random value.
-		RandomI64Repeated(usize),
-		/// Insert a GetLocal with a random offset in [low, high).
-		/// (low, high)
-		RandomGetLocal(u32, u32),
-		/// Insert a SetLocal with a random offset in [low, high).
-		/// (low, high)
-		RandomSetLocal(u32, u32),
-		/// Insert a TeeLocal with a random offset in [low, high).
-		/// (low, high)
-		RandomTeeLocal(u32, u32),
-		/// Insert a GetGlobal with a random offset in [low, high).
-		/// (low, high)
-		RandomGetGlobal(u32, u32),
-		/// Insert a SetGlobal with a random offset in [low, high).
-		/// (low, high)
-		RandomSetGlobal(u32, u32),
 	}
 
 	pub fn plain(instructions: Vec<Instruction>) -> FuncBody {
@@ -437,6 +369,14 @@ pub mod body {
 	}
 
 	pub fn repeated(repetitions: u32, instructions: &[Instruction]) -> FuncBody {
+		repeated_with_locals(&[], repetitions, instructions)
+	}
+
+	pub fn repeated_with_locals(
+		locals: &[Local],
+		repetitions: u32,
+		instructions: &[Instruction],
+	) -> FuncBody {
 		let instructions = Instructions::new(
 			instructions
 				.iter()
@@ -446,15 +386,23 @@ pub mod body {
 				.chain(sp_std::iter::once(Instruction::End))
 				.collect(),
 		);
-		FuncBody::new(Vec::new(), instructions)
+		FuncBody::new(locals.to_vec(), instructions)
+	}
+
+	pub fn repeated_with_locals_using<const N: usize>(
+		locals: &[Local],
+		repetitions: u32,
+		mut f: impl FnMut() -> [Instruction; N],
+	) -> FuncBody {
+		let mut instructions = Vec::new();
+		for _ in 0..repetitions {
+			instructions.extend(f());
+		}
+		instructions.push(Instruction::End);
+		FuncBody::new(locals.to_vec(), Instructions::new(instructions))
 	}
 
 	pub fn repeated_dyn(repetitions: u32, mut instructions: Vec<DynInstr>) -> FuncBody {
-		use rand::{distributions::Standard, prelude::*};
-
-		// We do not need to be secure here.
-		let mut rng = rand_pcg::Pcg32::seed_from_u64(8446744073709551615);
-
 		// We need to iterate over indices because we cannot cycle over mutable references
 		let body = (0..instructions.len())
 			.cycle()
@@ -466,53 +414,14 @@ pub mod body {
 					*offset += *increment_by;
 					vec![Instruction::I32Const(current as i32)]
 				},
-				DynInstr::RandomUnaligned(low, high) => {
-					let unaligned = rng.gen_range(*low..*high) | 1;
-					vec![Instruction::I32Const(unaligned as i32)]
-				},
-				DynInstr::RandomI32(low, high) => {
-					vec![Instruction::I32Const(rng.gen_range(*low..*high))]
-				},
-				DynInstr::RandomI32Repeated(num) =>
-					(&mut rng).sample_iter(Standard).take(*num).map(Instruction::I32Const).collect(),
-				DynInstr::RandomI64Repeated(num) =>
-					(&mut rng).sample_iter(Standard).take(*num).map(Instruction::I64Const).collect(),
-				DynInstr::RandomGetLocal(low, high) => {
-					vec![Instruction::GetLocal(rng.gen_range(*low..*high))]
-				},
-				DynInstr::RandomSetLocal(low, high) => {
-					vec![Instruction::SetLocal(rng.gen_range(*low..*high))]
-				},
-				DynInstr::RandomTeeLocal(low, high) => {
-					vec![Instruction::TeeLocal(rng.gen_range(*low..*high))]
-				},
-				DynInstr::RandomGetGlobal(low, high) => {
-					vec![Instruction::GetGlobal(rng.gen_range(*low..*high))]
-				},
-				DynInstr::RandomSetGlobal(low, high) => {
-					vec![Instruction::SetGlobal(rng.gen_range(*low..*high))]
-				},
 			})
 			.chain(sp_std::iter::once(Instruction::End))
 			.collect();
 		FuncBody::new(Vec::new(), Instructions::new(body))
-	}
-
-	/// Replace the locals of the supplied `body` with `num` i64 locals.
-	pub fn inject_locals(body: &mut FuncBody, num: u32) {
-		use self::elements::Local;
-		*body.locals_mut() = vec![Local::new(num, ValueType::I64)];
 	}
 }
 
 /// The maximum amount of pages any contract is allowed to have according to the current `Schedule`.
 pub fn max_pages<T: Config>() -> u32 {
 	T::Schedule::get().limits.memory_pages
-}
-
-fn inject_gas_metering<T: Config>(module: Module) -> Module {
-	let schedule = T::Schedule::get();
-	let gas_rules = schedule.rules(&module, Determinism::Deterministic);
-	let backend = gas_metering::host_function::Injector::new("seal0", "gas");
-	gas_metering::inject(module, backend, &gas_rules).unwrap()
 }

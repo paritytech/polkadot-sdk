@@ -1,0 +1,11 @@
+error: expected `weight`
+  --> tests/pallet_ui/call_weight_inherited_invalid.rs:36:17
+   |
+36 |     #[pallet::call(invalid)]
+   |                    ^^^^^^^
+
+error: expected parentheses
+  --> tests/pallet_ui/call_weight_inherited_invalid.rs:57:17
+   |
+57 |     #[pallet::call = invalid]
+   |                    ^

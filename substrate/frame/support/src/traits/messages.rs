@@ -17,12 +17,13 @@
 
 //! Traits for managing message queuing and handling.
 
+use super::storage::Footprint;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, Get, TypedGet};
 use sp_runtime::{traits::Convert, BoundedSlice, RuntimeDebug};
 use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
-use sp_weights::Weight;
+use sp_weights::{Weight, WeightMeter};
 
 /// Errors that can happen when attempting to process a message with
 /// [`ProcessMessage::process_message()`].
@@ -38,6 +39,13 @@ pub enum ProcessMessageError {
 	/// would be respected. The parameter gives the maximum weight which the message could take
 	/// to process.
 	Overweight(Weight),
+	/// The queue wants to give up its current processing slot.
+	///
+	/// Hints the message processor to cease servicing this queue and proceed to the next
+	/// one. This is seen as a *hint*, not an instruction. Implementations must therefore handle
+	/// the case that a queue is re-serviced within the same block after *yielding*. A queue is
+	/// not required to *yield* again when it is being re-serviced withing the same block.
+	Yield,
 }
 
 /// Can process messages from a specific origin.
@@ -45,12 +53,15 @@ pub trait ProcessMessage {
 	/// The transport from where a message originates.
 	type Origin: FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug;
 
-	/// Process the given message, using no more than `weight_limit` in weight to do so.
+	/// Process the given message, using no more than the remaining `meter` weight to do so.
+	///
+	/// Returns whether the message was processed.
 	fn process_message(
 		message: &[u8],
 		origin: Self::Origin,
-		weight_limit: Weight,
-	) -> Result<(bool, Weight), ProcessMessageError>;
+		meter: &mut WeightMeter,
+		id: &mut [u8; 32],
+	) -> Result<bool, ProcessMessageError>;
 }
 
 /// Errors that can happen when attempting to execute an overweight message with
@@ -59,8 +70,20 @@ pub trait ProcessMessage {
 pub enum ExecuteOverweightError {
 	/// The referenced message was not found.
 	NotFound,
+	/// The message was already processed.
+	///
+	/// This can be treated as success condition.
+	AlreadyProcessed,
 	/// The available weight was insufficient to execute the message.
 	InsufficientWeight,
+	/// The queue is paused and no message can be executed from it.
+	///
+	/// This can change at any time and may resolve in the future by re-trying.
+	QueuePaused,
+	/// An unspecified error.
+	Other,
+	/// Another call is currently ongoing and prevents this call from executing.
+	RecursiveDisallowed,
 }
 
 /// Can service queues and execute overweight messages.
@@ -85,11 +108,25 @@ pub trait ServiceQueues {
 	}
 }
 
+/// Services queues by doing nothing.
+pub struct NoopServiceQueues<OverweightAddr>(PhantomData<OverweightAddr>);
+impl<OverweightAddr> ServiceQueues for NoopServiceQueues<OverweightAddr> {
+	type OverweightMessageAddress = OverweightAddr;
+
+	fn service_queues(_: Weight) -> Weight {
+		Weight::zero()
+	}
+}
+
 /// The resource footprint of a queue.
 #[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
-pub struct Footprint {
-	pub count: u64,
-	pub size: u64,
+pub struct QueueFootprint {
+	/// The number of pages in the queue (including overweight pages).
+	pub pages: u32,
+	/// The number of pages that are ready (not yet processed and also not overweight).
+	pub ready_pages: u32,
+	/// The storage footprint of the queue (including overweight messages).
+	pub storage: Footprint,
 }
 
 /// Can enqueue messages for multiple origins.
@@ -110,7 +147,7 @@ pub trait EnqueueMessage<Origin: MaxEncodedLen> {
 	fn sweep_queue(origin: Origin);
 
 	/// Return the state footprint of the given queue.
-	fn footprint(origin: Origin) -> Footprint;
+	fn footprint(origin: Origin) -> QueueFootprint;
 }
 
 impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
@@ -122,8 +159,8 @@ impl<Origin: MaxEncodedLen> EnqueueMessage<Origin> for () {
 	) {
 	}
 	fn sweep_queue(_: Origin) {}
-	fn footprint(_: Origin) -> Footprint {
-		Footprint::default()
+	fn footprint(_: Origin) -> QueueFootprint {
+		QueueFootprint::default()
 	}
 }
 
@@ -149,7 +186,7 @@ impl<E: EnqueueMessage<O>, O: MaxEncodedLen, N: MaxEncodedLen, C: Convert<N, O>>
 		E::sweep_queue(C::convert(origin));
 	}
 
-	fn footprint(origin: N) -> Footprint {
+	fn footprint(origin: N) -> QueueFootprint {
 		E::footprint(C::convert(origin))
 	}
 }
@@ -171,7 +208,7 @@ pub trait HandleMessage {
 	fn sweep_queue();
 
 	/// Return the state footprint of the queue.
-	fn footprint() -> Footprint;
+	fn footprint() -> QueueFootprint;
 }
 
 /// Adapter type to transform an [`EnqueueMessage`] with an origin into a [`HandleMessage`] impl.
@@ -196,7 +233,25 @@ where
 		E::sweep_queue(O::get());
 	}
 
-	fn footprint() -> Footprint {
+	fn footprint() -> QueueFootprint {
 		E::footprint(O::get())
+	}
+}
+
+/// Provides information on paused queues.
+pub trait QueuePausedQuery<Origin> {
+	/// Whether this queue is paused.
+	fn is_paused(origin: &Origin) -> bool;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(8)]
+impl<Origin> QueuePausedQuery<Origin> for Tuple {
+	fn is_paused(origin: &Origin) -> bool {
+		for_tuples!( #(
+			if Tuple::is_paused(origin) {
+				return true;
+			}
+		)* );
+		false
 	}
 }

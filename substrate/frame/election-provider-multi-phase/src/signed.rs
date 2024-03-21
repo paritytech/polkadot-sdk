@@ -17,6 +17,8 @@
 
 //! The signed phase implementation.
 
+use core::marker::PhantomData;
+
 use crate::{
 	unsigned::MinerConfig, Config, ElectionCompute, Pallet, QueuedSolution, RawSolution,
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
@@ -27,12 +29,13 @@ use frame_election_provider_support::NposSolution;
 use frame_support::traits::{
 	defensive_prelude::*, Currency, Get, OnUnbalanced, ReservableCurrency,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::bounded::BoundedVec;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::{
-	traits::{Saturating, Zero},
-	RuntimeDebug,
+	traits::{Convert, Saturating, Zero},
+	FixedPointNumber, FixedPointOperand, FixedU128, Percent, RuntimeDebug,
 };
 use sp_std::{
 	cmp::Ordering,
@@ -100,10 +103,8 @@ pub type SignedSubmissionOf<T> = SignedSubmission<
 
 /// Always sorted vector of a score, submitted at the given block number, which can be found at the
 /// given index (`u32`) of the `SignedSubmissionsMap`.
-pub type SubmissionIndicesOf<T> = BoundedVec<
-	(ElectionScore, <T as frame_system::Config>::BlockNumber, u32),
-	<T as Config>::SignedMaxSubmissions,
->;
+pub type SubmissionIndicesOf<T> =
+	BoundedVec<(ElectionScore, BlockNumberFor<T>, u32), <T as Config>::SignedMaxSubmissions>;
 
 /// Outcome of [`SignedSubmissions::insert`].
 pub enum InsertResult<T: Config> {
@@ -216,7 +217,7 @@ impl<T: Config> SignedSubmissions<T> {
 	fn swap_out_submission(
 		&mut self,
 		remove_pos: usize,
-		insert: Option<(ElectionScore, T::BlockNumber, u32)>,
+		insert: Option<(ElectionScore, BlockNumberFor<T>, u32)>,
 	) -> Option<SignedSubmissionOf<T>> {
 		if remove_pos >= self.indices.len() {
 			return None
@@ -349,6 +350,32 @@ impl<T: Config> SignedSubmissions<T> {
 	}
 }
 
+/// Type that can be used to calculate the deposit base for signed submissions.
+///
+/// The deposit base is calculated as a geometric progression based on the number of signed
+/// submissions in the queue. The size of the queue represents the progression term.
+pub struct GeometricDepositBase<Balance, Fixed, Inc> {
+	_marker: (PhantomData<Balance>, PhantomData<Fixed>, PhantomData<Inc>),
+}
+
+impl<Balance, Fixed, Inc> Convert<usize, Balance> for GeometricDepositBase<Balance, Fixed, Inc>
+where
+	Balance: FixedPointOperand,
+	Fixed: Get<Balance>,
+	Inc: Get<Percent>,
+{
+	// Calculates the base deposit as a geometric progression based on the number of signed
+	// submissions.
+	//
+	// The nth term is obtained by calculating `base * (1 + increase_factor)^nth`. Example: factor
+	// 5, with initial deposit of 1000 and 10% of increase factor is 1000 * (1 + 0.1)^5.
+	fn convert(queue_len: usize) -> Balance {
+		let increase_factor: FixedU128 = FixedU128::from_u32(1) + Inc::get().into();
+
+		increase_factor.saturating_pow(queue_len).saturating_mul_int(Fixed::get())
+	}
+}
+
 impl<T: Config> Pallet<T> {
 	/// `Self` accessor for `SignedSubmission<T>`.
 	pub fn signed_submissions() -> SignedSubmissions<T> {
@@ -462,7 +489,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Infallible
 	pub fn finalize_signed_phase_accept_solution(
-		ready_solution: ReadySolution<T>,
+		ready_solution: ReadySolution<T::AccountId, T::MaxWinners>,
 		who: &T::AccountId,
 		deposit: BalanceOf<T>,
 		call_fee: BalanceOf<T>,
@@ -521,14 +548,14 @@ impl<T: Config> Pallet<T> {
 		size: SolutionOrSnapshotSize,
 	) -> BalanceOf<T> {
 		let encoded_len: u32 = raw_solution.encoded_size().saturated_into();
-		let encoded_len: BalanceOf<T> = encoded_len.into();
+		let encoded_len_balance: BalanceOf<T> = encoded_len.into();
 		let feasibility_weight = Self::solution_weight_of(raw_solution, size);
 
-		let len_deposit = T::SignedDepositByte::get().saturating_mul(encoded_len);
+		let len_deposit = T::SignedDepositByte::get().saturating_mul(encoded_len_balance);
 		let weight_deposit = T::SignedDepositWeight::get()
 			.saturating_mul(feasibility_weight.ref_time().saturated_into());
 
-		T::SignedDepositBase::get()
+		T::SignedDepositBase::convert(Self::signed_submissions().len())
 			.saturating_add(len_deposit)
 			.saturating_add(weight_deposit)
 	}
@@ -537,8 +564,46 @@ impl<T: Config> Pallet<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{mock::*, ElectionCompute, ElectionError, Error, Event, Perbill, Phase};
+	use crate::{
+		mock::*, ElectionBoundsBuilder, ElectionCompute, ElectionError, Error, Event, Perbill,
+		Phase,
+	};
 	use frame_support::{assert_noop, assert_ok, assert_storage_noop};
+	use sp_runtime::Percent;
+
+	#[test]
+	fn cannot_submit_on_different_round() {
+		ExtBuilder::default().build_and_execute(|| {
+			// roll to a few rounds ahead.
+			roll_to_round(5);
+			assert_eq!(MultiPhase::round(), 5);
+
+			roll_to_signed();
+			assert_eq!(MultiPhase::current_phase(), Phase::Signed);
+
+			// create a temp snapshot only for this test.
+			MultiPhase::create_snapshot().unwrap();
+			let mut solution = raw_solution();
+
+			// try a solution prepared in a previous round.
+			solution.round = MultiPhase::round() - 1;
+
+			assert_noop!(
+				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
+				Error::<Runtime>::PreDispatchDifferentRound,
+			);
+
+			// try a solution prepared in a later round (not expected to happen, but in any case).
+			MultiPhase::create_snapshot().unwrap();
+			let mut solution = raw_solution();
+			solution.round = MultiPhase::round() + 1;
+
+			assert_noop!(
+				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
+				Error::<Runtime>::PreDispatchDifferentRound,
+			);
+		})
+	}
 
 	#[test]
 	fn cannot_submit_too_early() {
@@ -554,6 +619,11 @@ mod tests {
 				MultiPhase::submit(RuntimeOrigin::signed(10), Box::new(solution)),
 				Error::<Runtime>::PreDispatchEarlySubmission,
 			);
+
+			// make sure invariants hold true and post-test try state checks to pass.
+			<crate::Snapshot<Runtime>>::kill();
+			<crate::SnapshotMetadata<Runtime>>::kill();
+			<crate::DesiredTargets<Runtime>>::kill();
 		})
 	}
 
@@ -561,13 +631,14 @@ mod tests {
 	fn data_provider_should_respect_target_limits() {
 		ExtBuilder::default().build_and_execute(|| {
 			// given a reduced expectation of maximum electable targets
-			MaxElectableTargets::set(2);
+			let new_bounds = ElectionBoundsBuilder::default().targets_count(2.into()).build();
+			ElectionsBounds::set(new_bounds);
 			// and a data provider that does not respect limits
 			DataProviderAllowBadData::set(true);
 
 			assert_noop!(
 				MultiPhase::create_snapshot(),
-				ElectionError::DataProvider("Snapshot too big for submission."),
+				ElectionError::DataProvider("Ensure targets bounds: bounds exceeded."),
 			);
 		})
 	}
@@ -576,13 +647,14 @@ mod tests {
 	fn data_provider_should_respect_voter_limits() {
 		ExtBuilder::default().build_and_execute(|| {
 			// given a reduced expectation of maximum electing voters
-			MaxElectingVoters::set(2);
+			let new_bounds = ElectionBoundsBuilder::default().voters_count(2.into()).build();
+			ElectionsBounds::set(new_bounds);
 			// and a data provider that does not respect limits
 			DataProviderAllowBadData::set(true);
 
 			assert_noop!(
 				MultiPhase::create_snapshot(),
-				ElectionError::DataProvider("Snapshot too big for submission."),
+				ElectionError::DataProvider("Ensure voters bounds: bounds exceeded."),
 			);
 		})
 	}
@@ -768,6 +840,56 @@ mod tests {
 				Error::<Runtime>::SignedQueueFull,
 			);
 		})
+	}
+
+	#[test]
+	fn geometric_deposit_queue_size_works() {
+		let constant = vec![1000; 10];
+		// geometric progression with 10% increase in each iteration for 10 terms.
+		let progression_10 = vec![1000, 1100, 1210, 1331, 1464, 1610, 1771, 1948, 2143, 2357];
+		let progression_40 = vec![1000, 1400, 1960, 2744, 3841, 5378, 7529, 10541, 14757, 20661];
+
+		let check_progressive_base_fee = |expected: &Vec<u64>| {
+			for s in 0..SignedMaxSubmissions::get() {
+				let account = 99 + s as u64;
+				Balances::make_free_balance_be(&account, 10000000);
+				let mut solution = raw_solution();
+				solution.score.minimal_stake -= s as u128;
+
+				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(account), Box::new(solution)));
+				assert_eq!(balances(&account).1, expected[s as usize])
+			}
+		};
+
+		ExtBuilder::default()
+			.signed_max_submission(10)
+			.signed_base_deposit(1000, true, Percent::from_percent(0))
+			.build_and_execute(|| {
+				roll_to_signed();
+				assert!(MultiPhase::current_phase().is_signed());
+
+				check_progressive_base_fee(&constant);
+			});
+
+		ExtBuilder::default()
+			.signed_max_submission(10)
+			.signed_base_deposit(1000, true, Percent::from_percent(10))
+			.build_and_execute(|| {
+				roll_to_signed();
+				assert!(MultiPhase::current_phase().is_signed());
+
+				check_progressive_base_fee(&progression_10);
+			});
+
+		ExtBuilder::default()
+			.signed_max_submission(10)
+			.signed_base_deposit(1000, true, Percent::from_percent(40))
+			.build_and_execute(|| {
+				roll_to_signed();
+				assert!(MultiPhase::current_phase().is_signed());
+
+				check_progressive_base_fee(&progression_40);
+			});
 	}
 
 	#[test]
@@ -1254,13 +1376,13 @@ mod tests {
 	#[test]
 	fn cannot_consume_too_much_future_weight() {
 		ExtBuilder::default()
-			.signed_weight(Weight::from_ref_time(40).set_proof_size(u64::MAX))
+			.signed_weight(Weight::from_parts(40, u64::MAX))
 			.mock_weight_info(MockedWeightInfo::Basic)
 			.build_and_execute(|| {
 				roll_to_signed();
 				assert!(MultiPhase::current_phase().is_signed());
 
-				let (raw, witness) = MultiPhase::mine_solution().unwrap();
+				let (raw, witness, _) = MultiPhase::mine_solution().unwrap();
 				let solution_weight = <Runtime as MinerConfig>::solution_weight(
 					witness.voters,
 					witness.targets,
@@ -1268,16 +1390,16 @@ mod tests {
 					raw.solution.unique_targets().len() as u32,
 				);
 				// default solution will have 5 edges (5 * 5 + 10)
-				assert_eq!(solution_weight, Weight::from_ref_time(35));
+				assert_eq!(solution_weight, Weight::from_parts(35, 0));
 				assert_eq!(raw.solution.voter_count(), 5);
 				assert_eq!(
 					<Runtime as Config>::SignedMaxWeight::get(),
-					Weight::from_ref_time(40).set_proof_size(u64::MAX)
+					Weight::from_parts(40, u64::MAX)
 				);
 
 				assert_ok!(MultiPhase::submit(RuntimeOrigin::signed(99), Box::new(raw.clone())));
 
-				<SignedMaxWeight>::set(Weight::from_ref_time(30).set_proof_size(u64::MAX));
+				<SignedMaxWeight>::set(Weight::from_parts(30, u64::MAX));
 
 				// note: resubmitting the same solution is technically okay as long as the queue has
 				// space.

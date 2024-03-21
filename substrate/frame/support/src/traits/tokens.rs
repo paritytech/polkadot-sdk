@@ -27,7 +27,11 @@ pub mod nonfungible_v2;
 pub mod nonfungibles;
 pub mod nonfungibles_v2;
 pub use imbalance::Imbalance;
+pub mod pay;
 pub use misc::{
-	AssetId, AttributeNamespace, Balance, BalanceConversion, BalanceStatus, DepositConsequence,
-	ExistenceRequirement, Locker, WithdrawConsequence, WithdrawReasons,
+	AssetId, Balance, BalanceStatus, ConversionFromAssetBalance, ConversionToAssetBalance,
+	ConvertRank, DepositConsequence, ExistenceRequirement, Fortitude, GetSalary, Locker, Precision,
+	Preservation, Provenance, Restriction, UnityAssetBalanceConversion, WithdrawConsequence,
+	WithdrawReasons,
 };
+pub use pay::{Pay, PayFromAccount, PaymentStatus};

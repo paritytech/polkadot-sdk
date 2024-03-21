@@ -1,0 +1,82 @@
+[package]
+name = "polkadot-test-service"
+publish = false
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+futures = "0.3.21"
+hex = "0.4.3"
+gum = { package = "tracing-gum", path = "../../gum" }
+rand = "0.8.5"
+serde_json = { workspace = true, default-features = true }
+tempfile = "3.2.0"
+tokio = "1.24.2"
+
+# Polkadot dependencies
+polkadot-overseer = { path = "../../overseer" }
+polkadot-primitives = { path = "../../../primitives" }
+polkadot-parachain-primitives = { path = "../../../parachain" }
+polkadot-rpc = { path = "../../../rpc" }
+polkadot-runtime-common = { path = "../../../runtime/common" }
+polkadot-service = { path = "../../service" }
+polkadot-node-subsystem = { path = "../../subsystem" }
+polkadot-node-primitives = { path = "../../primitives" }
+polkadot-test-runtime = { path = "../../../runtime/test-runtime" }
+test-runtime-constants = { path = "../../../runtime/test-runtime/constants" }
+polkadot-runtime-parachains = { path = "../../../runtime/parachains" }
+
+# Substrate dependencies
+sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
+sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
+babe = { package = "sc-consensus-babe", path = "../../../../substrate/client/consensus/babe" }
+babe-primitives = { package = "sp-consensus-babe", path = "../../../../substrate/primitives/consensus/babe" }
+consensus_common = { package = "sp-consensus", path = "../../../../substrate/primitives/consensus/common" }
+frame-system = { path = "../../../../substrate/frame/system" }
+grandpa = { package = "sc-consensus-grandpa", path = "../../../../substrate/client/consensus/grandpa" }
+grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../../substrate/primitives/consensus/grandpa" }
+inherents = { package = "sp-inherents", path = "../../../../substrate/primitives/inherents" }
+pallet-staking = { path = "../../../../substrate/frame/staking" }
+pallet-balances = { path = "../../../../substrate/frame/balances" }
+pallet-transaction-payment = { path = "../../../../substrate/frame/transaction-payment" }
+sc-chain-spec = { path = "../../../../substrate/client/chain-spec" }
+sc-cli = { path = "../../../../substrate/client/cli" }
+sc-client-api = { path = "../../../../substrate/client/api" }
+sc-consensus = { path = "../../../../substrate/client/consensus/common" }
+sc-network = { path = "../../../../substrate/client/network" }
+sc-tracing = { path = "../../../../substrate/client/tracing" }
+sc-transaction-pool = { path = "../../../../substrate/client/transaction-pool" }
+sc-service = { path = "../../../../substrate/client/service", default-features = false }
+sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic" }
+sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
+sp-core = { path = "../../../../substrate/primitives/core" }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+sp-runtime = { path = "../../../../substrate/primitives/runtime" }
+sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
+substrate-test-client = { path = "../../../../substrate/test-utils/client" }
+
+[dev-dependencies]
+pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false }
+substrate-test-utils = { path = "../../../../substrate/test-utils" }
+tokio = { version = "1.24.2", features = ["macros"] }
+
+[features]
+runtime-metrics = ["polkadot-test-runtime/runtime-metrics"]
+runtime-benchmarks = [
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"polkadot-service/runtime-benchmarks",
+	"polkadot-test-runtime/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

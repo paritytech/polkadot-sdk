@@ -159,13 +159,12 @@ use frame_support::{
 	traits::{
 		defensive_prelude::*,
 		schedule::{v3::Named as ScheduleNamed, DispatchTime},
-		Bounded, Currency, EnsureOrigin, Get, Hash as PreimageHash, LockIdentifier,
-		LockableCurrency, OnUnbalanced, QueryPreimage, ReservableCurrency, StorePreimage,
-		WithdrawReasons,
+		Bounded, Currency, EnsureOrigin, Get, LockIdentifier, LockableCurrency, OnUnbalanced,
+		QueryPreimage, ReservableCurrency, StorePreimage, WithdrawReasons,
 	},
 	weights::Weight,
 };
-use frame_system::pallet_prelude::OriginFor;
+use frame_system::pallet_prelude::{BlockNumberFor, OriginFor};
 use sp_runtime::{
 	traits::{Bounded as ArithBounded, One, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, DispatchResult,
@@ -195,7 +194,7 @@ pub mod benchmarking;
 
 pub mod migrations;
 
-const DEMOCRACY_ID: LockIdentifier = *b"democrac";
+pub(crate) const DEMOCRACY_ID: LockIdentifier = *b"democrac";
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -203,7 +202,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
-pub type BoundedCallOf<T> = Bounded<CallOf<T>>;
+pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
@@ -211,13 +210,11 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_core::H256;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
@@ -227,14 +224,19 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The Scheduler.
-		type Scheduler: ScheduleNamed<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>;
+		type Scheduler: ScheduleNamed<
+			BlockNumberFor<Self>,
+			CallOf<Self>,
+			Self::PalletsOrigin,
+			Hasher = Self::Hashing,
+		>;
 
 		/// The Preimage provider.
-		type Preimages: QueryPreimage + StorePreimage;
+		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
 		/// Currency type for this pallet.
 		type Currency: ReservableCurrency<Self::AccountId>
-			+ LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
 
 		/// The period between a proposal being approved and enacted.
 		///
@@ -242,22 +244,22 @@ pub mod pallet {
 		/// voting stakers have an opportunity to remove themselves from the system in the case
 		/// where they are on the losing side of a vote.
 		#[pallet::constant]
-		type EnactmentPeriod: Get<Self::BlockNumber>;
+		type EnactmentPeriod: Get<BlockNumberFor<Self>>;
 
 		/// How often (in blocks) new public referenda are launched.
 		#[pallet::constant]
-		type LaunchPeriod: Get<Self::BlockNumber>;
+		type LaunchPeriod: Get<BlockNumberFor<Self>>;
 
 		/// How often (in blocks) to check for new votes.
 		#[pallet::constant]
-		type VotingPeriod: Get<Self::BlockNumber>;
+		type VotingPeriod: Get<BlockNumberFor<Self>>;
 
 		/// The minimum period of vote locking.
 		///
 		/// It should be no shorter than enactment period to ensure that in the case of an approval,
 		/// those successful voters are locked into the consequences that their votes entail.
 		#[pallet::constant]
-		type VoteLockingPeriod: Get<Self::BlockNumber>;
+		type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
 
 		/// The minimum amount to be used as a deposit for a public referendum proposal.
 		#[pallet::constant]
@@ -271,11 +273,11 @@ pub mod pallet {
 
 		/// Minimum voting period allowed for a fast-track referendum.
 		#[pallet::constant]
-		type FastTrackVotingPeriod: Get<Self::BlockNumber>;
+		type FastTrackVotingPeriod: Get<BlockNumberFor<Self>>;
 
 		/// Period in blocks where an external proposal may not be re-submitted after being vetoed.
 		#[pallet::constant]
-		type CooloffPeriod: Get<Self::BlockNumber>;
+		type CooloffPeriod: Get<BlockNumberFor<Self>>;
 
 		/// The maximum number of votes for an account.
 		///
@@ -307,6 +309,11 @@ pub mod pallet {
 		/// Origin from which the next tabled referendum may be forced; this allows for the tabling
 		/// of a negative-turnout-bias (default-carries) referendum.
 		type ExternalDefaultOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Origin from which the new proposal can be made.
+		///
+		/// The success variant is the account id of the depositor.
+		type SubmitOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Origin from which the next majority-carries (or more permissive) referendum may be
 		/// tabled to vote according to the `FastTrackVotingPeriod` asynchronously in a similar
@@ -383,7 +390,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		ReferendumIndex,
-		ReferendumInfo<T::BlockNumber, BoundedCallOf<T>, BalanceOf<T>>,
+		ReferendumInfo<BlockNumberFor<T>, BoundedCallOf<T>, BalanceOf<T>>,
 	>;
 
 	/// All votes for a particular voter. We store the balance for the number of votes that we
@@ -395,7 +402,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		Voting<BalanceOf<T>, T::AccountId, T::BlockNumber, T::MaxVotes>,
+		Voting<BalanceOf<T>, T::AccountId, BlockNumberFor<T>, T::MaxVotes>,
 		ValueQuery,
 	>;
 
@@ -417,37 +424,32 @@ pub mod pallet {
 	pub type Blacklist<T: Config> = StorageMap<
 		_,
 		Identity,
-		H256,
-		(T::BlockNumber, BoundedVec<T::AccountId, T::MaxBlacklisted>),
+		T::Hash,
+		(BlockNumberFor<T>, BoundedVec<T::AccountId, T::MaxBlacklisted>),
 	>;
 
 	/// Record of all proposals that have been subject to emergency cancellation.
 	#[pallet::storage]
-	pub type Cancellations<T: Config> = StorageMap<_, Identity, H256, bool, ValueQuery>;
+	pub type Cancellations<T: Config> = StorageMap<_, Identity, T::Hash, bool, ValueQuery>;
 
 	/// General information concerning any proposal or referendum.
-	/// The `PreimageHash` refers to the preimage of the `Preimages` provider which can be a JSON
+	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
 	/// dump or IPFS hash of a JSON file.
 	///
 	/// Consider a garbage collection for a metadata of finished referendums to `unrequest` (remove)
 	/// large preimages.
 	#[pallet::storage]
-	pub type MetadataOf<T: Config> = StorageMap<_, Blake2_128Concat, MetadataOwner, PreimageHash>;
+	pub type MetadataOf<T: Config> = StorageMap<_, Blake2_128Concat, MetadataOwner, T::Hash>;
 
 	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		_phantom: sp_std::marker::PhantomData<T>,
-	}
-
-	#[cfg(feature = "std")]
-	impl<T: Config> Default for GenesisConfig<T> {
-		fn default() -> Self {
-			GenesisConfig { _phantom: Default::default() }
-		}
+		#[serde(skip)]
+		_config: sp_std::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			PublicPropCount::<T>::put(0 as PropIndex);
 			ReferendumCount::<T>::put(0 as ReferendumIndex);
@@ -477,9 +479,9 @@ pub mod pallet {
 		/// An account has cancelled a previous delegation operation.
 		Undelegated { account: T::AccountId },
 		/// An external proposal has been vetoed.
-		Vetoed { who: T::AccountId, proposal_hash: H256, until: T::BlockNumber },
+		Vetoed { who: T::AccountId, proposal_hash: T::Hash, until: BlockNumberFor<T> },
 		/// A proposal_hash has been blacklisted permanently.
-		Blacklisted { proposal_hash: H256 },
+		Blacklisted { proposal_hash: T::Hash },
 		/// An account has voted in a referendum
 		Voted { voter: T::AccountId, ref_index: ReferendumIndex, vote: AccountVote<BalanceOf<T>> },
 		/// An account has secconded a proposal
@@ -491,14 +493,14 @@ pub mod pallet {
 			/// Metadata owner.
 			owner: MetadataOwner,
 			/// Preimage hash.
-			hash: PreimageHash,
+			hash: T::Hash,
 		},
 		/// Metadata for a proposal or a referendum has been cleared.
 		MetadataCleared {
 			/// Metadata owner.
 			owner: MetadataOwner,
 			/// Preimage hash.
-			hash: PreimageHash,
+			hash: T::Hash,
 		},
 		/// Metadata has been transferred to new owner.
 		MetadataTransferred {
@@ -507,7 +509,7 @@ pub mod pallet {
 			/// New metadata owner.
 			owner: MetadataOwner,
 			/// Preimage hash.
-			hash: PreimageHash,
+			hash: T::Hash,
 		},
 	}
 
@@ -567,7 +569,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Weight: see `begin_block`
-		fn on_initialize(n: T::BlockNumber) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			Self::begin_block(n)
 		}
 	}
@@ -590,7 +592,7 @@ pub mod pallet {
 			proposal: BoundedCallOf<T>,
 			#[pallet::compact] value: BalanceOf<T>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let who = T::SubmitOrigin::ensure_origin(origin)?;
 			ensure!(value >= T::MinimumDeposit::get(), Error::<T>::ValueLow);
 
 			let index = Self::public_prop_count();
@@ -776,9 +778,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::fast_track())]
 		pub fn fast_track(
 			origin: OriginFor<T>,
-			proposal_hash: H256,
-			voting_period: T::BlockNumber,
-			delay: T::BlockNumber,
+			proposal_hash: T::Hash,
+			voting_period: BlockNumberFor<T>,
+			delay: BlockNumberFor<T>,
 		) -> DispatchResult {
 			// Rather complicated bit of code to ensure that either:
 			// - `voting_period` is at least `FastTrackVotingPeriod` and `origin` is
@@ -796,7 +798,7 @@ pub mod pallet {
 				ensure!(T::InstantAllowed::get(), Error::<T>::InstantNotAllowed);
 			}
 
-			ensure!(voting_period > T::BlockNumber::zero(), Error::<T>::VotingPeriodLow);
+			ensure!(voting_period > Zero::zero(), Error::<T>::VotingPeriodLow);
 			let (ext_proposal, threshold) =
 				<NextExternal<T>>::get().ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(
@@ -828,7 +830,7 @@ pub mod pallet {
 		/// Weight: `O(V + log(V))` where V is number of `existing vetoers`
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::veto_external())]
-		pub fn veto_external(origin: OriginFor<T>, proposal_hash: H256) -> DispatchResult {
+		pub fn veto_external(origin: OriginFor<T>, proposal_hash: T::Hash) -> DispatchResult {
 			let who = T::VetoOrigin::ensure_origin(origin)?;
 
 			if let Some((ext_proposal, _)) = NextExternal::<T>::get() {
@@ -1043,13 +1045,14 @@ pub mod pallet {
 		#[pallet::weight((T::WeightInfo::blacklist(), DispatchClass::Operational))]
 		pub fn blacklist(
 			origin: OriginFor<T>,
-			proposal_hash: H256,
+			proposal_hash: T::Hash,
 			maybe_ref_index: Option<ReferendumIndex>,
 		) -> DispatchResult {
 			T::BlacklistOrigin::ensure_origin(origin)?;
 
 			// Insert the proposal into the blacklist.
-			let permanent = (T::BlockNumber::max_value(), BoundedVec::<T::AccountId, _>::default());
+			let permanent =
+				(BlockNumberFor::<T>::max_value(), BoundedVec::<T::AccountId, _>::default());
 			Blacklist::<T>::insert(&proposal_hash, permanent);
 
 			// Remove the queued proposal, if it's there.
@@ -1139,7 +1142,7 @@ pub mod pallet {
 		pub fn set_metadata(
 			origin: OriginFor<T>,
 			owner: MetadataOwner,
-			maybe_hash: Option<PreimageHash>,
+			maybe_hash: Option<T::Hash>,
 		) -> DispatchResult {
 			match owner {
 				MetadataOwner::External => {
@@ -1173,15 +1176,16 @@ pub mod pallet {
 }
 
 pub trait EncodeInto: Encode {
-	fn encode_into<T: AsMut<[u8]> + Default>(&self) -> T {
+	fn encode_into<T: AsMut<[u8]> + Default, H: sp_core::Hasher>(&self) -> T {
 		let mut t = T::default();
 		self.using_encoded(|data| {
 			if data.len() <= t.as_mut().len() {
 				t.as_mut()[0..data.len()].copy_from_slice(data);
 			} else {
-				// encoded self is too big to fit into a T. hash it and use the first bytes of that
-				// instead.
-				let hash = sp_io::hashing::blake2_256(data);
+				// encoded self is too big to fit into a T.
+				// hash it and use the first bytes of that instead.
+				let hash = H::hash(&data);
+				let hash = hash.as_ref();
 				let l = t.as_mut().len().min(hash.len());
 				t.as_mut()[0..l].copy_from_slice(&hash[0..l]);
 			}
@@ -1202,17 +1206,19 @@ impl<T: Config> Pallet<T> {
 
 	/// Get all referenda ready for tally at block `n`.
 	pub fn maturing_referenda_at(
-		n: T::BlockNumber,
-	) -> Vec<(ReferendumIndex, ReferendumStatus<T::BlockNumber, BoundedCallOf<T>, BalanceOf<T>>)> {
+		n: BlockNumberFor<T>,
+	) -> Vec<(ReferendumIndex, ReferendumStatus<BlockNumberFor<T>, BoundedCallOf<T>, BalanceOf<T>>)>
+	{
 		let next = Self::lowest_unbaked();
 		let last = Self::referendum_count();
 		Self::maturing_referenda_at_inner(n, next..last)
 	}
 
 	fn maturing_referenda_at_inner(
-		n: T::BlockNumber,
+		n: BlockNumberFor<T>,
 		range: core::ops::Range<PropIndex>,
-	) -> Vec<(ReferendumIndex, ReferendumStatus<T::BlockNumber, BoundedCallOf<T>, BalanceOf<T>>)> {
+	) -> Vec<(ReferendumIndex, ReferendumStatus<BlockNumberFor<T>, BoundedCallOf<T>, BalanceOf<T>>)>
+	{
 		range
 			.into_iter()
 			.map(|i| (i, Self::referendum_info(i)))
@@ -1230,7 +1236,7 @@ impl<T: Config> Pallet<T> {
 	pub fn internal_start_referendum(
 		proposal: BoundedCallOf<T>,
 		threshold: VoteThreshold,
-		delay: T::BlockNumber,
+		delay: BlockNumberFor<T>,
 	) -> ReferendumIndex {
 		<Pallet<T>>::inject_referendum(
 			<frame_system::Pallet<T>>::block_number().saturating_add(T::VotingPeriod::get()),
@@ -1251,8 +1257,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Ok if the given referendum is active, Err otherwise
 	fn ensure_ongoing(
-		r: ReferendumInfo<T::BlockNumber, BoundedCallOf<T>, BalanceOf<T>>,
-	) -> Result<ReferendumStatus<T::BlockNumber, BoundedCallOf<T>, BalanceOf<T>>, DispatchError> {
+		r: ReferendumInfo<BlockNumberFor<T>, BoundedCallOf<T>, BalanceOf<T>>,
+	) -> Result<ReferendumStatus<BlockNumberFor<T>, BoundedCallOf<T>, BalanceOf<T>>, DispatchError>
+	{
 		match r {
 			ReferendumInfo::Ongoing(s) => Ok(s),
 			_ => Err(Error::<T>::ReferendumInvalid.into()),
@@ -1261,7 +1268,8 @@ impl<T: Config> Pallet<T> {
 
 	fn referendum_status(
 		ref_index: ReferendumIndex,
-	) -> Result<ReferendumStatus<T::BlockNumber, BoundedCallOf<T>, BalanceOf<T>>, DispatchError> {
+	) -> Result<ReferendumStatus<BlockNumberFor<T>, BoundedCallOf<T>, BalanceOf<T>>, DispatchError>
+	{
 		let info = ReferendumInfoOf::<T>::get(ref_index).ok_or(Error::<T>::ReferendumInvalid)?;
 		Self::ensure_ongoing(info)
 	}
@@ -1304,7 +1312,12 @@ impl<T: Config> Pallet<T> {
 		})?;
 		// Extend the lock to `balance` (rather than setting it) since we don't know what other
 		// votes are in place.
-		T::Currency::extend_lock(DEMOCRACY_ID, who, vote.balance(), WithdrawReasons::TRANSFER);
+		T::Currency::extend_lock(
+			DEMOCRACY_ID,
+			who,
+			vote.balance(),
+			WithdrawReasons::except(WithdrawReasons::RESERVE),
+		);
 		ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
 		Ok(())
 	}
@@ -1450,7 +1463,12 @@ impl<T: Config> Pallet<T> {
 			let votes = Self::increase_upstream_delegation(&target, conviction.votes(balance));
 			// Extend the lock to `balance` (rather than setting it) since we don't know what other
 			// votes are in place.
-			T::Currency::extend_lock(DEMOCRACY_ID, &who, balance, WithdrawReasons::TRANSFER);
+			T::Currency::extend_lock(
+				DEMOCRACY_ID,
+				&who,
+				balance,
+				WithdrawReasons::except(WithdrawReasons::RESERVE),
+			);
 			Ok(votes)
 		})?;
 		Self::deposit_event(Event::<T>::Delegated { who, target });
@@ -1495,16 +1513,21 @@ impl<T: Config> Pallet<T> {
 		if lock_needed.is_zero() {
 			T::Currency::remove_lock(DEMOCRACY_ID, who);
 		} else {
-			T::Currency::set_lock(DEMOCRACY_ID, who, lock_needed, WithdrawReasons::TRANSFER);
+			T::Currency::set_lock(
+				DEMOCRACY_ID,
+				who,
+				lock_needed,
+				WithdrawReasons::except(WithdrawReasons::RESERVE),
+			);
 		}
 	}
 
 	/// Start a referendum
 	fn inject_referendum(
-		end: T::BlockNumber,
+		end: BlockNumberFor<T>,
 		proposal: BoundedCallOf<T>,
 		threshold: VoteThreshold,
-		delay: T::BlockNumber,
+		delay: BlockNumberFor<T>,
 	) -> ReferendumIndex {
 		let ref_index = Self::referendum_count();
 		ReferendumCount::<T>::put(ref_index + 1);
@@ -1517,7 +1540,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Table the next waiting proposal for a vote.
-	fn launch_next(now: T::BlockNumber) -> DispatchResult {
+	fn launch_next(now: BlockNumberFor<T>) -> DispatchResult {
 		if LastTabledWasExternal::<T>::take() {
 			Self::launch_public(now).or_else(|_| Self::launch_external(now))
 		} else {
@@ -1527,7 +1550,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Table the waiting external proposal for a vote, if there is one.
-	fn launch_external(now: T::BlockNumber) -> DispatchResult {
+	fn launch_external(now: BlockNumberFor<T>) -> DispatchResult {
 		if let Some((proposal, threshold)) = <NextExternal<T>>::take() {
 			LastTabledWasExternal::<T>::put(true);
 			Self::deposit_event(Event::<T>::ExternalTabled);
@@ -1545,7 +1568,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Table the waiting public proposal with the highest backing for a vote.
-	fn launch_public(now: T::BlockNumber) -> DispatchResult {
+	fn launch_public(now: BlockNumberFor<T>) -> DispatchResult {
 		let mut public_props = Self::public_props();
 		if let Some((winner_index, _)) = public_props.iter().enumerate().max_by_key(
 			// defensive only: All current public proposals have an amount locked
@@ -1578,25 +1601,20 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn bake_referendum(
-		now: T::BlockNumber,
+		now: BlockNumberFor<T>,
 		index: ReferendumIndex,
-		status: ReferendumStatus<T::BlockNumber, BoundedCallOf<T>, BalanceOf<T>>,
+		status: ReferendumStatus<BlockNumberFor<T>, BoundedCallOf<T>, BalanceOf<T>>,
 	) -> bool {
 		let total_issuance = T::Currency::total_issuance();
 		let approved = status.threshold.approved(status.tally, total_issuance);
 
 		if approved {
 			Self::deposit_event(Event::<T>::Passed { ref_index: index });
-			// Actually `hold` the proposal now since we didn't hold it when it came in via the
-			// submit extrinsic and we now know that it will be needed. This will be reversed by
-			// Scheduler pallet once it is executed which assumes that we will already have placed
-			// a `hold` on it.
-			T::Preimages::hold(&status.proposal);
 
 			// Earliest it can be scheduled for is next block.
 			let when = now.saturating_add(status.delay.max(One::one()));
 			if T::Scheduler::schedule_named(
-				(DEMOCRACY_ID, index).encode_into(),
+				(DEMOCRACY_ID, index).encode_into::<_, T::Hashing>(),
 				DispatchTime::At(when),
 				None,
 				63,
@@ -1620,7 +1638,7 @@ impl<T: Config> Pallet<T> {
 	/// ## Complexity:
 	/// If a referendum is launched or maturing, this will take full block weight if queue is not
 	/// empty. Otherwise, `O(R)` where `R` is the number of unbaked referenda.
-	fn begin_block(now: T::BlockNumber) -> Weight {
+	fn begin_block(now: BlockNumberFor<T>) -> Weight {
 		let max_block_weight = T::BlockWeights::get().max_block;
 		let mut weight = Weight::zero();
 

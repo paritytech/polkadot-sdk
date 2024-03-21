@@ -15,7 +15,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "std")]
+//! Types that implement [`PerThing`](PerThing) can be used as a floating-point alternative for
+//! numbers that operate within the realm of `[0, 1]`. The primary types may you encounter in
+//! Substrate would be the following:
+//! - [`Percent`](Percent) - parts of one hundred.
+//! - [`Permill`](Permill) - parts of a million.
+//! - [`Perbill`](Perbill) - parts of a billion.
+//!
+//! In use, you may see them being used as follows:
+//!
+//! > **[`Perbill`](Perbill), parts of a billion**
+#![doc = docify::embed!("./src/lib.rs", perbill_example)]
+//! > **[`Percent`](Percent), parts of a hundred**
+#![doc = docify::embed!("./src/lib.rs", percent_example)]
+//!
+//! Note that `Percent` is represented as a _rounded down_, fixed point
+//! number (see the example above). Unlike primitive types, types that implement
+//! [`PerThing`](PerThing) will also not overflow, and are therefore safe to use.
+//! They adopt the same behavior that a saturated calculation would provide, meaning that if one is
+//! to go over "100%", it wouldn't overflow, but simply stop at the upper or lower bound.
+//!
+//! For use cases which require precision beyond the range of `[0, 1]`, there are fixed-point types
+//! which can be used.
+//!
+//! Each of these can be used to construct and represent ratios within our runtime.
+//! You will find types like [`Perbill`](Perbill) being used often in pallet
+//! development.  `pallet_referenda` is a good example of a pallet which makes good use of fixed
+//! point arithmetic, as it relies on representing various curves and thresholds relating to
+//! governance.
+//!
+//! #### Fixed Point Arithmetic with [`PerThing`](PerThing)
+//!
+//! As stated, one can also perform mathematics using these types directly. For example, finding the
+//! percentage of a particular item:
+
+#![doc = docify::embed!("./src/lib.rs", percent_mult)]
+
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::traits::{
@@ -23,12 +59,11 @@ use crate::traits::{
 	Saturating, UniqueSaturatedInto, Unsigned, Zero,
 };
 use codec::{CompactAs, Encode};
-use num_traits::{Pow, SaturatingAdd, SaturatingSub};
-use sp_std::{
+use core::{
 	fmt, ops,
-	ops::{Add, AddAssign, Div, Rem, Sub},
-	prelude::*,
+	ops::{Add, Sub},
 };
+use num_traits::{Pow, SaturatingAdd, SaturatingSub};
 
 /// Get the inner type of a `PerThing`.
 pub type InnerOf<P> = <P as PerThing>::Inner;
@@ -46,6 +81,7 @@ pub trait RationalArg:
 	+ Unsigned
 	+ Zero
 	+ One
+	+ crate::MultiplyRational
 {
 }
 
@@ -58,7 +94,8 @@ impl<
 			+ ops::AddAssign<Self>
 			+ Unsigned
 			+ Zero
-			+ One,
+			+ One
+			+ crate::MultiplyRational,
 	> RationalArg for T
 {
 }
@@ -105,7 +142,7 @@ pub trait PerThing:
 	+ Pow<usize, Output = Self>
 {
 	/// The data type used to build this per-thingy.
-	type Inner: BaseArithmetic + Unsigned + Copy + Into<u128> + fmt::Debug;
+	type Inner: BaseArithmetic + Unsigned + Copy + Into<u128> + fmt::Debug + crate::MultiplyRational;
 
 	/// A data type larger than `Self::Inner`, used to avoid overflow in some computations.
 	/// It must be able to compute `ACCURACY^2`.
@@ -115,7 +152,8 @@ pub trait PerThing:
 		+ TryInto<Self::Inner>
 		+ UniqueSaturatedInto<Self::Inner>
 		+ Unsigned
-		+ fmt::Debug;
+		+ fmt::Debug
+		+ crate::MultiplyRational;
 
 	/// The accuracy of this type.
 	const ACCURACY: Self::Inner;
@@ -411,7 +449,7 @@ pub trait PerThing:
 }
 
 /// The rounding method to use for unsigned quantities.
-#[derive(Copy, Clone, sp_std::fmt::Debug)]
+#[derive(Copy, Clone, core::fmt::Debug)]
 pub enum Rounding {
 	// Towards infinity.
 	Up,
@@ -424,7 +462,7 @@ pub enum Rounding {
 }
 
 /// The rounding method to use.
-#[derive(Copy, Clone, sp_std::fmt::Debug)]
+#[derive(Copy, Clone, core::fmt::Debug)]
 pub enum SignedRounding {
 	// Towards positive infinity.
 	High,
@@ -524,51 +562,20 @@ where
 				rem_mul_div_inner += 1.into();
 			}
 		},
-		Rounding::NearestPrefDown =>
+		Rounding::NearestPrefDown => {
 			if rem_mul_upper % denom_upper > denom_upper / 2.into() {
 				// `rem * numer / denom` is less than `numer`, so this will not overflow.
 				rem_mul_div_inner += 1.into();
-			},
-		Rounding::NearestPrefUp =>
+			}
+		},
+		Rounding::NearestPrefUp => {
 			if rem_mul_upper % denom_upper >= denom_upper / 2.into() + denom_upper % 2.into() {
 				// `rem * numer / denom` is less than `numer`, so this will not overflow.
 				rem_mul_div_inner += 1.into();
-			},
+			}
+		},
 	}
 	rem_mul_div_inner.into()
-}
-
-/// Just a simple generic integer divide with custom rounding.
-fn div_rounded<N>(n: N, d: N, r: Rounding) -> N
-where
-	N: Clone
-		+ Eq
-		+ Ord
-		+ Zero
-		+ One
-		+ AddAssign
-		+ Add<Output = N>
-		+ Rem<Output = N>
-		+ Div<Output = N>,
-{
-	let mut o = n.clone() / d.clone();
-	use Rounding::*;
-	let two = || N::one() + N::one();
-	if match r {
-		Up => !((n % d).is_zero()),
-		NearestPrefDown => {
-			let rem = n % d.clone();
-			rem > d / two()
-		},
-		NearestPrefUp => {
-			let rem = n % d.clone();
-			rem >= d.clone() / two() + d % two()
-		},
-		Down => false,
-	} {
-		o += N::one()
-	}
-	o
 }
 
 macro_rules! implement_per_thing {
@@ -584,7 +591,7 @@ macro_rules! implement_per_thing {
 		/// A fixed point representation of a number in the range [0, 1].
 		///
 		#[doc = $title]
-		#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+		#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 		#[derive(Encode, Copy, Clone, PartialEq, Eq, codec::MaxEncodedLen, PartialOrd, Ord, scale_info::TypeInfo)]
 		pub struct $name($type);
 
@@ -608,8 +615,8 @@ macro_rules! implement_per_thing {
 		}
 
 		#[cfg(feature = "std")]
-		impl sp_std::fmt::Debug for $name {
-			fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		impl core::fmt::Debug for $name {
+			fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 				if $max == <$type>::max_value() {
 					// Not a power of ten: show as N/D and approx %
 					let pc = (self.0 as f64) / (self.0 as f64) * 100f64;
@@ -634,8 +641,8 @@ macro_rules! implement_per_thing {
 		}
 
 		#[cfg(not(feature = "std"))]
-		impl sp_std::fmt::Debug for $name {
-			fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		impl core::fmt::Debug for $name {
+			fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 				if $max == <$type>::max_value() {
 					// Not a power of ten: show as N/D and approx %
 					write!(fmt, "{}/{}", self.0, $max)
@@ -687,7 +694,8 @@ macro_rules! implement_per_thing {
 					+ ops::AddAssign<N>
 					+ Unsigned
 					+ Zero
-					+ One,
+					+ One
+					+ $crate::MultiplyRational,
 				Self::Inner: Into<N>
 			{
 				// q cannot be zero.
@@ -695,30 +703,8 @@ macro_rules! implement_per_thing {
 				// p should not be bigger than q.
 				if p > q { return Err(()) }
 
-				let factor = div_rounded::<N>(q.clone(), $max.into(), Rounding::Up).max(One::one());
-
-				// q cannot overflow: (q / (q/$max)) < $max. p < q hence p also cannot overflow.
-				let q_reduce: $type = div_rounded(q, factor.clone(), r)
-					.try_into()
-					.map_err(|_| "Failed to convert")
-					.expect(
-						"`q / ceil(q/$max) < $max`; macro prevents any type being created that \
-						does not satisfy this; qed"
-					);
-				let p_reduce: $type = div_rounded(p, factor, r)
-					.try_into()
-					.map_err(|_| "Failed to convert")
-					.expect(
-						"`p / ceil(p/$max) < $max`; macro prevents any type being created that \
-						does not satisfy this; qed"
-					);
-
-				// `p_reduced` and `q_reduced` are within `Self::Inner`. Multiplication by another
-				// `$max` will always fit in `$upper_type`. This is guaranteed by the macro tests.
-				let n = p_reduce as $upper_type * <$upper_type>::from($max);
-				let d = q_reduce as $upper_type;
-				let part = div_rounded(n, d, r);
-				Ok($name(part as Self::Inner))
+				let max: N = $max.into();
+				max.multiply_rational(p, q, r).ok_or(())?.try_into().map(|x| $name(x)).map_err(|_| ())
 			}
 		}
 
@@ -1860,6 +1846,22 @@ fn from_rational_with_rounding_works_in_extreme_case() {
 		Perbill::from_rational_with_rounding(u64::max_value() - 1, u64::max_value(), r).unwrap();
 		Perbill::from_rational_with_rounding(u32::max_value() - 1, u32::max_value(), r).unwrap();
 	}
+}
+
+#[test]
+fn from_rational_with_rounding_breakage() {
+	let n = 372633774963620730670986667244911905u128;
+	let d = 512593663333074177468745541591173060u128;
+	let q = Perquintill::from_rational_with_rounding(n, d, Rounding::Down).unwrap();
+	assert!(q * d <= n);
+}
+
+#[test]
+fn from_rational_with_rounding_breakage_2() {
+	let n = 36893488147419103230u128;
+	let d = 36893488147419103630u128;
+	let q = Perquintill::from_rational_with_rounding(n, d, Rounding::Up).unwrap();
+	assert!(q * d >= n);
 }
 
 implement_per_thing!(Percent, test_per_cent, [u32, u64, u128], 100u8, u8, u16, "_Percent_",);
