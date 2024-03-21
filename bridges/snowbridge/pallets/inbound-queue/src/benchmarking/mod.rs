@@ -5,12 +5,20 @@ use super::*;
 use crate::Pallet as InboundQueue;
 use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
+use frame_support::parameter_types;
+use hex_literal::hex;
 use frame_system::RawOrigin;
 use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
+
+parameter_types! {
+	pub storage EthereumGatewayAddress: H160 = H160::zero();
+}
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+
+
 
 	#[benchmark]
 	fn submit() -> Result<(), BenchmarkError> {
@@ -22,6 +30,8 @@ mod benchmarks {
 			create_message.message.proof.block_hash,
 			create_message.execution_header,
 		);
+
+		EthereumGatewayAddress::set(hex!["EDa338E4dC46038493b885327842fD3E301CaB39"].into());
 
 		let sovereign_account = sibling_sovereign_account::<T>(1000u32.into());
 
