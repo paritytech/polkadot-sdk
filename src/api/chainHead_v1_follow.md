@@ -298,7 +298,7 @@ Calling `chainHead_unstable_unfollow` on a subscription that has produced a `sto
 
 ## Pinning
 
-The finalized blocks reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, are automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_unstable_unpin`.
+The finalized blocks reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, are automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_v1_unpin`.
 
 When a block is unpinned, on-going calls to `chainHead_v1_body`, `chainHead_v1_call` and `chainHead_v1_storage` against this block will still finish normally.
 
@@ -307,7 +307,7 @@ A block is pinned only in the context of a specific subscription. If multiple `c
 The JSON-RPC server is strongly encouraged to enforce a limit to the maximum number of pinned blocks. If this limit is reached, it should then stop the subscription by emitting a `stop` event.
 This specification does not mention any specific limit, but it must be large enough for clients to be able to pin all existing non-finalized blocks and the finalized blocks that have been reported in the previous few seconds or minutes.
 
-**Note**: A JSON-RPC client should call `chainHead_unstable_unpin` only after it is sure to no longer be interested in a certain block. This typically happens after the block has been finalized or pruned. There is no requirement to call `chainHead_unstable_unpin` as quickly as possible.
+**Note**: A JSON-RPC client should call `chainHead_v1_unpin` only after it is sure to no longer be interested in a certain block. This typically happens after the block has been finalized or pruned. There is no requirement to call `chainHead_v1_unpin` as quickly as possible.
 
 **Note**: JSON-RPC server implementers should be aware that the number of non-finalized blocks might grow to become very large, for example in the case where the finality mechanism of the chain has an issue. When enforcing a limit to the number of pinned blocks, care must be taken to not prevent the API from being unusable in that situation. A good way to implement this limit is to limit only the number of pinned *finalized* blocks.
 
