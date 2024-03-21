@@ -112,14 +112,14 @@ fn force_unstake_works() {
 			TokenError::Frozen,
 		);
 		// Force unstake requires root.
-		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed(11), 11, 2), BadOrigin);
+		assert_noop!(Staking::force_unstake(RuntimeOrigin::signed(11), 11, 2, false), BadOrigin);
 		// Force unstake needs correct number of slashing spans (for weight calculation)
 		assert_noop!(
-			Staking::force_unstake(RuntimeOrigin::root(), 11, 0),
+			Staking::force_unstake(RuntimeOrigin::root(), 11, 0, false),
 			Error::<Test>::IncorrectSlashingSpans
 		);
 		// We now force them to unstake
-		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 11, 2));
+		assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 11, 2, false));
 		// No longer bonded.
 		assert_eq!(Staking::bonded(&11), None);
 		// Transfer works.
@@ -7330,7 +7330,7 @@ mod bad_state_recovery {
 	use frame_support::traits::InspectLockableCurrency;
 
 	#[test]
-	fn force_clean_works() {
+	fn fast_unstake_force_clean_works() {
 		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			// setup the bad state:
 			// Bonded(1, 1)
@@ -7354,15 +7354,13 @@ mod bad_state_recovery {
 			// in sum, try-state checks won't pass.
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
-			// ledger bonded by stash 1 is OK and cannot be cleaned.
+			// calling force unstake without `force_clean` will fail since the ledger is corrupted.
 			assert_noop!(
-				Staking::force_clean_ledger(RuntimeOrigin::root(), 1),
-				Error::<Test>::CannotForceCleanLedger,
+				Staking::force_unstake(RuntimeOrigin::root(), 2, 0, false),
+				Error::<Test>::NotController
 			);
-			assert!(Staking::do_try_state(System::block_number()).is_err());
-
-			// ledger from stash 2 is corrupted and can be cleaned.
-			assert_ok!(Staking::force_clean_ledger(RuntimeOrigin::root(), 2));
+			// however it works and cleans up all lingering state if `force_clean` flag is set.
+			assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 2, 0, true));
 
 			// bad ledger was unbonded.
 			assert_eq!(Bonded::<Test>::get(&2), None);

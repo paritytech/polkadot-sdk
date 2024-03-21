@@ -1490,6 +1490,10 @@ pub mod pallet {
 
 		/// Force a current staker to become completely unstaked, immediately.
 		///
+		/// If `force_clean` flag is set, resort to manually clean all the storage items associated
+		/// with the stash *even* if calling kill ledger fails. Before proceeding witht the force
+		/// clean, we must ensure that the ledger associated with `stash` is in a corrupted state.
+		///
 		/// The dispatch origin must be Root.
 		///
 		/// ## Parameters
@@ -1502,11 +1506,35 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			stash: T::AccountId,
 			num_slashing_spans: u32,
+			force_clean: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Remove all staking-related information and lock.
-			Self::kill_stash(&stash, num_slashing_spans)?;
+			let killed = Self::kill_stash(&stash, num_slashing_spans);
+
+			if killed.is_err() && !force_clean {
+				return killed;
+			}
+
+			// From here on, we will force unstake the stash by manually cleaning up all the
+			// storage items associated with the stash's ledger.
+
+			// Double check that stash is corrupted before proceeding.
+			let controller = Bonded::<T>::get(&stash).ok_or(Error::<T>::NotStash)?;
+			let maybe_ledger = Ledger::<T>::get(&controller);
+			ensure!(
+				maybe_ledger.as_ref().map(|l| l.stash != stash).unwrap_or(true),
+				Error::<T>::CannotResetLedger,
+			);
+
+			// TODO: clean based on num_slashing_spans (check the ledger.kill)
+			T::Currency::remove_lock(crate::STAKING_ID, &stash);
+			Bonded::<T>::remove(&stash);
+			Payee::<T>::remove(&stash);
+			Nominators::<T>::remove(&stash);
+			Validators::<T>::remove(&stash);
+			let _ = T::VoterList::on_remove(&stash);
 
 			Ok(())
 		}
@@ -1988,52 +2016,6 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
 		}
 
-		/// Force cleans all the data and metadata related to a stash.
-		///
-		/// The requirements to force clean a stash are the following:
-		/// * The stash is bonded;
-		/// * If the stash has an associated ledger, its state must be inconsistent.
-		///
-		/// Upon successful execution, this extrinsic will clear all the data and metadata related
-		/// to a stash and its ledger.
-		///
-		/// NOTE: The ledger associated with his stash will be completely removed and the stash
-		/// will be completely unstaked from the system.
-		#[pallet::call_index(29)]
-		#[pallet::weight(0)]
-		pub fn force_clean_ledger(
-			origin: OriginFor<T>,
-			stash: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			T::AdminOrigin::ensure_origin(origin)?;
-
-			let controller = Bonded::<T>::get(&stash).ok_or(Error::<T>::NotStash)?;
-
-			// ensure that this bond is in a bad state to proceed. i.e. one of two states: either
-			// the ledger for the controller does not exist or it exists but the stash is different
-			// than expected.
-			ensure!(
-				Ledger::<T>::get(&controller).map(|l| l.stash != stash).unwrap_or(true),
-				Error::<T>::CannotForceCleanLedger
-			);
-
-			// TODO: verify what are other side effects (e.g. era points) of force cleaning a
-			// validator.
-
-			// 1. remove staking lock on the stash.
-			T::Currency::remove_lock(crate::STAKING_ID, &stash);
-			// 2. remove the bonded and payee entries of the stash to clean up.
-			Bonded::<T>::remove(&stash);
-			Payee::<T>::remove(&stash);
-			// 3. remove the nominator and validator entries for the stash.
-			Nominators::<T>::remove(&stash);
-			Validators::<T>::remove(&stash);
-			// 4. ensure the `VoterList` is cleared up.
-			let _ = T::VoterList::on_remove(&stash);
-
-			Ok(Pays::No.into())
-		}
-
 		/// Reset the state of a ledger which is in an inconsistent state.
 		///
 		/// The requirements to reset a ledger are the following:
@@ -2051,7 +2033,7 @@ pub mod pallet {
 		///
 		/// NOTE: if the stash does not have an associated ledger and the `maybe_nominations` or
 		/// `maybe_validator_prefs` are not given, the ledger will be reset as a nominator.
-		#[pallet::call_index(30)]
+		#[pallet::call_index(29)]
 		#[pallet::weight(0)]
 		pub fn reset_ledger(
 			origin: OriginFor<T>,
