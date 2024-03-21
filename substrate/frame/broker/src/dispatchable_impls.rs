@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
 			last_committed_timeslice: commit_timeslice.saturating_sub(1),
 			last_timeslice: Self::current_timeslice(),
 		};
-		let now = Self::now();
+		let now = Self::relay_height();
 		let new_sale = SaleInfoRecord {
 			sale_start: now,
 			leadin_length: Zero::zero(),
@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
 		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		ensure!(sale.first_core < status.core_count, Error::<T>::Unavailable);
 		ensure!(sale.cores_sold < sale.cores_offered, Error::<T>::SoldOut);
-		let now = Self::now();
+		let now = Self::relay_height();
 		ensure!(now > sale.sale_start, Error::<T>::TooEarly);
 		let price = Self::sale_price(&sale, now);
 		ensure!(price_limit >= price, Error::<T>::Overpriced);
@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
 
 		let begin = sale.region_end;
 		let price_cap = record.price + config.renewal_bump * record.price;
-		let now = Self::now();
+		let now = Self::relay_height();
 		let price = Self::sale_price(&sale, now).min(price_cap);
 		let new_record = AllowedRenewalRecord { price, completion: Complete(workload) };
 		AllowedRenewals::<T>::remove(renewal_id);

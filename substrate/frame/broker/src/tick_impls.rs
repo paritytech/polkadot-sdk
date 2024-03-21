@@ -146,7 +146,7 @@ impl<T: Config> Pallet<T> {
 		config: &ConfigRecordOf<T>,
 		status: &StatusRecord,
 	) -> Option<()> {
-		let now = Self::now();
+		let now = Self::relay_height();
 
 		let pool_item =
 			ScheduleItem { assignment: CoreAssignment::Pool, mask: CoreMask::complete() };
