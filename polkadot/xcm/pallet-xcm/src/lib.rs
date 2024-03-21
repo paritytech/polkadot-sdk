@@ -306,11 +306,11 @@ pub mod pallet {
 		type WeightInfo = Self;
 		fn execute_blob(
 			origin: OriginFor<T>,
-			message: BoundedVec<u8, MaxXcmEncodedSize>,
+			encoded_message: BoundedVec<u8, MaxXcmEncodedSize>,
 			max_weight: Weight,
 		) -> Result<Weight, DispatchErrorWithPostInfo> {
 			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let message = VersionedXcm::<<T as Config>::RuntimeCall>::decode(&mut &message[..])
+			let message = VersionedXcm::<<T as Config>::RuntimeCall>::decode(&mut &encoded_message[..])
 				.map_err(|error| {
 					log::error!(target: "xcm::execute_blob", "Unable to decode XCM, error: {:?}", error);
 					Error::<T>::UnableToDecode
@@ -330,10 +330,10 @@ pub mod pallet {
 		fn send_blob(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
-			message: BoundedVec<u8, MaxXcmEncodedSize>,
+			encoded_message: BoundedVec<u8, MaxXcmEncodedSize>,
 		) -> Result<XcmHash, DispatchError> {
 			let origin_location = T::SendXcmOrigin::ensure_origin(origin)?;
-			let message = VersionedXcm::<()>::decode(&mut &message[..])
+			let message = VersionedXcm::<()>::decode(&mut &encoded_message[..])
 				.map_err(|error| {
 					log::error!(target: "xcm::send_blob", "Unable to decode XCM, error: {:?}", error);
 					Error::<T>::UnableToDecode
@@ -1503,11 +1503,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::execute_blob())]
 		pub fn execute_blob(
 			origin: OriginFor<T>,
-			message: BoundedVec<u8, MaxXcmEncodedSize>,
+			encoded_message: BoundedVec<u8, MaxXcmEncodedSize>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
 			let weight_used = <Self as ExecuteController<_, _>>::execute_blob(
-				origin, message, max_weight,
+				origin, encoded_message, max_weight,
 			)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute_blob())).into())
 		}
@@ -1517,9 +1517,9 @@ pub mod pallet {
 		pub fn send_blob(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
-			message: BoundedVec<u8, MaxXcmEncodedSize>,
+			encoded_message: BoundedVec<u8, MaxXcmEncodedSize>,
 		) -> DispatchResult {
-			<Self as SendController<_>>::send_blob(origin, dest, message)?;
+			<Self as SendController<_>>::send_blob(origin, dest, encoded_message)?;
 			Ok(())
 		}
 	}
