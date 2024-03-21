@@ -22,7 +22,7 @@ use crate::{
 	paras::{Pallet as Paras, ParaKind, ParachainsCache},
 	shared::Pallet as Shared,
 };
-use frame_benchmarking::{impl_benchmark_test_suite, v2::*, whitelisted_caller};
+use frame_benchmarking::{v2::*, whitelisted_caller};
 use frame_support::{assert_ok, traits::Currency};
 
 type BalanceOf<T> =

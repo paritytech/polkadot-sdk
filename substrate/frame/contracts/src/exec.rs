@@ -1466,14 +1466,14 @@ where
 
 	fn sr25519_verify(&self, signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> bool {
 		sp_io::crypto::sr25519_verify(
-			&SR25519Signature(*signature),
+			&SR25519Signature::from(*signature),
 			message,
-			&SR25519Public(*pub_key),
+			&SR25519Public::from(*pub_key),
 		)
 	}
 
 	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()> {
-		ECDSAPublic(*pk).to_eth_address()
+		ECDSAPublic::from(*pk).to_eth_address()
 	}
 
 	#[cfg(test)]

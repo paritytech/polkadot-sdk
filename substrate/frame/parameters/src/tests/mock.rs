@@ -28,13 +28,13 @@ use frame_support::{
 use crate as pallet_parameters;
 use crate::*;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = frame_system::mocking::MockBlock<Runtime>;
 	type AccountData = pallet_balances::AccountData<<Self as pallet_balances::Config>::Balance>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
@@ -112,7 +112,7 @@ mod custom_origin {
 }
 
 #[docify::export(impl_config)]
-#[derive_impl(pallet_parameters::config_preludes::TestDefaultConfig as pallet_parameters::DefaultConfig)]
+#[derive_impl(pallet_parameters::config_preludes::TestDefaultConfig)]
 impl Config for Runtime {
 	type AdminOrigin = custom_origin::ParamsManager;
 	// RuntimeParameters is injected by the `derive_impl` macro.

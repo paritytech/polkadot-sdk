@@ -347,7 +347,7 @@ error[E0277]: the trait bound `Runtime: Config` is not satisfied
 26 |         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
    |         ^^^^^^ the trait `Config` is not implemented for `Runtime`
    |
-note: required by a bound in `frame_system::GenesisConfig`
+note: required by a bound in `GenesisConfig`
   --> $WORKSPACE/substrate/frame/system/src/lib.rs
    |
    |     pub struct GenesisConfig<T: Config> {
@@ -477,7 +477,7 @@ note: required because it appears within the type `RuntimeCall`
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `frame_support::sp_runtime::traits::Dispatchable::Config`
-  --> $WORKSPACE/substrate/primitives/runtime/src/traits/mod.rs
+  --> $WORKSPACE/substrate/primitives/runtime/src/traits.rs
    |
    |     type Config;
    |     ^^^^^^^^^^^^ required by this bound in `Dispatchable::Config`
@@ -510,7 +510,7 @@ note: required because it appears within the type `RuntimeCall`
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `frame_support::pallet_prelude::ValidateUnsigned::Call`
-  --> $WORKSPACE/substrate/primitives/runtime/src/traits/mod.rs
+  --> $WORKSPACE/substrate/primitives/runtime/src/traits.rs
    |
    |     type Call;
    |     ^^^^^^^^^^ required by this bound in `ValidateUnsigned::Call`

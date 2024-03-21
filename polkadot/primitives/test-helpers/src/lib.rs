@@ -136,17 +136,17 @@ pub fn dummy_head_data() -> HeadData {
 
 /// Create a meaningless collator id.
 pub fn dummy_collator() -> CollatorId {
-	CollatorId::from(sr25519::Public::from_raw([0; 32]))
+	CollatorId::from(sr25519::Public::default())
 }
 
 /// Create a meaningless validator id.
 pub fn dummy_validator() -> ValidatorId {
-	ValidatorId::from(sr25519::Public::from_raw([0; 32]))
+	ValidatorId::from(sr25519::Public::default())
 }
 
 /// Create a meaningless collator signature.
 pub fn dummy_collator_signature() -> CollatorSignature {
-	CollatorSignature::from(sr25519::Signature([0u8; 64]))
+	CollatorSignature::from(sr25519::Signature::default())
 }
 
 /// Create a meaningless persisted validation data.

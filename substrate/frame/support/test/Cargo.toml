@@ -24,7 +24,7 @@ sp-api = { path = "../../../primitives/api", default-features = false }
 sp-arithmetic = { path = "../../../primitives/arithmetic", default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }
 sp-state-machine = { path = "../../../primitives/state-machine", optional = true }
-frame-support = { path = "..", default-features = false }
+frame-support = { path = "..", default-features = false, features = ["experimental"] }
 frame-benchmarking = { path = "../../benchmarking", default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-core = { path = "../../../primitives/core", default-features = false }
