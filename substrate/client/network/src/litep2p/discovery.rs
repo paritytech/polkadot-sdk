@@ -85,6 +85,12 @@ pub enum DiscoveryEvent {
 		/// Peer ID.
 		peer: PeerId,
 
+		/// Identify protocol version.
+		protocol_version: Option<String>,
+
+		/// Identify user agent version.
+		user_agent: Option<String>,
+
 		/// Observed address.
 		observed_address: Multiaddr,
 
@@ -217,8 +223,12 @@ impl Discovery {
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
-		let (identify_config, identify_event_stream) =
-			IdentifyConfig::new(config.public_addresses.clone());
+		let user_agent = format!("{} ({})", config.client_version, config.node_name);
+		let (identify_config, identify_event_stream) = IdentifyConfig::new(
+			"/substrate/1.0".to_string(),
+			Some(user_agent),
+			config.public_addresses.clone(),
+		);
 
 		let (mdns_config, mdns_event_stream) = match config.transport {
 			crate::config::TransportConfig::Normal { enable_mdns, .. } => match enable_mdns {
@@ -474,6 +484,8 @@ impl Stream for Discovery {
 			Poll::Ready(None) => return Poll::Ready(None),
 			Poll::Ready(Some(IdentifyEvent::PeerIdentified {
 				peer,
+				protocol_version,
+				user_agent,
 				listen_addresses,
 				supported_protocols,
 				observed_address,
@@ -486,6 +498,8 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::Identified {
 					peer,
+					protocol_version,
+					user_agent,
 					listen_addresses,
 					observed_address,
 					supported_protocols,
