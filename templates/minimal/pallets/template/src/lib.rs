@@ -16,4 +16,12 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			log::info!(target: frame::deps::frame_support::LOG_TARGET, "Hello World!");
+			Default::default()
+		}
+	}
 }

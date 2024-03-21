@@ -50,13 +50,15 @@ pub struct Cli {
 	pub subcommand: Option<Subcommand>,
 
 	/// The block authoring (aka. consensus) engine to use.
-	#[clap(long, default_value = "manual-seal-3000")]
+	#[clap(long, default_value = "manual-seal-1000")]
 	pub consensus: Consensus,
 
 	/// The runtime blob to use.
-	#[clap(long)]
+	// TODO: define proper relation with clap's required_* stuff.
+	#[clap(long, default_value = "0xno-runtime")]
 	pub runtime: String,
 
+	/// The main run command
 	#[clap(flatten)]
 	pub run: RunCmd,
 }
@@ -66,9 +68,6 @@ pub enum Subcommand {
 	/// Key management cli utilities
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
-
-	/// Build a chain specification.
-	BuildSpec(sc_cli::BuildSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),

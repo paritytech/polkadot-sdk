@@ -8126,7 +8126,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 name = "minimal-omni-node"
 version = "0.0.0"
 dependencies = [
- "clap 4.5.1",
+ "clap 4.5.3",
  "futures",
  "futures-timer",
  "jsonrpsee",
@@ -10213,6 +10213,7 @@ name = "pallet-minimal-template"
 version = "0.0.0"
 dependencies = [
  "frame",
+ "log",
  "parity-scale-codec",
  "scale-info",
 ]

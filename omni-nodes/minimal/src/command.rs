@@ -16,9 +16,9 @@
 // limitations under the License.
 
 // TODO:
-// - [ ] Ability to pass genesis state in a user friendly way.
+// - [x] Ability to pass genesis state in a user friendly way.
 // - [ ] Test this with multiple variants of minimal runtime.
-// - [ ] what is happening when I run this with --execution Native?
+// - [x] what is happening when I run this with --execution Native?
 // - [ ] Give it the polkadot runtime. Maybe even that will work?
 // - [ ] Give it a parachain runtime.
 
@@ -57,14 +57,15 @@ impl SubstrateCli for Cli {
 	}
 
 	fn load_spec(&self, maybe_path: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
-		// TODO: it would be good to be able to provide a chain-spec that has no code, and code is
-		// still read from `--runtime`. So your chain spec can be cleaner, and it is only initial
-		// state.
-		let code = std::fs::read(&self.runtime)
-			.map_err(|e| format!("Failed to runtime read {}: {}", &self.runtime, e))?;
+		// TODO: ideal scenario:
+		// [x] --chain-spec <full-spec>
+		// [ ] --chain-spec <spec-stuff> --runtime <overwrite-code>
+		// [ ] --chain-spec <spec-stuff> --runtime <overwrite-code> --genesis <patch-genesis>
 
 		Ok(Box::new(if maybe_path.is_empty() {
-			println!("Using development chain spec, no genesis state set.");
+			let code = std::fs::read(&self.runtime)
+				.map_err(|e| format!("Failed to read runtime {}: {}", &self.runtime, e))?;
+			println!("No --chain provided; using default chain-spec and --runtime");
 			let mut properties = Properties::new();
 			properties.insert("tokenDecimals".to_string(), 0.into());
 			properties.insert("tokenSymbol".to_string(), "MINI".into());
@@ -81,7 +82,7 @@ impl SubstrateCli for Cli {
 				.with_genesis_config(genesis)
 				.build()
 		} else {
-			println!("Loading chain spec from {}", maybe_path);
+			println!("Loading chain spec from {}; this will ignore --runtime for now", maybe_path);
 			ChainSpec::from_json_file(std::path::PathBuf::from(maybe_path))?
 		}))
 	}
@@ -93,10 +94,6 @@ pub fn run() -> sc_cli::Result<()> {
 
 	match &cli.subcommand {
 		Some(Subcommand::Key(cmd)) => cmd.run(&cli),
-		Some(Subcommand::BuildSpec(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
-		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
