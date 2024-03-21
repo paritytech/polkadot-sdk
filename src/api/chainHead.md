@@ -2,7 +2,7 @@
 
 Functions with the `chainHead` prefix allow tracking the head of the chain (in other words, the latest new and finalized blocks) and their storage.
 
-The most important function in this category is `chainHead_unstable_follow`. It is the first function that is the user is expected to call, before (almost) any other. `chainHead_unstable_follow` returns the current list of blocks that are near the head of the chain, and generates notifications about new blocks. The `chainHead_unstable_body`, `chainHead_unstable_call`, `chainHead_unstable_header` and `chainHead_unstable_storage` functions can be used to obtain more details about the blocks that have been reported by `chainHead_unstable_follow`.
+The most important function in this category is `chainHead_v1_follow`. It is the first function that is the user is expected to call, before (almost) any other. `chainHead_v1_follow` returns the current list of blocks that are near the head of the chain, and generates notifications about new blocks. The `chainHead_unstable_body`, `chainHead_unstable_call`, `chainHead_unstable_header` and `chainHead_unstable_storage` functions can be used to obtain more details about the blocks that have been reported by `chainHead_v1_follow`.
 
 These functions are the functions most of the JSON-RPC clients will most commonly use. A JSON-RPC server implementation is encouraged to prioritize serving these functions over other functions, and to put pinned blocks in a quickly-accessible cache.
 
@@ -12,7 +12,7 @@ _This section contains a small beginner guide destined for JSON-RPC client users
 
 This beginner guide shows how to use the `chainHead` functions in order to know the value of a certain storage item.
 
-1. Call `chainHead_unstable_follow` with `withRuntime: true` to obtain a `followSubscription`. This `followSubscription` will need to be passed when calling most of the other `chainHead`-prefixed functions. If at any point in the future the JSON-RPC server sends back a `{"event": "stop"}` notification, jump back to step 1.
+1. Call `chainHead_v1_follow` with `withRuntime: true` to obtain a `followSubscription`. This `followSubscription` will need to be passed when calling most of the other `chainHead`-prefixed functions. If at any point in the future the JSON-RPC server sends back a `{"event": "stop"}` notification, jump back to step 1.
 
 2. When the JSON-RPC server sends back a `{"event": "initialized"}` notification with `subscription` equal to your `followSubscription`, store the value of `finalizedBlockHashes` found in that notification. If `finalizedBlockHashes` contains multiple values, you should use the last entry. The last entry corresponds to the _current finalized block_ of the chain. You must then call `chainHead_unstable_unpin`, passing the `followSubscription` and each of the other values in `finalizedBlockHashes`.
 

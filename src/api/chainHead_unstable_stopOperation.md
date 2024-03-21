@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`.
+- `followSubscription`: An opaque string that was returned by `chainHead_v1_follow`.
 - `operationId`: An opaque string that was returned by `chainHead_unstable_body`, `chainHead_unstable_call`, or `chainHead_unstable_storage`.
 
 **Return value**: *null*

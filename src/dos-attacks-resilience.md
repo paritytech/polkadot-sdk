@@ -54,7 +54,7 @@ In particular:
 
 - The number of JSON-RPC clients simultaneously connected must be bounded.
 - The number of active subscriptions (i.e. where the server sends a notification to the client when something happens) must be bounded.
-- The number of pinned blocks (in the context of `chainHead_unstable_follow`) must be bounded.
+- The number of pinned blocks (in the context of `chainHead_v1_follow`) must be bounded.
 
 The limits on the number of active subscriptions and pinned block should be enforced per client, as it would be undesirable to limit the number of subscriptions/pinned blocks available to some clients just because other clients are using a lot of them. Since the number of clients is bounded, enforcing these limits per client also automatically enforces these limits globally.
 

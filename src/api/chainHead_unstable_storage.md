@@ -2,7 +2,7 @@
 
 **Parameters**:
 
-- `followSubscription`: An opaque string that was returned by `chainHead_unstable_follow`.
+- `followSubscription`: An opaque string that was returned by `chainHead_v1_follow`.
 - `hash`: String containing a hexadecimal-encoded hash of the header of the block whose storage to fetch.
 - `items`: Array of objects. The structure of these objects is found below.
 - `childTrie`: `null` for main storage look-ups, or a string containing the hexadecimal-encoded key of the child trie of the "default" namespace.
@@ -35,7 +35,7 @@ Where:
 
 If the list the JSON-RPC server is overloaded, it might refuse to accept new storage requests. In that situation, the JSON-RPC server will discard some or all the `items` passed as parameter. The number of items discarded is indicated in `discardedItems`. When that happens, the JSON-RPC client should try again after an on-going `chainHead_unstable_storage`, `chainHead_unstable_body`, or `chainHead_unstable_call` operation finishes.
 
-The JSON-RPC server must accept at least 16 concurrent operations for any given `chainHead_unstable_follow` subscription. In other words, as long as the JSON-RPC client makes sure that no more than 16 operations are in progress at any given item, it is guaranteed that all of its operations will be accepted by the JSON-RPC server.
+The JSON-RPC server must accept at least 16 concurrent operations for any given `chainHead_v1_follow` subscription. In other words, as long as the JSON-RPC client makes sure that no more than 16 operations are in progress at any given item, it is guaranteed that all of its operations will be accepted by the JSON-RPC server.
 For this purpose, each item requested through `chainHead_unstable_storage` counts as one operation, and each call to `chainHead_unstable_body` and `chainHead_unstable_call` counts as one operation.
 
 ### LimitReached
@@ -54,11 +54,11 @@ For each item in `items`, the JSON-RPC server must start obtaining the value of 
 
 For the purpose of storage requests, the trie root hash of the child tries of the storage can be found in the main trie at keys starting the bytes of the ASCII string `:child_storage:`. This behaviour is consistent with all the other storage-request-alike mechanisms of Polkadot and Substrate-based chains, such as host functions or libp2p network requests.
 
-The progress of the operation is indicated through `operationStorageItems`, `operationWaitingForContinue`, `operationStorageDone`, `operationInaccessible`, or `operationError` notifications generated on the corresponding `chainHead_unstable_follow` subscription.
+The progress of the operation is indicated through `operationStorageItems`, `operationWaitingForContinue`, `operationStorageDone`, `operationInaccessible`, or `operationError` notifications generated on the corresponding `chainHead_v1_follow` subscription.
 
 The operation continues even if the target block is unpinned with `chainHead_unstable_unpin`.
 
-This function should be seen as a complement to `chainHead_unstable_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_storage` if instead you want to retrieve the storage of an arbitrary block.
+This function should be seen as a complement to `chainHead_v1_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_storage` if instead you want to retrieve the storage of an arbitrary block.
 
 `{"event": "operationStorageItems"}` notifications will be generated. Each notification contains a list of items. The list of items, concatenated together, forms the result.
 
@@ -81,5 +81,5 @@ If a `{"event": "operationWaitingForContinue"}` notification is generated, the s
 - If the networking part of the behaviour fails, then a `{"event": "operationInaccessible"}` notification is generated (as explained above).
 - If the `followSubscription` is invalid or stale, then `"result": "limitReached"` is returned (as explained above).
 
-- A JSON-RPC error with error code `-32801` is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_unstable_follow`, or the block hash has been unpinned.
+- A JSON-RPC error with error code `-32801` is generated if the block hash passed as parameter doesn't correspond to any block that has been reported by `chainHead_v1_follow`, or the block hash has been unpinned.
 - A JSON-RPC error with error code `-32602` is generated if one of the parameters doesn't correspond to the expected type (similarly to a missing parameter or an invalid parameter type).

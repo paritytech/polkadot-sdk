@@ -109,8 +109,8 @@ For the purpose of storage requests, the trie root hash of the child tries of th
 If the height of the block hash provided is less than or equal to the current finalized block height (which can be obtained via archive_unstable_finalizedHeight), then calling this method with the same parameters will always return the same response.
 If the height of the block hash provided is greater than the current finalized block height, then the block might be pruned at any time and calling this method may return null.
 
-This function should be used when the target block is older than the blocks reported by `chainHead_unstable_follow`.
-Use `chainHead_unstable_storage` if instead you want to retrieve the storage of a block obtained by the `chainHead_unstable_follow`.
+This function should be used when the target block is older than the blocks reported by `chainHead_v1_follow`.
+Use `chainHead_unstable_storage` if instead you want to retrieve the storage of a block obtained by the `chainHead_v1_follow`.
 
 If `items` contains multiple identical or overlapping queries, the JSON-RPC server can choose whether to merge or not the items in the result. For example, if the request contains two items with the same key, one with `hash` and one with `value`, the JSON-RPC server can choose whether to generate two `item` objects, one with the value and one with the hash, or only a single `item` object with both `hash` and `value` set.
 

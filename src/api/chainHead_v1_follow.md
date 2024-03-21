@@ -1,4 +1,4 @@
-# chainHead_unstable_follow
+# chainHead_v1_follow
 
 **Parameters**:
 
@@ -47,7 +47,7 @@ This function will later generate one or more notifications in the following for
 ```json
 {
     "jsonrpc": "2.0",
-    "method": "chainHead_unstable_followEvent",
+    "method": "chainHead_v1_followEvent",
     "params": {
         "subscription": "...",
         "result": ...
@@ -74,7 +74,7 @@ The `initialized` event is always the first event to be sent back, and is only e
 
 `finalizedBlockHashes` contains a list of finalized blocks, of at least one element, ordered by increasing block number. The last element in this list is the current finalized block.
 
-**Note**: The RPC server is encouraged to include around 1 minute of finalized blocks in this list. These blocks are also pinned, and the user is responsible for unpinning them. This information is useful for the JSON-RPC clients that resubscribe to the `chainHead_unstable_follow` function after a disconnection.
+**Note**: The RPC server is encouraged to include around 1 minute of finalized blocks in this list. These blocks are also pinned, and the user is responsible for unpinning them. This information is useful for the JSON-RPC clients that resubscribe to the `chainHead_v1_follow` function after a disconnection.
 
 `finalizedBlockRuntime` is present if and only if `withRuntime`, the parameter to this function, is `true`. It corresponds to the last finalized block from the `finalizedBlockHashes` list.
 
@@ -302,7 +302,7 @@ The finalized blocks reported in the `initialized` event, and each subsequent bl
 
 When a block is unpinned, on-going calls to `chainHead_unstable_body`, `chainHead_unstable_call` and `chainHead_unstable_storage` against this block will still finish normally.
 
-A block is pinned only in the context of a specific subscription. If multiple `chainHead_unstable_follow` subscriptions exist, then each `(subscription, block)` tuple must be unpinned individually. Blocks stay pinned even if they have been pruned from the chain of blocks, and must always be unpinned by the JSON-RPC client.
+A block is pinned only in the context of a specific subscription. If multiple `chainHead_v1_follow` subscriptions exist, then each `(subscription, block)` tuple must be unpinned individually. Blocks stay pinned even if they have been pruned from the chain of blocks, and must always be unpinned by the JSON-RPC client.
 
 The JSON-RPC server is strongly encouraged to enforce a limit to the maximum number of pinned blocks. If this limit is reached, it should then stop the subscription by emitting a `stop` event.
 This specification does not mention any specific limit, but it must be large enough for clients to be able to pin all existing non-finalized blocks and the finalized blocks that have been reported in the previous few seconds or minutes.
@@ -313,11 +313,11 @@ This specification does not mention any specific limit, but it must be large eno
 
 ## Multiple subscriptions
 
-The JSON-RPC server must accept at least 2 `chainHead_unstable_follow` subscriptions per JSON-RPC client. Trying to open more might lead to a JSON-RPC error when calling `chainHead_unstable_follow`. In other words, as long as a JSON-RPC client starts 2 or fewer `chainHead_unstable_follow` subscriptions, it is guaranteed that this return value will never happen.
+The JSON-RPC server must accept at least 2 `chainHead_v1_follow` subscriptions per JSON-RPC client. Trying to open more might lead to a JSON-RPC error when calling `chainHead_v1_follow`. In other words, as long as a JSON-RPC client starts 2 or fewer `chainHead_v1_follow` subscriptions, it is guaranteed that this return value will never happen.
 
-If a JSON-RPC client maintains mutiple `chainHead_unstable_follow` subscriptions at the same time, it has no guarantee that the blocks reported by the various subscriptions are the same. While the finalized blocks reported should eventually be the same, it is possible that in the short term some subscriptions lag behind others.
+If a JSON-RPC client maintains mutiple `chainHead_v1_follow` subscriptions at the same time, it has no guarantee that the blocks reported by the various subscriptions are the same. While the finalized blocks reported should eventually be the same, it is possible that in the short term some subscriptions lag behind others.
 
-**Note**: For example, imagine there exists two active `chainHead_unstable_follow` subscriptions named A and B. Block N is announced on the peer-to-peer network and is announced to A. But then a sibling of block N gets finalized, leading to block N being pruned. Block N might never be announced to B.
+**Note**: For example, imagine there exists two active `chainHead_v1_follow` subscriptions named A and B. Block N is announced on the peer-to-peer network and is announced to A. But then a sibling of block N gets finalized, leading to block N being pruned. Block N might never be announced to B.
 
 ## About the runtime
 
@@ -406,5 +406,5 @@ The runtime is of type `invalid` if the JSON-RPC server considers the runtime as
 
 ## Possible errors
 
-- A JSON-RPC error with error code `-32800` can be generated if the JSON-RPC client has already opened 2 or more `chainHead_unstable_follow` subscriptions.
+- A JSON-RPC error with error code `-32800` can be generated if the JSON-RPC client has already opened 2 or more `chainHead_v1_follow` subscriptions.
 - A JSON-RPC error with error code `-32602` is generated if one of the parameters doesn't correspond to the expected type (similarly to a missing parameter or an invalid parameter type).
