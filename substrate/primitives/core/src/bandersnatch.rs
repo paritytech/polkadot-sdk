@@ -22,10 +22,12 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
+#[cfg(feature = "full_crypto")]
+use crate::crypto::VrfSecret;
 use crate::crypto::{
 	impl_crypto_type, ByteArray, CryptoTypeId, Derive, DeriveError, DeriveJunction,
 	Pair as TraitPair, Public as TraitPublic, PublicBytes, SecretStringError,
-	Signature as TraitSignature, SignatureBytes, UncheckedFrom, VrfPublic, VrfSecret,
+	Signature as TraitSignature, SignatureBytes, UncheckedFrom, VrfPublic,
 };
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
