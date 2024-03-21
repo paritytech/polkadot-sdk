@@ -146,7 +146,7 @@ pub fn handle_event<Hash: Clone, BlockHash: Clone>(
 		TransactionStatus::Usurped(_) => Some(TransactionEvent::Invalid(TransactionError {
 			error: "Extrinsic was rendered invalid by another extrinsic".into(),
 		})),
-		TransactionStatus::Dropped => Some(TransactionEvent::Invalid(TransactionError {
+		TransactionStatus::Dropped => Some(TransactionEvent::Dropped(TransactionDropped {
 			error: "Extrinsic dropped from the pool due to exceeding limits".into(),
 		})),
 		TransactionStatus::Invalid => Some(TransactionEvent::Invalid(TransactionError {
