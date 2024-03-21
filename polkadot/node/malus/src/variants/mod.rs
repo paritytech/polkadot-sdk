@@ -22,6 +22,7 @@ mod dispute_finalized_candidates;
 mod dispute_valid_candidates;
 mod suggest_garbage_candidate;
 mod support_disabled;
+mod spam_statement_requests;
 
 pub(crate) use self::{
 	back_garbage_candidate::{BackGarbageCandidateOptions, BackGarbageCandidates},
@@ -29,5 +30,6 @@ pub(crate) use self::{
 	dispute_valid_candidates::{DisputeAncestorOptions, DisputeValidCandidates},
 	suggest_garbage_candidate::{SuggestGarbageCandidateOptions, SuggestGarbageCandidates},
 	support_disabled::{SupportDisabled, SupportDisabledOptions},
+	spam_statement_requests::{SpamStatementRequests, SpamStatementRequestsOptions},
 };
 pub(crate) use common::*;
