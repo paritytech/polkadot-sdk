@@ -39,7 +39,7 @@ use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
-	request_response::{v1::ChunkFetchingRequest, IncomingRequest, ReqProtocolNames},
+	request_response::{IncomingRequest, ReqProtocolNames},
 	OurView,
 };
 use polkadot_node_subsystem::{
@@ -169,7 +169,6 @@ pub fn prepare_test(
 		network_interface.subsystem_sender(),
 		state.test_authorities.clone(),
 	);
-
 	let network_bridge_rx =
 		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
 
@@ -248,158 +247,10 @@ pub fn prepare_test(
 	)
 }
 
-/// Takes a test configuration and uses it to create the `TestEnvironment`.
-pub fn prepare_availability_read_test(
-	state: &TestState,
-	options: &DataAvailabilityReadOptions,
-	with_prometheus_endpoint: bool,
-) -> TestEnvironment {
-	let (collation_req_receiver, _collation_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let (_chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::<ChunkFetchingRequest>::get_config_receiver(&ReqProtocolNames::new(
-			GENESIS_HASH,
-			None,
-		));
-
-	let dependencies = TestEnvironmentDependencies::default();
-	let availability_state = NetworkAvailabilityState {
-		candidate_hashes: state.candidate_hashes.clone(),
-		available_data: state.available_data.clone(),
-		chunks: state.chunks.clone(),
-	};
-	let (network, network_interface, network_receiver) = new_network(
-		&state.config,
-		&dependencies,
-		&state.test_authorities,
-		vec![Arc::new(availability_state.clone())],
-	);
-	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
-		network.clone(),
-		network_interface.subsystem_sender(),
-		state.test_authorities.clone(),
-	);
-	let network_bridge_rx =
-		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
-
-	let subsystem = if options.fetch_from_backers {
-		AvailabilityRecoverySubsystem::with_fast_path(
-			collation_req_receiver,
-			Metrics::try_register(&dependencies.registry).unwrap(),
-		)
-	} else {
-		AvailabilityRecoverySubsystem::with_chunks_only(
-			collation_req_receiver,
-			Metrics::try_register(&dependencies.registry).unwrap(),
-		)
-	};
-
-	// Use a mocked av-store.
-	let av_store =
-		av_store::MockAvailabilityStore::new(state.chunks.clone(), state.candidate_hashes.clone());
-	let runtime_api = runtime_api::MockRuntimeApi::new(
-		state.config.clone(),
-		state.test_authorities.clone(),
-		state.candidate_receipts.clone(),
-		Default::default(),
-		Default::default(),
-		0,
-	);
-
-	let (overseer, overseer_handle) = build_overseer_for_availability_read(
-		dependencies.task_manager.spawn_handle(),
-		runtime_api,
-		av_store,
-		(network_bridge_tx, network_bridge_rx),
-		subsystem,
-		&dependencies,
-	);
-
-	TestEnvironment::new(
-		dependencies,
-		state.config.clone(),
-		network,
-		overseer,
-		overseer_handle,
-		state.test_authorities.clone(),
-		with_prometheus_endpoint,
-	)
-}
-
-/// Takes a test configuration and uses it to create the `TestEnvironment`.
-pub fn prepare_availability_write_test(
-	state: &TestState,
-	with_prometheus_endpoint: bool,
-) -> TestEnvironment {
-	let (pov_req_receiver, _) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-
-	let dependencies = TestEnvironmentDependencies::default();
-	let availability_state = NetworkAvailabilityState {
-		candidate_hashes: state.candidate_hashes.clone(),
-		available_data: state.available_data.clone(),
-		chunks: state.chunks.clone(),
-	};
-	let (network, network_interface, network_receiver) = new_network(
-		&state.config,
-		&dependencies,
-		&state.test_authorities,
-		vec![Arc::new(availability_state.clone())],
-	);
-	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
-		network.clone(),
-		network_interface.subsystem_sender(),
-		state.test_authorities.clone(),
-	);
-	let network_bridge_rx =
-		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
-
-	let availability_distribution = AvailabilityDistributionSubsystem::new(
-		state.test_authorities.keyring.keystore(),
-		IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
-		Metrics::try_register(&dependencies.registry).unwrap(),
-	);
-
-	let chain_api_state = ChainApiState { block_headers: state.block_headers.clone() };
-	let chain_api = MockChainApi::new(chain_api_state);
-	let bitfield_distribution =
-		BitfieldDistribution::new(Metrics::try_register(&dependencies.registry).unwrap());
-	let runtime_api = runtime_api::MockRuntimeApi::new(
-		state.config.clone(),
-		state.test_authorities.clone(),
-		state.candidate_receipts.clone(),
-		Default::default(),
-		Default::default(),
-		0,
-	);
-	let (overseer, overseer_handle) = build_overseer_for_availability_write(
-		dependencies.task_manager.spawn_handle(),
-		runtime_api,
-		(network_bridge_tx, network_bridge_rx),
-		availability_distribution,
-		chain_api,
-		new_av_store(&dependencies),
-		bitfield_distribution,
-		&dependencies,
-	);
-
-	TestEnvironment::new(
-		dependencies,
-		state.config.clone(),
-		network,
-		overseer,
-		overseer_handle,
-		state.test_authorities.clone(),
-		with_prometheus_endpoint,
-	)
-}
-
 pub async fn benchmark_availability_read(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
-	mut state: TestState,
+	state: &TestState,
 ) -> BenchmarkUsage {
 	let config = env.config().clone();
 
@@ -412,6 +263,8 @@ pub async fn benchmark_availability_read(
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
+	let mut candidates = state.candidates.clone();
+
 	for block_num in 1..=env.config().num_blocks {
 		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num, env.config().num_blocks);
 		env.metrics().set_current_block(block_num);
@@ -419,7 +272,7 @@ pub async fn benchmark_availability_read(
 		let block_start_ts = Instant::now();
 		for candidate_num in 0..config.n_cores as u64 {
 			let candidate =
-				state.next_candidate().expect("We always send up to n_cores*num_blocks; qed");
+				candidates.next().expect("We always send up to n_cores*num_blocks; qed");
 			let (tx, rx) = oneshot::channel();
 			batch.push(rx);
 

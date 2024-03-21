@@ -52,7 +52,7 @@ fn main() -> Result<(), String> {
 			env.runtime().block_on(benchmark_availability_read(
 				"data_availability_read",
 				&mut env,
-				state.clone(),
+				&state,
 			))
 		})
 		.collect();

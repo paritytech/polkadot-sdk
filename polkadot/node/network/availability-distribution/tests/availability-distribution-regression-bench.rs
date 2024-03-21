@@ -24,7 +24,7 @@
 //! - availability-store
 
 use polkadot_subsystem_bench::{
-	availability::{benchmark_availability_write, prepare_availability_write_test, TestState},
+	availability::{benchmark_availability_write, prepare_test, TestState},
 	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
 };
@@ -47,7 +47,11 @@ fn main() -> Result<(), String> {
 		.map(|n| {
 			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
 			std::io::stdout().flush().unwrap();
-			let mut env = prepare_availability_write_test(&state, false);
+			let mut env = prepare_test(
+				&state,
+				polkadot_subsystem_bench::availability::TestDataAvailability::Write,
+				false,
+			);
 			env.runtime().block_on(benchmark_availability_write(
 				"data_availability_write",
 				&mut env,
