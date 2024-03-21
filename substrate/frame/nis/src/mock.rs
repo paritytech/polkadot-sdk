@@ -121,10 +121,8 @@ impl pallet_nis::Config for Test {
 	type MinReceipt = MinReceipt;
 	type ThawThrottle = ThawThrottle;
 	type RuntimeHoldReason = RuntimeHoldReason;
-}
-
-impl crate::BenchmarkSetup for Test {
-	fn create_counterpart_asset() {}
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = ();
 }
 
 // This function basically just builds a genesis storage key/value store according to

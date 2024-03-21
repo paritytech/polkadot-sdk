@@ -59,11 +59,6 @@ fn fill_queues<T: Config>() -> Result<(), DispatchError> {
 }
 
 benchmarks! {
-	where_clause {
-		where
-			T: crate::BenchmarkSetup,
-	}
-
 	place_bid {
 		let l in 0..(T::MaxQueueLen::get() - 1);
 		let caller: T::AccountId = whitelisted_caller();
@@ -111,7 +106,7 @@ benchmarks! {
 	}
 
 	fund_deficit {
-		T::create_counterpart_asset();
+		T::BenchmarkSetup::create_counterpart_asset();
 		let origin =
 			T::FundOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let caller: T::AccountId = whitelisted_caller();
@@ -132,7 +127,7 @@ benchmarks! {
 	}
 
 	communify {
-		T::create_counterpart_asset();
+		T::BenchmarkSetup::create_counterpart_asset();
 		let caller: T::AccountId = whitelisted_caller();
 		let bid = T::MinBid::get().max(One::one()) * 100u32.into();
 		let ed = T::Currency::minimum_balance();
@@ -146,7 +141,7 @@ benchmarks! {
 	}
 
 	privatize {
-		T::create_counterpart_asset();
+		T::BenchmarkSetup::create_counterpart_asset();
 		let caller: T::AccountId = whitelisted_caller();
 		let bid = T::MinBid::get().max(One::one());
 		let ed = T::Currency::minimum_balance();
@@ -161,7 +156,7 @@ benchmarks! {
 	}
 
 	thaw_private {
-		T::create_counterpart_asset();
+		T::BenchmarkSetup::create_counterpart_asset();
 		let whale: T::AccountId = account("whale", 0, SEED);
 		let caller: T::AccountId = whitelisted_caller();
 		let bid = T::MinBid::get().max(One::one());
@@ -179,7 +174,7 @@ benchmarks! {
 	}
 
 	thaw_communal {
-		T::create_counterpart_asset();
+		T::BenchmarkSetup::create_counterpart_asset();
 		let whale: T::AccountId = account("whale", 0, SEED);
 		let caller: T::AccountId = whitelisted_caller();
 		let bid = T::MinBid::get().max(One::one());
