@@ -85,6 +85,7 @@ pub trait WeightInfo {
 	fn migrate_and_notify_old_targets() -> Weight;
 	fn new_query() -> Weight;
 	fn take_response() -> Weight;
+	fn claim_assets() -> Weight;
 }
 
 /// fallback implementation
@@ -163,6 +164,10 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn take_response() -> Weight {
+		Weight::from_parts(100_000_000, 0)
+	}
+
+	fn claim_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
 }
@@ -1385,6 +1390,64 @@ pub mod pallet {
 				fees,
 				weight_limit,
 			)
+		}
+
+		/// Claims assets trapped on this pallet because of leftover assets during XCM execution.
+		///
+		/// - `origin`: Anyone can call this extrinsic.
+		/// - `assets`: The exact assets that were trapped. Use the version to specify what version
+		/// was the latest when they were trapped.
+		/// - `beneficiary`: The location/account where the claimed assets will be deposited.
+		#[pallet::call_index(12)]
+		#[pallet::weight({
+			let assets_version = assets.identify_version();
+			let maybe_assets: Result<Assets, ()> = (*assets.clone()).try_into();
+			let maybe_beneficiary: Result<Location, ()> = (*beneficiary.clone()).try_into();
+			match (maybe_assets, maybe_beneficiary) {
+				(Ok(assets), Ok(beneficiary)) => {
+					let ticket: Location = GeneralIndex(assets_version as u128).into();
+					let mut message = Xcm(vec![
+						ClaimAsset { assets: assets.clone(), ticket },
+						DepositAsset { assets: AllCounted(assets.len() as u32).into(), beneficiary },
+					]);
+					T::Weigher::weight(&mut message).map_or(Weight::MAX, |w| T::WeightInfo::claim_assets().saturating_add(w))
+				}
+				_ => Weight::MAX
+			}
+		})]
+		pub fn claim_assets(
+			origin: OriginFor<T>,
+			assets: Box<VersionedAssets>,
+			beneficiary: Box<VersionedLocation>,
+		) -> DispatchResult {
+			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			log::debug!(target: "xcm::pallet_xcm::claim_assets", "origin: {:?}, assets: {:?}, beneficiary: {:?}", origin_location, assets, beneficiary);
+			// Extract version from `assets`.
+			let assets_version = assets.identify_version();
+			let assets: Assets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let number_of_assets = assets.len() as u32;
+			let beneficiary: Location =
+				(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let ticket: Location = GeneralIndex(assets_version as u128).into();
+			let mut message = Xcm(vec![
+				ClaimAsset { assets, ticket },
+				DepositAsset { assets: AllCounted(number_of_assets).into(), beneficiary },
+			]);
+			let weight =
+				T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
+			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
+			let outcome = T::XcmExecutor::prepare_and_execute(
+				origin_location,
+				message,
+				&mut hash,
+				weight,
+				weight,
+			);
+			outcome.ensure_complete().map_err(|error| {
+				log::error!(target: "xcm::pallet_xcm::claim_assets", "XCM execution failed with error: {:?}", error);
+				Error::<T>::LocalExecutionIncomplete
+			})?;
+			Ok(())
 		}
 	}
 }

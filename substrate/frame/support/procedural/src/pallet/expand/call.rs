@@ -18,7 +18,7 @@
 use crate::{
 	pallet::{
 		expand::warnings::{weight_constant_warning, weight_witness_warning},
-		parse::call::{CallVariantDef, CallWeightDef},
+		parse::call::CallWeightDef,
 		Def,
 	},
 	COUNTER,
@@ -112,22 +112,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	}
 	debug_assert_eq!(fn_weight.len(), methods.len());
 
-	let map_fn_docs = if !def.dev_mode {
-		// Emit the [`Pallet::method`] documentation only for non-dev modes.
-		|method: &CallVariantDef| {
-			let reference = format!("See [`Pallet::{}`].", method.name);
-			quote!(#reference)
-		}
-	} else {
-		// For the dev-mode do not provide a documenation link as it will break the
-		// `cargo doc` if the pallet is private inside a test.
-		|method: &CallVariantDef| {
-			let reference = format!("See `Pallet::{}`.", method.name);
-			quote!(#reference)
-		}
-	};
-
-	let fn_doc = methods.iter().map(map_fn_docs).collect::<Vec<_>>();
+	let fn_doc = methods.iter().map(|method| &method.docs).collect::<Vec<_>>();
 
 	let args_name = methods
 		.iter()
@@ -309,7 +294,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			),
 			#(
 				#cfg_attrs
-				#[doc = #fn_doc]
+				#( #[doc = #fn_doc] )*
 				#[codec(index = #call_index)]
 				#fn_name {
 					#(
