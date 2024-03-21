@@ -1,4 +1,4 @@
-# chainHead_unstable_header
+# chainHead_v1_header
 
 **Parameters**:
 
@@ -14,7 +14,7 @@ Retrieves the header of a pinned block.
 
 This function should be seen as a complement to `chainHead_v1_follow`, allowing the JSON-RPC client to retrieve more information about a block that has been reported. Use `archive_unstable_header` if instead you want to retrieve the header of an arbitrary block.
 
-**Note**: As explained in the documentation of `chainHead_v1_follow`, the JSON-RPC server reserves the right to kill an existing subscription and unpin all its blocks at any moment in case it is overloaded or incapable of following the chain. If that happens, `chainHead_unstable_header` will return `null`.
+**Note**: As explained in the documentation of `chainHead_v1_follow`, the JSON-RPC server reserves the right to kill an existing subscription and unpin all its blocks at any moment in case it is overloaded or incapable of following the chain. If that happens, `chainHead_v1_header` will return `null`.
 
 ## Possible errors
 

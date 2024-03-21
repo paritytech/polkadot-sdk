@@ -20,7 +20,7 @@
     - [chainHead_v1_call](api/chainHead_v1_call.md)
     - [chainHead_v1_continue](api/chainHead_v1_continue.md)
     - [chainHead_v1_follow](api/chainHead_v1_follow.md)
-    - [chainHead_unstable_header](api/chainHead_unstable_header.md)
+    - [chainHead_v1_header](api/chainHead_v1_header.md)
     - [chainHead_unstable_stopOperation](api/chainHead_unstable_stopOperation.md)
     - [chainHead_v1_storage](api/chainHead_v1_storage.md)
     - [chainHead_v1_unfollow](api/chainHead_v1_unfollow.md)

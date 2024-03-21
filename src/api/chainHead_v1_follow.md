@@ -298,7 +298,7 @@ Calling `chainHead_v1_unfollow` on a subscription that has produced a `stop` eve
 
 ## Pinning
 
-The finalized blocks reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, are automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_unstable_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_v1_unpin`.
+The finalized blocks reported in the `initialized` event, and each subsequent block reported with a `newBlock` event, are automatically considered by the JSON-RPC server as *pinned*. A block is guaranteed to not leave the node's memory for as long as it is pinned, making it possible to call functions such as `chainHead_v1_header` on it. Blocks must be unpinned by the JSON-RPC client by calling `chainHead_v1_unpin`.
 
 When a block is unpinned, on-going calls to `chainHead_v1_body`, `chainHead_v1_call` and `chainHead_v1_storage` against this block will still finish normally.
 
