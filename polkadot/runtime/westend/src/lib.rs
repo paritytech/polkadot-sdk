@@ -17,7 +17,7 @@
 //! The Westend runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// `construct_runtime!` does a lot of recursion and requires us to increase the limit.
+// `#[frame_support::runtime]!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
 use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
@@ -27,7 +27,7 @@ use beefy_primitives::{
 };
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, SequentialPhragmen};
 use frame_support::{
-	construct_runtime, derive_impl,
+	derive_impl,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
@@ -150,7 +150,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_008_000,
+	spec_version: 1_009_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -186,7 +186,7 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-#[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = EverythingBut<IsIdentityCall>;
 	type BlockWeights = BlockWeights;
@@ -1414,128 +1414,201 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
-construct_runtime! {
-	pub enum Runtime
-	{
-		// Basic stuff; balances is uncallable initially.
-		System: frame_system = 0,
+#[frame_support::runtime(legacy_ordering)]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeSlashReason,
+		RuntimeLockId,
+		RuntimeTask
+	)]
+	pub struct Runtime;
 
-		// Babe must be before session.
-		Babe: pallet_babe = 1,
+	// Basic stuff; balances is uncallable initially.
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
 
-		Timestamp: pallet_timestamp = 2,
-		Indices: pallet_indices = 3,
-		Balances: pallet_balances = 4,
-		TransactionPayment: pallet_transaction_payment = 26,
+	// Babe must be before session.
+	#[runtime::pallet_index(1)]
+	pub type Babe = pallet_babe;
 
-		// Consensus support.
-		// Authorship must be before session in order to note author in the correct session and era.
-		Authorship: pallet_authorship = 5,
-		Staking: pallet_staking = 6,
-		Offences: pallet_offences = 7,
-		Historical: session_historical = 27,
+	#[runtime::pallet_index(2)]
+	pub type Timestamp = pallet_timestamp;
+	#[runtime::pallet_index(3)]
+	pub type Indices = pallet_indices;
+	#[runtime::pallet_index(4)]
+	pub type Balances = pallet_balances;
+	#[runtime::pallet_index(26)]
+	pub type TransactionPayment = pallet_transaction_payment;
 
-		Session: pallet_session = 8,
-		Grandpa: pallet_grandpa = 10,
-		AuthorityDiscovery: pallet_authority_discovery = 12,
+	// Consensus support.
+	// Authorship must be before session in order to note author in the correct session and era.
+	#[runtime::pallet_index(5)]
+	pub type Authorship = pallet_authorship;
+	#[runtime::pallet_index(6)]
+	pub type Staking = pallet_staking;
+	#[runtime::pallet_index(7)]
+	pub type Offences = pallet_offences;
+	#[runtime::pallet_index(27)]
+	pub type Historical = session_historical;
 
-		// Utility module.
-		Utility: pallet_utility = 16,
+	#[runtime::pallet_index(8)]
+	pub type Session = pallet_session;
+	#[runtime::pallet_index(10)]
+	pub type Grandpa = pallet_grandpa;
+	#[runtime::pallet_index(12)]
+	pub type AuthorityDiscovery = pallet_authority_discovery;
 
-		// Less simple identity module.
-		Identity: pallet_identity = 17,
+	// Utility module.
+	#[runtime::pallet_index(16)]
+	pub type Utility = pallet_utility;
 
-		// Social recovery module.
-		Recovery: pallet_recovery = 18,
+	// Less simple identity module.
+	#[runtime::pallet_index(17)]
+	pub type Identity = pallet_identity;
 
-		// Vesting. Usable initially, but removed once all vesting is finished.
-		Vesting: pallet_vesting = 19,
+	// Social recovery module.
+	#[runtime::pallet_index(18)]
+	pub type Recovery = pallet_recovery;
 
-		// System scheduler.
-		Scheduler: pallet_scheduler = 20,
+	// Vesting. Usable initially, but removed once all vesting is finished.
+	#[runtime::pallet_index(19)]
+	pub type Vesting = pallet_vesting;
 
-		// Preimage registrar.
-		Preimage: pallet_preimage = 28,
+	// System scheduler.
+	#[runtime::pallet_index(20)]
+	pub type Scheduler = pallet_scheduler;
 
-		// Sudo.
-		Sudo: pallet_sudo = 21,
+	// Preimage registrar.
+	#[runtime::pallet_index(28)]
+	pub type Preimage = pallet_preimage;
 
-		// Proxy module. Late addition.
-		Proxy: pallet_proxy = 22,
+	// Sudo.
+	#[runtime::pallet_index(21)]
+	pub type Sudo = pallet_sudo;
 
-		// Multisig module. Late addition.
-		Multisig: pallet_multisig = 23,
+	// Proxy module. Late addition.
+	#[runtime::pallet_index(22)]
+	pub type Proxy = pallet_proxy;
 
-		// Election pallet. Only works with staking, but placed here to maintain indices.
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 24,
+	// Multisig module. Late addition.
+	#[runtime::pallet_index(23)]
+	pub type Multisig = pallet_multisig;
 
-		// Provides a semi-sorted list of nominators for staking.
-		VoterList: pallet_bags_list::<Instance1> = 25,
+	// Election pallet. Only works with staking, but placed here to maintain indices.
+	#[runtime::pallet_index(24)]
+	pub type ElectionProviderMultiPhase = pallet_election_provider_multi_phase;
 
-		// Nomination pools for staking.
-		NominationPools: pallet_nomination_pools = 29,
+	// Provides a semi-sorted list of nominators for staking.
+	#[runtime::pallet_index(25)]
+	pub type VoterList = pallet_bags_list<Instance1>;
 
-		// Fast unstake pallet: extension to staking.
-		FastUnstake: pallet_fast_unstake = 30,
+	// Nomination pools for staking.
+	#[runtime::pallet_index(29)]
+	pub type NominationPools = pallet_nomination_pools;
 
-		// OpenGov
-		ConvictionVoting: pallet_conviction_voting = 31,
-		Referenda: pallet_referenda = 32,
-		Origins: pallet_custom_origins = 35,
-		Whitelist: pallet_whitelist = 36,
+	// Fast unstake pallet = extension to staking.
+	#[runtime::pallet_index(30)]
+	pub type FastUnstake = pallet_fast_unstake;
 
-		// Treasury
-		Treasury: pallet_treasury = 37,
+	// OpenGov
+	#[runtime::pallet_index(31)]
+	pub type ConvictionVoting = pallet_conviction_voting;
+	#[runtime::pallet_index(32)]
+	pub type Referenda = pallet_referenda;
+	#[runtime::pallet_index(35)]
+	pub type Origins = pallet_custom_origins;
+	#[runtime::pallet_index(36)]
+	pub type Whitelist = pallet_whitelist;
 
-		// Parachains pallets. Start indices at 40 to leave room.
-		ParachainsOrigin: parachains_origin = 41,
-		Configuration: parachains_configuration = 42,
-		ParasShared: parachains_shared = 43,
-		ParaInclusion: parachains_inclusion = 44,
-		ParaInherent: parachains_paras_inherent = 45,
-		ParaScheduler: parachains_scheduler = 46,
-		Paras: parachains_paras = 47,
-		Initializer: parachains_initializer = 48,
-		Dmp: parachains_dmp = 49,
-		// RIP Ump 50
-		Hrmp: parachains_hrmp = 51,
-		ParaSessionInfo: parachains_session_info = 52,
-		ParasDisputes: parachains_disputes = 53,
-		ParasSlashing: parachains_slashing = 54,
-		OnDemandAssignmentProvider: parachains_assigner_on_demand = 56,
-		CoretimeAssignmentProvider: parachains_assigner_coretime = 57,
+	// Treasury
+	#[runtime::pallet_index(37)]
+	pub type Treasury = pallet_treasury;
 
-		// Parachain Onboarding Pallets. Start indices at 60 to leave room.
-		Registrar: paras_registrar = 60,
-		Slots: slots = 61,
-		ParasSudoWrapper: paras_sudo_wrapper = 62,
-		Auctions: auctions = 63,
-		Crowdloan: crowdloan = 64,
-		AssignedSlots: assigned_slots = 65,
-		Coretime: coretime = 66,
+	// Parachains pallets. Start indices at 40 to leave room.
+	#[runtime::pallet_index(41)]
+	pub type ParachainsOrigin = parachains_origin;
+	#[runtime::pallet_index(42)]
+	pub type Configuration = parachains_configuration;
+	#[runtime::pallet_index(43)]
+	pub type ParasShared = parachains_shared;
+	#[runtime::pallet_index(44)]
+	pub type ParaInclusion = parachains_inclusion;
+	#[runtime::pallet_index(45)]
+	pub type ParaInherent = parachains_paras_inherent;
+	#[runtime::pallet_index(46)]
+	pub type ParaScheduler = parachains_scheduler;
+	#[runtime::pallet_index(47)]
+	pub type Paras = parachains_paras;
+	#[runtime::pallet_index(48)]
+	pub type Initializer = parachains_initializer;
+	#[runtime::pallet_index(49)]
+	pub type Dmp = parachains_dmp;
+	// RIP Ump 50
+	#[runtime::pallet_index(51)]
+	pub type Hrmp = parachains_hrmp;
+	#[runtime::pallet_index(52)]
+	pub type ParaSessionInfo = parachains_session_info;
+	#[runtime::pallet_index(53)]
+	pub type ParasDisputes = parachains_disputes;
+	#[runtime::pallet_index(54)]
+	pub type ParasSlashing = parachains_slashing;
+	#[runtime::pallet_index(56)]
+	pub type OnDemandAssignmentProvider = parachains_assigner_on_demand;
+	#[runtime::pallet_index(57)]
+	pub type CoretimeAssignmentProvider = parachains_assigner_coretime;
 
-		// Pallet for sending XCM.
-		XcmPallet: pallet_xcm = 99,
+	// Parachain Onboarding Pallets. Start indices at 60 to leave room.
+	#[runtime::pallet_index(60)]
+	pub type Registrar = paras_registrar;
+	#[runtime::pallet_index(61)]
+	pub type Slots = slots;
+	#[runtime::pallet_index(62)]
+	pub type ParasSudoWrapper = paras_sudo_wrapper;
+	#[runtime::pallet_index(63)]
+	pub type Auctions = auctions;
+	#[runtime::pallet_index(64)]
+	pub type Crowdloan = crowdloan;
+	#[runtime::pallet_index(65)]
+	pub type AssignedSlots = assigned_slots;
+	#[runtime::pallet_index(66)]
+	pub type Coretime = coretime;
 
-		// Generalized message queue
-		MessageQueue: pallet_message_queue = 100,
+	// Pallet for sending XCM.
+	#[runtime::pallet_index(99)]
+	pub type XcmPallet = pallet_xcm;
 
-		// Asset rate.
-		AssetRate: pallet_asset_rate = 101,
+	// Generalized message queue
+	#[runtime::pallet_index(100)]
+	pub type MessageQueue = pallet_message_queue;
 
-		// Root testing pallet.
-		RootTesting: pallet_root_testing = 102,
+	// Asset rate.
+	#[runtime::pallet_index(101)]
+	pub type AssetRate = pallet_asset_rate;
 
-		// BEEFY Bridges support.
-		Beefy: pallet_beefy = 200,
-		// MMR leaf construction must be after session in order to have a leaf's next_auth_set
-		// refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
-		Mmr: pallet_mmr = 201,
-		BeefyMmrLeaf: pallet_beefy_mmr = 202,
+	// Root testing pallet.
+	#[runtime::pallet_index(102)]
+	pub type RootTesting = pallet_root_testing;
 
-		// Pallet for migrating Identity to a parachain. To be removed post-migration.
-		IdentityMigrator: identity_migrator = 248,
-	}
+	// BEEFY Bridges support.
+	#[runtime::pallet_index(200)]
+	pub type Beefy = pallet_beefy;
+	// MMR leaf construction must be after session in order to have a leaf's next_auth_set
+	// refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+	#[runtime::pallet_index(201)]
+	pub type Mmr = pallet_mmr;
+	#[runtime::pallet_index(202)]
+	pub type BeefyMmrLeaf = pallet_beefy_mmr;
+
+	// Pallet for migrating Identity to a parachain. To be removed post-migration.
+	#[runtime::pallet_index(248)]
+	pub type IdentityMigrator = identity_migrator;
 }
 
 /// The address format for describing accounts.
@@ -2015,7 +2088,7 @@ sp_api::impl_runtime_apis! {
 
 	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
-			Beefy::genesis_block()
+			pallet_beefy::GenesisBlock::<Runtime>::get()
 		}
 
 		fn validator_set() -> Option<beefy_primitives::ValidatorSet<BeefyId>> {
@@ -2052,11 +2125,11 @@ sp_api::impl_runtime_apis! {
 
 	impl mmr::MmrApi<Block, Hash, BlockNumber> for Runtime {
 		fn mmr_root() -> Result<mmr::Hash, mmr::Error> {
-			Ok(Mmr::mmr_root())
+			Ok(pallet_mmr::RootHash::<Runtime>::get())
 		}
 
 		fn mmr_leaf_count() -> Result<mmr::LeafIndex, mmr::Error> {
-			Ok(Mmr::mmr_leaves())
+			Ok(pallet_mmr::NumberOfLeaves::<Runtime>::get())
 		}
 
 		fn generate_proof(
