@@ -3806,22 +3806,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3659" id="3659">3659</a>
 <a href="#3660" id="3660">3660</a>
 <a href="#3661" id="3661">3661</a>
-<a href="#3662" id="3662">3662</a>
-<a href="#3663" id="3663">3663</a>
-<a href="#3664" id="3664">3664</a>
-<a href="#3665" id="3665">3665</a>
-<a href="#3666" id="3666">3666</a>
-<a href="#3667" id="3667">3667</a>
-<a href="#3668" id="3668">3668</a>
-<a href="#3669" id="3669">3669</a>
-<a href="#3670" id="3670">3670</a>
-<a href="#3671" id="3671">3671</a>
-<a href="#3672" id="3672">3672</a>
-<a href="#3673" id="3673">3673</a>
-<a href="#3674" id="3674">3674</a>
-<a href="#3675" id="3675">3675</a>
-<a href="#3676" id="3676">3676</a>
-<a href="#3677" id="3677">3677</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3879,9 +3863,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_primitives::{
 	vstaging::{ApprovalVoteMultipleCandidates, ApprovalVotingParams},
-	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, DisputeStatement, ExecutorParams,
-	GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, CoreIndex, DisputeStatement,
+	ExecutorParams, GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 <span class="kw">use </span>sc_keystore::LocalKeystore;
 <span class="kw">use </span>sp_application_crypto::Pair;
@@ -5109,16 +5093,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Map from core index to candidate index.
 	</span><span class="kw">for </span>claimed_core_index <span class="kw">in </span>core_indices.iter_ones() {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(candidate_index) = block_entry
+		<span class="comment">// Candidates are sorted by core index.
+		</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(candidate_index) = block_entry
 			.candidates()
-			.iter()
-			.position(|(core_index, <span class="kw">_</span>)| core_index.<span class="number">0 </span>== claimed_core_index <span class="kw">as </span>u32)
+			.binary_search_by_key(<span class="kw-2">&amp;</span>(claimed_core_index <span class="kw">as </span>u32), |(core_index, <span class="kw">_</span>)| core_index.<span class="number">0</span>)
 		{
 			candidate_indices.push(candidate_index <span class="kw">as _</span>);
 		}
 	}
 
 	CandidateBitfield::try_from(candidate_indices)
+}
+
+<span class="comment">// Returns the claimed core bitfield from the assignment cert and the core index
+// from the block entry.
+</span><span class="kw">fn </span>get_core_indices_on_startup(
+	assignment: <span class="kw-2">&amp;</span>AssignmentCertKindV2,
+	block_entry_core_index: CoreIndex,
+) -&gt; CoreBitfield {
+	<span class="kw">match </span><span class="kw-2">&amp;</span>assignment {
+		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =&gt; core_bitfield.clone(),
+		AssignmentCertKindV2::RelayVRFModulo { sample: <span class="kw">_ </span>} =&gt;
+			CoreBitfield::try_from(<span class="macro">vec!</span>[block_entry_core_index]).expect(<span class="string">&quot;Not an empty vec; qed&quot;</span>),
+		AssignmentCertKindV2::RelayVRFDelay { core_index } =&gt;
+			CoreBitfield::try_from(<span class="macro">vec!</span>[<span class="kw-2">*</span>core_index]).expect(<span class="string">&quot;Not an empty vec; qed&quot;</span>),
+	}
 }
 
 <span class="comment">// Returns the claimed core bitfield from the assignment cert, the candidate hash and a
@@ -5191,7 +5190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			session: block_entry.session(),
 		});
 		<span class="kw">let </span><span class="kw-2">mut </span>signatures_queued = HashSet::new();
-		<span class="kw">for </span>(<span class="kw">_</span>, candidate_hash) <span class="kw">in </span>block_entry.candidates() {
+		<span class="kw">for </span>(core_index, candidate_hash) <span class="kw">in </span>block_entry.candidates() {
 			<span class="kw">let </span>_candidate_span =
 				distribution_message_span.child(<span class="string">&quot;candidate&quot;</span>).with_candidate(<span class="kw-2">*</span>candidate_hash);
 			<span class="kw">let </span>candidate_entry = <span class="kw">match </span>db.load_candidate_entry(<span class="kw-2">&amp;</span>candidate_hash)<span class="question-mark">? </span>{
@@ -5213,152 +5212,121 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">match </span>approval_entry.local_statements() {
 						(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) | (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; {}, <span class="comment">// second is impossible case.
 						</span>(<span class="prelude-val">Some</span>(assignment), <span class="prelude-val">None</span>) =&gt; {
-							<span class="kw">if let </span><span class="prelude-val">Some</span>(claimed_core_indices) = get_assignment_core_indices(
-								<span class="kw-2">&amp;</span>assignment.cert().kind,
-								<span class="kw-2">&amp;</span>candidate_hash,
-								<span class="kw-2">&amp;</span>block_entry,
-							) {
-								<span class="kw">if </span>block_entry.has_candidates_pending_signature() {
-									delayed_approvals_timers.maybe_arm_timer(
-										state.clock.tick_now(),
-										state.clock.as_ref(),
-										block_entry.block_hash(),
-										assignment.validator_index(),
-									)
-								}
+							<span class="kw">let </span>claimed_core_indices =
+								get_core_indices_on_startup(<span class="kw-2">&amp;</span>assignment.cert().kind, <span class="kw-2">*</span>core_index);
 
-								<span class="kw">match </span>cores_to_candidate_indices(
-									<span class="kw-2">&amp;</span>claimed_core_indices,
-									<span class="kw-2">&amp;</span>block_entry,
-								) {
-									<span class="prelude-val">Ok</span>(bitfield) =&gt; {
-										<span class="macro">gum::debug!</span>(
-											target: LOG_TARGET,
-											candidate_hash = <span class="question-mark">?</span>candidate_entry.candidate_receipt().hash(),
-											<span class="question-mark">?</span>block_hash,
-											<span class="string">&quot;Discovered, triggered assignment, not approved yet&quot;</span>,
-										);
+							<span class="kw">if </span>block_entry.has_candidates_pending_signature() {
+								delayed_approvals_timers.maybe_arm_timer(
+									state.clock.tick_now(),
+									state.clock.as_ref(),
+									block_entry.block_hash(),
+									assignment.validator_index(),
+								)
+							}
 
-										<span class="kw">let </span>indirect_cert = IndirectAssignmentCertV2 {
-											block_hash,
-											validator: assignment.validator_index(),
-											cert: assignment.cert().clone(),
-										};
-										messages.push(
-											ApprovalDistributionMessage::DistributeAssignment(
-												indirect_cert.clone(),
-												bitfield.clone(),
-											),
-										);
+							<span class="kw">match </span>cores_to_candidate_indices(<span class="kw-2">&amp;</span>claimed_core_indices, <span class="kw-2">&amp;</span>block_entry) {
+								<span class="prelude-val">Ok</span>(bitfield) =&gt; {
+									<span class="macro">gum::debug!</span>(
+										target: LOG_TARGET,
+										candidate_hash = <span class="question-mark">?</span>candidate_entry.candidate_receipt().hash(),
+										<span class="question-mark">?</span>block_hash,
+										<span class="string">&quot;Discovered, triggered assignment, not approved yet&quot;</span>,
+									);
 
-										<span class="kw">if </span>!block_entry
-											.candidate_is_pending_signature(<span class="kw-2">*</span>candidate_hash)
-										{
-											<span class="kw">let </span>ExtendedSessionInfo { <span class="kw-2">ref </span>executor_params, .. } =
-												<span class="kw">match </span>get_extended_session_info(
-													session_info_provider,
-													ctx.sender(),
-													block_entry.block_hash(),
-													block_entry.session(),
-												)
-												.<span class="kw">await
-												</span>{
-													<span class="prelude-val">Some</span>(i) =&gt; i,
-													<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
-												};
+									<span class="kw">let </span>indirect_cert = IndirectAssignmentCertV2 {
+										block_hash,
+										validator: assignment.validator_index(),
+										cert: assignment.cert().clone(),
+									};
+									messages.push(
+										ApprovalDistributionMessage::DistributeAssignment(
+											indirect_cert.clone(),
+											bitfield.clone(),
+										),
+									);
 
-											actions.push(Action::LaunchApproval {
-												claimed_candidate_indices: bitfield,
-												candidate_hash: candidate_entry
-													.candidate_receipt()
-													.hash(),
-												indirect_cert,
-												assignment_tranche: assignment.tranche(),
-												relay_block_hash: block_hash,
-												session: block_entry.session(),
-												executor_params: executor_params.clone(),
-												candidate: candidate_entry
-													.candidate_receipt()
-													.clone(),
-												backing_group: approval_entry.backing_group(),
-												distribute_assignment: <span class="bool-val">false</span>,
-											});
-										}
-									},
-									<span class="prelude-val">Err</span>(err) =&gt; {
-										<span class="comment">// Should never happen. If we fail here it means the
-										// assignment is null (no cores claimed).
-										</span><span class="macro">gum::warn!</span>(
-											target: LOG_TARGET,
-											<span class="question-mark">?</span>block_hash,
-											<span class="question-mark">?</span>candidate_hash,
-											<span class="question-mark">?</span>err,
-											<span class="string">&quot;Failed to create assignment bitfield&quot;</span>,
-										);
-									},
-								}
-							} <span class="kw">else </span>{
-								<span class="macro">gum::warn!</span>(
-									target: LOG_TARGET,
-									<span class="question-mark">?</span>block_hash,
-									<span class="question-mark">?</span>candidate_hash,
-									<span class="string">&quot;Cannot get assignment claimed core indices&quot;</span>,
-								);
+									<span class="kw">if </span>!block_entry.candidate_is_pending_signature(<span class="kw-2">*</span>candidate_hash)
+									{
+										<span class="kw">let </span>ExtendedSessionInfo { <span class="kw-2">ref </span>executor_params, .. } =
+											<span class="kw">match </span>get_extended_session_info(
+												session_info_provider,
+												ctx.sender(),
+												block_entry.block_hash(),
+												block_entry.session(),
+											)
+											.<span class="kw">await
+											</span>{
+												<span class="prelude-val">Some</span>(i) =&gt; i,
+												<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+											};
+
+										actions.push(Action::LaunchApproval {
+											claimed_candidate_indices: bitfield,
+											candidate_hash: candidate_entry
+												.candidate_receipt()
+												.hash(),
+											indirect_cert,
+											assignment_tranche: assignment.tranche(),
+											relay_block_hash: block_hash,
+											session: block_entry.session(),
+											executor_params: executor_params.clone(),
+											candidate: candidate_entry.candidate_receipt().clone(),
+											backing_group: approval_entry.backing_group(),
+											distribute_assignment: <span class="bool-val">false</span>,
+										});
+									}
+								},
+								<span class="prelude-val">Err</span>(err) =&gt; {
+									<span class="comment">// Should never happen. If we fail here it means the
+									// assignment is null (no cores claimed).
+									</span><span class="macro">gum::warn!</span>(
+										target: LOG_TARGET,
+										<span class="question-mark">?</span>block_hash,
+										<span class="question-mark">?</span>candidate_hash,
+										<span class="question-mark">?</span>err,
+										<span class="string">&quot;Failed to create assignment bitfield&quot;</span>,
+									);
+								},
 							}
 						},
 						(<span class="prelude-val">Some</span>(assignment), <span class="prelude-val">Some</span>(approval_sig)) =&gt; {
-							<span class="kw">if let </span><span class="prelude-val">Some</span>(claimed_core_indices) = get_assignment_core_indices(
-								<span class="kw-2">&amp;</span>assignment.cert().kind,
-								<span class="kw-2">&amp;</span>candidate_hash,
-								<span class="kw-2">&amp;</span>block_entry,
-							) {
-								<span class="kw">match </span>cores_to_candidate_indices(
-									<span class="kw-2">&amp;</span>claimed_core_indices,
-									<span class="kw-2">&amp;</span>block_entry,
-								) {
-									<span class="prelude-val">Ok</span>(bitfield) =&gt; messages.push(
-										ApprovalDistributionMessage::DistributeAssignment(
-											IndirectAssignmentCertV2 {
-												block_hash,
-												validator: assignment.validator_index(),
-												cert: assignment.cert().clone(),
-											},
-											bitfield,
-										),
-									),
-									<span class="prelude-val">Err</span>(err) =&gt; {
-										<span class="macro">gum::warn!</span>(
-											target: LOG_TARGET,
-											<span class="question-mark">?</span>block_hash,
-											<span class="question-mark">?</span>candidate_hash,
-											<span class="question-mark">?</span>err,
-											<span class="string">&quot;Failed to create assignment bitfield&quot;</span>,
-										);
-										<span class="comment">// If we didn&#39;t send assignment, we don&#39;t send approval.
-										</span><span class="kw">continue
-									</span>},
-								}
-								<span class="kw">if </span>signatures_queued
-									.insert(approval_sig.signed_candidates_indices.clone())
-								{
-									messages.push(ApprovalDistributionMessage::DistributeApproval(
-										IndirectSignedApprovalVoteV2 {
+							<span class="kw">let </span>claimed_core_indices =
+								get_core_indices_on_startup(<span class="kw-2">&amp;</span>assignment.cert().kind, <span class="kw-2">*</span>core_index);
+							<span class="kw">match </span>cores_to_candidate_indices(<span class="kw-2">&amp;</span>claimed_core_indices, <span class="kw-2">&amp;</span>block_entry) {
+								<span class="prelude-val">Ok</span>(bitfield) =&gt; messages.push(
+									ApprovalDistributionMessage::DistributeAssignment(
+										IndirectAssignmentCertV2 {
 											block_hash,
-											candidate_indices: approval_sig
-												.signed_candidates_indices,
 											validator: assignment.validator_index(),
-											signature: approval_sig.signature,
+											cert: assignment.cert().clone(),
 										},
-									))
-								};
-							} <span class="kw">else </span>{
-								<span class="macro">gum::warn!</span>(
-									target: LOG_TARGET,
-									<span class="question-mark">?</span>block_hash,
-									<span class="question-mark">?</span>candidate_hash,
-									<span class="string">&quot;Cannot get assignment claimed core indices&quot;</span>,
-								);
+										bitfield,
+									),
+								),
+								<span class="prelude-val">Err</span>(err) =&gt; {
+									<span class="macro">gum::warn!</span>(
+										target: LOG_TARGET,
+										<span class="question-mark">?</span>block_hash,
+										<span class="question-mark">?</span>candidate_hash,
+										<span class="question-mark">?</span>err,
+										<span class="string">&quot;Failed to create assignment bitfield&quot;</span>,
+									);
+									<span class="comment">// If we didn&#39;t send assignment, we don&#39;t send approval.
+									</span><span class="kw">continue
+								</span>},
 							}
+							<span class="kw">if </span>signatures_queued
+								.insert(approval_sig.signed_candidates_indices.clone())
+							{
+								messages.push(ApprovalDistributionMessage::DistributeApproval(
+									IndirectSignedApprovalVoteV2 {
+										block_hash,
+										candidate_indices: approval_sig.signed_candidates_indices,
+										validator: assignment.validator_index(),
+										signature: approval_sig.signature,
+									},
+								))
+							};
 						},
 					}
 				},
