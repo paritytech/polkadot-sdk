@@ -24,42 +24,34 @@ use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
 use sp_std::fmt::Debug;
 use xcm::latest::{
-	Error as XcmError, InteriorMultiLocation, MultiLocation, QueryId, Response,
-	Result as XcmResult, Weight, XcmContext,
+	Error as XcmError, InteriorLocation, Location, QueryId, Response, Result as XcmResult, Weight,
+	XcmContext,
 };
 
 /// Define what needs to be done upon receiving a query response.
 pub trait OnResponse {
 	/// Returns `true` if we are expecting a response from `origin` for query `query_id` that was
 	/// queried by `querier`.
-	fn expecting_response(
-		origin: &MultiLocation,
-		query_id: u64,
-		querier: Option<&MultiLocation>,
-	) -> bool;
+	fn expecting_response(origin: &Location, query_id: u64, querier: Option<&Location>) -> bool;
 	/// Handler for receiving a `response` from `origin` relating to `query_id` initiated by
 	/// `querier`.
 	fn on_response(
-		origin: &MultiLocation,
+		origin: &Location,
 		query_id: u64,
-		querier: Option<&MultiLocation>,
+		querier: Option<&Location>,
 		response: Response,
 		max_weight: Weight,
 		context: &XcmContext,
 	) -> Weight;
 }
 impl OnResponse for () {
-	fn expecting_response(
-		_origin: &MultiLocation,
-		_query_id: u64,
-		_querier: Option<&MultiLocation>,
-	) -> bool {
+	fn expecting_response(_origin: &Location, _query_id: u64, _querier: Option<&Location>) -> bool {
 		false
 	}
 	fn on_response(
-		_origin: &MultiLocation,
+		_origin: &Location,
 		_query_id: u64,
-		_querier: Option<&MultiLocation>,
+		_querier: Option<&Location>,
 		_response: Response,
 		_max_weight: Weight,
 		_context: &XcmContext,
@@ -79,7 +71,7 @@ pub trait VersionChangeNotifier {
 	/// If the `location` has an ongoing notification and when this function is called, then an
 	/// error should be returned.
 	fn start(
-		location: &MultiLocation,
+		location: &Location,
 		query_id: QueryId,
 		max_weight: Weight,
 		context: &XcmContext,
@@ -87,20 +79,20 @@ pub trait VersionChangeNotifier {
 
 	/// Stop notifying `location` should the XCM change. Returns an error if there is no existing
 	/// notification set up.
-	fn stop(location: &MultiLocation, context: &XcmContext) -> XcmResult;
+	fn stop(location: &Location, context: &XcmContext) -> XcmResult;
 
 	/// Return true if a location is subscribed to XCM version changes.
-	fn is_subscribed(location: &MultiLocation) -> bool;
+	fn is_subscribed(location: &Location) -> bool;
 }
 
 impl VersionChangeNotifier for () {
-	fn start(_: &MultiLocation, _: QueryId, _: Weight, _: &XcmContext) -> XcmResult {
+	fn start(_: &Location, _: QueryId, _: Weight, _: &XcmContext) -> XcmResult {
 		Err(XcmError::Unimplemented)
 	}
-	fn stop(_: &MultiLocation, _: &XcmContext) -> XcmResult {
+	fn stop(_: &Location, _: &XcmContext) -> XcmResult {
 		Err(XcmError::Unimplemented)
 	}
-	fn is_subscribed(_: &MultiLocation) -> bool {
+	fn is_subscribed(_: &Location) -> bool {
 		false
 	}
 }
@@ -134,13 +126,13 @@ pub trait QueryHandler {
 		+ Copy;
 	type BlockNumber: Zero + Encode;
 	type Error;
-	type UniversalLocation: Get<InteriorMultiLocation>;
+	type UniversalLocation: Get<InteriorLocation>;
 
 	/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	fn new_query(
-		responder: impl Into<MultiLocation>,
+		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
-		match_querier: impl Into<MultiLocation>,
+		match_querier: impl Into<Location>,
 	) -> QueryId;
 
 	/// Consume `message` and return another which is equivalent to it except that it reports
@@ -157,7 +149,7 @@ pub trait QueryHandler {
 	/// The response can be queried with `take_response`.
 	fn report_outcome(
 		message: &mut Xcm<()>,
-		responder: impl Into<MultiLocation>,
+		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
 	) -> result::Result<Self::QueryId, Self::Error>;
 
@@ -170,7 +162,7 @@ pub trait QueryHandler {
 }
 
 parameter_types! {
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub UniversalLocation: InteriorLocation = Here;
 }
 
 impl QueryHandler for () {
@@ -183,16 +175,16 @@ impl QueryHandler for () {
 		QueryResponseStatus::NotFound
 	}
 	fn new_query(
-		_responder: impl Into<MultiLocation>,
+		_responder: impl Into<Location>,
 		_timeout: Self::BlockNumber,
-		_match_querier: impl Into<MultiLocation>,
+		_match_querier: impl Into<Location>,
 	) -> Self::QueryId {
 		0u64
 	}
 
 	fn report_outcome(
 		_message: &mut Xcm<()>,
-		_responder: impl Into<MultiLocation>,
+		_responder: impl Into<Location>,
 		_timeout: Self::BlockNumber,
 	) -> Result<Self::QueryId, Self::Error> {
 		Err(())

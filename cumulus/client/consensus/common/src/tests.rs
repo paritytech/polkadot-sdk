@@ -136,6 +136,15 @@ impl RelayChainInterface for Relaychain {
 		Ok(Some(PersistedValidationData { parent_head, ..Default::default() }))
 	}
 
+	async fn validation_code_hash(
+		&self,
+		_: PHash,
+		_: ParaId,
+		_: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn candidate_pending_availability(
 		&self,
 		_: PHash,

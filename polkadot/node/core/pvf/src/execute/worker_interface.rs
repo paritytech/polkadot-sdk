@@ -62,16 +62,16 @@ pub async fn spawn(
 		security_status,
 	)
 	.await?;
-	send_handshake(&mut idle_worker.stream, Handshake { executor_params })
+	send_execute_handshake(&mut idle_worker.stream, Handshake { executor_params })
 		.await
 		.map_err(|error| {
+			let err = SpawnErr::Handshake { err: error.to_string() };
 			gum::warn!(
 				target: LOG_TARGET,
 				worker_pid = %idle_worker.pid,
-				?error,
-				"failed to send a handshake to the spawned worker",
+				%err
 			);
-			SpawnErr::Handshake
+			err
 		})?;
 	Ok((idle_worker, worker_handle))
 }
@@ -87,6 +87,10 @@ pub enum Outcome {
 	/// a trap. Errors related to the preparation process are not expected to be encountered by the
 	/// execution workers.
 	InvalidCandidate { err: String, idle_worker: IdleWorker },
+	/// The error is probably transient. It may be for example
+	/// because the artifact was prepared with a Wasmtime version different from the version
+	/// in the current execution environment.
+	RuntimeConstruction { err: String, idle_worker: IdleWorker },
 	/// The execution time exceeded the hard limit. The worker is terminated.
 	HardTimeout,
 	/// An I/O error happened during communication with the worker. This may mean that the worker
@@ -193,6 +197,10 @@ pub async fn start_work(
 				err,
 				idle_worker: IdleWorker { stream, pid, worker_dir },
 			},
+			WorkerResponse::RuntimeConstruction(err) => Outcome::RuntimeConstruction {
+				err,
+				idle_worker: IdleWorker { stream, pid, worker_dir },
+			},
 			WorkerResponse::JobTimedOut => Outcome::HardTimeout,
 			WorkerResponse::JobDied { err, job_pid: _ } => Outcome::JobDied { err },
 			WorkerResponse::JobError(err) => Outcome::JobError { err },
@@ -286,7 +294,8 @@ where
 	outcome
 }
 
-async fn send_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Result<()> {
+/// Sends a handshake with information specific to the execute worker.
+async fn send_execute_handshake(stream: &mut UnixStream, handshake: Handshake) -> io::Result<()> {
 	framed_send(stream, &handshake.encode()).await
 }
 

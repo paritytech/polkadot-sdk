@@ -202,21 +202,26 @@ fetch_release_artifacts() {
   echo "Release ID : $RELEASE_ID"
   echo "Repo       : $REPO"
   echo "Binary     : $BINARY"
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  echo "OUTPUT_DIR : $OUTPUT_DIR"
 
+  echo "Fetching release info..."
   curl -L -s \
     -H "Accept: application/vnd.github+json" \
     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     https://api.github.com/repos/${REPO}/releases/${RELEASE_ID} > release.json
 
-  # Get Asset ids
+  echo "Extract asset ids..."
   ids=($(jq -r '.assets[].id' < release.json ))
+  echo "Extract asset count..."
   count=$(jq '.assets|length' < release.json )
 
   # Fetch artifacts
-  mkdir -p "./release-artifacts/${BINARY}"
-  pushd "./release-artifacts/${BINARY}" > /dev/null
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
 
+  echo "Fetching assets..."
   iter=1
   for id in "${ids[@]}"
   do
@@ -232,6 +237,61 @@ fetch_release_artifacts() {
   popd > /dev/null
 }
 
+# Fetch the release artifacts like binary and sigantures from S3. Assumes the ENV are set:
+# - RELEASE_ID
+# - GITHUB_TOKEN
+# - REPO in the form paritytech/polkadot
+fetch_release_artifacts_from_s3() {
+  echo "Version    : $VERSION"
+  echo "Repo       : $REPO"
+  echo "Binary     : $BINARY"
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  echo "OUTPUT_DIR : $OUTPUT_DIR"
+
+  URL_BASE=$(get_s3_url_base $BINARY)
+  echo "URL_BASE=$URL_BASE"
+
+  URL_BINARY=$URL_BASE/$VERSION/$BINARY
+  URL_SHA=$URL_BASE/$VERSION/$BINARY.sha256
+  URL_ASC=$URL_BASE/$VERSION/$BINARY.asc
+
+  # Fetch artifacts
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
+
+  echo "Fetching artifacts..."
+  for URL in $URL_BINARY $URL_SHA $URL_ASC; do
+    echo "Fetching %s" "$URL"
+    curl --progress-bar -LO "$URL" || echo "Missing $URL"
+  done
+
+  pwd
+  ls -al --color
+  popd > /dev/null
+
+}
+
+# Pass the name of the binary as input, it will
+# return the s3 base url
+function get_s3_url_base() {
+    name=$1
+    case $name in
+    polkadot | polkadot-execute-worker | polkadot-prepare-worker | staking-miner)
+        printf "https://releases.parity.io/polkadot"
+        ;;
+
+    polkadot-parachain)
+        printf "https://releases.parity.io/cumulus"
+        ;;
+
+    *)
+        printf "UNSUPPORTED BINARY $name"
+        exit 1
+        ;;
+    esac
+}
+
+
 # Check the checksum for a given binary
 function check_sha256() {
     echo "Checking SHA256 for $1"
@@ -243,13 +303,11 @@ function check_sha256() {
 function import_gpg_keys() {
   GPG_KEYSERVER=${GPG_KEYSERVER:-"keyserver.ubuntu.com"}
   SEC="9D4B2B6EB8F97156D19669A9FF0812D491B96798"
-  WILL="2835EAF92072BC01D188AF2C4A092B93E97CE1E2"
   EGOR="E6FC4D4782EB0FA64A4903CCDB7D3555DD3932D3"
-  MARA="533C920F40E73A21EEB7E9EBF27AEA7E7594C9CF"
   MORGAN="2E92A9D8B15D7891363D1AE8AF9E6C43F7F8C4CF"
 
   echo "Importing GPG keys from $GPG_KEYSERVER in parallel"
-  for key in $SEC $WILL $EGOR $MARA $MORGAN; do
+  for key in $SEC $EGOR $MORGAN; do
     (
       echo "Importing GPG key $key"
       gpg --no-tty --quiet --keyserver $GPG_KEYSERVER --recv-keys $key
@@ -263,4 +321,116 @@ function import_gpg_keys() {
 function check_gpg() {
     echo "Checking GPG Signature for $1"
     gpg --no-tty --verify -q $1.asc $1
+}
+
+# GITHUB_REF will typically be like:
+# - refs/heads/release-v1.2.3
+# - refs/heads/release-polkadot-v1.2.3-rc2
+# This function extracts the version
+function get_version_from_ghref() {
+  GITHUB_REF=$1
+  stripped=${GITHUB_REF#refs/heads/release-}
+  re="v([0-9]+\.[0-9]+\.[0-9]+)"
+  if [[ $stripped =~ $re ]]; then
+    echo ${BASH_REMATCH[0]};
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Get latest rc tag based on the release version and product
+function get_latest_rc_tag() {
+  version=$1
+  product=$2
+
+  if [[ "$product" == "polkadot" ]]; then
+    last_rc=$(git tag -l "$version-rc*" | sort -V | tail -n 1)
+  elif [[ "$product" == "polkadot-parachain"  ]]; then
+    last_rc=$(git tag -l "polkadot-parachains-$version-rc*" | sort -V | tail -n 1)
+  fi
+  echo "${last_rc}"
+}
+
+# Increment rc tag number based on the value of a suffix of the current rc tag
+function increment_rc_tag() {
+  last_rc=$1
+
+  suffix=$(echo "$last_rc" | grep -Eo '[0-9]+$')
+  ((suffix++))
+  echo $suffix
+}
+
+function relative_parent() {
+    echo "$1" | sed -E 's/(.*)\/(.*)\/\.\./\1/g'
+}
+
+# Find all the runtimes, it returns the result as JSON object, compatible to be
+# used as Github Workflow Matrix. This call is exposed by the `scan` command and can be used as:
+# podman run --rm -it -v /.../fellowship-runtimes:/build docker.io/chevdor/srtool:1.70.0-0.11.1 scan
+function find_runtimes() {
+    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches 'construct_runtime!' -- '*lib.rs'))
+    re=".*-runtime$"
+    JSON=$(jq --null-input '{ "include": [] }')
+
+    # EXCLUDED_RUNTIMES is a space separated list of runtime names (without the -runtime postfix)
+    # EXCLUDED_RUNTIMES=${EXCLUDED_RUNTIMES:-"substrate-test"}
+    IFS=' ' read -r -a exclusions <<< "$EXCLUDED_RUNTIMES"
+
+    for lib in "${libs[@]}"; do
+        crate_dir=$(dirname "$lib")
+        cargo_toml="$crate_dir/../Cargo.toml"
+
+        name=$(toml get -r $cargo_toml 'package.name')
+        chain=${name//-runtime/}
+
+        if [[ "$name" =~ $re ]] && ! [[ ${exclusions[@]} =~ $chain ]]; then
+            lib_dir=$(dirname "$lib")
+            runtime_dir=$(relative_parent "$lib_dir/..")
+            ITEM=$(jq --null-input \
+                --arg chain "$chain" \
+                --arg name "$name" \
+                --arg runtime_dir "$runtime_dir" \
+                '{ "chain": $chain, "crate": $name, "runtime_dir": $runtime_dir }')
+            JSON=$(echo $JSON | jq ".include += [$ITEM]")
+        fi
+    done
+    echo $JSON
+}
+
+# Filter the version matches the particular pattern and return it.
+# input: version (v1.8.0 or v1.8.0-rc1)
+# output: none
+filter_version_from_input() {
+  version=$1
+  regex="(^v[0-9]+\.[0-9]+\.[0-9]+)$|(^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+)$"
+
+  if [[ $version =~ $regex ]]; then
+      if [ -n "${BASH_REMATCH[1]}" ]; then
+          echo "${BASH_REMATCH[1]}"
+      elif [ -n "${BASH_REMATCH[2]}" ]; then
+          echo "${BASH_REMATCH[2]}"
+      fi
+  else
+      echo "Invalid version: $version"
+      exit 1
+  fi
+
+}
+
+# Check if the release_id is valid number
+# input: release_id
+# output: release_id or exit 1
+check_release_id() {
+  input=$1
+
+  release_id=$(echo "$input" | sed 's/[^0-9]//g')
+
+  if [[ $release_id =~ ^[0-9]+$ ]]; then
+      echo "$release_id"
+  else
+      echo "Invalid release_id from input: $input"
+      exit 1
+  fi
+
 }

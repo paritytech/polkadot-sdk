@@ -8,9 +8,9 @@ pre-checking. Head over to [overview] for the PVF pre-checking process overview.
 There is no dedicated input mechanism for PVF pre-checker. Instead, PVF pre-checker looks on the `ActiveLeavesUpdate`
 event stream for work.
 
-This subsytem does not produce any output messages either. The subsystem will, however, send messages to the [Runtime
-API] subsystem to query for the pending PVFs and to submit votes. In addition to that, it will also communicate with
-[Candidate Validation] Subsystem to request PVF pre-check.
+This subsytem does not produce any output messages either. The subsystem will, however, send messages to the
+[Runtime API] subsystem to query for the pending PVFs and to submit votes. In addition to that, it will also
+communicate with [Candidate Validation] Subsystem to request PVF pre-check.
 
 ## Functionality
 

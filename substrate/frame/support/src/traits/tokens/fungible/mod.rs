@@ -41,9 +41,10 @@
 pub mod conformance_tests;
 pub mod freeze;
 pub mod hold;
-mod imbalance;
+pub(crate) mod imbalance;
 mod item_of;
 mod regular;
+mod union_of;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
@@ -67,6 +68,7 @@ pub use regular::{
 use sp_arithmetic::traits::Zero;
 use sp_core::Get;
 use sp_runtime::{traits::Convert, DispatchError};
+pub use union_of::{NativeFromLeft, NativeOrWithId, UnionOf};
 
 use crate::{
 	ensure,

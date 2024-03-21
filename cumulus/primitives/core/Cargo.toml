@@ -1,29 +1,32 @@
 [package]
 name = "cumulus-primitives-core"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Cumulus related core primitive types and traits"
 
+[lints]
+workspace = true
+
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
-sp-api = { path = "../../../substrate/primitives/api", default-features = false}
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false}
+sp-api = { path = "../../../substrate/primitives/api", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
 
 # Polkadot
-polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false}
-polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false}
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false }
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"polkadot-core-primitives/std",

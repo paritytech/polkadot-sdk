@@ -24,7 +24,7 @@ use emulated_integration_tests_common::{
 
 // Westend declaration
 decl_test_relay_chains! {
-	#[api_version(9)]
+	#[api_version(10)]
 	pub struct Westend {
 		genesis = genesis::genesis(),
 		on_init = (),
@@ -39,6 +39,8 @@ decl_test_relay_chains! {
 			Treasury: westend_runtime::Treasury,
 			AssetRate: westend_runtime::AssetRate,
 			Hrmp: westend_runtime::Hrmp,
+			Identity: westend_runtime::Identity,
+			IdentityMigrator: westend_runtime::IdentityMigrator,
 		}
 	},
 }

@@ -1,10 +1,13 @@
 [package]
 name = "bp-polkadot"
 description = "Primitives of Polkadot runtime."
-version = "0.1.0"
+version = "0.5.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 
@@ -21,7 +24,7 @@ sp-api = { path = "../../../substrate/primitives/api", default-features = false 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-header-chain/std",
 	"bp-polkadot-core/std",

@@ -20,17 +20,19 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	async_backing, slashing, vstaging::NodeFeatures, AuthorityDiscoveryId, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
-	DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, Slot, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing, slashing,
+	vstaging::{ApprovalVotingParams, NodeFeatures},
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, Slot, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, HashMap, VecDeque},
 	sync::{Arc, Mutex},
 };
 use test_helpers::{dummy_committed_candidate_receipt, dummy_validation_code};
@@ -242,6 +244,15 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		todo!("Not required for tests")
 	}
 
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		_: Hash,
+		_: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError> {
+		todo!("Not required for tests")
+	}
+
 	async fn current_epoch(&self, _: Hash) -> Result<sp_consensus_babe::Epoch, ApiError> {
 		Ok(self.babe_epoch.as_ref().unwrap().clone())
 	}
@@ -274,6 +285,13 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	}
 
 	async fn disabled_validators(&self, _: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
+		todo!("Not required for tests")
+	}
+
+	async fn claim_queue(
+		&self,
+		_: Hash,
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, ApiError> {
 		todo!("Not required for tests")
 	}
 }

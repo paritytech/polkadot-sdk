@@ -114,15 +114,21 @@
 //! separated from the stable primitives.
 
 use crate::{
-	async_backing, slashing, vstaging, AsyncBackingParams, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
+	async_backing, slashing,
+	vstaging::{self, ApprovalVotingParams},
+	AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, Hash, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
+
 use polkadot_core_primitives as pcp;
 use polkadot_parachain_primitives::primitives as ppp;
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	prelude::*,
+};
 
 sp_api::decl_runtime_apis! {
 	/// The API for querying the state of parachains on-chain.
@@ -274,5 +280,15 @@ sp_api::decl_runtime_apis! {
 		/// This is a staging method! Do not use on production runtimes!
 		#[api_version(9)]
 		fn node_features() -> vstaging::NodeFeatures;
+
+		/***** Added in v10 *****/
+		/// Approval voting configuration parameters
+		#[api_version(10)]
+		fn approval_voting_params() -> ApprovalVotingParams;
+
+		/***** Added in v11 *****/
+		/// Claim queue
+		#[api_version(11)]
+		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ppp::Id>>;
 	}
 }

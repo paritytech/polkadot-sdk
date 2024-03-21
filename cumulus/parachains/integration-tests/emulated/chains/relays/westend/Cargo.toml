@@ -7,8 +7,10 @@ license = "Apache-2.0"
 description = "Westend emulated chain"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
-serde_json = "1.0.104"
 
 # Substrate
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
@@ -17,7 +19,6 @@ sp-authority-discovery = { path = "../../../../../../../substrate/primitives/aut
 sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy" }
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false }
-pallet-im-online = { path = "../../../../../../../substrate/frame/im-online", default-features = false }
 pallet-staking = { path = "../../../../../../../substrate/frame/staking", default-features = false }
 
 # Polkadot

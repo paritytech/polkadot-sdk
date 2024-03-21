@@ -23,6 +23,7 @@ use crate::{
 	PostRecoveryCheck, LOG_TARGET,
 };
 use futures::{channel::oneshot, SinkExt};
+use parity_scale_codec::Encode;
 #[cfg(not(test))]
 use polkadot_node_network_protocol::request_response::CHUNK_REQUEST_TIMEOUT;
 use polkadot_node_network_protocol::request_response::{
@@ -432,7 +433,7 @@ where
 					return Err(err)
 				},
 				Ok(data) => {
-					self.params.metrics.on_recovery_succeeded();
+					self.params.metrics.on_recovery_succeeded(data.encoded_size());
 					return Ok(data)
 				},
 			}

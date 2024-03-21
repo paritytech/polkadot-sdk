@@ -13,6 +13,7 @@ In particular the dispute-coordinator is responsible for:
 - Ensuring backing votes will never get overridden by explicit votes.
 - Coordinating actual participation in a dispute, ensuring that the node participates in any justified dispute in a way
   that ensures resolution of disputes on the network even in the case of many disputes raised (flood/DoS scenario).
+- Ensuring disabled validators are not able to spam disputes.
 - Ensuring disputes resolve, even for candidates on abandoned forks as much as reasonably possible, to rule out "free
   tries" and thus guarantee our gambler's ruin property.
 - Providing an API for chain selection, so we can prevent finalization of any chain which has included candidates for
@@ -243,6 +244,9 @@ if any of the following holds true:
 - The dispute is already confirmed: Meaning that 1/3+1 nodes already participated, as this suggests in our threat model
   that there was at least one honest node that already voted, so the dispute must be genuine.
 
+In addition to that, we only participate in a non-confirmed dispute if at least one vote against the candidate is from
+a non-disabled validator.
+
 Note: A node might be out of sync with the chain and we might only learn about a block, including a candidate, after we
 learned about the dispute. This means, we have to re-evaluate participation decisions on block import!
 
@@ -301,6 +305,7 @@ conditions are satisfied:
 - the candidate under dispute was not seen included nor backed on any chain
 - the dispute is not confirmed
 - we haven't cast a vote for the dispute
+- at least one vote against the candidate is from a non-disabled validator
 
 Whenever any vote on a dispute is imported these conditions are checked. If the dispute is found not to be potential
 spam, then spam slots for the disputed candidate hash are cleared. This decrements the spam count for every validator
@@ -317,6 +322,23 @@ rate limited and concern only real candidates. For approval votes a similar argu
 approval-voting), but we also don't import them until a dispute already concluded. For actual dispute votes we need two
 opposing votes, so there must be an explicit `invalid` vote in the import. Only a third of the validators can be
 malicious, so spam disk usage is limited to `2*vote_size*n/3*NUM_SPAM_SLOTS`, with `n` being the number of validators.
+
+### Disabling
+
+Once a validator has committed an offence (e.g. losing a dispute), it is considered disabled for the rest of the era.
+In addition to using the on-chain state of disabled validators, we also keep track of validators who lost a dispute
+off-chain. The reason for this is a dispute can be raised for a candidate in a previous era, which means that a
+validator that is going to be slashed for it might not even be in the current active set. That means it can't be
+disabled on-chain. We need a way to prevent someone from disputing all valid candidates in the previous era. We do this
+by keeping track of the validators who lost a dispute in the past few sessions and use that list in addition to the
+on-chain disabled validators state. In addition to past session misbehavior, this also heps in case a slash is delayed.
+
+When we receive a dispute statements set, we do the following:
+1. Take the on-chain state of disabled validators at the relay parent block.
+1. Take a list of those who lost a dispute in that session in the order that prioritizes the biggest and newest offence.
+1. Combine the two lists and take the first byzantine threshold validators from it.
+1. If the dispute is unconfimed, check if all votes against the candidate are from disabled validators.
+If so, we don't participate in the dispute, but record the votes.
 
 ### Backing Votes
 

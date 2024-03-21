@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-node-core-bitfield-signing"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Bitfield signing subsystem for the Polkadot node"
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
@@ -14,7 +17,7 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 wasm-timer = "0.2.5"
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }

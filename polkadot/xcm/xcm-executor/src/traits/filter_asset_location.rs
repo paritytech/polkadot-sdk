@@ -15,21 +15,21 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::traits::ContainsPair;
-use xcm::latest::{MultiAsset, MultiLocation};
+use xcm::latest::{Asset, Location};
 
 /// Filters assets/location pairs.
 ///
 /// Can be amalgamated into tuples. If any item returns `true`, it short-circuits, else `false` is
 /// returned.
-#[deprecated = "Use `frame_support::traits::ContainsPair<MultiAsset, MultiLocation>` instead"]
+#[deprecated = "Use `frame_support::traits::ContainsPair<Asset, Location>` instead"]
 pub trait FilterAssetLocation {
 	/// A filter to distinguish between asset/location pairs.
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool;
+	fn contains(asset: &Asset, origin: &Location) -> bool;
 }
 
 #[allow(deprecated)]
-impl<T: ContainsPair<MultiAsset, MultiLocation>> FilterAssetLocation for T {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+impl<T: ContainsPair<Asset, Location>> FilterAssetLocation for T {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		T::contains(asset, origin)
 	}
 }

@@ -75,6 +75,9 @@ pub enum Error {
 	#[error("Fetching availability cores failed {0:?}")]
 	FetchAvailabilityCores(RuntimeApiError),
 
+	#[error("Fetching disabled validators failed {0:?}")]
+	FetchDisabledValidators(runtime::Error),
+
 	#[error("Fetching validator groups failed {0:?}")]
 	FetchValidatorGroups(RuntimeApiError),
 

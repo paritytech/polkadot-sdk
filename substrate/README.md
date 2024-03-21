@@ -3,7 +3,7 @@
 [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE)
 [![GitLab
 Status](https://gitlab.parity.io/parity/mirrors/polkadot-sdk/badges/master/pipeline.svg)](https://gitlab.parity.io/parity/mirrors/polkadot-sdk/-/pipelines)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/CONTRIBUTING.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](docs/contributor/CONTRIBUTING.md)
 [![Stack
 Exchange](https://img.shields.io/badge/Substrate-Community%20&%20Support-24CC85?logo=stackexchange)](https://substrate.stackexchange.com/)
 <p align="center">
@@ -26,15 +26,13 @@ here](https://github.com/paritytech/polkadot-sdk/issues) for anything you suspec
 
 ## Contributions & Code of Conduct
 
-Please follow the contributions guidelines as outlined in
-[`docs/CONTRIBUTING.md`](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CONTRIBUTING.md). In all
-communications and contributions, this project follows the [Contributor Covenant Code of
-Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CODE_OF_CONDUCT.md).
+Please follow the contributions guidelines as outlined in [`docs/contributor/CONTRIBUTING.md`](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md).
+In all communications and contributions, this project follows the [Contributor Covenant Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CODE_OF_CONDUCT.md).
 
 ## Security
 
 The security policy and procedures can be found in
-[`docs/SECURITY.md`](https://github.com/paritytech/polkadot-sdk/blob/master/docs/SECURITY.md).
+[`docs/contributor/SECURITY.md`](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/SECURITY.md).
 
 ## License
 

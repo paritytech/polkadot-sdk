@@ -165,6 +165,8 @@ where
 			KeyOwnershipProof(relay_parent, validator_id, key_ownership_proof) => self
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
+			RequestResult::ApprovalVotingParams(_relay_parent, session_index, params) =>
+				self.requests_cache.cache_approval_voting_params(session_index, params),
 			SubmitReportDisputeLost(_, _, _, _) => {},
 			DisabledValidators(relay_parent, disabled_validators) =>
 				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
@@ -175,6 +177,9 @@ where
 				self.requests_cache.cache_async_backing_params(relay_parent, params),
 			NodeFeatures(session_index, params) =>
 				self.requests_cache.cache_node_features(session_index, params),
+			ClaimQueue(relay_parent, sender) => {
+				self.requests_cache.cache_claim_queue(relay_parent, sender);
+			},
 		}
 	}
 
@@ -300,6 +305,9 @@ where
 						Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender)
 					},
 				),
+			Request::ApprovalVotingParams(session_index, sender) =>
+				query!(approval_voting_params(session_index), sender)
+					.map(|sender| Request::ApprovalVotingParams(session_index, sender)),
 			Request::DisabledValidators(sender) => query!(disabled_validators(), sender)
 				.map(|sender| Request::DisabledValidators(sender)),
 			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
@@ -324,6 +332,8 @@ where
 					Some(Request::NodeFeatures(index, sender))
 				}
 			},
+			Request::ClaimQueue(sender) =>
+				query!(claim_queue(), sender).map(|sender| Request::ClaimQueue(sender)),
 		}
 	}
 
@@ -428,6 +438,7 @@ where
 				.unwrap_or_else(|e| {
 					gum::warn!(
 						target: LOG_TARGET,
+						api = ?stringify!($api_name),
 						"cannot query the runtime API version: {}",
 						e,
 					);
@@ -571,6 +582,14 @@ where
 			ver = Request::KEY_OWNERSHIP_PROOF_RUNTIME_REQUIREMENT,
 			sender
 		),
+		Request::ApprovalVotingParams(session_index, sender) => {
+			query!(
+				ApprovalVotingParams,
+				approval_voting_params(session_index),
+				ver = Request::APPROVAL_VOTING_PARAMS_REQUIREMENT,
+				sender
+			)
+		},
 		Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender) => query!(
 			SubmitReportDisputeLost,
 			submit_report_dispute_lost(dispute_proof, key_ownership_proof),
@@ -611,6 +630,12 @@ where
 			ver = Request::NODE_FEATURES_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
+		),
+		Request::ClaimQueue(sender) => query!(
+			ClaimQueue,
+			claim_queue(),
+			ver = Request::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+			sender
 		),
 	}
 }

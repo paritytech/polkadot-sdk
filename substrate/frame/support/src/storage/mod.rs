@@ -1712,7 +1712,7 @@ mod test {
 	use bounded_vec::BoundedVec;
 	use frame_support::traits::ConstU32;
 	use generator::StorageValue as _;
-	use sp_core::hashing::twox_128;
+	use sp_crypto_hashing::twox_128;
 	use sp_io::TestExternalities;
 	use weak_bounded_vec::WeakBoundedVec;
 

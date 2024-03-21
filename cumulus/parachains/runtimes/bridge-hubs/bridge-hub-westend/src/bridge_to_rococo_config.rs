@@ -17,11 +17,13 @@
 //! Bridge definitions used on BridgeHub with the Westend flavor.
 
 use crate::{
-	bridge_common_config::DeliveryRewardInBalance, weights, AccountId, BridgeRococoMessages,
-	ParachainInfo, Runtime, RuntimeEvent, RuntimeOrigin, XcmRouter,
+	bridge_common_config::DeliveryRewardInBalance, weights, xcm_config::UniversalLocation,
+	AccountId, BridgeRococoMessages, PolkadotXcm, Runtime, RuntimeEvent, RuntimeOrigin,
+	XcmOverBridgeHubRococo, XcmRouter,
 };
 use bp_messages::LaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
+use bp_runtime::Chain;
 use bridge_runtime_common::{
 	messages,
 	messages::{
@@ -31,7 +33,7 @@ use bridge_runtime_common::{
 	},
 	messages_xcm_extension::{
 		SenderAndLane, XcmAsPlainPayload, XcmBlobHauler, XcmBlobHaulerAdapter,
-		XcmBlobMessageDispatch,
+		XcmBlobMessageDispatch, XcmVersionOfDestAndRemoteBridge,
 	},
 	refund_relayer_extension::{
 		ActualFeeRefund, RefundBridgedParachainMessages, RefundSignedExtensionAdapter,
@@ -46,9 +48,9 @@ use frame_support::{
 use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
-	prelude::{InteriorMultiLocation, NetworkId},
+	prelude::{InteriorLocation, NetworkId},
 };
-use xcm_builder::{BridgeBlobDispatcher, HaulBlobExporter};
+use xcm_builder::BridgeBlobDispatcher;
 
 parameter_types! {
 	pub const RelayChainHeadersToKeep: u32 = 1024;
@@ -61,25 +63,43 @@ parameter_types! {
 		bp_bridge_hub_westend::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_westend::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	pub const BridgeHubRococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
-	pub BridgeHubWestendUniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Westend), Parachain(ParachainInfo::parachain_id().into()));
-	pub BridgeWestendToRococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8));
+	pub const BridgeHubRococoChainId: bp_runtime::ChainId = BridgeHubRococo::ID;
+	pub BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8)].into();
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
-	pub ActiveOutboundLanesToBridgeHubRococo: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO];
-	pub const AssetHubWestendToAssetHubRococoMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO;
+	pub RococoGlobalConsensusNetworkLocation: Location = Location::new(
+		2,
+		[GlobalConsensus(RococoGlobalConsensusNetwork::get())]
+	);
 	// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	pub PriorityBoostPerMessage: u64 = 182_044_444_444_444;
 
 	pub AssetHubWestendParaId: cumulus_primitives_core::ParaId = bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID.into();
+	pub AssetHubRococoParaId: cumulus_primitives_core::ParaId = bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID.into();
 
+	// Lanes
+	pub ActiveOutboundLanesToBridgeHubRococo: &'static [bp_messages::LaneId] = &[XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO];
+	pub const AssetHubWestendToAssetHubRococoMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO;
 	pub FromAssetHubWestendToAssetHubRococoRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen(X1(Parachain(AssetHubWestendParaId::get().into()))).into(),
+		ParentThen([Parachain(AssetHubWestendParaId::get().into())].into()).into(),
 		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
 	);
+	pub ActiveLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
+			(
+				FromAssetHubWestendToAssetHubRococoRoute::get(),
+				(RococoGlobalConsensusNetwork::get(), [Parachain(AssetHubRococoParaId::get().into())].into())
+			)
+	];
 
 	pub CongestedMessage: Xcm<()> = build_congestion_message(true).into();
-
 	pub UncongestedMessage: Xcm<()> = build_congestion_message(false).into();
+
+	pub BridgeHubRococoLocation: Location = Location::new(
+		2,
+		[
+			GlobalConsensus(RococoGlobalConsensusNetwork::get()),
+			Parachain(<bp_bridge_hub_rococo::BridgeHubRococo as bp_runtime::Parachain>::PARACHAIN_ID)
+		]
+	);
 }
 pub const XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([0, 0, 0, 2]);
 
@@ -110,23 +130,16 @@ pub type ToRococoBridgeHubMessagesDeliveryProof =
 	FromBridgedChainMessagesDeliveryProof<bp_bridge_hub_rococo::Hash>;
 
 /// Dispatches received XCM messages from other bridge
-type FromRococoMessageBlobDispatcher = BridgeBlobDispatcher<
-	XcmRouter,
-	BridgeHubWestendUniversalLocation,
-	BridgeWestendToRococoMessagesPalletInstance,
->;
+type FromRococoMessageBlobDispatcher =
+	BridgeBlobDispatcher<XcmRouter, UniversalLocation, BridgeWestendToRococoMessagesPalletInstance>;
 
 /// Export XCM messages to be relayed to the other side
-pub type ToBridgeHubRococoHaulBlobExporter = HaulBlobExporter<
-	XcmBlobHaulerAdapter<ToBridgeHubRococoXcmBlobHauler>,
-	RococoGlobalConsensusNetwork,
-	(),
->;
+pub type ToBridgeHubRococoHaulBlobExporter = XcmOverBridgeHubRococo;
+
 pub struct ToBridgeHubRococoXcmBlobHauler;
 impl XcmBlobHauler for ToBridgeHubRococoXcmBlobHauler {
 	type Runtime = Runtime;
 	type MessagesInstance = WithBridgeHubRococoMessagesInstance;
-	type SenderAndLane = FromAssetHubWestendToAssetHubRococoRoute;
 
 	type ToSourceChainSender = XcmRouter;
 	type CongestedMessage = CongestedMessage;
@@ -134,7 +147,7 @@ impl XcmBlobHauler for ToBridgeHubRococoXcmBlobHauler {
 }
 
 /// On messages delivered callback.
-type OnMessagesDelivered = XcmBlobHaulerAdapter<ToBridgeHubRococoXcmBlobHauler>;
+type OnMessagesDelivered = XcmBlobHaulerAdapter<ToBridgeHubRococoXcmBlobHauler, ActiveLanes>;
 
 /// Messaging Bridge configuration for BridgeHubWestend -> BridgeHubRococo
 pub struct WithBridgeHubRococoMessageBridge;
@@ -149,10 +162,6 @@ impl MessageBridge for WithBridgeHubRococoMessageBridge {
 		bp_bridge_hub_rococo::BridgeHubRococo,
 	>;
 }
-
-/// Message verifier for BridgeHubRococo messages sent from BridgeHubWestend
-type ToBridgeHubRococoMessageVerifier =
-	messages::source::FromThisChainMessageVerifier<WithBridgeHubRococoMessageBridge>;
 
 /// Maximal outbound payload size of BridgeHubWestend -> BridgeHubRococo messages.
 type ToBridgeHubRococoMaximalOutboundPayloadSize =
@@ -237,7 +246,6 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type DeliveryPayments = ();
 
 	type TargetHeaderChain = TargetHeaderChainAdapter<WithBridgeHubRococoMessageBridge>;
-	type LaneMessageVerifier = ToBridgeHubRococoMessageVerifier;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
@@ -256,6 +264,18 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type OnMessagesDelivered = OnMessagesDelivered;
 }
 
+/// Add support for the export and dispatch of XCM programs.
+pub type XcmOverBridgeHubRococoInstance = pallet_xcm_bridge_hub::Instance1;
+impl pallet_xcm_bridge_hub::Config<XcmOverBridgeHubRococoInstance> for Runtime {
+	type UniversalLocation = UniversalLocation;
+	type BridgedNetwork = RococoGlobalConsensusNetworkLocation;
+	type BridgeMessagesPalletInstance = WithBridgeHubRococoMessagesInstance;
+	type MessageExportPrice = ();
+	type DestinationVersion = XcmVersionOfDestAndRemoteBridge<PolkadotXcm, BridgeHubRococoLocation>;
+	type Lanes = ActiveLanes;
+	type LanesSupport = ToBridgeHubRococoXcmBlobHauler;
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -267,7 +287,8 @@ mod tests {
 			AssertCompleteBridgeConstants,
 		},
 	};
-	use parachains_common::{westend, Balance};
+	use parachains_common::Balance;
+	use testnet_parachains_constants::westend;
 
 	/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of
@@ -313,14 +334,14 @@ mod tests {
 		>(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_bridge_hub_westend::BlockLength::get(),
-				block_weights: bp_bridge_hub_westend::BlockWeights::get(),
+				block_weights: bp_bridge_hub_westend::BlockWeightsForAsyncBacking::get(),
 			},
 			messages_pallet_constants: AssertBridgeMessagesPalletConstants {
 				max_unrewarded_relayers_in_bridged_confirmation_tx:
 					bp_bridge_hub_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 				max_unconfirmed_messages_in_bridged_confirmation_tx:
 					bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
-				bridged_chain_id: bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID,
+				bridged_chain_id: BridgeHubRococo::ID,
 			},
 			pallet_names: AssertBridgePalletNames {
 				with_this_chain_messages_pallet_name:
@@ -339,9 +360,9 @@ mod tests {
 
 		assert_eq!(
 			BridgeWestendToRococoMessagesPalletInstance::get(),
-			X1(PalletInstance(
+			[PalletInstance(
 				bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX
-			))
+			)]
 		);
 	}
 }

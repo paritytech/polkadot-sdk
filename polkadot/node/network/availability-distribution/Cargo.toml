@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-availability-distribution"
 description = "The Availability Distribution subsystem. Requests the required availability data. Also distributes availability data and chunks to requesters."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
@@ -18,7 +21,7 @@ polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-primitives = { path = "../../primitives" }
 sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 rand = "0.8.5"
 derive_more = "0.99.17"
 schnellru = "0.2.1"
@@ -33,3 +36,14 @@ sc-network = { path = "../../../../substrate/client/network" }
 futures-timer = "3.0.2"
 assert_matches = "1.4.0"
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+polkadot-subsystem-bench = { path = "../../subsystem-bench" }
+
+
+[[test]]
+name = "availability-distribution-regression-bench"
+path = "tests/availability-distribution-regression-bench.rs"
+harness = false
+required-features = ["subsystem-benchmarks"]
+
+[features]
+subsystem-benchmarks = []

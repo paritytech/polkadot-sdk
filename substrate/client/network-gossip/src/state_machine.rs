@@ -621,11 +621,15 @@ mod tests {
 			unimplemented!();
 		}
 
-		fn report_peer(&self, who: PeerId, cost_benefit: ReputationChange) {
-			self.inner.lock().unwrap().peer_reports.push((who, cost_benefit));
+		fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange) {
+			self.inner.lock().unwrap().peer_reports.push((peer_id, cost_benefit));
 		}
 
-		fn disconnect_peer(&self, _who: PeerId, _protocol: ProtocolName) {
+		fn peer_reputation(&self, _peer_id: &PeerId) -> i32 {
+			unimplemented!()
+		}
+
+		fn disconnect_peer(&self, _peer_id: PeerId, _protocol: ProtocolName) {
 			unimplemented!();
 		}
 

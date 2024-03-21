@@ -22,7 +22,7 @@
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
 use bp_runtime::{
-	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::RuntimeDebug;
@@ -32,6 +32,8 @@ use sp_runtime::RuntimeDebug;
 pub struct BridgeHubWestend;
 
 impl Chain for BridgeHubWestend {
+	const ID: ChainId = *b"bhwd";
+
 	type BlockNumber = BlockNumber;
 	type Hash = Hash;
 	type Hasher = Hasher;
@@ -47,7 +49,7 @@ impl Chain for BridgeHubWestend {
 	}
 
 	fn max_extrinsic_weight() -> Weight {
-		BlockWeights::get()
+		BlockWeightsForAsyncBacking::get()
 			.get(DispatchClass::Normal)
 			.max_extrinsic
 			.unwrap_or(Weight::MAX)
@@ -56,6 +58,16 @@ impl Chain for BridgeHubWestend {
 
 impl Parachain for BridgeHubWestend {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_WESTEND_PARACHAIN_ID;
+}
+
+impl ChainWithMessages for BridgeHubWestend {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME;
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 /// Identifier of BridgeHubWestend in the Westend relay chain.
@@ -78,13 +90,13 @@ frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend
 	/// BridgeHub.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 488662666666;
+	pub const BridgeHubWestendBaseXcmFeeInWnds: u128 = 17_756_830_000;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
-	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 1925196628010;
+	pub const BridgeHubWestendBaseDeliveryFeeInWnds: u128 = 1_695_489_961_344;
 
 	/// Transaction fee that is paid at the Westend BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubWestend::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 1848016628010;
+	pub const BridgeHubWestendBaseConfirmationFeeInWnds: u128 = 1_618_309_961_344;
 }

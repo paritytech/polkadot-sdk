@@ -7,18 +7,18 @@ license = "Apache-2.0"
 description = "Bridge Hub Westend emulated chain"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
-serde_json = "1.0.104"
 
 # Substrate
 sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../../../../substrate/primitives/runtime", default-features = false }
 frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
 
-# Polakadot
-parachains-common = { path = "../../../../../../../parachains/common" }
-
 # Cumulus
-cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
+parachains-common = { path = "../../../../../../../parachains/common" }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 bridge-hub-westend-runtime = { path = "../../../../../../runtimes/bridge-hubs/bridge-hub-westend" }
+bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false }
+testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["westend"] }

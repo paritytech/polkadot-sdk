@@ -22,8 +22,9 @@ use emulated_integration_tests_common::{
 };
 use parachains_common::Balance;
 
+pub const ASSETHUB_PARA_ID: u32 = 1000;
 pub const PARA_ID: u32 = 1013;
-pub const ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+pub const ED: Balance = testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 pub fn genesis() -> Storage {
 	let genesis_config = bridge_hub_rococo_runtime::RuntimeGenesisConfig {
@@ -62,6 +63,11 @@ pub fn genesis() -> Storage {
 		},
 		bridge_westend_messages: bridge_hub_rococo_runtime::BridgeWestendMessagesConfig {
 			owner: Some(get_account_id_from_seed::<sr25519::Public>(accounts::BOB)),
+			..Default::default()
+		},
+		ethereum_system: bridge_hub_rococo_runtime::EthereumSystemConfig {
+			para_id: PARA_ID.into(),
+			asset_hub_para_id: ASSETHUB_PARA_ID.into(),
 			..Default::default()
 		},
 		..Default::default()

@@ -7,29 +7,31 @@ license = "Apache-2.0"
 description = "Bridge Hub Westend runtime integration tests with xcm-emulator"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 
 # Substrate
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
+pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue" }
+sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false}
-pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false}
-xcm-executor = { package = "staging-xcm-executor",  path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
+pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 # Bridges
-pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages", default-features = false}
-bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false}
+pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages", default-features = false }
+bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false }
 
 # Cumulus
-asset-test-utils = { path = "../../../../../../parachains/runtimes/assets/test-utils" }
 parachains-common = { path = "../../../../../../parachains/common" }
-cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false}
-cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", default-features = false}
+cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false }
 bridge-hub-westend-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
-emulated-integration-tests-common = { path = "../../../common", default-features = false}
+emulated-integration-tests-common = { path = "../../../common", default-features = false }
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }

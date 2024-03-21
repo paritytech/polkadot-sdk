@@ -185,11 +185,14 @@ fn force_open_channel_works() {
 		register_parachain(para_a);
 		register_parachain(para_b);
 
+		let para_a_free_balance =
+			<Test as Config>::Currency::free_balance(&para_a.into_account_truncating());
 		let para_b_free_balance =
 			<Test as Config>::Currency::free_balance(&para_b.into_account_truncating());
 
 		run_to_block(5, Some(vec![4, 5]));
 		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8).unwrap();
+		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_b, para_a, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
 		assert!(System::events().iter().any(|record| record.event ==
 			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
@@ -198,21 +201,79 @@ fn force_open_channel_works() {
 				proposed_max_capacity: 2,
 				proposed_max_message_size: 8
 			})));
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+				sender: para_b,
+				recipient: para_a,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
 
 		// Advance to a block 6, but without session change. That means that the channel has
 		// not been created yet.
 		run_to_block(6, None);
 		assert!(!channel_exists(para_a, para_b));
+		assert!(!channel_exists(para_b, para_a));
 		Hrmp::assert_storage_consistency_exhaustive();
 
 		// Now let the session change happen and thus open the channel.
 		run_to_block(8, Some(vec![8]));
 		assert!(channel_exists(para_a, para_b));
-		// Because para_a is a system chain, para_b's free balance should not have changed.
+		assert!(channel_exists(para_b, para_a));
+		// Because para_a is a system chain, their free balances should not have changed.
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()),
+			para_a_free_balance
+		);
 		assert_eq!(
 			<Test as Config>::Currency::free_balance(&para_b.into_account_truncating()),
 			para_b_free_balance
 		);
+	});
+}
+
+#[test]
+fn force_open_channel_without_free_balance_works() {
+	let para_a = 1.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains, but they should not have any
+		// balance in their sovereign accounts. Even without any balance, the channel opening should
+		// still be successful.
+		register_parachain_with_balance(para_a, 0);
+		register_parachain_with_balance(para_b, 0);
+
+		run_to_block(5, Some(vec![4, 5]));
+		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8).unwrap();
+		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_b, para_a, 2, 8).unwrap();
+		Hrmp::assert_storage_consistency_exhaustive();
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+				sender: para_a,
+				recipient: para_b,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+				sender: para_b,
+				recipient: para_a,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
+
+		// Advance to a block 6, but without session change. That means that the channel has
+		// not been created yet.
+		run_to_block(6, None);
+		assert!(!channel_exists(para_a, para_b));
+		assert!(!channel_exists(para_b, para_a));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Now let the session change happen and thus open the channel.
+		run_to_block(8, Some(vec![8]));
+		assert!(channel_exists(para_a, para_b));
+		assert!(channel_exists(para_b, para_a));
 	});
 }
 

@@ -141,7 +141,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 pub mod migration;
 #[cfg(test)]
 pub mod mock;
@@ -208,7 +208,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -226,10 +226,42 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::config]
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::{derive_impl, traits::ConstU64};
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			type Balance = u64;
+			type RemoveItemsLimit = ConstU32<5>;
+			type AssetId = u32;
+			type AssetIdParameter = u32;
+			type AssetDeposit = ConstU64<1>;
+			type AssetAccountDeposit = ConstU64<10>;
+			type MetadataDepositBase = ConstU64<1>;
+			type MetadataDepositPerByte = ConstU64<1>;
+			type ApprovalDeposit = ConstU64<1>;
+			type StringLimit = ConstU32<50>;
+			type Extra = ();
+			type CallbackHandle = ();
+			type WeightInfo = ();
+			#[cfg(feature = "runtime-benchmarks")]
+			type BenchmarkHelper = ();
+		}
+	}
+
+	#[pallet::config(with_default)]
 	/// The module configuration trait.
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -259,17 +291,15 @@ pub mod pallet {
 		/// This type includes the `From<Self::AssetId>` bound, since tightly coupled pallets may
 		/// want to convert an `AssetId` into a parameter for calling dispatchable functions
 		/// directly.
-		type AssetIdParameter: Parameter
-			+ Copy
-			+ From<Self::AssetId>
-			+ Into<Self::AssetId>
-			+ MaxEncodedLen;
+		type AssetIdParameter: Parameter + From<Self::AssetId> + Into<Self::AssetId> + MaxEncodedLen;
 
 		/// The currency mechanism.
+		#[pallet::no_default]
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// Standard asset class creation is only allowed if the origin attempting it and the
 		/// asset class are in this set.
+		#[pallet::no_default]
 		type CreateOrigin: EnsureOriginWithArg<
 			Self::RuntimeOrigin,
 			Self::AssetId,
@@ -278,28 +308,34 @@ pub mod pallet {
 
 		/// The origin which may forcibly create or destroy an asset or otherwise alter privileged
 		/// attributes.
+		#[pallet::no_default]
 		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The basic amount of funds that must be reserved for an asset.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type AssetDeposit: Get<DepositBalanceOf<Self, I>>;
 
 		/// The amount of funds that must be reserved for a non-provider asset account to be
 		/// maintained.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type AssetAccountDeposit: Get<DepositBalanceOf<Self, I>>;
 
 		/// The basic amount of funds that must be reserved when adding metadata to your asset.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type MetadataDepositBase: Get<DepositBalanceOf<Self, I>>;
 
 		/// The additional funds that must be reserved for the number of bytes you store in your
 		/// metadata.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type MetadataDepositPerByte: Get<DepositBalanceOf<Self, I>>;
 
 		/// The amount of funds that must be reserved when creating a new approval.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type ApprovalDeposit: Get<DepositBalanceOf<Self, I>>;
 
 		/// The maximum length of a name or symbol stored on-chain.
@@ -308,6 +344,7 @@ pub mod pallet {
 
 		/// A hook to allow a per-asset, per-account minimum balance to be enforced. This must be
 		/// respected in all permissionless operations.
+		#[pallet::no_default]
 		type Freezer: FrozenBalance<Self::AssetId, Self::AccountId, Self::Balance>;
 
 		/// Additional data to be stored with an account's asset balance.
@@ -1648,8 +1685,20 @@ pub mod pallet {
 			T::AssetAccountDeposit::get()
 		}
 
-		fn touch(asset: T::AssetId, who: T::AccountId, depositor: T::AccountId) -> DispatchResult {
-			Self::do_touch(asset, who, depositor, false)
+		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
+			match Asset::<T, I>::get(&asset) {
+				Some(info) if info.is_sufficient => false,
+				Some(_) => !Account::<T, I>::contains_key(asset, who),
+				_ => true,
+			}
+		}
+
+		fn touch(
+			asset: T::AssetId,
+			who: &T::AccountId,
+			depositor: &T::AccountId,
+		) -> DispatchResult {
+			Self::do_touch(asset, who.clone(), depositor.clone(), false)
 		}
 	}
 

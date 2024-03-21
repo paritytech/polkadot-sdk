@@ -28,7 +28,7 @@ use xcm::latest::prelude::*;
 use xcm_builder::{CreateMatcher, MatchXcm};
 
 /// Given a message, a sender, and a destination, it returns the delivery fees
-fn get_fungible_delivery_fees<S: SendXcm>(destination: MultiLocation, message: Xcm<()>) -> u128 {
+fn get_fungible_delivery_fees<S: SendXcm>(destination: Location, message: Xcm<()>) -> u128 {
 	let Ok((_, delivery_fees)) = validate_send::<S>(destination, message) else {
 		unreachable!("message can be sent; qed")
 	};
@@ -46,8 +46,8 @@ fn get_fungible_delivery_fees<S: SendXcm>(destination: MultiLocation, message: X
 /// chain as part of a reserve-asset-transfer.
 pub(crate) fn assert_matches_reserve_asset_deposited_instructions<RuntimeCall: Debug>(
 	xcm: &mut Xcm<RuntimeCall>,
-	expected_reserve_assets_deposited: &MultiAssets,
-	expected_beneficiary: &MultiLocation,
+	expected_reserve_assets_deposited: &Assets,
+	expected_beneficiary: &Location,
 ) {
 	let _ = xcm
 		.0

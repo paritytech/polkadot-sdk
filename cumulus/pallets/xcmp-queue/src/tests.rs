@@ -22,8 +22,7 @@ use XcmpMessageFormat::*;
 use codec::Input;
 use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically,
-	traits::{Footprint, Hooks},
+	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically, traits::Hooks,
 	StorageNoopGuard,
 };
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
@@ -100,7 +99,7 @@ fn xcm_enqueueing_multiple_times_works() {
 }
 
 #[test]
-#[cfg_attr(debug_assertions, should_panic = "Defensive failure")]
+#[cfg_attr(debug_assertions, should_panic = "Could not enqueue XCMP messages.")]
 fn xcm_enqueueing_starts_dropping_on_overflow() {
 	new_test_ext().execute_with(|| {
 		let xcm = VersionedXcm::<Test>::from(Xcm::<Test>(vec![ClearOrigin]));
@@ -111,12 +110,6 @@ fn xcm_enqueueing_starts_dropping_on_overflow() {
 		XcmpQueue::handle_xcmp_messages(
 			repeat((1000.into(), 1, data.as_slice())).take(limit * 2),
 			Weight::MAX,
-		);
-		assert_eq!(EnqueuedMessages::get().len(), limit);
-		// The drop threshold for pages is 48, the others numbers dont really matter:
-		assert_eq!(
-			<Test as Config>::XcmpQueue::footprint(1000.into()),
-			QueueFootprint { storage: Footprint { count: 256, size: 768 }, pages: 48 }
 		);
 	})
 }
@@ -340,11 +333,11 @@ struct OkFixedXcmHashWithAssertingRequiredInputsSender;
 impl OkFixedXcmHashWithAssertingRequiredInputsSender {
 	const FIXED_XCM_HASH: [u8; 32] = [9; 32];
 
-	fn fixed_delivery_asset() -> MultiAssets {
-		MultiAssets::new()
+	fn fixed_delivery_asset() -> Assets {
+		Assets::new()
 	}
 
-	fn expected_delivery_result() -> Result<(XcmHash, MultiAssets), SendError> {
+	fn expected_delivery_result() -> Result<(XcmHash, Assets), SendError> {
 		Ok((Self::FIXED_XCM_HASH, Self::fixed_delivery_asset()))
 	}
 }
@@ -352,7 +345,7 @@ impl SendXcm for OkFixedXcmHashWithAssertingRequiredInputsSender {
 	type Ticket = ();
 
 	fn validate(
-		destination: &mut Option<MultiLocation>,
+		destination: &mut Option<Location>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		assert!(destination.is_some());
@@ -399,8 +392,8 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 	let message = Xcm(vec![Trap(5)]);
 
 	// XcmpQueue - check dest/msg is valid
-	let dest = (Parent, X1(Parachain(5555)));
-	let mut dest_wrapper = Some(dest.into());
+	let dest: Location = (Parent, Parachain(5555)).into();
+	let mut dest_wrapper = Some(dest.clone());
 	let mut msg_wrapper = Some(message.clone());
 
 	new_test_ext().execute_with(|| {
@@ -423,7 +416,7 @@ fn xcmp_queue_consumes_dest_and_msg_on_ok_validate() {
 
 #[test]
 fn xcmp_queue_validate_nested_xcm_works() {
-	let dest = (Parent, X1(Parachain(5555)));
+	let dest = (Parent, Parachain(5555));
 	// Message that is not too deeply nested:
 	let mut good = Xcm(vec![ClearOrigin]);
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
@@ -448,7 +441,7 @@ fn xcmp_queue_validate_nested_xcm_works() {
 
 #[test]
 fn send_xcm_nested_works() {
-	let dest = (Parent, X1(Parachain(HRMP_PARA_ID)));
+	let dest = (Parent, Parachain(HRMP_PARA_ID));
 	// Message that is not too deeply nested:
 	let mut good = Xcm(vec![ClearOrigin]);
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
@@ -462,7 +455,7 @@ fn send_xcm_nested_works() {
 			XcmpQueue::take_outbound_messages(usize::MAX),
 			vec![(
 				HRMP_PARA_ID.into(),
-				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::V3(good.clone()))
+				(XcmpMessageFormat::ConcatenatedVersionedXcm, VersionedXcm::V4(good.clone()))
 					.encode(),
 			)]
 		);
@@ -481,7 +474,7 @@ fn hrmp_signals_are_prioritized() {
 	let message = Xcm(vec![Trap(5)]);
 
 	let sibling_para_id = ParaId::from(12345);
-	let dest = (Parent, X1(Parachain(sibling_para_id.into())));
+	let dest = (Parent, Parachain(sibling_para_id.into()));
 	let mut dest_wrapper = Some(dest.into());
 	let mut msg_wrapper = Some(message.clone());
 
@@ -518,7 +511,7 @@ fn hrmp_signals_are_prioritized() {
 		// Without a signal we get the messages in order:
 		let mut expected_msg = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
 		for _ in 0..31 {
-			expected_msg.extend(VersionedXcm::V3(message.clone()).encode());
+			expected_msg.extend(VersionedXcm::V4(message.clone()).encode());
 		}
 
 		hypothetically!({
@@ -597,7 +590,7 @@ fn take_first_concatenated_xcm_good_recursion_depth_works() {
 	for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
 		good = Xcm(vec![SetAppendix(good)]);
 	}
-	let good = VersionedXcm::V3(good);
+	let good = VersionedXcm::V4(good);
 
 	let page = good.encode();
 	assert_ok!(XcmpQueue::take_first_concatenated_xcm(&mut &page[..], &mut WeightMeter::new()));
@@ -610,7 +603,7 @@ fn take_first_concatenated_xcm_good_bad_depth_errors() {
 	for _ in 0..MAX_XCM_DECODE_DEPTH {
 		bad = Xcm(vec![SetAppendix(bad)]);
 	}
-	let bad = VersionedXcm::V3(bad);
+	let bad = VersionedXcm::V4(bad);
 
 	let page = bad.encode();
 	assert_err!(
@@ -706,12 +699,12 @@ fn lazy_migration_noop_when_out_of_weight() {
 fn xcmp_queue_send_xcm_works() {
 	new_test_ext().execute_with(|| {
 		let sibling_para_id = ParaId::from(12345);
-		let dest = (Parent, X1(Parachain(sibling_para_id.into()))).into();
+		let dest: Location = (Parent, Parachain(sibling_para_id.into())).into();
 		let msg = Xcm(vec![ClearOrigin]);
 
 		// try to send without opened HRMP channel to the sibling_para_id
 		assert_eq!(
-			send_xcm::<XcmpQueue>(dest, msg.clone()),
+			send_xcm::<XcmpQueue>(dest.clone(), msg.clone()),
 			Err(SendError::Transport("NoChannel")),
 		);
 
@@ -732,12 +725,56 @@ fn xcmp_queue_send_xcm_works() {
 }
 
 #[test]
+fn xcmp_queue_send_too_big_xcm_fails() {
+	new_test_ext().execute_with(|| {
+		let sibling_para_id = ParaId::from(12345);
+		let dest = (Parent, Parachain(sibling_para_id.into())).into();
+
+		let max_message_size = 100_u32;
+
+		// open HRMP channel to the sibling_para_id with a set `max_message_size`
+		ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
+			sibling_para_id,
+			cumulus_primitives_core::AbridgedHrmpChannel {
+				max_message_size,
+				max_capacity: 10,
+				max_total_size: 10_000_000_u32,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+			},
+		);
+
+		// Message is crafted to exceed `max_message_size`
+		let mut message = Xcm::builder_unsafe();
+		for _ in 0..97 {
+			message = message.clear_origin();
+		}
+		let message = message.build();
+		let encoded_message_size = message.encode().len();
+		let versioned_size = 1; // VersionedXcm enum is added by `send_xcm` and it add one additional byte
+		assert_eq!(encoded_message_size, max_message_size as usize - versioned_size);
+
+		// check empty outbound queue
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+
+		// Message is too big because after adding the VersionedXcm enum, it would reach
+		// `max_message_size` Then, adding the format, which is the worst case scenario in which a
+		// new page is needed, would get it over the limit
+		assert_eq!(send_xcm::<XcmpQueue>(dest, message), Err(SendError::Transport("TooBig")),);
+
+		// outbound queue is still empty
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+	});
+}
+
+#[test]
 fn verify_fee_factor_increase_and_decrease() {
 	use cumulus_primitives_core::AbridgedHrmpChannel;
 	use sp_runtime::FixedU128;
 
 	let sibling_para_id = ParaId::from(12345);
-	let destination = (Parent, Parachain(sibling_para_id.into())).into();
+	let destination: Location = (Parent, Parachain(sibling_para_id.into())).into();
 	let xcm = Xcm(vec![ClearOrigin; 100]);
 	let versioned_xcm = VersionedXcm::from(xcm.clone());
 	let mut xcmp_message = XcmpMessageFormat::ConcatenatedVersionedXcm.encode();
@@ -762,15 +799,15 @@ fn verify_fee_factor_increase_and_decrease() {
 
 		// Fee factor is only increased in `send_fragment`, which is called by `send_xcm`.
 		// When queue is not congested, fee factor doesn't change.
-		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 104
-		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 208
-		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 312
-		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 416
+		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), xcm.clone())); // Size 104
+		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), xcm.clone())); // Size 208
+		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), xcm.clone())); // Size 312
+		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), xcm.clone())); // Size 416
 		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), initial);
 
 		// Sending the message right now is cheap
-		let (_, delivery_fees) =
-			validate_send::<XcmpQueue>(destination, xcm.clone()).expect("message can be sent; qed");
+		let (_, delivery_fees) = validate_send::<XcmpQueue>(destination.clone(), xcm.clone())
+			.expect("message can be sent; qed");
 		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else {
 			unreachable!("asset is fungible; qed");
 		};
@@ -780,18 +817,18 @@ fn verify_fee_factor_increase_and_decrease() {
 
 		// When we get to half of `max_total_size`, because `THRESHOLD_FACTOR` is 2,
 		// then the fee factor starts to increase.
-		assert_ok!(send_xcm::<XcmpQueue>(destination, xcm.clone())); // Size 520
+		assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), xcm.clone())); // Size 520
 		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), FixedU128::from_float(1.05));
 
 		for _ in 0..12 {
 			// We finish at size 929
-			assert_ok!(send_xcm::<XcmpQueue>(destination, smaller_xcm.clone()));
+			assert_ok!(send_xcm::<XcmpQueue>(destination.clone(), smaller_xcm.clone()));
 		}
 		assert!(DeliveryFeeFactor::<Test>::get(sibling_para_id) > FixedU128::from_float(1.88));
 
 		// Sending the message right now is expensive
-		let (_, delivery_fees) =
-			validate_send::<XcmpQueue>(destination, xcm.clone()).expect("message can be sent; qed");
+		let (_, delivery_fees) = validate_send::<XcmpQueue>(destination.clone(), xcm.clone())
+			.expect("message can be sent; qed");
 		let Fungible(delivery_fee_amount) = delivery_fees.inner()[0].fun else {
 			unreachable!("asset is fungible; qed");
 		};

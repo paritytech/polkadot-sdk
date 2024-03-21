@@ -156,7 +156,7 @@ pub mod pallet {
 		/// Default prelude sensible to be used in a testing environment.
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -329,7 +329,6 @@ pub mod pallet {
 
 	/// The `AccountId` of the sudo key.
 	#[pallet::storage]
-	#[pallet::getter(fn key)]
 	pub(super) type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
@@ -349,12 +348,16 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Ensure that the caller is the sudo key.
 		pub(crate) fn ensure_sudo(origin: OriginFor<T>) -> DispatchResult {
-			let sender = ensure_signed(origin)?;
+			let sender = ensure_signed_or_root(origin)?;
 
-			if Self::key().map_or(false, |k| k == sender) {
-				Ok(())
+			if let Some(sender) = sender {
+				if Key::<T>::get().map_or(false, |k| k == sender) {
+					Ok(())
+				} else {
+					Err(Error::<T>::RequireSudo.into())
+				}
 			} else {
-				Err(Error::<T>::RequireSudo.into())
+				Ok(())
 			}
 		}
 	}

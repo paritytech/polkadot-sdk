@@ -1,0 +1,14 @@
+title: Add XCM FungibleAdapter
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      A new AssetTransactor has been added to xcm-builder: FungibleAdapter.
+      It's meant to be used instead of the old CurrencyAdapter for configuring the XCM executor
+      to handle only one asset.
+
+crates:
+  - name: "xcm-builder"
+
+migrations: []
+host_functions: []

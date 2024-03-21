@@ -1,18 +1,21 @@
 [package]
 name = "bp-bridge-hub-westend"
 description = "Primitives of BridgeHubWestend parachain runtime."
-version = "0.1.0"
+version = "0.3.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 
 # Bridge Dependencies
 
 bp-bridge-hub-cumulus = { path = "../chain-bridge-hub-cumulus", default-features = false }
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-bp-messages = { path = "../../primitives/messages", default-features = false }
+bp-runtime = { path = "../runtime", default-features = false }
+bp-messages = { path = "../messages", default-features = false }
 
 # Substrate Based Dependencies
 
@@ -22,7 +25,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-bridge-hub-cumulus/std",
 	"bp-messages/std",

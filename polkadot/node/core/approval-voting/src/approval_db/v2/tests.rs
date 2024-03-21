@@ -16,13 +16,22 @@
 
 //! Tests for the aux-schema of approval voting.
 
-use super::{DbBackend, StoredBlockRange, *};
 use crate::{
+	approval_db::{
+		common::{migration_helpers::make_bitvec, DbBackend, StoredBlockRange, *},
+		v2::*,
+		v3::{load_block_entry_v2, load_candidate_entry_v2},
+	},
 	backend::{Backend, OverlayedBackend},
 	ops::{add_block_entry, canonicalize, force_approve, NewCandidateInfo},
 };
+use polkadot_primitives::{
+	BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, GroupIndex, Hash,
+};
+
 use polkadot_node_subsystem_util::database::Database;
 use polkadot_primitives::Id as ParaId;
+use sp_consensus_slots::Slot;
 use std::{collections::HashMap, sync::Arc};
 
 use ::test_helpers::{dummy_candidate_receipt, dummy_candidate_receipt_bad_sig, dummy_hash};
@@ -58,10 +67,6 @@ fn make_block_entry(
 		children: Vec::new(),
 		distributed_assignments: Default::default(),
 	}
-}
-
-fn make_bitvec(len: usize) -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; len]
 }
 
 fn make_candidate(para_id: ParaId, relay_parent: Hash) -> CandidateReceipt {
@@ -110,7 +115,10 @@ fn read_write() {
 	overlay_db.write_stored_block_range(range.clone());
 	overlay_db.write_blocks_at_height(1, at_height.clone());
 	overlay_db.write_block_entry(block_entry.clone().into());
-	overlay_db.write_candidate_entry(candidate_entry.clone().into());
+	overlay_db.write_candidate_entry(crate::persisted_entries::CandidateEntry::from_v2(
+		candidate_entry.clone(),
+		0,
+	));
 
 	let write_ops = overlay_db.into_write_ops();
 	db.write(write_ops).unwrap();
@@ -118,11 +126,11 @@ fn read_write() {
 	assert_eq!(load_stored_blocks(store.as_ref(), &TEST_CONFIG).unwrap(), Some(range));
 	assert_eq!(load_blocks_at_height(store.as_ref(), &TEST_CONFIG, &1).unwrap(), at_height);
 	assert_eq!(
-		load_block_entry(store.as_ref(), &TEST_CONFIG, &hash_a).unwrap(),
+		load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &hash_a).unwrap(),
 		Some(block_entry.into())
 	);
 	assert_eq!(
-		load_candidate_entry(store.as_ref(), &TEST_CONFIG, &candidate_hash).unwrap(),
+		load_candidate_entry_v2(store.as_ref(), &TEST_CONFIG, &candidate_hash).unwrap(),
 		Some(candidate_entry.into()),
 	);
 
@@ -134,8 +142,8 @@ fn read_write() {
 	db.write(write_ops).unwrap();
 
 	assert!(load_blocks_at_height(store.as_ref(), &TEST_CONFIG, &1).unwrap().is_empty());
-	assert!(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash_a).unwrap().is_none());
-	assert!(load_candidate_entry(store.as_ref(), &TEST_CONFIG, &candidate_hash)
+	assert!(load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &hash_a).unwrap().is_none());
+	assert!(load_candidate_entry_v2(store.as_ref(), &TEST_CONFIG, &candidate_hash)
 		.unwrap()
 		.is_none());
 }
@@ -196,25 +204,27 @@ fn add_block_entry_works() {
 	db.write(write_ops).unwrap();
 
 	assert_eq!(
-		load_block_entry(store.as_ref(), &TEST_CONFIG, &block_hash_a).unwrap(),
+		load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &block_hash_a).unwrap(),
 		Some(block_entry_a.into())
 	);
 	assert_eq!(
-		load_block_entry(store.as_ref(), &TEST_CONFIG, &block_hash_b).unwrap(),
+		load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &block_hash_b).unwrap(),
 		Some(block_entry_b.into())
 	);
 
-	let candidate_entry_a = load_candidate_entry(store.as_ref(), &TEST_CONFIG, &candidate_hash_a)
-		.unwrap()
-		.unwrap();
+	let candidate_entry_a =
+		load_candidate_entry_v2(store.as_ref(), &TEST_CONFIG, &candidate_hash_a)
+			.unwrap()
+			.unwrap();
 	assert_eq!(
 		candidate_entry_a.block_assignments.keys().collect::<Vec<_>>(),
 		vec![&block_hash_a, &block_hash_b]
 	);
 
-	let candidate_entry_b = load_candidate_entry(store.as_ref(), &TEST_CONFIG, &candidate_hash_b)
-		.unwrap()
-		.unwrap();
+	let candidate_entry_b =
+		load_candidate_entry_v2(store.as_ref(), &TEST_CONFIG, &candidate_hash_b)
+			.unwrap()
+			.unwrap();
 	assert_eq!(candidate_entry_b.block_assignments.keys().collect::<Vec<_>>(), vec![&block_hash_b]);
 }
 
@@ -243,11 +253,11 @@ fn add_block_entry_adds_child() {
 	block_entry_a.children.push(block_hash_b);
 
 	assert_eq!(
-		load_block_entry(store.as_ref(), &TEST_CONFIG, &block_hash_a).unwrap(),
+		load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &block_hash_a).unwrap(),
 		Some(block_entry_a.into())
 	);
 	assert_eq!(
-		load_block_entry(store.as_ref(), &TEST_CONFIG, &block_hash_b).unwrap(),
+		load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &block_hash_b).unwrap(),
 		Some(block_entry_b.into())
 	);
 }
@@ -365,13 +375,15 @@ fn canonicalize_works() {
 		for (c_hash, in_blocks) in expected {
 			let (entry, in_blocks) = match in_blocks {
 				None => {
-					assert!(load_candidate_entry(store.as_ref(), &TEST_CONFIG, &c_hash)
+					assert!(load_candidate_entry_v2(store.as_ref(), &TEST_CONFIG, &c_hash)
 						.unwrap()
 						.is_none());
 					continue
 				},
 				Some(i) => (
-					load_candidate_entry(store.as_ref(), &TEST_CONFIG, &c_hash).unwrap().unwrap(),
+					load_candidate_entry_v2(store.as_ref(), &TEST_CONFIG, &c_hash)
+						.unwrap()
+						.unwrap(),
 					i,
 				),
 			};
@@ -388,13 +400,13 @@ fn canonicalize_works() {
 		for (hash, with_candidates) in expected {
 			let (entry, with_candidates) = match with_candidates {
 				None => {
-					assert!(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash)
+					assert!(load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &hash)
 						.unwrap()
 						.is_none());
 					continue
 				},
 				Some(i) =>
-					(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash).unwrap().unwrap(), i),
+					(load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &hash).unwrap().unwrap(), i),
 			};
 
 			assert_eq!(entry.candidates.len(), with_candidates.len());
@@ -510,22 +522,22 @@ fn force_approve_works() {
 	let write_ops = overlay_db.into_write_ops();
 	db.write(write_ops).unwrap();
 
-	assert!(load_block_entry(store.as_ref(), &TEST_CONFIG, &block_hash_a,)
+	assert!(load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &block_hash_a,)
 		.unwrap()
 		.unwrap()
 		.approved_bitfield
 		.all());
-	assert!(load_block_entry(store.as_ref(), &TEST_CONFIG, &block_hash_b,)
+	assert!(load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &block_hash_b,)
 		.unwrap()
 		.unwrap()
 		.approved_bitfield
 		.all());
-	assert!(load_block_entry(store.as_ref(), &TEST_CONFIG, &block_hash_c,)
+	assert!(load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &block_hash_c,)
 		.unwrap()
 		.unwrap()
 		.approved_bitfield
 		.not_any());
-	assert!(load_block_entry(store.as_ref(), &TEST_CONFIG, &block_hash_d,)
+	assert!(load_block_entry_v2(store.as_ref(), &TEST_CONFIG, &block_hash_d,)
 		.unwrap()
 		.unwrap()
 		.approved_bitfield

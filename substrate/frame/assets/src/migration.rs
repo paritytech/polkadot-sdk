@@ -64,12 +64,12 @@ pub mod v1 {
 		}
 	}
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current_version = Pallet::<T>::current_storage_version();
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
-			if onchain_version == 0 && current_version == 1 {
+			let in_code_version = Pallet::<T>::in_code_storage_version();
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
+			if on_chain_version == 0 && in_code_version == 1 {
 				let mut translated = 0u64;
 				Asset::<T>::translate::<
 					OldAssetDetails<T::Balance, T::AccountId, DepositBalanceOf<T>>,
@@ -78,12 +78,12 @@ pub mod v1 {
 					translated.saturating_inc();
 					Some(old_value.migrate_to_v1())
 				});
-				current_version.put::<Pallet<T>>();
+				in_code_version.put::<Pallet<T>>();
 				log::info!(
 					target: LOG_TARGET,
 					"Upgraded {} pools, storage to version {:?}",
 					translated,
-					current_version
+					in_code_version
 				);
 				T::DbWeight::get().reads_writes(translated + 1, translated + 1)
 			} else {
@@ -116,13 +116,13 @@ pub mod v1 {
 				"the asset count before and after the migration should be the same"
 			);
 
-			let current_version = Pallet::<T>::current_storage_version();
-			let onchain_version = Pallet::<T>::on_chain_storage_version();
+			let in_code_version = Pallet::<T>::in_code_storage_version();
+			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 
-			frame_support::ensure!(current_version == 1, "must_upgrade");
+			frame_support::ensure!(in_code_version == 1, "must_upgrade");
 			ensure!(
-				current_version == onchain_version,
-				"after migration, the current_version and onchain_version should be the same"
+				in_code_version == on_chain_version,
+				"after migration, the in_code_version and on_chain_version should be the same"
 			);
 
 			Asset::<T>::iter().try_for_each(|(_id, asset)| -> Result<(), TryRuntimeError> {
