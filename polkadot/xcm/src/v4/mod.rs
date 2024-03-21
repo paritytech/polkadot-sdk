@@ -1493,12 +1493,11 @@ mod tests {
 			many_assets.push((GeneralIndex(index as u128), 1u128).into());
 		}
 
-		let full_xcm_pass = Xcm::<()>(vec![
-			TransferAsset {
-				assets: many_assets,
-				beneficiary: Here.into(),
-			}; MAX_INSTRUCTIONS_TO_DECODE as usize
-		]);
+		let full_xcm_pass =
+			Xcm::<()>(vec![
+				TransferAsset { assets: many_assets, beneficiary: Here.into() };
+				MAX_INSTRUCTIONS_TO_DECODE as usize
+			]);
 		let encoded = full_xcm_pass.encode();
 		assert_eq!(encoded.len(), 12402);
 		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_ok());

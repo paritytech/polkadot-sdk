@@ -2164,7 +2164,11 @@ pub mod env {
 		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
 		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
 
-		match <<E::T as Config>::Xcm>::send_blob(origin, dest.into(), message.encode().try_into().expect("TODO: What to do here?")) {
+		match <<E::T as Config>::Xcm>::send_blob(
+			origin,
+			dest.into(),
+			message.encode().try_into().expect("TODO: What to do here?"),
+		) {
 			Ok(message_id) => {
 				ctx.write_sandbox_memory(memory, output_ptr, &message_id.encode())?;
 				Ok(ReturnErrorCode::Success)

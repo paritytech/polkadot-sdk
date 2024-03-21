@@ -170,13 +170,19 @@ fn create_channel() {
 		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
 			sudo_origin.clone(),
 			bx!(destination.clone()),
-			create_agent_xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
+			create_agent_xcm
+				.encode()
+				.try_into()
+				.expect("MaxXcmEncodedSize should be big enough."),
 		));
 
 		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
 			sudo_origin,
 			bx!(destination),
-			create_channel_xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
+			create_channel_xcm
+				.encode()
+				.try_into()
+				.expect("MaxXcmEncodedSize should be big enough."),
 		));
 
 		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;

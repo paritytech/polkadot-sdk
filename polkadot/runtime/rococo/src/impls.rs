@@ -171,7 +171,10 @@ where
 		let _ = <pallet_xcm::Pallet<Runtime>>::send_blob(
 			RawOrigin::Root.into(),
 			Box::new(VersionedLocation::V4(destination)),
-			VersionedXcm::V4(program).encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
+			VersionedXcm::V4(program)
+				.encode()
+				.try_into()
+				.expect("MaxXcmEncodedSize should be big enough."),
 		)?;
 		Ok(())
 	}

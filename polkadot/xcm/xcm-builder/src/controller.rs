@@ -21,8 +21,7 @@
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
 	pallet_prelude::DispatchError,
-	parameter_types,
-	BoundedVec,
+	parameter_types, BoundedVec,
 };
 use sp_std::boxed::Box;
 use xcm::prelude::*;

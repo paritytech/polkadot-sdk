@@ -20,9 +20,8 @@ pub(crate) mod assets_transfer;
 
 use crate::{
 	mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error,
-	LatestVersionedLocation, Pallet, Queries, QueryStatus,
-	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
-	WeightInfo,
+	LatestVersionedLocation, Pallet, Queries, QueryStatus, VersionDiscoveryQueue,
+	VersionMigrationStage, VersionNotifiers, VersionNotifyTargets, WeightInfo,
 };
 use codec::Encode;
 use frame_support::{
@@ -307,7 +306,10 @@ fn send_works() {
 
 		let versioned_dest = Box::new(RelayLocation::get().into());
 		let versioned_message = VersionedXcm::from(message.clone());
-		let encoded_versioned_message = versioned_message.encode().try_into().expect("MaxXcmEncodedSize should be big enough.");
+		let encoded_versioned_message = versioned_message
+			.encode()
+			.try_into()
+			.expect("MaxXcmEncodedSize should be big enough.");
 		assert_ok!(XcmPallet::send_blob(
 			RuntimeOrigin::signed(ALICE),
 			versioned_dest,
@@ -352,7 +354,10 @@ fn send_fails_when_xcm_router_blocks() {
 			XcmPallet::send_blob(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(Location::ancestor(8).into()),
-				VersionedXcm::from(message.clone()).encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
+				VersionedXcm::from(message.clone())
+					.encode()
+					.try_into()
+					.expect("MaxXcmEncodedSize should be big enough."),
 			),
 			crate::Error::<Test>::SendFailure
 		);
@@ -554,9 +559,7 @@ fn incomplete_execute_reverts_side_effects() {
 			result,
 			Err(sp_runtime::DispatchErrorWithPostInfo {
 				post_info: frame_support::dispatch::PostDispatchInfo {
-					actual_weight: Some(
-						<<Test as crate::Config>::WeightInfo>::execute() + weight
-					),
+					actual_weight: Some(<<Test as crate::Config>::WeightInfo>::execute() + weight),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
 				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
@@ -1254,24 +1257,20 @@ fn multistage_migration_works() {
 
 #[test]
 fn execute_blob_works() {
-	use codec::Encode;
 	use bounded_collections::BoundedVec;
-	let message = VersionedXcm::V4(Xcm::<RuntimeCall>::builder()
-		.withdraw_asset((Here, SEND_AMOUNT).into())
-		.buy_execution((Here, FEE_AMOUNT).into(), Unlimited)
-		.deposit_asset(All.into(), AccountId32 { id: BOB.clone().into(), network: None }.into())
-		.build()
+	use codec::Encode;
+	let message = VersionedXcm::V4(
+		Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Here, SEND_AMOUNT).into())
+			.buy_execution((Here, FEE_AMOUNT).into(), Unlimited)
+			.deposit_asset(All.into(), AccountId32 { id: BOB.clone().into(), network: None }.into())
+			.build(),
 	);
-	let encoded_message = BoundedVec::try_from(
-		message.encode()
-	).expect("MaxXcmEncodedSize should be big enough to encode simple XCM");
+	let encoded_message = BoundedVec::try_from(message.encode())
+		.expect("MaxXcmEncodedSize should be big enough to encode simple XCM");
 	let weight = BaseXcmWeight::get() * 3; // We get the actual weight since it's fixed per instruction.
 	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
-		assert_ok!(XcmPallet::execute_blob(
-			RuntimeOrigin::signed(ALICE),
-			encoded_message,
-			weight,
-		));
+		assert_ok!(XcmPallet::execute_blob(RuntimeOrigin::signed(ALICE), encoded_message, weight,));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 		assert_eq!(Balances::total_balance(&BOB), SEND_AMOUNT);
 		assert_eq!(
@@ -1285,8 +1284,8 @@ fn execute_blob_works() {
 
 #[test]
 fn send_blob_works() {
-	use codec::Encode;
 	use bounded_collections::BoundedVec;
+	use codec::Encode;
 	let sender: Location = AccountId32 { id: ALICE.clone().into(), network: None }.into();
 	// Have to use `builder_unsafe` because of the `clear_origin`.
 	// TODO(https://github.com/paritytech/polkadot-sdk/issues/3770): make this work without the `_unsafe`.
@@ -1296,9 +1295,8 @@ fn send_blob_works() {
 		.buy_execution((Parent, FEE_AMOUNT).into(), Unlimited)
 		.deposit_asset(All.into(), sender.clone())
 		.build();
-	let encoded_message = BoundedVec::try_from(
-		VersionedXcm::V4(message.clone()).encode()
-	).expect("MaxXcmEncodedSize should be big enough to encode simple XCM");
+	let encoded_message = BoundedVec::try_from(VersionedXcm::V4(message.clone()).encode())
+		.expect("MaxXcmEncodedSize should be big enough to encode simple XCM");
 	let versioned_destination = Box::new(RelayLocation::get().into());
 	new_test_ext_with_balances(vec![(ALICE, INITIAL_BALANCE)]).execute_with(|| {
 		assert_ok!(XcmPallet::send_blob(
@@ -1310,7 +1308,7 @@ fn send_blob_works() {
 			Some(DescendOrigin(sender.clone().try_into().unwrap()))
 				.into_iter()
 				.chain(message.0.clone().into_iter())
-				.collect()
+				.collect(),
 		);
 		let id = fake_message_hash(&sent_message);
 		assert_eq!(sent_xcm(), vec![(Here.into(), sent_message)]);
