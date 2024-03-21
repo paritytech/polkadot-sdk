@@ -509,6 +509,8 @@ members = [
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
+
+	"omni-nodes/minimal",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]
 

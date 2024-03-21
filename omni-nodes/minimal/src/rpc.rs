@@ -22,8 +22,8 @@
 
 #![warn(missing_docs)]
 
+use crate::types::{AccountId, Nonce, OpaqueBlock};
 use jsonrpsee::RpcModule;
-use runtime::interface::{AccountId, Nonce, OpaqueBlock};
 use sc_transaction_pool_api::TransactionPool;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use std::sync::Arc;

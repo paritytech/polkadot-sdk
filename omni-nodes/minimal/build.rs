@@ -15,15 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Substrate Node Template CLI library.
-#![warn(missing_docs)]
+use substrate_build_script_utils::{generate_cargo_keys, rerun_if_git_head_changed};
 
-mod chain_spec;
-mod cli;
-mod command;
-mod rpc;
-mod service;
-
-fn main() -> sc_cli::Result<()> {
-	command::run()
+fn main() {
+	generate_cargo_keys();
+	rerun_if_git_head_changed();
 }
