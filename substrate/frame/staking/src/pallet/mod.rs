@@ -2004,7 +2004,7 @@ pub mod pallet {
 		/// NOTE: if the stash does not have an associated ledger and the `maybe_nominations` or
 		/// `maybe_validator_prefs` are not given, the ledger will be reset as a nominator.
 		#[pallet::call_index(29)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::reset_ledger())]
 		pub fn reset_ledger(
 			origin: OriginFor<T>,
 			stash: T::AccountId,
