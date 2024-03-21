@@ -54,8 +54,18 @@ pub struct Transaction<Pool, Client> {
 
 impl<Pool, Client> Transaction<Pool, Client> {
 	/// Creates a new [`Transaction`].
-	pub fn new(client: Arc<Client>, pool: Arc<Pool>, executor: SubscriptionTaskExecutor) -> Self {
-		Transaction { client, pool, executor, rpc_connections: RpcConnections::new(4) }
+	pub fn new(
+		client: Arc<Client>,
+		pool: Arc<Pool>,
+		executor: SubscriptionTaskExecutor,
+		max_transactions_per_connection: usize,
+	) -> Self {
+		Transaction {
+			client,
+			pool,
+			executor,
+			rpc_connections: RpcConnections::new(max_transactions_per_connection),
+		}
 	}
 }
 

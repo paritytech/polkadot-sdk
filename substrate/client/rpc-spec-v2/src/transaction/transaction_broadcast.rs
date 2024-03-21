@@ -64,13 +64,18 @@ struct BroadcastState {
 
 impl<Pool, Client> TransactionBroadcast<Pool, Client> {
 	/// Creates a new [`TransactionBroadcast`].
-	pub fn new(client: Arc<Client>, pool: Arc<Pool>, executor: SubscriptionTaskExecutor) -> Self {
+	pub fn new(
+		client: Arc<Client>,
+		pool: Arc<Pool>,
+		executor: SubscriptionTaskExecutor,
+		max_transactions_per_connection: usize,
+	) -> Self {
 		TransactionBroadcast {
 			client,
 			pool,
 			executor,
 			broadcast_ids: Default::default(),
-			rpc_connections: RpcConnections::new(4),
+			rpc_connections: RpcConnections::new(max_transactions_per_connection),
 		}
 	}
 
