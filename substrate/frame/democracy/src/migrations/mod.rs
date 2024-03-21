@@ -19,11 +19,8 @@ pub mod v2;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 
-/// Migration identifier.
-///
-/// Used to identify a migration across all pallets. This identifier is essential because
-/// the [`SteppedMigration::Identifier`](`frame_support::migrations::SteppedMigration::Identifier`)
-/// needs to be globally unique.
+/// The Migration identifier.
+/// See [`SteppedMigration::Identifier`](`frame_support::migrations::SteppedMigration::Identifier`)
 #[derive(MaxEncodedLen, Encode, Decode)]
 pub struct MigrationIdentifier {
 	pallet_identifier: [u8; 20],

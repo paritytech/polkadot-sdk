@@ -44,9 +44,11 @@ pub type MaxDepositsOf<T> = <T as Config>::MaxDeposits;
 /// Type alias for `democracy`'s MaxVotes.
 pub type MaxVotesOf<T> = <T as Config>::MaxDeposits;
 
+/// Define storage aliases for the version we are migrating from (v1).
 pub mod old {
 	use super::*;
 
+	/// The storage alias for the old deposit storage.
 	#[storage_alias]
 	pub type DepositOf<T: Config> = StorageMap<
 		Pallet<T>,
@@ -55,6 +57,7 @@ pub mod old {
 		(BoundedVec<AccountIdOf<T>, MaxDepositsOf<T>>, BalanceOf<T>),
 	>;
 
+	/// The storage alias for the old voting storage.
 	#[storage_alias]
 	pub type VotingOf<T: Config> = StorageMap<
 		Pallet<T>,
@@ -78,7 +81,7 @@ pub enum Cursor<T: Config> {
 	Vote(Option<AccountIdOf<T>>),
 }
 
-/// The [`SteppedMigration`] used for migrating from v1 to v2 of this pallet.
+/// The [`SteppedMigration`] used for migrating from v1 to v2.
 pub struct Migration<T: Config, OldCurrency>(PhantomData<(T, OldCurrency)>);
 
 impl<T, OldCurrency> SteppedMigration for Migration<T, OldCurrency>
@@ -190,7 +193,7 @@ where
 		old::DepositOf::<T>::insert(prop_index, (depositors, amount));
 	}
 
-	/// Translate reserved deposit to held deposit.
+	/// Translate deposit from "reserve" to "hold".
 	fn translate_reserve_to_hold(depositor: &AccountIdOf<T>, amount: OldCurrency::Balance) {
 		let remaining = OldCurrency::unreserve(&depositor, amount);
 		if remaining > Zero::zero() {
@@ -242,7 +245,7 @@ where
 		VotingOf::<T>::insert(voter, vote);
 	}
 
-	/// Translate votes locked deposit to frozen deposit.
+	/// Translate votes deposit from "lock" to "freeze".
 	fn translate_lock_to_freeze(account_id: &AccountIdOf<T>, amount: OldCurrency::Balance) {
 		OldCurrency::remove_lock(DEMOCRACY_ID, account_id);
 		T::Fungible::set_freeze(&FreezeReason::Vote.into(), account_id, amount.into())
