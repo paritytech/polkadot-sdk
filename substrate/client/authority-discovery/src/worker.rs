@@ -126,7 +126,8 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 	/// List of keys onto which addresses have been published at the latest publication.
 	/// Used to check whether they have changed.
 	latest_published_keys: HashSet<AuthorityId>,
-
+	/// List of the kademlia keys that have been published at the latest publication.
+	/// Used to associate DHT events with our published records.
 	latest_published_kad_keys: HashSet<KademliaKey>,
 
 	/// Same value as in the configuration.
