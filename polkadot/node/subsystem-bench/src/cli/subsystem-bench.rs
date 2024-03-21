@@ -138,7 +138,7 @@ impl BenchCli {
 				TestObjective::DataAvailabilityRead(opts) => {
 					let mut state = availability::TestState::new(&test_config);
 					let (mut env, _protocol_config) = availability::prepare_test(
-						&mut state,
+						&state,
 						availability::TestDataAvailability::Read(opts),
 						true,
 					);
@@ -151,7 +151,7 @@ impl BenchCli {
 				TestObjective::DataAvailabilityWrite => {
 					let mut state = availability::TestState::new(&test_config);
 					let (mut env, _protocol_config) = availability::prepare_test(
-						&mut state,
+						&state,
 						availability::TestDataAvailability::Write,
 						true,
 					);
