@@ -31,7 +31,7 @@ mod benchmarks {
 			create_message.execution_header,
 		);
 
-		EthereumGatewayAddress::set(hex!["EDa338E4dC46038493b885327842fD3E301CaB39"].into());
+		EthereumGatewayAddress::set(&hex!["EDa338E4dC46038493b885327842fD3E301CaB39"].into());
 
 		let sovereign_account = sibling_sovereign_account::<T>(1000u32.into());
 
