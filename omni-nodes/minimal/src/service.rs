@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{impl_fake_runtime_apis::RuntimeApi, standards::OpaqueBlock};
+use crate::standards::OpaqueBlock;
 use futures::FutureExt;
+use omni_node_common::RuntimeApi;
 use sc_client_api::backend::Backend;
 use sc_executor::WasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager};

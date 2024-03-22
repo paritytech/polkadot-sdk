@@ -3,7 +3,6 @@
 
 mod cli;
 mod command;
-mod impl_fake_runtime_apis;
 mod rpc;
 mod service;
 mod standards;

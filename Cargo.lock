@@ -8130,6 +8130,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "jsonrpsee",
+ "omni-node-common",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
@@ -8144,14 +8145,12 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
- "serde_json",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
  "sp-core",
  "sp-inherents",
  "sp-io",
- "sp-keyring",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
@@ -8944,6 +8943,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9bedf36ffb6ba96c2eb7144ef6270557b52e54b20c0a8e1eb2ff99a6c6959bff"
 dependencies = [
  "asn1-rs",
+]
+
+[[package]]
+name = "omni-node-common"
+version = "0.1.0"
+dependencies = [
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-transaction-pool",
+ "sp-version",
+ "sp-weights",
+ "substrate-frame-rpc-system",
 ]
 
 [[package]]
@@ -18282,6 +18302,7 @@ dependencies = [
  "futures",
  "jsonrpsee",
  "log",
+ "omni-node-common",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -18309,7 +18330,6 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-io",
- "sp-keyring",
  "sp-offchain",
  "sp-runtime",
  "sp-session",

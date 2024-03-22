@@ -1,13 +1,32 @@
+//! # Common Utilities for Omni Nodes
+//!
+//! ## Fake Runtime
+//!
+//! A fake runtime that implements (hopefully) all of the runtime apis defined in polkadot-sdk as a
+//! stub. All implementations are fulfilled with `unreachable!()`.
+//!
+//! See [`FakeRuntime`]
+
 #![allow(unused_variables)]
 
-pub struct FakeRuntime;
-// TODO: think even these types don't really matter.
-use crate::standards::{
-	AccountId, AuraId, Balance, BlockNumber, Header, Nonce, OpaqueBlock as Block, Weight,
-};
 use sp_runtime::traits::Block as BlockT;
 
-type RuntimeCall = ();
+/// The fake runtime.
+pub struct FakeRuntime;
+
+/// Some types that we need to fulfill the trait bounds, but in reality they don't matter at all.
+mod whatever {
+	pub(crate) type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
+	pub(crate) type Block = sp_runtime::generic::Block<Header, sp_runtime::OpaqueExtrinsic>;
+	pub(crate) type AccountId = ();
+	pub(crate) type Nonce = ();
+	pub(crate) type AuraId = sp_consensus_aura::sr25519::AuthorityId;
+	pub(crate) type BlockNumber = u32;
+	pub(crate) type Balance = u128;
+	pub(crate) type Weight = sp_weights::Weight;
+	pub(crate) type RuntimeCall = ();
+}
+use whatever::*;
 
 sp_api::impl_runtime_apis! {
 	impl sp_api::Core<Block> for FakeRuntime {

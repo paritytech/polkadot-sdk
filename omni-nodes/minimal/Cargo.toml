@@ -21,7 +21,6 @@ clap = { version = "4.5.1", features = ["derive"] }
 futures = { version = "0.3.21", features = ["thread-pool"] }
 futures-timer = "3.0.1"
 jsonrpsee = { version = "0.22", features = ["server"] }
-serde_json = { workspace = true, default-features = true }
 
 sc-cli = { path = "../../substrate/client/cli" }
 sc-executor = { path = "../../substrate/client/executor" }
@@ -39,7 +38,6 @@ sc-client-api = { path = "../../substrate/client/api" }
 sc-chain-spec = { path = "../../substrate/client/chain-spec" }
 
 sp-timestamp = { path = "../../substrate/primitives/timestamp" }
-sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-api = { path = "../../substrate/primitives/api" }
 sp-blockchain = { path = "../../substrate/primitives/blockchain" }
 sp-block-builder = { path = "../../substrate/primitives/block-builder" }
@@ -53,6 +51,8 @@ sp-core = { path = "../../substrate/primitives/core" }
 sp-inherents = { path = "../../substrate/primitives/inherents" }
 
 substrate-frame-rpc-system = { path = "../../substrate/utils/frame/rpc/system" }
+
+omni-node-common = { path = "../common" }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }

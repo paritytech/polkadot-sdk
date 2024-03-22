@@ -34,7 +34,6 @@ impl SubstrateCli for Cli {
 	}
 
 	fn load_spec(&self, maybe_path: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
-		// TODO: refactor into a shared crate for all omni-nodes
 		Ok(Box::new(if maybe_path.is_empty() {
 			let code = std::fs::read(&self.runtime)
 				.map_err(|e| format!("Failed to read runtime {}: {}", &self.runtime, e))?;

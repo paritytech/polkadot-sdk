@@ -514,6 +514,7 @@ members = [
 
 	"omni-nodes/minimal",
 	"omni-nodes/solochain",
+	"omni-nodes/common",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]
 

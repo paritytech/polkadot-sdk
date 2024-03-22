@@ -1,7 +1,8 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use crate::{impl_fake_runtime_apis::RuntimeApi, standards::OpaqueBlock as Block};
+use crate::standards::OpaqueBlock as Block;
 use futures::FutureExt;
+use omni_node_common::RuntimeApi;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
