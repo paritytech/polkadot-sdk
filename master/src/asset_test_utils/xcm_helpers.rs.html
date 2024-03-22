@@ -256,7 +256,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -277,11 +276,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// Returns the delivery fees amount for pallet xcm&#39;s `teleport_assets` and
-/// `reserve_transfer_assets` extrinsics.
+<span class="doccomment">/// Returns the delivery fees amount for pallet xcm&#39;s `teleport_assets` extrinsics.
 /// Because it returns only a `u128`, it assumes delivery fees are only paid
 /// in one asset and that asset is known.
-</span><span class="kw">pub fn </span>transfer_assets_delivery_fees&lt;S: SendXcm&gt;(
+</span><span class="kw">pub fn </span>teleport_assets_delivery_fees&lt;S: SendXcm&gt;(
 	assets: Assets,
 	fee_asset_item: u32,
 	weight_limit: WeightLimit,

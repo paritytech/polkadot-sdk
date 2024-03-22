@@ -236,10 +236,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
-<a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -309,17 +305,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Runtimes
 	</span><span class="kw">pub use </span>asset_hub_westend_runtime::xcm_config::{
-		UniversalLocation <span class="kw">as </span>AssetHubWestendUniversalLocation, WestendLocation <span class="kw">as </span>RelayLocation,
-		XcmConfig <span class="kw">as </span>AssetHubWestendXcmConfig,
+		WestendLocation <span class="kw">as </span>RelayLocation, XcmConfig <span class="kw">as </span>AssetHubWestendXcmConfig,
 	};
 	<span class="kw">pub use </span>penpal_runtime::xcm_config::{
 		LocalReservableFromAssetHub <span class="kw">as </span>PenpalLocalReservableFromAssetHub,
 		LocalTeleportableToAssetHub <span class="kw">as </span>PenpalLocalTeleportableToAssetHub,
-		UniversalLocation <span class="kw">as </span>PenpalUniversalLocation, XcmConfig <span class="kw">as </span>PenpalWestendXcmConfig,
 	};
-	<span class="kw">pub use </span>westend_runtime::xcm_config::{
-		UniversalLocation <span class="kw">as </span>WestendUniversalLocation, XcmConfig <span class="kw">as </span>WestendXcmConfig,
-	};
+	<span class="kw">pub use </span>westend_runtime::xcm_config::XcmConfig <span class="kw">as </span>WestendXcmConfig;
 
 	<span class="kw">pub const </span>ASSET_ID: u32 = <span class="number">3</span>;
 	<span class="kw">pub const </span>ASSET_MIN_BALANCE: u128 = <span class="number">1000</span>;

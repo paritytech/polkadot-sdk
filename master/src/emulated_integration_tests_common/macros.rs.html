@@ -394,7 +394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>para_receiver_balance_after =
 						&lt;<span class="macro-nonterminal">$receiver_para </span><span class="kw">as </span><span class="macro-nonterminal">$crate::macros::Chain</span>&gt;::account_data_of(receiver.clone()).free;
 					<span class="kw">let </span>delivery_fees = &lt;<span class="macro-nonterminal">$sender_para</span>&gt;::execute_with(|| {
-						<span class="macro-nonterminal">$crate::macros::asset_test_utils::xcm_helpers::transfer_assets_delivery_fees</span>::&lt;
+						<span class="macro-nonterminal">$crate::macros::asset_test_utils::xcm_helpers::teleport_assets_delivery_fees</span>::&lt;
 							&lt;<span class="macro-nonterminal">$sender_xcm_config </span><span class="kw">as </span>xcm_executor::Config&gt;::XcmSender,
 						&gt;(<span class="macro-nonterminal">$assets</span>.clone(), fee_asset_item, weight_limit.clone(), beneficiary, para_destination)
 					});

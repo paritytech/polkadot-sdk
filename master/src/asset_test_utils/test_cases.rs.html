@@ -1934,7 +1934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// Mint funds into account to ensure it has enough balance to pay delivery fees
 				</span><span class="kw">let </span>delivery_fees =
-					xcm_helpers::transfer_assets_delivery_fees::&lt;XcmConfig::XcmSender&gt;(
+					xcm_helpers::teleport_assets_delivery_fees::&lt;XcmConfig::XcmSender&gt;(
 						(native_asset_id.clone(), native_asset_to_teleport_away.into()).into(),
 						<span class="number">0</span>,
 						Unlimited,
@@ -2327,7 +2327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// Make sure the target account has enough native asset to pay for delivery fees
 				</span><span class="kw">let </span>delivery_fees =
-					xcm_helpers::transfer_assets_delivery_fees::&lt;XcmConfig::XcmSender&gt;(
+					xcm_helpers::teleport_assets_delivery_fees::&lt;XcmConfig::XcmSender&gt;(
 						(foreign_asset_id_location_latest.clone(), asset_to_teleport_away).into(),
 						<span class="number">0</span>,
 						Unlimited,

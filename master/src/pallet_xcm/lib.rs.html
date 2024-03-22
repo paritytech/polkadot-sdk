@@ -3670,7 +3670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			origin: OriginFor&lt;T&gt;,
 			timeout: BlockNumberFor&lt;T&gt;,
 			match_querier: VersionedLocation,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QueryId, DispatchError&gt; {
+		) -&gt; <span class="prelude-ty">Result</span>&lt;QueryId, DispatchError&gt; {
 			<span class="kw">let </span>responder = &lt;T <span class="kw">as </span>Config&gt;::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>query_id = &lt;<span class="self">Self </span><span class="kw">as </span>QueryHandler&gt;::new_query(
 				responder,
@@ -4774,7 +4774,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; QueryHandler <span class="kw">for </span>Pallet&lt;T&gt; {
-	<span class="kw">type </span>QueryId = u64;
 	<span class="kw">type </span>BlockNumber = BlockNumberFor&lt;T&gt;;
 	<span class="kw">type </span>Error = XcmError;
 	<span class="kw">type </span>UniversalLocation = T::UniversalLocation;
@@ -4784,7 +4783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		responder: <span class="kw">impl </span>Into&lt;Location&gt;,
 		timeout: BlockNumberFor&lt;T&gt;,
 		match_querier: <span class="kw">impl </span>Into&lt;Location&gt;,
-	) -&gt; <span class="self">Self</span>::QueryId {
+	) -&gt; QueryId {
 		<span class="self">Self</span>::do_new_query(responder, <span class="prelude-val">None</span>, timeout, match_querier)
 	}
 
@@ -4794,7 +4793,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		message: <span class="kw-2">&amp;mut </span>Xcm&lt;()&gt;,
 		responder: <span class="kw">impl </span>Into&lt;Location&gt;,
 		timeout: <span class="self">Self</span>::BlockNumber,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QueryId, <span class="self">Self</span>::Error&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;QueryId, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">let </span>responder = responder.into();
 		<span class="kw">let </span>destination = <span class="self">Self</span>::UniversalLocation::get()
 			.invert_target(<span class="kw-2">&amp;</span>responder)
@@ -4807,7 +4806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Removes response when ready and emits [Event::ResponseTaken] event.
-	</span><span class="kw">fn </span>take_response(query_id: <span class="self">Self</span>::QueryId) -&gt; QueryResponseStatus&lt;<span class="self">Self</span>::BlockNumber&gt; {
+	</span><span class="kw">fn </span>take_response(query_id: QueryId) -&gt; QueryResponseStatus&lt;<span class="self">Self</span>::BlockNumber&gt; {
 		<span class="kw">match </span>Queries::&lt;T&gt;::get(query_id) {
 			<span class="prelude-val">Some</span>(QueryStatus::Ready { response, at }) =&gt; <span class="kw">match </span>response.try_into() {
 				<span class="prelude-val">Ok</span>(response) =&gt; {
@@ -4824,7 +4823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>expect_response(id: <span class="self">Self</span>::QueryId, response: Response) {
+	</span><span class="kw">fn </span>expect_response(id: QueryId, response: Response) {
 		<span class="kw">let </span>response = response.into();
 		Queries::&lt;T&gt;::insert(
 			id,
@@ -5287,6 +5286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		]);
 		<span class="prelude-val">Ok</span>(Xcm(<span class="macro">vec!</span>[
 			WithdrawAsset(assets.into()),
+			SetFeesMode { jit_withdraw: <span class="bool-val">true </span>},
 			InitiateReserveWithdraw {
 				assets: Wild(AllCounted(max_assets)),
 				reserve,

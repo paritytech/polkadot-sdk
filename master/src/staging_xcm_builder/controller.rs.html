@@ -471,7 +471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		origin: Origin,
 		timeout: Timeout,
 		match_querier: VersionedLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QueryId, DispatchError&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;QueryId, DispatchError&gt;;
 }
 
 <span class="kw">impl</span>&lt;Origin, RuntimeCall&gt; ExecuteController&lt;Origin, RuntimeCall&gt; <span class="kw">for </span>() {
@@ -525,7 +525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_origin: Origin,
 		_timeout: Timeout,
 		_match_querier: VersionedLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QueryId, DispatchError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;QueryId, DispatchError&gt; {
 		<span class="prelude-val">Ok</span>(Default::default())
 	}
 }

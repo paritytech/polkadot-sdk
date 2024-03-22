@@ -327,19 +327,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -358,11 +345,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{Junctions::Here, Xcm};
 <span class="kw">use </span>core::result;
-<span class="kw">use </span>frame_support::{
-	pallet_prelude::{Get, TypeInfo},
-	parameter_types,
-};
-<span class="kw">use </span>parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+<span class="kw">use </span>frame_support::{pallet_prelude::Get, parameter_types};
+<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>sp_arithmetic::traits::Zero;
 <span class="kw">use </span>sp_std::fmt::Debug;
 <span class="kw">use </span>xcm::latest::{
@@ -457,15 +441,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Provides methods to expect responses from XCMs and query their status.
 </span><span class="kw">pub trait </span>QueryHandler {
-	<span class="kw">type </span>QueryId: From&lt;u64&gt;
-		+ FullCodec
-		+ MaxEncodedLen
-		+ TypeInfo
-		+ Clone
-		+ Eq
-		+ PartialEq
-		+ Debug
-		+ Copy;
 	<span class="kw">type </span>BlockNumber: Zero + Encode;
 	<span class="kw">type </span>Error;
 	<span class="kw">type </span>UniversalLocation: Get&lt;InteriorLocation&gt;;
@@ -493,14 +468,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		message: <span class="kw-2">&amp;mut </span>Xcm&lt;()&gt;,
 		responder: <span class="kw">impl </span>Into&lt;Location&gt;,
 		timeout: <span class="self">Self</span>::BlockNumber,
-	) -&gt; result::Result&lt;<span class="self">Self</span>::QueryId, <span class="self">Self</span>::Error&gt;;
+	) -&gt; result::Result&lt;QueryId, <span class="self">Self</span>::Error&gt;;
 
 	<span class="doccomment">/// Attempt to remove and return the response of query with ID `query_id`.
-	</span><span class="kw">fn </span>take_response(id: <span class="self">Self</span>::QueryId) -&gt; QueryResponseStatus&lt;<span class="self">Self</span>::BlockNumber&gt;;
+	</span><span class="kw">fn </span>take_response(id: QueryId) -&gt; QueryResponseStatus&lt;<span class="self">Self</span>::BlockNumber&gt;;
 
 	<span class="doccomment">/// Makes sure to expect a response with the given id.
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>expect_response(id: <span class="self">Self</span>::QueryId, response: Response);
+	</span><span class="kw">fn </span>expect_response(id: QueryId, response: Response);
 }
 
 <span class="macro">parameter_types! </span>{
@@ -510,17 +485,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>QueryHandler <span class="kw">for </span>() {
 	<span class="kw">type </span>BlockNumber = u64;
 	<span class="kw">type </span>Error = ();
-	<span class="kw">type </span>QueryId = u64;
 	<span class="kw">type </span>UniversalLocation = UniversalLocation;
 
-	<span class="kw">fn </span>take_response(_query_id: <span class="self">Self</span>::QueryId) -&gt; QueryResponseStatus&lt;<span class="self">Self</span>::BlockNumber&gt; {
+	<span class="kw">fn </span>take_response(_query_id: QueryId) -&gt; QueryResponseStatus&lt;<span class="self">Self</span>::BlockNumber&gt; {
 		QueryResponseStatus::NotFound
 	}
 	<span class="kw">fn </span>new_query(
 		_responder: <span class="kw">impl </span>Into&lt;Location&gt;,
 		_timeout: <span class="self">Self</span>::BlockNumber,
 		_match_querier: <span class="kw">impl </span>Into&lt;Location&gt;,
-	) -&gt; <span class="self">Self</span>::QueryId {
+	) -&gt; QueryId {
 		<span class="number">0u64
 	</span>}
 
@@ -528,11 +502,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_message: <span class="kw-2">&amp;mut </span>Xcm&lt;()&gt;,
 		_responder: <span class="kw">impl </span>Into&lt;Location&gt;,
 		_timeout: <span class="self">Self</span>::BlockNumber,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QueryId, <span class="self">Self</span>::Error&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;QueryId, <span class="self">Self</span>::Error&gt; {
 		<span class="prelude-val">Err</span>(())
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>expect_response(_id: <span class="self">Self</span>::QueryId, _response: <span class="kw">crate</span>::Response) {}
+	</span><span class="kw">fn </span>expect_response(_id: QueryId, _response: <span class="kw">crate</span>::Response) {}
 }
 </code></pre></div></section></main></body></html>

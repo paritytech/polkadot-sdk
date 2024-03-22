@@ -1058,6 +1058,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#911" id="911">911</a>
 <a href="#912" id="912">912</a>
 <a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1117,7 +1130,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	impls::{AssetsToBlockAuthor, NonZeroIssuance},
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 };
-<span class="kw">use </span>polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 <span class="kw">use </span>smallvec::smallvec;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">pub use </span>sp_consensus_aura::sr25519::AuthorityId <span class="kw">as </span>AuraId;
@@ -1145,7 +1157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// XCM Imports
 </span><span class="kw">use </span>parachains_common::{AccountId, Signature};
-<span class="kw">use </span>xcm::latest::prelude::BodyId;
+<span class="kw">use </span>xcm::latest::prelude::{AssetId <span class="kw">as </span>AssetLocationId, BodyId};
 
 <span class="doccomment">/// Balance of an account.
 </span><span class="kw">pub type </span>Balance = u128;
@@ -1605,6 +1617,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>cumulus_pallet_aura_ext::Config <span class="kw">for </span>Runtime {}
 
+<span class="macro">parameter_types! </span>{
+	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
+	</span><span class="kw">pub </span>FeeAssetId: AssetLocationId = AssetLocationId(xcm_config::RelayLocation::get());
+	<span class="doccomment">/// The base fee for the message delivery fees (3 CENTS).
+	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = (<span class="number">1_000_000_000_000u128 </span>/ <span class="number">100</span>).saturating_mul(<span class="number">3</span>);
+}
+
+<span class="kw">pub type </span>PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice&lt;
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+&gt;;
+
 <span class="kw">impl </span>cumulus_pallet_xcmp_queue::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>ChannelInfo = ParachainSystem;
@@ -1615,7 +1641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>ControllerOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = ();
-	<span class="kw">type </span>PriceForSiblingDelivery = NoPriceForMessageDelivery&lt;ParaId&gt;;
+	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 <span class="macro">parameter_types! </span>{

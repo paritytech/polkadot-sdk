@@ -554,6 +554,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -584,6 +593,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee,
 	XcmpQueue,
 };
+<span class="kw">use crate</span>::{BaseDeliveryFee, FeeAssetId, TransactionByteFee};
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	parameter_types,
@@ -592,10 +602,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
-<span class="kw">use </span>parachains_common::xcm_config::AssetFeeAsExistentialDepositMultiplier;
+<span class="kw">use </span>parachains_common::{xcm_config::AssetFeeAsExistentialDepositMultiplier, TREASURY_PALLET_ID};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
-<span class="kw">use </span>polkadot_runtime_common::impls::ToAuthor;
-<span class="kw">use </span>sp_runtime::traits::ConvertInto;
+<span class="kw">use </span>polkadot_runtime_common::{impls::ToAuthor, xcm_sender::ExponentialPrice};
+<span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, ConvertInto};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
@@ -605,6 +615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
 	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -615,6 +626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>RelayNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
+	<span class="kw">pub </span>TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 }
 
 <span class="doccomment">/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -887,7 +899,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	<span class="kw">type </span>AssetLocker = ();
 	<span class="kw">type </span>AssetExchanger = ();
-	<span class="kw">type </span>FeeManager = ();
+	<span class="kw">type </span>FeeManager = XcmFeeManagerFromComponents&lt;
+		(),
+		XcmFeeToAccount&lt;<span class="self">Self</span>::AssetTransactor, AccountId, TreasuryAccount&gt;,
+	&gt;;
 	<span class="kw">type </span>MessageExporter = ();
 	<span class="kw">type </span>UniversalAliases = Nothing;
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
@@ -911,11 +926,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// No local origins on this chain are allowed to dispatch XCM sends/executions.
 </span><span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
 
+<span class="kw">pub type </span>PriceForParentDelivery =
+	ExponentialPrice&lt;FeeAssetId, BaseDeliveryFee, TransactionByteFee, ParachainSystem&gt;;
+
 <span class="doccomment">/// The means for routing XCM messages which are not for local execution into the right message
 /// queues.
 </span><span class="kw">pub type </span>XcmRouter = WithUniqueTopic&lt;(
 	<span class="comment">// Two routers - use UMP to communicate with the relay chain:
-	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, ()&gt;,
+	</span>cumulus_primitives_utility::ParentAsUmp&lt;ParachainSystem, PolkadotXcm, PriceForParentDelivery&gt;,
 	<span class="comment">// ..and XCMP to communicate with the sibling chains.
 	</span>XcmpQueue,
 )&gt;;
