@@ -242,7 +242,7 @@ pub trait RefundSignedExtension:
 
 	/// Called from post-dispatch and shall perform additional checks (apart from messages
 	/// transaction success) of given call result.
-	fn check_call_result_ex(
+	fn additional_call_result_check(
 		relayer: &AccountIdOf<Self::Runtime>,
 		call_info: &CallInfo,
 		extra_weight: &mut Weight,
@@ -329,7 +329,12 @@ pub trait RefundSignedExtension:
 		}
 
 		// do additional checks
-		if !Self::check_call_result_ex(&relayer, &call_info, &mut extra_weight, &mut extra_size) {
+		if !Self::additional_call_result_check(
+			&relayer,
+			&call_info,
+			&mut extra_weight,
+			&mut extra_size,
+		) {
 			return slash_relayer_if_delivery_result
 		}
 
@@ -648,14 +653,14 @@ where
 		Ok(call)
 	}
 
-	fn check_call_result_ex(
+	fn additional_call_result_check(
 		relayer: &Runtime::AccountId,
 		call_info: &CallInfo,
 		extra_weight: &mut Weight,
 		extra_size: &mut u32,
 	) -> bool {
 		// check if relay chain state has been updated
-		let is_grandpa_call_successful =
+		let is_granda_call_succeeded =
 			RefundBridgedGrandpaMessages::<
 				Runtime,
 				Runtime::BridgesGrandpaPalletInstance,
@@ -663,8 +668,8 @@ where
 				Refund,
 				Priority,
 				Id,
-			>::check_call_result_ex(relayer, call_info, extra_weight, extra_size);
-		if !is_grandpa_call_successful {
+			>::additional_call_result_check(relayer, call_info, extra_weight, extra_size);
+		if !is_granda_call_succeeded {
 			return false
 		}
 
@@ -791,7 +796,7 @@ where
 		Ok(call)
 	}
 
-	fn check_call_result_ex(
+	fn additional_call_result_check(
 		relayer: &Runtime::AccountId,
 		call_info: &CallInfo,
 		extra_weight: &mut Weight,
@@ -897,7 +902,7 @@ where
 		Ok(call)
 	}
 
-	fn check_call_result_ex(
+	fn additional_call_result_check(
 		_relayer: &Runtime::AccountId,
 		_call_info: &CallInfo,
 		_extra_weight: &mut Weight,
