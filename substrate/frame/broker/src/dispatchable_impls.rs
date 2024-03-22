@@ -442,10 +442,8 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
 		let mut id_leases_count = 0;
 		let mut other_leases_count = 0;
-		let leases = Leases::<T>::get()
-			.into_inner()
-			.into_iter()
-			.map(|mut lease| {
+		Leases::<T>::mutate(|leases| leases.iter_mut()
+			.for_each(|lease| {
 				if lease.task == id {
 					lease.task = other;
 					id_leases_count += 1;
@@ -453,23 +451,12 @@ impl<T: Config> Pallet<T> {
 					lease.task = id;
 					other_leases_count += 1;
 				}
-				lease
-			})
-			.collect::<Vec<_>>();
+			});
 
 		// Ensure both leases exist
 		ensure!(id_leases_count > 0 && other_leases_count > 0, Error::<T>::UnknownReservation);
 		// And ensure there are just to leases to be swapped
 		ensure!(id_leases_count == 1 && other_leases_count == 1, Error::<T>::TooManyLeases);
-
-		let leases = if let Ok(leases) = BoundedVec::try_from(leases) {
-			leases
-		} else {
-			defensive!("leases is extracted from a `BoundedVec` without adding new elements so the conversation should always succeed");
-			return Err(DispatchError::Other("Failed to convert leases to BoundedVec"));
-		};
-
-		Leases::<T>::set(leases);
 
 		Ok(())
 	}
