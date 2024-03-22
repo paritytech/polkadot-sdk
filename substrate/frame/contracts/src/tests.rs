@@ -669,7 +669,7 @@ fn migration_in_progress_works() {
 			Contracts::set_code(RuntimeOrigin::signed(ALICE), BOB.clone(), code_hash),
 			Error::<Test>::MigrationInProgress,
 		);
-		assert_err_ignore_postinfo!(builder::call(BOB).build(), Error::<Test>::MigrationInProgress,);
+		assert_err_ignore_postinfo!(builder::call(BOB).build(), Error::<Test>::MigrationInProgress);
 		assert_err_ignore_postinfo!(
 			builder::instantiate_with_code(wasm).value(100_000).build(),
 			Error::<Test>::MigrationInProgress,
@@ -796,7 +796,7 @@ fn deposit_event_max_value_limit() {
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
 			builder::call(addr)
-				.data((<Test as Config>::Schedule::get().limits.payload_len + 1).encode(),)
+				.data((<Test as Config>::Schedule::get().limits.payload_len + 1).encode())
 				.build(),
 			Error::<Test>::ValueTooLarge,
 		);
@@ -928,13 +928,13 @@ fn storage_max_value_limit() {
 		// Call contract with allowed storage value.
 		assert_ok!(builder::call(addr.clone())
 			.gas_limit(GAS_LIMIT.set_ref_time(GAS_LIMIT.ref_time() * 2)) // we are copying a huge buffer
-			.data(<Test as Config>::Schedule::get().limits.payload_len.encode(),)
+			.data(<Test as Config>::Schedule::get().limits.payload_len.encode())
 			.build());
 
 		// Call contract with too large a storage value.
 		assert_err_ignore_postinfo!(
 			builder::call(addr)
-				.data((<Test as Config>::Schedule::get().limits.payload_len + 1).encode(),)
+				.data((<Test as Config>::Schedule::get().limits.payload_len + 1).encode())
 				.build(),
 			Error::<Test>::ValueTooLarge,
 		);
@@ -969,7 +969,7 @@ fn deploy_and_call_other_contract() {
 		// Call BOB contract, which attempts to instantiate and call the callee contract and
 		// makes various assertions on the results from those calls.
 		assert_ok!(builder::call(caller_addr.clone())
-			.data(callee_code_hash.as_ref().to_vec(),)
+			.data(callee_code_hash.as_ref().to_vec())
 			.build());
 
 		assert_eq!(
@@ -1082,7 +1082,7 @@ fn delegate_call() {
 
 		assert_ok!(builder::call(caller_addr.clone())
 			.value(1337)
-			.data(callee_code_hash.as_ref().to_vec(),)
+			.data(callee_code_hash.as_ref().to_vec())
 			.build());
 	});
 }
@@ -1203,7 +1203,7 @@ fn cannot_self_destruct_while_live() {
 		// Call BOB with input data, forcing it make a recursive call to itself to
 		// self-destruct, resulting in a trap.
 		assert_err_ignore_postinfo!(
-			builder::call(addr.clone()).data(vec![0],).build(),
+			builder::call(addr.clone()).data(vec![0]).build(),
 			Error::<Test>::ContractTrapped,
 		);
 
@@ -1332,7 +1332,7 @@ fn destroy_contract_and_transfer_funds() {
 		get_contract(&addr_charlie);
 
 		// Call BOB, which calls CHARLIE, forcing CHARLIE to self-destruct.
-		assert_ok!(builder::call(addr_bob).data(addr_charlie.encode(),).build());
+		assert_ok!(builder::call(addr_bob).data(addr_charlie.encode()).build());
 
 		// Check that CHARLIE has moved on to the great beyond (ie. died).
 		assert!(get_contract_checked(&addr_charlie).is_none());
@@ -1622,7 +1622,7 @@ fn chain_extension_works() {
 		// We set the MSB part to 2 (instead of 0) which routes the request into the third extension
 		assert_err_ignore_postinfo!(
 			builder::call(addr.clone())
-				.data(ExtensionInput { extension_id: 2, func_id: 0, extra: &[] }.into(),)
+				.data(ExtensionInput { extension_id: 2, func_id: 0, extra: &[] }.into())
 				.build(),
 			Error::<Test>::NoChainExtension,
 		);
@@ -1649,11 +1649,11 @@ fn chain_extension_temp_storage_works() {
 		);
 
 		assert_ok!(
-			builder::bare_call(addr.clone(),)
-				.value(0,)
-				.gas_limit(GAS_LIMIT,)
-				.data(input.clone(),)
-				.determinism(Determinism::Enforced,)
+			builder::bare_call(addr.clone())
+				.value(0)
+				.gas_limit(GAS_LIMIT)
+				.data(input.clone())
+				.determinism(Determinism::Enforced)
 				.build()
 				.result
 		);
@@ -2141,22 +2141,22 @@ fn gas_estimation_for_subcalls() {
 
 				// Make the same call using the estimated gas. Should succeed.
 				assert_ok!(
-					builder::bare_call(addr_caller.clone(),)
-						.value(0,)
-						.gas_limit(result.gas_required,)
-						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()),)
-						.data(input.clone(),)
+					builder::bare_call(addr_caller.clone())
+						.value(0)
+						.gas_limit(result.gas_required)
+						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()))
+						.data(input.clone())
 						.build()
 						.result
 				);
 
 				// Check that it fails with too little ref_time
 				assert_err!(
-					builder::bare_call(addr_caller.clone(),)
-						.value(0,)
-						.gas_limit(result.gas_required.sub_ref_time(1),)
-						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()),)
-						.data(input.clone(),)
+					builder::bare_call(addr_caller.clone())
+						.value(0)
+						.gas_limit(result.gas_required.sub_ref_time(1))
+						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()))
+						.data(input.clone())
 						.build()
 						.result,
 					error,
@@ -2164,11 +2164,11 @@ fn gas_estimation_for_subcalls() {
 
 				// Check that it fails with too little proof_size
 				assert_err!(
-					builder::bare_call(addr_caller.clone(),)
-						.value(0,)
-						.gas_limit(result.gas_required.sub_proof_size(1),)
-						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()),)
-						.data(input,)
+					builder::bare_call(addr_caller.clone())
+						.value(0)
+						.gas_limit(result.gas_required.sub_proof_size(1))
+						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()))
+						.data(input)
 						.build()
 						.result,
 					error,
@@ -2205,10 +2205,10 @@ fn gas_estimation_call_runtime() {
 
 		// Make the same call using the required gas. Should succeed.
 		assert_ok!(
-			builder::bare_call(addr_caller,)
-				.value(0,)
-				.gas_limit(result.gas_required,)
-				.data(call.encode(),)
+			builder::bare_call(addr_caller)
+				.value(0)
+				.gas_limit(result.gas_required)
+				.data(call.encode())
 				.build()
 				.result
 		);
@@ -2902,7 +2902,7 @@ fn storage_deposit_works() {
 		// Create storage
 		assert_ok!(builder::call(addr.clone())
 			.value(42)
-			.data((1_000u32, 5_000u32).encode(),)
+			.data((1_000u32, 5_000u32).encode())
 			.build());
 		// 4 is for creating 2 storage items
 		let charged0 = 4 + 1_000 + 5_000;
@@ -2910,13 +2910,13 @@ fn storage_deposit_works() {
 		assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
 		// Add more storage (but also remove some)
-		assert_ok!(builder::call(addr.clone()).data((2_000u32, 4_900u32).encode(),).build());
+		assert_ok!(builder::call(addr.clone()).data((2_000u32, 4_900u32).encode()).build());
 		let charged1 = 1_000 - 100;
 		deposit += charged1;
 		assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
 		// Remove more storage (but also add some)
-		assert_ok!(builder::call(addr.clone()).data((2_100u32, 900u32).encode(),).build());
+		assert_ok!(builder::call(addr.clone()).data((2_100u32, 900u32).encode()).build());
 		// -1 for numeric instability
 		let refunded0 = 4_000 - 100 - 1;
 		deposit -= refunded0;
@@ -3057,7 +3057,7 @@ fn set_code_extrinsic() {
 		assert_eq!(get_contract(&addr).code_hash, code_hash);
 		assert_refcount!(&code_hash, 1);
 		assert_refcount!(&new_code_hash, 0);
-		assert_eq!(System::events(), vec![],);
+		assert_eq!(System::events(), vec![]);
 
 		// contract must exist
 		assert_noop!(
@@ -3067,7 +3067,7 @@ fn set_code_extrinsic() {
 		assert_eq!(get_contract(&addr).code_hash, code_hash);
 		assert_refcount!(&code_hash, 1);
 		assert_refcount!(&new_code_hash, 0);
-		assert_eq!(System::events(), vec![],);
+		assert_eq!(System::events(), vec![]);
 
 		// new code hash must exist
 		assert_noop!(
@@ -3077,7 +3077,7 @@ fn set_code_extrinsic() {
 		assert_eq!(get_contract(&addr).code_hash, code_hash);
 		assert_refcount!(&code_hash, 1);
 		assert_refcount!(&new_code_hash, 0);
-		assert_eq!(System::events(), vec![],);
+		assert_eq!(System::events(), vec![]);
 
 		// successful call
 		assert_ok!(Contracts::set_code(RuntimeOrigin::root(), addr.clone(), new_code_hash));
@@ -3357,7 +3357,7 @@ fn deposit_limit_in_nested_calls() {
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
 				.storage_deposit_limit(Some(codec::Compact(13)))
-				.data((100u32, &addr_callee, 0u64).encode(),)
+				.data((100u32, &addr_callee, 0u64).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3370,7 +3370,7 @@ fn deposit_limit_in_nested_calls() {
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
 				.storage_deposit_limit(Some(codec::Compact(14)))
-				.data((101u32, &addr_callee, 0u64).encode(),)
+				.data((101u32, &addr_callee, 0u64).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3383,7 +3383,7 @@ fn deposit_limit_in_nested_calls() {
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
 				.storage_deposit_limit(Some(codec::Compact(16)))
-				.data((102u32, &addr_callee, 1u64).encode(),)
+				.data((102u32, &addr_callee, 1u64).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3394,7 +3394,7 @@ fn deposit_limit_in_nested_calls() {
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
 				.storage_deposit_limit(Some(codec::Compact(0)))
-				.data((87u32, &addr_callee, 0u64).encode(),)
+				.data((87u32, &addr_callee, 0u64).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3405,7 +3405,7 @@ fn deposit_limit_in_nested_calls() {
 		// We don't set a special limit for the nested call.
 		assert_err_ignore_postinfo!(
 			builder::call(addr_caller.clone())
-				.data((1200u32, &addr_callee, 1u64).encode(),)
+				.data((1200u32, &addr_callee, 1u64).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3415,7 +3415,7 @@ fn deposit_limit_in_nested_calls() {
 		// enforced as callee frees up storage. This should pass.
 		assert_ok!(builder::call(addr_caller.clone())
 			.storage_deposit_limit(Some(codec::Compact(1)))
-			.data((87u32, &addr_callee, 1u64).encode(),)
+			.data((87u32, &addr_callee, 1u64).encode())
 			.build());
 	});
 }
@@ -3455,7 +3455,7 @@ fn deposit_limit_in_nested_instantiate() {
 			builder::call(addr_caller.clone())
 				.origin(RuntimeOrigin::signed(BOB))
 				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 1)))
-				.data((0u32, &code_hash_callee, 0u64).encode(),)
+				.data((0u32, &code_hash_callee, 0u64).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3469,7 +3469,7 @@ fn deposit_limit_in_nested_instantiate() {
 			builder::call(addr_caller.clone())
 				.origin(RuntimeOrigin::signed(BOB))
 				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 2)))
-				.data((1u32, &code_hash_callee, 0u64).encode(),)
+				.data((1u32, &code_hash_callee, 0u64).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3483,7 +3483,7 @@ fn deposit_limit_in_nested_instantiate() {
 			builder::call(addr_caller.clone())
 				.origin(RuntimeOrigin::signed(BOB))
 				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 2)))
-				.data((0u32, &code_hash_callee, callee_info_len + 2 + ED + 1).encode(),)
+				.data((0u32, &code_hash_callee, callee_info_len + 2 + ED + 1).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3498,7 +3498,7 @@ fn deposit_limit_in_nested_instantiate() {
 			builder::call(addr_caller.clone())
 				.origin(RuntimeOrigin::signed(BOB))
 				.storage_deposit_limit(Some(codec::Compact(callee_info_len + 2 + ED + 3))) // enough parent limit
-				.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 2).encode(),)
+				.data((1u32, &code_hash_callee, callee_info_len + 2 + ED + 2).encode())
 				.build(),
 			<Error<Test>>::StorageDepositLimitExhausted,
 		);
@@ -3530,7 +3530,7 @@ fn deposit_limit_in_nested_instantiate() {
 			1_000_000 - (callee_info_len + 2 + ED + 3)
 		);
 		// Check that deposit due to be charged still includes these 3 Balance
-		assert_eq!(result.storage_deposit.charge_or_zero(), (callee_info_len + 2 + ED + 3),)
+		assert_eq!(result.storage_deposit.charge_or_zero(), (callee_info_len + 2 + ED + 3))
 	});
 }
 
@@ -3693,9 +3693,9 @@ fn cannot_instantiate_indeterministic_code() {
 			<Error<Test>>::Indeterministic,
 		);
 		assert_err!(
-			builder::bare_instantiate(Code::Existing(code_hash),)
-				.value(0,)
-				.gas_limit(GAS_LIMIT,)
+			builder::bare_instantiate(Code::Existing(code_hash))
+				.value(0)
+				.gas_limit(GAS_LIMIT)
 				.build()
 				.result,
 			<Error<Test>>::Indeterministic,
