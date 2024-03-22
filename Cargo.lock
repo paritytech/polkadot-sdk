@@ -7924,7 +7924,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.2.0"
-source = "git+https://github.com/paritytech/litep2p?branch=master#cc043b66f9c2c20349359150f522b83f260ec587"
+source = "git+https://github.com/paritytech/litep2p?branch=master#fd0bdfb1e831061d7ec2fa55746ff8e891ad0ff8"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -7932,7 +7932,6 @@ dependencies = [
  "cid 0.10.1",
  "ed25519-dalek 1.0.1",
  "futures",
- "futures-rustls",
  "futures-timer",
  "hex-literal",
  "indexmap 2.2.3",
@@ -11595,7 +11594,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
- "rand 0.7.3",
+ "rand 0.8.5",
  "rand_core 0.6.4",
  "serde",
  "unicode-normalization",
