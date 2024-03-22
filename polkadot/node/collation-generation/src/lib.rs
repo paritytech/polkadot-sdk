@@ -38,7 +38,7 @@ use polkadot_node_primitives::{
 	SubmitCollationParams,
 };
 use polkadot_node_subsystem::{
-	messages::{CollationGenerationMessage, CollatorProtocolMessage},
+	messages::{CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiRequest},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
@@ -52,7 +52,10 @@ use polkadot_primitives::{
 	ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
-use std::sync::Arc;
+use std::{
+	collections::{BTreeMap, VecDeque},
+	sync::Arc,
+};
 
 mod error;
 
@@ -601,4 +604,38 @@ fn erasure_root(
 
 	let chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, &available_data)?;
 	Ok(polkadot_erasure_coding::branches(&chunks).root())
+}
+
+// Checks if the runtime supports `request_claim_queue` and executes it. Returns `Ok(None)`
+// otherwise. Any [`RuntimeApiError`]s are bubbled up to the caller.
+async fn fetch_claim_queue(
+	sender: &mut impl overseer::CollationGenerationSenderTrait,
+	relay_parent: Hash,
+) -> crate::error::Result<Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>> {
+	if has_required_runtime(
+		sender,
+		relay_parent,
+		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+	)
+	.await
+	{
+		let res = request_claim_queue(relay_parent, sender).await.await??;
+		Ok(Some(res))
+	} else {
+		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
+		Ok(None)
+	}
+}
+
+// Returns the next scheduled `ParaId` for a core in the claim queue, wrapped in `ScheduledCore`.
+// This function is supposed to be used in `handle_new_activations` hence the return type.
+fn fetch_next_scheduled_on_core(
+	claim_queue: &BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	core_idx: CoreIndex,
+) -> Option<ScheduledCore> {
+	claim_queue
+		.get(&core_idx)?
+		.front()
+		.cloned()
+		.map(|para_id| ScheduledCore { para_id, collator: None })
 }
