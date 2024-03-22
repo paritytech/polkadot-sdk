@@ -880,7 +880,7 @@ fn short_leases_are_cleaned() {
 
 		// But are cleaned up in the next rotate_sale.
 		let config = Configuration::<Test>::get().unwrap();
-		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
+		let timeslice_period: u32 = <Test as Config>::TimeslicePeriod::get();
 		advance_to(timeslice_period.saturating_mul(config.region_length.into()));
 		assert_eq!(Leases::<Test>::get().len(), 0);
 	});

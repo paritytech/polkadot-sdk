@@ -27,7 +27,7 @@ use frame_support::{
 use frame_system::EnsureSignedBy;
 use sp_runtime::{bounded_vec, BuildStorage};
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 construct_runtime!(
 	pub enum Test
@@ -50,6 +50,7 @@ ord_parameter_types! {
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = ConstU32<10>;
 }
 
 impl pallet_balances::Config for Test {
@@ -104,7 +105,7 @@ impl Config for Test {
 	type MembershipChanged = TestChangeMembers;
 	type Currency = Balances;
 	type CandidateDeposit = CandidateDeposit;
-	type Period = ConstU64<4>;
+	type Period = ConstU32<4>;
 	type Score = u64;
 	type ScoreOrigin = EnsureSignedBy<ScoreOrigin, u64>;
 	type MaximumMembers = ConstU32<10>;

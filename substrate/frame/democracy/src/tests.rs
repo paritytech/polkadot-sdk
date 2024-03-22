@@ -49,7 +49,7 @@ const NAY: Vote = Vote { aye: false, conviction: Conviction::None };
 const BIG_AYE: Vote = Vote { aye: true, conviction: Conviction::Locked1x };
 const BIG_NAY: Vote = Vote { aye: false, conviction: Conviction::Locked1x };
 
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -82,6 +82,7 @@ impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
@@ -147,11 +148,11 @@ impl SortedMembers<u64> for OneToFive {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Self>;
-	type EnactmentPeriod = ConstU64<2>;
-	type LaunchPeriod = ConstU64<2>;
-	type VotingPeriod = ConstU64<2>;
-	type VoteLockingPeriod = ConstU64<3>;
-	type FastTrackVotingPeriod = ConstU64<2>;
+	type EnactmentPeriod = ConstU32<2>;
+	type LaunchPeriod = ConstU32<2>;
+	type VotingPeriod = ConstU32<2>;
+	type VoteLockingPeriod = ConstU32<3>;
+	type FastTrackVotingPeriod = ConstU32<2>;
 	type MinimumDeposit = ConstU64<1>;
 	type MaxDeposits = ConstU32<1000>;
 	type MaxBlacklisted = ConstU32<5>;
@@ -164,7 +165,7 @@ impl Config for Test {
 	type BlacklistOrigin = EnsureRoot<u64>;
 	type CancelProposalOrigin = EnsureRoot<u64>;
 	type VetoOrigin = EnsureSignedBy<OneToFive, u64>;
-	type CooloffPeriod = ConstU64<2>;
+	type CooloffPeriod = ConstU32<2>;
 	type Slash = ();
 	type InstantOrigin = EnsureSignedBy<Six, u64>;
 	type InstantAllowed = InstantAllowed;
@@ -224,7 +225,7 @@ fn next_block() {
 	Democracy::begin_block(System::block_number());
 }
 
-fn fast_forward_to(n: u64) {
+fn fast_forward_to(n: u32) {
 	while System::block_number() < n {
 		next_block();
 	}

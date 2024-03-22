@@ -46,7 +46,7 @@ fn signed(who: u64) -> RuntimeOrigin {
 }
 
 fn enlarge(amount: Balance, max_bids: u32) {
-	let summary: SummaryRecord<u64, Balance> = Summary::<Test>::get();
+	let summary: SummaryRecord<u32, Balance> = Summary::<Test>::get();
 	let increase_in_proportion_owed = Perquintill::from_rational(amount, Nis::issuance().effective);
 	let target = summary.proportion_owed.saturating_add(increase_in_proportion_owed);
 	Nis::process_queues(target, u32::max_value(), max_bids, &mut WeightCounter::unlimited());

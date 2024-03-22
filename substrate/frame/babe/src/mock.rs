@@ -38,15 +38,16 @@ use sp_io;
 use sp_runtime::{
 	curve::PiecewiseLinear,
 	impl_opaque_keys,
-	testing::{Digest, DigestItem, Header, TestXt},
-	traits::{Header as _, OpaqueKeys},
+	testing::{Digest, DigestItem, TestXt},
+	generic,
+	traits::{Header as _, OpaqueKeys, BlakeTwo256},
 	BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 
 type DummyValidatorId = u64;
-
-type Block = frame_system::mocking::MockBlock<Test>;
+type Header = generic::Header<u32, BlakeTwo256>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -67,6 +68,7 @@ frame_support::construct_runtime!(
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u128>;
+	type BlockHashCount = frame_support::traits::ConstU32<10>;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -214,7 +216,7 @@ impl Config for Test {
 		super::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
 
-pub fn go_to_block(n: u64, s: u64) {
+pub fn go_to_block(n: u32, s: u64) {
 	use frame_support::traits::OnFinalize;
 
 	Babe::on_finalize(System::block_number());
@@ -239,7 +241,7 @@ pub fn go_to_block(n: u64, s: u64) {
 }
 
 /// Slots will grow accordingly to blocks
-pub fn progress_to_block(n: u64) {
+pub fn progress_to_block(n: u32) {
 	let mut slot = u64::from(Babe::current_slot()) + 1;
 	for i in System::block_number() + 1..=n {
 		go_to_block(i, slot);
@@ -250,7 +252,7 @@ pub fn progress_to_block(n: u64) {
 /// Progress to the first block at the given session
 pub fn start_session(session_index: SessionIndex) {
 	let missing = (session_index - Session::current_index()) * 3;
-	progress_to_block(System::block_number() + missing as u64 + 1);
+	progress_to_block(System::block_number() + missing + 1);
 	assert_eq!(Session::current_index(), session_index);
 }
 
