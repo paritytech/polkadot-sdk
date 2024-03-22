@@ -756,7 +756,6 @@ fn get_backed_candidate_preserves_order() {
 			erasure_root: make_erasure_root(&test_state, pov_a.clone(), pvd_a.clone()),
 			validation_code: validation_code_ab.0.clone(),
 			persisted_validation_data_hash: pvd_a.hash(),
-			..Default::default()
 		}
 		.build();
 		let candidate_b = TestCandidateBuilder {
@@ -767,7 +766,6 @@ fn get_backed_candidate_preserves_order() {
 			erasure_root: make_erasure_root(&test_state, pov_b.clone(), pvd_b.clone()),
 			validation_code: validation_code_ab.0.clone(),
 			persisted_validation_data_hash: pvd_b.hash(),
-			..Default::default()
 		}
 		.build();
 
