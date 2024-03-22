@@ -3668,7 +3668,7 @@ fn cannot_instantiate_indeterministic_code() {
 			<Error<Test>>::CodeRejected,
 		);
 
-		// Try to instantifixate from already stored indeterministic code hash
+		// Try to instantiate from already stored indeterministic code hash
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
 			wasm,
