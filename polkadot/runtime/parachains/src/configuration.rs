@@ -232,7 +232,7 @@ pub struct HostConfiguration<BlockNumber> {
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
 	fn default() -> Self {
-		Self {
+		let ret = Self {
 			async_backing_params: AsyncBackingParams {
 				max_candidate_depth: 0,
 				allowed_ancestry_len: 0,
@@ -260,7 +260,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			hrmp_recipient_deposit: Default::default(),
 			hrmp_channel_max_capacity: Default::default(),
 			hrmp_channel_max_total_size: Default::default(),
-			hrmp_max_parachain_inbound_channels: 100,
+			hrmp_max_parachain_inbound_channels: Default::default(),
 			hrmp_channel_max_message_size: Default::default(),
 			hrmp_max_parachain_outbound_channels: Default::default(),
 			hrmp_max_message_num_per_candidate: Default::default(),
@@ -271,7 +271,11 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 			scheduler_params: Default::default(),
-		}
+		};
+
+		#[cfg(feature = "runtime-benchmarks")]
+		let ret = ret.with_benchmarking_default();
+		ret
 	}
 }
 
@@ -282,6 +286,8 @@ impl<BlockNumber: Default + From<u32>> HostConfiguration<BlockNumber> {
 		self.max_downward_message_size = self.max_downward_message_size.max(1 << 16);
 		self.hrmp_channel_max_capacity = self.hrmp_channel_max_capacity.max(1000);
 		self.hrmp_channel_max_message_size = self.hrmp_channel_max_message_size.max(1 << 16);
+		self.hrmp_max_parachain_inbound_channels =
+			self.hrmp_max_parachain_inbound_channels.max(100);
 		self.hrmp_max_parachain_outbound_channels =
 			self.hrmp_max_parachain_outbound_channels.max(100);
 		self
@@ -554,12 +560,8 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			let config = &self.config;
-			#[cfg(feature = "runtime-benchmarks")]
-			let config = config.clone().with_benchmarking_default();
-
-			config.panic_if_not_consistent();
-			ActiveConfig::<T>::put(&config);
+			self.config.panic_if_not_consistent();
+			ActiveConfig::<T>::put(&self.config);
 		}
 	}
 
