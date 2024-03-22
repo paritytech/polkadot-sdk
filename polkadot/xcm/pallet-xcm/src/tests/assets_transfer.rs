@@ -2767,7 +2767,8 @@ fn transfer_assets_with_remote_asset_reserve_and_remote_asset_fee_reserve_paid_w
 }
 /// Test `limited_reserve_transfer_assets` with remote asset reserve and remote fee reserve.
 #[test]
-fn limited_reserve_transfer_assets_with_remote_asset_reserve_and_remote_asset_fee_reserve_paid_works() {
+fn limited_reserve_transfer_assets_with_remote_asset_reserve_and_remote_asset_fee_reserve_paid_works(
+) {
 	let expected_result = Ok(());
 	remote_asset_reserve_and_remote_fee_reserve_paid_call(
 		XcmPallet::limited_reserve_transfer_assets,
