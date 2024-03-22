@@ -10870,6 +10870,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-rewards"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "primitive-types",
+ "scale-info",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-staking-runtime-api"
 version = "14.0.0"
 dependencies = [
