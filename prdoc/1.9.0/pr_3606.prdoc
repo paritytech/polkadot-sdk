@@ -1,0 +1,9 @@
+title: "[pallet_contracts] mark lock/unlock_delegate_dependency as stable"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Lock and unlock delegate dependency are stable now, so we can mark them as such.
+
+crates:
+  - name: pallet-contracts

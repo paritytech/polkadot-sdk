@@ -24,6 +24,7 @@ use jsonrpsee::{
 };
 use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
+use std::collections::VecDeque;
 use tokio::sync::mpsc::Sender as TokioSender;
 
 use parity_scale_codec::{Decode, Encode};
@@ -34,10 +35,10 @@ use cumulus_primitives_core::{
 		slashing,
 		vstaging::{ApprovalVotingParams, NodeFeatures},
 		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
-		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
-		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
+		GroupRotationInfo, Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage,
+		OccupiedCoreAssumption, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+		ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -644,6 +645,14 @@ impl RelayChainRpcClient {
 		para_id: ParaId,
 	) -> Result<Option<BackingState>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_para_backing_state", at, Some(para_id))
+			.await
+	}
+
+	pub async fn parachain_host_claim_queue(
+		&self,
+		at: RelayHash,
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_claim_queue", at, None::<()>)
 			.await
 	}
 
