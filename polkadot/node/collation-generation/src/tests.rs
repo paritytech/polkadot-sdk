@@ -611,6 +611,7 @@ fn submit_collation_is_no_op_before_initialization() {
 					parent_head: vec![1, 2, 3].into(),
 					validation_code_hash: Hash::repeat_byte(1).into(),
 					result_sender: None,
+					core_index: CoreIndex(0),
 				}),
 			})
 			.await;
@@ -647,6 +648,7 @@ fn submit_collation_leads_to_distribution() {
 					parent_head: vec![1, 2, 3].into(),
 					validation_code_hash,
 					result_sender: None,
+					core_index: CoreIndex(0),
 				}),
 			})
 			.await;

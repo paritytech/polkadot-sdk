@@ -219,11 +219,11 @@ async fn handle_new_activations<Context>(
 	for relay_parent in activated {
 		let _relay_parent_timer = metrics.time_new_activations_relay_parent();
 
-		let (availability_cores, validators, para_backing_state, async_backing_params) = join!(
+		let (availability_cores, validators, async_backing_params, para_backing_state) = join!(
 			request_availability_cores(relay_parent, ctx.sender()).await,
 			request_validators(relay_parent, ctx.sender()).await,
-			request_para_backing_state(relay_parent, config.para_id, ctx.sender()).await,
 			request_async_backing_params(relay_parent, ctx.sender()).await,
+			request_para_backing_state(relay_parent, config.para_id, ctx.sender()).await,
 		);
 
 		let availability_cores = availability_cores??;
