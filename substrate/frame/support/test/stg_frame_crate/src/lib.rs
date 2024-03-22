@@ -18,7 +18,7 @@
 // ! A basic pallet to test it compiles along with a runtime using it when `frame_system` and
 // `frame_support` are reexported by a `frame` crate.
 
-use frame::deps::{frame_support, frame_system};
+use polkadot_sdk_frame::deps::{frame_support, frame_system};
 
 #[frame_support::pallet]
 pub mod pallet {
