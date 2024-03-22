@@ -31,7 +31,7 @@ use polkadot_subsystem_bench::{
 };
 use std::io::Write;
 
-const BENCH_COUNT: usize = 1;
+const BENCH_COUNT: usize = 50;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
