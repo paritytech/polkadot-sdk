@@ -75,7 +75,7 @@ cargo build -p westend-runtime --profile production --features runtime-benchmark
 Now the benchmarking can be started with:
 
 ```sh
-frame-benchmarking-cli v1 pallet \
+frame-benchmarking-cli v1 benchmark pallet \
     --runtime target/release/wbuild/westend-runtime/westend-runtime.compact.compressed.wasm \
     --pallet "pallet_balances" --extrinsic ""
 ```

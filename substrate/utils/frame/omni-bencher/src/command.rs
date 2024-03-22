@@ -63,7 +63,7 @@ use sp_runtime::traits::BlakeTwo256;
 /// Now as example we benchmark `pallet_balances`:
 ///
 /// ```sh
-/// polkadot-omni-bencher v1 pallet \
+/// polkadot-omni-bencher v1 benchmark pallet \
 ///     --runtime target/release/wbuild/westend-runtime/westend-runtime.compact.compressed.wasm \
 ///     --pallet "pallet_balances" --extrinsic ""
 /// ```
@@ -83,7 +83,7 @@ pub struct Command {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum SubCommand {
-	/// Sub-commands concerned with benchmarking.
+	/// Compatibility syntax with the old benchmark runner.
 	V1(V1Command),
 	// NOTE: Here we can add new commands in a forward-compatible way. For example when
 	// transforming the CLI from a monolithic design to a data driven pipeline, there could be
@@ -93,6 +93,17 @@ pub enum SubCommand {
 /// A command that conforms to the legacy `benchmark` argument syntax.
 #[derive(Parser, Debug)]
 pub struct V1Command {
+	#[command(subcommand)]
+	sub: V1SubCommand,
+}
+
+#[derive(Debug, clap::Subcommand)]
+pub enum V1SubCommand {
+	Benchmark(V1BenchmarkCommand),
+}
+
+#[derive(Parser, Debug)]
+pub struct V1BenchmarkCommand {
 	#[command(subcommand)]
 	sub: BenchmarkCmd,
 }
@@ -105,7 +116,10 @@ type HostFunctions = (
 impl Command {
 	pub fn run(self) -> Result<()> {
 		match self.sub {
-			SubCommand::V1(V1Command { sub: BenchmarkCmd::Pallet(pallet) }) => {
+			SubCommand::V1(V1Command {
+				sub:
+					V1SubCommand::Benchmark(V1BenchmarkCommand { sub: BenchmarkCmd::Pallet(pallet) }),
+			}) => {
 				if let Some(spec) = pallet.shared_params.chain {
 					return Err(format!(
 						"Chain specs are not supported. Please remove \
@@ -115,7 +129,7 @@ impl Command {
 				}
 				pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
 			},
-			_ => Err("Invalid subcommand. Only `v1 pallet` is supported.".into()),
+			_ => Err("Invalid subcommand. Only `v1 benchmark pallet` is supported.".into()),
 		}
 	}
 }

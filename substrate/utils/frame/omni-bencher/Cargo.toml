@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 clap = { version = "4.5.2", features = ["derive"] }
 cumulus-primitives-proof-size-hostfunction = { path = "../../../../cumulus/primitives/proof-size-hostfunction" }
-frame-benchmarking-cli = { path = "../benchmarking-cli" }
+frame-benchmarking-cli = { path = "../benchmarking-cli", default-features = false } # Disable rockdb feature
 sc-cli = { path = "../../../client/cli" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
