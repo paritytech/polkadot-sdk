@@ -800,4 +800,8 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// to be re-written by CI bot.
+	fn reset_ledger() -> Weight {
+		Default::default()
+	}
 }

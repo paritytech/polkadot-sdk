@@ -1995,11 +1995,7 @@ pub mod pallet {
 		/// be reset with the current values.
 		///
 		/// Upon successful execution, this extrinsic will *recreate* the ledger based on its past
-		/// state and/or the `maybe_controller`, `maybe_total` and `maybe_unlocking` input
-		/// parameters.
-		///
-		/// NOTE: if the stash does not have an associated ledger and the `maybe_nominations` or
-		/// `maybe_validator_prefs` are not given, the ledger will be reset as a nominator.
+		/// state and/or the `maybe_controller` and `maybe_total` input parameters.
 		#[pallet::call_index(29)]
 		#[pallet::weight(T::WeightInfo::reset_ledger())]
 		pub fn reset_ledger(
@@ -2007,7 +2003,6 @@ pub mod pallet {
 			stash: T::AccountId,
 			maybe_controller: Option<T::AccountId>,
 			maybe_total: Option<BalanceOf<T>>,
-			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin(origin)?;
 
@@ -2016,28 +2011,46 @@ pub mod pallet {
 			// ensure that this bond is in a bad state to proceed. i.e. one of two states: either
 			// the ledger for the controller does not exist or it exists but the stash is different
 			// than expected.
-			let maybe_ledger = Ledger::<T>::get(&controller);
+			let maybe_other_ledger = Ledger::<T>::get(&controller);
 			ensure!(
-				maybe_ledger.as_ref().map(|l| l.stash != stash).unwrap_or(true),
+				maybe_other_ledger.as_ref().map(|l| l.stash != stash).unwrap_or(true),
 				Error::<T>::CannotResetLedger,
 			);
 
-			// get new ledger data.
-			let new_controller = maybe_controller.unwrap_or(controller);
-
-			let new_total = maybe_total.unwrap_or_else(|| {
+			let current_lock =
 				<T::Currency as InspectLockableCurrency<T::AccountId>>::balance_locked(
 					crate::STAKING_ID,
 					&stash,
-				)
-			});
-			let new_unlocking = maybe_unlocking
-				.unwrap_or_else(|| maybe_ledger.map(|l| l.unlocking).unwrap_or(Default::default()));
+				);
+
+			let new_total = if let Some(new_total) = maybe_total {
+				match maybe_other_ledger {
+					// if there is a ledger associated with this stash, it is the *wrong* ledger.
+					// Ensure that the "other" ledger has their locks/total updated so that the
+					// imbalance in the locks between ledgers is 0 (i.e. no more locks are
+					// created/deleted).
+					Some(mut other_ledger) => {
+						// note: ledger.total == ledger's staking lock amount.
+						other_ledger.total = new_total
+							.checked_sub(&current_lock)
+							.ok_or(Error::<T>::CannotResetLedger)?;
+						other_ledger.update()?;
+
+						new_total
+					},
+					// no ledger associated with this stash, force the new total.
+					None => new_total,
+				}
+			} else {
+				// keep the current lock/total of the ledger.
+				current_lock
+			};
 
 			// reset ledger state.
+			let new_controller = maybe_controller.unwrap_or(controller);
+			Bonded::<T>::insert(&stash, &new_controller);
+
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
-			ledger.total = new_total;
-			ledger.unlocking = new_unlocking;
 			ledger.controller = Some(new_controller);
 			ledger.update()?;
 
