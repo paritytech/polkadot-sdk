@@ -294,7 +294,7 @@ async fn handle_new_activations<Context>(
 					core_idx = %core_idx,
 					relay_parent = ?relay_parent,
 					our_para = %config.para_id,
-					their_para = ?scheduled_core.para_id,
+					their_para = %scheduled_core.para_id,
 					"core is not assigned to our para. Keep going.",
 				);
 				continue
