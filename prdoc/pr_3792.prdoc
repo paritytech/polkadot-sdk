@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add set fees mode initiate reserve withdraw
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds the setFeesMode { jit_withdraw: true } to the `RemoteReserve`
+      case for `transfer_assets`, which is the only case in which delivery fees are
+      charged by the xcm-executor itself and not pallet-xcm. Without this change,
+      a runtime that has implemented delivery fees would not be able to execute
+      this case.
+
+crates:
+  - name: pallet-xcm
