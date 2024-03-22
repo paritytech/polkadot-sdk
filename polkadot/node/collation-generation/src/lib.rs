@@ -43,13 +43,14 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	request_availability_cores, request_para_backing_state, request_persisted_validation_data,
+	has_required_runtime, request_async_backing_params, request_availability_cores,
+	request_claim_queue, request_para_backing_state, request_persisted_validation_data,
 	request_validation_code, request_validation_code_hash, request_validators,
 };
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
-	CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
-	ValidationCodeHash,
+	CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
 use std::{
@@ -218,34 +219,104 @@ async fn handle_new_activations<Context>(
 	for relay_parent in activated {
 		let _relay_parent_timer = metrics.time_new_activations_relay_parent();
 
-		let (availability_cores, validators, para_backing_state) = join!(
+		let (availability_cores, validators, para_backing_state, async_backing_params) = join!(
 			request_availability_cores(relay_parent, ctx.sender()).await,
 			request_validators(relay_parent, ctx.sender()).await,
 			request_para_backing_state(relay_parent, config.para_id, ctx.sender()).await,
+			request_async_backing_params(relay_parent, ctx.sender()).await,
 		);
 
 		let availability_cores = availability_cores??;
+		let async_backing_params = async_backing_params?.ok();
 		let n_validators = validators??.len();
 		let para_backing_state =
-			para_backing_state??.ok_or(crate::error::Error::MissingParaBackingState);
+			para_backing_state??.ok_or(crate::error::Error::MissingParaBackingState)?;
 
-		// The loop bellow will fill in cores that the para is assigned to.
+		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent).await?;
+
+		// The loop bellow will fill in cores that the para is allowed to build on.
 		let mut cores_to_build_on = Vec::new();
 
 		for (core_idx, core) in availability_cores.into_iter().enumerate() {
-			let scheduled_para_id = core.para_id();
+			match core {
+				CoreState::Scheduled(scheduled_core) => {
+					// Core is scheduled and free, but is it ours ?
+					if scheduled_core.para_id != config.para_id {
+						gum::trace!(
+							target: LOG_TARGET,
+							core_idx = %core_idx,
+							relay_parent = ?relay_parent,
+							our_para = %config.para_id,
+							their_para = ?scheduled_core.para_id,
+							"core is not assigned to our para. Keep going.",
+						);
+						continue
+					}
+				},
+				CoreState::Occupied(occupied_core) => match async_backing_params {
+					Some(params) if params.max_candidate_depth >= 1 => {
+						// maximum candidate depth when building on top of a block
+						// pending availability is necessarily 1 - the depth of the
+						// pending block is 0 so the child has depth 1.
 
-			if scheduled_para_id != Some(config.para_id) {
-				gum::trace!(
-					target: LOG_TARGET,
-					core_idx = %core_idx,
-					relay_parent = ?relay_parent,
-					our_para = %config.para_id,
-					their_para = ?scheduled_para_id,
-					"core is not assigned to our para. Keep going.",
-				);
-				continue
-			}
+						// Use claim queue if available, or fallback to `next_up_on_available`
+						if let Some(ref claim_queue) = maybe_claim_queue {
+							// Check if our para is scheduled assuming the candidate pending
+							// availability gets included in the very next block
+							let next_para_scheduled = fetch_next_scheduled_on_core(
+								&claim_queue,
+								CoreIndex(core_idx as _),
+							);
+							if Some(config.para_id) != next_para_scheduled {
+								// Not our para scheduled
+								gum::trace!(
+									target: LOG_TARGET,
+									core_idx = %core_idx,
+									relay_parent = ?relay_parent,
+									our_para = %config.para_id,
+									para_id = ?next_para_scheduled,
+									"core is scheduled to some other para. Keep going.",
+								);
+								continue
+							} else {
+								// Nothing scheduled
+								gum::trace!(
+									target: LOG_TARGET,
+									core_idx = %core_idx,
+									relay_parent = ?relay_parent,
+									our_para = %config.para_id,
+									"no para is scheduled on core at next block.",
+								);
+								continue
+							}
+						} else if let Some(next_scheduled) = occupied_core.next_up_on_available {
+							if next_scheduled.para_id != config.para_id {
+								continue
+							}
+						} else {
+							// Nothing scheduled
+							continue
+						}
+					},
+					_ => {
+						gum::trace!(
+							target: LOG_TARGET,
+							core_idx = %core_idx,
+							relay_parent = ?relay_parent,
+							"core is occupied. Keep going.",
+						);
+						continue
+					},
+				},
+				CoreState::Free => {
+					gum::trace!(
+						target: LOG_TARGET,
+						core_idx = %core_idx,
+						"core is not assigned to any para. Keep going.",
+					);
+					continue
+				},
+			};
 
 			// Accumulate cores for building collation(s) outside the loop.
 			cores_to_build_on.push(CoreIndex(core_idx as u32));
@@ -629,10 +700,6 @@ async fn fetch_claim_queue(
 fn fetch_next_scheduled_on_core(
 	claim_queue: &BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	core_idx: CoreIndex,
-) -> Option<ScheduledCore> {
-	claim_queue
-		.get(&core_idx)?
-		.front()
-		.cloned()
-		.map(|para_id| ScheduledCore { para_id, collator: None })
+) -> Option<ParaId> {
+	claim_queue.get(&core_idx)?.front().cloned()
 }
