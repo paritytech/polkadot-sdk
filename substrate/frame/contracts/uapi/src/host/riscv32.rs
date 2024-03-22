@@ -304,4 +304,12 @@ impl HostFn for HostFnImpl {
 	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result {
 		todo!()
 	}
+
+	fn xcm_query(timeout: &[u8], match_querier: &[u8], output: &mut &mut [u8]) -> Result {
+		todo!()
+	}
+
+	fn xcm_take_response(query_id: &[u8], output: &mut [u8]) {
+		todo!()
+	}
 }

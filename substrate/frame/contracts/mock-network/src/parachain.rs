@@ -50,7 +50,7 @@ pub type SovereignAccountOf =
 	(AccountId32Aliases<RelayNetwork, AccountId>, ParentIsPreset<AccountId>);
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
+	pub const BlockHashCount: u32 = 250;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -328,7 +328,7 @@ impl pallet_xcm::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
-type Block = frame_system::mocking::MockBlock<Runtime>;
+type Block = frame_system::mocking::MockBlockU32<Runtime>;
 
 impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;

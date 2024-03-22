@@ -2074,7 +2074,7 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let str_len = str_len.min(DebugBufferVec::<E::T>::bound() as u32);
 		ctx.charge_gas(RuntimeCosts::DebugMessage(str_len))?;
-		if ctx.ext.append_debug_buffer("") {
+		if ctx.ext.debug_buffer_enabled() {
 			let data = ctx.read_sandbox_memory(memory, str_ptr, str_len)?;
 			if let Some(msg) = core::str::from_utf8(&data).ok() {
 				ctx.ext.append_debug_buffer(msg);
@@ -2103,7 +2103,7 @@ pub mod env {
 	}
 
 	/// Execute an XCM program locally, using the contract's address as the origin.
-	/// See [`pallet_contracts_uapi::HostFn::execute_xcm`].
+	/// See [`pallet_contracts_uapi::HostFn::xcm_execute`].
 	#[unstable]
 	fn xcm_execute(
 		ctx: _,
@@ -2142,7 +2142,7 @@ pub mod env {
 	}
 
 	/// Send an XCM program from the contract to the specified destination.
-	/// See [`pallet_contracts_uapi::HostFn::send_xcm`].
+	/// See [`pallet_contracts_uapi::HostFn::xcm_send`].
 	#[unstable]
 	fn xcm_send(
 		ctx: _,
@@ -2170,13 +2170,90 @@ pub mod env {
 				Ok(ReturnErrorCode::Success)
 			},
 			Err(e) => {
-				if ctx.ext.append_debug_buffer("") {
+				if ctx.ext.debug_buffer_enabled() {
 					ctx.ext.append_debug_buffer("seal0::xcm_send failed with: ");
 					ctx.ext.append_debug_buffer(e.into());
 				};
 				Ok(ReturnErrorCode::XcmSendFailed)
 			},
 		}
+	}
+
+	/// Create a new query, using the contract's address as the responder.
+	/// See [`pallet_contracts_uapi::HostFn::xcm_query`].
+	#[unstable]
+	fn xcm_query(
+		ctx: _,
+		memory: _,
+		timeout_ptr: u32,
+		match_querier_ptr: u32,
+		output_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		use frame_system::pallet_prelude::BlockNumberFor;
+		use xcm::VersionedLocation;
+		use xcm_builder::{QueryController, QueryControllerWeightInfo};
+
+		let timeout: BlockNumberFor<E::T> = ctx.read_sandbox_memory_as(memory, timeout_ptr)?;
+		let match_querier: VersionedLocation =
+			ctx.read_sandbox_memory_as(memory, match_querier_ptr)?;
+
+		let weight = <<E::T as Config>::Xcm as QueryController<_, _>>::WeightInfo::query();
+		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+		let origin = crate::RawOrigin::Signed(ctx.ext.address().clone()).into();
+
+		// TODO:
+		// - Take deposit for query.
+		// - Keep a map of account_id to query_id.
+
+		match <<E::T as Config>::Xcm>::query(origin, timeout, match_querier) {
+			Ok(query_id) => {
+				ctx.write_sandbox_memory(memory, output_ptr, &query_id.encode())?;
+				Ok(ReturnErrorCode::Success)
+			},
+			Err(e) => {
+				if ctx.ext.debug_buffer_enabled() {
+					ctx.ext.append_debug_buffer("call failed with: ");
+					ctx.ext.append_debug_buffer(e.into());
+				};
+				Ok(ReturnErrorCode::XcmQueryFailed)
+			},
+		}
+	}
+
+	/// Take an XCM response for the specified query.
+	///
+	/// # Parameters
+	///
+	/// - `query_id_ptr`: the pointer into the linear memory where the
+	///   [`xcm_builder::QueryHandler::QueryId`] is placed.
+	/// - `output_ptr`: the pointer into the linear memory where the response
+	///   [`xcm_builder::QueryResponseStatus`] is placed.
+	///
+	/// # Return Value
+	///
+	/// Returns `ReturnCode::Success` when successful.
+	#[unstable]
+	fn xcm_take_response(
+		ctx: _,
+		memory: _,
+		query_id_ptr: u32,
+		output_ptr: u32,
+	) -> Result<ReturnErrorCode, TrapReason> {
+		use xcm_builder::{QueryController, QueryControllerWeightInfo, QueryHandler};
+
+		// TODO:
+		// - Ensure query_id belong to contract
+		// - Release deposit for query.
+
+		let query_id: <<E::T as Config>::Xcm as QueryHandler>::QueryId =
+			ctx.read_sandbox_memory_as(memory, query_id_ptr)?;
+
+		let weight = <<E::T as Config>::Xcm as QueryController<_, _>>::WeightInfo::take_response();
+		ctx.charge_gas(RuntimeCosts::CallRuntime(weight))?;
+
+		let response = <<E::T as Config>::Xcm>::take_response(query_id).encode();
+		ctx.write_sandbox_memory(memory, output_ptr, &response)?;
+		Ok(ReturnErrorCode::Success)
 	}
 
 	/// Recovers the ECDSA public key from the given message hash and signature.
