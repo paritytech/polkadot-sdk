@@ -17,7 +17,7 @@ There are a couple of important notes to the operations in this inherent as they
    this fork.
 1. When disputes are initiated, we remove the block from pending availability. This allows us to roll back chains to the
    block before blocks are included as opposed to backing. It's important to do this before processing bitfields.
-1. `Inclusion::collect_disputed` is kind of expensive so it's important to gate this on whether there are actually any
+1. `Inclusion::free_disputed` is kind of expensive so it's important to gate this on whether there are actually any
    new disputes. Which should be never.
 1. And we don't accept parablocks that have open disputes or disputes that have concluded against the candidate. It's
    important to import dispute statements before backing, but this is already the case as disputes are imported before
