@@ -186,7 +186,7 @@ pub fn teleports_for_native_asset_works<
 
 				// Mint funds into account to ensure it has enough balance to pay delivery fees
 				let delivery_fees =
-					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+					xcm_helpers::teleport_assets_delivery_fees::<XcmConfig::XcmSender>(
 						(native_asset_id.clone(), native_asset_to_teleport_away.into()).into(),
 						0,
 						Unlimited,
@@ -579,7 +579,7 @@ pub fn teleports_for_foreign_assets_works<
 
 				// Make sure the target account has enough native asset to pay for delivery fees
 				let delivery_fees =
-					xcm_helpers::transfer_assets_delivery_fees::<XcmConfig::XcmSender>(
+					xcm_helpers::teleport_assets_delivery_fees::<XcmConfig::XcmSender>(
 						(foreign_asset_id_location_latest.clone(), asset_to_teleport_away).into(),
 						0,
 						Unlimited,
