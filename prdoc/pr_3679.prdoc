@@ -1,0 +1,10 @@
+title: "[pallet-contracts] use lazy compilation mode in wasmi"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Turn on lazy compilation mode in wasmi.
+      See https://docs.rs/wasmi/0.32.0-beta.7/wasmi/enum.CompilationMode.html#variant.Lazy
+
+crates:
+  - name: pallet-contracts

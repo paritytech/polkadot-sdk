@@ -54,7 +54,7 @@ use frame_support::{
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
-use wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 
@@ -361,6 +361,7 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 			self.code_info.determinism,
 			Some(StackLimits::default()),
 			LoadingMode::Unchecked,
+			CompilationMode::Lazy,
 		)
 		.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create wasmi module: {err:?}");
