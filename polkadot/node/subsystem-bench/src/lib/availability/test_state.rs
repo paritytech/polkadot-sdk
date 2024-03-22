@@ -57,11 +57,17 @@ pub struct TestState {
 	pub chunks: Vec<Vec<ErasureChunk>>,
 	// Per relay chain block - candidate backed by our backing group
 	pub backed_candidates: Vec<CandidateReceipt>,
+	// Relay chain block infos
 	pub block_infos: Vec<BlockInfo>,
+	// Chung fetching requests for backed candidates
 	pub chunk_fetching_requests: Vec<Vec<Vec<u8>>>,
+	// Pregenerated signed availability bitfields
 	pub signed_bitfields: HashMap<H256, Vec<VersionedValidationProtocol>>,
+	// Relay chain block headers
 	pub block_headers: HashMap<H256, Header>,
+	// Authority keys for the network emulation.
 	pub test_authorities: TestAuthorities,
+	// Map from generated candidate receipts
 	pub candidate_receipts: HashMap<H256, Vec<CandidateReceipt>>,
 }
 
@@ -126,14 +132,16 @@ impl TestState {
 			})
 			.collect();
 
-		test_state.block_headers = (1..=config.num_blocks)
-			.map(|block_number| {
+		test_state.block_headers = test_state
+			.block_infos
+			.iter()
+			.map(|info| {
 				(
-					Hash::repeat_byte(block_number as u8),
+					info.hash,
 					Header {
 						digest: Default::default(),
-						number: block_number as BlockNumber,
-						parent_hash: Default::default(),
+						number: info.number,
+						parent_hash: info.parent_hash,
 						extrinsics_root: Default::default(),
 						state_root: Default::default(),
 					},
@@ -169,21 +177,17 @@ impl TestState {
 
 		// Prepare per block candidates.
 		// Genesis block is always finalized, so we start at 1.
-		for block_num in 1..=config.num_blocks {
+		for info in test_state.block_infos.iter() {
 			for _ in 0..config.n_cores {
 				let receipt = test_state.candidates.next().expect("Cycle iterator");
-				test_state
-					.candidate_receipts
-					.entry(Hash::repeat_byte(block_num as u8))
-					.or_default()
-					.push(receipt);
+				test_state.candidate_receipts.entry(info.hash).or_default().push(receipt);
 			}
 
 			// First candidate is our backed candidate.
 			test_state.backed_candidates.push(
 				test_state
 					.candidate_receipts
-					.get(&Hash::repeat_byte(block_num as u8))
+					.get(&info.hash)
 					.expect("just inserted above")
 					.first()
 					.expect("just inserted above")
