@@ -46,8 +46,11 @@ substrate-frame-rpc-system = { version = "31.0.0", path = "../../../substrate/ut
 
 # Once the native runtime is gone, there should be little to no dependency on FRAME here, and
 # certainly no dependency on the runtime.
-frame = { package = "polkadot-sdk-frame", path = "../../../substrate/frame", features = ["experimental", "runtime"], version = "0.1.0" }
-runtime = { package = "minimal-template-runtime", path = "../runtime", version = "0.1.0" }
+polkadot-sdk-frame = { path = "../../../substrate/frame", features = [
+	"experimental",
+	"runtime",
+] }
+runtime = { package = "minimal-template-runtime", path = "../runtime" }
 
 [build-dependencies]
 substrate-build-script-utils = { version = "11.0.0", path = "../../../substrate/utils/build-script-utils" }

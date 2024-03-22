@@ -17,7 +17,10 @@ parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
-frame = { package = "polkadot-sdk-frame", path = "../../../substrate/frame", default-features = false, features = ["experimental", "runtime"], version = "0.1.0" }
+polkadot-sdk-frame = { path = "../../../substrate/frame", default-features = false, features = [
+	"experimental",
+	"runtime",
+] }
 
 # pallets that we want to use
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, version = "31.0.0" }
@@ -41,7 +44,7 @@ std = [
 	"parity-scale-codec/std",
 	"scale-info/std",
 
-	"frame/std",
+	"polkadot-sdk-frame/std",
 
 	"pallet-balances/std",
 	"pallet-sudo/std",
