@@ -16,6 +16,7 @@
 
 use super::*;
 use bounded_collections::{ConstU32, WeakBoundedVec};
+use codec::Encode;
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
 use frame_support::{
 	traits::fungible::{Inspect, Mutate},
@@ -26,7 +27,6 @@ use sp_std::prelude::*;
 use xcm::{latest::prelude::*, v2};
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::FeeReason;
-use codec::Encode;
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
 
