@@ -660,7 +660,7 @@ where
 		extra_size: &mut u32,
 	) -> bool {
 		// check if relay chain state has been updated
-		let is_granda_call_succeeded =
+		let is_grandpa_call_successful =
 			RefundBridgedGrandpaMessages::<
 				Runtime,
 				Runtime::BridgesGrandpaPalletInstance,
@@ -669,7 +669,7 @@ where
 				Priority,
 				Id,
 			>::check_call_result_ex(relayer, call_info, extra_weight, extra_size);
-		if !is_granda_call_succeeded {
+		if !is_grandpa_call_successful {
 			return false
 		}
 
