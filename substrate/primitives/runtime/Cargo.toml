@@ -43,7 +43,7 @@ zstd = { version = "0.12.4", default-features = false }
 sp-api = { path = "../api" }
 sp-state-machine = { path = "../state-machine" }
 sp-tracing = { path = "../tracing" }
-#substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
 runtime-benchmarks = []

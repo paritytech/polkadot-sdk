@@ -19008,6 +19008,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "sp-weights",
+ "substrate-test-runtime-client",
  "zstd 0.12.4",
 ]
 
