@@ -329,12 +329,7 @@ pub trait RefundSignedExtension:
 		}
 
 		// do additional checks
-		if !Self::check_call_result_ex(
-			&relayer,
-			&call_info,
-			&mut extra_weight,
-			&mut extra_size,
-		) {
+		if !Self::check_call_result_ex(&relayer, &call_info, &mut extra_weight, &mut extra_size) {
 			return slash_relayer_if_delivery_result
 		}
 
@@ -647,7 +642,7 @@ where
 	fn check_obsolete_parsed_call(
 		call: &CallOf<Runtime>,
 	) -> Result<&CallOf<Runtime>, TransactionValidityError> {
-		call.check_obsolete_submit_finality_proof(0).1?;
+		call.check_obsolete_submit_finality_proof()?;
 		call.check_obsolete_submit_parachain_heads()?;
 		call.check_obsolete_call()?;
 		Ok(call)
@@ -791,7 +786,7 @@ where
 	fn check_obsolete_parsed_call(
 		call: &CallOf<Runtime>,
 	) -> Result<&CallOf<Runtime>, TransactionValidityError> {
-		call.check_obsolete_submit_finality_proof(0).1?;
+		call.check_obsolete_submit_finality_proof()?;
 		call.check_obsolete_call()?;
 		Ok(call)
 	}

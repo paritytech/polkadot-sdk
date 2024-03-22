@@ -26,8 +26,9 @@ use pallet_bridge_grandpa::{
 use pallet_bridge_parachains::CallSubType as ParachainsCallSubtype;
 use pallet_bridge_relayers::Pallet as RelayersPallet;
 use sp_runtime::{
-	traits::{Get, PhantomData},
-	transaction_validity::{TransactionPriority, TransactionValidity},
+	traits::{Get, One, PhantomData, UniqueSaturatedInto},
+	transaction_validity::{TransactionPriority, TransactionValidity, ValidTransactionBuilder},
+	Saturating,
 };
 
 /// A duplication of the `FilterCall` trait.
@@ -71,9 +72,23 @@ where
 	) -> (Self::ToPostDispatch, TransactionValidity) {
 		// we only boost priority if relayer has staked required balance
 		let is_relayer_registration_active = RelayersPallet::<T>::is_registration_active(who);
-		let boost_per_header = if is_relayer_registration_active { Priority::get() } else { 0 };
 
-		GrandpaCallSubType::<T, I>::check_obsolete_submit_finality_proof(call, boost_per_header)
+		match GrandpaCallSubType::<T, I>::check_obsolete_submit_finality_proof(call) {
+			Ok(Some(our_tx)) => {
+				let block_number = Some(our_tx.base.block_number);
+				let improved_by: TransactionPriority =
+					our_tx.improved_by.saturating_sub(One::one()).unique_saturated_into();
+				let boost_per_header =
+					if is_relayer_registration_active { Priority::get() } else { 0 };
+				let total_priority_boost = improved_by.saturating_mul(boost_per_header);
+				(
+					block_number,
+					ValidTransactionBuilder::default().priority(total_priority_boost).build(),
+				)
+			},
+			Ok(None) => (None, ValidTransactionBuilder::default().build()),
+			Err(e) => (None, Err(e)),
+		}
 	}
 
 	fn post_dispatch(
@@ -107,7 +122,11 @@ where
 {
 	type ToPostDispatch = ();
 	fn validate(_who: &T::AccountId, call: &T::RuntimeCall) -> ((), TransactionValidity) {
-		((), GrandpaCallSubType::<T, I>::check_obsolete_submit_finality_proof(call, 0).1)
+		(
+			(),
+			GrandpaCallSubType::<T, I>::check_obsolete_submit_finality_proof(call)
+				.and_then(|_| ValidTransactionBuilder::default().build()),
+		)
 	}
 }
 

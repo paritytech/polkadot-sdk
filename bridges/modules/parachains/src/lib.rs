@@ -195,14 +195,14 @@ pub mod pallet {
 		/// The GRANDPA pallet instance must be configured to import headers of relay chain that
 		/// we're interested in.
 		///
-		/// The associated GRANDPA pallet is also used to configure free parachain heads submissions.
-		/// The parachain head submission will be free if:
+		/// The associated GRANDPA pallet is also used to configure free parachain heads
+		/// submissions. The parachain head submission will be free if:
 		///
 		/// 1) the submission contains exactly one parachain head update that succeeds;
 		///
-		/// 2) the difference between relay chain block numbers, used to prove new parachain head and
-		///    previous best parachain head is larger than the `FreeHeadersInterval`, configured at
-		///    the associated GRANDPA pallet;
+		/// 2) the difference between relay chain block numbers, used to prove new parachain head
+		///    and previous best parachain head is larger than the `FreeHeadersInterval`, configured
+		///    at the associated GRANDPA pallet;
 		///
 		/// 3) there are slots for free submissions, remaining at the block. This is also configured
 		///    at the associated GRANDPA pallet using `MaxFreeHeadersPerBlock` parameter.
@@ -523,9 +523,9 @@ pub mod pallet {
 					ParasInfo::<T, I>::try_mutate(parachain, |stored_best_head| {
 						let is_free = match stored_best_head {
 							Some(ref best_head)
-								if at_relay_block.0.saturating_sub(best_head
-									.best_head_hash
-									.at_relay_block_number) >= free_headers_interval =>
+								if at_relay_block.0.saturating_sub(
+									best_head.best_head_hash.at_relay_block_number,
+								) >= free_headers_interval =>
 								true,
 							Some(_) => false,
 							None => true,
@@ -538,7 +538,8 @@ pub mod pallet {
 							parachain_head_hash,
 						)?;
 
-						// TODO: do we want to refund submissions of large heads as we do for GRANDPA?
+						// TODO: do we want to refund submissions of large heads as we do for
+						// GRANDPA?
 
 						is_updated_something = true;
 						if is_free {
@@ -576,7 +577,7 @@ pub mod pallet {
 			})?;
 
 			// check if we allow this submission for free
-log::trace!("=== {} {} {}", total_parachains == 1, free_parachain_heads == total_parachains, SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free());
+			log::trace!("=== {} {} {}", total_parachains == 1, free_parachain_heads == total_parachains, SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free());
 			let is_free = total_parachains == 1
 				&& free_parachain_heads == total_parachains
 				&& SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free();
@@ -817,9 +818,9 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = 
 pub(crate) mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, test_relay_header, BigParachainHeader, FreeHeadersInterval, RegularParachainHasher,
-		RegularParachainHeader, RelayBlockHeader, RuntimeEvent as TestEvent, RuntimeOrigin,
-		TestRuntime, UNTRACKED_PARACHAIN_ID,
+		run_test, test_relay_header, BigParachainHeader, FreeHeadersInterval,
+		RegularParachainHasher, RegularParachainHeader, RelayBlockHeader,
+		RuntimeEvent as TestEvent, RuntimeOrigin, TestRuntime, UNTRACKED_PARACHAIN_ID,
 	};
 	use bp_test_utils::prepare_parachain_heads_proof;
 	use codec::Encode;
@@ -1783,8 +1784,9 @@ pub(crate) mod tests {
 			);
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 			// then we submit new head, proved at relay block `FreeHeadersInterval - 1` => Pays::Yes
-			let (state_root, proof, parachains) =
-				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 50))]);
+			let (state_root, proof, parachains) = prepare_parachain_heads_proof::<
+				RegularParachainHeader,
+			>(vec![(2, head_data(2, 50))]);
 			let relay_block_number = FreeHeadersInterval::get() - 1;
 			proceed(relay_block_number, state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
@@ -1795,8 +1797,9 @@ pub(crate) mod tests {
 			);
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 			// then we submit new head, proved after `FreeHeadersInterval` => Pays::No
-			let (state_root, proof, parachains) =
-				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 100))]);
+			let (state_root, proof, parachains) = prepare_parachain_heads_proof::<
+				RegularParachainHeader,
+			>(vec![(2, head_data(2, 100))]);
 			let relay_block_number = relay_block_number + FreeHeadersInterval::get();
 			proceed(relay_block_number, state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(

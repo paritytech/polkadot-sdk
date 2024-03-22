@@ -27,12 +27,9 @@ use codec::Encode;
 use frame_support::{dispatch::CallableCallFor, traits::IsSubType, weights::Weight};
 use sp_consensus_grandpa::SetId;
 use sp_runtime::{
-	traits::{CheckedSub, Header, One, UniqueSaturatedInto, Zero},
-	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
-		ValidTransactionBuilder,
-	},
-	RuntimeDebug, SaturatedConversion, Saturating,
+	traits::{CheckedSub, Header, Zero},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+	RuntimeDebug, SaturatedConversion,
 };
 
 /// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
@@ -58,6 +55,16 @@ pub struct SubmitFinalityProofInfo<N> {
 	/// We know that if our assumptions are correct, then the call must not have the
 	/// weight above some limit. The fee paid for bytes above that limit, is never refunded.
 	pub extra_size: u32,
+}
+
+/// Verified `SubmitFinalityProofInfo<N>`
+#[derive(Copy, Clone, PartialEq, RuntimeDebug)]
+pub struct VerifiedSubmitFinalityProofInfo<N> {
+	/// Base call information.
+	pub base: SubmitFinalityProofInfo<N>,
+	/// A difference between bundled bridged header and best bridged header known to us
+	/// before the call.
+	pub improved_by: N,
 }
 
 impl<N> SubmitFinalityProofInfo<N> {
@@ -225,45 +232,36 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	/// bridged chain headers. Without this validation, even honest relayers may lose their funds
 	/// if there are multiple relays running and submitting the same information.
 	///
-	/// It also adds `priority_boost` for every missed header between best finalized header, known
-	/// to the pallet and bundled header, staring from the second header. So if
-	/// `BestFinalized` header is header number `100` and transaction brings header
-	/// `101` there's no priority boost. If transaction brings header `102`, then
-	/// priority is boosted by `priority_boost` and so on.
-	///
-	/// If first item in the tuple is true, then the call is the `submit_finality_proof_info`
-	/// (or `submit_finality_proof_info_ex` call) of the associated pallet instance.
+	/// Returns `Ok(None)` if the call is not the `submit_finality_proof` call of our pallet.
+	/// Returns `Ok(Some(_))` if the call is the `submit_finality_proof` call of our pallet and
+	/// we believe the call brings header that improves the pallet state.
+	/// Returns `Err(_)` if the call is the `submit_finality_proof` call of our pallet and we
+	/// believe that the call will fail.
 	fn check_obsolete_submit_finality_proof(
 		&self,
-		priority_boost: TransactionPriority,
-	) -> (Option<BridgedBlockNumber<T, I>>, TransactionValidity)
+	) -> Result<
+		Option<VerifiedSubmitFinalityProofInfo<BridgedBlockNumber<T, I>>>,
+		TransactionValidityError,
+	>
 	where
 		Self: Sized,
 	{
 		let call_info = match self.submit_finality_proof_info() {
 			Some(finality_proof) => finality_proof,
-			_ => return (None, Ok(ValidTransaction::default())),
+			_ => return Ok(None),
 		};
 
-		let block_number = Some(call_info.block_number);
 		if Pallet::<T, I>::ensure_not_halted().is_err() {
-			return (block_number, InvalidTransaction::Call.into())
+			return Err(InvalidTransaction::Call.into())
 		}
 
 		let result = SubmitFinalityProofHelper::<T, I>::check_obsolete_from_extension(&call_info);
-		(
-			block_number,
-			match result {
-				Ok(improved_by) => {
-					let improved_by: TransactionPriority =
-						improved_by.saturating_sub(One::one()).unique_saturated_into();
-					let total_priority_boost = improved_by.saturating_mul(priority_boost);
-					ValidTransactionBuilder::default().priority(total_priority_boost).build()
-				},
-				Err(Error::<T, I>::OldHeader) => InvalidTransaction::Stale.into(),
-				Err(_) => InvalidTransaction::Call.into(),
-			},
-		)
+		match result {
+			Ok(improved_by) =>
+				Ok(Some(VerifiedSubmitFinalityProofInfo { base: call_info, improved_by })),
+			Err(Error::<T, I>::OldHeader) => Err(InvalidTransaction::Stale.into()),
+			Err(_) => Err(InvalidTransaction::Call.into()),
+		}
 	}
 }
 
@@ -353,11 +351,9 @@ mod tests {
 			current_set_id: 0,
 			is_free_execution_expected: false,
 		};
-		RuntimeCall::check_obsolete_submit_finality_proof(
-			&RuntimeCall::Grandpa(bridge_grandpa_call),
-			0,
-		)
-		.1
+		RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+			bridge_grandpa_call,
+		))
 		.is_ok()
 	}
 
@@ -423,29 +419,23 @@ mod tests {
 
 			// when we can accept free headers => Ok
 			FreeHeadersRemaining::<TestRuntime, ()>::put(2);
-			assert!(RuntimeCall::check_obsolete_submit_finality_proof(
-				&RuntimeCall::Grandpa(bridge_grandpa_call.clone(),),
-				0
-			)
-			.1
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call.clone(),
+			),)
 			.is_ok());
 
 			// when we can NOT accept free headers => Err
 			FreeHeadersRemaining::<TestRuntime, ()>::put(0);
-			assert!(RuntimeCall::check_obsolete_submit_finality_proof(
-				&RuntimeCall::Grandpa(bridge_grandpa_call.clone(),),
-				0
-			)
-			.1
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call.clone(),
+			),)
 			.is_err());
 
 			// when called outside of transaction => Ok
 			FreeHeadersRemaining::<TestRuntime, ()>::kill();
-			assert!(RuntimeCall::check_obsolete_submit_finality_proof(
-				&RuntimeCall::Grandpa(bridge_grandpa_call,),
-				0
-			)
-			.1
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call,
+			),)
 			.is_ok());
 		})
 	}
@@ -571,7 +561,7 @@ mod tests {
 	}
 
 	#[test]
-	fn check_obsolete_submit_finality_proof_boosts_priority() {
+	fn check_obsolete_submit_finality_proof_returns_correct_improved_by() {
 		run_test(|| {
 			fn make_call(number: u64) -> RuntimeCall {
 				RuntimeCall::Grandpa(crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
@@ -582,37 +572,24 @@ mod tests {
 				})
 			}
 
-			// when priority boost is zero, total boost is also zero
 			sync_to_header_10();
-			let result = RuntimeCall::check_obsolete_submit_finality_proof(&make_call(15), 0);
-			assert_eq!(result.0, Some(15));
-			assert_eq!(result.1.unwrap().priority, 0,);
 
-			// when the difference between headers is 1, no boost
+			// when the difference between headers is 1
 			assert_eq!(
-				RuntimeCall::check_obsolete_submit_finality_proof(&make_call(11), 100)
-					.1
+				RuntimeCall::check_obsolete_submit_finality_proof(&make_call(11))
 					.unwrap()
-					.priority,
-				0,
+					.unwrap()
+					.improved_by,
+				1,
 			);
 
-			// when the difference between headers is 2 => boost
+			// when the difference between headers is 2
 			assert_eq!(
-				RuntimeCall::check_obsolete_submit_finality_proof(&make_call(12), 100)
-					.1
+				RuntimeCall::check_obsolete_submit_finality_proof(&make_call(12))
 					.unwrap()
-					.priority,
-				100,
-			);
-
-			// when the difference between headers is 3 => 2 * boost
-			assert_eq!(
-				RuntimeCall::check_obsolete_submit_finality_proof(&make_call(13), 100)
-					.1
 					.unwrap()
-					.priority,
-				200,
+					.improved_by,
+				2,
 			);
 		})
 	}
@@ -623,7 +600,7 @@ mod tests {
 			let call =
 				RuntimeCall::System(frame_system::Call::<TestRuntime>::remark { remark: vec![42] });
 
-			assert_eq!(RuntimeCall::check_obsolete_submit_finality_proof(&call, 0).0, None);
+			assert_eq!(RuntimeCall::check_obsolete_submit_finality_proof(&call), Ok(None));
 		})
 	}
 }
