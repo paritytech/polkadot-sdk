@@ -732,7 +732,7 @@ async fn advertise_collation<Context>(
 	metrics: &Metrics,
 ) {
 	for (candidate_hash, collation_and_core) in per_relay_parent.collations.iter_mut() {
-		let core_index = collation_and_core.core_index().clone();
+		let core_index = *collation_and_core.core_index();
 		let collation = collation_and_core.collation_mut();
 
 		// Check that peer will be able to request the collation.

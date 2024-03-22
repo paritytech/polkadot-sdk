@@ -260,8 +260,7 @@ async fn handle_new_activations<Context>(
 								// `next_up_on_available`
 								occupied_core.next_up_on_available
 							},
-						}
-						.map(|scheduled| scheduled);
+						};
 
 						match res {
 							Some(res) => res,
