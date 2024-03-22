@@ -449,7 +449,6 @@ impl TestState {
 }
 
 pub async fn benchmark_availability_read(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: TestState,
 ) -> BenchmarkUsage {
@@ -513,11 +512,10 @@ pub async fn benchmark_availability_read(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(benchmark_name, &["availability-recovery"])
+	env.collect_resource_usage(&["availability-recovery"])
 }
 
 pub async fn benchmark_availability_write(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: TestState,
 ) -> BenchmarkUsage {
@@ -674,10 +672,11 @@ pub async fn benchmark_availability_write(
 	);
 
 	env.stop().await;
-	env.collect_resource_usage(
-		benchmark_name,
-		&["availability-distribution", "bitfield-distribution", "availability-store"],
-	)
+	env.collect_resource_usage(&[
+		"availability-distribution",
+		"bitfield-distribution",
+		"availability-store",
+	])
 }
 
 pub fn peer_bitfield_message_v2(

@@ -886,7 +886,6 @@ fn prepare_test_inner(
 }
 
 pub async fn bench_approvals(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: ApprovalTestState,
 ) -> BenchmarkUsage {
@@ -898,12 +897,11 @@ pub async fn bench_approvals(
 			env.registry().clone(),
 		)
 		.await;
-	bench_approvals_run(benchmark_name, env, state, producer_rx).await
+	bench_approvals_run(env, state, producer_rx).await
 }
 
 /// Runs the approval benchmark.
 pub async fn bench_approvals_run(
-	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	state: ApprovalTestState,
 	producer_rx: oneshot::Receiver<()>,
@@ -1068,5 +1066,5 @@ pub async fn bench_approvals_run(
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.collect_resource_usage(benchmark_name, &["approval-distribution", "approval-voting"])
+	env.collect_resource_usage(&["approval-distribution", "approval-voting"])
 }
