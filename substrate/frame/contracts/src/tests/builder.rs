@@ -8,6 +8,7 @@ use crate::{
 use codec::Compact;
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 
+/// Helper macro to generate a builder for contract API calls.
 macro_rules! builder {
 	(
 		$name:ident,
@@ -108,6 +109,7 @@ builder!(
 	) -> ContractExecResult<BalanceOf<Test>, EventRecordOf<Test>>
 );
 
+/// Create a [`BareInstantiateBuilder`] with default values.
 pub fn bare_instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder {
 	BareInstantiateBuilder {
 		origin: ALICE,
@@ -123,15 +125,18 @@ pub fn bare_instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder {
 }
 
 impl BareInstantiateBuilder {
+	/// Build the instantiate call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> crate::InstantiateReturnValue<AccountIdOf<Test>> {
 		self.build().result.unwrap()
 	}
 
+	/// Build the instantiate call and unwrap the account id.
 	pub fn build_and_unwrap_account_id(self) -> AccountIdOf<Test> {
 		self.build().result.unwrap().account_id
 	}
 }
 
+/// Create a [`BareCallBuilder`] with default values.
 pub fn bare_call(dest: AccountId32) -> BareCallBuilder {
 	BareCallBuilder {
 		origin: ALICE,
@@ -145,12 +150,15 @@ pub fn bare_call(dest: AccountId32) -> BareCallBuilder {
 		determinism: Determinism::Enforced,
 	}
 }
+
 impl BareCallBuilder {
+	/// Build the call and unwrap the result.
 	pub fn build_and_unwrap_result(self) -> ExecReturnValue {
 		self.build().result.unwrap()
 	}
 }
 
+/// Create an [`InstantiateWithCodeBuilder`] with default values.
 pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder {
 	InstantiateWithCodeBuilder {
 		origin: RuntimeOrigin::signed(ALICE),
@@ -163,6 +171,7 @@ pub fn instantiate_with_code(code: Vec<u8>) -> InstantiateWithCodeBuilder {
 	}
 }
 
+/// Create an [`InstantiateBuilder`] with default values.
 pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder {
 	InstantiateBuilder {
 		origin: RuntimeOrigin::signed(ALICE),
@@ -175,6 +184,7 @@ pub fn instantiate(code_hash: CodeHash<Test>) -> InstantiateBuilder {
 	}
 }
 
+/// Create a [`CallBuilder`] with default values.
 pub fn call(dest: AccountIdLookupOf<Test>) -> CallBuilder {
 	CallBuilder {
 		origin: RuntimeOrigin::signed(ALICE),
