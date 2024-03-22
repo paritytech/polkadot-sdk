@@ -2024,7 +2024,7 @@ pub mod pallet {
 				);
 
 			let new_total = if let Some(new_total) = maybe_total {
-				match maybe_other_ledger {
+				match maybe_other_ledger.clone() {
 					// if there is a ledger associated with this stash, it is the *wrong* ledger.
 					// Ensure that the "other" ledger has their locks/total updated so that the
 					// imbalance in the locks between ledgers is 0 (i.e. no more locks are
@@ -2046,10 +2046,15 @@ pub mod pallet {
 				current_lock
 			};
 
-			// reset ledger state.
-			let new_controller = maybe_controller.unwrap_or(controller);
-			Bonded::<T>::insert(&stash, &new_controller);
+			// re-bond stash and controller tuple.
+			let new_controller = if maybe_other_ledger.is_some() {
+				Bonded::<T>::insert(&stash, &stash);
+				stash.clone()
+			} else {
+				maybe_controller.unwrap_or(controller)
+			};
 
+			// reset ledger state.
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
 			ledger.controller = Some(new_controller);
 			ledger.update()?;
