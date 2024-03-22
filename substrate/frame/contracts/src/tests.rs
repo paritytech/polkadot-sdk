@@ -1648,15 +1648,7 @@ fn chain_extension_temp_storage_works() {
 				.as_ref(),
 		);
 
-		assert_ok!(
-			builder::bare_call(addr.clone())
-				.value(0)
-				.gas_limit(GAS_LIMIT)
-				.data(input.clone())
-				.determinism(Determinism::Enforced)
-				.build()
-				.result
-		);
+		assert_ok!(builder::bare_call(addr.clone()).data(input.clone()).build().result);
 	})
 }
 
@@ -2142,7 +2134,6 @@ fn gas_estimation_for_subcalls() {
 				// Make the same call using the estimated gas. Should succeed.
 				assert_ok!(
 					builder::bare_call(addr_caller.clone())
-						.value(0)
 						.gas_limit(result.gas_required)
 						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()))
 						.data(input.clone())
@@ -2153,7 +2144,6 @@ fn gas_estimation_for_subcalls() {
 				// Check that it fails with too little ref_time
 				assert_err!(
 					builder::bare_call(addr_caller.clone())
-						.value(0)
 						.gas_limit(result.gas_required.sub_ref_time(1))
 						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()))
 						.data(input.clone())
@@ -2165,7 +2155,6 @@ fn gas_estimation_for_subcalls() {
 				// Check that it fails with too little proof_size
 				assert_err!(
 					builder::bare_call(addr_caller.clone())
-						.value(0)
 						.gas_limit(result.gas_required.sub_proof_size(1))
 						.storage_deposit_limit(Some(result.storage_deposit.charge_or_zero()))
 						.data(input)
@@ -2206,7 +2195,6 @@ fn gas_estimation_call_runtime() {
 		// Make the same call using the required gas. Should succeed.
 		assert_ok!(
 			builder::bare_call(addr_caller)
-				.value(0)
 				.gas_limit(result.gas_required)
 				.data(call.encode())
 				.build()
@@ -3680,7 +3668,7 @@ fn cannot_instantiate_indeterministic_code() {
 			<Error<Test>>::CodeRejected,
 		);
 
-		// Try to instantiate from already stored indeterministic code hash
+		// Try to instantifixate from already stored indeterministic code hash
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
 			wasm,
@@ -3693,11 +3681,7 @@ fn cannot_instantiate_indeterministic_code() {
 			<Error<Test>>::Indeterministic,
 		);
 		assert_err!(
-			builder::bare_instantiate(Code::Existing(code_hash))
-				.value(0)
-				.gas_limit(GAS_LIMIT)
-				.build()
-				.result,
+			builder::bare_instantiate(Code::Existing(code_hash)).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 
