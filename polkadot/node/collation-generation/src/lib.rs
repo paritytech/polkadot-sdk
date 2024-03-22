@@ -261,7 +261,7 @@ async fn handle_new_activations<Context>(
 								occupied_core.next_up_on_available
 							},
 						}
-						.map(|scheduled: ScheduledCore| scheduled);
+						.map(|scheduled| scheduled);
 
 						match res {
 							Some(res) => res,
