@@ -235,8 +235,11 @@ pub mod runtime {
 		/// The block-number type, which should be fed into [`frame_system::Config`].
 		pub type BlockNumber = u32;
 
+		/// The hashing type used in the runtime.
+		pub type Hashing = traits::BlakeTwo256;
+
 		/// TODO: Ideally we want the hashing type to be equal to SysConfig::Hashing?
-		type HeaderInner = generic::Header<BlockNumber, traits::BlakeTwo256>;
+		type HeaderInner = generic::Header<BlockNumber, Hashing>;
 
 		// NOTE: `AccountIndex` is provided for future compatibility, if you want to introduce
 		// something like `pallet-indices`.

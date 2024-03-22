@@ -15,7 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Substrate Node Template CLI library.
+//! A minimal omni-node capable of running any substrate-based runtime so long as it adheres
+//! [`standards`].
+//!
+//! See this module for more information about the assumptions of this node.
+
 #![warn(missing_docs)]
 
 mod cli;
