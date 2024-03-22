@@ -318,12 +318,7 @@ pub mod pallet {
 				improved_by,
 			);
 			if may_refund_call_fee {
-				FreeHeadersRemaining::<T, I>::mutate(|count| {
-					*count = match *count {
-						Some(count) if count > 1 => Some(count - 1),
-						_ => None,
-					}
-				});
+				on_free_header_imported::<T, I>();
 			}
 			insert_header::<T, I>(*finality_target, hash);
 
@@ -508,6 +503,16 @@ pub mod pallet {
 		/// The submitter wanted free execution, but we can't fit more free transactions
 		/// to the block.
 		FreeHeadersLimitExceded,
+	}
+
+	/// Called when new free header is imported.
+	pub fn on_free_header_imported<T: Config<I>, I: 'static>() {
+		FreeHeadersRemaining::<T, I>::mutate(|count| {
+			*count = match *count {
+				Some(count) => Some(count.saturating_sub(1)),
+				None => None,
+			}
+		});
 	}
 
 	/// Return true if we may refund transaction cost to the submitter. In other words,

@@ -577,12 +577,12 @@ pub mod pallet {
 			})?;
 
 			// check if we allow this submission for free
-			log::trace!("=== {} {} {}", total_parachains == 1, free_parachain_heads == total_parachains, SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free());
 			let is_free = total_parachains == 1
 				&& free_parachain_heads == total_parachains
 				&& SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free();
 			let pays_fee = if is_free {
 				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is free");
+				pallet_bridge_grandpa::on_free_header_imported::<T, T::BridgesGrandpaPalletInstance>();
 				Pays::No
 			} else {
 				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is paid");
