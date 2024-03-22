@@ -226,11 +226,8 @@ async fn handle_new_activations<Context>(
 
 		let availability_cores = availability_cores??;
 		let n_validators = validators??.len();
-		let para_backing_state = if let Some(para_backing_state) = para_backing_state?? {
-			para_backing_state
-		} else {
-			return Err(crate::error::Error::MissingParaBackingState)
-		};
+		let para_backing_state =
+			para_backing_state??.ok_or(crate::error::Error::MissingParaBackingState);
 
 		// The loop bellow will fill in cores that the para is assigned to.
 		let mut cores_to_build_on = Vec::new();
