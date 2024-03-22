@@ -43,7 +43,7 @@
 //! ### Terminology
 //!
 //! - **Reaping an account:** The act of removing an account by resetting its nonce. Happens after
-//!   its total balance has become zero (or, strictly speaking, less than the Existential Deposit).
+//!   its total balance has become less than the Existential Deposit.
 //!
 //! ### Implementations
 //!
