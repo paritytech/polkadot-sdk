@@ -32,6 +32,7 @@ use bp_parachains::{parachain_head_storage_key_at_source, ParaInfo, ParaStoredHe
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use bp_runtime::{Chain, HashOf, HeaderId, HeaderIdOf, Parachain, StorageProofError};
 use frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
+use pallet_bridge_grandpa::SubmitFinalityProofHelper;
 use sp_std::{marker::PhantomData, vec::Vec};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -64,24 +65,6 @@ pub type RelayBlockHash = bp_polkadot_core::Hash;
 pub type RelayBlockNumber = bp_polkadot_core::BlockNumber;
 /// Hasher of the bridged relay chain.
 pub type RelayBlockHasher = bp_polkadot_core::Hasher;
-
-/// A filter of parachain head updates.
-pub trait ParachainHeadsUpdateFilter {
-	/// Returns true if the update passes the filter.
-	fn is_free(
-		at_relay_block: (RelayBlockNumber, RelayBlockHash),
-		parachains: &[(ParaId, ParaHash)],
-	) -> bool;
-}
-
-impl ParachainHeadsUpdateFilter for () {
-	fn is_free(
-		_at_relay_block: (RelayBlockNumber, RelayBlockHash),
-		_parachains: &[(ParaId, ParaHash)],
-	) -> bool {
-		false
-	}
-}
 
 /// Artifacts of the parachains head update.
 struct UpdateParachainHeadArtifacts {
@@ -211,25 +194,22 @@ pub mod pallet {
 		///
 		/// The GRANDPA pallet instance must be configured to import headers of relay chain that
 		/// we're interested in.
+		///
+		/// The associated GRANDPA pallet is also used to configure free parachain heads submissions.
+		/// The parachain head submission will be free if:
+		///
+		/// 1) the submission contains exactly one parachain head update that succeeds;
+		///
+		/// 2) the difference between relay chain block numbers, used to prove new parachain head and
+		///    previous best parachain head is larger than the `FreeHeadersInterval`, configured at
+		///    the associated GRANDPA pallet;
+		///
+		/// 3) there are slots for free submissions, remaining at the block. This is also configured
+		///    at the associated GRANDPA pallet using `MaxFreeHeadersPerBlock` parameter.
+		///
+		/// First parachain head submission is also free for the submitted, if free submissions
+		/// are yet accepted to this block.
 		type BridgesGrandpaPalletInstance: 'static;
-
-		/// A way to make `submit_parachain_heads` free for the submitter. If update passes
-		/// this filter AND at least one parachain head has been updated in the call, the
-		/// submission will be free for the submitter.
-		///
-		/// It can be used to reduce bridge fees by deducting parachain finality submission cost
-		/// from the total fee. Instead, relayers may submit some headers for free, allowing
-		/// queued messages (and confirmations) to be proved without providing additional
-		/// finality proofs.
-		///
-		/// **IMPORTANT**: we are NOT limiting number of free calls per block. The filter must
-		/// take that into account or anyone could fill the block with parachain head updates
-		/// for free.
-		///
-		/// **IMPORTANT**: we expect that the filter don't touch any storage values or makes
-		/// any heavy computations. It is called by transaction pool during transaction validation,
-		/// so it should be lightweight.
-		type FreeHeadsUpdateFilter: ParachainHeadsUpdateFilter;
 
 		/// Name of the original `paras` pallet in the `construct_runtime!()` call at the bridged
 		/// chain.
@@ -373,15 +353,81 @@ pub mod pallet {
 			parachains: Vec<(ParaId, ParaHash)>,
 			parachain_heads_proof: ParaHeadsProof,
 		) -> DispatchResultWithPostInfo {
+			Self::submit_parachain_heads_ex(
+				origin,
+				at_relay_block,
+				parachains,
+				parachain_heads_proof,
+				false,
+			)
+		}
+
+		/// Change `PalletOwner`.
+		///
+		/// May only be called either by root, or by `PalletOwner`.
+		#[pallet::call_index(1)]
+		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
+		pub fn set_owner(origin: OriginFor<T>, new_owner: Option<T::AccountId>) -> DispatchResult {
+			<Self as OwnedBridgeModule<_>>::set_owner(origin, new_owner)
+		}
+
+		/// Halt or resume all pallet operations.
+		///
+		/// May only be called either by root, or by `PalletOwner`.
+		#[pallet::call_index(2)]
+		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
+		pub fn set_operating_mode(
+			origin: OriginFor<T>,
+			operating_mode: BasicOperatingMode,
+		) -> DispatchResult {
+			<Self as OwnedBridgeModule<_>>::set_operating_mode(origin, operating_mode)
+		}
+
+		/// Submit proof of one or several parachain heads.
+		///
+		/// The proof is supposed to be proof of some `Heads` entries from the
+		/// `polkadot-runtime-parachains::paras` pallet instance, deployed at the bridged chain.
+		/// The proof is supposed to be crafted at the `relay_header_hash` that must already be
+		/// imported by corresponding GRANDPA pallet at this chain.
+		///
+		/// The call fails if:
+		///
+		/// - the pallet is halted;
+		///
+		/// - the relay chain block `at_relay_block` is not imported by the associated bridge
+		///   GRANDPA pallet.
+		///
+		/// The call may succeed, but some heads may not be updated e.g. because pallet knows
+		/// better head or it isn't tracked by the pallet.
+		///
+		/// The `is_free_execution_expected` parameter is not really used inside the call. It is
+		/// used by the transaction extension, which should be registered at the runtime level. If
+		/// this parameter is `true`, the transaction will be treated as invalid, if the call won't
+		/// be executed for free. If transaction extension is not used by the runtime, this
+		/// parameter is not used at all.
+		#[pallet::call_index(3)]
+		#[pallet::weight(WeightInfoOf::<T, I>::submit_parachain_heads_weight(
+			T::DbWeight::get(),
+			parachain_heads_proof,
+			parachains.len() as _,
+		))]
+		pub fn submit_parachain_heads_ex(
+			origin: OriginFor<T>,
+			at_relay_block: (RelayBlockNumber, RelayBlockHash),
+			parachains: Vec<(ParaId, ParaHash)>,
+			parachain_heads_proof: ParaHeadsProof,
+			_is_free_execution_expected: bool,
+		) -> DispatchResultWithPostInfo {
 			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
 			ensure_signed(origin)?;
 
-			// the pallet allows two kind of free submissions:
-			// 1) check whether filter allows this submission for free
-			let may_be_free = T::FreeHeadsUpdateFilter::is_free(at_relay_block, &parachains);
-			// 2) refund allowed if all parachain heads are first headers known to us
 			let total_parachains = parachains.len();
-			let mut first_parachain_heads = 0;
+			let free_headers_interval =
+				T::FreeHeadersInterval::get().unwrap_or(RelayBlockNumber::MAX);
+			// the pallet allows two kind of free submissions
+			// 1) if distance between all parachain heads is gte than the [`T::FreeHeadersInterval`]
+			// 2) if all heads are the first heads of their parachains
+			let mut free_parachain_heads = 0;
 
 			// we'll need relay chain header to verify that parachains heads are always increasing.
 			let (relay_block_number, relay_block_hash) = at_relay_block;
@@ -475,7 +521,15 @@ pub mod pallet {
 
 				let update_result: Result<_, ()> =
 					ParasInfo::<T, I>::try_mutate(parachain, |stored_best_head| {
-						let is_first = stored_best_head.is_none();
+						let is_free = match stored_best_head {
+							Some(ref best_head)
+								if at_relay_block.0.saturating_sub(best_head
+									.best_head_hash
+									.at_relay_block_number) >= free_headers_interval =>
+								true,
+							Some(_) => false,
+							None => true,
+						};
 						let artifacts = Pallet::<T, I>::update_parachain_head(
 							parachain,
 							stored_best_head.take(),
@@ -484,9 +538,11 @@ pub mod pallet {
 							parachain_head_hash,
 						)?;
 
+						// TODO: do we want to refund submissions of large heads as we do for GRANDPA?
+
 						is_updated_something = true;
-						if is_first {
-							first_parachain_heads = first_parachain_heads + 1;
+						if is_free {
+							free_parachain_heads = free_parachain_heads + 1;
 						}
 
 						*stored_best_head = Some(artifacts.best_head);
@@ -519,13 +575,11 @@ pub mod pallet {
 				Error::<T, I>::HeaderChainStorageProof(HeaderChainError::StorageProof(e))
 			})?;
 
-			// we allow free submissions if the update passes filter and something
-			// has been updated
-			//
-			// we allow free submission of the first parachain head
-			let is_free_by_filter_criteria = is_updated_something && may_be_free;
-			let is_free_by_first_criteria = total_parachains == first_parachain_heads;
-			let is_free = is_free_by_filter_criteria || is_free_by_first_criteria;
+			// check if we allow this submission for free
+log::trace!("=== {} {} {}", total_parachains == 1, free_parachain_heads == total_parachains, SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free());
+			let is_free = total_parachains == 1
+				&& free_parachain_heads == total_parachains
+				&& SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free();
 			let pays_fee = if is_free {
 				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is free");
 				Pays::No
@@ -535,27 +589,6 @@ pub mod pallet {
 			};
 
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
-		}
-
-		/// Change `PalletOwner`.
-		///
-		/// May only be called either by root, or by `PalletOwner`.
-		#[pallet::call_index(1)]
-		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
-		pub fn set_owner(origin: OriginFor<T>, new_owner: Option<T::AccountId>) -> DispatchResult {
-			<Self as OwnedBridgeModule<_>>::set_owner(origin, new_owner)
-		}
-
-		/// Halt or resume all pallet operations.
-		///
-		/// May only be called either by root, or by `PalletOwner`.
-		#[pallet::call_index(2)]
-		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
-		pub fn set_operating_mode(
-			origin: OriginFor<T>,
-			operating_mode: BasicOperatingMode,
-		) -> DispatchResult {
-			<Self as OwnedBridgeModule<_>>::set_operating_mode(origin, operating_mode)
 		}
 	}
 
@@ -622,8 +655,10 @@ pub mod pallet {
 				at_relay_block: new_at_relay_block,
 				para_id: parachain,
 				para_head_hash: new_head_hash,
+				// don't actually matter here
+				is_free_execution_expected: false,
 			};
-			if SubmitParachainHeadsHelper::<T, I>::is_obsolete(&update) {
+			if SubmitParachainHeadsHelper::<T, I>::is_obsolete(&update).0 {
 				Self::deposit_event(Event::RejectedObsoleteParachainHead {
 					parachain,
 					parachain_head_hash: new_head_hash,
@@ -782,7 +817,7 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = 
 pub(crate) mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, test_relay_header, BigParachainHeader, RegularParachainHasher,
+		run_test, test_relay_header, BigParachainHeader, FreeHeadersInterval, RegularParachainHasher,
 		RegularParachainHeader, RelayBlockHeader, RuntimeEvent as TestEvent, RuntimeOrigin,
 		TestRuntime, UNTRACKED_PARACHAIN_ID,
 	};
@@ -818,6 +853,7 @@ pub(crate) mod tests {
 	type DbWeight = <TestRuntime as frame_system::Config>::DbWeight;
 
 	pub(crate) fn initialize(state_root: RelayBlockHash) -> RelayBlockHash {
+		pallet_bridge_grandpa::FreeHeadersRemaining::<TestRuntime, BridgesGrandpaPalletInstance>::set(Some(100));
 		pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::initialize(
 			RuntimeOrigin::root(),
 			bp_header_chain::InitializationData {
@@ -988,7 +1024,7 @@ pub(crate) mod tests {
 				proof,
 			);
 			assert_ok!(result);
-			assert_eq!(result.expect("checked above").pays_fee, Pays::No);
+			assert_eq!(result.expect("checked above").pays_fee, Pays::Yes);
 			assert_eq!(result.expect("checked above").actual_weight, Some(expected_weight));
 
 			// 1 and 3 are updated, because proof is missing head of parachain#2
@@ -1746,76 +1782,30 @@ pub(crate) mod tests {
 				proof,
 			);
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+			// then we submit new head, proved at relay block `FreeHeadersInterval - 1` => Pays::Yes
+			let (state_root, proof, parachains) =
+				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 50))]);
+			let relay_block_number = FreeHeadersInterval::get() - 1;
+			proceed(relay_block_number, state_root);
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
+				RuntimeOrigin::signed(1),
+				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
+				parachains,
+				proof,
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+			// then we submit new head, proved after `FreeHeadersInterval` => Pays::No
+			let (state_root, proof, parachains) =
+				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 100))]);
+			let relay_block_number = relay_block_number + FreeHeadersInterval::get();
+			proceed(relay_block_number, state_root);
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
+				RuntimeOrigin::signed(1),
+				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
+				parachains,
+				proof,
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::No);
 		})
-	}
-
-	#[test]
-	fn may_be_free_for_submitting_first_heads() {
-		fn run_sub_test(pre: impl FnOnce(), heads: Vec<(u32, ParaHead)>) -> Pays {
-			run_test(|| {
-				let (state_root, proof, parachains) =
-					prepare_parachain_heads_proof::<RegularParachainHeader>(heads);
-				let relay_header_hash = initialize(state_root);
-				pre();
-				let result = Pallet::<TestRuntime>::submit_parachain_heads(
-					RuntimeOrigin::signed(1),
-					(0, relay_header_hash),
-					parachains,
-					proof,
-				);
-				result.unwrap().pays_fee
-			})
-		}
-
-		// if we submit 2 heads and both are first => Pays::No
-		assert_eq!(run_sub_test(|| (), vec![(1, head_data(1, 5)), (2, head_data(2, 5))]), Pays::No);
-		// if we submit 2 heads and one is not first => Pays::Yes
-		assert_eq!(
-			run_sub_test(
-				|| {
-					ParasInfo::<TestRuntime, ()>::insert(
-						ParaId(1),
-						ParaInfo {
-							best_head_hash: BestParaHeadHash {
-								at_relay_block_number: 1,
-								head_hash: Default::default(),
-							},
-							next_imported_hash_position: 1,
-						},
-					);
-				},
-				vec![(1, head_data(1, 5)), (2, head_data(2, 5))]
-			),
-			Pays::Yes
-		);
-		// if we submit 2 heads and both are not first => Pays::Yes
-		assert_eq!(
-			run_sub_test(
-				|| {
-					ParasInfo::<TestRuntime, ()>::insert(
-						ParaId(1),
-						ParaInfo {
-							best_head_hash: BestParaHeadHash {
-								at_relay_block_number: 1,
-								head_hash: Default::default(),
-							},
-							next_imported_hash_position: 1,
-						},
-					);
-					ParasInfo::<TestRuntime, ()>::insert(
-						ParaId(2),
-						ParaInfo {
-							best_head_hash: BestParaHeadHash {
-								at_relay_block_number: 2,
-								head_hash: Default::default(),
-							},
-							next_imported_hash_position: 1,
-						},
-					);
-				},
-				vec![(1, head_data(1, 5)), (2, head_data(2, 5))]
-			),
-			Pays::Yes
-		);
 	}
 }

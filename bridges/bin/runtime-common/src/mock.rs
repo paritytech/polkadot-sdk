@@ -193,7 +193,6 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 	type RuntimeEvent = RuntimeEvent;
 	type BridgesGrandpaPalletInstance = ();
 	type ParasPalletName = BridgedParasPalletName;
-	type FreeHeadsUpdateFilter = ();
 	type ParaStoredHeaderDataBuilder =
 		SingleParaStoredHeaderDataBuilder<BridgedUnderlyingParachain>;
 	type HeadsToKeep = ConstU32<8>;
