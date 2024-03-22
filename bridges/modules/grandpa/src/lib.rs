@@ -124,8 +124,9 @@ pub mod pallet {
 
 		/// The distance between bridged chain headers, that may be submitted for free. The
 		/// first free header is header number zero, the next one is header number
-		/// `FreeHeadersInterval::get()`. In other words, header with number that
-		/// is divisible by `FreeHeadersInterval` may be submitted for free.
+		/// `FreeHeadersInterval::get()` or any of its descendant if that header has not
+		/// bee submitted. In other words, interval between free headers should be at least
+		/// `FreeHeadersInterval`.
 		#[pallet::constant]
 		type FreeHeadersInterval: Get<Option<u32>>;
 
@@ -298,7 +299,8 @@ pub mod pallet {
 
 			// it checks whether the `number` is better than the current best block number
 			// and whether the `current_set_id` matches the best known set id
-			SubmitFinalityProofHelper::<T, I>::check_obsolete(number, Some(current_set_id))?;
+			let improved_by =
+				SubmitFinalityProofHelper::<T, I>::check_obsolete(number, Some(current_set_id))?;
 
 			let authority_set = <CurrentAuthoritySet<T, I>>::get();
 			let unused_proof_size = authority_set.unused_proof_size();
@@ -313,6 +315,7 @@ pub mod pallet {
 				&finality_target,
 				&justification,
 				current_set_id,
+				improved_by,
 			);
 			if may_refund_call_fee {
 				FreeHeadersRemaining::<T, I>::mutate(|count| {
@@ -376,7 +379,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn free_mandatory_headers_remaining)]
-	pub(super) type FreeHeadersRemaining<T: Config<I>, I: 'static = ()> =
+	pub type FreeHeadersRemaining<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, u32, OptionQuery>;
 
 	/// Hash of the header used to bootstrap the pallet.
@@ -514,6 +517,7 @@ pub mod pallet {
 		finality_target: &BridgedHeader<T, I>,
 		justification: &GrandpaJustification<BridgedHeader<T, I>>,
 		current_set_id: SetId,
+		improved_by: BridgedBlockNumber<T, I>,
 	) -> bool {
 		// if we have refunded too much at this block => not refunding
 		if FreeHeadersRemaining::<T, I>::get().unwrap_or(0) == 0 {
@@ -542,7 +546,7 @@ pub mod pallet {
 		// if configuration allows free non-mandatory headers and the header
 		// matches criteria => refund
 		if let Some(free_headers_interval) = T::FreeHeadersInterval::get() {
-			if *finality_target.number() % free_headers_interval.into() == Zero::zero() {
+			if improved_by >= free_headers_interval.into() {
 				return true;
 			}
 		}
@@ -1517,31 +1521,50 @@ mod tests {
 		run_test(|| {
 			initialize_substrate_bridge();
 
+			// set best finalized to `100`
+			const BEST: u8 = 12;
+			fn reset_best() {
+				BestFinalized::<TestRuntime, ()>::set(Some(HeaderId(
+					BEST as _,
+					Default::default(),
+				)));
+			}
+
 			// non-mandatory header is imported with fee
-			let non_free_header_number = FreeHeadersInterval::get() as u8 - 1;
+			reset_best();
+			let non_free_header_number = BEST + FreeHeadersInterval::get() as u8 - 1;
 			let result = submit_finality_proof(non_free_header_number);
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 
 			// non-mandatory free header is imported without fee
-			let free_header_number = FreeHeadersInterval::get() as u8;
+			reset_best();
+			let free_header_number = BEST + FreeHeadersInterval::get() as u8;
 			let result = submit_finality_proof(free_header_number);
 			assert_eq!(result.unwrap().pays_fee, Pays::No);
 
 			// another non-mandatory free header is imported without fee
-			let free_header_number = FreeHeadersInterval::get() as u8 * 2;
+			let free_header_number = BEST + FreeHeadersInterval::get() as u8 * 2;
 			let result = submit_finality_proof(free_header_number);
 			assert_eq!(result.unwrap().pays_fee, Pays::No);
 
 			// now the rate limiter starts charging fees even for free headers
-			let free_header_number = FreeHeadersInterval::get() as u8 * 3;
+			let free_header_number = BEST + FreeHeadersInterval::get() as u8 * 3;
 			let result = submit_finality_proof(free_header_number);
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 
+			// check that we can import for free if `improved_by` is larger
+			// than the free interval
 			next_block();
+			reset_best();
+			let free_header_number = FreeHeadersInterval::get() as u8 + 42;
+			let result = submit_finality_proof(free_header_number);
+			assert_eq!(result.unwrap().pays_fee, Pays::No);
 
 			// check that the rate limiter shares the counter between mandatory
 			// and free non-mandatory headers
-			let free_header_number = FreeHeadersInterval::get() as u8 * 4;
+			next_block();
+			reset_best();
+			let free_header_number = BEST + FreeHeadersInterval::get() as u8 * 4;
 			let result = submit_finality_proof(free_header_number);
 			assert_eq!(result.unwrap().pays_fee, Pays::No);
 			let result = submit_mandatory_finality_proof(free_header_number + 1, 1);
