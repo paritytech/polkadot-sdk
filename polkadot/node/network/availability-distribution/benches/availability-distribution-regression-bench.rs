@@ -63,6 +63,7 @@ fn main() -> Result<(), String> {
 	let average_usage = BenchmarkUsage::average(&usages);
 	println!("{}", average_usage);
 
+	// We don't expect any other values for received and sent
 	messages.extend(average_usage.check_network_usage(&[
 		("Received from peers", 433.3, 0.01),
 		("Sent to peers", 18480.0, 0.01),
