@@ -27,7 +27,15 @@ use sc_chain_spec::{
 use staging_chain_spec_builder as chain_spec_builder;
 use std::fs;
 
-fn main() -> Result<(), String> {
+//avoid error message escaping
+fn main() {
+	match inner_main() {
+		Err(e) => eprintln!("{}", format!("{e}")),
+		_ => {},
+	}
+}
+
+fn inner_main() -> Result<(), String> {
 	sp_tracing::try_init_simple();
 
 	let builder = ChainSpecBuilder::parse();

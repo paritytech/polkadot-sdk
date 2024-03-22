@@ -114,12 +114,16 @@ where
 	pub fn get_storage_for_config(&self, config: Value) -> core::result::Result<Storage, String> {
 		let mut ext = BasicExternalities::new_empty();
 
+		let json_pretty_str = serde_json::to_string_pretty(&config)
+			.map_err(|e| format!("json to string failed: {e}"))?;
+
 		let call_result = self
-			.call(&mut ext, "GenesisBuilder_build_state", &config.to_string().encode())
+			.call(&mut ext, "GenesisBuilder_build_state", &json_pretty_str.encode())
 			.map_err(|e| format!("wasm call error {e}"))?;
 
 		BuildResult::decode(&mut &call_result[..])
-			.map_err(|e| format!("scale codec error: {e}"))??;
+			.map_err(|e| format!("scale codec error: {e}"))?
+			.map_err(|e| format!("{e} for blob:\n{}", json_pretty_str))?;
 
 		Ok(ext.into_storages())
 	}
