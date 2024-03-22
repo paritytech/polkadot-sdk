@@ -9026,7 +9026,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-authority-discovery"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10950,7 +10950,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "8.0.2"
+version = "8.0.3"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -11426,7 +11426,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
