@@ -30,7 +30,7 @@ use self::{
 use crate::{
 	exec::Key,
 	migration::{
-		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, MigrationStep,
+		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, v16, MigrationStep,
 	},
 	Pallet as Contracts, *,
 };
@@ -325,6 +325,26 @@ mod benchmarks {
 			m.step();
 		}
 
+		Ok(())
+	}
+
+	// This benchmarks the v16 migration step (Remove ED from base_deposit).
+	#[benchmark(pov_mode = Measured)]
+	fn v16_migration_step() -> Result<(), BenchmarkError> {
+		let contract =
+			<Contract<T>>::with_caller(whitelisted_caller(), WasmModule::dummy(), vec![])?;
+
+		let info = contract.info()?;
+		let base_deposit = v16::store_old_contract_info::<T>(contract.account_id.clone(), &info);
+		let mut m = v16::Migration::<T>::default();
+
+		#[block]
+		{
+			m.step();
+		}
+		let ed = Pallet::<T>::min_balance();
+		let info = v16::ContractInfoOf::<T>::get(&contract.account_id).unwrap();
+		assert_eq!(info.storage_base_deposit, base_deposit - ed);
 		Ok(())
 	}
 

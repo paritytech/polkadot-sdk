@@ -64,6 +64,7 @@ pub mod v12;
 pub mod v13;
 pub mod v14;
 pub mod v15;
+pub mod v16;
 include!(concat!(env!("OUT_DIR"), "/migration_codegen.rs"));
 
 use crate::{weights::WeightInfo, Config, Error, MigrationInProgress, Pallet, Weight, LOG_TARGET};
