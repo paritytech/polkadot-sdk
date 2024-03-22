@@ -72,7 +72,7 @@ use libp2p::{
 	},
 	PeerId,
 };
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace, warn};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
 	cmp,
@@ -220,7 +220,6 @@ impl DiscoveryConfig {
 			// auto-insertion and instead add peers manually.
 			config.set_kbucket_inserts(KademliaBucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
-
 			let store = MemoryStore::new(local_peer_id);
 			let mut kad = Kademlia::with_config(local_peer_id, store, config);
 
@@ -784,7 +783,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								// Let's directly finish the query, as we are only interested in a
 								// quorum of 1.
 								if let Some(kad) = self.kademlia.as_mut() {
-									if let Some(query) = kad.query_mut(&id) {
+									if let Some(_query) = kad.query_mut(&id) {
 										// Let the query continue, to increase the chances we
 										// discover all possible addresses, for the cases where more
 										// addresses might exist in DHT, for example when the node
