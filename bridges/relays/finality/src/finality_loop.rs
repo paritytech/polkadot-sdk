@@ -343,6 +343,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		// we may try to select better header by reading non-persistent proofs from the stream
 		self.finality_proofs_buf.fill(&mut self.finality_proofs_stream);
 		let maybe_justified_header = selector.select(
+			info,
 			self.sync_params.headers_to_relay,
 			free_headers_interval,
 			&self.finality_proofs_buf,
@@ -713,10 +714,9 @@ mod tests {
 			let info = SyncInfo {
 				best_number_at_source: 10,
 				best_number_at_target: 5,
-				free_headers_interval: Some(3),
 				is_using_same_fork: true,
 			};
-			finality_loop.select_header_to_submit(&info).await.unwrap()
+			finality_loop.select_header_to_submit(&info, Some(3)).await.unwrap()
 		})
 	}
 
@@ -726,8 +726,8 @@ mod tests {
 		assert_eq!(
 			run_headers_to_relay_mode_test(HeadersToRelay::Free, false),
 			Some(JustifiedHeader {
-				header: TestSourceHeader(false, 9, 9),
-				proof: TestFinalityProof(9)
+				header: TestSourceHeader(false, 10, 10),
+				proof: TestFinalityProof(10)
 			}),
 		);
 		assert_eq!(
@@ -790,7 +790,7 @@ mod tests {
 				test_sync_params(),
 				Some(metrics_sync.clone()),
 			);
-			finality_loop.run_iteration().await.unwrap()
+			finality_loop.run_iteration(None).await.unwrap()
 		});
 
 		assert!(!metrics_sync.is_using_same_fork());

@@ -74,12 +74,6 @@ pub trait SourceClient<P: ParachainsPipeline>: RelayClient {
 	/// Returns `Ok(true)` if client is in synced state.
 	async fn ensure_synced(&self) -> Result<bool, Self::Error>;
 
-	/// Get finalized relay chain header id by its number.
-	async fn relay_header_id(
-		&self,
-		number: BlockNumberOf<P::SourceRelayChain>,
-	) -> Result<HeaderIdOf<P::SourceRelayChain>, Self::Error>;
-
 	/// Get parachain head id at given block.
 	async fn parachain_head(
 		&self,
@@ -326,12 +320,11 @@ where
 			match relay_of_head_at_target {
 				Some(relay_of_head_at_target) => {
 					// find last free relay chain header in the range that we are interested in
-					let scan_range_begin = relay_of_head_at_target.number() + 1;
+					let scan_range_begin = relay_of_head_at_target.number();
 					let scan_range_end = best_finalized_relay_block_at_target.number();
-					let last_free_source_relay_header_number = (scan_range_end /
-						free_source_relay_headers_interval) *
-						free_source_relay_headers_interval;
-					if last_free_source_relay_header_number < scan_range_begin {
+					if scan_range_end.saturating_sub(scan_range_begin) <
+						free_source_relay_headers_interval
+					{
 						// there are no new **free** relay chain headers in the range
 						log::trace!(
 							target: "bridge",
@@ -344,20 +337,8 @@ where
 						continue;
 					}
 
-					// ok - we know the relay chain header number, now let's get its full id
-					source_client
-						.relay_header_id(last_free_source_relay_header_number)
-						.await
-						.map_err(|e| {
-							log::warn!(
-								target: "bridge",
-								"Failed to get full header id of {} block #{:?}: {:?}",
-								P::SourceRelayChain::NAME,
-								last_free_source_relay_header_number,
-								e,
-							);
-							FailedClient::Source
-						})?
+					// we may submit new parachain head for free
+					best_finalized_relay_block_at_target
 				},
 				None => {
 					// no parachain head at target => let's submit first one
@@ -775,14 +756,6 @@ mod tests {
 			self.data.lock().await.source_sync_status.clone()
 		}
 
-		async fn relay_header_id(
-			&self,
-			number: BlockNumberOf<TestChain>,
-		) -> Result<HeaderIdOf<TestChain>, Self::Error> {
-			let hash = number.using_encoded(sp_core::blake2_256);
-			Ok(HeaderId(number, hash.into()))
-		}
-
 		async fn parachain_head(
 			&self,
 			at_block: HeaderIdOf<TestChain>,
@@ -1001,8 +974,7 @@ mod tests {
 		// 5) best finalized source relay chain block is 95
 		// 6) at source relay chain block 95 source parachain block is 42
 		// =>
-		// without free requirement, parachain block 42 would have been relayed
-		// with free requirement we relay parachain block 9
+		// parachain block 42 would have been relayed, because 95 - 50 > 10
 		let (exit_signal_sender, exit_signal) = futures::channel::mpsc::unbounded();
 		let clients_data = TestClientData {
 			source_sync_status: Ok(true),
@@ -1028,7 +1000,7 @@ mod tests {
 		let target_client = TestClient::from(clients_data);
 		assert_eq!(
 			run_until_connection_lost(
-				source_client.clone(),
+				source_client,
 				target_client.clone(),
 				None,
 				true,
@@ -1045,7 +1017,44 @@ mod tests {
 				.await
 				.submitted_proof_at_source_relay_block
 				.map(|id| id.0),
-			Some(90)
+			Some(95)
+		);
+
+		// now source relay block chain 104 is mined with parachain head #84
+		// => since 104 - 95 < 10, there are no free headers
+		// => nothing is submitted
+		let mut clients_data: TestClientData = target_client.data.lock().await.clone();
+		clients_data
+			.source_head
+			.insert(104, Ok(AvailableHeader::Available(HeaderId(84, [84u8; 32].into()))));
+		clients_data.target_best_finalized_source_block = Ok(HeaderId(104, [104u8; 32].into()));
+		clients_data.target_head =
+			Ok(Some((HeaderId(95, [95u8; 32].into()), HeaderId(42, [42u8; 32].into()))));
+		clients_data.target_best_block = Ok(HeaderId(255, [255u8; 32].into()));
+		clients_data.exit_signal_sender = None;
+
+		let source_client = TestClient::from(clients_data.clone());
+		let target_client = TestClient::from(clients_data);
+		assert_eq!(
+			run_until_connection_lost(
+				source_client,
+				target_client.clone(),
+				None,
+				true,
+				async_std::task::sleep(std::time::Duration::from_millis(100)),
+			)
+			.await,
+			Ok(()),
+		);
+
+		assert_eq!(
+			target_client
+				.data
+				.lock()
+				.await
+				.submitted_proof_at_source_relay_block
+				.map(|id| id.0),
+			Some(95)
 		);
 	}
 
