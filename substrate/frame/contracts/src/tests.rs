@@ -33,7 +33,7 @@ use crate::{
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
+	wasm::{Determinism, LoadingMode, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	Array, BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo,
 	ContractInfoOf, DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
@@ -1297,6 +1297,36 @@ fn delegate_call() {
 			callee_code_hash.as_ref().to_vec(),
 		));
 	});
+}
+
+#[test]
+fn track_check_uncheck_module_call() {
+	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		Contracts::bare_upload_code(ALICE, wasm, None, Determinism::Enforced).unwrap();
+
+		Contracts::bare_instantiate(
+			ALICE,
+			1_000,
+			GAS_LIMIT,
+			None,
+			Code::Existing(code_hash),
+			vec![],
+			vec![],
+			DebugInfo::Skip,
+			CollectEvents::Skip,
+		)
+		.result
+		.unwrap()
+		.account_id;
+	});
+
+	assert_eq!(
+		crate::wasm::tracker::LOADED_MODULE.with(|stack| stack.borrow().clone()),
+		vec![LoadingMode::Checked, LoadingMode::Unchecked]
+	);
 }
 
 #[test]
