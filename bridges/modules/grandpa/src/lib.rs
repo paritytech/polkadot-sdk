@@ -507,7 +507,7 @@ pub mod pallet {
 		InvalidAuthoritySetId,
 		/// The submitter wanted free execution, but we can't fit more free transactions
 		/// to the block.
-		CannotAcceptMoreFreeHeaders,
+		FreeHeadersLimitExceded,
 	}
 
 	/// Return true if we may refund transaction cost to the submitter. In other words,

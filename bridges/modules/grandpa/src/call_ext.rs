@@ -117,7 +117,7 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 				call_info.block_number,
 			);
 
-			return Err(Error::<T, I>::CannotAcceptMoreFreeHeaders);
+			return Err(Error::<T, I>::FreeHeadersLimitExceded);
 		}
 
 		// we do not check whether the header matches free submission criteria here - it is the
