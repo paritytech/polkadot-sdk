@@ -2,7 +2,8 @@
 use super::{AccountId32, Test, ALICE, GAS_LIMIT};
 use crate::{
 	BalanceOf, Code, CodeHash, CollectEvents, Config, ContractExecResult,
-	ContractInstantiateResult, DebugInfo, Determinism, EventRecordOf, Pallet, Weight,
+	ContractInstantiateResult, DebugInfo, Determinism, EventRecordOf, ExecReturnValue, Pallet,
+	Weight,
 };
 
 macro_rules! builder {
@@ -37,7 +38,7 @@ macro_rules! builder {
 }
 
 builder!(
-	InstantiateBuilder,
+	BareInstantiateBuilder,
 	bare_instantiate(
 		origin: T::AccountId,
 		value: BalanceOf<T>,
@@ -52,7 +53,7 @@ builder!(
 );
 
 builder!(
-	CallBuilder,
+	BareCallBuilder,
 	bare_call(
 		origin: T::AccountId,
 		dest: T::AccountId,
@@ -67,8 +68,8 @@ builder!(
 );
 
 /// Create a new instantiate builder.
-pub fn instantiate(code: Code<CodeHash<Test>>) -> InstantiateBuilder<Test> {
-	InstantiateBuilder::<Test> {
+pub fn instantiate(code: Code<CodeHash<Test>>) -> BareInstantiateBuilder<Test> {
+	BareInstantiateBuilder::<Test> {
 		origin: ALICE,
 		value: 0,
 		gas_limit: GAS_LIMIT,
@@ -81,9 +82,19 @@ pub fn instantiate(code: Code<CodeHash<Test>>) -> InstantiateBuilder<Test> {
 	}
 }
 
+impl<T: Config> BareInstantiateBuilder<T> {
+	pub fn build_and_unwrap_result(self) -> crate::InstantiateReturnValue<T::AccountId> {
+		self.build().result.unwrap()
+	}
+
+	pub fn build_and_unwrap_account_id(self) -> T::AccountId {
+		self.build().result.unwrap().account_id
+	}
+}
+
 /// Create a new call builder.
-pub fn call(dest: AccountId32) -> CallBuilder<Test> {
-	CallBuilder::<Test> {
+pub fn bare_call(dest: AccountId32) -> BareCallBuilder<Test> {
+	BareCallBuilder::<Test> {
 		origin: ALICE,
 		dest,
 		value: 0,
@@ -93,5 +104,10 @@ pub fn call(dest: AccountId32) -> CallBuilder<Test> {
 		debug: DebugInfo::Skip,
 		collect_events: CollectEvents::Skip,
 		determinism: Determinism::Enforced,
+	}
+}
+impl<T: Config> BareCallBuilder<T> {
+	pub fn build_and_unwrap_result(self) -> ExecReturnValue {
+		self.build().result.unwrap()
 	}
 }
