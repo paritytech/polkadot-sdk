@@ -77,7 +77,7 @@
 //! Min(GasPrice, Message.MaxFeePerGas) * GasUsed() + Message.Reward
 //! ```
 //! Or in plain english, relayers are refunded for gas consumption, using a
-//! price that is a minimum of the actual gas price, or `Message.MaxFeePerGas``.
+//! price that is a minimum of the actual gas price, or `Message.MaxFeePerGas`.
 //!
 //! # Extrinsics
 //!
