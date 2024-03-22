@@ -22,7 +22,6 @@ use frame_support::{
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
 use sp_runtime::traits::Convert;
-use sp_std::vec::Vec;
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
@@ -442,8 +441,8 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
 		let mut id_leases_count = 0;
 		let mut other_leases_count = 0;
-		Leases::<T>::mutate(|leases| leases.iter_mut()
-			.for_each(|lease| {
+		Leases::<T>::mutate(|leases| {
+			leases.iter_mut().for_each(|lease| {
 				if lease.task == id {
 					lease.task = other;
 					id_leases_count += 1;
@@ -451,12 +450,8 @@ impl<T: Config> Pallet<T> {
 					lease.task = id;
 					other_leases_count += 1;
 				}
-			});
-
-		// Ensure both leases exist
-		ensure!(id_leases_count > 0 && other_leases_count > 0, Error::<T>::UnknownReservation);
-		// And ensure there are just to leases to be swapped
-		ensure!(id_leases_count == 1 && other_leases_count == 1, Error::<T>::TooManyLeases);
+			})
+		});
 
 		Ok(())
 	}
