@@ -709,13 +709,17 @@ impl_runtime_apis! {
 			use xcm::latest::prelude::*;
 			use xcm_config::RocRelayLocation;
 
+			type ToParentDeliveryHelper = polkadot_runtime_common::xcm_sender::benchmarking::DestinationDeliveryHelper<
+				xcm_config::XcmConfig,
+				ExistentialDepositAsset,
+				xcm_config::PriceForParentDelivery,
+				cumulus_primitives_utility::ParentDestinationMatcher,
+				(pallet_xcm::EnsureXcmVersionForDestination<Runtime>,),
+			>;
+
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = ToParentDeliveryHelper;
 
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
@@ -754,11 +758,7 @@ impl_runtime_apis! {
 
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = ToParentDeliveryHelper;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(RocRelayLocation::get())

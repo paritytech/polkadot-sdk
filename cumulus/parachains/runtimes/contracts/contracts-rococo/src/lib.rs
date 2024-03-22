@@ -720,14 +720,18 @@ impl_runtime_apis! {
 				).into());
 			}
 
+			type ToParentDeliveryHelper = polkadot_runtime_common::xcm_sender::benchmarking::DestinationDeliveryHelper<
+				xcm_config::XcmConfig,
+				ExistentialDepositAsset,
+				xcm_config::PriceForParentDelivery,
+				cumulus_primitives_utility::ParentDestinationMatcher,
+				(pallet_xcm::EnsureXcmVersionForDestination<Runtime>,),
+			>;
+
 			use xcm::latest::prelude::*;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = ToParentDeliveryHelper;
 
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
