@@ -202,7 +202,7 @@ pub fn prepare_test(
 
 			build_overseer_for_availability_read(
 				dependencies.task_manager.spawn_handle(),
-				runtime_api.clone(),
+				runtime_api,
 				av_store,
 				(network_bridge_tx, network_bridge_rx),
 				subsystem,
@@ -222,7 +222,7 @@ pub fn prepare_test(
 				BitfieldDistribution::new(Metrics::try_register(&dependencies.registry).unwrap());
 			build_overseer_for_availability_write(
 				dependencies.task_manager.spawn_handle(),
-				runtime_api.clone(),
+				runtime_api,
 				(network_bridge_tx, network_bridge_rx),
 				availability_distribution,
 				chain_api,
