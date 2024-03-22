@@ -473,8 +473,7 @@ fn claim_assets_works() {
 	let balances = vec![(ALICE, INITIAL_BALANCE)];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// First trap some assets.
-		let trapping_program =
-			Xcm::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT)).build();
+		let trapping_program = Xcm::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT)).build();
 		// Even though assets are trapped, the extrinsic returns success.
 		assert_ok!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
