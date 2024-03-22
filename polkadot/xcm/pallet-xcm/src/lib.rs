@@ -374,7 +374,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			timeout: BlockNumberFor<T>,
 			match_querier: VersionedLocation,
-		) -> Result<Self::QueryId, DispatchError> {
+		) -> Result<QueryId, DispatchError> {
 			let responder = <T as Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let query_id = <Self as QueryHandler>::new_query(
 				responder,
@@ -1478,7 +1478,6 @@ impl<T: Config> sp_std::fmt::Debug for FeesHandling<T> {
 }
 
 impl<T: Config> QueryHandler for Pallet<T> {
-	type QueryId = u64;
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
@@ -1488,7 +1487,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		responder: impl Into<Location>,
 		timeout: BlockNumberFor<T>,
 		match_querier: impl Into<Location>,
-	) -> Self::QueryId {
+	) -> QueryId {
 		Self::do_new_query(responder, None, timeout, match_querier)
 	}
 
@@ -1498,7 +1497,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		message: &mut Xcm<()>,
 		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
-	) -> Result<Self::QueryId, Self::Error> {
+	) -> Result<QueryId, Self::Error> {
 		let responder = responder.into();
 		let destination = Self::UniversalLocation::get()
 			.invert_target(&responder)
@@ -1511,7 +1510,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	}
 
 	/// Removes response when ready and emits [Event::ResponseTaken] event.
-	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+	fn take_response(query_id: QueryId) -> QueryResponseStatus<Self::BlockNumber> {
 		match Queries::<T>::get(query_id) {
 			Some(QueryStatus::Ready { response, at }) => match response.try_into() {
 				Ok(response) => {
@@ -1528,7 +1527,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn expect_response(id: Self::QueryId, response: Response) {
+	fn expect_response(id: QueryId, response: Response) {
 		let response = response.into();
 		Queries::<T>::insert(
 			id,
