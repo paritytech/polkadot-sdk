@@ -149,7 +149,7 @@ impl HostFnReturn {
 			Self::U64 => quote! { ::core::primitive::u64 },
 		};
 		quote! {
-			::core::result::Result<#ok, ::wasmi::core::Trap>
+			::core::result::Result<#ok, ::wasmi::Error>
 		}
 	}
 }
@@ -628,7 +628,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 		let into_host = if expand_blocks {
 			quote! {
 				|reason| {
-					::wasmi::core::Trap::from(reason)
+					::wasmi::Error::host(reason)
 				}
 			}
 		} else {
@@ -667,10 +667,13 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 					.ext()
 					.gas_meter_mut()
 					.sync_to_executor(__gas_left_before__)
-					.map_err(TrapReason::from)?;
+					.map_err(|err| {
+						let err = TrapReason::from(err);
+						wasmi::Error::host(err)
+					})?;
 				 __caller__
 					 .consume_fuel(fuel_consumed.into())
-					 .map_err(|_| TrapReason::from(Error::<E::T>::OutOfGas))?;
+					 .map_err(|_| wasmi::Error::host(TrapReason::from(Error::<E::T>::OutOfGas)))?;
 			}
 		} else {
 			quote! { }
