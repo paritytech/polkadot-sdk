@@ -325,7 +325,9 @@ where
 			})
 		});
 
-		debug!(target: LOG_TARGET, "Authority DHT record peer_id='{:?}' addresses='{:?}'", peer_id, addresses.clone().collect::<Vec<_>>());
+		if log_enabled!(log::Level::Debug) {
+			debug!(target: LOG_TARGET, "Authority DHT record peer_id='{:?}' addresses='{:?}'", self.network.local_peer_id(), addresses.clone().collect::<Vec<_>>());
+		}
 
 		// The address must include the peer id if not already set.
 		addresses.map(move |a| {
