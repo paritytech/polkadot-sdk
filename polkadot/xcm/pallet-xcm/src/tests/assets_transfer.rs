@@ -2605,8 +2605,7 @@ fn teleport_assets_using_destination_reserve_fee_disallowed() {
 	);
 }
 
-/// Test `tested_call` with destination asset reserve and destination fee reserve using remote
-/// reserve.
+/// Test `tested_call` transferring single asset using remote reserve.
 ///
 /// Transferring Para3000 asset (`Para3000` reserve) to
 /// `OTHER_PARA_ID` (no teleport trust), therefore triggering remote reserve.
@@ -2763,6 +2762,15 @@ fn transfer_assets_with_remote_asset_reserve_and_remote_asset_fee_reserve_paid_w
 	let expected_result = Ok(());
 	remote_asset_reserve_and_remote_fee_reserve_paid_call(
 		XcmPallet::transfer_assets,
+		expected_result,
+	);
+}
+/// Test `limited_reserve_transfer_assets` with remote asset reserve and remote fee reserve.
+#[test]
+fn limited_reserve_transfer_assets_with_remote_asset_reserve_and_remote_asset_fee_reserve_paid_works() {
+	let expected_result = Ok(());
+	remote_asset_reserve_and_remote_fee_reserve_paid_call(
+		XcmPallet::limited_reserve_transfer_assets,
 		expected_result,
 	);
 }
