@@ -2605,7 +2605,8 @@ fn teleport_assets_using_destination_reserve_fee_disallowed() {
 	);
 }
 
-/// Test `tested_call` with destination asset reserve and destination fee reserve using remote reserve.
+/// Test `tested_call` with destination asset reserve and destination fee reserve using remote
+/// reserve.
 ///
 /// Transferring Para3000 asset (`Para3000` reserve) to
 /// `OTHER_PARA_ID` (no teleport trust), therefore triggering remote reserve.
