@@ -386,7 +386,7 @@ where
 			keys_vec,
 		)?;
 
-		self.latest_published_kad_keys.extend(kv_pairs.iter().map(|(k, _)| k.clone()));
+		self.latest_published_kad_keys = kv_pairs.iter().map(|(k, _)| k.clone()).collect();
 
 		for (key, value) in kv_pairs.into_iter() {
 			self.network.put_value(key, value);
@@ -489,8 +489,7 @@ where
 				}
 			},
 			DhtEvent::ValuePut(hash) => {
-				if !self.latest_published_kad_keys.remove(&hash) {
-					// Not a value we have published or received multiple times.
+				if !self.latest_published_kad_keys.contains(&hash) {
 					return;
 				}
 
@@ -506,7 +505,7 @@ where
 				debug!(target: LOG_TARGET, "Successfully put hash '{:?}' on Dht.", hash)
 			},
 			DhtEvent::ValuePutFailed(hash) => {
-				if !self.latest_published_kad_keys.remove(&hash) {
+				if !self.latest_published_kad_keys.contains(&hash) {
 					// Not a value we have published or received multiple times.
 					return;
 				}
