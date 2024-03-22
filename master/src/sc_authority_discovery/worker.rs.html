@@ -923,6 +923,56 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#776" id="776">776</a>
 <a href="#777" id="777">777</a>
 <a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -960,6 +1010,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>ip_network::IpNetwork;
 <span class="kw">use </span>libp2p::{core::multiaddr, identity::PublicKey, multihash::Multihash, Multiaddr, PeerId};
+<span class="kw">use </span>linked_hash_set::LinkedHashSet;
 <span class="kw">use </span>multihash_codetable::{Code, MultihashDigest};
 
 <span class="kw">use </span>log::{debug, error, log_enabled};
@@ -1045,14 +1096,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Interval to be proactive, publishing own addresses.
 	</span>publish_interval: ExpIncInterval,
+
 	<span class="doccomment">/// Pro-actively publish our own addresses at this interval, if the keys in the keystore
 	/// have changed.
 	</span>publish_if_changed_interval: ExpIncInterval,
+
 	<span class="doccomment">/// List of keys onto which addresses have been published at the latest publication.
 	/// Used to check whether they have changed.
 	</span>latest_published_keys: HashSet&lt;AuthorityId&gt;,
+
 	<span class="doccomment">/// Same value as in the configuration.
 	</span>publish_non_global_ips: bool,
+
+	<span class="doccomment">/// Public addresses set by the node operator to always publish first in the authority
+	/// discovery DHT record.
+	</span>public_addresses: LinkedHashSet&lt;Multiaddr&gt;,
+
 	<span class="doccomment">/// Same value as in the configuration.
 	</span>strict_record_validation: bool,
 
@@ -1061,6 +1120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Queue of throttled lookups pending to be passed to the network.
 	</span>pending_lookups: Vec&lt;AuthorityId&gt;,
+
 	<span class="doccomment">/// Set of in-flight lookups.
 	</span>in_flight_lookups: HashMap&lt;KademliaKey, AuthorityId&gt;,
 
@@ -1149,6 +1209,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
 		};
 
+		<span class="kw">let </span>public_addresses = {
+			<span class="kw">let </span>local_peer_id: Multihash = network.local_peer_id().into();
+
+			config
+				.public_addresses
+				.into_iter()
+				.map(|<span class="kw-2">mut </span>address| {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+						<span class="kw">if </span>peer_id != local_peer_id {
+							<span class="macro">error!</span>(
+								target: LOG_TARGET,
+								<span class="string">&quot;Discarding invalid local peer ID in public address {address}.&quot;</span>,
+							);
+						}
+						<span class="comment">// Always discard `/p2p/...` protocol for proper address comparison (local
+						// peer id will be added before publishing).
+						</span>address.pop();
+					}
+					address
+				})
+				.collect()
+		};
+
 		Worker {
 			from_service: from_service.fuse(),
 			client,
@@ -1158,6 +1241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			publish_if_changed_interval,
 			latest_published_keys: HashSet::new(),
 			publish_non_global_ips: config.publish_non_global_ips,
+			public_addresses,
 			strict_record_validation: config.strict_record_validation,
 			query_interval,
 			pending_lookups: Vec::new(),
@@ -1229,32 +1313,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>addresses_to_publish(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Multiaddr&gt; {
-		<span class="kw">let </span>peer_id: Multihash = <span class="self">self</span>.network.local_peer_id().into();
 		<span class="kw">let </span>publish_non_global_ips = <span class="self">self</span>.publish_non_global_ips;
-		<span class="kw">let </span>addresses = <span class="self">self</span>.network.external_addresses().into_iter().filter(<span class="kw">move </span>|a| {
-			<span class="kw">if </span>publish_non_global_ips {
-				<span class="kw">return </span><span class="bool-val">true
-			</span>}
+		<span class="kw">let </span>addresses = <span class="self">self
+			</span>.public_addresses
+			.clone()
+			.into_iter()
+			.chain(<span class="self">self</span>.network.external_addresses().into_iter().filter_map(|<span class="kw-2">mut </span>address| {
+				<span class="comment">// Make sure the reported external address does not contain `/p2p/...` protocol.
+				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(multiaddr::Protocol::P2p(<span class="kw">_</span>)) = address.iter().last() {
+					address.pop();
+				}
 
-			a.iter().all(|p| <span class="kw">match </span>p {
-				<span class="comment">// The `ip_network` library is used because its `is_global()` method is stable,
-				// while `is_global()` in the standard library currently isn&#39;t.
-				</span>multiaddr::Protocol::Ip4(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
-				multiaddr::Protocol::Ip6(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
-				<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
+				<span class="kw">if </span><span class="self">self</span>.public_addresses.contains(<span class="kw-2">&amp;</span>address) {
+					<span class="comment">// Already added above.
+					</span><span class="prelude-val">None
+				</span>} <span class="kw">else </span>{
+					<span class="prelude-val">Some</span>(address)
+				}
+			}))
+			.filter(<span class="kw">move </span>|address| {
+				<span class="kw">if </span>publish_non_global_ips {
+					<span class="kw">return </span><span class="bool-val">true
+				</span>}
+
+				address.iter().all(|protocol| <span class="kw">match </span>protocol {
+					<span class="comment">// The `ip_network` library is used because its `is_global()` method is stable,
+					// while `is_global()` in the standard library currently isn&#39;t.
+					</span>multiaddr::Protocol::Ip4(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
+					multiaddr::Protocol::Ip6(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
+					<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
+				})
 			})
-		});
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Authority DHT record peer_id=&#39;{:?}&#39; addresses=&#39;{:?}&#39;&quot;</span>, peer_id, addresses.clone().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;());
+		<span class="kw">let </span>peer_id = <span class="self">self</span>.network.local_peer_id();
+		<span class="macro">debug!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;Authority DHT record peer_id=&#39;{peer_id}&#39; addresses=&#39;{addresses:?}&#39;&quot;</span>,
+		);
 
-		<span class="comment">// The address must include the peer id if not already set.
-		</span>addresses.map(<span class="kw">move </span>|a| {
-			<span class="kw">if </span>a.iter().any(|p| <span class="macro">matches!</span>(p, multiaddr::Protocol::P2p(<span class="kw">_</span>))) {
-				a
-			} <span class="kw">else </span>{
-				a.with(multiaddr::Protocol::P2p(peer_id))
-			}
-		})
+		<span class="comment">// The address must include the peer id.
+		</span><span class="kw">let </span>peer_id: Multihash = peer_id.into();
+		addresses.into_iter().map(<span class="kw">move </span>|a| a.with(multiaddr::Protocol::P2p(peer_id)))
 	}
 
 	<span class="doccomment">/// Publish own public addresses.

@@ -1186,6 +1186,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1039" id="1039">1039</a>
 <a href="#1040" id="1040">1040</a>
 <a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1610,6 +1612,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>shared_voter_state = rpc_setup;
 	<span class="kw">let </span>auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
+	<span class="kw">let </span>auth_disc_public_addresses = config.network.public_addresses.clone();
 	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>config.network);
 	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
 
@@ -1798,6 +1801,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sc_authority_discovery::new_worker_and_service_with_config(
 				sc_authority_discovery::WorkerConfig {
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
+					public_addresses: auth_disc_public_addresses,
 					..Default::default()
 				},
 				client.clone(),

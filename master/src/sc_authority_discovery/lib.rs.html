@@ -315,6 +315,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -397,6 +402,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Defaults to `true` to avoid the surprise factor.
 	</span><span class="kw">pub </span>publish_non_global_ips: bool,
 
+	<span class="doccomment">/// Public addresses set by the node operator to always publish first in the authority
+	/// discovery DHT record.
+	</span><span class="kw">pub </span>public_addresses: Vec&lt;Multiaddr&gt;,
+
 	<span class="doccomment">/// Reject authority discovery records that are not signed by their network identity (PeerId)
 	///
 	/// Defaults to `false` to provide compatibility with old versions
@@ -421,6 +430,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// `authority_discovery_dht_event_received`.
 			</span>max_query_interval: Duration::from_secs(<span class="number">10 </span>* <span class="number">60</span>),
 			publish_non_global_ips: <span class="bool-val">true</span>,
+			public_addresses: Vec::new(),
 			strict_record_validation: <span class="bool-val">false</span>,
 		}
 	}

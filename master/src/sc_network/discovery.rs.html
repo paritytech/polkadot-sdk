@@ -1335,6 +1335,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1188" id="1188">1188</a>
 <a href="#1189" id="1189">1189</a>
 <a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1409,6 +1418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	PeerId,
 };
+<span class="kw">use </span>linked_hash_set::LinkedHashSet;
 <span class="kw">use </span>log::{debug, info, trace, warn};
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
 <span class="kw">use </span>std::{
@@ -1887,14 +1897,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Multiaddr&gt;, ConnectionDenied&gt; {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(peer_id) = maybe_peer <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()) };
 
-		<span class="kw">let </span><span class="kw-2">mut </span>list = <span class="self">self
+		<span class="comment">// Collect addresses into [`LinkedHashSet`] to eliminate duplicate entries preserving the
+		// order of addresses. Give priority to `permanent_addresses` (used with reserved nodes) and
+		// `ephemeral_addresses` (used for addresses discovered from other sources, like authority
+		// discovery DHT records).
+		</span><span class="kw">let </span><span class="kw-2">mut </span>list: LinkedHashSet&lt;<span class="kw">_</span>&gt; = <span class="self">self
 			</span>.permanent_addresses
 			.iter()
 			.filter_map(|(p, a)| (<span class="kw-2">*</span>p == peer_id).then_some(a.clone()))
-			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+			.collect();
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(ephemeral_addresses) = <span class="self">self</span>.ephemeral_addresses.get(<span class="kw-2">&amp;</span>peer_id) {
-			list.extend(ephemeral_addresses.clone());
+			ephemeral_addresses.iter().for_each(|address| {
+				list.insert_if_absent(address.clone());
+			});
 		}
 
 		{
@@ -1920,12 +1936,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 			}
 
-			list.extend(list_to_filter);
+			list_to_filter.into_iter().for_each(|address| {
+				list.insert_if_absent(address);
+			});
 		}
 
 		<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Addresses of {:?}: {:?}&quot;</span>, peer_id, list);
 
-		<span class="prelude-val">Ok</span>(list)
+		<span class="prelude-val">Ok</span>(list.into_iter().collect())
 	}
 
 	<span class="kw">fn </span>on_swarm_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: FromSwarm&lt;<span class="self">Self</span>::ConnectionHandler&gt;) {
