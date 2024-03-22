@@ -43,13 +43,13 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	request_async_backing_params, request_availability_cores, request_persisted_validation_data,
+	request_availability_cores, request_para_backing_state, request_persisted_validation_data,
 	request_validation_code, request_validation_code_hash, request_validators,
 };
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
-	CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, ValidationCodeHash,
+	CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
+	ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
 use std::sync::Arc;
@@ -208,160 +208,117 @@ async fn handle_new_activations<Context>(
 	if config.collator.is_none() {
 		return Ok(())
 	}
+	let para_id = config.para_id;
 
 	let _overall_timer = metrics.time_new_activations();
 
 	for relay_parent in activated {
 		let _relay_parent_timer = metrics.time_new_activations_relay_parent();
 
-		let (availability_cores, validators, async_backing_params) = join!(
+		let (availability_cores, validators, para_backing_state) = join!(
 			request_availability_cores(relay_parent, ctx.sender()).await,
 			request_validators(relay_parent, ctx.sender()).await,
-			request_async_backing_params(relay_parent, ctx.sender()).await,
+			request_para_backing_state(relay_parent, config.para_id, ctx.sender()).await,
 		);
 
 		let availability_cores = availability_cores??;
 		let n_validators = validators??.len();
-		let async_backing_params = async_backing_params?.ok();
+		let para_backing_state = if let Some(para_backing_state) = para_backing_state?? {
+			para_backing_state
+		} else {
+			return Err(crate::error::Error::MissingParaBackingState)
+		};
 
 		// The loop bellow will fill in cores that the para is assigned to.
 		let mut cores_to_build_on = Vec::new();
-		// The latest on chain PVD.
-		let mut pvd = None;
-		// The validation code hash.
-		let mut validation_code_hash = None;
 
 		for (core_idx, core) in availability_cores.into_iter().enumerate() {
-			let _availability_core_timer = metrics.time_new_activations_availability_core();
+			let scheduled_para_id = core.para_id();
 
-			let (scheduled_core, assumption) = match core {
-				CoreState::Scheduled(scheduled_core) =>
-					(scheduled_core, OccupiedCoreAssumption::Free),
-				CoreState::Occupied(occupied_core) => match async_backing_params {
-					Some(params) if params.max_candidate_depth >= 1 => {
-						// maximum candidate depth when building on top of a block
-						// pending availability is necessarily 1 - the depth of the
-						// pending block is 0 so the child has depth 1.
-
-						// TODO [now]: this assumes that next up == current.
-						// in practice we should only set `OccupiedCoreAssumption::Included`
-						// when the candidate occupying the core is also of the same para.
-						if let Some(scheduled) = occupied_core.next_up_on_available {
-							(scheduled, OccupiedCoreAssumption::Included)
-						} else {
-							continue
-						}
-					},
-					_ => {
-						gum::trace!(
-							target: LOG_TARGET,
-							core_idx = %core_idx,
-							relay_parent = ?relay_parent,
-							"core is occupied. Keep going.",
-						);
-						continue
-					},
-				},
-				CoreState::Free => {
-					gum::trace!(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						"core is free. Keep going.",
-					);
-					continue
-				},
-			};
-
-			if scheduled_core.para_id != config.para_id {
+			if scheduled_para_id != Some(config.para_id) {
 				gum::trace!(
 					target: LOG_TARGET,
 					core_idx = %core_idx,
 					relay_parent = ?relay_parent,
 					our_para = %config.para_id,
-					their_para = %scheduled_core.para_id,
+					their_para = ?scheduled_para_id,
 					"core is not assigned to our para. Keep going.",
 				);
 				continue
 			}
 
-			// we get validation data and validation code synchronously for each core instead of
-			// within the subtask loop, because we have only a single mutable handle to the
-			// context, so the work can't really be distributed
-
-			let validation_data = match request_persisted_validation_data(
-				relay_parent,
-				scheduled_core.para_id,
-				assumption,
-				ctx.sender(),
-			)
-			.await
-			.await??
-			{
-				Some(v) => v,
-				None => {
-					gum::trace!(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						relay_parent = ?relay_parent,
-						our_para = %config.para_id,
-						their_para = %scheduled_core.para_id,
-						"validation data is not available",
-					);
-					continue
-				},
-			};
-
-			let code_hash = match obtain_validation_code_hash_with_assumption(
-				relay_parent,
-				scheduled_core.para_id,
-				assumption,
-				ctx.sender(),
-			)
-			.await?
-			{
-				Some(v) => v,
-				None => {
-					gum::trace!(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						relay_parent = ?relay_parent,
-						our_para = %config.para_id,
-						their_para = %scheduled_core.para_id,
-						"validation code hash is not found.",
-					);
-					continue
-				},
-			};
-
-			// Prepare data for building collation(s) outside the loop.
+			// Accumulate cores for building collation(s) outside the loop.
 			cores_to_build_on.push(CoreIndex(core_idx as u32));
-
-			// We only need the validation data only for the first collation we build,
-			// we will construct the other ones based on the outputs of prev collation.
-			// This should be fine as we always enact the chain candidates of the para at once
-			// in the runtime.
-			if pvd.is_none() {
-				pvd = Some(validation_data);
-				validation_code_hash = Some(code_hash);
-			}
 		}
+
+		// Skip to next relay parent if there is no core assigned to us.
+		if cores_to_build_on.is_empty() {
+			continue
+		}
+
+		// We are being very optimistic here, but one of the cores could pend availability some more
+		// block, ore even time out.
+		// For timeout assumption the collator can't really know because it doesn't receive bitfield
+		// gossip.
+		let assumption = if para_backing_state.pending_availability.is_empty() {
+			OccupiedCoreAssumption::Free
+		} else {
+			OccupiedCoreAssumption::Included
+		};
+
+		gum::debug!(
+			target: LOG_TARGET,
+			relay_parent = ?relay_parent,
+			our_para = %config.para_id,
+			?assumption,
+			"Occupied core(s) assumption",
+		);
+
+		let mut validation_data = match request_persisted_validation_data(
+			relay_parent,
+			config.para_id,
+			assumption,
+			ctx.sender(),
+		)
+		.await
+		.await??
+		{
+			Some(v) => v,
+			None => {
+				gum::debug!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent,
+					our_para = %config.para_id,
+					"validation data is not available",
+				);
+				continue
+			},
+		};
+
+		let validation_code_hash = match obtain_validation_code_hash_with_assumption(
+			relay_parent,
+			config.para_id,
+			assumption,
+			ctx.sender(),
+		)
+		.await?
+		{
+			Some(v) => v,
+			None => {
+				gum::debug!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent,
+					our_para = %config.para_id,
+					"validation code hash is not found.",
+				);
+				continue
+			},
+		};
 
 		let task_config = config.clone();
 		let metrics = metrics.clone();
 		let mut task_sender = ctx.sender().clone();
 
-		let (mut validation_data, validation_code_hash) = if !cores_to_build_on.is_empty() {
-			(
-				pvd.expect("If cores is not empty, `pvd` is always Some; qed"),
-				validation_code_hash
-					.expect("If cores is not empty, `validation_code_hash` is always Some; qed"),
-			)
-		} else {
-			// Bail out if no cores to build on.
-			return Ok(())
-		};
-
-		let para_id = config.para_id;
 		ctx.spawn(
 			"chained-collation-builder",
 			Box::pin(async move {
