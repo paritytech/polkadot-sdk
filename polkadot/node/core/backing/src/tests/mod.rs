@@ -702,6 +702,221 @@ fn backing_works(#[case] elastic_scaling_mvp: bool) {
 }
 
 #[test]
+fn get_backed_candidate_preserves_order() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize((node_features::FeatureIndex::ElasticScalingMVP as u8 + 1) as usize, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
+
+	// Set a single validator as the first validator group. It simplifies the test.
+	test_state.validator_groups.0[0] = vec![ValidatorIndex(2)];
+	// Assign the second core to the same para.
+	test_state.availability_cores[1] =
+		CoreState::Scheduled(ScheduledCore { para_id: test_state.chain_ids[0], collator: None });
+
+	test_harness(test_state.keystore.clone(), |mut virtual_overseer| async move {
+		test_startup(&mut virtual_overseer, &test_state).await;
+
+		let pov_a = PoV { block_data: BlockData(vec![1, 2, 3]) };
+		let pov_b = PoV { block_data: BlockData(vec![3, 4, 5]) };
+		let validation_code_ab = ValidationCode(vec![1, 2, 3]);
+
+		let parent_head_data_a = test_state.head_data.get(&test_state.chain_ids[0]).unwrap();
+		let parent_head_data_b = {
+			let mut head = parent_head_data_a.clone();
+			head.0[0] = 98;
+			head
+		};
+		let output_head_data_b = {
+			let mut head = parent_head_data_a.clone();
+			head.0[0] = 99;
+			head
+		};
+		let pvd_a = PersistedValidationData {
+			parent_head: parent_head_data_a.clone(),
+			relay_parent_number: 0_u32.into(),
+			max_pov_size: 1024,
+			relay_parent_storage_root: dummy_hash(),
+		};
+		let pvd_b = PersistedValidationData {
+			parent_head: parent_head_data_b.clone(),
+			relay_parent_number: 0_u32.into(),
+			max_pov_size: 1024,
+			relay_parent_storage_root: dummy_hash(),
+		};
+
+		let candidate_a = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash: pov_a.hash(),
+			head_data: parent_head_data_b.clone(),
+			erasure_root: make_erasure_root(&test_state, pov_a.clone(), pvd_a.clone()),
+			validation_code: validation_code_ab.0.clone(),
+			persisted_validation_data_hash: pvd_a.hash(),
+			..Default::default()
+		}
+		.build();
+		let candidate_b = TestCandidateBuilder {
+			para_id: test_state.chain_ids[0],
+			relay_parent: test_state.relay_parent,
+			pov_hash: pov_b.hash(),
+			head_data: output_head_data_b.clone(),
+			erasure_root: make_erasure_root(&test_state, pov_b.clone(), pvd_b.clone()),
+			validation_code: validation_code_ab.0.clone(),
+			persisted_validation_data_hash: pvd_b.hash(),
+			..Default::default()
+		}
+		.build();
+
+		let candidate_a_hash = candidate_a.hash();
+		let candidate_b_hash = candidate_b.hash();
+
+		// Back a chain of two candidates for this para.
+		for (candidate, pvd, validator_index) in
+			[(candidate_a, pvd_a, ValidatorIndex(2)), (candidate_b, pvd_b, ValidatorIndex(1))]
+		{
+			let public = Keystore::sr25519_generate_new(
+				&*test_state.keystore,
+				ValidatorId::ID,
+				Some(&test_state.validators[validator_index.0 as usize].to_seed()),
+			)
+			.expect("Insert key into keystore");
+
+			let signed = SignedFullStatementWithPVD::sign(
+				&test_state.keystore,
+				StatementWithPVD::Seconded(candidate.clone(), pvd.clone()),
+				&test_state.signing_context,
+				validator_index,
+				&public.into(),
+			)
+			.ok()
+			.flatten()
+			.expect("should be signed");
+
+			let statement =
+				CandidateBackingMessage::Statement(test_state.relay_parent, signed.clone());
+
+			virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
+
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::Provisioner(
+					ProvisionerMessage::ProvisionableData(
+						_,
+						ProvisionableData::BackedCandidate(candidate_receipt)
+					)
+				) => {
+					assert_eq!(candidate_receipt, candidate.to_plain());
+				}
+			);
+		}
+
+		// Happy case, both candidates should be present.
+		let (tx, rx) = oneshot::channel();
+		let msg = CandidateBackingMessage::GetBackedCandidates(
+			std::iter::once((
+				test_state.chain_ids[0],
+				vec![
+					(candidate_a_hash, test_state.relay_parent),
+					(candidate_b_hash, test_state.relay_parent),
+				],
+			))
+			.collect(),
+			tx,
+		);
+		virtual_overseer.send(FromOrchestra::Communication { msg }).await;
+		let mut candidates = rx.await.unwrap();
+		assert_eq!(1, candidates.len());
+		let candidates = candidates.remove(&test_state.chain_ids[0]).unwrap();
+		assert_eq!(
+			candidates.iter().map(|c| c.hash()).collect::<Vec<_>>(),
+			vec![candidate_a_hash, candidate_b_hash]
+		);
+
+		// The first candidate is invalid (we supply the wrong relay parent or a wrong candidate
+		// hash). No candidates should be returned.
+		for candidates in [
+			vec![
+				(candidate_a_hash, Hash::repeat_byte(9)),
+				(candidate_b_hash, test_state.relay_parent),
+			],
+			vec![
+				(CandidateHash(Hash::repeat_byte(9)), test_state.relay_parent),
+				(candidate_b_hash, test_state.relay_parent),
+			],
+		] {
+			let (tx, rx) = oneshot::channel();
+			let msg = CandidateBackingMessage::GetBackedCandidates(
+				std::iter::once((test_state.chain_ids[0], candidates)).collect(),
+				tx,
+			);
+			virtual_overseer.send(FromOrchestra::Communication { msg }).await;
+			let candidates = rx.await.unwrap();
+			assert!(candidates.is_empty());
+		}
+
+		// The second candidate is invalid (we supply the wrong relay parent or a wrong candidate
+		// hash). The first candidate should still be present.
+		for candidates in [
+			vec![
+				(candidate_a_hash, test_state.relay_parent),
+				(candidate_b_hash, Hash::repeat_byte(9)),
+			],
+			vec![
+				(candidate_a_hash, test_state.relay_parent),
+				(CandidateHash(Hash::repeat_byte(9)), test_state.relay_parent),
+			],
+		] {
+			let (tx, rx) = oneshot::channel();
+			let msg = CandidateBackingMessage::GetBackedCandidates(
+				std::iter::once((test_state.chain_ids[0], candidates)).collect(),
+				tx,
+			);
+			virtual_overseer.send(FromOrchestra::Communication { msg }).await;
+			let mut candidates = rx.await.unwrap();
+			assert_eq!(1, candidates.len());
+			let candidates = candidates.remove(&test_state.chain_ids[0]).unwrap();
+			assert_eq!(
+				candidates.iter().map(|c| c.hash()).collect::<Vec<_>>(),
+				vec![candidate_a_hash]
+			);
+		}
+
+		// Both candidates are invalid (we supply the wrong relay parent or a wrong candidate hash).
+		// No candidates should be returned.
+		for candidates in [
+			vec![
+				(CandidateHash(Hash::repeat_byte(9)), test_state.relay_parent),
+				(CandidateHash(Hash::repeat_byte(10)), test_state.relay_parent),
+			],
+			vec![
+				(candidate_a_hash, Hash::repeat_byte(9)),
+				(candidate_b_hash, Hash::repeat_byte(10)),
+			],
+		] {
+			let (tx, rx) = oneshot::channel();
+			let msg = CandidateBackingMessage::GetBackedCandidates(
+				std::iter::once((test_state.chain_ids[0], candidates)).collect(),
+				tx,
+			);
+			virtual_overseer.send(FromOrchestra::Communication { msg }).await;
+			let candidates = rx.await.unwrap();
+			assert!(candidates.is_empty());
+		}
+
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::stop_work(test_state.relay_parent),
+			)))
+			.await;
+		virtual_overseer
+	});
+}
+
+#[test]
 fn extract_core_index_from_statement_works() {
 	let test_state = TestState::default();
 
