@@ -146,7 +146,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../snowbridge_pallet_outbound_queue/index.html">snowbridge_pallet_outbound_queue</a><span class="version">0.2.0</span></h2></div><div class="sidebar-elems"><ul class="block">
-            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">snowbridge_pallet_outbound_queue</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/snowbridge_pallet_outbound_queue/lib.rs.html#3-406">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Pallet for committing outbound messages for delivery to Ethereum</p>
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">snowbridge_pallet_outbound_queue</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/snowbridge_pallet_outbound_queue/lib.rs.html#3-420">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Pallet for committing outbound messages for delivery to Ethereum</p>
 <h2 id="overview"><a href="#overview">Overview</a></h2>
 <p>Messages come either from sibling parachains via XCM, or BridgeHub itself
 via the <code>snowbridge-pallet-system</code>:</p>
@@ -189,19 +189,27 @@ components:</p>
 consume on Ethereum. Using this upper bound, a final fee can be calculated.</p>
 <p>The fee calculation also requires the following parameters:</p>
 <ul>
-<li>ETH/DOT exchange rate</li>
-<li>Ether fee per unit of gas</li>
+<li>Average ETH/DOT exchange rate over some period</li>
+<li>Max fee per unit of gas that bridge is willing to refund relayers for</li>
 </ul>
 <p>By design, it is expected that governance should manually update these
 parameters every few weeks using the <code>set_pricing_parameters</code> extrinsic in the
 system pallet.</p>
+<p>This is an interim measure. Once ETH/DOT liquidity pools are available in the Polkadot network,
+we’ll use them as a source of pricing info, subject to certain safeguards.</p>
 <h3 id="fee-computation-function"><a href="#fee-computation-function">Fee Computation Function</a></h3><div class="example-wrap"><pre class="language-text"><code>LocalFee(Message) = WeightToFee(ProcessMessageWeight(Message))
-RemoteFee(Message) = MaxGasRequired(Message) * FeePerGas + Reward
-Fee(Message) = LocalFee(Message) + (RemoteFee(Message) / Ratio(&quot;ETH/DOT&quot;))
+RemoteFee(Message) = MaxGasRequired(Message) * Params.MaxFeePerGas + Params.Reward
+RemoteFeeAdjusted(Message) = Params.Multiplier * (RemoteFee(Message) / Params.Ratio(&quot;ETH/DOT&quot;))
+Fee(Message) = LocalFee(Message) + RemoteFeeAdjusted(Message)
 </code></pre></div>
-<p>By design, the computed fee is always going to conservative, to cover worst-case
-costs of dispatch on Ethereum. In future iterations of the design, we will optimize
-this, or provide a mechanism to asynchronously refund a portion of collected fees.</p>
+<p>By design, the computed fee includes a safety factor (the <code>Multiplier</code>) to cover
+unfavourable fluctuations in the ETH/DOT exchange rate.</p>
+<h3 id="fee-settlement"><a href="#fee-settlement">Fee Settlement</a></h3>
+<p>On the remote side, in the gateway contract, the relayer accrues</p>
+<div class="example-wrap"><pre class="language-text"><code>Min(GasPrice, Message.MaxFeePerGas) * GasUsed() + Message.Reward
+</code></pre></div>
+<p>Or in plain english, relayers are refunded for gas consumption, using a
+price that is a minimum of the actual gas price, or <code>Message.MaxFeePerGas</code>.</p>
 <h2 id="extrinsics"><a href="#extrinsics">Extrinsics</a></h2>
 <ul>
 <li><a href="pallet/enum.Call.html#variant.set_operating_mode" title="variant snowbridge_pallet_outbound_queue::pallet::Call::set_operating_mode"><code>Call::set_operating_mode</code></a>: Set the operating mode</li>

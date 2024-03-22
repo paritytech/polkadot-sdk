@@ -551,6 +551,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Pallet for committing outbound messages for delivery to Ethereum
@@ -600,24 +614,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! consume on Ethereum. Using this upper bound, a final fee can be calculated.
 //!
 //! The fee calculation also requires the following parameters:
-//! * ETH/DOT exchange rate
-//! * Ether fee per unit of gas
+//! * Average ETH/DOT exchange rate over some period
+//! * Max fee per unit of gas that bridge is willing to refund relayers for
 //!
 //! By design, it is expected that governance should manually update these
 //! parameters every few weeks using the `set_pricing_parameters` extrinsic in the
 //! system pallet.
 //!
+//! This is an interim measure. Once ETH/DOT liquidity pools are available in the Polkadot network,
+//! we&#39;ll use them as a source of pricing info, subject to certain safeguards.
+//!
 //! ## Fee Computation Function
 //!
 //! ```text
 //! LocalFee(Message) = WeightToFee(ProcessMessageWeight(Message))
-//! RemoteFee(Message) = MaxGasRequired(Message) * FeePerGas + Reward
-//! Fee(Message) = LocalFee(Message) + (RemoteFee(Message) / Ratio(&quot;ETH/DOT&quot;))
+//! RemoteFee(Message) = MaxGasRequired(Message) * Params.MaxFeePerGas + Params.Reward
+//! RemoteFeeAdjusted(Message) = Params.Multiplier * (RemoteFee(Message) / Params.Ratio(&quot;ETH/DOT&quot;))
+//! Fee(Message) = LocalFee(Message) + RemoteFeeAdjusted(Message)
 //! ```
 //!
-//! By design, the computed fee is always going to conservative, to cover worst-case
-//! costs of dispatch on Ethereum. In future iterations of the design, we will optimize
-//! this, or provide a mechanism to asynchronously refund a portion of collected fees.
+//! By design, the computed fee includes a safety factor (the `Multiplier`) to cover
+//! unfavourable fluctuations in the ETH/DOT exchange rate.
+//!
+//! ## Fee Settlement
+//!
+//! On the remote side, in the gateway contract, the relayer accrues
+//!
+//! ```text
+//! Min(GasPrice, Message.MaxFeePerGas) * GasUsed() + Message.Reward
+//! ```
+//! Or in plain english, relayers are refunded for gas consumption, using a
+//! price that is a minimum of the actual gas price, or `Message.MaxFeePerGas`.
 //!
 //! # Extrinsics
 //!
@@ -659,7 +686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::{H256, U256};
 <span class="kw">use </span>sp_runtime::{
 	traits::{CheckedDiv, Hash},
-	DigestItem,
+	DigestItem, Saturating,
 };
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>types::{CommittedMessage, ProcessMessageOriginOf};
@@ -919,8 +946,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// downcast to u128
 			</span><span class="kw">let </span>fee: u128 = fee.try_into().defensive_unwrap_or(u128::MAX);
 
-			<span class="comment">// convert to local currency
+			<span class="comment">// multiply by multiplier and convert to local currency
 			</span><span class="kw">let </span>fee = FixedU128::from_inner(fee)
+				.saturating_mul(params.multiplier)
 				.checked_div(<span class="kw-2">&amp;</span>params.exchange_rate)
 				.expect(<span class="string">&quot;exchange rate is not zero; qed&quot;</span>)
 				.into_inner();

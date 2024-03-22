@@ -165,12 +165,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span>frame_support::traits::tokens::Balance <span class="kw">as </span>BalanceT;
-<span class="kw">use </span>snowbridge_core::outbound::Message;
+<span class="kw">use </span>snowbridge_core::{
+	outbound::{Command, Fee},
+	PricingParameters,
+};
 <span class="kw">use </span>snowbridge_outbound_queue_merkle_tree::MerkleProof;
 
 <span class="macro">sp_api::decl_runtime_apis! </span>{
@@ -178,11 +184,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="doccomment">/// Generate a merkle proof for a committed message identified by `leaf_index`.
 		/// The merkle root is stored in the block header as a
-		/// `\[`sp_runtime::generic::DigestItem::Other`\]`
+		/// `sp_runtime::generic::DigestItem::Other`
 		</span><span class="kw">fn </span>prove_message(leaf_index: u64) -&gt; <span class="prelude-ty">Option</span>&lt;MerkleProof&gt;;
 
-		<span class="doccomment">/// Calculate the delivery fee for `message`
-		</span><span class="kw">fn </span>calculate_fee(message: Message) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
+		<span class="doccomment">/// Calculate the delivery fee for `command`
+		</span><span class="kw">fn </span>calculate_fee(command: Command, parameters: <span class="prelude-ty">Option</span>&lt;PricingParameters&lt;Balance&gt;&gt;) -&gt; Fee&lt;Balance&gt;;
 	}
 }
 </code></pre></div></section></main></body></html>

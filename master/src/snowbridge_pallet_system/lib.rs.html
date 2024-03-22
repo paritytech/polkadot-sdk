@@ -830,6 +830,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#683" id="683">683</a>
 <a href="#684" id="684">684</a>
 <a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Governance API for controlling the Ethereum side of the bridge
@@ -991,6 +993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>DefaultPricingParameters: Get&lt;PricingParametersOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Cost of delivering a message from Ethereum
+		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>InboundDeliveryCost: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="kw">type </span>WeightInfo: WeightInfo;
@@ -1166,6 +1169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>command = Command::SetPricingParameters {
 				exchange_rate: params.exchange_rate.into(),
 				delivery_cost: T::InboundDeliveryCost::get().saturated_into::&lt;u128&gt;(),
+				multiplier: params.multiplier.into(),
 			};
 			<span class="self">Self</span>::send(PRIMARY_GOVERNANCE_CHANNEL, command, PaysFee::&lt;T&gt;::No)<span class="question-mark">?</span>;
 

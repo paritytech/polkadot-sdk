@@ -558,6 +558,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#411" id="411">411</a>
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::PalletError;
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -696,6 +701,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>exchange_rate: UD60x18,
 			<span class="comment">// Cost of delivering a message from Ethereum to BridgeHub, in ROC/KSM/DOT
 			</span>delivery_cost: u128,
+			<span class="comment">// Fee multiplier
+			</span>multiplier: UD60x18,
 		},
 	}
 
@@ -763,10 +770,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Token::Uint(U256::from(<span class="kw-2">*</span>transfer_asset_xcm)),
 					Token::Uint(<span class="kw-2">*</span>register_token),
 				])]),
-				Command::SetPricingParameters { exchange_rate, delivery_cost } =&gt;
+				Command::SetPricingParameters { exchange_rate, delivery_cost, multiplier } =&gt;
 					ethabi::encode(<span class="kw-2">&amp;</span>[Token::Tuple(<span class="macro">vec!</span>[
 						Token::Uint(exchange_rate.clone().into_inner()),
 						Token::Uint(U256::from(<span class="kw-2">*</span>delivery_cost)),
+						Token::Uint(multiplier.clone().into_inner()),
 					])]),
 			}
 		}
@@ -833,7 +841,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq, Debug))]
+<span class="attr">#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
 </span><span class="doccomment">/// Fee for delivering message
 </span><span class="kw">pub struct </span>Fee&lt;Balance&gt;
 <span class="kw">where
@@ -906,12 +915,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the command within the message
 	</span><span class="kw">const </span>MAXIMUM_BASE_GAS: u64;
 
-	<span class="kw">fn </span>maximum_gas_used_at_most(command: <span class="kw-2">&amp;</span>Command) -&gt; u64 {
+	<span class="doccomment">/// Total gas consumed at most, including verification &amp; dispatch
+	</span><span class="kw">fn </span>maximum_gas_used_at_most(command: <span class="kw-2">&amp;</span>Command) -&gt; u64 {
 		<span class="self">Self</span>::MAXIMUM_BASE_GAS + <span class="self">Self</span>::maximum_dispatch_gas_used_at_most(command)
 	}
 
-	<span class="doccomment">/// Measures the maximum amount of gas a command payload will require to dispatch, AFTER
-	/// validation &amp; verification.
+	<span class="doccomment">/// Measures the maximum amount of gas a command payload will require to *dispatch*, NOT
+	/// including validation &amp; verification.
 	</span><span class="kw">fn </span>maximum_dispatch_gas_used_at_most(command: <span class="kw-2">&amp;</span>Command) -&gt; u64;
 }
 

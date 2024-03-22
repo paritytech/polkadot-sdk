@@ -175,14 +175,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Helpers for implementing runtime api
 
 </span><span class="kw">use crate</span>::{Config, MessageLeaves};
 <span class="kw">use </span>frame_support::storage::StorageStreamIter;
-<span class="kw">use </span>snowbridge_core::outbound::{Message, SendMessage};
+<span class="kw">use </span>snowbridge_core::{
+	outbound::{Command, Fee, GasMeter},
+	PricingParameters,
+};
 <span class="kw">use </span>snowbridge_outbound_queue_merkle_tree::{merkle_proof, MerkleProof};
+<span class="kw">use </span>sp_core::Get;
 
 <span class="kw">pub fn </span>prove_message&lt;T&gt;(leaf_index: u64) -&gt; <span class="prelude-ty">Option</span>&lt;MerkleProof&gt;
 <span class="kw">where
@@ -196,13 +206,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Some</span>(proof)
 }
 
-<span class="kw">pub fn </span>calculate_fee&lt;T&gt;(message: Message) -&gt; <span class="prelude-ty">Option</span>&lt;T::Balance&gt;
+<span class="kw">pub fn </span>calculate_fee&lt;T&gt;(
+	command: Command,
+	parameters: <span class="prelude-ty">Option</span>&lt;PricingParameters&lt;T::Balance&gt;&gt;,
+) -&gt; Fee&lt;T::Balance&gt;
 <span class="kw">where
 	</span>T: Config,
 {
-	<span class="kw">match </span><span class="kw">crate</span>::Pallet::&lt;T&gt;::validate(<span class="kw-2">&amp;</span>message) {
-		<span class="prelude-val">Ok</span>((<span class="kw">_</span>, fees)) =&gt; <span class="prelude-val">Some</span>(fees.total()),
-		<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-	}
+	<span class="kw">let </span>gas_used_at_most = T::GasMeter::maximum_gas_used_at_most(<span class="kw-2">&amp;</span>command);
+	<span class="kw">let </span>parameters = parameters.unwrap_or(T::PricingParameters::get());
+	<span class="kw">crate</span>::Pallet::&lt;T&gt;::calculate_fee(gas_used_at_most, parameters)
 }
 </code></pre></div></section></main></body></html>

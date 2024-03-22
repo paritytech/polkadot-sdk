@@ -1666,6 +1666,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1519" id="1519">1519</a>
 <a href="#1520" id="1520">1520</a>
 <a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1706,7 +1709,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <span class="kw">use </span>snowbridge_beacon_primitives::{Fork, ForkVersions};
 <span class="kw">use </span>snowbridge_core::{
-	gwei, meth, outbound::Message, AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
+	gwei, meth,
+	outbound::{Command, Fee},
+	AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
 };
 <span class="kw">use </span>snowbridge_router_primitives::inbound::MessageToXcm;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
@@ -2171,7 +2176,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>Parameters: PricingParameters&lt;u128&gt; = PricingParameters {
 		exchange_rate: FixedU128::from_rational(<span class="number">1</span>, <span class="number">400</span>),
 		fee_per_gas: gwei(<span class="number">20</span>),
-		rewards: Rewards { local: <span class="number">1 </span>* UNITS, remote: meth(<span class="number">1</span>) }
+		rewards: Rewards { local: <span class="number">1 </span>* UNITS, remote: meth(<span class="number">1</span>) },
+		multiplier: FixedU128::from_rational(<span class="number">1</span>, <span class="number">1</span>),
 	};
 }
 
@@ -2690,8 +2696,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			snowbridge_pallet_outbound_queue::api::prove_message::&lt;Runtime&gt;(leaf_index)
 		}
 
-		<span class="kw">fn </span>calculate_fee(message: Message) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
-			snowbridge_pallet_outbound_queue::api::calculate_fee::&lt;Runtime&gt;(message)
+		<span class="kw">fn </span>calculate_fee(command: Command, parameters: <span class="prelude-ty">Option</span>&lt;PricingParameters&lt;Balance&gt;&gt;) -&gt; Fee&lt;Balance&gt; {
+			snowbridge_pallet_outbound_queue::api::calculate_fee::&lt;Runtime&gt;(command, parameters)
 		}
 	}
 

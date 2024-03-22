@@ -212,6 +212,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_arithmetic::traits::{BaseArithmetic, Unsigned, Zero};
@@ -227,6 +232,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>rewards: Rewards&lt;Balance&gt;,
 	<span class="doccomment">/// Ether (wei) fee per gas unit
 	</span><span class="kw">pub </span>fee_per_gas: U256,
+	<span class="doccomment">/// Fee multiplier
+	</span><span class="kw">pub </span>multiplier: FixedU128,
 }
 
 <span class="attr">#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
@@ -255,6 +262,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidPricingParameters)
 		}
 		<span class="kw">if </span><span class="self">self</span>.rewards.remote.is_zero() {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidPricingParameters)
+		}
+		<span class="kw">if </span><span class="self">self</span>.multiplier == FixedU128::zero() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidPricingParameters)
 		}
 		<span class="prelude-val">Ok</span>(())
