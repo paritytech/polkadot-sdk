@@ -1320,7 +1320,6 @@ fn track_check_uncheck_module_call() {
 		)
 		.result
 		.unwrap()
-		.account_id;
 	});
 
 	assert_eq!(
