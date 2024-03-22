@@ -133,7 +133,7 @@ pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
 
 /// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
 pub mod node_features {
-	/// A feature index used to indentify a bit into the node_features array stored
+	/// A feature index used to identify a bit into the node_features array stored
 	/// in the HostConfiguration.
 	#[repr(u8)]
 	pub enum FeatureIndex {
