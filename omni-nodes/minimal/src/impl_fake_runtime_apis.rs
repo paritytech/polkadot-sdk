@@ -1,7 +1,8 @@
 #![allow(unused_variables)]
 
 pub struct FakeRuntime;
-use crate::types::{AccountId, Header, Nonce, OpaqueBlock as Block};
+// TODO: think even these types don't really matter.
+use crate::standards::{AccountId, Header, Nonce, OpaqueBlock as Block};
 
 sp_api::impl_runtime_apis! {
 	// same block of code as in `minimal/runtime/src/lib.rs`, but replace all functions to be

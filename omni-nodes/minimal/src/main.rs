@@ -23,7 +23,7 @@ mod command;
 mod impl_fake_runtime_apis;
 mod rpc;
 mod service;
-mod types;
+mod standards;
 
 fn main() -> sc_cli::Result<()> {
 	command::run()

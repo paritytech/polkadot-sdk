@@ -138,7 +138,7 @@ pub fn run() -> sc_cli::Result<()> {
 		},
 		Some(Subcommand::ChainInfo(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run::<crate::types::OpaqueBlock>(&config))
+			runner.sync_run(|config| cmd.run::<crate::standards::OpaqueBlock>(&config))
 		},
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
