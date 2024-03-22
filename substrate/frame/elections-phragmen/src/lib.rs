@@ -1316,7 +1316,7 @@ mod tests {
 	use sp_runtime::{testing::Header, BuildStorage};
 	use substrate_test_utils::assert_eq_uvec;
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
 		type AccountData = pallet_balances::AccountData<u64>;
@@ -1422,7 +1422,7 @@ mod tests {
 
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 	pub type UncheckedExtrinsic =
-		sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
+		sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
 
 	frame_support::construct_runtime!(
 		pub enum Test

@@ -884,7 +884,7 @@ pub fn construct_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let tx_ext: runtime::TxExtension = (
+	let extra: runtime::SignedExtra = (
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
@@ -896,11 +896,10 @@ pub fn construct_extrinsic(
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
 		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<runtime::Runtime>::new(),
-	)
-		.into();
+	);
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
-		tx_ext.clone(),
+		extra.clone(),
 		((), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| caller.sign(e));
@@ -908,7 +907,7 @@ pub fn construct_extrinsic(
 		function,
 		caller.public().into(),
 		runtime::Signature::Sr25519(signature),
-		tx_ext,
+		extra,
 	)
 }
 

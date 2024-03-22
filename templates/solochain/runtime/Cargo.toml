@@ -25,7 +25,7 @@ scale-info = { version = "2.10.0", default-features = false, features = [
 ] }
 
 # frame
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["experimental"] }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
@@ -130,7 +130,6 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 
@@ -148,5 +147,3 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]

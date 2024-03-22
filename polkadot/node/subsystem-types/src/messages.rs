@@ -46,15 +46,16 @@ use polkadot_primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState,
-	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Header as BlockHeader,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex,
-	SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData,
+	Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
 };
 
@@ -207,16 +208,20 @@ pub enum CollatorProtocolMessage {
 	/// This should be sent before any `DistributeCollation` message.
 	CollateOn(ParaId),
 	/// Provide a collation to distribute to validators with an optional result sender.
-	/// The second argument is the parent head-data hash.
-	///
-	/// The result sender should be informed when at least one parachain validator seconded the
-	/// collation. It is also completely okay to just drop the sender.
-	DistributeCollation(
-		CandidateReceipt,
-		Hash,
-		PoV,
-		Option<oneshot::Sender<CollationSecondedSignal>>,
-	),
+	DistributeCollation {
+		/// The receipt of the candidate.
+		candidate_receipt: CandidateReceipt,
+		/// The hash of the parent head-data.
+		/// Here to avoid computing the hash of the parent head data twice.
+		parent_head_data_hash: Hash,
+		/// Proof of validity.
+		pov: PoV,
+		/// This parent head-data is needed for elastic scaling.
+		parent_head_data: HeadData,
+		/// The result sender should be informed when at least one parachain validator seconded the
+		/// collation. It is also completely okay to just drop the sender.
+		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+	},
 	/// Report a collator as having provided an invalid collation. This should lead to disconnect
 	/// and blacklist of the collator.
 	ReportCollator(CollatorId),
@@ -733,6 +738,9 @@ pub enum RuntimeApiRequest {
 	/// Approval voting params
 	/// `V10`
 	ApprovalVotingParams(SessionIndex, RuntimeApiSender<ApprovalVotingParams>),
+	/// Fetch the `ClaimQueue` from scheduler pallet
+	/// `V11`
+	ClaimQueue(RuntimeApiSender<BTreeMap<CoreIndex, VecDeque<ParaId>>>),
 }
 
 impl RuntimeApiRequest {
@@ -767,6 +775,9 @@ impl RuntimeApiRequest {
 
 	/// `approval_voting_params`
 	pub const APPROVAL_VOTING_PARAMS_REQUIREMENT: u32 = 10;
+
+	/// `ClaimQueue`
+	pub const CLAIM_QUEUE_RUNTIME_REQUIREMENT: u32 = 11;
 }
 
 /// A message to the Runtime API subsystem.
@@ -1113,8 +1124,32 @@ pub struct ProspectiveValidationDataRequest {
 	pub para_id: ParaId,
 	/// The relay-parent of the candidate.
 	pub candidate_relay_parent: Hash,
-	/// The parent head-data hash.
-	pub parent_head_data_hash: Hash,
+	/// The parent head-data.
+	pub parent_head_data: ParentHeadData,
+}
+
+/// The parent head-data hash with optional data itself.
+#[derive(Debug, Clone)]
+pub enum ParentHeadData {
+	/// Parent head-data hash.
+	OnlyHash(Hash),
+	/// Parent head-data along with its hash.
+	WithData {
+		/// This will be provided for collations with elastic scaling enabled.
+		head_data: HeadData,
+		/// Parent head-data hash.
+		hash: Hash,
+	},
+}
+
+impl ParentHeadData {
+	/// Return the hash of the parent head-data.
+	pub fn hash(&self) -> Hash {
+		match self {
+			ParentHeadData::OnlyHash(hash) => *hash,
+			ParentHeadData::WithData { hash, .. } => *hash,
+		}
+	}
 }
 
 /// Indicates the relay-parents whose fragment tree a candidate

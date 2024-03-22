@@ -42,16 +42,19 @@ use parity_scale_codec::Encode;
 
 use polkadot_primitives::{
 	slashing, AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 pub use rand;
 use sp_application_crypto::AppCrypto;
 use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
-use std::time::Duration;
+use std::{
+	collections::{BTreeMap, VecDeque},
+	time::Duration,
+};
 use thiserror::Error;
 use vstaging::get_disabled_validators_with_fallback;
 
@@ -303,6 +306,7 @@ specialize_requests! {
 	fn request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -> Option<()>; SubmitReportDisputeLost;
 	fn request_disabled_validators() -> Vec<ValidatorIndex>; DisabledValidators;
 	fn request_async_backing_params() -> AsyncBackingParams; AsyncBackingParams;
+	fn request_claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>>; ClaimQueue;
 }
 
 /// Requests executor parameters from the runtime effective at given relay-parent. First obtains
