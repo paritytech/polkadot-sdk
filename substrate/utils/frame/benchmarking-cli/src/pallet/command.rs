@@ -207,13 +207,6 @@ impl PalletCmd {
 			return self.output_from_results(&batches)
 		}
 
-		let pallet = self.pallet.clone().unwrap_or_default();
-		let pallet = pallet.as_bytes();
-
-		let extrinsic = self.extrinsic.clone().unwrap_or_default();
-		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
-		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
-
 		let (genesis_storage, genesis_changes) =
 			self.genesis_storage::<Hasher, ExtraHostFunctions>(&chain_spec)?;
 		let mut changes = genesis_changes.clone();
@@ -273,52 +266,7 @@ impl PalletCmd {
 			)?;
 
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
-		let mut benchmarks_to_run = Vec::new();
-		list.iter()
-			.filter(|item| pallet.is_empty() || pallet == &b"*"[..] || pallet == &item.pallet[..])
-			.for_each(|item| {
-				for benchmark in &item.benchmarks {
-					let benchmark_name = &benchmark.name;
-					if extrinsic.is_empty() ||
-						extrinsic.as_bytes() == &b"*"[..] ||
-						extrinsics.contains(&&benchmark_name[..])
-					{
-						benchmarks_to_run.push((
-							item.pallet.clone(),
-							benchmark.name.clone(),
-							benchmark.components.clone(),
-							benchmark.pov_modes.clone(),
-						))
-					}
-				}
-			});
-		// Convert `Vec<u8>` to `String` for better readability.
-		let benchmarks_to_run: Vec<_> = benchmarks_to_run
-			.into_iter()
-			.map(|(pallet, extrinsic, components, pov_modes)| {
-				let pallet_name =
-					String::from_utf8(pallet.clone()).expect("Encoded from String; qed");
-				let extrinsic_name =
-					String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed");
-				(
-					pallet,
-					extrinsic,
-					components,
-					pov_modes
-						.into_iter()
-						.map(|(p, s)| {
-							(String::from_utf8(p).unwrap(), String::from_utf8(s).unwrap())
-						})
-						.collect(),
-					pallet_name,
-					extrinsic_name,
-				)
-			})
-			.collect();
-
-		if benchmarks_to_run.is_empty() {
-			return Err("No benchmarks found which match your input.".into())
-		}
+		let benchmarks_to_run = self.select_benchmarks_to_run(list)?;
 
 		if let Some(list_output) = self.list {
 			list_benchmark(benchmarks_to_run, list_output, self.no_csv_header);
@@ -554,7 +502,78 @@ impl PalletCmd {
 		let batches = combine_batches(batches, batches_db);
 		self.output(&batches, &storage_info, &component_ranges, pov_modes)
 	}
-	// 5:36
+
+	fn select_benchmarks_to_run(
+		&self,
+		list: Vec<BenchmarkList>,
+	) -> Result<
+		Vec<(
+			Vec<u8>,
+			Vec<u8>,
+			Vec<(BenchmarkParameter, u32, u32)>,
+			Vec<(String, String)>,
+			String,
+			String,
+		)>,
+	> {
+		let pallet = self.pallet.clone().unwrap_or_default();
+		let pallet = pallet.as_bytes();
+
+		let extrinsic = self.extrinsic.clone().unwrap_or_default();
+		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
+		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
+
+		// Use the benchmark list and the user input to determine the set of benchmarks to run.
+		let mut benchmarks_to_run = Vec::new();
+		list.iter()
+			.filter(|item| pallet.is_empty() || pallet == &b"*"[..] || pallet == &item.pallet[..])
+			.for_each(|item| {
+				for benchmark in &item.benchmarks {
+					let benchmark_name = &benchmark.name;
+					if extrinsic.is_empty() ||
+						extrinsic.as_bytes() == &b"*"[..] ||
+						extrinsics.contains(&&benchmark_name[..])
+					{
+						benchmarks_to_run.push((
+							item.pallet.clone(),
+							benchmark.name.clone(),
+							benchmark.components.clone(),
+							benchmark.pov_modes.clone(),
+						))
+					}
+				}
+			});
+		// Convert `Vec<u8>` to `String` for better readability.
+		let benchmarks_to_run: Vec<_> = benchmarks_to_run
+			.into_iter()
+			.map(|(pallet, extrinsic, components, pov_modes)| {
+				let pallet_name =
+					String::from_utf8(pallet.clone()).expect("Encoded from String; qed");
+				let extrinsic_name =
+					String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed");
+				(
+					pallet,
+					extrinsic,
+					components,
+					pov_modes
+						.into_iter()
+						.map(|(p, s)| {
+							(String::from_utf8(p).unwrap(), String::from_utf8(s).unwrap())
+						})
+						.collect(),
+					pallet_name,
+					extrinsic_name,
+				)
+			})
+			.collect();
+
+		if benchmarks_to_run.is_empty() {
+			return Err("No benchmarks found which match your input.".into())
+		}
+
+		Ok(benchmarks_to_run)
+	}
+
 	/// Produce a genesis storage and genesis changes.
 	///
 	/// It would be easier to only return one type, but there is no easy way to convert them.
