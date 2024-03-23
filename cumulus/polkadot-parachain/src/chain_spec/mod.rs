@@ -17,7 +17,7 @@
 use parachains_common::{AccountId, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
-use sp_core::crypto::{CryptoType, Pair};
+use sp_core::crypto::{CryptoType, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 pub mod asset_hubs;
@@ -76,5 +76,5 @@ where
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
 pub fn get_collator_keys_from_seed<AuraId: Public>(seed: &str) -> AuraId {
-	get_from_seed(seed)
+	get_from_seed::<AuraId>(seed)
 }
