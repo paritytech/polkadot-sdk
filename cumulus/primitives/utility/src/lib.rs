@@ -203,7 +203,7 @@ impl<
 
 			// Calculate asset_balance
 			// This read should have already be cached in buy_weight
-			let (asset_balance, outstanding_minus_substracted) =
+			let (asset_balance, outstanding_minus_subtracted) =
 				FeeCharger::charge_weight_in_fungibles(local_asset_id, weight).ok().map(
 					|asset_balance| {
 						// Require at least a drop of minimum_balance
@@ -221,14 +221,13 @@ impl<
 				)?;
 
 			// Convert balances into u128
-			let outstanding_minus_substracted: u128 =
-				outstanding_minus_substracted.saturated_into();
+			let outstanding_minus_subtracted: u128 = outstanding_minus_subtracted.saturated_into();
 			let asset_balance: u128 = asset_balance.saturated_into();
 
 			// Construct outstanding_concrete_asset with the same location id and subtracted
 			// balance
 			let outstanding_concrete_asset: Asset =
-				(id.clone(), outstanding_minus_substracted).into();
+				(id.clone(), outstanding_minus_subtracted).into();
 
 			// Subtract from existing weight and balance
 			weight_outstanding = weight_outstanding.saturating_sub(weight);
