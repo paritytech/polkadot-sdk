@@ -205,7 +205,7 @@ impl TestConfiguration {
 		let peer_id_to_authority = peer_ids
 			.iter()
 			.zip(validator_authority_id.iter())
-			.map(|(peer_id, authorithy_id)| (*peer_id, authorithy_id.clone()))
+			.map(|(peer_id, authority_id)| (*peer_id, authority_id.clone()))
 			.collect();
 
 		TestAuthorities {
