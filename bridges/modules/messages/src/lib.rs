@@ -950,11 +950,11 @@ mod tests {
 
 		let outbound_lane = outbound_lane::<TestRuntime, ()>(lane_id);
 		let message_nonce = outbound_lane.data().latest_generated_nonce + 1;
-		let prev_enqueud_messages = outbound_lane.data().queued_messages().saturating_len();
+		let prev_enqueued_messages = outbound_lane.data().queued_messages().saturating_len();
 		let valid_message = Pallet::<TestRuntime, ()>::validate_message(lane_id, &REGULAR_PAYLOAD)
 			.expect("validate_message has failed");
 		let artifacts = Pallet::<TestRuntime, ()>::send_message(valid_message);
-		assert_eq!(artifacts.enqueued_messages, prev_enqueud_messages + 1);
+		assert_eq!(artifacts.enqueued_messages, prev_enqueued_messages + 1);
 
 		// check event with assigned nonce
 		assert_eq!(
