@@ -11,7 +11,5 @@ mod system;
 mod timestamp;
 mod transaction_payment;
 
-use crate::*;
-
 impl parachain_info::Config for Runtime {}
 impl cumulus_pallet_aura_ext::Config for Runtime {}
