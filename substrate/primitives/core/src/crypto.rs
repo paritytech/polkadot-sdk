@@ -488,14 +488,26 @@ pub trait ByteArray: AsRef<[u8]> + AsMut<[u8]> + for<'a> TryFrom<&'a [u8], Error
 
 /// Trait for cryptographic public keys.
 pub trait Public:
-	CryptoType<Public = Self> + ByteArray + Derive + PartialEq + Eq + Clone + Send + Sync + Hash
+	CryptoType<Public = Self> + ByteArray + PartialEq + Eq + Clone + Send + Sync + Hash + Derive
 {
+	/// Verify a signature on a message.
+	///
+	/// Returns true if the signature is good.
+	fn verify(&self, sig: &Self::Signature, message: &[u8]) -> bool {
+		<Self as CryptoType>::Pair::verify(sig, message, self)
+	}
 }
 
 /// Trait for cryptographic key signatures;
 pub trait Signature:
 	CryptoType<Signature = Self> + ByteArray + PartialEq + Eq + Clone + Send + Sync + Hash
 {
+	/// Verify a signature on a message.
+	///
+	/// Returns true if the signature is good.
+	fn verify(&self, public: &Self::Public, message: &[u8]) -> bool {
+		public.verify(self, message)
+	}
 }
 
 /// An opaque 32-byte cryptographic identifier.
