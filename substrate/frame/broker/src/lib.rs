@@ -25,6 +25,7 @@ mod benchmarking;
 mod core_mask;
 mod coretime_interface;
 mod dispatchable_impls;
+mod migrations;
 #[cfg(test)]
 mod mock;
 mod nonfungible_impl;
@@ -59,7 +60,10 @@ pub mod pallet {
 	use sp_runtime::traits::{Convert, ConvertBack};
 	use sp_std::vec::Vec;
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -274,10 +278,11 @@ pub mod pallet {
 		},
 		/// A new sale has been initialized.
 		SaleInitialized {
-			/// The local block number at which the sale will/did start.
-			sale_start: BlockNumberFor<T>,
-			/// The length in blocks of the Leadin Period (where the price is decreasing).
-			leadin_length: BlockNumberFor<T>,
+			/// The relay block number at which the sale will/did start.
+			sale_start: RelayBlockNumberOf<T>,
+			/// The length in relay chain blocks of the Leadin Period (where the price is
+			/// decreasing).
+			leadin_length: RelayBlockNumberOf<T>,
 			/// The price of Bulk Coretime at the beginning of the Leadin Period.
 			start_price: BalanceOf<T>,
 			/// The price of Bulk Coretime after the Leadin Period.
