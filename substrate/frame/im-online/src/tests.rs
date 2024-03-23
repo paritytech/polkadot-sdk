@@ -26,10 +26,7 @@ use sp_core::offchain::{
 	testing::{TestOffchainExt, TestTransactionPoolExt},
 	OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
 };
-use sp_runtime::{
-	testing::UintAuthorityId,
-	transaction_validity::{InvalidTransaction, TransactionValidityError},
-};
+use sp_runtime::testing::UintAuthorityId;
 
 #[test]
 fn test_unresponsiveness_slash_fraction() {
@@ -267,14 +264,14 @@ fn should_cleanup_received_heartbeats_on_session_end() {
 		let _ = heartbeat(1, 2, 0, 1.into(), Session::validators()).unwrap();
 
 		// the heartbeat is stored
-		assert!(!ImOnline::received_heartbeats(&2, &0).is_none());
+		assert!(!super::pallet::ReceivedHeartbeats::<Runtime>::get(2, 0).is_none());
 
 		advance_session();
 
 		// after the session has ended we have already processed the heartbeat
 		// message, so any messages received on the previous session should have
 		// been pruned.
-		assert!(ImOnline::received_heartbeats(&2, &0).is_none());
+		assert!(super::pallet::ReceivedHeartbeats::<Runtime>::get(2, 0).is_none());
 	});
 }
 
