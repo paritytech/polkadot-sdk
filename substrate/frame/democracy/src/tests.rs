@@ -28,7 +28,6 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::{EnsureRoot, EnsureSigned, EnsureSignedBy};
-use pallet_balances::{BalanceLock, Error as BalancesError};
 use sp_runtime::{
 	traits::{BadOrigin, BlakeTwo256, Hash},
 	BuildStorage, Perbill,
@@ -62,7 +61,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-// Test that a fitlered call can be dispatched.
+// Test that a filtered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -118,10 +117,10 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<10>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 parameter_types! {
 	pub static PreimageByteDeposit: u64 = 0;
@@ -146,7 +145,9 @@ impl SortedMembers<u64> for OneToFive {
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = pallet_balances::Pallet<Self>;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type Fungible = Balances;
 	type EnactmentPeriod = ConstU64<2>;
 	type LaunchPeriod = ConstU64<2>;
 	type VotingPeriod = ConstU64<2>;
@@ -237,20 +238,28 @@ fn begin_referendum() -> ReferendumIndex {
 	0
 }
 
+fn balance_freezable_of(who: u64) -> u64 {
+	Balances::balance_freezable(&who)
+}
+
+fn balance_frozen_of(who: u64) -> u64 {
+	Balances::balance_frozen(&FreezeReason::Vote.into(), &who)
+}
+
 fn aye(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: AYE, balance: Balances::free_balance(&who) }
+	AccountVote::Standard { vote: AYE, balance: balance_freezable_of(who) }
 }
 
 fn nay(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: NAY, balance: Balances::free_balance(&who) }
+	AccountVote::Standard { vote: NAY, balance: balance_freezable_of(who) }
 }
 
 fn big_aye(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: BIG_AYE, balance: Balances::free_balance(&who) }
+	AccountVote::Standard { vote: BIG_AYE, balance: balance_freezable_of(who) }
 }
 
 fn big_nay(who: u64) -> AccountVote<u64> {
-	AccountVote::Standard { vote: BIG_NAY, balance: Balances::free_balance(&who) }
+	AccountVote::Standard { vote: BIG_NAY, balance: balance_freezable_of(who) }
 }
 
 fn tally(r: ReferendumIndex) -> Tally<u64> {

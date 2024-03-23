@@ -1,0 +1,9 @@
+title: "Fungibles: migrate Democracy pallet"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Migrate the Democracy pallet to use the new Fungible traits.
+
+crates:
+  - name: pallet-democracy

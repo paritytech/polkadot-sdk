@@ -18,6 +18,7 @@
 //! The tests for the public proposal queue.
 
 use super::*;
+use sp_runtime::TokenError;
 
 #[test]
 fn backing_for_should_work() {
@@ -70,7 +71,7 @@ fn proposal_with_deposit_below_minimum_should_not_work() {
 #[test]
 fn poor_proposer_should_not_work() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(propose_set_balance(1, 2, 11), BalancesError::<Test, _>::InsufficientBalance);
+		assert_noop!(propose_set_balance(1, 2, 11), TokenError::FundsUnavailable);
 	});
 }
 
@@ -78,10 +79,7 @@ fn poor_proposer_should_not_work() {
 fn poor_seconder_should_not_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(propose_set_balance(2, 2, 11));
-		assert_noop!(
-			Democracy::second(RuntimeOrigin::signed(1), 0),
-			BalancesError::<Test, _>::InsufficientBalance
-		);
+		assert_noop!(Democracy::second(RuntimeOrigin::signed(1), 0), TokenError::FundsUnavailable);
 	});
 }
 

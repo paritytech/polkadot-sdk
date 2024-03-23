@@ -15,8 +15,24 @@
 
 //! All migrations of this pallet.
 
-/// Migration to unlock and unreserve all pallet funds.
-pub mod unlock_and_unreserve_all_funds;
+pub mod v2;
 
-/// V1 storage migrations for the preimage pallet.
-pub mod v1;
+use codec::{Decode, Encode, MaxEncodedLen};
+
+/// The Migration identifier.
+/// See [`SteppedMigration::Identifier`](`frame_support::migrations::SteppedMigration::Identifier`)
+#[derive(MaxEncodedLen, Encode, Decode)]
+pub struct MigrationIdentifier {
+	pallet_identifier: [u8; 20],
+	version_to: u8,
+}
+
+impl MigrationIdentifier {
+	/// Create a new migration identifier.
+	pub fn new(version_to: u8) -> Self {
+		Self { pallet_identifier: *PALLET_MIGRATIONS_ID, version_to }
+	}
+}
+
+/// A unique migration identifier across all pallets.
+const PALLET_MIGRATIONS_ID: &[u8; 20] = b"pallet-democracy-mbm";
