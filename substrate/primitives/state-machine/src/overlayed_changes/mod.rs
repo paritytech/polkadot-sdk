@@ -575,10 +575,10 @@ impl<H: Hasher> OverlayedChanges<H> {
 		};
 
 		use core::mem::take;
-		let main_storage_changes = take(&mut self.top).drain_commited();
+		let main_storage_changes = take(&mut self.top).drain_committed();
 		let child_storage_changes = take(&mut self.children)
 			.into_iter()
-			.map(|(key, (val, info))| (key, (val.drain_commited(), info)));
+			.map(|(key, (val, info))| (key, (val.drain_committed(), info)));
 
 		let offchain_storage_changes = self.offchain_drain_committed().collect();
 

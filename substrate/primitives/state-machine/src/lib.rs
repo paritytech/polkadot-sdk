@@ -1451,7 +1451,7 @@ mod tests {
 		enum Item {
 			InitializationItem,
 			DiscardedItem,
-			CommitedItem,
+			CommittedItem,
 		}
 
 		let key = b"events".to_vec();
@@ -1488,11 +1488,11 @@ mod tests {
 
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::InitializationItem].encode()));
 
-			ext.storage_append(key.clone(), Item::CommitedItem.encode());
+			ext.storage_append(key.clone(), Item::CommittedItem.encode());
 
 			assert_eq!(
 				ext.storage(key.as_slice()),
-				Some(vec![Item::InitializationItem, Item::CommitedItem].encode()),
+				Some(vec![Item::InitializationItem, Item::CommittedItem].encode()),
 			);
 		}
 		overlay.start_transaction();
@@ -1502,7 +1502,7 @@ mod tests {
 			let ext = Ext::new(&mut overlay, backend, None);
 			assert_eq!(
 				ext.storage(key.as_slice()),
-				Some(vec![Item::InitializationItem, Item::CommitedItem].encode()),
+				Some(vec![Item::InitializationItem, Item::CommittedItem].encode()),
 			);
 		}
 	}
