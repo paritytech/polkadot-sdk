@@ -48,9 +48,9 @@ fn genesis_session_initializes_authorities() {
 	let want = authorities.clone();
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
-        let authorities = beefy::Authorities::<Test>::get();
+		let authorities = beefy::Authorities::<Test>::get();
 
-        assert_eq!(authorities.len(), 4);
+		assert_eq!(authorities.len(), 4);
 		assert_eq!(want[0], authorities[0]);
 		assert_eq!(want[1], authorities[1]);
 
@@ -69,12 +69,14 @@ fn session_change_updates_authorities() {
 	let authorities = mock_authorities(vec![1, 2, 3, 4]);
 	let want_validators = authorities.clone();
 
-	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
-        assert!(0 == beefy::ValidatorSetId::<Test>::get());
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			assert!(0 == beefy::ValidatorSetId::<Test>::get());
 
-        init_block(1);
+			init_block(1);
 
-		assert!(1 == beefy::ValidatorSetId::<Test>::get());
+			assert!(1 == beefy::ValidatorSetId::<Test>::get());
 
 			let want = beefy_log(ConsensusLog::AuthoritiesChange(
 				ValidatorSet::new(want_validators, 1).unwrap(),
@@ -85,7 +87,7 @@ fn session_change_updates_authorities() {
 
 			init_block(2);
 
-		assert!(2 == beefy::ValidatorSetId::<Test>::get());
+			assert!(2 == beefy::ValidatorSetId::<Test>::get());
 
 			let want = beefy_log(ConsensusLog::AuthoritiesChange(
 				ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(4)], 2).unwrap(),
@@ -100,18 +102,20 @@ fn session_change_updates_authorities() {
 fn session_change_updates_next_authorities() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
-	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
-        let next_authorities = beefy::NextAuthorities::<Test>::get();
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			let next_authorities = beefy::NextAuthorities::<Test>::get();
 
-        assert_eq!(next_authorities.len(), 4);
-		assert_eq!(want[0], next_authorities[0]);
-		assert_eq!(want[1], next_authorities[1]);
-		assert_eq!(want[2], next_authorities[2]);
-		assert_eq!(want[3], next_authorities[3]);
+			assert_eq!(next_authorities.len(), 4);
+			assert_eq!(want[0], next_authorities[0]);
+			assert_eq!(want[1], next_authorities[1]);
+			assert_eq!(want[2], next_authorities[2]);
+			assert_eq!(want[3], next_authorities[3]);
 
 			init_block(1);
 
-		let next_authorities = beefy::NextAuthorities::<Test>::get();
+			let next_authorities = beefy::NextAuthorities::<Test>::get();
 
 			assert_eq!(next_authorities.len(), 2);
 			assert_eq!(want[1], next_authorities[0]);
@@ -180,25 +184,25 @@ fn cleans_up_old_set_id_session_mappings() {
 			// go through `max_set_id_session_entries` sessions
 			start_era(era_limit);
 
-		// we should have a session id mapping for all the set ids from
-		// `max_set_id_session_entries` eras we have observed
-		for i in 1..=max_set_id_session_entries {
-			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
-		}
+			// we should have a session id mapping for all the set ids from
+			// `max_set_id_session_entries` eras we have observed
+			for i in 1..=max_set_id_session_entries {
+				assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
+			}
 
 			// go through another `max_set_id_session_entries` sessions
 			start_era(era_limit * 2);
 
-		// we should keep tracking the new mappings for new sessions
-		for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
-			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
-		}
+			// we should keep tracking the new mappings for new sessions
+			for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
+				assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
+			}
 
-		// but the old ones should have been pruned by now
-		for i in 1..=max_set_id_session_entries {
-			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_none());
-		}
-	});
+			// but the old ones should have been pruned by now
+			for i in 1..=max_set_id_session_entries {
+				assert!(beefy::SetIdSession::<Test>::get(i as u64).is_none());
+			}
+		});
 }
 
 /// Returns a list with 3 authorities with known keys:
