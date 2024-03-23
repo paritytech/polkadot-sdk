@@ -80,7 +80,7 @@ pub trait WeightInfo {
 	fn chill_other() -> Weight;
 	fn force_apply_min_commission() -> Weight;
 	fn set_min_commission() -> Weight;
-	fn reset_ledger() -> Weight;
+	fn restore_ledger() -> Weight;
 }
 
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
@@ -805,7 +805,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
 	/// to be re-written by CI bot.
-	fn reset_ledger() -> Weight {
+	fn restore_ledger() -> Weight {
 		Default::default()
 	}
 }
@@ -1531,7 +1531,7 @@ impl WeightInfo for () {
 	}
 
 	/// to be re-written by CI bot.
-	fn reset_ledger() -> Weight {
+	fn restore_ledger() -> Weight {
 		Default::default()
 	}
 }

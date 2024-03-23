@@ -786,6 +786,15 @@ pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> 
 	Ok(())
 }
 
+pub(crate) fn set_controller_simulate(stash: &AccountId) {
+	let controller = Bonded::<Test>::get(stash).expect("testing stash should be bonded");
+	let ledger = Ledger::<Test>::get(&controller).expect("testing ledger should exist");
+
+	Ledger::<Test>::remove(&controller);
+	Ledger::<Test>::insert(stash, ledger);
+	Bonded::<Test>::insert(stash, stash);
+}
+
 pub(crate) fn setup_double_bonded_ledgers() {
 	let init_ledgers = Ledger::<Test>::iter().count();
 

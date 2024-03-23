@@ -491,6 +491,15 @@ pub struct StakingLedger<T: Config> {
 	controller: Option<T::AccountId>,
 }
 
+/// State of a ledger with regards with its data and metadata integrity.
+#[derive(PartialEq, Debug)]
+enum LedgerIntegrityState {
+	/// Ledger and corresponding staking lock is OK.
+	Ok,
+	Corrupted,
+	CorruptedKilled,
+}
+
 impl<T: Config> StakingLedger<T> {
 	/// Remove entries from `unlocking` that are sufficiently old and reduce the
 	/// total by the sum of their balances.

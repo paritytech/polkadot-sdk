@@ -953,7 +953,7 @@ benchmarks! {
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 	}
 
-	reset_ledger {
+	restore_ledger {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
 		Ledger::<T>::remove(controller);

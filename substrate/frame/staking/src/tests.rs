@@ -7072,7 +7072,7 @@ mod ledger {
 
 	#[test]
 	fn deprecate_controller_batch_works_full_weight() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			// Given:
 
 			let start = 1001;
@@ -7325,56 +7325,277 @@ mod ledger {
 	}
 }
 
-mod bad_state_recovery {
+mod ledger_recovery {
 	use super::*;
 	use frame_support::traits::InspectLockableCurrency;
 
 	#[test]
-	fn reset_ledger_default_works() {
+	fn inspect_recovery_ledger_simple_works() {
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// non corrupted ledger.
+			assert_eq!(Staking::inspect_bond_state(&11).unwrap(), LedgerIntegrityState::Ok);
+
+			// non bonded stash.
+			assert!(Bonded::<Test>::get(&1111).is_none());
+			assert!(Staking::inspect_bond_state(&1111).is_err());
+
+			// double bonded but not corrupted.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+		})
+	}
+
+	#[test]
+	fn inspect_recovery_ledger_corupted_killed_works() {
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// kill(333)
+			// (444, 444) -> corrupted and None.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_simulate(&444);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// 333 is corrupted since it's controller is linking 444 ledger.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// 444 however is OK.
+			assert_eq!(Staking::inspect_bond_state(&444).unwrap(), LedgerIntegrityState::Ok);
+
+			// kill the corrupted ledger that is associated with stash 333.
+			assert_ok!(StakingLedger::<Test>::kill(&333));
+
+			// 333 bond is no more but it returns `BadState` because the lock on this stash is
+			// still set (see checks below).
+			assert_eq!(Staking::inspect_bond_state(&333), Err(Error::<Test>::BadState));
+			// now the *other* ledger associated with 444 has been corrupted and killed (None).
+			assert_eq!(
+				Staking::inspect_bond_state(&444),
+				Ok(LedgerIntegrityState::CorruptedKilled)
+			);
+
+			// side effects on 333 - ledger, bonded, payee, lock should be completely empty.
+			// however, 333 lock remains.
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // NOK
+			assert!(Bonded::<Test>::get(&333).is_none()); // OK
+			assert!(Payee::<Test>::get(&333).is_none()); // OK
+			assert!(Ledger::<Test>::get(&444).is_none()); // OK
+
+			// side effects on 444 - ledger, bonded, payee, lock should remain be intact.
+			// however, 444 lock was removed.
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), 0); // NOK
+			assert!(Bonded::<Test>::get(&444).is_some()); // OK
+			assert!(Payee::<Test>::get(&444).is_some()); // OK
+			assert!(Ledger::<Test>::get(&555).is_none()); // NOK
+
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+		})
+	}
+
+	#[test]
+	fn inspect_recovery_ledger_corupted_killed_other_works() {
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// kill(444)
+			// (333, 444) -> corrupted and None
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_simulate(&444);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// 333 is corrupted since it's controller is linking 444 ledger.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// 444 however is OK.
+			assert_eq!(Staking::inspect_bond_state(&444).unwrap(), LedgerIntegrityState::Ok);
+
+			// kill the *other* ledger that is double bonded but not corrupted.
+			assert_ok!(StakingLedger::<Test>::kill(&444));
+
+			// now 333 is corrupted and None through the *other* ledger being killed.
+			assert_eq!(
+				Staking::inspect_bond_state(&333).unwrap(),
+				LedgerIntegrityState::CorruptedKilled,
+			);
+			// 444 is cleaned and not a stash anymore; no lock left behind.
+			assert_eq!(Ledger::<Test>::get(&444), None);
+			assert_eq!(Staking::inspect_bond_state(&444), Err(Error::<Test>::NotStash));
+
+			// side effects on 333 - ledger, bonded, payee, lock should be intact.
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before); // OK
+			assert_eq!(Bonded::<Test>::get(&333), Some(444)); // OK
+			assert!(Payee::<Test>::get(&333).is_some()); // OK
+											 // however, ledger associated with its controller was killed.
+			assert!(Ledger::<Test>::get(&444).is_none()); // NOK
+
+			// side effects on 444 - ledger, bonded, payee, lock should be completely removed.
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), 0); // OK
+			assert!(Bonded::<Test>::get(&444).is_none()); // OK
+			assert!(Payee::<Test>::get(&444).is_none()); // OK
+			assert!(Ledger::<Test>::get(&555).is_none()); // OK
+
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+		})
+	}
+
+	// Corrupted ledger restore.
+	//
+	// * Double bonded and corrupted ledger.
+	#[test]
+	fn restore_ledger_corrupted_works() {
 		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			setup_double_bonded_ledgers();
 
-			let ledger_before_corruption =
-				StakingLedger::<Test>::get(StakingAccount::Stash(444)).unwrap();
-			let locked_before_corruption = Balances::balance_locked(crate::STAKING_ID, &444);
+			// get into corrupted and killed ledger state.
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_simulate(&444);
 
-			// remove ledger 444 (controlled by 555) to simulate a corruption with deletion.
-			assert_eq!(Bonded::<Test>::get(&444), Some(555));
-			Ledger::<Test>::remove(&555);
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
 
-			// double-check bad state.
-			assert!(StakingLedger::<Test>::get(StakingAccount::Stash(444)).is_err());
-			assert_eq!(Bonded::<Test>::iter().count(), 8);
-			assert_eq!(Payee::<Test>::iter().count(), 8);
-			assert_eq!(Ledger::<Test>::iter().count(), 7);
-			// in sum, try-state checks won't pass.
+			// now try-state fails.
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
-			// ledger bonded by stash 333 is OK and does not need fixing.
-			assert_noop!(
-				Staking::reset_ledger(RuntimeOrigin::root(), 333, None, None),
-				Error::<Test>::CannotResetLedger,
-			);
-			assert!(Staking::do_try_state(System::block_number()).is_err());
-
-			// 444 is in a bad state and we can reset it. let's reset it to the default, on-chain
-			// state.
-			assert_ok!(Staking::reset_ledger(RuntimeOrigin::root(), 444, None, None));
-
-			// now the ledger can be feteched though the stash and the correct controller.
-			let ledger_reset = StakingLedger::<Test>::get(StakingAccount::Stash(444)).unwrap();
-			assert_eq!(
-				ledger_reset.clone(),
-				StakingLedger::<Test>::get(StakingAccount::Controller(555)).unwrap()
-			);
-			// reset lock is the same before corruption.
-			assert_eq!(locked_before_corruption, Balances::balance_locked(crate::STAKING_ID, &444));
-
-			// ledger is the same before corruption.
-			assert_eq!(ledger_reset, ledger_before_corruption);
+			// recover the ledger bonded by 333 stash.
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
 
 			// try-state checks are ok now.
 			assert_ok!(Staking::do_try_state(System::block_number()));
+		})
+	}
+
+	// Corrupted and killed ledger restore.
+	//
+	// * Double bonded and corrupted ledger.
+	// * Ledger killed by own controller.
+	#[test]
+	fn restore_ledger_corrupted_killed_works() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// ledger.total == lock
+			let total_444_before_corruption = Balances::balance_locked(crate::STAKING_ID, &444);
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// kill(333)
+			// (444, 444) -> corrupted and None.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_simulate(&444);
+
+			// kill the corrupted ledger that is associated with stash 333.
+			assert_ok!(StakingLedger::<Test>::kill(&333));
+
+			// 333 bond is no more but it returns `BadState` because the lock on this stash is
+			// still set (see checks below).
+			assert_eq!(Staking::inspect_bond_state(&333), Err(Error::<Test>::BadState));
+			// now the *other* ledger associated with 444 has been corrupted and killed (None).
+			assert!(Staking::ledger(StakingAccount::Stash(444)).is_err());
+
+			// try-state should fail.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// recover the ledger bonded by 333 stash.
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
+
+			// for the try-state checks to pass, we also need to recover the stash 444 which is
+			// corrupted too by proxy of kill(333). Currently, both the lock and the ledger of 444
+			// have been cleared so we need to provide the new amount to restore the ledger.
+			assert_noop!(
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None,),
+				Error::<Test>::CannotResetLedger
+			);
+
+			assert_ok!(Staking::restore_ledger(
+				RuntimeOrigin::root(),
+				444,
+				None,
+				Some(total_444_before_corruption)
+			));
+
+			// try-state checks are ok now.
+			assert_ok!(Staking::do_try_state(System::block_number()));
+		})
+	}
+
+	// Corrupted and killed by *other* ledger restore.
+	//
+	// * Double bonded and corrupted ledger.
+	// * Ledger killed by own controller.
+	#[test]
+	fn restore_ledger_corrupted_killed_other_works() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// kill(444)
+			// (333, 444) -> corrupted and None
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_simulate(&444);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// 333 is corrupted since it's controller is linking 444 ledger.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// 444 however is OK.
+			assert_eq!(Staking::inspect_bond_state(&444).unwrap(), LedgerIntegrityState::Ok);
+
+			// kill the *other* ledger that is double bonded but not corrupted.
+			assert_ok!(StakingLedger::<Test>::kill(&444));
+
+			// recover the ledger bonded by 333 stash.
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
+
+			// 444 does not need recover in this case since it's been killed successfully.
+			assert_eq!(Staking::inspect_bond_state(&444), Err(Error::<Test>::NotStash));
+
+			// try-state checks are ok now.
+			assert_ok!(Staking::do_try_state(System::block_number()));
+		})
+	}
+
+	#[test]
+	fn restore_ledger_inconsistent_locks_works() {
+		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
+			setup_double_bonded_ledgers();
 		})
 	}
 }
