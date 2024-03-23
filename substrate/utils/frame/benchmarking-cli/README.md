@@ -49,16 +49,10 @@ It currently only supports pallet benchmarking, since the other commands still r
 
 ## Installation
 
-Installing from local source repository is faster than waiting for a re-clone:
+Installing from local source repository:
 
 ```sh
-cargo install --locked --path substrate/utils/frame/benchmarking-cli --profile=production
-```
-
-Otherwise from the git repository:
-
-```sh
-cargo install --locked --git https://github.com/paritytech/polkadot-sdk.git --bin frame-benchmarking-cli --profile=production
+cargo install --locked --path substrate/utils/frame/omni-bencher --profile=production
 ```
 
 ## Usage
@@ -75,7 +69,8 @@ cargo build -p westend-runtime --profile production --features runtime-benchmark
 Now the benchmarking can be started with:
 
 ```sh
-frame-benchmarking-cli v1 benchmark pallet \
+polkadot-omni-bencher v1 \
+    benchmark pallet \
     --runtime target/release/wbuild/westend-runtime/westend-runtime.compact.compressed.wasm \
     --pallet "pallet_balances" --extrinsic ""
 ```

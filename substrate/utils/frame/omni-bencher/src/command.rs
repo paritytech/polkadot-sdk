@@ -42,7 +42,7 @@ use sp_runtime::traits::BlakeTwo256;
 /// or when the sources are locally checked out:
 ///
 /// ```sh
-/// cargo install --locked --path substrate/utils/frame/omni-bencher
+/// cargo install --locked --path substrate/utils/frame/omni-bencher --profile=production
 /// ```
 ///
 /// Check the installed version and print the docs:
