@@ -1,4 +1,4 @@
-use super::session;
+use super::session::Period;
 use crate::*;
 
 parameter_types! {
@@ -23,7 +23,7 @@ impl pallet_collator_selection::Config for Runtime {
 	type MinEligibleCollators = ConstU32<4>;
 	type MaxInvulnerables = ConstU32<20>;
 	// should be a multiple of session or things will get inconsistent
-	type KickThreshold = session::Period;
+	type KickThreshold = Period;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
