@@ -112,7 +112,7 @@ const COST_EXCESSIVE_SECONDED: Rep = Rep::CostMinor("Sent Excessive `Seconded` S
 const COST_DISABLED_VALIDATOR: Rep = Rep::CostMinor("Sent a statement from a disabled validator");
 
 const COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE: Rep =
-	Rep::CostMinor("Unexpected Manifest, missing knowlege for relay parent");
+	Rep::CostMinor("Unexpected Manifest, missing knowledge for relay parent");
 const COST_UNEXPECTED_MANIFEST_DISALLOWED: Rep =
 	Rep::CostMinor("Unexpected Manifest, Peer Disallowed");
 const COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN: Rep =

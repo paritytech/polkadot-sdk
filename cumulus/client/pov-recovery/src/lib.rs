@@ -495,7 +495,7 @@ where
 					tracing::debug!(
 						target: LOG_TARGET,
 						block_hash = ?hash,
-						"Cound not recover. Block was never announced as candidate"
+						"Could not recover. Block was never announced as candidate"
 					);
 					return
 				},

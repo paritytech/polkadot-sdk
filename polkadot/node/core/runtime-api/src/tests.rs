@@ -1042,7 +1042,7 @@ fn requests_submit_pvf_check_statement() {
 		let _ = rx.await.unwrap().unwrap();
 
 		assert_eq!(
-			&*subsystem_client.submitted_pvf_check_statement.lock().expect("poisened mutex"),
+			&*subsystem_client.submitted_pvf_check_statement.lock().expect("poisoned mutex"),
 			&[(stmt.clone(), sig.clone()), (stmt.clone(), sig.clone())]
 		);
 

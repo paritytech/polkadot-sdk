@@ -479,7 +479,7 @@ mod tests {
 			assert_ok!(ParachainPalletXcm::send_xcm(alice, Parent, message));
 		});
 		ParaA::execute_with(|| {
-			log::debug!(target: "xcm-exceutor", "Hello");
+			log::debug!(target: "xcm-executor", "Hello");
 			assert_eq!(
 				parachain::ForeignUniques::owner((Parent, GeneralIndex(2)).into(), 69u32.into()),
 				Some(ALICE),

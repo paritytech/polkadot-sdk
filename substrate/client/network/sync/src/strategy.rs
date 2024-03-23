@@ -438,7 +438,7 @@ where
 		} else if let Some(ref chain_sync) = self.chain_sync {
 			chain_sync.status()
 		} else {
-			unreachable!("At least one syncing startegy is always active; qed")
+			unreachable!("At least one syncing strategy is always active; qed")
 		}
 	}
 

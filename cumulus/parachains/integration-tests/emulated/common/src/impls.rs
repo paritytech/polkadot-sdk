@@ -114,7 +114,7 @@ where
 					.expect("Bridge message does not exist")
 					.into();
 				let payload = Vec::<u8>::decode(&mut &encoded_payload[..])
-					.expect("Decodign XCM message failed");
+					.expect("Decoding XCM message failed");
 				let id: u32 = LaneIdWrapper(*lane).into();
 				let message = BridgeMessage { id, nonce, payload };
 

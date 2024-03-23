@@ -2836,7 +2836,7 @@ pub mod pallet {
 			assert!(
 				T::Staking::bonding_duration() < TotalUnbondingPools::<T>::get(),
 				"There must be more unbonding pools then the bonding duration /
-				so a slash can be applied to relevant unboding pools. (We assume /
+				so a slash can be applied to relevant unbonding pools. (We assume /
 				the bonding duration > slash deffer duration.",
 			);
 		}

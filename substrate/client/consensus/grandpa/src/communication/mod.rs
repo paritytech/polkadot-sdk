@@ -766,7 +766,7 @@ impl<Block: BlockT> Sink<Message<Block::Header>> for OutgoingMessages<Block> {
 			)
 			.ok_or_else(|| {
 				Error::Signing(format!(
-					"Failed to sign GRANDPA vote for round {} targetting {:?}",
+					"Failed to sign GRANDPA vote for round {} targeting {:?}",
 					self.round, target_hash
 				))
 			})?;

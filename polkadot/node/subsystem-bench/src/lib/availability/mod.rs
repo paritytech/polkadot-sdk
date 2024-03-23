@@ -425,7 +425,7 @@ pub async fn benchmark_availability_write(
 
 		// Wait for all bitfields to be processed.
 		env.wait_until_metric(
-			"polkadot_parachain_received_availabilty_bitfields_total",
+			"polkadot_parachain_received_availability_bitfields_total",
 			None,
 			|value| value == (config.connected_count() * block_num) as f64,
 		)

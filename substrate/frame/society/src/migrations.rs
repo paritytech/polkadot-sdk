@@ -293,7 +293,7 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 					member.index = 0;
 				} else {
 					frame_support::defensive!(
-						"Member somehow disapeared from storage after it was inserted"
+						"Member somehow disappeared from storage after it was inserted"
 					);
 				}
 			});
@@ -302,7 +302,7 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 					member.index = member_count;
 				} else {
 					frame_support::defensive!(
-						"Member somehow disapeared from storage after it was queried"
+						"Member somehow disappeared from storage after it was queried"
 					);
 				}
 			});

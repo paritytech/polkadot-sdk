@@ -44,7 +44,7 @@ const EXT_NOT_ALLOWED_TO_FAIL: &str = "Externalities not allowed to fail within 
 const BENCHMARKING_FN: &str = "\
 	This is a special fn only for benchmarking where a database commit happens from the runtime.
 	For that reason client started transactions before calling into runtime are not allowed.
-	Without client transactions the loop condition garantuees the success of the tx close.";
+	Without client transactions the loop condition guarantees the success of the tx close.";
 
 #[cfg(feature = "std")]
 fn guard() -> sp_panic_handler::AbortGuard {
