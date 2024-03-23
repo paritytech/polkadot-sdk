@@ -56,26 +56,26 @@ pub mod const_hex2array;
 pub mod crypto;
 pub mod hexdisplay;
 pub use paste;
-
 mod address_uri;
+pub mod defer;
+pub mod hash;
+#[cfg(feature = "std")]
+mod hasher;
+pub mod offchain;
+pub mod testing;
+#[cfg(feature = "std")]
+pub mod traits;
+pub mod uint;
+
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
 #[cfg(feature = "bls-experimental")]
 pub mod bls;
 pub mod crypto_bytes;
-pub mod defer;
 pub mod ecdsa;
 pub mod ed25519;
-pub mod hash;
-#[cfg(feature = "std")]
-mod hasher;
-pub mod offchain;
 pub mod paired_crypto;
 pub mod sr25519;
-pub mod testing;
-#[cfg(feature = "std")]
-pub mod traits;
-pub mod uint;
 
 #[cfg(feature = "bls-experimental")]
 pub use bls::{bls377, bls381};
