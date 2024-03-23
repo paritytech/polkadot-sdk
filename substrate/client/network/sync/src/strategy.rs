@@ -569,7 +569,7 @@ where
 				},
 			}
 		} else if let Some(state) = &self.state {
-			if state.is_succeded() {
+			if state.is_succeeded() {
 				info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");
 			} else {
 				error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
