@@ -1509,7 +1509,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// the Founder.
 		if MemberCount::<T, I>::get() > 2 {
 			let defender = next_defender
-				.or_else(|| Self::pick_defendent(rng))
+				.or_else(|| Self::pick_defendant(rng))
 				.expect("exited if members empty; qed");
 			let skeptic =
 				Self::pick_member_except(rng, &defender).expect("exited if members empty; qed");
@@ -1871,7 +1871,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// If only the Founder and Head members exist (or the state is inconsistent), then `None`
 	/// may be returned.
-	fn pick_defendent(rng: &mut impl RngCore) -> Option<T::AccountId> {
+	fn pick_defendant(rng: &mut impl RngCore) -> Option<T::AccountId> {
 		let member_count = MemberCount::<T, I>::get();
 		if member_count <= 2 {
 			return None
