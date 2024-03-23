@@ -706,7 +706,7 @@ impl BuildConfiguration {
 	///
 	/// Can be overridden by setting [`crate::WASM_BUILD_TYPE_ENV`].
 	fn detect(target: RuntimeTarget, wasm_project: &Path) -> Self {
-		let (name, overriden) = if let Ok(name) = env::var(crate::WASM_BUILD_TYPE_ENV) {
+		let (name, overridden) = if let Ok(name) = env::var(crate::WASM_BUILD_TYPE_ENV) {
 			(name, true)
 		} else {
 			// First go backwards to the beginning of the target directory.
@@ -731,7 +731,7 @@ impl BuildConfiguration {
 			(name, false)
 		};
 		let outer_build_profile = Profile::iter().find(|p| p.directory() == name);
-		let blob_build_profile = match (outer_build_profile.clone(), overriden) {
+		let blob_build_profile = match (outer_build_profile.clone(), overridden) {
 			// When not overridden by a env variable we default to using the `Release` profile
 			// for the wasm build even when the main build uses the debug build. This
 			// is because the `Debug` profile is too slow for normal development activities.
