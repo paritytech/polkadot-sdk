@@ -758,11 +758,11 @@ impl<T: Config> Pallet<T> {
 		let randomness = hashing::blake2_256(buf.as_slice());
 		RandomnessAccumulator::<T>::put(randomness);
 
-		let next_randoness = Self::update_epoch_randomness(1);
+		let next_randomness = Self::update_epoch_randomness(1);
 
 		// Deposit a log as this is the first block in first epoch.
 		let next_epoch = NextEpochDescriptor {
-			randomness: next_randoness,
+			randomness: next_randomness,
 			authorities: Self::next_authorities().into_inner(),
 			config: None,
 		};
