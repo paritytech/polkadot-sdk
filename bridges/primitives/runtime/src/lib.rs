@@ -56,7 +56,7 @@ mod chain;
 mod storage_proof;
 mod storage_types;
 
-// Re-export macro to aviod include paste dependency everywhere
+// Re-export macro to avoid include paste dependency everywhere
 pub use sp_runtime::paste;
 
 /// Use this when something must be shared among all instances.
