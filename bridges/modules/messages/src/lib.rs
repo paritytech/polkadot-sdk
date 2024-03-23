@@ -1775,7 +1775,7 @@ mod tests {
 			//    returns `last_confirmed_nonce`;
 			// 3) it means that we're going to confirm delivery of messages 1..=1;
 			// 4) so the number of declared messages (see `UnrewardedRelayersState`) is `0` and
-			//    numer of actually confirmed messages is `1`.
+			//    number of actually confirmed messages is `1`.
 			assert_noop!(
 				Pallet::<TestRuntime>::receive_messages_delivery_proof(
 					RuntimeOrigin::signed(1),

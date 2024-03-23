@@ -120,18 +120,18 @@ pub mod pallet {
 			// if the channel with sibling/child bridge hub is suspended, we don't change
 			// anything
 			if T::WithBridgeHubChannel::is_congested() {
-				return T::WeightInfo::on_initialize_when_congested()
+				return T::WeightInfo::on_initialize_when_congested();
 			}
 
 			// if bridge has reported congestion, we don't change anything
 			let mut bridge = Self::bridge();
 			if bridge.is_congested {
-				return T::WeightInfo::on_initialize_when_congested()
+				return T::WeightInfo::on_initialize_when_congested();
 			}
 
 			// if fee factor is already minimal, we don't change anything
 			if bridge.delivery_fee_factor == MINIMAL_DELIVERY_FEE_FACTOR {
-				return T::WeightInfo::on_initialize_when_congested()
+				return T::WeightInfo::on_initialize_when_congested();
 			}
 
 			let previous_factor = bridge.delivery_fee_factor;
@@ -198,7 +198,7 @@ pub mod pallet {
 				// if outbound queue is not congested AND bridge has not reported congestion, do
 				// nothing
 				if !is_channel_with_bridge_hub_congested && !is_bridge_congested {
-					return Err(())
+					return Err(());
 				}
 
 				// ok - we need to increase the fee factor, let's do that
@@ -247,7 +247,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 					bridged_network,
 					network,
 				);
-				return None
+				return None;
 			}
 		}
 
@@ -262,7 +262,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 				network,
 				remote_location,
 			);
-			return None
+			return None;
 		};
 
 		// take `base_fee` from `T::Brides`, but it has to be the same `T::FeeAsset`
@@ -281,7 +281,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 						network,
 						remote_location,
 					);
-					return None
+					return None;
 				},
 			},
 			None => 0,
@@ -332,7 +332,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// bridge doesn't support oversized/overweight messages now. So it is better to drop such
 		// messages here than at the bridge hub. Let's check the message size.
 		if message_size > HARD_MESSAGE_SIZE_LIMIT {
-			return Err(SendError::ExceedsMaxMessageSize)
+			return Err(SendError::ExceedsMaxMessageSize);
 		}
 
 		// We need to ensure that the known `dest`'s XCM version can comprehend the current `xcm`
@@ -427,7 +427,7 @@ mod tests {
 		run_test(|| {
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(FixedU128::from_rational(125, 100)));
 
-			// it shold eventually decreased to one
+			// it should eventually decreased to one
 			while XcmBridgeHubRouter::bridge().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR {
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
@@ -502,10 +502,10 @@ mod tests {
 			let factor = FixedU128::from_rational(125, 100);
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(factor));
 			let expected_fee =
-				(FixedU128::saturating_from_integer(BASE_FEE + BYTE_FEE * (msg_size as u128)) *
-					factor)
-					.into_inner() / FixedU128::DIV +
-					HRMP_FEE;
+				(FixedU128::saturating_from_integer(BASE_FEE + BYTE_FEE * (msg_size as u128))
+					* factor)
+					.into_inner() / FixedU128::DIV
+					+ HRMP_FEE;
 			assert_eq!(
 				XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm)).unwrap().1.get(0),
 				Some(&(BridgeFeeAsset::get(), expected_fee).into()),
