@@ -338,8 +338,8 @@ where
 		let mut blocks_to_delete = vec![hash];
 
 		while let Some(delete) = blocks_to_delete.pop() {
-			if let Some(childs) = self.waiting_for_parent.remove(&delete) {
-				blocks_to_delete.extend(childs.iter().map(BlockT::hash));
+			if let Some(children) = self.waiting_for_parent.remove(&delete) {
+				blocks_to_delete.extend(children.iter().map(BlockT::hash));
 			}
 		}
 		self.clear_waiting_recovery(&hash);
