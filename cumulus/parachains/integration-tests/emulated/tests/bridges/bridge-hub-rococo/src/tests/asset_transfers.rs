@@ -346,19 +346,17 @@ fn send_rocs_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_westend() 
 		);
 	});
 
+	let amount = ASSET_HUB_ROCOCO_ED * 10_000_000;
 	let penpal_location = AssetHubRococo::sibling_location_of(PenpalA::para_id());
 	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location);
 	// fund Penpal's sovereign account on AssetHub
-	AssetHubRococo::fund_accounts(vec![(
-		sov_penpal_on_ahr.into(),
-		ASSET_HUB_ROCOCO_ED * 10_000_001,
-	)]);
+	AssetHubRococo::fund_accounts(vec![(sov_penpal_on_ahr.into(), amount * 2)]);
 	// fund Penpal's sender account
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(PenpalAssetOwner::get()),
 		roc_at_rococo_parachains,
 		PenpalASender::get(),
-		ASSET_HUB_ROCOCO_ED * 10_000_001,
+		amount * 2,
 	);
 
 	let rocs_in_reserve_on_ahr_before =
@@ -374,7 +372,6 @@ fn send_rocs_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_westend() 
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::ForeignAssets;
 		<Assets as Inspect<_>>::balance(roc_at_asset_hub_westend, &AssetHubWestendReceiver::get())
 	});
-	let amount = ASSET_HUB_ROCOCO_ED * 10_000_000;
 	send_asset_from_penpal_rococo_through_local_asset_hub_to_westend_asset_hub(
 		roc_at_rococo_parachains_latest,
 		amount,
