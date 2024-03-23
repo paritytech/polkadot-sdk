@@ -80,7 +80,7 @@ pub trait WeightInfo {
 	fn chill_other() -> Weight;
 	fn force_apply_min_commission() -> Weight;
 	fn set_min_commission() -> Weight;
-	fn force_unbond() -> Weight;
+	fn full_unbond() -> Weight;
 }
 
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
@@ -828,7 +828,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Freezes` (r:1 w:0)
 	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
-	fn force_unbond() -> Weight {
+	fn full_unbond() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `2122`
 		//  Estimated: `6248`
@@ -1583,7 +1583,7 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Freezes` (r:1 w:0)
 	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
-	fn force_unbond() -> Weight {
+	fn full_unbond() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `2122`
 		//  Estimated: `6248`

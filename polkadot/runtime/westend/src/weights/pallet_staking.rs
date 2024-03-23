@@ -801,7 +801,7 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 
-	fn force_unbond() -> Weight {
+	fn full_unbond() -> Weight {
 		todo!()
 	}
 }
