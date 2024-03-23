@@ -1347,7 +1347,7 @@ fn transfer_expendable_cannot_kill_account() {
 }
 
 #[test]
-fn cannot_self_destruct_through_draning() {
+fn cannot_self_destruct_through_draining() {
 	let (wasm, _code_hash) = compile_module::<Test>("drain").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);

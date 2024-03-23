@@ -1541,7 +1541,7 @@ mod tests {
 	}
 
 	#[test]
-	fn actual_dispatch_weight_does_not_overlow() {
+	fn actual_dispatch_weight_does_not_overflow() {
 		run_test(|| {
 			let message1 = message(1, message_payload(0, u64::MAX / 2));
 			let message2 = message(2, message_payload(0, u64::MAX / 2));

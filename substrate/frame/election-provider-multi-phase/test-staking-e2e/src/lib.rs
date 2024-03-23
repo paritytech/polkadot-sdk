@@ -209,7 +209,7 @@ fn enters_emergency_phase_after_forcing_before_elect() {
 /// `OffendingValidatorsThreshold` will never force a new era. However, as the slashes progress, if
 /// the subsequent elections do not meet the minimum election untrusted score, the election will
 /// fail and enter in emergency mode.
-fn continous_slashes_below_offending_threshold() {
+fn continuous_slashes_below_offending_threshold() {
 	let staking_builder = StakingExtBuilder::default().validator_count(10);
 	let epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
 

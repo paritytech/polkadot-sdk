@@ -278,7 +278,7 @@ fn unwrap_from_block_number(from: FromBlock<Hash, u64>) -> u64 {
 /// announcement from this node in its sync process. Meaning our common number didn't change. It
 /// is now expected that we start an ancestor search to find the common number.
 #[test]
-fn do_ancestor_search_when_common_block_to_best_qeued_gap_is_to_big() {
+fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 	sp_tracing::try_init_simple();
 
 	let blocks = {

@@ -669,7 +669,7 @@ mod test {
 	}
 
 	#[test]
-	fn succesfully_importing_target_block_finishes_strategy() {
+	fn successfully_importing_target_block_finishes_strategy() {
 		let target_hash = Hash::random();
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);

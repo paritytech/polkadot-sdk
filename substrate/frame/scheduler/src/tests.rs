@@ -1119,7 +1119,7 @@ fn reschedule_named_works() {
 }
 
 #[test]
-fn reschedule_named_perodic_works() {
+fn reschedule_named_periodic_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });

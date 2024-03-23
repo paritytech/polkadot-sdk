@@ -542,7 +542,7 @@ fn scraper_handles_backed_but_not_included_candidate() {
 }
 
 #[test]
-fn scraper_handles_the_same_candidate_incuded_in_two_different_block_heights() {
+fn scraper_handles_the_same_candidate_included_in_two_different_block_heights() {
 	// Same candidate will be included in these two leaves
 	let test_targets = vec![2, 3];
 
