@@ -35,7 +35,7 @@ use sc_chain_spec::ChainSpecExtension;
 use sc_chain_spec::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{
-	crypto::{Pair, Public},
+	crypto::{CryptoType, Pair},
 	sr25519,
 };
 use sp_runtime::traits::IdentifyAccount;
@@ -723,18 +723,18 @@ pub fn versi_staging_testnet_config() -> Result<RococoChainSpec, String> {
 }
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> TPublic {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+pub fn get_from_seed<T: CryptoType>(seed: &str) -> T::Public {
+	T::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
 
 /// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+pub fn get_account_id_from_seed<T: CryptoType>(seed: &str) -> AccountId
 where
-	AccountPublic: From<TPublic>,
+	AccountPublic: From<T::Public>,
 {
-	AccountPublic::from(get_from_seed(seed)).into_account()
+	AccountPublic::from(get_from_seed::<T>(seed)).into_account()
 }
 
 /// Helper function to generate stash, controller and session key from seed

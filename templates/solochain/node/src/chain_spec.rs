@@ -3,7 +3,7 @@ use solochain_template_runtime::{AccountId, RuntimeGenesisConfig, Signature, WAS
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{
-	crypto::{CryptoType, Pair, Public},
+	crypto::{CryptoType, Pair},
 	sr25519,
 };
 use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -24,11 +24,11 @@ pub fn get_from_seed<T: CryptoType>(seed: &str) -> T::Public {
 type AccountPublic = <Signature as Verify>::Signer;
 
 /// Generate an account ID from seed.
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+pub fn get_account_id_from_seed<T: CryptoType>(seed: &str) -> AccountId
 where
-	AccountPublic: From<TPublic>,
+	AccountPublic: From<T::Public>,
 {
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	AccountPublic::from(get_from_seed::<T>(seed)).into_account()
 }
 
 /// Generate an Aura authority key.

@@ -48,7 +48,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_consensus::BlockOrigin;
 use sp_core::{
-	crypto::{Pair, Public},
+	crypto::{CryptoType, Pair},
 	ed25519, sr25519,
 	traits::SpawnNamed,
 };
@@ -632,17 +632,17 @@ pub struct BenchContext {
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-fn get_from_seed<TPublic: Public>(seed: &str) -> TPublic {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+fn get_from_seed<T: CryptoType>(seed: &str) -> T::Public {
+	T::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
 
-fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+fn get_account_id_from_seed<T: CryptoType>(seed: &str) -> AccountId
 where
-	AccountPublic: From<TPublic>,
+	AccountPublic: From<T::Public>,
 {
-	AccountPublic::from(get_from_seed(seed)).into_account()
+	AccountPublic::from(get_from_seed::<T>(seed)).into_account()
 }
 
 impl BenchContext {

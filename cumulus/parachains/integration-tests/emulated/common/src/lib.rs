@@ -26,7 +26,7 @@ use grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{
-	crypto::{Pair, Public},
+	crypto::{CryptoType, Pair},
 	sr25519,
 	storage::Storage,
 };
@@ -75,18 +75,18 @@ parameter_types! {
 }
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> TPublic {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+pub fn get_from_seed<T: CryptoType>(seed: &str) -> T::Public {
+	T::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
 
 /// Helper function to generate an account ID from seed.
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+pub fn get_account_id_from_seed<T: CryptoType>(seed: &str) -> AccountId
 where
-	AccountPublic: From<TPublic>,
+	AccountPublic: From<T::Public>,
 {
-	AccountPublic::from(get_from_seed(seed)).into_account()
+	AccountPublic::from(get_from_seed::<T>(seed)).into_account()
 }
 
 pub fn get_host_config() -> HostConfiguration<BlockNumber> {

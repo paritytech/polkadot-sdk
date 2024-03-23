@@ -5,7 +5,7 @@ use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{
-	crypto::{Pair, Public},
+	crypto::{CryptoType, Pair},
 	sr25519,
 };
 use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -17,8 +17,8 @@ pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> TPublic {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+pub fn get_from_seed<T: CryptoType>(seed: &str) -> T::Public {
+	T::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
@@ -50,11 +50,11 @@ pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
 }
 
 /// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+pub fn get_account_id_from_seed<T: CryptoType>(seed: &str) -> AccountId
 where
-	AccountPublic: From<TPublic>,
+	AccountPublic: From<T::Public>,
 {
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	AccountPublic::from(get_from_seed::<T>(seed)).into_account()
 }
 
 /// Generate the session keys from individual elements.
