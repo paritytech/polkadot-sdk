@@ -493,10 +493,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily, FrameTransactionalProcessor,
-	FungibleAdapter, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	FungibleAdapter, HashedDescription, IsChildSystemParachain, IsConcrete, MintLocation,
+	OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
@@ -594,13 +595,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">pub struct </span>CollectivesOrFellows;
-<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>CollectivesOrFellows {
+<span class="kw">pub struct </span>Fellows;
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>Fellows {
 	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">matches!</span>(
 			location.unpack(),
-			(<span class="number">0</span>, [Parachain(COLLECTIVES_ID)]) |
-				(<span class="number">0</span>, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+			(<span class="number">0</span>, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
 		)
 	}
 }
@@ -624,8 +624,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>AllowTopLevelPaidExecutionFrom&lt;Everything&gt;,
 			<span class="comment">// Subscriptions for version tracking are OK.
 			</span>AllowSubscriptionsFrom&lt;OnlyParachains&gt;,
-			<span class="comment">// Collectives and Fellows plurality get free execution.
-			</span>AllowExplicitUnpaidExecutionFrom&lt;CollectivesOrFellows&gt;,
+			<span class="comment">// Messages from system parachains or the Fellows plurality need not pay for execution.
+			</span>AllowExplicitUnpaidExecutionFrom&lt;(IsChildSystemParachain&lt;ParaId&gt;, Fellows)&gt;,
 		),
 		UniversalLocation,
 		ConstU32&lt;<span class="number">8</span>&gt;,
