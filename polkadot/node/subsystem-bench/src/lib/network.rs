@@ -790,9 +790,9 @@ pub fn new_network(
 
 	let connected_count = config.connected_count();
 
-	let mut peers_indicies = (0..n_peers).collect_vec();
+	let mut peers_indices = (0..n_peers).collect_vec();
 	let (_connected, to_disconnect) =
-		peers_indicies.partial_shuffle(&mut thread_rng(), connected_count);
+		peers_indices.partial_shuffle(&mut thread_rng(), connected_count);
 
 	// Node under test is always mark as disconnected.
 	peers[NODE_UNDER_TEST as usize].disconnect();

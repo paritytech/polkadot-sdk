@@ -174,24 +174,24 @@ impl TestMessageInfo {
 		}
 	}
 
-	/// Returns a list of candidates indicies in this message
+	/// Returns a list of candidates indices in this message
 	pub fn candidate_indices(&self) -> HashSet<usize> {
-		let mut unique_candidate_indicies = HashSet::new();
+		let mut unique_candidate_indices = HashSet::new();
 		match &self.msg {
 			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) =>
 				for (_assignment, candidate_indices) in assignments {
 					for candidate_index in candidate_indices.iter_ones() {
-						unique_candidate_indicies.insert(candidate_index);
+						unique_candidate_indices.insert(candidate_index);
 					}
 				},
 			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =>
 				for approval in approvals {
 					for candidate_index in approval.candidate_indices.iter_ones() {
-						unique_candidate_indicies.insert(candidate_index);
+						unique_candidate_indices.insert(candidate_index);
 					}
 				},
 		}
-		unique_candidate_indicies
+		unique_candidate_indices
 	}
 
 	/// Marks this message as no-shows if the number of configured no-shows is above the registered
