@@ -1,5 +1,5 @@
-use crate::*;
 use super::session;
+use crate::*;
 
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");

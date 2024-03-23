@@ -1,3 +1,4 @@
+use super::system::RuntimeBlockWeights;
 use crate::*;
 
 parameter_types! {
