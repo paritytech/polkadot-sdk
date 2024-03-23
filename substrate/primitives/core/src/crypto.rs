@@ -1064,6 +1064,13 @@ pub trait CryptoType {
 	type Signature: Signature<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
 }
 
+/// `Pair` type for an implementation of `CryptoType`.
+pub type PairFor<T> = <T as CryptoType>::Pair;
+/// `Public` type for an implementation of `CryptoType`.
+pub type PublicFor<T> = <T as CryptoType>::Public;
+/// `Signature` type for an implementation of `CryptoType`.
+pub type SignatureFor<T> = <T as CryptoType>::Signature;
+
 /// An identifier for a type of cryptographic key.
 ///
 /// To avoid clashes with other modules when distributing your module publicly, register your

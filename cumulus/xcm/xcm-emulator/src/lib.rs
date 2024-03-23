@@ -1590,12 +1590,12 @@ pub mod helpers {
 	}
 
 	/// Helper function to generate an account ID from seed.
-	pub fn get_account_id_from_seed<TPublic: sp_core::Public>(seed: &str) -> AccountId
+	pub fn get_account_id_from_seed<T: CryptoType>(seed: &str) -> AccountId
 	where
-		sp_runtime::MultiSigner: From<<<TPublic as CryptoType>::Pair as CryptoType>::Public>,
+		sp_runtime::MultiSigner: From<T::Public>,
 	{
 		use sp_runtime::traits::IdentifyAccount;
-		let pubkey = <TPublic as CryptoType>::Pair::from_string(&format!("//{}", seed), None)
+		let pubkey = T::Pair::from_string(&format!("//{}", seed), None)
 			.expect("static values are valid; qed")
 			.public();
 		sp_runtime::MultiSigner::from(pubkey).into_account()

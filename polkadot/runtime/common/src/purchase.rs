@@ -480,7 +480,7 @@ mod tests {
 	use super::*;
 
 	use sp_core::{
-		crypto::{AccountId32, CryptoType, Pair, Public},
+		crypto::{AccountId32, CryptoType, Pair},
 		ed25519, H256,
 	};
 	// The testing primitives are very useful for avoiding having to work with signatures
@@ -628,18 +628,18 @@ mod tests {
 	type AccountPublic = <MultiSignature as Verify>::Signer;
 
 	/// Helper function to generate a crypto pair from seed
-	fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as CryptoType>::Public {
-		TPublic::Pair::from_string(&format!("//{}", seed), None)
+	fn get_from_seed<T: CryptoType>(seed: &str) -> T::Public {
+		T::Pair::from_string(&format!("//{}", seed), None)
 			.expect("static values are valid; qed")
 			.public()
 	}
 
 	/// Helper function to generate an account ID from seed
-	fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+	fn get_account_id_from_seed<T: CryptoType>(seed: &str) -> AccountId
 	where
-		AccountPublic: From<<TPublic::Pair as CryptoType>::Public>,
+		AccountPublic: From<T::Public>,
 	{
-		AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+		AccountPublic::from(get_from_seed::<T::Public>(seed)).into_account()
 	}
 
 	fn alice() -> AccountId {

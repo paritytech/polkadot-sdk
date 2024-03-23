@@ -15,8 +15,8 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
 
 /// Generate a crypto pair from seed.
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> TPublic {
-	<TPublic as CryptoType>::Pair::from_string(&format!("//{}", seed), None)
+pub fn get_from_seed<T: CryptoType>(seed: &str) -> T::Public {
+	T::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }

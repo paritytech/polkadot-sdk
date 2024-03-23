@@ -22,7 +22,7 @@ use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_core::{
-	crypto::{CryptoType, Pair, Public},
+	crypto::{CryptoType, Pair},
 	sr25519,
 };
 use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -31,8 +31,8 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as CryptoType>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+pub fn get_from_seed<T: CryptoType>(seed: &str) -> T::Public {
+	T::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
@@ -55,11 +55,11 @@ impl Extensions {
 type AccountPublic = <Signature as Verify>::Signer;
 
 /// Helper function to generate an account ID from seed.
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+pub fn get_account_id_from_seed<T: CryptoType>(seed: &str) -> AccountId
 where
-	AccountPublic: From<<TPublic::Pair as CryptoType>::Public>,
+	AccountPublic: From<T::Public>,
 {
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+	AccountPublic::from(get_from_seed::<T::Public>(seed)).into_account()
 }
 
 /// Get the chain spec for a specific parachain ID.
