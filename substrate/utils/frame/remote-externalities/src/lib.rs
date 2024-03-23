@@ -441,14 +441,11 @@ where
 			let binding = start_keys.clone();
 
 			let start_keys: Vec<Option<&StorageKey>> = binding.iter().map(Some).collect();
-			let start_keys = start_keys.clone();
 			let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].to_vec();
 			end_keys.push(None);
 
 			let builder = Arc::new(self.clone());
 
-
-			let builder = builder.clone();
 			let prefix = prefix.clone();
 			let end_keys = end_keys.clone();
 			for (start_key, end_key) in start_keys.into_iter().zip(end_keys.clone()) {
