@@ -38,7 +38,11 @@ pub use frame_system::{Config as SystemConfig, Pallet as SystemPallet};
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair};
+pub use sp_core::{
+	crypto::{CryptoType, Pair},
+	parameter_types, sr25519,
+	storage::Storage,
+};
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
 pub use sp_runtime::BoundedSlice;
@@ -1586,13 +1590,12 @@ pub mod helpers {
 	}
 
 	/// Helper function to generate an account ID from seed.
-	pub fn get_account_id_from_seed<TPublic: sp_core::Public>(seed: &str) -> AccountId
+	pub fn get_account_id_from_seed<T: CryptoType>(seed: &str) -> AccountId
 	where
-		sp_runtime::MultiSigner:
-			From<<<TPublic as sp_runtime::CryptoType>::Pair as sp_core::Pair>::Public>,
+		sp_runtime::MultiSigner: From<T::Public>,
 	{
 		use sp_runtime::traits::IdentifyAccount;
-		let pubkey = TPublic::Pair::from_string(&format!("//{}", seed), None)
+		let pubkey = T::Pair::from_string(&format!("//{}", seed), None)
 			.expect("static values are valid; qed")
 			.public();
 		sp_runtime::MultiSigner::from(pubkey).into_account()

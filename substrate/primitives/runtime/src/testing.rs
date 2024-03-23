@@ -86,6 +86,8 @@ impl UintAuthorityId {
 
 impl CryptoType for UintAuthorityId {
 	type Pair = Dummy;
+	type Public = Dummy;
+	type Signature = Dummy;
 }
 
 impl AsRef<[u8]> for UintAuthorityId {

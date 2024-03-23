@@ -47,7 +47,7 @@ use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::{BlockOrigin, Environment, Error as ConsensusError, Proposer, SelectChain};
 use sp_consensus_slots::Slot;
-use sp_core::crypto::Pair;
+use sp_core::crypto::{CryptoType, Pair};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header, Member, NumberFor};
@@ -70,7 +70,7 @@ pub use sp_consensus_aura::{
 
 const LOG_TARGET: &str = "aura";
 
-type AuthorityId<P> = <P as Pair>::Public;
+type AuthorityId<P> = <P as CryptoType>::Public;
 
 /// Run `AURA` in a compatibility mode.
 ///

@@ -17,22 +17,20 @@
 
 //! Simple ECDSA secp256k1 API.
 
-#[cfg(feature = "serde")]
-use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoType, CryptoTypeId, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
-	Public as TraitPublic, PublicBytes, SecretStringError, SignatureBytes,
+	impl_crypto_type, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes,
+	SecretStringError, SignatureBytes,
 };
 
 #[cfg(not(feature = "std"))]
 use k256::ecdsa::{SigningKey as SecretKey, VerifyingKey};
+
 #[cfg(feature = "std")]
 use secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, PublicKey, SecretKey, SECP256K1,
 };
-#[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 #[cfg(not(feature = "std"))]
@@ -80,10 +78,6 @@ impl Public {
 	}
 }
 
-impl TraitPublic for Public {}
-
-impl Derive for Public {}
-
 #[cfg(feature = "std")]
 impl From<PublicKey> for Public {
 	fn from(pubkey: PublicKey) -> Self {
@@ -99,91 +93,8 @@ impl From<VerifyingKey> for Public {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
-impl From<Pair> for Public {
-	fn from(x: Pair) -> Self {
-		x.public()
-	}
-}
-
-#[cfg(feature = "std")]
-impl std::fmt::Display for Public {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", self.to_ss58check())
-	}
-}
-
-impl sp_std::fmt::Debug for Public {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.as_ref()), &s[0..8])
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for Public {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Public {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		Public::from_ss58check(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, EcdsaTag>;
-
-#[cfg(feature = "serde")]
-impl Serialize for Signature {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&array_bytes::bytes2hex("", self))
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Signature {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let signature_hex = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::try_from(signature_hex.as_ref())
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
-impl sp_std::fmt::Debug for Signature {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
 
 impl Signature {
 	/// Recover the public key from this signature and a message.
@@ -247,9 +158,7 @@ pub struct Pair {
 }
 
 impl TraitPair for Pair {
-	type Public = Public;
 	type Seed = Seed;
-	type Signature = Signature;
 
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.
@@ -400,21 +309,13 @@ impl Drop for Pair {
 	}
 }
 
-impl CryptoType for Public {
-	type Pair = Pair;
-}
-
-impl CryptoType for Signature {
-	type Pair = Pair;
-}
-
-impl CryptoType for Pair {
-	type Pair = Pair;
-}
+impl_crypto_type!(Pair, Public, Signature);
 
 #[cfg(test)]
 mod test {
 	use super::*;
+	#[cfg(feature = "serde")]
+	use crate::crypto::Ss58Codec;
 	use crate::crypto::{
 		set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
 		DEV_PHRASE,

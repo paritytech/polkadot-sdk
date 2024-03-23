@@ -18,7 +18,7 @@
 use codec::Codec;
 use scale_info::TypeInfo;
 
-use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Pair, Public};
+use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Pair, Public, Signature};
 use sp_std::{fmt::Debug, vec::Vec};
 
 /// Application-specific cryptographic object.
@@ -52,24 +52,47 @@ impl<T: sp_std::hash::Hash> MaybeHash for T {}
 
 /// Application-specific key pair.
 pub trait AppPair:
-	AppCrypto + Pair<Public = <Self as AppCrypto>::Public, Signature = <Self as AppCrypto>::Signature>
+	AppCrypto<Pair = Self>
+	+ Pair<Public = <Self as AppCrypto>::Public, Signature = <Self as AppCrypto>::Signature>
 {
 	/// The wrapped type which is just a plain instance of `Pair`.
 	type Generic: IsWrappedBy<Self>
-		+ Pair<Public = <<Self as AppCrypto>::Public as AppPublic>::Generic>
-		+ Pair<Signature = <<Self as AppCrypto>::Signature as AppSignature>::Generic>;
+		+ Pair<
+			Public = <<Self as AppCrypto>::Public as AppPublic>::Generic,
+			Signature = <<Self as AppCrypto>::Signature as AppSignature>::Generic,
+		>;
 }
 
 /// Application-specific public key.
-pub trait AppPublic: AppCrypto + Public + Debug + MaybeHash + Codec {
+pub trait AppPublic:
+	AppCrypto<Public = Self>
+	+ Public<Pair = <Self as AppCrypto>::Pair, Signature = <Self as AppCrypto>::Signature>
+	+ Debug
+	+ MaybeHash
+	+ Codec
+{
 	/// The wrapped type which is just a plain instance of `Public`.
-	type Generic: IsWrappedBy<Self> + Public + Debug + MaybeHash + Codec;
+	type Generic: IsWrappedBy<Self>
+		+ Public<
+			Pair = <<Self as AppCrypto>::Pair as AppPair>::Generic,
+			Signature = <<Self as AppCrypto>::Signature as AppSignature>::Generic,
+		> + Debug
+		+ MaybeHash
+		+ Codec;
 }
 
 /// Application-specific signature.
-pub trait AppSignature: AppCrypto + Eq + PartialEq + Debug + Clone {
+pub trait AppSignature:
+	AppCrypto<Signature = Self>
+	+ Signature<Pair = <Self as AppCrypto>::Pair, Public = <Self as AppCrypto>::Public>
+	+ Debug
+{
 	/// The wrapped type which is just a plain instance of `Signature`.
-	type Generic: IsWrappedBy<Self> + Eq + PartialEq + Debug;
+	type Generic: IsWrappedBy<Self>
+		+ Signature<
+			Public = <<Self as AppCrypto>::Public as AppPublic>::Generic,
+			Signature = <<Self as AppCrypto>::Signature as AppSignature>::Generic,
+		> + Debug;
 }
 
 /// Runtime interface for a public key.

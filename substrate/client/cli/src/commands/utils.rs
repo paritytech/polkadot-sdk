@@ -24,19 +24,18 @@ use crate::{
 use serde_json::json;
 use sp_core::{
 	crypto::{
-		unwrap_or_default_ss58_version, ExposeSecret, SecretString, Ss58AddressFormat, Ss58Codec,
-		Zeroize,
+		unwrap_or_default_ss58_version, CryptoType, ExposeSecret, Pair, SecretString,
+		Ss58AddressFormat, Ss58Codec, Zeroize,
 	},
 	hexdisplay::HexDisplay,
-	Pair,
 };
 use sp_runtime::{traits::IdentifyAccount, MultiSigner};
 use std::path::PathBuf;
 
 /// Public key type for Runtime
-pub type PublicFor<P> = <P as sp_core::Pair>::Public;
+pub type PublicFor<P> = <P as CryptoType>::Public;
 /// Seed type for Runtime
-pub type SeedFor<P> = <P as sp_core::Pair>::Seed;
+pub type SeedFor<P> = <P as Pair>::Seed;
 
 /// helper method to fetch uri from `Option<String>` either as a file or read from stdin
 pub fn read_uri(uri: Option<&String>) -> error::Result<String> {
