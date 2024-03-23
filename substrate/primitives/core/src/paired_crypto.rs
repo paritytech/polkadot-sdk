@@ -19,19 +19,12 @@
 
 use core::marker::PhantomData;
 
-#[cfg(feature = "serde")]
-use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as PairT, Public as PublicT,
-	PublicBytes, SecretStringError, Signature as SignatureT, SignatureBytes, UncheckedFrom,
+	ByteArray, CryptoType, DeriveError, DeriveJunction, Pair as PairT, PublicBytes,
+	SecretStringError, SignatureBytes, UncheckedFrom,
 };
 
 use sp_std::vec::Vec;
-
-#[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
 
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
@@ -144,128 +137,9 @@ pub struct PairedCryptoTag;
 pub type Public<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
 	PublicBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
 
-#[cfg(feature = "std")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> std::fmt::Display
-	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
-where
-	Self: CryptoType<Public = Self>,
-{
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", self.to_ss58check())
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> sp_std::fmt::Debug
-	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
-where
-	Self: CryptoType<Public = Self>,
-	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
-{
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> Serialize
-	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
-where
-	Self: CryptoType<Public = Self>,
-{
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de, const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> Deserialize<'de>
-	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
-where
-	Self: CryptoType<Public = Self>,
-{
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		Public::from_ss58check(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> PublicT
-	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
-where
-	Self: CryptoType<Public = Self>,
-{
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag: PairedCryptoSubTagBound> Derive
-	for Public<LEFT_PLUS_RIGHT_LEN, SubTag>
-{
-}
-
 /// A pair of signatures of different types
 pub type Signature<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
 	SignatureBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> SignatureT for Signature<LEFT_PLUS_RIGHT_LEN, SubTag> where
-	Self: CryptoType<Signature = Self>
-{
-}
-
-#[cfg(feature = "serde")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> Serialize
-	for Signature<LEFT_PLUS_RIGHT_LEN, SubTag>
-{
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&array_bytes::bytes2hex("", self))
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de, const LEFT_PLUS_RIGHT_LEN: usize, SubTag> Deserialize<'de>
-	for Signature<LEFT_PLUS_RIGHT_LEN, SubTag>
-{
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let bytes = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::<LEFT_PLUS_RIGHT_LEN, SubTag>::try_from(bytes.as_ref()).map_err(|e| {
-			de::Error::custom(format!("Error converting deserialized data into signature: {:?}", e))
-		})
-	}
-}
-
-impl<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> sp_std::fmt::Debug
-	for Signature<LEFT_PLUS_RIGHT_LEN, SubTag>
-where
-	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
-{
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
 
 /// A key pair.
 pub struct Pair<
@@ -302,8 +176,6 @@ impl<
 	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>
 where
 	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>: CryptoType<Pair = Self>,
-	LeftPair::Signature: SignatureT,
-	RightPair::Signature: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 	Self::Public: UncheckedFrom<[u8; PUBLIC_KEY_LEN]>,
@@ -392,7 +264,11 @@ where
 #[cfg(all(test, feature = "bls-experimental"))]
 mod ecdsa_bls377_tests {
 	use super::*;
-	use crate::{bls377, crypto::DEV_PHRASE, ecdsa, KeccakHasher};
+	use crate::{
+		bls377,
+		crypto::{Ss58Codec, DEV_PHRASE},
+		ecdsa, KeccakHasher,
+	};
 	use codec::{Decode, Encode};
 	use ecdsa_bls377::{Pair, Public, Signature};
 

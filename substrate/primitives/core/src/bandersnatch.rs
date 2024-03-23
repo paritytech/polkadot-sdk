@@ -20,23 +20,15 @@
 //!
 //! The primitive can operate both as a regular VRF or as an anonymized Ring VRF.
 
-#[cfg(feature = "serde")]
-use crate::crypto::Ss58Codec;
 #[cfg(feature = "full_crypto")]
 use crate::crypto::VrfSecret;
 use crate::crypto::{
-	impl_crypto_type, ByteArray, CryptoTypeId, Derive, DeriveError, DeriveJunction,
-	Pair as TraitPair, Public as TraitPublic, PublicBytes, SecretStringError,
-	Signature as TraitSignature, SignatureBytes, UncheckedFrom, VrfPublic,
+	impl_crypto_type, ByteArray, CryptoTypeId, DeriveError, DeriveJunction, Pair as TraitPair,
+	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom, VrfPublic,
 };
-#[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
 
 use bandersnatch_vrfs::{CanonicalSerialize, SecretKey};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-
 use scale_info::TypeInfo;
 
 use sp_std::{vec, vec::Vec};
@@ -65,57 +57,11 @@ pub struct BandersnatchTag;
 /// Bandersnatch public key.
 pub type Public = PublicBytes<PUBLIC_SERIALIZED_SIZE, BandersnatchTag>;
 
-impl TraitPublic for Public {}
-
-impl Derive for Public {}
-
-impl sp_std::fmt::Debug for Public {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.as_ref()), &s[0..8])
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for Public {
-	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_str(&self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for Public {
-	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		Public::from_ss58check(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
 /// Bandersnatch signature.
 ///
 /// The signature is created via the [`VrfSecret::vrf_sign`] using [`SIGNING_CTX`] as transcript
 /// `label`.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, BandersnatchTag>;
-
-impl TraitSignature for Signature {}
-
-impl sp_std::fmt::Debug for Signature {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
 
 /// The raw secret seed, which can be used to reconstruct the secret [`Pair`].
 type Seed = [u8; SEED_SERIALIZED_SIZE];

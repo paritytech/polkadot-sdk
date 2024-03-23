@@ -17,7 +17,7 @@
 
 //! Cryptographic utilities.
 
-use crate::{ed25519, sr25519};
+// use crate::{ed25519, sr25519};
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::hash::Hash;
@@ -586,17 +586,17 @@ impl From<AccountId32> for [u8; 32] {
 	}
 }
 
-impl From<sr25519::Public> for AccountId32 {
-	fn from(k: sr25519::Public) -> Self {
-		k.0.into()
-	}
-}
+// impl From<sr25519::Public> for AccountId32 {
+// 	fn from(k: sr25519::Public) -> Self {
+// 		k.0.into()
+// 	}
+// }
 
-impl From<ed25519::Public> for AccountId32 {
-	fn from(k: ed25519::Public) -> Self {
-		k.0.into()
-	}
-}
+// impl From<ed25519::Public> for AccountId32 {
+// 	fn from(k: ed25519::Public) -> Self {
+// 		k.0.into()
+// 	}
+// }
 
 #[cfg(feature = "std")]
 impl std::fmt::Display for AccountId32 {
@@ -670,31 +670,7 @@ mod dummy {
 	use super::*;
 
 	/// Dummy cryptography. Doesn't do anything.
-	#[derive(Clone, Hash, Default, Eq, PartialEq)]
-	pub struct Dummy;
-
-	impl AsRef<[u8]> for Dummy {
-		fn as_ref(&self) -> &[u8] {
-			&b""[..]
-		}
-	}
-
-	impl AsMut<[u8]> for Dummy {
-		fn as_mut(&mut self) -> &mut [u8] {
-			unsafe {
-				#[allow(mutable_transmutes)]
-				sp_std::mem::transmute::<_, &'static mut [u8]>(&b""[..])
-			}
-		}
-	}
-
-	impl<'a> TryFrom<&'a [u8]> for Dummy {
-		type Error = ();
-
-		fn try_from(_: &'a [u8]) -> Result<Self, ()> {
-			Ok(Self)
-		}
-	}
+	pub type Dummy = CryptoBytes<0>;
 
 	impl CryptoType for Dummy {
 		type Pair = Dummy;
@@ -703,23 +679,7 @@ mod dummy {
 	}
 
 	impl Derive for Dummy {}
-
-	impl ByteArray for Dummy {
-		const LEN: usize = 0;
-		fn from_slice(_: &[u8]) -> Result<Self, ()> {
-			Ok(Self)
-		}
-		#[cfg(feature = "std")]
-		fn to_raw_vec(&self) -> Vec<u8> {
-			vec![]
-		}
-		fn as_slice(&self) -> &[u8] {
-			b""
-		}
-	}
-
 	impl Public for Dummy {}
-
 	impl Signature for Dummy {}
 
 	impl Pair for Dummy {
@@ -740,15 +700,15 @@ mod dummy {
 			_: Iter,
 			_: Option<Dummy>,
 		) -> Result<(Self, Option<Dummy>), DeriveError> {
-			Ok((Self, None))
+			Ok((Self::default(), None))
 		}
 
 		fn from_seed_slice(_: &[u8]) -> Result<Self, SecretStringError> {
-			Ok(Self)
+			Ok(Self::default())
 		}
 
 		fn sign(&self, _: &[u8]) -> Self::Signature {
-			Self
+			Self::default()
 		}
 
 		fn verify<M: AsRef<[u8]>>(_: &Self::Signature, _: M, _: &Self::Public) -> bool {
@@ -756,7 +716,7 @@ mod dummy {
 		}
 
 		fn public(&self) -> Self::Public {
-			Self
+			Self::default()
 		}
 
 		fn to_raw_vec(&self) -> Vec<u8> {
@@ -1356,13 +1316,7 @@ mod tests {
 
 	type TestSignature = SignatureBytes<0, TestPair>;
 
-	impl Signature for TestSignature {}
-
 	type TestPublic = PublicBytes<0, TestPair>;
-
-	impl Public for TestPublic {}
-
-	impl Derive for TestPublic {}
 
 	#[test]
 	fn interpret_std_seed_should_work() {
