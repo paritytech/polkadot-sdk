@@ -3142,7 +3142,7 @@ mod sanitizers {
 					Vec<(BackedCandidate<_>, CoreIndex)>,
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&shared::AllowedRelayParents::<Test>::get(),,
+					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
 					true,
@@ -3178,7 +3178,7 @@ mod sanitizers {
 					Vec<(BackedCandidate<_>, CoreIndex)>,
 				> = sanitize_backed_candidates::<Test>(
 					backed_candidates.clone(),
-					&shared::AllowedRelayParents::<Test>::get(),,
+					&shared::AllowedRelayParents::<Test>::get(),
 					invalid_set,
 					scheduled,
 					true,
