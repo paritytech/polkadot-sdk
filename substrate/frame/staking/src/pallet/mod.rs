@@ -1989,7 +1989,7 @@ pub mod pallet {
 		/// The requirements to restore a ledger are the following:
 		/// * The stash is bonded;
 		/// * If the stash has an associated ledger, its state must be inconsistent;
-		/// * The reset ledger must become either a nominator or validator.
+		/// * If the ledger is not corrupted *but* its staking lock is out of sync.
 		///
 		/// The `maybe_*` input parameters will overwrite the corresponding data and metadata of the
 		/// ledger associated with the stash. If the input parameters are not set, the ledger will
