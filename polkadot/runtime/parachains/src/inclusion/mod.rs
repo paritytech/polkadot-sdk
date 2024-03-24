@@ -700,7 +700,7 @@ impl<T: Config> Pallet<T> {
 			pending_candidates.back().map(|x| x.commitments.head_data.clone())
 		}) {
 			Some(head_data) => Some(head_data),
-			None => paras::Pallet::<T>::para_head(para_id),
+			None => paras::Heads::<T>::get(para_id),
 		}
 	}
 
@@ -710,12 +710,12 @@ impl<T: Config> Pallet<T> {
 		group_vals: Vec<ValidatorIndex>,
 		core_index_enabled: bool,
 	) -> Result<(BitVec<u8, BitOrderLsb0>, Vec<(ValidatorIndex, ValidityAttestation)>), Error<T>> {
-		let minimum_backing_votes = configuration::Pallet::<T>::config().minimum_backing_votes;
+		let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
 
 		let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 		let signing_context = SigningContext {
 			parent_hash: backed_candidate.descriptor().relay_parent,
-			session_index: shared::Pallet::<T>::session_index(),
+			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
 		let (validator_indices, _) =

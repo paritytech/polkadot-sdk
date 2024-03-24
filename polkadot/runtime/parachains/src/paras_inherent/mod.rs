@@ -1276,7 +1276,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 			visited_candidates.insert(candidate_hash);
 		}
 
-		let prev_context = paras::Pallet::<T>::para_most_recent_context(para_id);
+		let prev_context = paras::MostRecentContext::<T>::get(para_id);
 		let check_ctx = CandidateCheckContext::<T>::new(prev_context);
 
 		let res = match check_ctx.verify_backed_candidate(

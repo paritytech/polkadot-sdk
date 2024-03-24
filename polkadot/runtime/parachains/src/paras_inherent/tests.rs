@@ -259,7 +259,7 @@ mod enter {
 			// The current schedule is empty prior to calling `create_inherent_enter`.
 			assert!(scheduler::Pallet::<Test>::claimqueue_is_empty());
 
-			assert!(Pallet::<Test>::on_chain_votes().is_none());
+			assert!(pallet::OnChainVotes::<Test>::get().is_none());
 
 			// Nothing is filtered out (including the backed candidates.)
 			assert_eq!(
@@ -270,13 +270,16 @@ mod enter {
 			assert_eq!(
 				// The length of this vec is equal to the number of candidates, so we know our 5
 				// backed candidates did not get filtered out
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				pallet::OnChainVotes::<Test>::get()
+					.unwrap()
+					.backing_validators_per_candidate
+					.len(),
 				5
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				pallet::OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 
@@ -352,7 +355,7 @@ mod enter {
 			assert_eq!(expected_para_inherent_data.backed_candidates.len(), 6);
 			// * 0 disputes.
 			assert_eq!(expected_para_inherent_data.disputes.len(), 0);
-			assert!(Pallet::<Test>::on_chain_votes().is_none());
+			assert!(pallet::OnChainVotes::<Test>::get().is_none());
 
 			expected_para_inherent_data.backed_candidates = expected_para_inherent_data
 				.backed_candidates
@@ -379,13 +382,16 @@ mod enter {
 
 			// 3 candidates have been backed (for cores 1,2 and 3)
 			assert_eq!(
-				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
+				pallet::OnChainVotes::<Test>::get()
+					.unwrap()
+					.backing_validators_per_candidate
+					.len(),
 				3
 			);
 
 			assert_eq!(
 				// The session of the on chain votes should equal the current session, which is 2
-				Pallet::<Test>::on_chain_votes().unwrap().session,
+				pallet::OnChainVotes::<Test>::get().unwrap().session,
 				2
 			);
 
@@ -420,7 +426,7 @@ mod enter {
 
 			// Now just make all candidates available.
 			let mut data = scenario.data.clone();
-			let validators = session_info::Pallet::<Test>::session_info(2).unwrap().validators;
+			let validators = session_info::Sessions::<Test>::get(2).unwrap().validators;
 			let signing_context = SigningContext {
 				parent_hash: BenchBuilder::<Test>::header(4).hash(),
 				session_index: 2,
@@ -447,7 +453,7 @@ mod enter {
 			);
 
 			// No more candidates have been backed
-			assert!(Pallet::<Test>::on_chain_votes()
+			assert!(pallet::OnChainVotes::<Test>::get()
 				.unwrap()
 				.backing_validators_per_candidate
 				.is_empty());
@@ -480,10 +486,7 @@ mod enter {
 
 			// Paras have the right on-chain heads now
 			expected_heads.into_iter().enumerate().for_each(|(id, head)| {
-				assert_eq!(
-					paras::Pallet::<Test>::para_head(ParaId::from(id as u32)).unwrap(),
-					head
-				);
+				assert_eq!(paras::Head::<Test>::get(ParaId::from(id as u32)).unwrap(), head);
 			});
 		});
 	}
@@ -2956,7 +2959,7 @@ mod sanitizers {
 			}
 
 			assert_eq!(
-				shared::Pallet::<Test>::active_validator_indices(),
+				shared::ActiveValidatorIndices::<Test>::get(),
 				vec![
 					ValidatorIndex(0),
 					ValidatorIndex(1),

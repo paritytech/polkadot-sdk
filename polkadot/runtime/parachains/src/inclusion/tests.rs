@@ -1063,9 +1063,9 @@ fn supermajority_bitfields_trigger_availability() {
 		assert!(pending_c.is_empty());
 
 		// and check that chain heads.
-		assert_eq!(Paras::para_head(&chain_a), Some(vec![1, 2, 3, 4].into()));
-		assert_ne!(Paras::para_head(&chain_b), Some(vec![5, 6, 7, 8].into()));
-		assert_eq!(Paras::para_head(&chain_c), Some(vec![7, 8].into()));
+		assert_eq!(paras::Head::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(paras::Head::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(paras::Head::<Test>::get(&chain_c), Some(vec![7, 8].into()));
 
 		// Check that rewards are applied.
 		{
@@ -1129,9 +1129,9 @@ fn supermajority_bitfields_trigger_availability() {
 		assert!(PendingAvailability::<Test>::get(&chain_c).unwrap().is_empty());
 
 		// and check that chain heads.
-		assert_eq!(Paras::para_head(&chain_a), Some(vec![1, 2, 3, 4].into()));
-		assert_ne!(Paras::para_head(&chain_b), Some(vec![5, 6, 7, 8].into()));
-		assert_eq!(Paras::para_head(&chain_c), Some(vec![11, 12].into()));
+		assert_eq!(paras::Head::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(paras::Head::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(paras::Head::<Test>::get(&chain_c), Some(vec![11, 12].into()));
 
 		// Check that rewards are applied.
 		{
