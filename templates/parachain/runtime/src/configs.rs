@@ -1,48 +1,48 @@
-use super::{
-	weights, xcm_config, AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection,
-	Hash, MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
-	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, BLOCK_PROCESSING_VELOCITY,
-	EXISTENTIAL_DEPOSIT, HOURS, MAXIMUM_BLOCK_WEIGHT, MICROUNIT, NORMAL_DISPATCH_RATIO,
-	RELAY_CHAIN_SLOT_DURATION_MILLIS, SLOT_DURATION, UNINCLUDED_SEGMENT_CAPACITY, VERSION,
-};
+// Substrate and Polkadot dependencies
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
-
-use sp_version::RuntimeVersion;
-
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
-	derive_impl,
-	dispatch::DispatchClass,
-	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin},
-	weights::{ConstantMultiplier, Weight},
-	PalletId,
+    derive_impl,
+    dispatch::DispatchClass,
+    parameter_types,
+    traits::{ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, TransformOrigin},
+    weights::{ConstantMultiplier, Weight},
+    PalletId,
 };
 use frame_system::{
-	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
+    limits::{BlockLength, BlockWeights},
+    EnsureRoot,
 };
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-pub use sp_runtime::Perbill;
+use polkadot_runtime_common::{
+    BlockHashCount, SlowAdjustingFeeUpdate, xcm_sender::NoPriceForMessageDelivery,
+};
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_runtime::{Perbill};
+use sp_version::RuntimeVersion;
+use xcm::latest::prelude::BodyId;
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
+// Local module imports
+use super::{
+    weights, xcm_config, AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection,
+    Hash, MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
+    RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
+    System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, BLOCK_PROCESSING_VELOCITY,
+    EXISTENTIAL_DEPOSIT, HOURS, MAXIMUM_BLOCK_WEIGHT, MICROUNIT, NORMAL_DISPATCH_RATIO,
+    RELAY_CHAIN_SLOT_DURATION_MILLIS, SLOT_DURATION, UNINCLUDED_SEGMENT_CAPACITY, VERSION,
+};
 
-// Polkadot imports
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-
+// Weights specific imports
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
-// XCM Imports
-use xcm::latest::prelude::BodyId;
-
-/// Import the template pallet.
+// Template pallet import (it's a local pallet)
 pub use pallet_parachain_template;
+
+// Feature-gated imports for development and testing
+#[cfg(any(feature = "std", test))]
+pub use sp_runtime::BuildStorage;
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
