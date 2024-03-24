@@ -1101,7 +1101,7 @@ impl<T: Config> Pallet<T> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
 
-	/// Unbonds a controller.
+	/// Chill a stash account.
 	pub(crate) fn do_unbond(
 		controller: T::AccountId,
 		value: BalanceOf<T>,
