@@ -147,8 +147,8 @@ fn ensure_codec_index(attrs: &Vec<syn::Attribute>, span: Span) -> Result<()> {
 
 /// Used to inject arguments into the inner `#[dynamic_pallet_params(..)]` attribute.
 ///
-/// This allows the outer `#[dynamic_params(..)]` attribute to specify some arguments that don't need
-/// to be repeated every time.
+/// This allows the outer `#[dynamic_params(..)]` attribute to specify some arguments that don't
+/// need to be repeated every time.
 struct MacroInjectArgs {
 	runtime_params: syn::Ident,
 	params_pallet: syn::Type,

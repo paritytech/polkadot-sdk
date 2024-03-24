@@ -381,7 +381,8 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	///  - `None` does not mean that `get()` does not return a value. The default value is completely
+	///  - `None` does not mean that `get()` does not return a value. The default value is
+	///    completely
 	/// ignored by this function.
 	///
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
@@ -1488,8 +1489,8 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	}
 }
 
-/// It is expected that the length is at the beginning of the encoded object and that the length is a
-/// `Compact<u32>`.
+/// It is expected that the length is at the beginning of the encoded object and that the length is
+/// a `Compact<u32>`.
 ///
 /// # Note
 /// The length returned by this trait is not deduplicated, i.e. it is the length of the underlying
