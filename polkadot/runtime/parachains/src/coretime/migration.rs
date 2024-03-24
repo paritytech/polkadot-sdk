@@ -158,7 +158,7 @@ mod v_coretime {
 	>() -> Weight {
 		let legacy_paras = paras::Parachains::<T>::get();
 		let legacy_count = legacy_paras.len() as u32;
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		for (core, para_id) in legacy_paras.into_iter().enumerate() {
 			let r = assigner_coretime::Pallet::<T>::assign_core(
 				CoreIndex(core as u32),

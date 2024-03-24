@@ -33,7 +33,7 @@ pub fn disabled_validators<T>() -> Vec<ValidatorIndex>
 where
 	T: shared::Config,
 {
-	<shared::Pallet<T>>::disabled_validators()
+	shared::Pallet::<T>::disabled_validators()
 }
 
 /// Returns the current state of the node features.
@@ -49,7 +49,7 @@ pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams 
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	<scheduler::Pallet<T>>::claimqueue()
+	scheduler::ClaimQueue::<T>::get()
 		.into_iter()
 		.map(|(core_index, entries)| {
 			(core_index, entries.into_iter().map(|e| e.para_id()).collect())

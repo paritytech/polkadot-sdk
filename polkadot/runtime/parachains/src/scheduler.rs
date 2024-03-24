@@ -268,7 +268,7 @@ impl<T: Config> Pallet<T> {
 			ValidatorGroups::<T>::set(groups);
 		}
 
-		let now = <frame_system::Pallet<T>>::block_number() + One::one();
+		let now = frame_system::Pallet::<T>::block_number() + One::one();
 		SessionStartBlock::<T>::set(now);
 	}
 
@@ -350,7 +350,7 @@ impl<T: Config> Pallet<T> {
 	/// `AssignmentProvider`. A claim is considered expired if it's `ttl` field is lower than the
 	/// current block height.
 	fn drop_expired_claims_from_claimqueue() {
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		let availability_cores = AvailabilityCores::<T>::get();
 		let ttl = configuration::ActiveConfig::<T>::get().scheduler_params.ttl;
 
@@ -391,16 +391,6 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 		});
-	}
-
-	/// Get the para (chain or thread) ID assigned to a particular core or index, if any. Core
-	/// indices out of bounds will return `None`, as will indices of unassigned cores.
-	pub(crate) fn core_para(core_index: CoreIndex) -> Option<ParaId> {
-		let cores = AvailabilityCores::<T>::get();
-		match cores.get(core_index.0 as usize) {
-			None | Some(CoreOccupied::Free) => None,
-			Some(CoreOccupied::Paras(entry)) => Some(entry.para_id()),
-		}
 	}
 
 	/// Get the validators in the given group, if the group index is valid for this session.
@@ -448,7 +438,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn availability_timeout_predicate(
 	) -> impl Fn(BlockNumberFor<T>) -> AvailabilityTimeoutStatus<BlockNumberFor<T>> {
 		let config = configuration::ActiveConfig::<T>::get();
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		let rotation_info = Self::group_rotation_info(now);
 
 		let next_rotation = rotation_info.next_rotation_at();
@@ -476,7 +466,7 @@ impl<T: Config> Pallet<T> {
 	/// this function returns false.
 	pub(crate) fn availability_timeout_check_required() -> bool {
 		let config = configuration::ActiveConfig::<T>::get();
-		let now = <frame_system::Pallet<T>>::block_number() + One::one();
+		let now = frame_system::Pallet::<T>::block_number() + One::one();
 		let rotation_info = Self::group_rotation_info(now);
 
 		let current_window =

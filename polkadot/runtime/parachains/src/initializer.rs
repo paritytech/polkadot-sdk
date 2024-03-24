@@ -341,15 +341,15 @@ impl<T: pallet_session::Config + Config> OneSessionHandler<T::AccountId> for Pal
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
-		<Pallet<T>>::on_new_session(false, 0, validators, None);
+		Pallet::<T>::on_new_session(false, 0, validators, None);
 	}
 
 	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, queued: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
 	{
-		let session_index = <pallet_session::Pallet<T>>::current_index();
-		<Pallet<T>>::on_new_session(changed, session_index, validators, Some(queued));
+		let session_index = pallet_session::Pallet::<T>::current_index();
+		Pallet::<T>::on_new_session(changed, session_index, validators, Some(queued));
 	}
 
 	fn on_disabled(_i: u32) {}

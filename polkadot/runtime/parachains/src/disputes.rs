@@ -942,7 +942,7 @@ impl<T: Config> Pallet<T> {
 
 		// Dispute statement sets on any dispute which concluded
 		// before this point are to be rejected.
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		let oldest_accepted = now.saturating_sub(post_conclusion_acceptance_period);
 
 		// Load session info to access validators
@@ -1060,7 +1060,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<bool, DispatchError> {
 		// Dispute statement sets on any dispute which concluded
 		// before this point are to be rejected.
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		let oldest_accepted = now.saturating_sub(dispute_post_conclusion_acceptance_period);
 
 		let set = set.as_ref();

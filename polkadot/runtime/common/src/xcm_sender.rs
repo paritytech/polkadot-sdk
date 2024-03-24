@@ -120,7 +120,7 @@ where
 		let para = id.into();
 		let price = P::price_for_delivery(para, &xcm);
 		let blob = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?.encode();
-		<dmp::Pallet<T>>::can_queue_downward_message(&config, &para, &blob)
+		dmp::Pallet::<T>::can_queue_downward_message(&config, &para, &blob)
 			.map_err(Into::<SendError>::into)?;
 
 		Ok(((config, para, blob), price))
@@ -130,7 +130,7 @@ where
 		(config, para, blob): (HostConfiguration<BlockNumberFor<T>>, ParaId, Vec<u8>),
 	) -> Result<XcmHash, SendError> {
 		let hash = sp_io::hashing::blake2_256(&blob[..]);
-		<dmp::Pallet<T>>::queue_downward_message(&config, para, blob)
+		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
 			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
 	}

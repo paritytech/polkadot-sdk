@@ -681,7 +681,7 @@ mod secp_utils {
 		what: &[u8],
 		extra: &[u8],
 	) -> EcdsaSignature {
-		let msg = keccak_256(&<super::Pallet<T>>::ethereum_signable_message(
+		let msg = keccak_256(&super::Pallet::<T>::ethereum_signable_message(
 			&to_ascii_hex(what)[..],
 			extra,
 		));

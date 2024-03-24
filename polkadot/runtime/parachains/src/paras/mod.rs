@@ -985,7 +985,7 @@ pub mod pallet {
 
 				let cfg = configuration::ActiveConfig::<T>::get();
 				Self::enact_pvf_accepted(
-					<frame_system::Pallet<T>>::block_number(),
+					frame_system::Pallet::<T>::block_number(),
 					&code_hash,
 					&vote.causes,
 					vote.age,
@@ -1095,7 +1095,7 @@ pub mod pallet {
 					PvfCheckOutcome::Accepted => {
 						let cfg = configuration::ActiveConfig::<T>::get();
 						Self::enact_pvf_accepted(
-							<frame_system::Pallet<T>>::block_number(),
+							frame_system::Pallet::<T>::block_number(),
 							&stmt.subject,
 							&active_vote.causes,
 							active_vote.age,
@@ -1283,7 +1283,7 @@ impl<T: Config> Pallet<T> {
 	fn apply_actions_queue(session: SessionIndex) -> Vec<ParaId> {
 		let actions = ActionsQueue::<T>::take(session);
 		let mut parachains = ParachainsCache::new();
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		let mut outgoing = Vec::new();
 
 		for para in actions {
@@ -1642,7 +1642,7 @@ impl<T: Config> Pallet<T> {
 
 		let expected_at = expected_at.saturated_into();
 		let log = ConsensusLog::ParaScheduleUpgradeCode(id, *code_hash, expected_at);
-		<frame_system::Pallet<T>>::deposit_log(log.into());
+		frame_system::Pallet::<T>::deposit_log(log.into());
 
 		weight
 	}
@@ -1979,13 +1979,13 @@ impl<T: Config> Pallet<T> {
 					// The code is known and there is no active PVF vote for it meaning it is
 					// already checked -- fast track the PVF checking into the accepted state.
 					weight += T::DbWeight::get().reads(1);
-					let now = <frame_system::Pallet<T>>::block_number();
+					let now = frame_system::Pallet::<T>::block_number();
 					weight += Self::enact_pvf_accepted(now, &code_hash, &[cause], 0, cfg);
 				} else {
 					// PVF is not being pre-checked and it is not known. Start a new pre-checking
 					// process.
 					weight += T::DbWeight::get().reads_writes(3, 2);
-					let now = <frame_system::Pallet<T>>::block_number();
+					let now = frame_system::Pallet::<T>::block_number();
 					let n_validators = shared::ActiveValidatorKeys::<T>::get().len();
 					PvfActiveVoteMap::<T>::insert(
 						&code_hash,
@@ -2050,10 +2050,10 @@ impl<T: Config> Pallet<T> {
 				CurrentCodeHash::<T>::insert(&id, &new_code_hash);
 
 				let log = ConsensusLog::ParaUpgradeCode(id, new_code_hash);
-				<frame_system::Pallet<T>>::deposit_log(log.into());
+				frame_system::Pallet::<T>::deposit_log(log.into());
 
 				// `now` is only used for registering pruning as part of `fn note_past_code`
-				let now = <frame_system::Pallet<T>>::block_number();
+				let now = frame_system::Pallet::<T>::block_number();
 
 				let weight = if let Some(prior_code_hash) = maybe_prior_code_hash {
 					Self::note_past_code(id, expected_at, now, prior_code_hash)

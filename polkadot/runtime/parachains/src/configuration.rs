@@ -29,6 +29,7 @@ use primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -312,6 +313,8 @@ pub enum InconsistentError<BlockNumber> {
 	InconsistentExecutorParams { inner: ExecutorParamError },
 	/// TTL should be bigger than lookahead
 	LookaheadExceedsTTL,
+	/// Passed in queue size for on-demand was too large.
+	OnDemandQueueSizeTooLarge,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -403,6 +406,10 @@ where
 
 		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
 			return Err(LookaheadExceedsTTL)
+		}
+
+		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
+			return Err(OnDemandQueueSizeTooLarge)
 		}
 
 		Ok(())
@@ -629,7 +636,7 @@ pub mod pallet {
 
 		/// Set the number of coretime execution cores.
 		///
-		/// Note that this configuration is managed by the coretime chain. Only manually change
+		/// NOTE: that this configuration is managed by the coretime chain. Only manually change
 		/// this, if you really know what you are doing!
 		#[pallet::call_index(6)]
 		#[pallet::weight((
@@ -1132,6 +1139,7 @@ pub mod pallet {
 				config.scheduler_params.on_demand_queue_max_size = new;
 			})
 		}
+
 		/// Set the on demand (parathreads) fee variability.
 		#[pallet::call_index(50)]
 		#[pallet::weight((
@@ -1274,7 +1282,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		session_index: &SessionIndex,
 	) -> SessionChangeOutcome<BlockNumberFor<T>> {
-		let pending_configs = <PendingConfigs<T>>::get();
+		let pending_configs = PendingConfigs::<T>::get();
 		let prev_config = ActiveConfig::<T>::get();
 
 		// No pending configuration changes, so we're done.
@@ -1301,7 +1309,7 @@ impl<T: Config> Pallet<T> {
 			ActiveConfig::<T>::put(new_config);
 		}
 
-		<PendingConfigs<T>>::put(future);
+		PendingConfigs::<T>::put(future);
 
 		SessionChangeOutcome { prev_config, new_config }
 	}
@@ -1336,7 +1344,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),
 	) -> DispatchResult {
-		let mut pending_configs = <PendingConfigs<T>>::get();
+		let mut pending_configs = PendingConfigs::<T>::get();
 
 		// 1. pending_configs = [] No pending configuration changes.
 		//
@@ -1419,7 +1427,7 @@ impl<T: Config> Pallet<T> {
 			pending_configs.push((scheduled_session, new_config));
 		}
 
-		<PendingConfigs<T>>::put(pending_configs);
+		PendingConfigs::<T>::put(pending_configs);
 
 		Ok(())
 	}
