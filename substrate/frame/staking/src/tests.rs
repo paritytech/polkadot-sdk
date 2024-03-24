@@ -4070,7 +4070,7 @@ fn test_multi_page_payout_stakers_by_page() {
 }
 
 #[test]
-fn force_unbond_works() {
+fn full_unbond_works() {
 	//
 	// * Should test
 	// * Given an account being bonded [and chosen as a validator](not mandatory)
@@ -4107,7 +4107,7 @@ fn force_unbond_works() {
 		);
 
 		// Force Unbond all of the funds in stash which makes the call to chill first.
-		let res = Staking::force_unbond(RuntimeOrigin::signed(11), 1000);
+		let res = Staking::full_unbond(RuntimeOrigin::signed(11));
 		assert!(res.is_ok());
 	})
 }

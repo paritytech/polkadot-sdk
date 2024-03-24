@@ -1,0 +1,10 @@
+title: "[pallet_staking] Staking `full_unbond`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Full unbond when staking such that to fully unbond as a validator or nominator, chilled occurs first
+      before unbonding
+
+crates:
+  - name: pallet-staking

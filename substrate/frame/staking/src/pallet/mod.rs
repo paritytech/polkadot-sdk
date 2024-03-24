@@ -1909,37 +1909,24 @@ pub mod pallet {
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
 		}
 
-		/// Forcefully Unbonds by Chilling first
+		/// Fully Unbonds by Chilling first
 		/// Emits `Unbonded`.
 		#[pallet::call_index(29)]
 		#[pallet::weight(
-		T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::force_unbond()))
+		T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::full_unbond()))
 		]
-		pub fn force_unbond(
-			origin: OriginFor<T>,
-			#[pallet::compact] value: BalanceOf<T>,
-		) -> DispatchResultWithPostInfo {
+		pub fn full_unbond(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
 
-			let min_active_bond = if Nominators::<T>::contains_key(&ledger.stash) {
-				MinNominatorBond::<T>::get()
-			} else if Validators::<T>::contains_key(&ledger.stash) {
-				MinValidatorBond::<T>::get()
-			} else {
-				Zero::zero()
-			};
+			Self::chill_stash(&ledger.stash);
 
-			if (ledger.active - value) <= min_active_bond {
-				Self::chill_stash(&ledger.stash);
-			}
-
-			let maybe_withdraw_weight = Self::do_unbond(controller, value)?;
+			let maybe_withdraw_weight = Self::do_unbond(controller, ledger.active)?;
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
-				Some(T::WeightInfo::force_unbond().saturating_add(withdraw_weight))
+				Some(T::WeightInfo::full_unbond().saturating_add(withdraw_weight))
 			} else {
-				Some(T::WeightInfo::force_unbond())
+				Some(T::WeightInfo::full_unbond())
 			};
 
 			Ok(actual_weight.into())

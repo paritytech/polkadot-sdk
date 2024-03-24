@@ -953,7 +953,7 @@ benchmarks! {
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 	}
 
-	force_unbond {
+	full_unbond {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
@@ -972,7 +972,7 @@ benchmarks! {
 		let original_bonded: BalanceOf<T> = ledger.active;
 
 		whitelist_account!(controller);
-	}: _(RawOrigin::Signed(controller.clone()), original_bonded)
+	}: _(RawOrigin::Signed(controller.clone()))
 	verify {
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created after")?;
 		let new_bonded: BalanceOf<T> = ledger.active;
