@@ -94,7 +94,7 @@ pub fn genesis() -> Storage {
 		},
 		babe: westend_runtime::BabeConfig {
 			authorities: Default::default(),
-			epoch_config: Some(westend_runtime::BABE_GENESIS_EPOCH_CONFIG),
+			epoch_config: westend_runtime::BABE_GENESIS_EPOCH_CONFIG,
 			..Default::default()
 		},
 		configuration: westend_runtime::ConfigurationConfig { config: get_host_config() },

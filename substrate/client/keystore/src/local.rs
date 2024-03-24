@@ -143,6 +143,13 @@ impl LocalKeystore {
 }
 
 impl Keystore for LocalKeystore {
+	/// Insert a new secret key.
+	///
+	/// WARNING: if the secret keypair has been manually generated using a password
+	/// (e.g. using methods such as [`sp_core::crypto::Pair::from_phrase`]) then such
+	/// a password must match the one used to open the keystore via [`LocalKeystore::open`].
+	/// If the passwords doesn't match then the inserted key ends up being unusable under
+	/// the current keystore instance.
 	fn insert(
 		&self,
 		key_type: KeyTypeId,

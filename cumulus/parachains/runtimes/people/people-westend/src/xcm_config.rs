@@ -27,7 +27,8 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
+		RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
 };
@@ -147,13 +148,6 @@ impl Contains<Location> for ParentOrParentsPlurality {
 	}
 }
 
-pub struct ParentOrSiblings;
-impl Contains<Location> for ParentOrSiblings {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [Parachain(_)]))
-	}
-}
-
 pub struct FellowsPlurality;
 impl Contains<Location> for FellowsPlurality {
 	fn contains(location: &Location) -> bool {
@@ -220,14 +214,14 @@ pub type Barrier = TrailingSetTopicAsId<
 			AllowKnownQueryResponses<PolkadotXcm>,
 			WithComputedOrigin<
 				(
-					// If the message is one that immediately attemps to pay for execution, then
+					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent, its pluralities (i.e. governance bodies), and the Fellows plurality
 					// get free execution.
 					AllowExplicitUnpaidExecutionFrom<(ParentOrParentsPlurality, FellowsPlurality)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,
@@ -283,6 +277,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 /// Converts a local signed origin into an XCM location. Forms the basis for local origins

@@ -20,7 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 async-trait = "0.1.74"
 futures = { version = "0.3.21", features = ["thread-pool"] }
 log = { workspace = true, default-features = true }
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 sp-core = { path = "../../core" }
 sp-inherents = { path = "../../inherents" }
 sp-runtime = { path = "../../runtime" }

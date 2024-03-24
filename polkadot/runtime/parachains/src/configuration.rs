@@ -29,7 +29,7 @@ use primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
-	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -43,6 +43,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
+use primitives::vstaging::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -118,9 +119,9 @@ pub struct HostConfiguration<BlockNumber> {
 	/// been completed.
 	///
 	/// Note, there are situations in which `expected_at` in the past. For example, if
-	/// [`paras_availability_period`](Self::paras_availability_period) is less than the delay set
-	/// by this field or if PVF pre-check took more time than the delay. In such cases, the upgrade
-	/// is further at the earliest possible time determined by
+	/// [`paras_availability_period`](SchedulerParams::paras_availability_period) is less than the
+	/// delay set by this field or if PVF pre-check took more time than the delay. In such cases,
+	/// the upgrade is further at the earliest possible time determined by
 	/// [`minimum_validation_upgrade_delay`](Self::minimum_validation_upgrade_delay).
 	///
 	/// The rationale for this delay has to do with relay-chain reversions. In case there is an
@@ -172,48 +173,7 @@ pub struct HostConfiguration<BlockNumber> {
 	/// How long to keep code on-chain, in blocks. This should be sufficiently long that disputes
 	/// have concluded.
 	pub code_retention_period: BlockNumber,
-	/// How many cores are managed by the coretime chain.
-	pub coretime_cores: u32,
-	/// The number of retries that a on demand author has to submit their block.
-	pub on_demand_retries: u32,
-	/// The maximum queue size of the pay as you go module.
-	pub on_demand_queue_max_size: u32,
-	/// The target utilization of the spot price queue in percentages.
-	pub on_demand_target_queue_utilization: Perbill,
-	/// How quickly the fee rises in reaction to increased utilization.
-	/// The lower the number the slower the increase.
-	pub on_demand_fee_variability: Perbill,
-	/// The minimum amount needed to claim a slot in the spot pricing queue.
-	pub on_demand_base_fee: Balance,
-	/// The number of blocks an on demand claim stays in the scheduler's claimqueue before getting
-	/// cleared. This number should go reasonably higher than the number of blocks in the async
-	/// backing lookahead.
-	pub on_demand_ttl: BlockNumber,
-	/// How often parachain groups should be rotated across parachains.
-	///
-	/// Must be non-zero.
-	pub group_rotation_frequency: BlockNumber,
-	/// The minimum availability period, in blocks.
-	///
-	/// This is the minimum amount of blocks after a core became occupied that validators have time
-	/// to make the block available.
-	///
-	/// This value only has effect on group rotations. If backers backed something at the end of
-	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
-	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
-	///
-	/// Within a group rotation there is no timeout as backers are only affecting themselves.
-	///
-	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
-	/// affect the following group at the expense of a tight availability timeline at group
-	/// rotation boundaries.
-	pub paras_availability_period: BlockNumber,
-	/// The amount of blocks ahead to schedule paras.
-	pub scheduling_lookahead: u32,
-	/// The maximum number of validators to have per core.
-	///
-	/// `None` means no maximum.
-	pub max_validators_per_core: Option<u32>,
+
 	/// The maximum number of validators to use for parachain consensus, period.
 	///
 	/// `None` means no maximum.
@@ -257,7 +217,7 @@ pub struct HostConfiguration<BlockNumber> {
 	/// scheduled. This number is controlled by this field.
 	///
 	/// This value should be greater than
-	/// [`paras_availability_period`](Self::paras_availability_period).
+	/// [`paras_availability_period`](SchedulerParams::paras_availability_period).
 	pub minimum_validation_upgrade_delay: BlockNumber,
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
@@ -266,6 +226,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub node_features: NodeFeatures,
 	/// Params used by approval-voting
 	pub approval_voting_params: ApprovalVotingParams,
+	/// Scheduler parameters
+	pub scheduler_params: SchedulerParams<BlockNumber>,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -275,8 +237,6 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 				max_candidate_depth: 0,
 				allowed_ancestry_len: 0,
 			},
-			group_rotation_frequency: 1u32.into(),
-			paras_availability_period: 1u32.into(),
 			no_show_slots: 1u32.into(),
 			validation_upgrade_cooldown: Default::default(),
 			validation_upgrade_delay: 2u32.into(),
@@ -284,10 +244,6 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_code_size: MAX_CODE_SIZE,
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
-			coretime_cores: Default::default(),
-			on_demand_retries: Default::default(),
-			scheduling_lookahead: 1,
-			max_validators_per_core: Default::default(),
 			max_validators: None,
 			dispute_period: 6,
 			dispute_post_conclusion_acceptance_period: 100.into(),
@@ -312,13 +268,9 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_validation_upgrade_delay: 2.into(),
 			executor_params: Default::default(),
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
-			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
-			on_demand_base_fee: 10_000_000u128,
-			on_demand_fee_variability: Perbill::from_percent(3),
-			on_demand_target_queue_utilization: Perbill::from_percent(25),
-			on_demand_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
+			scheduler_params: Default::default(),
 		}
 	}
 }
@@ -359,6 +311,10 @@ pub enum InconsistentError<BlockNumber> {
 	ZeroMinimumBackingVotes,
 	/// `executor_params` are inconsistent.
 	InconsistentExecutorParams { inner: ExecutorParamError },
+	/// TTL should be bigger than lookahead
+	LookaheadExceedsTTL,
+	/// Passed in queue size for on-demand was too large.
+	OnDemandQueueSizeTooLarge,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -373,11 +329,11 @@ where
 	pub fn check_consistency(&self) -> Result<(), InconsistentError<BlockNumber>> {
 		use InconsistentError::*;
 
-		if self.group_rotation_frequency.is_zero() {
+		if self.scheduler_params.group_rotation_frequency.is_zero() {
 			return Err(ZeroGroupRotationFrequency)
 		}
 
-		if self.paras_availability_period.is_zero() {
+		if self.scheduler_params.paras_availability_period.is_zero() {
 			return Err(ZeroParasAvailabilityPeriod)
 		}
 
@@ -399,10 +355,11 @@ where
 			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size })
 		}
 
-		if self.minimum_validation_upgrade_delay <= self.paras_availability_period {
+		if self.minimum_validation_upgrade_delay <= self.scheduler_params.paras_availability_period
+		{
 			return Err(MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
 				minimum_validation_upgrade_delay: self.minimum_validation_upgrade_delay.clone(),
-				paras_availability_period: self.paras_availability_period.clone(),
+				paras_availability_period: self.scheduler_params.paras_availability_period.clone(),
 			})
 		}
 
@@ -447,6 +404,14 @@ where
 			return Err(InconsistentExecutorParams { inner })
 		}
 
+		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
+			return Err(LookaheadExceedsTTL)
+		}
+
+		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
+			return Err(OnDemandQueueSizeTooLarge)
+		}
+
 		Ok(())
 	}
 
@@ -471,6 +436,7 @@ pub trait WeightInfo {
 	fn set_config_with_executor_params() -> Weight;
 	fn set_config_with_perbill() -> Weight;
 	fn set_node_feature() -> Weight;
+	fn set_config_with_scheduler_params() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -499,13 +465,16 @@ impl WeightInfo for TestWeightInfo {
 	fn set_node_feature() -> Weight {
 		Weight::MAX
 	}
+	fn set_config_with_scheduler_params() -> Weight {
+		Weight::MAX
+	}
 }
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	///
 	/// v0-v1:  <https://github.com/paritytech/polkadot/pull/3575>
 	/// v1-v2:  <https://github.com/paritytech/polkadot/pull/4420>
@@ -520,7 +489,8 @@ pub mod pallet {
 	/// v8-v9:  <https://github.com/paritytech/polkadot/pull/7577>
 	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
 	/// v10-11: <https://github.com/paritytech/polkadot-sdk/pull/1191>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
+	/// v11-12: <https://github.com/paritytech/polkadot-sdk/pull/3181>
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(12);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -667,7 +637,7 @@ pub mod pallet {
 
 		/// Set the number of coretime execution cores.
 		///
-		/// Note that this configuration is managed by the coretime chain. Only manually change
+		/// NOTE: that this configuration is managed by the coretime chain. Only manually change
 		/// this, if you really know what you are doing!
 		#[pallet::call_index(6)]
 		#[pallet::weight((
@@ -679,16 +649,16 @@ pub mod pallet {
 			Self::set_coretime_cores_unchecked(new)
 		}
 
-		/// Set the number of retries for a particular on demand.
+		/// Set the max number of times a claim may timeout on a core before it is abandoned
 		#[pallet::call_index(7)]
 		#[pallet::weight((
 			T::WeightInfo::set_config_with_u32(),
 			DispatchClass::Operational,
 		))]
-		pub fn set_on_demand_retries(origin: OriginFor<T>, new: u32) -> DispatchResult {
+		pub fn set_max_availability_timeouts(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_retries = new;
+				config.scheduler_params.max_availability_timeouts = new;
 			})
 		}
 
@@ -704,7 +674,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.group_rotation_frequency = new;
+				config.scheduler_params.group_rotation_frequency = new;
 			})
 		}
 
@@ -720,7 +690,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.paras_availability_period = new;
+				config.scheduler_params.paras_availability_period = new;
 			})
 		}
 
@@ -733,7 +703,7 @@ pub mod pallet {
 		pub fn set_scheduling_lookahead(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.scheduling_lookahead = new;
+				config.scheduler_params.lookahead = new;
 			})
 		}
 
@@ -749,7 +719,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.max_validators_per_core = new;
+				config.scheduler_params.max_validators_per_core = new;
 			})
 		}
 
@@ -1141,7 +1111,7 @@ pub mod pallet {
 		pub fn set_on_demand_base_fee(origin: OriginFor<T>, new: Balance) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_base_fee = new;
+				config.scheduler_params.on_demand_base_fee = new;
 			})
 		}
 
@@ -1154,7 +1124,7 @@ pub mod pallet {
 		pub fn set_on_demand_fee_variability(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_fee_variability = new;
+				config.scheduler_params.on_demand_fee_variability = new;
 			})
 		}
 
@@ -1167,9 +1137,10 @@ pub mod pallet {
 		pub fn set_on_demand_queue_max_size(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_queue_max_size = new;
+				config.scheduler_params.on_demand_queue_max_size = new;
 			})
 		}
+
 		/// Set the on demand (parathreads) fee variability.
 		#[pallet::call_index(50)]
 		#[pallet::weight((
@@ -1182,7 +1153,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_target_queue_utilization = new;
+				config.scheduler_params.on_demand_target_queue_utilization = new;
 			})
 		}
 		/// Set the on demand (parathreads) ttl in the claimqueue.
@@ -1194,7 +1165,7 @@ pub mod pallet {
 		pub fn set_on_demand_ttl(origin: OriginFor<T>, new: BlockNumberFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_ttl = new;
+				config.scheduler_params.ttl = new;
 			})
 		}
 
@@ -1244,6 +1215,22 @@ pub mod pallet {
 				config.approval_voting_params = new;
 			})
 		}
+
+		/// Set scheduler-params.
+		#[pallet::call_index(55)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_scheduler_params(),
+			DispatchClass::Operational,
+		))]
+		pub fn set_scheduler_params(
+			origin: OriginFor<T>,
+			new: SchedulerParams<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.scheduler_params = new;
+			})
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1252,7 +1239,7 @@ pub mod pallet {
 		/// To be used if authorization is checked otherwise.
 		pub fn set_coretime_cores_unchecked(new: u32) -> DispatchResult {
 			Self::schedule_config_update(|config| {
-				config.coretime_cores = new;
+				config.scheduler_params.num_cores = new;
 			})
 		}
 	}
@@ -1393,7 +1380,7 @@ impl<T: Config> Pallet<T> {
 		let base_config_consistent = base_config.check_consistency().is_ok();
 
 		// Now, we need to decide what the new configuration should be.
-		// We also move the `base_config` to `new_config` to empahsize that the base config was
+		// We also move the `base_config` to `new_config` to emphasize that the base config was
 		// destroyed by the `updater`.
 		updater(&mut base_config);
 		let new_config = base_config;

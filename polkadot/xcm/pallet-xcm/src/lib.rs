@@ -29,7 +29,7 @@ pub mod migration;
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::{
-	dispatch::GetDispatchInfo,
+	dispatch::{DispatchErrorWithPostInfo, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
 	traits::{
 		Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency,
@@ -85,6 +85,7 @@ pub trait WeightInfo {
 	fn migrate_and_notify_old_targets() -> Weight;
 	fn new_query() -> Weight;
 	fn take_response() -> Weight;
+	fn claim_assets() -> Weight;
 }
 
 /// fallback implementation
@@ -163,6 +164,10 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn take_response() -> Weight {
+		Weight::from_parts(100_000_000, 0)
+	}
+
+	fn claim_assets() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
 }
@@ -291,22 +296,38 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
-		) -> Result<Outcome, DispatchError> {
-			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
-			let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let value = (origin_location, message);
-			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
-			let (origin_location, message) = value;
-			let outcome = T::XcmExecutor::prepare_and_execute(
-				origin_location,
-				message,
-				&mut hash,
-				max_weight,
-				max_weight,
-			);
+		) -> Result<Weight, DispatchErrorWithPostInfo> {
+			log::trace!(target: "xcm::pallet_xcm::execute", "message {:?}, max_weight {:?}", message, max_weight);
+			let outcome = (|| {
+				let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+				let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
+				let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+				let value = (origin_location, message);
+				ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
+				let (origin_location, message) = value;
+				Ok(T::XcmExecutor::prepare_and_execute(
+					origin_location,
+					message,
+					&mut hash,
+					max_weight,
+					max_weight,
+				))
+			})()
+			.map_err(|e: DispatchError| {
+				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
+			})?;
+
 			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
-			Ok(outcome)
+			let weight_used = outcome.weight_used();
+			outcome.ensure_complete().map_err(|error| {
+				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
+				Error::<T>::LocalExecutionIncomplete.with_weight(
+					weight_used.saturating_add(
+						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
+					),
+				)
+			})?;
+			Ok(weight_used)
 		}
 	}
 
@@ -353,7 +374,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			timeout: BlockNumberFor<T>,
 			match_querier: VersionedLocation,
-		) -> Result<Self::QueryId, DispatchError> {
+		) -> Result<QueryId, DispatchError> {
 			let responder = <T as Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let query_id = <Self as QueryHandler>::new_query(
 				responder,
@@ -1009,9 +1030,6 @@ pub mod pallet {
 		/// No more than `max_weight` will be used in its attempted execution. If this is less than
 		/// the maximum amount of weight that the message could take to be executed, then no
 		/// execution attempt will be made.
-		///
-		/// NOTE: A successful return to this does *not* imply that the `msg` was executed
-		/// successfully to completion; only that it was attempted.
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(
@@ -1019,13 +1037,8 @@ pub mod pallet {
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			log::trace!(target: "xcm::pallet_xcm::execute", "message {:?}, max_weight {:?}", message, max_weight);
-			let outcome = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
-			let weight_used = outcome.weight_used();
-			outcome.ensure_complete().map_err(|error| {
-				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
-				Error::<T>::LocalExecutionIncomplete
-			})?;
+			let weight_used =
+				<Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
@@ -1378,6 +1391,64 @@ pub mod pallet {
 				weight_limit,
 			)
 		}
+
+		/// Claims assets trapped on this pallet because of leftover assets during XCM execution.
+		///
+		/// - `origin`: Anyone can call this extrinsic.
+		/// - `assets`: The exact assets that were trapped. Use the version to specify what version
+		/// was the latest when they were trapped.
+		/// - `beneficiary`: The location/account where the claimed assets will be deposited.
+		#[pallet::call_index(12)]
+		#[pallet::weight({
+			let assets_version = assets.identify_version();
+			let maybe_assets: Result<Assets, ()> = (*assets.clone()).try_into();
+			let maybe_beneficiary: Result<Location, ()> = (*beneficiary.clone()).try_into();
+			match (maybe_assets, maybe_beneficiary) {
+				(Ok(assets), Ok(beneficiary)) => {
+					let ticket: Location = GeneralIndex(assets_version as u128).into();
+					let mut message = Xcm(vec![
+						ClaimAsset { assets: assets.clone(), ticket },
+						DepositAsset { assets: AllCounted(assets.len() as u32).into(), beneficiary },
+					]);
+					T::Weigher::weight(&mut message).map_or(Weight::MAX, |w| T::WeightInfo::claim_assets().saturating_add(w))
+				}
+				_ => Weight::MAX
+			}
+		})]
+		pub fn claim_assets(
+			origin: OriginFor<T>,
+			assets: Box<VersionedAssets>,
+			beneficiary: Box<VersionedLocation>,
+		) -> DispatchResult {
+			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+			log::debug!(target: "xcm::pallet_xcm::claim_assets", "origin: {:?}, assets: {:?}, beneficiary: {:?}", origin_location, assets, beneficiary);
+			// Extract version from `assets`.
+			let assets_version = assets.identify_version();
+			let assets: Assets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let number_of_assets = assets.len() as u32;
+			let beneficiary: Location =
+				(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let ticket: Location = GeneralIndex(assets_version as u128).into();
+			let mut message = Xcm(vec![
+				ClaimAsset { assets, ticket },
+				DepositAsset { assets: AllCounted(number_of_assets).into(), beneficiary },
+			]);
+			let weight =
+				T::Weigher::weight(&mut message).map_err(|()| Error::<T>::UnweighableMessage)?;
+			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
+			let outcome = T::XcmExecutor::prepare_and_execute(
+				origin_location,
+				message,
+				&mut hash,
+				weight,
+				weight,
+			);
+			outcome.ensure_complete().map_err(|error| {
+				log::error!(target: "xcm::pallet_xcm::claim_assets", "XCM execution failed with error: {:?}", error);
+				Error::<T>::LocalExecutionIncomplete
+			})?;
+			Ok(())
+		}
 	}
 }
 
@@ -1407,7 +1478,6 @@ impl<T: Config> sp_std::fmt::Debug for FeesHandling<T> {
 }
 
 impl<T: Config> QueryHandler for Pallet<T> {
-	type QueryId = u64;
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
@@ -1417,7 +1487,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		responder: impl Into<Location>,
 		timeout: BlockNumberFor<T>,
 		match_querier: impl Into<Location>,
-	) -> Self::QueryId {
+	) -> QueryId {
 		Self::do_new_query(responder, None, timeout, match_querier)
 	}
 
@@ -1427,7 +1497,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		message: &mut Xcm<()>,
 		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
-	) -> Result<Self::QueryId, Self::Error> {
+	) -> Result<QueryId, Self::Error> {
 		let responder = responder.into();
 		let destination = Self::UniversalLocation::get()
 			.invert_target(&responder)
@@ -1440,7 +1510,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	}
 
 	/// Removes response when ready and emits [Event::ResponseTaken] event.
-	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+	fn take_response(query_id: QueryId) -> QueryResponseStatus<Self::BlockNumber> {
 		match Queries::<T>::get(query_id) {
 			Some(QueryStatus::Ready { response, at }) => match response.try_into() {
 				Ok(response) => {
@@ -1457,7 +1527,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn expect_response(id: Self::QueryId, response: Response) {
+	fn expect_response(id: QueryId, response: Response) {
 		let response = response.into();
 		Queries::<T>::insert(
 			id,
@@ -1920,6 +1990,7 @@ impl<T: Config> Pallet<T> {
 		]);
 		Ok(Xcm(vec![
 			WithdrawAsset(assets.into()),
+			SetFeesMode { jit_withdraw: true },
 			InitiateReserveWithdraw {
 				assets: Wild(AllCounted(max_assets)),
 				reserve,

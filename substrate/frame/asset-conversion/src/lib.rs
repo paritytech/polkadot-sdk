@@ -40,7 +40,7 @@
 //! non-native asset 1, you would pass in a path of `[DOT, 1]` or `[1, DOT]`. If you want to swap
 //! from non-native asset 1 to non-native asset 2, you would pass in a path of `[1, DOT, 2]`.
 //!
-//! (For an example of configuring this pallet to use `MultiLocation` as an asset id, see the
+//! (For an example of configuring this pallet to use `Location` as an asset id, see the
 //! cumulus repo).
 //!
 //! Here is an example `state_call` that asks for a quote of a pool of native versus asset 1:
@@ -412,6 +412,11 @@ pub mod pallet {
 		/// thus you should provide the min amount you're happy to provide.
 		/// Params `amount1_min`/`amount2_min` represent that.
 		/// `mint_to` will be sent the liquidity tokens that represent this share of the pool.
+		///
+		/// NOTE: when encountering an incorrect exchange rate and non-withdrawable pool liquidity,
+		/// batch an atomic call with [`Pallet::add_liquidity`] and
+		/// [`Pallet::swap_exact_tokens_for_tokens`] or [`Pallet::swap_tokens_for_exact_tokens`]
+		/// calls to render the liquidity withdrawable and rectify the exchange rate.
 		///
 		/// Once liquidity is added, someone may successfully call
 		/// [`Pallet::swap_exact_tokens_for_tokens`] successfully.

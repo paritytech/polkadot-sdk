@@ -393,6 +393,7 @@ where
 
 	let server_config = sc_rpc_server::Config {
 		addrs: [addr, backup_addr],
+		batch_config: config.rpc_batch_config,
 		max_connections: config.rpc_max_connections,
 		max_payload_in_mb: config.rpc_max_request_size,
 		max_payload_out_mb: config.rpc_max_response_size,
@@ -403,6 +404,7 @@ where
 		id_provider: rpc_id_provider,
 		cors: config.rpc_cors.as_ref(),
 		tokio_handle: config.tokio_handle.clone(),
+		rate_limit: config.rpc_rate_limit,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773

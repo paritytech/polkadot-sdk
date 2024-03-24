@@ -18,7 +18,10 @@
 //! Controller traits defined in this module are high-level traits that will rely on other traits
 //! from `xcm-executor` to perform their tasks.
 
-use frame_support::pallet_prelude::DispatchError;
+use frame_support::{
+	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
+	pallet_prelude::DispatchError,
+};
 use sp_std::boxed::Box;
 use xcm::prelude::*;
 pub use xcm_executor::traits::QueryHandler;
@@ -52,7 +55,8 @@ pub trait ExecuteController<Origin, RuntimeCall> {
 	/// Weight information for ExecuteController functions.
 	type WeightInfo: ExecuteControllerWeightInfo;
 
-	/// Attempt to execute an XCM locally, and return the outcome.
+	/// Attempt to execute an XCM locally, returns Ok with the weight consumed if the execution
+	/// complete successfully, Err otherwise.
 	///
 	/// # Parameters
 	///
@@ -63,7 +67,7 @@ pub trait ExecuteController<Origin, RuntimeCall> {
 		origin: Origin,
 		message: Box<VersionedXcm<RuntimeCall>>,
 		max_weight: Weight,
-	) -> Result<Outcome, DispatchError>;
+	) -> Result<Weight, DispatchErrorWithPostInfo>;
 }
 
 /// Weight functions needed for [`SendController`].
@@ -128,7 +132,7 @@ pub trait QueryController<Origin, Timeout>: QueryHandler {
 		origin: Origin,
 		timeout: Timeout,
 		match_querier: VersionedLocation,
-	) -> Result<Self::QueryId, DispatchError>;
+	) -> Result<QueryId, DispatchError>;
 }
 
 impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
@@ -137,8 +141,9 @@ impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
 		_origin: Origin,
 		_message: Box<VersionedXcm<RuntimeCall>>,
 		_max_weight: Weight,
-	) -> Result<Outcome, DispatchError> {
-		Ok(Outcome::Error { error: XcmError::Unimplemented })
+	) -> Result<Weight, DispatchErrorWithPostInfo> {
+		Err(DispatchError::Other("ExecuteController::execute not implemented")
+			.with_weight(Weight::zero()))
 	}
 }
 
@@ -181,7 +186,7 @@ impl<Origin, Timeout> QueryController<Origin, Timeout> for () {
 		_origin: Origin,
 		_timeout: Timeout,
 		_match_querier: VersionedLocation,
-	) -> Result<Self::QueryId, DispatchError> {
+	) -> Result<QueryId, DispatchError> {
 		Ok(Default::default())
 	}
 }

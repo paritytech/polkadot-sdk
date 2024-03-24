@@ -16,8 +16,8 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
-serde = { version = "1.0.195", default-features = false }
-serde_derive = { version = "1.0.117", optional = true }
+serde = { workspace = true }
+serde_derive = { optional = true, workspace = true }
 smallvec = "1.8.0"
 
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
@@ -45,7 +45,7 @@ sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", def
 
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["tuples-96"] }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["experimental", "tuples-96"] }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
 westend-runtime-constants = { package = "westend-runtime-constants", path = "constants", default-features = false }
@@ -119,7 +119,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder",
 hex-literal = "0.4.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
-serde_json = "1.0.111"
+serde_json = { workspace = true, default-features = true }
 remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities" }
 tokio = { version = "1.24.2", features = ["macros"] }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }

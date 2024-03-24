@@ -7,10 +7,11 @@
     - .kubernetes-env
     - .zombienet-refs
   rules:
-    - !reference [.build-refs, rules]
+    # Docker images have different tag in merge queues
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/
       variables:
         DOCKER_IMAGES_VERSION: ${CI_COMMIT_SHORT_SHA}
+    - !reference [.build-refs, rules]
   before_script:
     - echo "Zombienet Tests Config"
     - echo "${ZOMBIENET_IMAGE}"

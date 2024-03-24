@@ -22,7 +22,9 @@
 
 pub mod middleware;
 
-use std::{convert::Infallible, error::Error as StdError, net::SocketAddr, time::Duration};
+use std::{
+	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
+};
 
 use http::header::HeaderValue;
 use hyper::{
@@ -31,10 +33,7 @@ use hyper::{
 };
 use jsonrpsee::{
 	server::{
-		middleware::{
-			http::{HostFilterLayer, ProxyGetRequestLayer},
-			rpc::RpcServiceBuilder,
-		},
+		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
 		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
 	},
 	Methods, RpcModule,
@@ -43,11 +42,14 @@ use tokio::net::TcpListener;
 use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use jsonrpsee::core::{
-	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
-	traits::IdProvider,
+pub use jsonrpsee::{
+	core::{
+		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
+		traits::IdProvider,
+	},
+	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
-pub use middleware::{MetricsLayer, RpcMetrics};
+pub use middleware::{Metrics, MiddlewareLayer, RpcMetrics};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
@@ -79,14 +81,31 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub id_provider: Option<Box<dyn IdProvider>>,
 	/// Tokio runtime handle.
 	pub tokio_handle: tokio::runtime::Handle,
+	/// Batch request config.
+	pub batch_config: BatchRequestConfig,
+	/// Rate limit calls per minute.
+	pub rate_limit: Option<NonZeroU32>,
+}
+
+#[derive(Debug, Clone)]
+struct PerConnection<RpcMiddleware, HttpMiddleware> {
+	methods: Methods,
+	stop_handle: StopHandle,
+	metrics: Option<RpcMetrics>,
+	tokio_handle: tokio::runtime::Handle,
+	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
 }
 
 /// Start RPC server listening on given address.
-pub async fn start_server<M: Send + Sync + 'static>(
+pub async fn start_server<M>(
 	config: Config<'_, M>,
-) -> Result<Server, Box<dyn StdError + Send + Sync>> {
+) -> Result<Server, Box<dyn StdError + Send + Sync>>
+where
+	M: Send + Sync,
+{
 	let Config {
 		addrs,
+		batch_config,
 		cors,
 		max_payload_in_mb,
 		max_payload_out_mb,
@@ -97,6 +116,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		id_provider,
 		tokio_handle,
 		rpc_api,
+		rate_limit,
 	} = config;
 
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
@@ -122,6 +142,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		)
 		.set_http_middleware(http_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
+		.set_batch_request_config(batch_config)
 		.custom_tokio_runtime(tokio_handle.clone());
 
 	if let Some(provider) = id_provider {
@@ -152,8 +173,23 @@ pub async fn start_server<M: Send + Sync + 'static>(
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label = if is_websocket { "ws" } else { "http" };
 
-				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
-				let rpc_middleware = RpcServiceBuilder::new().option_layer(metrics.clone());
+				let middleware_layer = match (metrics, rate_limit) {
+					(None, None) => None,
+					(Some(metrics), None) => Some(
+						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
+					),
+					(None, Some(rate_limit)) =>
+						Some(MiddlewareLayer::new().with_rate_limit_per_minute(rate_limit)),
+					(Some(metrics), Some(rate_limit)) => Some(
+						MiddlewareLayer::new()
+							.with_metrics(Metrics::new(metrics, transport_label))
+							.with_rate_limit_per_minute(rate_limit),
+					),
+				};
+
+				let rpc_middleware =
+					RpcServiceBuilder::new().option_layer(middleware_layer.clone());
+
 				let mut svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 
@@ -164,9 +200,9 @@ pub async fn start_server<M: Send + Sync + 'static>(
 						// Spawn a task to handle when the connection is closed.
 						tokio_handle.spawn(async move {
 							let now = std::time::Instant::now();
-							metrics.as_ref().map(|m| m.ws_connect());
+							middleware_layer.as_ref().map(|m| m.ws_connect());
 							on_disconnect.await;
-							metrics.as_ref().map(|m| m.ws_disconnect(now));
+							middleware_layer.as_ref().map(|m| m.ws_disconnect(now));
 						});
 					}
 
@@ -244,13 +280,4 @@ fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
 	} else {
 		format!("{:?}", ["*"])
 	}
-}
-
-#[derive(Clone)]
-struct PerConnection<RpcMiddleware, HttpMiddleware> {
-	methods: Methods,
-	stop_handle: StopHandle,
-	metrics: Option<RpcMetrics>,
-	tokio_handle: tokio::runtime::Handle,
-	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
 }
