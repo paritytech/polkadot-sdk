@@ -586,7 +586,6 @@ pub mod pallet {
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
 
 		/// Duration of the unsigned phase.
-		#[pallet::constant]
 		type UnsignedPhase: Get<BlockNumberFor<Self>>;
 		/// Duration of the signed phase.
 		#[pallet::constant]
