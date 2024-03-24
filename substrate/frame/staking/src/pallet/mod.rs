@@ -2011,10 +2011,10 @@ pub mod pallet {
 			let integrity_checks = || {
 				let lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
 
-				if let Some(ledger) = Bonded::<T>::get(&stash).and_then(|c| Ledger::<T>::get(&c)) {
+				if let Some(ledger) = Bonded::<T>::get(&stash).and_then(Ledger::<T>::get) {
 					ensure!(lock == ledger.total, Error::<T>::BadState);
 					ensure!(Payee::<T>::get(&stash).is_some(), Error::<T>::BadState);
-					ensure!(Bonded::<T>::get(&stash).is_some(), Error::<T>::BadState);
+					ensure!(ledger.stash == stash, Error::<T>::BadState);
 				} else {
 					ensure!(lock == Zero::zero(), Error::<T>::BadState);
 				}
@@ -2045,8 +2045,8 @@ pub mod pallet {
 				},
 				Ok(LedgerIntegrityState::CorruptedKilled) => {
 					if current_lock == Zero::zero() {
-						// this case needs to recover both lock and ledger, so the new total needs
-						// to be given by the called since there's no way to recover the total
+						// this case needs to restore both lock and ledger, so the new total needs
+						// to be given by the called since there's no way to restore the total
 						// on-chain.
 						ensure!(maybe_total.is_some(), Error::<T>::CannotResetLedger);
 						Ok((
