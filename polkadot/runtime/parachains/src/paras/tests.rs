@@ -451,7 +451,7 @@ fn code_upgrade_applied_after_delay() {
 				new_code.clone(),
 				1,
 				&Configuration::config(),
-				EnactUpgradeDirectly::No,
+				UpgradeStrategy::SetGoAheadSignal,
 			);
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -521,7 +521,7 @@ fn code_upgrade_applied_after_delay() {
 }
 
 #[test]
-fn enact_code_upgrade_directly_works() {
+fn upgrade_strategy_apply_at_expected_block_works() {
 	let code_retention_period = 10;
 	let validation_upgrade_delay = 5;
 	let validation_upgrade_cooldown = 10;
@@ -561,6 +561,7 @@ fn enact_code_upgrade_directly_works() {
 		assert_eq!(Paras::current_code(&para_id), Some(original_code.clone()));
 
 		// this parablock is in the context of block 1.
+		let expected_at = 1 + validation_upgrade_delay;
 		let next_possible_upgrade_at = 1 + validation_upgrade_cooldown;
 		// `set_go_ahead` parameter set to `false` which prevents signaling the parachain
 		// with the `GoAhead` signal.
@@ -569,13 +570,14 @@ fn enact_code_upgrade_directly_works() {
 			new_code.clone(),
 			1,
 			&Configuration::config(),
-			EnactUpgradeDirectly::Yes,
+			UpgradeStrategy::ApplyAtExpectedBlock,
 		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
 
-		assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(2));
-		assert_eq!(PastCodeHash::<Test>::get(&(para_id, 2)), Some(original_code.hash()),);
+		run_to_block(expected_at + 1, None);
+		assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(expected_at));
+		assert_eq!(PastCodeHash::<Test>::get(&(para_id, expected_at)), Some(original_code.hash()));
 		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
 		assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
 		assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
@@ -644,7 +646,7 @@ fn code_upgrade_applied_after_delay_even_when_late() {
 				new_code.clone(),
 				1,
 				&Configuration::config(),
-				EnactUpgradeDirectly::No,
+				UpgradeStrategy::SetGoAheadSignal,
 			);
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -728,7 +730,7 @@ fn submit_code_change_when_not_allowed_is_err() {
 			new_code.clone(),
 			1,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -746,7 +748,7 @@ fn submit_code_change_when_not_allowed_is_err() {
 			newer_code.clone(),
 			2,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		assert_eq!(
 			FutureCodeUpgrades::<Test>::get(&para_id),
@@ -810,7 +812,7 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 			new_code.clone(),
 			0,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -835,7 +837,7 @@ fn upgrade_restriction_elapsed_doesnt_mean_can_upgrade() {
 			newer_code.clone(),
 			30,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		assert_eq!(FutureCodeUpgrades::<Test>::get(&para_id), Some(0 + validation_upgrade_delay));
 	});
@@ -893,7 +895,7 @@ fn full_parachain_cleanup_storage() {
 				new_code.clone(),
 				1,
 				&Configuration::config(),
-				EnactUpgradeDirectly::No,
+				UpgradeStrategy::SetGoAheadSignal,
 			);
 			// Include votes for super-majority.
 			submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -989,7 +991,7 @@ fn cannot_offboard_ongoing_pvf_check() {
 			new_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
 
@@ -1147,7 +1149,7 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 			new_code.clone(),
 			0,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
@@ -1256,7 +1258,7 @@ fn pvf_check_coalescing_onboarding_and_upgrade() {
 			validation_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		assert!(!Paras::pvfs_require_precheck().is_empty());
 
@@ -1366,7 +1368,7 @@ fn pvf_check_upgrade_reject() {
 			new_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		check_code_is_stored(&new_code);
 
@@ -1552,7 +1554,7 @@ fn include_pvf_check_statement_refunds_weight() {
 			new_code.clone(),
 			RELAY_PARENT,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 
 		let mut stmts = IntoIterator::into_iter([0, 1, 2, 3])
@@ -1653,7 +1655,7 @@ fn poke_unused_validation_code_doesnt_remove_code_with_users() {
 			validation_code.clone(),
 			1,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
@@ -1724,7 +1726,7 @@ fn add_trusted_validation_code_insta_approval() {
 			validation_code.clone(),
 			1,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 
@@ -1766,7 +1768,7 @@ fn add_trusted_validation_code_enacts_existing_pvf_vote() {
 			validation_code.clone(),
 			1,
 			&Configuration::config(),
-			EnactUpgradeDirectly::No,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 		Paras::note_new_head(para_id, HeadData::default(), 1);
 

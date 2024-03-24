@@ -29,7 +29,7 @@ use frame_system::{self, ensure_root, ensure_signed};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, EnactUpgradeDirectly, ParaGenesisArgs},
+	paras::{self, UpgradeStrategy, ParaGenesisArgs},
 	Origin, ParaLifecycle,
 };
 use sp_std::{prelude::*, result};
@@ -429,7 +429,7 @@ pub mod pallet {
 			runtime_parachains::schedule_code_upgrade::<T>(
 				para,
 				new_code,
-				EnactUpgradeDirectly::Yes,
+				UpgradeStrategy::ApplyAtExpectedBlock,
 			)?;
 			Ok(())
 		}

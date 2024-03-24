@@ -22,7 +22,7 @@
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp,
-	paras::{self, EnactUpgradeDirectly},
+	paras::{self, UpgradeStrategy},
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
 };
@@ -887,7 +887,7 @@ impl<T: Config> Pallet<T> {
 				new_code,
 				now,
 				&config,
-				EnactUpgradeDirectly::No,
+				UpgradeStrategy::SetGoAheadSignal,
 			));
 		}
 

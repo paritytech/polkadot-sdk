@@ -1260,7 +1260,7 @@ fn candidate_checks() {
 					vec![9, 8, 7, 6, 5, 4, 3, 2, 1].into(),
 					expected_at,
 					&cfg,
-					EnactUpgradeDirectly::No,
+					UpgradeStrategy::SetGoAheadSignal,
 				);
 			}
 
@@ -2241,7 +2241,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let cause = &active_vote_state.causes()[0];
 		// Upgrade block is the block of inclusion, not candidate's parent.
 		assert_matches!(cause,
-			paras::PvfCheckCause::Upgrade { id, included_at, enact_upgrade_directly: EnactUpgradeDirectly::No }
+			paras::PvfCheckCause::Upgrade { id, included_at, upgrade_strategy: UpgradeStrategy::SetGoAheadSignal }
 				if id == &chain_a && included_at == &7
 		);
 	});
