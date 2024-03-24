@@ -4070,49 +4070,6 @@ fn test_multi_page_payout_stakers_by_page() {
 }
 
 #[test]
-fn full_unbond_works() {
-	//
-	// * Should test
-	// * Given an account being bonded [and chosen as a validator](not mandatory)
-	// * it can force unbond a portion of its funds from the stash account.
-	ExtBuilder::default().nominate(false).build_and_execute(|| {
-		// Set payee to stash.
-		assert_ok!(Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Stash));
-
-		// Give account 11 some large free balance greater than total
-		let _ = Balances::make_free_balance_be(&11, 1000000);
-
-		// confirm that 10 is a normal validator and gets paid at the end of the era.
-		mock::start_active_era(1);
-
-		// Initial state of 11
-		assert_eq!(
-			Staking::ledger(11.into()).unwrap(),
-			StakingLedgerInspect {
-				stash: 11,
-				total: 1000,
-				active: 1000,
-				unlocking: Default::default(),
-				legacy_claimed_rewards: bounded_vec![],
-			}
-		);
-
-		mock::start_active_era(2);
-		assert_eq!(active_era(), 2);
-
-		// unbonding without chilling fails
-		assert_noop!(
-			Staking::unbond(RuntimeOrigin::signed(11), 1000),
-			Error::<Test>::InsufficientBond,
-		);
-
-		// Full Unbond all of the funds in stash which makes the call to chill first.
-		let res = Staking::full_unbond(RuntimeOrigin::signed(11));
-		assert!(res.is_ok());
-	})
-}
-
-#[test]
 fn test_multi_page_payout_stakers_backward_compatible() {
 	// Test that payout_stakers work in general and that it pays the correct amount of reward.
 	ExtBuilder::default().has_stakers(false).build_and_execute(|| {

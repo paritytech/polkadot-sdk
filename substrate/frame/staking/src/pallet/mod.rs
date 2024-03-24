@@ -1913,19 +1913,20 @@ pub mod pallet {
 		/// Emits `Unbonded`.
 		#[pallet::call_index(29)]
 		#[pallet::weight(
-		T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::full_unbond()))
+		T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::unbond()))
 		]
 		pub fn full_unbond(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
 			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
+
 			Self::chill_stash(&ledger.stash);
 
 			let maybe_withdraw_weight = Self::do_unbond(controller, ledger.active)?;
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
-				Some(T::WeightInfo::full_unbond().saturating_add(withdraw_weight))
+				Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
 			} else {
-				Some(T::WeightInfo::full_unbond())
+				Some(T::WeightInfo::unbond())
 			};
 
 			Ok(actual_weight.into())
