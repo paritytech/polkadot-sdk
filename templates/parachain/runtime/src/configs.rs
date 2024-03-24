@@ -22,23 +22,21 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_runtime::Perbill;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
-use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
+
+// Template pallet import 
+pub use pallet_parachain_template;
 
 // Local module imports
 use super::{
-	weights, xcm_config, AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection,
-	Hash, MessageQueue, Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys,
-	System, WeightToFee, XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, BLOCK_PROCESSING_VELOCITY,
-	EXISTENTIAL_DEPOSIT, HOURS, MAXIMUM_BLOCK_WEIGHT, MICROUNIT, NORMAL_DISPATCH_RATIO,
-	RELAY_CHAIN_SLOT_DURATION_MILLIS, SLOT_DURATION, UNINCLUDED_SEGMENT_CAPACITY, VERSION,
+	weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
+	xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin},
+	AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection, Hash, MessageQueue,
+	Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason,
+	RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys, System, WeightToFee,
+	XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, BLOCK_PROCESSING_VELOCITY, EXISTENTIAL_DEPOSIT, HOURS,
+	MAXIMUM_BLOCK_WEIGHT, MICROUNIT, NORMAL_DISPATCH_RATIO, RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	SLOT_DURATION, UNINCLUDED_SEGMENT_CAPACITY, VERSION,
 };
-
-// Weights specific imports
-use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
-
-// Template pallet import (it's a local pallet)
-pub use pallet_parachain_template;
 
 // Feature-gated imports for development and testing
 #[cfg(any(feature = "std", test))]
