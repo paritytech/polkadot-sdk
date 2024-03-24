@@ -63,7 +63,6 @@ const LOG_TARGET: &str = "runtime::beefy";
 pub mod pallet {
 	use super::*;
 	use frame_system::{ensure_root, pallet_prelude::BlockNumberFor};
-	use sp_runtime::TryRuntimeError;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -347,15 +346,6 @@ impl<T: Config> Pallet<T> {
 			SetIdSession::<T>::get(validator_set_id).is_some(),
 			"Validator set id must be present in SetIdSession"
 		);
-		Ok(())
-	}
-
-	/// # Invariants
-	///
-	/// `ValidatorSetId` must be present in `SetIdSession`
-	fn try_state_validators() -> Result<(), sp_runtime::TryRuntimeError> {
-		let validator_set_id = <ValidatorSetId<T>>::get();
-		ensure!(SetIdSession::<T>::get(validator_set_id).is_some(), "Validator set id must be present in SetIdSession");
 		Ok(())
 	}
 }
