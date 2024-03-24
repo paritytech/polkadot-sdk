@@ -283,7 +283,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
 	}
@@ -319,21 +319,27 @@ impl<T: Config> Pallet<T> {
 	/// * `Authorities` should not exceed the `MaxAuthorities` capacity.
 	/// * `NextAuthorities` should not exceed the `MaxAuthorities` capacity.
 	fn try_state_authorities() -> Result<(), sp_runtime::TryRuntimeError> {
-		let authorities = <Authorities<T>>::get();
+		if let Some(authorities_len) = <Authorities<T>>::decode_len() {
+			ensure!(
+				authorities_len as u32 <= T::MaxAuthorities::get(),
+				"Shouldn't have authorities than the pallet config allows."
+			);
+		} else {
+			return Err(sp_runtime::TryRuntimeError::Other(
+				"Failed to decode length of authorities",
+			));
+		}
 
-		ensure!(
-			authorities.len() as u32 <=
-				T::MaxAuthorities::get().try_into().expect("Max authorities should be present"),
-			"Shouldn't have authorities than the pallet config allows."
-		);
-
-		let next_authorities = <NextAuthorities<T>>::get();
-
-		ensure!(
-			next_authorities.len() as u32 <=
-				T::MaxAuthorities::get().try_into().expect("Max authorities should be present"),
-			"Shouldn't have next authorities than the pallet config allows."
-		);
+		if let Some(next_authorities_len) = <NextAuthorities<T>>::decode_len() {
+			ensure!(
+				next_authorities_len as u32 <= T::MaxAuthorities::get(),
+				"Shouldn't have next authorities than the pallet config allows."
+			);
+		} else {
+			return Err(sp_runtime::TryRuntimeError::Other(
+				"Failed to decode length of authorities",
+			));
+		}
 		Ok(())
 	}
 
