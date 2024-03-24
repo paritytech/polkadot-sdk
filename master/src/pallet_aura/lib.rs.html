@@ -548,6 +548,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -664,6 +665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// The effective value of this type should not change while the chain is running.
 		///
 		/// For backwards compatibility either use [`MinimumPeriodTimesTwo`] or a const.
+		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>SlotDuration: Get&lt;&lt;<span class="self">Self </span><span class="kw">as </span>pallet_timestamp::Config&gt;::Moment&gt;;
 	}
 
