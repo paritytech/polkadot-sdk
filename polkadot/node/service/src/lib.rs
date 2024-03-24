@@ -881,7 +881,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	net_config.add_request_response_protocol(cfg);
 	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (chunk_req_v1_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	net_config.add_request_response_protocol(cfg);
+	let (chunk_req_v2_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
@@ -949,7 +951,8 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			candidate_validation_config,
 			availability_config: AVAILABILITY_CONFIG,
 			pov_req_receiver,
-			chunk_req_receiver,
+			chunk_req_v1_receiver,
+			chunk_req_v2_receiver,
 			statement_req_receiver,
 			candidate_req_v2_receiver,
 			approval_voting_config,

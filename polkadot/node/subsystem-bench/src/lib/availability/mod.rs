@@ -22,7 +22,7 @@ use crate::{
 		av_store::{self, MockAvailabilityStore},
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::{self, MockRuntimeApi},
+		runtime_api::{node_features_with_chunk_mapping_enabled, MockRuntimeApi},
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
@@ -34,16 +34,18 @@ use bitvec::bitvec;
 use colored::Colorize;
 use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
+use polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
+
 use parity_scale_codec::Encode;
 use polkadot_availability_bitfield_distribution::BitfieldDistribution;
 use polkadot_availability_distribution::{
 	AvailabilityDistributionSubsystem, IncomingRequestReceivers,
 };
-use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
+use polkadot_availability_recovery::{AvailabilityRecoverySubsystem, RecoveryStrategyKind};
 use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
 use polkadot_node_metrics::metrics::Metrics;
 use polkadot_node_network_protocol::{
-	request_response::{v1::ChunkFetchingRequest, IncomingRequest, ReqProtocolNames},
+	request_response::{v1, v2, IncomingRequest, ReqProtocolNames},
 	OurView, Versioned, VersionedValidationProtocol,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV};
@@ -60,8 +62,9 @@ use polkadot_node_subsystem_types::{
 };
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
 use polkadot_primitives::{
-	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData,
-	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
+	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex,
+	GroupIndex, Hash, HeadData, Header, PersistedValidationData, Signed, SigningContext,
+	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_network::{
@@ -72,20 +75,32 @@ use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
+use strum::Display;
 
 mod av_store_helpers;
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Display)]
+#[value(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum Strategy {
+	/// Regular random chunk recovery. This is also the fallback for the next strategies.
+	Chunks,
+	/// Recovery from systematic chunks. Much faster than regular chunk recovery becasue it avoid
+	/// doing the reed-solomon reconstruction.
+	Systematic,
+	/// Fetch the full availability datafrom backers first. Saves CPU as we don't need to
+	/// re-construct from chunks. Typically this is only faster if nodes have enough bandwidth.
+	FullFromBackers,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
 #[clap(rename_all = "kebab-case")]
 #[allow(missing_docs)]
 pub struct DataAvailabilityReadOptions {
-	#[clap(short, long, default_value_t = false)]
-	/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as
-	/// we don't need to re-construct from chunks. Tipically this is only faster if nodes have
-	/// enough bandwidth.
-	pub fetch_from_backers: bool,
+	#[clap(short, long, default_value_t = Strategy::Systematic)]
+	pub strategy: Strategy,
 }
 
 pub enum TestDataAvailability {
@@ -97,7 +112,7 @@ fn build_overseer_for_availability_read(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
 	av_store: MockAvailabilityStore,
-	network_bridge: (MockNetworkBridgeTx, MockNetworkBridgeRx),
+	(network_bridge_tx, network_bridge_rx): (MockNetworkBridgeTx, MockNetworkBridgeRx),
 	availability_recovery: AvailabilityRecoverySubsystem,
 	dependencies: &TestEnvironmentDependencies,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
@@ -108,8 +123,8 @@ fn build_overseer_for_availability_read(
 	let builder = dummy
 		.replace_runtime_api(|_| runtime_api)
 		.replace_availability_store(|_| av_store)
-		.replace_network_bridge_tx(|_| network_bridge.0)
-		.replace_network_bridge_rx(|_| network_bridge.1)
+		.replace_network_bridge_tx(|_| network_bridge_tx)
+		.replace_network_bridge_rx(|_| network_bridge_rx)
 		.replace_availability_recovery(|_| availability_recovery);
 
 	let (overseer, raw_handle) =
@@ -122,7 +137,7 @@ fn build_overseer_for_availability_read(
 fn build_overseer_for_availability_write(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
-	network_bridge: (MockNetworkBridgeTx, MockNetworkBridgeRx),
+	(network_bridge_tx, network_bridge_rx): (MockNetworkBridgeTx, MockNetworkBridgeRx),
 	availability_distribution: AvailabilityDistributionSubsystem,
 	chain_api: MockChainApi,
 	availability_store: AvailabilityStoreSubsystem,
@@ -136,8 +151,8 @@ fn build_overseer_for_availability_write(
 	let builder = dummy
 		.replace_runtime_api(|_| runtime_api)
 		.replace_availability_store(|_| availability_store)
-		.replace_network_bridge_tx(|_| network_bridge.0)
-		.replace_network_bridge_rx(|_| network_bridge.1)
+		.replace_network_bridge_tx(|_| network_bridge_tx)
+		.replace_network_bridge_rx(|_| network_bridge_rx)
 		.replace_chain_api(|_| chain_api)
 		.replace_bitfield_distribution(|_| bitfield_distribution)
 		// This is needed to test own chunk recovery for `n_cores`.
@@ -198,7 +213,7 @@ fn prepare_test_inner(
 		);
 	}
 
-	let runtime_api = runtime_api::MockRuntimeApi::new(
+	let runtime_api = MockRuntimeApi::new(
 		config.clone(),
 		test_authorities.clone(),
 		candidate_hashes,
@@ -209,21 +224,31 @@ fn prepare_test_inner(
 
 	let availability_state = NetworkAvailabilityState {
 		candidate_hashes: state.candidate_hashes.clone(),
+		candidate_hash_to_core_index: state.candidate_hash_to_core_index.clone(),
 		available_data: state.available_data.clone(),
 		chunks: state.chunks.clone(),
+		chunk_indices: state.chunk_indices.clone(),
+		req_protocol_names: state.req_protocol_names.clone(),
 	};
 
 	let mut req_cfgs = Vec::new();
 
 	let (collation_req_receiver, collation_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+		IncomingRequest::get_config_receiver(&state.req_protocol_names);
 	req_cfgs.push(collation_req_cfg);
 
 	let (pov_req_receiver, pov_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+		IncomingRequest::get_config_receiver(&state.req_protocol_names);
 
-	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
+	let (chunk_req_v1_receiver, chunk_req_v1_cfg) =
+		IncomingRequest::<v1::ChunkFetchingRequest>::get_config_receiver(&state.req_protocol_names);
+
+	// We won't use v1 chunk fetching requests, but we need to keep the inbound queue alive.
+	// Otherwise, av-distribution subsystem will terminate.
+	std::mem::forget(chunk_req_v1_cfg);
+
+	let (chunk_req_v2_receiver, chunk_req_v2_cfg) =
+		IncomingRequest::<v2::ChunkFetchingRequest>::get_config_receiver(&state.req_protocol_names);
 	req_cfgs.push(pov_req_cfg);
 
 	let (network, network_interface, network_receiver) =
@@ -236,28 +261,38 @@ fn prepare_test_inner(
 	);
 
 	let network_bridge_rx =
-		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
+		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_v2_cfg));
 
 	let (overseer, overseer_handle) = match &mode {
 		TestDataAvailability::Read(options) => {
-			let use_fast_path = options.fetch_from_backers;
-
-			let subsystem = if use_fast_path {
-				AvailabilityRecoverySubsystem::with_fast_path(
+			let subsystem = match options.strategy {
+				Strategy::FullFromBackers =>
+					AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
+						collation_req_receiver,
+						&state.req_protocol_names,
+						Metrics::try_register(&dependencies.registry).unwrap(),
+						RecoveryStrategyKind::BackersFirstAlways,
+					),
+				Strategy::Chunks => AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
 					collation_req_receiver,
+					&state.req_protocol_names,
 					Metrics::try_register(&dependencies.registry).unwrap(),
-				)
-			} else {
-				AvailabilityRecoverySubsystem::with_chunks_only(
+					RecoveryStrategyKind::ChunksAlways,
+				),
+				Strategy::Systematic => AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
 					collation_req_receiver,
+					&state.req_protocol_names,
 					Metrics::try_register(&dependencies.registry).unwrap(),
-				)
+					RecoveryStrategyKind::SystematicChunks,
+				),
 			};
 
 			// Use a mocked av-store.
-			let av_store = av_store::MockAvailabilityStore::new(
+			let av_store = MockAvailabilityStore::new(
 				state.chunks.clone(),
+				state.chunk_indices.clone(),
 				state.candidate_hashes.clone(),
+				state.candidate_hash_to_core_index.clone(),
 			);
 
 			build_overseer_for_availability_read(
@@ -272,7 +307,12 @@ fn prepare_test_inner(
 		TestDataAvailability::Write => {
 			let availability_distribution = AvailabilityDistributionSubsystem::new(
 				test_authorities.keyring.keystore(),
-				IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+				IncomingRequestReceivers {
+					pov_req_receiver,
+					chunk_req_v1_receiver,
+					chunk_req_v2_receiver,
+				},
+				state.req_protocol_names.clone(),
 				Metrics::try_register(&dependencies.registry).unwrap(),
 			);
 
@@ -335,14 +375,20 @@ pub struct TestState {
 	// Map from generated candidate hashes to candidate index in `available_data`
 	// and `chunks`.
 	candidate_hashes: HashMap<CandidateHash, usize>,
+	// Map from candidate hash to occupied core index.
+	candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 	// Per candidate index receipts.
 	candidate_receipt_templates: Vec<CandidateReceipt>,
 	// Per candidate index `AvailableData`
 	available_data: Vec<AvailableData>,
-	// Per candiadte index chunks
+	// Per candidate index chunks
 	chunks: Vec<Vec<ErasureChunk>>,
+	// Per-core ValidatorIndex -> ChunkIndex mapping
+	chunk_indices: Vec<Vec<ChunkIndex>>,
 	// Per relay chain block - candidate backed by our backing group
 	backed_candidates: Vec<CandidateReceipt>,
+	// Request protcol names
+	req_protocol_names: ReqProtocolNames,
 }
 
 impl TestState {
@@ -374,6 +420,10 @@ impl TestState {
 				// Store the new candidate in the state
 				self.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
 
+				let core_index = (index % self.config.n_cores) as u32;
+				self.candidate_hash_to_core_index
+					.insert(candidate_receipt.hash(), core_index.into());
+
 				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
 
 				candidate_receipt
@@ -398,6 +448,17 @@ impl TestState {
 			max_pov_size: 1024,
 			relay_parent_storage_root: Default::default(),
 		};
+
+		let chunk_indices = (0..config.n_cores)
+			.map(|core_index| {
+				availability_chunk_indices(
+					Some(&node_features_with_chunk_mapping_enabled()),
+					config.n_validators,
+					CoreIndex(core_index as u32),
+				)
+				.unwrap()
+			})
+			.collect();
 
 		// For each unique pov we create a candidate receipt.
 		for (index, pov_size) in config.pov_sizes().iter().cloned().unique().enumerate() {
@@ -431,12 +492,15 @@ impl TestState {
 			available_data,
 			candidate_receipt_templates,
 			chunks,
+			chunk_indices,
 			pov_size_to_candidate,
 			pov_sizes: Vec::from(config.pov_sizes()).into_iter().cycle(),
 			candidate_hashes: HashMap::new(),
+			candidate_hash_to_core_index: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
 			backed_candidates: Vec::new(),
 			config,
+			req_protocol_names: ReqProtocolNames::new(GENESIS_HASH, None),
 		};
 
 		_self.generate_candidates();
@@ -482,6 +546,7 @@ pub async fn benchmark_availability_read(
 					Some(GroupIndex(
 						candidate_num as u32 % (std::cmp::max(5, config.n_cores) / 5) as u32,
 					)),
+					Some(CoreIndex(candidate_num as u32)),
 					tx,
 				),
 			);
@@ -527,7 +592,8 @@ pub async fn benchmark_availability_write(
 	env.metrics().set_n_cores(config.n_cores);
 
 	gum::info!(target: LOG_TARGET, "Seeding availability store with candidates ...");
-	for backed_candidate in state.backed_candidates().clone() {
+	for (core_index, backed_candidate) in state.backed_candidates().clone().into_iter().enumerate()
+	{
 		let candidate_index = *state.candidate_hashes.get(&backed_candidate.hash()).unwrap();
 		let available_data = state.available_data[candidate_index].clone();
 		let (tx, rx) = oneshot::channel();
@@ -538,6 +604,8 @@ pub async fn benchmark_availability_write(
 				available_data,
 				expected_erasure_root: backed_candidate.descriptor().erasure_root,
 				tx,
+				core_index: CoreIndex(core_index as u32),
+				node_features: node_features_with_chunk_mapping_enabled(),
 			},
 		))
 		.await;
@@ -575,7 +643,7 @@ pub async fn benchmark_availability_write(
 
 			let request = RawIncomingRequest {
 				peer: PeerId::random(),
-				payload: ChunkFetchingRequest {
+				payload: v2::ChunkFetchingRequest {
 					candidate_hash: state.backed_candidates()[block_num - 1].hash(),
 					index: ValidatorIndex(index as u32),
 				}

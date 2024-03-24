@@ -129,6 +129,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 use bitvec::vec::BitVec;
 
 /// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
+/// The maximum bit that can be currently set/unset via the `set_node_feature` extrinsic is 255.
 pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
 
 /// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
@@ -136,6 +137,7 @@ pub mod node_features {
 	/// A feature index used to indentify a bit into the node_features array stored
 	/// in the HostConfiguration.
 	#[repr(u8)]
+	#[derive(Clone, Copy)]
 	pub enum FeatureIndex {
 		/// Tells if tranch0 assignments could be sent in a single certificate.
 		/// Reserved for: `<https://github.com/paritytech/polkadot-sdk/issues/628>`
@@ -144,9 +146,15 @@ pub mod node_features {
 		/// The value stored there represents the assumed core index where the candidates
 		/// are backed. This is needed for the elastic scaling MVP.
 		ElasticScalingMVP = 1,
+		/// Tells if the chunk mapping feature is enabled.
+		/// Enables the implementation of
+		/// [RFC-47](https://github.com/polkadot-fellows/RFCs/blob/main/text/0047-assignment-of-availability-chunks.md).
+		/// Must not be enabled unless all validators and collators have stopped using `req_chunk`
+		/// protocol version 1. If it is enabled, validators can start systematic chunk recovery.
+		AvailabilityChunkMapping = 2,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
-		FirstUnassigned = 2,
+		FirstUnassigned = 3,
 	}
 }

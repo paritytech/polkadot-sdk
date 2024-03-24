@@ -211,6 +211,8 @@ struct PerRelayParentState {
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// The hash of the relay parent on top of which this job is doing it's work.
 	parent: Hash,
+	/// Session index.
+	session_index: SessionIndex,
 	/// The `ParaId` assigned to the local validator at this relay parent.
 	assigned_para: Option<ParaId>,
 	/// The `CoreIndex` assigned to the local validator at this relay parent.
@@ -511,6 +513,8 @@ async fn store_available_data(
 	candidate_hash: CandidateHash,
 	available_data: AvailableData,
 	expected_erasure_root: Hash,
+	core_index: CoreIndex,
+	node_features: NodeFeatures,
 ) -> Result<(), Error> {
 	let (tx, rx) = oneshot::channel();
 	// Important: the `av-store` subsystem will check if the erasure root of the `available_data`
@@ -523,6 +527,8 @@ async fn store_available_data(
 			n_validators,
 			available_data,
 			expected_erasure_root,
+			core_index,
+			node_features,
 			tx,
 		})
 		.await;
@@ -546,6 +552,8 @@ async fn make_pov_available(
 	candidate_hash: CandidateHash,
 	validation_data: PersistedValidationData,
 	expected_erasure_root: Hash,
+	core_index: CoreIndex,
+	node_features: NodeFeatures,
 ) -> Result<(), Error> {
 	store_available_data(
 		sender,
@@ -553,6 +561,8 @@ async fn make_pov_available(
 		candidate_hash,
 		AvailableData { pov, validation_data },
 		expected_erasure_root,
+		core_index,
+		node_features,
 	)
 	.await
 }
@@ -623,6 +633,7 @@ struct BackgroundValidationParams<S: overseer::CandidateBackingSenderTrait, F> {
 	tx_command: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	candidate: CandidateReceipt,
 	relay_parent: Hash,
+	session_index: SessionIndex,
 	persisted_validation_data: PersistedValidationData,
 	pov: PoVData,
 	n_validators: usize,
@@ -634,12 +645,14 @@ async fn validate_and_make_available(
 		impl overseer::CandidateBackingSenderTrait,
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Sync,
 	>,
+	core_index: CoreIndex,
 ) -> Result<(), Error> {
 	let BackgroundValidationParams {
 		mut sender,
 		mut tx_command,
 		candidate,
 		relay_parent,
+		session_index,
 		persisted_validation_data,
 		pov,
 		n_validators,
@@ -668,6 +681,10 @@ async fn validate_and_make_available(
 		Ok(ep) => ep,
 		Err(e) => return Err(Error::UtilError(e)),
 	};
+
+	let node_features = request_node_features(relay_parent, session_index, &mut sender)
+		.await?
+		.unwrap_or(NodeFeatures::EMPTY);
 
 	let pov = match pov {
 		PoVData::Ready(pov) => pov,
@@ -724,6 +741,8 @@ async fn validate_and_make_available(
 				candidate.hash(),
 				validation_data.clone(),
 				candidate.descriptor.erasure_root,
+				core_index,
+				node_features,
 			)
 			.await;
 
@@ -1230,6 +1249,7 @@ async fn construct_per_relay_parent_state<Context>(
 	Ok(Some(PerRelayParentState {
 		prospective_parachains_mode: mode,
 		parent,
+		session_index,
 		assigned_core,
 		assigned_para,
 		backed: HashSet::new(),
@@ -1879,10 +1899,11 @@ async fn background_validate_and_make_available<Context>(
 	>,
 ) -> Result<(), Error> {
 	let candidate_hash = params.candidate.hash();
+	let Some(core_index) = rp_state.assigned_core else { return Ok(()) };
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(error) = validate_and_make_available(params).await {
+			if let Err(error) = validate_and_make_available(params, core_index).await {
 				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,
@@ -1957,6 +1978,7 @@ async fn kick_off_validation_work<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: attesting.candidate,
 			relay_parent: rp_state.parent,
+			session_index: rp_state.session_index,
 			persisted_validation_data,
 			pov,
 			n_validators: rp_state.table_context.validators.len(),
@@ -2110,6 +2132,7 @@ async fn validate_and_second<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: candidate.clone(),
 			relay_parent: rp_state.parent,
+			session_index: rp_state.session_index,
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
 			n_validators: rp_state.table_context.validators.len(),
@@ -2175,8 +2198,7 @@ async fn handle_second_message<Context>(
 			collation = ?candidate.descriptor().para_id,
 			"Subsystem asked to second for para outside of our assignment",
 		);
-
-		return Ok(())
+		return Ok(());
 	}
 
 	gum::debug!(
