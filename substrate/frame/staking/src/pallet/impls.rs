@@ -91,12 +91,9 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
-		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
-			let lock = <T::Currency as InspectLockableCurrency<T::AccountId>>::balance_locked(
-				crate::STAKING_ID,
-				&stash,
-			);
+		let lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
 
+		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
 			if lock == Zero::zero() {
 				Error::<T>::NotStash
 			} else {
@@ -109,7 +106,11 @@ impl<T: Config> Pallet<T> {
 				if ledger.stash != *stash {
 					Ok(LedgerIntegrityState::Corrupted)
 				} else {
-					Ok(LedgerIntegrityState::Ok)
+					if lock != ledger.total {
+						Ok(LedgerIntegrityState::LockCorrupted)
+					} else {
+						Ok(LedgerIntegrityState::Ok)
+					}
 				},
 			None => Ok(LedgerIntegrityState::CorruptedKilled),
 		}

@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
-		OneSessionHandler,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
+		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -786,13 +786,26 @@ pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> 
 	Ok(())
 }
 
-pub(crate) fn set_controller_simulate(stash: &AccountId) {
+// simulates `set_controller` without corrupted ledger checks for testing purposes.
+pub(crate) fn set_controller_no_checks(stash: &AccountId) {
 	let controller = Bonded::<Test>::get(stash).expect("testing stash should be bonded");
 	let ledger = Ledger::<Test>::get(&controller).expect("testing ledger should exist");
 
 	Ledger::<Test>::remove(&controller);
 	Ledger::<Test>::insert(stash, ledger);
 	Bonded::<Test>::insert(stash, stash);
+}
+
+// simulates `bond_extra` without corrupted ledger checks for testing purposes.
+pub(crate) fn bond_extra_no_checks(stash: &AccountId, amount: Balance) {
+	let controller = Bonded::<Test>::get(stash).expect("bond must exist to bond_extra");
+	let mut ledger = Ledger::<Test>::get(&controller).expect("ledger must exist to bond_extra");
+
+	let new_total = ledger.total + amount;
+	Balances::set_lock(crate::STAKING_ID, stash, new_total, WithdrawReasons::all());
+	ledger.total = new_total;
+	ledger.active = new_total;
+	Ledger::<Test>::insert(controller, ledger);
 }
 
 pub(crate) fn setup_double_bonded_ledgers() {

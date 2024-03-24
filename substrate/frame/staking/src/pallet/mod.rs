@@ -25,7 +25,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime,
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -2027,7 +2027,19 @@ pub mod pallet {
 			let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
 				Ok(LedgerIntegrityState::Corrupted) => {
 					let new_controller = maybe_controller.unwrap_or(stash.clone());
-					let new_total = maybe_total.unwrap_or(current_lock);
+
+					let new_total = if let Some(new_total) = maybe_total {
+						// enforce lock == ledger.amount.
+						T::Currency::set_lock(
+							crate::STAKING_ID,
+							&stash,
+							new_total,
+							WithdrawReasons::all(),
+						);
+						new_total
+					} else {
+						current_lock
+					};
 
 					Ok((new_controller, new_total))
 				},
@@ -2044,6 +2056,19 @@ pub mod pallet {
 					} else {
 						Ok((stash.clone(), current_lock))
 					}
+				},
+				Ok(LedgerIntegrityState::LockCorrupted) => {
+					// ledger is not corrupted but its locks are out of sync. In this case, we need
+					// to enforce a new ledger.total and staking lock for this stash.
+					let new_total = maybe_total.ok_or(Error::<T>::CannotResetLedger)?;
+					T::Currency::set_lock(
+						crate::STAKING_ID,
+						&stash,
+						new_total,
+						WithdrawReasons::all(),
+					);
+
+					Ok((stash.clone(), new_total))
 				},
 				Err(Error::<T>::BadState) => {
 					// the stash and ledger do not exist but lock is lingering.

@@ -7363,7 +7363,7 @@ mod ledger_recovery {
 			// kill(333)
 			// (444, 444) -> corrupted and None.
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
-			set_controller_simulate(&444);
+			set_controller_no_checks(&444);
 
 			// now try-state fails.
 			assert!(Staking::do_try_state(System::block_number()).is_err());
@@ -7420,7 +7420,7 @@ mod ledger_recovery {
 			// kill(444)
 			// (333, 444) -> corrupted and None
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
-			set_controller_simulate(&444);
+			set_controller_no_checks(&444);
 
 			// now try-state fails.
 			assert!(Staking::do_try_state(System::block_number()).is_err());
@@ -7459,6 +7459,37 @@ mod ledger_recovery {
 		})
 	}
 
+	#[test]
+	fn inspect_recovery_ledger_lock_corrupted_works() {
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// get into lock corrupted ledger state by bond_extra on a ledger that is double bonded
+			// with a corrupted ledger.
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			//  bond_extra(333, 10) -> lock corrupted on 444
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+			bond_extra_no_checks(&333, 10);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// 333 is corrupted since it's controller is linking 444 ledger.
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+			// 444 ledger is not corrupted but locks got out of sync.
+			assert_eq!(
+				Staking::inspect_bond_state(&444).unwrap(),
+				LedgerIntegrityState::LockCorrupted
+			);
+		})
+	}
+
 	// Corrupted ledger restore.
 	//
 	// * Double bonded and corrupted ledger.
@@ -7475,7 +7506,7 @@ mod ledger_recovery {
 			//  (333, 444) -> corrupted
 			//  (444, 444)
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
-			set_controller_simulate(&444);
+			set_controller_no_checks(&444);
 
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
 
@@ -7512,7 +7543,7 @@ mod ledger_recovery {
 			// kill(333)
 			// (444, 444) -> corrupted and None.
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
-			set_controller_simulate(&444);
+			set_controller_no_checks(&444);
 
 			// kill the corrupted ledger that is associated with stash 333.
 			assert_ok!(StakingLedger::<Test>::kill(&333));
@@ -7568,7 +7599,7 @@ mod ledger_recovery {
 			// kill(444)
 			// (333, 444) -> corrupted and None
 			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
-			set_controller_simulate(&444);
+			set_controller_no_checks(&444);
 
 			// now try-state fails.
 			assert!(Staking::do_try_state(System::block_number()).is_err());
@@ -7592,10 +7623,84 @@ mod ledger_recovery {
 		})
 	}
 
+	// Corrupted with bond_extra.
+	//
+	// * Double bonded and corrupted ledger.
+	// * Corrupted ledger calls `bond_extra`
 	#[test]
-	fn restore_ledger_inconsistent_locks_works() {
+	fn restore_ledger_corrupted_bond_extra_works() {
 		ExtBuilder::default().has_stakers(true).build_and_execute(|| {
 			setup_double_bonded_ledgers();
+
+			let lock_333_before = Balances::balance_locked(crate::STAKING_ID, &333);
+			let lock_444_before = Balances::balance_locked(crate::STAKING_ID, &444);
+
+			// get into corrupted and killed ledger state by killing a corrupted ledger:
+			// init state:
+			//  (333, 444)
+			//  (444, 555)
+			// set_controller(444) to 444
+			//  (333, 444) -> corrupted
+			//  (444, 444)
+			// bond_extra(444, 40) -> OK
+			// bond_extra(333, 30) -> locks out of sync
+
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			set_controller_no_checks(&444);
+
+			// now try-state fails.
+			assert!(Staking::do_try_state(System::block_number()).is_err());
+
+			// if 444 bonds extra, the locks remain in sync.
+			bond_extra_no_checks(&444, 40);
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), lock_333_before);
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), lock_444_before + 40);
+
+			// however if 333 bonds extra, the wrong lock is updated.
+			bond_extra_no_checks(&333, 30);
+			assert_eq!(
+				Balances::balance_locked(crate::STAKING_ID, &333),
+				lock_444_before + 40 + 30
+			); //not OK
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), lock_444_before + 40); // OK
+
+			// recover the ledger bonded by 333 stash. Note that the total/lock needs to be
+			// re-written since on-chain data lock has become out of sync.
+			assert_ok!(Staking::restore_ledger(
+				RuntimeOrigin::root(),
+				333,
+				None,
+				Some(lock_333_before + 30)
+			));
+
+			// now recover 444 that although it's not corrupted, its lock and ledger.total are out
+			// of sync. in which case, we need to explicitly set the ledger's lock and amount,
+			// otherwise the ledger recover will fail.
+			assert_noop!(
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None,),
+				Error::<Test>::CannotResetLedger
+			);
+
+			//and enforcing a new ledger lock/total on this non-corrupted ledger will work.
+			assert_ok!(Staking::restore_ledger(
+				RuntimeOrigin::root(),
+				444,
+				None,
+				Some(lock_444_before + 40)
+			));
+
+			// double-check that ledgers got to expected state and bond_extra done during the
+			// corrupted state is part of the recovered ledgers.
+			let ledger_333 = Bonded::<Test>::get(&333).and_then(Ledger::<Test>::get).unwrap();
+			let ledger_444 = Bonded::<Test>::get(&444).and_then(Ledger::<Test>::get).unwrap();
+
+			assert_eq!(ledger_333.total, lock_333_before + 30);
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &333), ledger_333.total);
+			assert_eq!(ledger_444.total, lock_444_before + 40);
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &444), ledger_444.total);
+
+			// try-state checks are ok now.
+			assert_ok!(Staking::do_try_state(System::block_number()));
 		})
 	}
 }

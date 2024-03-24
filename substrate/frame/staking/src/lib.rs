@@ -498,6 +498,7 @@ enum LedgerIntegrityState {
 	Ok,
 	Corrupted,
 	CorruptedKilled,
+	LockCorrupted,
 }
 
 impl<T: Config> StakingLedger<T> {
