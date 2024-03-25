@@ -71,6 +71,7 @@ prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../..
 prometheus = { version = "0.13.0", default-features = false }
 serde = { workspace = true, default-features = true }
 serde_yaml = { workspace = true }
+serde_json = { workspace = true }
 
 polkadot-node-core-approval-voting = { path = "../core/approval-voting" }
 polkadot-approval-distribution = { path = "../network/approval-distribution" }

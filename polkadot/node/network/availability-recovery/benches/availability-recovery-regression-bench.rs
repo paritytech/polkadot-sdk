@@ -61,6 +61,7 @@ fn main() -> Result<(), String> {
 	messages.extend(usage.check_cpu_usage(&[("availability-recovery", 11.500, 0.05)]));
 
 	if messages.is_empty() {
+		usage.save_as_json("charts.json").map_err(|e| e.to_string())?;
 		Ok(())
 	} else {
 		eprintln!("{}", messages.join("\n"));

@@ -18,7 +18,8 @@
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde_json::json;
+use std::{collections::HashMap, fs::File, io::Write};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BenchmarkUsage {
@@ -74,6 +75,44 @@ impl BenchmarkUsage {
 			(Some(self_res), Some(other_res)) => Some(self_res.diff(other_res)),
 			_ => None,
 		}
+	}
+
+	pub fn save_as_json(&self, path: &str) -> std::io::Result<()> {
+		let mut file = File::create(path)?;
+		file.write_all(self.to_json().as_bytes())?;
+		Ok(())
+	}
+
+	fn to_json(&self) -> String {
+		let mut res: Vec<String> = vec![];
+		res.extend(
+			self.network_usage
+				.iter()
+				.map(|v| {
+					json!({
+						"name": v.resource_name,
+						"unit": "KiB",
+						"value": v.per_block
+					})
+					.to_string()
+				})
+				.collect::<Vec<_>>(),
+		);
+		res.extend(
+			self.cpu_usage
+				.iter()
+				.map(|v| {
+					json!({
+						"name": v.resource_name,
+						"unit": "seconds",
+						"value": v.per_block
+					})
+					.to_string()
+				})
+				.collect::<Vec<_>>(),
+		);
+
+		format!("[{}]", res.join(","))
 	}
 }
 
