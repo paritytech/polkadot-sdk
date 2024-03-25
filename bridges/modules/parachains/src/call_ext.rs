@@ -25,7 +25,7 @@ use frame_support::{
 };
 use pallet_bridge_grandpa::SubmitFinalityProofHelper;
 use sp_runtime::{
-	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	RuntimeDebug,
 };
 
@@ -44,6 +44,16 @@ pub struct SubmitParachainHeadsInfo {
 	pub is_free_execution_expected: bool,
 }
 
+/// Verified `SubmitParachainHeadsInfo`.
+#[derive(PartialEq, RuntimeDebug)]
+pub struct VerifiedSubmitParachainHeadsInfo {
+	/// Base call information.
+	pub base: SubmitParachainHeadsInfo,
+	/// A difference between bundled bridged relay chain header and relay chain header number
+	/// used to prove best bridged parachain header, known to us before the call.
+	pub improved_by: RelayBlockNumber,
+}
+
 /// Helper struct that provides methods for working with the `SubmitParachainHeads` call.
 pub struct SubmitParachainHeadsHelper<T: Config<I>, I: 'static> {
 	_phantom_data: sp_std::marker::PhantomData<(T, I)>,
@@ -52,16 +62,15 @@ pub struct SubmitParachainHeadsHelper<T: Config<I>, I: 'static> {
 impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 	/// Check that is called from signed extension and takes the `is_free_execution_expected`
 	/// into account.
-	pub fn is_obsolete_from_extension(update: &SubmitParachainHeadsInfo) -> bool {
+	pub fn check_obsolete_from_extension(
+		update: &SubmitParachainHeadsInfo,
+	) -> Result<RelayBlockNumber, TransactionValidityError> {
 		// first do all base checks
-		let (is_obsolete, improved_by) = Self::is_obsolete(update);
-		if is_obsolete {
-			return true;
-		}
+		let improved_by = Self::check_obsolete(update)?;
 
 		// if we don't expect free execution - no more checks
 		if !update.is_free_execution_expected {
-			return false;
+			return Ok(improved_by);
 		}
 
 		// reject if no more free slots remaining in the block
@@ -73,7 +82,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 				update.para_id,
 			);
 
-			return true;
+			return Err(InvalidTransaction::Call.into());
 		}
 
 		// reject if we are importing parachain headers too often
@@ -89,19 +98,22 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 					improved_by,
 					free_headers_interval,
 				);
-			}
 
-			reject
+				return Err(InvalidTransaction::Stale.into());
+			}
 		} else {
 			// free headers interval is not configured and call is expected to execute
 			// for free => it is a relayer error, it should've been able to detect that
-			false
 		}
+
+		Ok(improved_by)
 	}
 
 	/// Check if the para head provided by the `SubmitParachainHeads` is better than the best one
 	/// we know.
-	pub fn is_obsolete(update: &SubmitParachainHeadsInfo) -> (bool, RelayBlockNumber) {
+	pub fn check_obsolete(
+		update: &SubmitParachainHeadsInfo,
+	) -> Result<RelayBlockNumber, TransactionValidityError> {
 		// check if we know better parachain head already
 		let improved_by = match crate::ParasInfo::<T, I>::get(update.para_id) {
 			Some(stored_best_head) => {
@@ -120,7 +132,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 							stored_best_head.best_head_hash.at_relay_block_number,
 							update.at_relay_block.0
 						);
-						return (true, 0)
+						return Err(InvalidTransaction::Stale.into())
 					},
 				};
 
@@ -134,7 +146,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 						stored_best_head.best_head_hash.at_relay_block_number,
 						update.at_relay_block.0
 					);
-					return (true, 0)
+					return Err(InvalidTransaction::Stale.into())
 				}
 
 				improved_by
@@ -154,10 +166,10 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 				update.at_relay_block.1,
 			);
 
-			return (true, 0)
+			return Err(InvalidTransaction::Call.into())
 		}
 
-		(false, improved_by)
+		Ok(improved_by)
 	}
 
 	/// Check if the `SubmitParachainHeads` was successfully executed.
@@ -230,24 +242,23 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	/// block production, or "eat" significant portion of block production time literally
 	/// for nothing. In addition, the single-parachain-head-per-transaction is how the
 	/// pallet will be used in our environment.
-	fn check_obsolete_submit_parachain_heads(&self) -> TransactionValidity
+	fn check_obsolete_submit_parachain_heads(
+		&self,
+	) -> Result<Option<VerifiedSubmitParachainHeadsInfo>, TransactionValidityError>
 	where
 		Self: Sized,
 	{
 		let update = match self.one_entry_submit_parachain_heads_info() {
 			Some(update) => update,
-			None => return Ok(ValidTransaction::default()),
+			None => return Ok(None),
 		};
 
 		if Pallet::<T, I>::ensure_not_halted().is_err() {
-			return InvalidTransaction::Call.into()
+			return Err(InvalidTransaction::Call.into())
 		}
 
-		if SubmitParachainHeadsHelper::<T, I>::is_obsolete_from_extension(&update) {
-			return InvalidTransaction::Stale.into()
-		}
-
-		Ok(ValidTransaction::default())
+		SubmitParachainHeadsHelper::<T, I>::check_obsolete_from_extension(&update)
+			.map(|improved_by| Some(VerifiedSubmitParachainHeadsInfo { base: update, improved_by }))
 	}
 }
 
@@ -434,7 +445,7 @@ mod tests {
 				relay_header,
 				vec![(ParaId(1), [2u8; 32].into())]
 			));
-			// ... if we have specify `is_free_execution_expected = false`, it'll be accepted
+			// try to submit at 10 + FreeHeadersInterval::get() => ok
 			let relay_header = 10 + FreeHeadersInterval::get();
 			assert!(validate_free_submit_parachain_heads(
 				relay_header,

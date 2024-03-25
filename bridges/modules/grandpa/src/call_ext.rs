@@ -61,7 +61,7 @@ pub struct SubmitFinalityProofInfo<N> {
 	pub extra_size: u32,
 }
 
-/// Verified `SubmitFinalityProofInfo<N>`
+/// Verified `SubmitFinalityProofInfo<N>`.
 #[derive(Copy, Clone, PartialEq, RuntimeDebug)]
 pub struct VerifiedSubmitFinalityProofInfo<N> {
 	/// Base call information.

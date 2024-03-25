@@ -663,7 +663,7 @@ pub mod pallet {
 				// don't actually matter here
 				is_free_execution_expected: false,
 			};
-			if SubmitParachainHeadsHelper::<T, I>::is_obsolete(&update).0 {
+			if SubmitParachainHeadsHelper::<T, I>::check_obsolete(&update).is_err() {
 				Self::deposit_event(Event::RejectedObsoleteParachainHead {
 					parachain,
 					parachain_head_hash: new_head_hash,
