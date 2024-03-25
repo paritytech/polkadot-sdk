@@ -374,7 +374,7 @@ fn execute_withdraw_to_deposit_works() {
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm::<RuntimeCall>(vec![
 				WithdrawAsset((Here, SEND_AMOUNT).into()),
 				buy_execution((Here, SEND_AMOUNT)),
 				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
@@ -406,7 +406,7 @@ fn trapped_assets_can_be_claimed() {
 				WithdrawAsset((Here, SEND_AMOUNT).into()),
 				buy_execution((Here, SEND_AMOUNT)),
 				// Don't propagated the error into the result.
-				SetErrorHandler(Xcm(vec![ClearError])),
+				SetErrorHandler(Xcm::<RuntimeCall>(vec![ClearError])),
 				// This will make an error.
 				Trap(0),
 				// This would succeed, but we never get to it.
@@ -440,7 +440,7 @@ fn trapped_assets_can_be_claimed() {
 		let weight = BaseXcmWeight::get() * 3;
 		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm::<RuntimeCall>(vec![
 				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
 				buy_execution((Here, SEND_AMOUNT)),
 				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest.clone() },
@@ -456,7 +456,7 @@ fn trapped_assets_can_be_claimed() {
 		assert_err_ignore_postinfo!(
 			XcmPallet::execute_blob(
 				RuntimeOrigin::signed(ALICE),
-				VersionedXcm::from(Xcm(vec![
+				VersionedXcm::from(Xcm::<RuntimeCall>(vec![
 					ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
 					buy_execution((Here, SEND_AMOUNT)),
 					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
@@ -475,7 +475,7 @@ fn claim_assets_works() {
 	new_test_ext_with_balances(balances).execute_with(|| {
 		// First trap some assets.
 		let trapping_program =
-			Xcm::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT).into()).build();
+			Xcm::<RuntimeCall>::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT).into()).build();
 		// Even though assets are trapped, the extrinsic returns success.
 		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
@@ -534,7 +534,7 @@ fn incomplete_execute_reverts_side_effects() {
 		let assets: Assets = (Here, amount_to_send).into();
 		let result = XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm::<RuntimeCall>(vec![
 				// Withdraw + BuyExec + Deposit should work
 				WithdrawAsset(assets.clone()),
 				buy_execution(assets.inner()[0].clone()),
