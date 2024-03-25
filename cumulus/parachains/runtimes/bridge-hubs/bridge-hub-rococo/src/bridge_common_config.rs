@@ -26,7 +26,7 @@ use super::{
 };
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
 use bp_runtime::UnderlyingChainProvider;
-use bridge_runtime_common::{messages::ThisChainWithMessages, FreeParachainUpdateForFreeRelayHeader, RefundableParachain};
+use bridge_runtime_common::messages::ThisChainWithMessages;
 use frame_support::{parameter_types, traits::ConstU32};
 use sp_runtime::RuntimeDebug;
 
@@ -62,14 +62,6 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaWestendInstance;
 	type ParasPalletName = WestendBridgeParachainPalletName;
-	type FreeHeadsUpdateFilter = FreeParachainUpdateForFreeRelayHeader<
-		Runtime,
-		Self::BridgesGrandpaPalletInstance,
-		RefundableParachain<
-			BridgeParachainWestendInstance,
-			bp_bridge_hub_westend::BridgeHubWestend,
-		>,
-	>;
 	type ParaStoredHeaderDataBuilder =
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_westend::BridgeHubWestend>;
 	type HeadsToKeep = ParachainHeadsToKeep;

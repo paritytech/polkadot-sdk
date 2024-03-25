@@ -39,7 +39,6 @@ use bridge_runtime_common::{
 		ActualFeeRefund, RefundBridgedMessages, RefundTransactionExtensionAdapter,
 		RefundableMessagesLane,
 	},
-	FreeParachainUpdateForFreeRelayHeader, RefundableParachain,
 };
 use codec::Encode;
 use frame_support::{
@@ -225,14 +224,6 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 	type WeightInfo = weights::pallet_bridge_parachains::WeightInfo<Runtime>;
 	type BridgesGrandpaPalletInstance = BridgeGrandpaRococoInstance;
 	type ParasPalletName = RococoBridgeParachainPalletName;
-	type FreeHeadsUpdateFilter = FreeParachainUpdateForFreeRelayHeader<
-		Runtime,
-		Self::BridgesGrandpaPalletInstance,
-		RefundableParachain<
-			BridgeParachainRococoInstance,
-			bp_bridge_hub_rococo::BridgeHubRococo,
-		>,
-	>;
 	type ParaStoredHeaderDataBuilder =
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_rococo::BridgeHubRococo>;
 	type HeadsToKeep = ParachainHeadsToKeep;
