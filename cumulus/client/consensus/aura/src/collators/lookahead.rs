@@ -184,14 +184,14 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			let core_index = if let Some(core_index) = fist_core_scheduled_for_para(
-				relay_parent,
-				params.para_id,
-				&mut params.overseer_handle,
-			)
-			.await
+			// TODO: Currently we use just the first core here, but for elastic scaling
+			// we iterate and build on all of the cores returned.
+			let core_index = if let Some(core_index) =
+				cores_scheduled_for_para(relay_parent, params.para_id, &mut params.overseer_handle)
+					.await
+					.get(0)
 			{
-				core_index
+				*core_index
 			} else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
@@ -489,12 +489,12 @@ async fn max_ancestry_lookback(
 	}
 }
 
-// Checks the first `CoreIndex` assigned to the para at the provided relay parent.
-async fn fist_core_scheduled_for_para(
+// Return all the cores assigned to the para at the provided relay parent.
+async fn cores_scheduled_for_para(
 	relay_parent: PHash,
 	para_id: ParaId,
 	overseer_handle: &mut OverseerHandle,
-) -> Option<CoreIndex> {
+) -> Vec<CoreIndex> {
 	let (tx, rx) = oneshot::channel();
 	let request = RuntimeApiRequest::AvailabilityCores(tx);
 	overseer_handle
@@ -510,7 +510,7 @@ async fn fist_core_scheduled_for_para(
 				?relay_parent,
 				"Failed to query availability cores runtime API",
 			);
-			return None
+			return Vec::new()
 		},
 		Err(oneshot::Canceled) => {
 			tracing::error!(
@@ -518,12 +518,19 @@ async fn fist_core_scheduled_for_para(
 				?relay_parent,
 				"Sender for availability cores runtime request dropped",
 			);
-			return None
+			return Vec::new()
 		},
 	};
 
 	cores
 		.iter()
-		.position(|core| core.para_id() == Some(para_id))
-		.map(|index| CoreIndex(index as _))
+		.enumerate()
+		.filter_map(|(index, core)| {
+			if core.para_id() == Some(para_id) {
+				Some(CoreIndex(index as u32))
+			} else {
+				None
+			}
+		})
+		.collect()
 }

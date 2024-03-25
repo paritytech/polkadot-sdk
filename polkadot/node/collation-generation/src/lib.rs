@@ -219,19 +219,15 @@ async fn handle_new_activations<Context>(
 	for relay_parent in activated {
 		let _relay_parent_timer = metrics.time_new_activations_relay_parent();
 
-		let (availability_cores, validators, async_backing_params, para_backing_state) = join!(
+		let (availability_cores, validators, async_backing_params) = join!(
 			request_availability_cores(relay_parent, ctx.sender()).await,
 			request_validators(relay_parent, ctx.sender()).await,
 			request_async_backing_params(relay_parent, ctx.sender()).await,
-			request_para_backing_state(relay_parent, config.para_id, ctx.sender()).await,
 		);
 
 		let availability_cores = availability_cores??;
 		let async_backing_params = async_backing_params?.ok();
 		let n_validators = validators??.len();
-		let para_backing_state =
-			para_backing_state??.ok_or(crate::error::Error::MissingParaBackingState)?;
-
 		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent).await?;
 
 		// The loop bellow will fill in cores that the para is allowed to build on.
@@ -296,17 +292,21 @@ async fn handle_new_activations<Context>(
 					their_para = %scheduled_core.para_id,
 					"core is not assigned to our para. Keep going.",
 				);
-				continue
+			} else {
+				// Accumulate cores for building collation(s) outside the loop.
+				cores_to_build_on.push(CoreIndex(core_idx as u32));
 			}
-
-			// Accumulate cores for building collation(s) outside the loop.
-			cores_to_build_on.push(CoreIndex(core_idx as u32));
 		}
 
 		// Skip to next relay parent if there is no core assigned to us.
 		if cores_to_build_on.is_empty() {
 			continue
 		}
+
+		let para_backing_state =
+			request_para_backing_state(relay_parent, config.para_id, ctx.sender())
+				.await??
+				.ok_or(crate::error::Error::MissingParaBackingState)?;
 
 		// We are being very optimistic here, but one of the cores could pend availability some more
 		// block, ore even time out.
