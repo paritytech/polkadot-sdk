@@ -27,27 +27,37 @@ use std::{
 use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::{
-	generic::BlockId, traits::SaturatedConversion, transaction_validity::TransactionValidityError,
+	generic::BlockId,
+	traits::{Block as BlockT, SaturatedConversion},
+	transaction_validity::TransactionValidityError,
 };
 
-use super::View;
+use super::{TxMemPool, View};
 use futures::prelude::*;
 use std::time::Duration;
 
 const LOG_TARGET: &str = "txpool::v-revalidation";
 
+// /// Payload from queue to worker.
+// struct WorkerPayload<Api: ChainApi> {
+// 	view: Arc<View<Api>>,
+// }
 /// Payload from queue to worker.
-struct WorkerPayload<Api: ChainApi> {
-	view: Arc<View<Api>>,
+enum WorkerPayload<Api, Block>
+where
+	Block: BlockT,
+	Api: ChainApi<Block = Block> + 'static,
+{
+	RevalidateView(Arc<View<Api>>),
+	RevalidateMempool(Arc<TxMemPool<Api, Block>>, Block::Hash),
 }
 
 /// Async revalidation worker.
 ///
 /// Implements future and can be spawned in place or in background.
-struct RevalidationWorker<Api: ChainApi> {
-	api: Arc<Api>,
+struct RevalidationWorker<Block: BlockT> {
 	//what is already scheduled, so we don't need to duplicate work
-	scheduled: HashSet<BlockHash<Api>>,
+	scheduled: HashSet<Block::Hash>,
 }
 
 // todo: ??? (remove?)
@@ -63,12 +73,6 @@ where
 	PoolApi: ChainApi,
 {
 	async fn revalidate_later(&self) {
-		// if next_action.revalidate {
-		// 	let hashes = pool.validated_pool().ready().map(|tx| tx.hash).collect();
-		// 	self.revalidation_queue.revalidate_later(hash_and_number.hash, hashes).await;
-		//
-		// 	self.revalidation_strategy.lock().clear();
-		// }
 		let batch: Vec<_> = self.pool.validated_pool().ready().map(|tx| tx.hash).collect();
 
 		let mut invalid_hashes = Vec::new();
@@ -141,9 +145,12 @@ where
 	}
 }
 
-impl<Api: ChainApi> RevalidationWorker<Api> {
-	fn new(api: Arc<Api>) -> Self {
-		Self { api, scheduled: Default::default() }
+impl<Block> RevalidationWorker<Block>
+where
+	Block: BlockT,
+{
+	fn new() -> Self {
+		Self { scheduled: Default::default() }
 	}
 
 	/// Background worker main loop.
@@ -151,16 +158,23 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 	/// It does two things: periodically tries to process some transactions
 	/// from the queue and also accepts messages to enqueue some more
 	/// transactions from the pool.
-	pub async fn run(self, from_queue: TracingUnboundedReceiver<WorkerPayload<Api>>) {
+	pub async fn run<Api: ChainApi<Block = Block> + 'static>(
+		self,
+		from_queue: TracingUnboundedReceiver<WorkerPayload<Api, Block>>,
+	) {
 		let mut from_queue = from_queue.fuse();
 
 		loop {
 			// Using `fuse()` in here is okay, because we reset the interval when it has fired.
-			let Some(workload) = from_queue.next().await else {
+			let Some(payload) = from_queue.next().await else {
 				// R.I.P. worker!
 				break;
 			};
-			(*workload.view).revalidate_later().await;
+			match payload {
+				WorkerPayload::RevalidateView(view) => (*view).revalidate_later().await,
+				WorkerPayload::RevalidateMempool(mempool, finalized_hash) =>
+					(*mempool).purge_transactions(finalized_hash).await,
+			};
 		}
 	}
 }
@@ -169,13 +183,18 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 ///
 /// Can be configured background (`new_background`)
 /// or immediate (just `new`).
-pub struct RevalidationQueue<Api: ChainApi> {
-	background: Option<TracingUnboundedSender<WorkerPayload<Api>>>,
+pub struct RevalidationQueue<Api, Block>
+where
+	Api: ChainApi<Block = Block> + 'static,
+	Block: BlockT,
+{
+	background: Option<TracingUnboundedSender<WorkerPayload<Api, Block>>>,
 }
 
-impl<Api: ChainApi> RevalidationQueue<Api>
+impl<Api, Block> RevalidationQueue<Api, Block>
 where
-	Api: 'static,
+	Api: ChainApi<Block = Block> + 'static,
+	Block: BlockT,
 {
 	/// New revalidation queue without background worker.
 	pub fn new() -> Self {
@@ -183,12 +202,9 @@ where
 	}
 
 	/// New revalidation queue with background worker.
-	pub fn new_with_worker(api: Arc<Api>) -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
+	pub fn new_with_worker() -> (Self, Pin<Box<dyn Future<Output = ()> + Send>>) {
 		let (to_worker, from_queue) = tracing_unbounded("mpsc_revalidation_queue", 100_000);
-		(
-			Self { background: Some(to_worker) },
-			RevalidationWorker::new(api.clone()).run(from_queue).boxed(),
-		)
+		(Self { background: Some(to_worker) }, RevalidationWorker::new().run(from_queue).boxed())
 	}
 
 	/// Queue the view transaction for later revalidation.
@@ -208,16 +224,43 @@ where
 				target: LOG_TARGET,
 				"revlidation send",
 			);
-			if let Err(e) = to_worker.unbounded_send(WorkerPayload { view }) {
+			if let Err(e) = to_worker.unbounded_send(WorkerPayload::RevalidateView(view)) {
 				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
 			}
 		} else {
 			view.revalidate_later().await
 		}
 	}
+
+	pub async fn purge_transactions_later(
+		&self,
+		mempool: Arc<TxMemPool<Api, Block>>,
+		finalized_hash: Block::Hash,
+	) {
+		log::info!(
+			target: LOG_TARGET,
+			"Sent mempool to revalidation queue at hash: {:?}",
+			finalized_hash
+		);
+
+		if let Some(ref to_worker) = self.background {
+			log::info!(
+				target: LOG_TARGET,
+				"revlidation send",
+			);
+			if let Err(e) =
+				to_worker.unbounded_send(WorkerPayload::RevalidateMempool(mempool, finalized_hash))
+			{
+				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
+			}
+		} else {
+			mempool.purge_transactions(finalized_hash).await
+		}
+	}
 }
 
 #[cfg(test)]
+//todo: add tests!
 mod tests {
 	use super::*;
 	use crate::{
@@ -232,8 +275,10 @@ mod tests {
 	#[test]
 	fn revalidation_queue_works() {
 		let api = Arc::new(TestApi::default());
-		let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
-		let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
+		let block0 = api.expect_hash_and_number(0);
+
+		let view = Arc::new(View::new(api.clone(), block0));
+		let queue = Arc::new(RevalidationQueue::new());
 
 		let uxt = uxt(Transfer {
 			from: Alice.into(),
@@ -242,61 +287,58 @@ mod tests {
 			nonce: 0,
 		});
 
-		let han_of_block0 = api.expect_hash_and_number(0);
+		let uxt_hash = block_on(view.submit_one(TransactionSource::External, uxt.clone()))
+			.expect("Should be valid");
+		assert_eq!(api.validation_requests().len(), 1);
 
-		let uxt_hash =
-			block_on(pool.submit_one(&han_of_block0, TransactionSource::External, uxt.clone()))
-				.expect("Should be valid");
+		block_on(queue.revalidate_later(view.clone()));
 
-		block_on(queue.revalidate_later(han_of_block0.hash, vec![uxt_hash]));
-
-		// revalidated in sync offload 2nd time
 		assert_eq!(api.validation_requests().len(), 2);
 		// number of ready
-		assert_eq!(pool.validated_pool().status().ready, 1);
+		assert_eq!(view.status().ready, 1);
 	}
 
-	#[test]
-	fn revalidation_queue_skips_revalidation_for_unknown_block_hash() {
-		let api = Arc::new(TestApi::default());
-		let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
-		let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
-
-		let uxt0 = uxt(Transfer {
-			from: Alice.into(),
-			to: AccountId::from_h256(H256::from_low_u64_be(2)),
-			amount: 5,
-			nonce: 0,
-		});
-		let uxt1 = uxt(Transfer {
-			from: Bob.into(),
-			to: AccountId::from_h256(H256::from_low_u64_be(2)),
-			amount: 4,
-			nonce: 1,
-		});
-
-		let han_of_block0 = api.expect_hash_and_number(0);
-		let unknown_block = H256::repeat_byte(0x13);
-
-		let uxt_hashes =
-			block_on(pool.submit_at(&han_of_block0, TransactionSource::External, vec![uxt0, uxt1]))
-				.into_iter()
-				.map(|r| r.expect("Should be valid"))
-				.collect::<Vec<_>>();
-
-		assert_eq!(api.validation_requests().len(), 2);
-		assert_eq!(pool.validated_pool().status().ready, 2);
-
-		// revalidation works fine for block 0:
-		block_on(queue.revalidate_later(han_of_block0.hash, uxt_hashes.clone()));
-		assert_eq!(api.validation_requests().len(), 4);
-		assert_eq!(pool.validated_pool().status().ready, 2);
-
-		// revalidation shall be skipped for unknown block:
-		block_on(queue.revalidate_later(unknown_block, uxt_hashes));
-		// no revalidation shall be done
-		assert_eq!(api.validation_requests().len(), 4);
-		// number of ready shall not change
-		assert_eq!(pool.validated_pool().status().ready, 2);
-	}
+	// #[test]
+	// fn revalidation_queue_skips_revalidation_for_unknown_block_hash() {
+	// 	let api = Arc::new(TestApi::default());
+	// 	let pool = Arc::new(Pool::new(Default::default(), true.into(), api.clone()));
+	// 	let queue = Arc::new(RevalidationQueue::new(api.clone(), pool.clone()));
+	//
+	// 	let uxt0 = uxt(Transfer {
+	// 		from: Alice.into(),
+	// 		to: AccountId::from_h256(H256::from_low_u64_be(2)),
+	// 		amount: 5,
+	// 		nonce: 0,
+	// 	});
+	// 	let uxt1 = uxt(Transfer {
+	// 		from: Bob.into(),
+	// 		to: AccountId::from_h256(H256::from_low_u64_be(2)),
+	// 		amount: 4,
+	// 		nonce: 1,
+	// 	});
+	//
+	// 	let han_of_block0 = api.expect_hash_and_number(0);
+	// 	let unknown_block = H256::repeat_byte(0x13);
+	//
+	// 	let uxt_hashes =
+	// 		block_on(pool.submit_at(&han_of_block0, TransactionSource::External, vec![uxt0, uxt1]))
+	// 			.into_iter()
+	// 			.map(|r| r.expect("Should be valid"))
+	// 			.collect::<Vec<_>>();
+	//
+	// 	assert_eq!(api.validation_requests().len(), 2);
+	// 	assert_eq!(pool.validated_pool().status().ready, 2);
+	//
+	// 	// revalidation works fine for block 0:
+	// 	block_on(queue.revalidate_later(han_of_block0.hash, uxt_hashes.clone()));
+	// 	assert_eq!(api.validation_requests().len(), 4);
+	// 	assert_eq!(pool.validated_pool().status().ready, 2);
+	//
+	// 	// revalidation shall be skipped for unknown block:
+	// 	block_on(queue.revalidate_later(unknown_block, uxt_hashes));
+	// 	// no revalidation shall be done
+	// 	assert_eq!(api.validation_requests().len(), 4);
+	// 	// number of ready shall not change
+	// 	assert_eq!(pool.validated_pool().status().ready, 2);
+	// }
 }

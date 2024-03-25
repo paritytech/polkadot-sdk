@@ -54,7 +54,7 @@ use std::{
 	sync::Arc,
 };
 
-use crate::graph::{ExtrinsicHash, IsValidator};
+use crate::graph::{ExtrinsicFor, ExtrinsicHash, IsValidator};
 use futures::FutureExt;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
@@ -97,6 +97,36 @@ where
 	async fn finalize(&self, finalized: graph::BlockHash<PoolApi>) {
 		log::info!("View::finalize: {:?} {:?}", self.at, finalized);
 		let _ = self.pool.validated_pool().on_block_finalized(finalized).await;
+	}
+
+	pub async fn submit_at(
+		&self,
+		source: TransactionSource,
+		xts: impl IntoIterator<Item = ExtrinsicFor<PoolApi>>,
+	) -> Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>> {
+		self.pool.submit_at(&self.at, source, xts).await
+	}
+
+	/// Imports one unverified extrinsic to the pool
+	pub async fn submit_one(
+		&self,
+		source: TransactionSource,
+		xt: ExtrinsicFor<PoolApi>,
+	) -> Result<ExtrinsicHash<PoolApi>, PoolApi::Error> {
+		self.pool.submit_one(&self.at, source, xt).await
+	}
+
+	/// Import a single extrinsic and starts to watch its progress in the pool.
+	pub async fn submit_and_watch(
+		&self,
+		source: TransactionSource,
+		xt: ExtrinsicFor<PoolApi>,
+	) -> Result<Watcher<ExtrinsicHash<PoolApi>, ExtrinsicHash<PoolApi>>, PoolApi::Error> {
+		self.pool.submit_and_watch(&self.at, source, xt).await
+	}
+
+	pub fn status(&self) -> PoolStatus {
+		self.pool.validated_pool().status()
 	}
 }
 
@@ -216,9 +246,7 @@ where
 					let view = view.clone();
 					let xt = xt.clone();
 
-					async move {
-						(view.at.hash, view.pool.submit_one(&view.at, source, xt.clone()).await)
-					}
+					async move { (view.at.hash, view.submit_one(source, xt.clone()).await) }
 				})
 				.collect::<Vec<_>>();
 			futs
@@ -246,7 +274,7 @@ where
 					let xt = xt.clone();
 
 					async move {
-						let result = view.pool.submit_and_watch(&view.at, source, xt.clone()).await;
+						let result = view.submit_and_watch(source, xt.clone()).await;
 						if let Ok(watcher) = result {
 							self.listener
 								.add_view_watcher_for_tx(
@@ -396,6 +424,119 @@ where
 
 ////////////////////////////////////////////////////////////////////////////////
 
+pub struct TxInMemPool<Block>
+where
+	Block: BlockT,
+{
+	watched: bool,
+	tx: Block::Extrinsic,
+	source: TransactionSource,
+	//todo: add listener? for updating view with invalid transaction?
+}
+
+pub struct TxMemPool<PoolApi, Block>
+where
+	Block: BlockT,
+	PoolApi: graph::ChainApi<Block = Block> + 'static,
+{
+	api: Arc<PoolApi>,
+	xts: RwLock<Vec<Block::Extrinsic>>,
+	watched_xts: RwLock<Vec<Block::Extrinsic>>,
+	// todo:
+	// xts2: HashMap<graph::ExtrinsicHash<PoolApi>, TxInMemPool<PoolApi, Block>>,
+}
+
+impl<PoolApi, Block> TxMemPool<PoolApi, Block>
+where
+	Block: BlockT,
+	PoolApi: graph::ChainApi<Block = Block> + 'static,
+{
+	fn new(api: Arc<PoolApi>) -> Self {
+		Self { api, xts: Default::default(), watched_xts: Default::default() }
+	}
+
+	fn watched_xts(&self) -> impl Iterator<Item = Block::Extrinsic> {
+		self.watched_xts.read().clone().into_iter()
+	}
+
+	fn len(&self) -> (usize, usize) {
+		(self.xts.read().len(), self.watched_xts.read().len())
+	}
+
+	fn push_unwatched(&self, xt: Block::Extrinsic) {
+		self.xts.write().push(xt)
+	}
+
+	fn extend_unwatched(&self, xts: Vec<Block::Extrinsic>) {
+		self.xts.write().extend(xts)
+	}
+
+	fn push_watched(&self, xt: Block::Extrinsic) {
+		self.watched_xts.write().push(xt)
+	}
+
+	fn clone_unwatched(&self) -> Vec<Block::Extrinsic> {
+		self.xts.read().clone()
+	}
+
+	//returns vec of invalid hashes
+	async fn validate_array(
+		&self,
+		xts: impl Iterator<Item = Block::Extrinsic>,
+		finalized_block: Block::Hash,
+	) -> Vec<Block::Hash> {
+		let xts = xts.map(|xt| (self.api.hash_and_length(&xt).0, xt)).collect::<Vec<_>>();
+
+		// 	todo: source
+		let source = TransactionSource::External;
+
+		let validation_results = futures::future::join_all(xts.into_iter().map(|(xt_hash, xt)| {
+			self.api
+				.validate_transaction(finalized_block, source, xt)
+				.map(move |validation_result| (xt_hash, validation_result))
+		}))
+		.await;
+
+		let mut invalid_hashes = Vec::new();
+
+		for (xt_hash, validation_result) in validation_results {
+			match validation_result {
+				Ok(Ok(_)) |
+				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {},
+				Err(_) |
+				Ok(Err(TransactionValidityError::Unknown(_))) |
+				Ok(Err(TransactionValidityError::Invalid(_))) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"[{:?}]: Purging: invalid: {:?}",
+						xt_hash,
+						validation_result,
+					);
+					invalid_hashes.push(xt_hash);
+				},
+			}
+		}
+
+		invalid_hashes
+	}
+
+	async fn purge_transactions(&self, finalized_block: Block::Hash) {
+		let invalid_hashes =
+			self.validate_array(self.clone_unwatched().into_iter(), finalized_block).await;
+
+		self.xts
+			.write()
+			.retain(|xt| !invalid_hashes.contains(&self.api.hash_and_length(xt).0));
+
+		let invalid_hashes = self.validate_array(self.watched_xts(), finalized_block).await;
+		self.watched_xts
+			.write()
+			.retain(|xt| !invalid_hashes.contains(&self.api.hash_and_length(xt).0));
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 pub struct ForkAwareTxPool<PoolApi, Block>
 where
 	Block: BlockT,
@@ -403,8 +544,7 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	api: Arc<PoolApi>,
-	xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
-	watched_xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
+	mempool: Arc<TxMemPool<PoolApi, Block>>,
 
 	// todo: is ViewManager strucy really needed? (no)
 	views: Arc<ViewManager<PoolApi, Block>>,
@@ -413,7 +553,7 @@ where
 	// current tree? (somehow similar to enactment state?)
 	// todo: metrics
 	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
-	revalidation_queue: Arc<view_revalidation::RevalidationQueue<PoolApi>>,
+	revalidation_queue: Arc<view_revalidation::RevalidationQueue<PoolApi, Block>>,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
 	// is_validator: IsValidator,
 	// options: Options,
@@ -435,9 +575,8 @@ where
 		finalized_hash: Block::Hash,
 	) -> Self {
 		Self {
+			mempool: Arc::from(TxMemPool::new(pool_api.clone())),
 			api: pool_api.clone(),
-			xts: Default::default(),
-			watched_xts: Default::default(),
 			views: Arc::new(ViewManager::new(pool_api, finalized_hash)),
 			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
 			enactment_state: Arc::new(Mutex::new(EnactmentState::new(
@@ -468,7 +607,7 @@ where
 	}
 
 	pub fn mempool_len(&self) -> (usize, usize) {
-		(self.xts.read().len(), self.watched_xts.read().len())
+		self.mempool.len()
 	}
 }
 
@@ -659,7 +798,7 @@ where
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
 		let views = self.views.clone();
-		self.xts.write().extend(xts.clone());
+		self.mempool.extend_unwatched(xts.clone());
 		let xts = xts.clone();
 
 		if views.is_empty() {
@@ -694,7 +833,7 @@ where
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 		let views = self.views.clone();
-		self.xts.write().push(xt.clone());
+		self.mempool.push_unwatched(xt.clone());
 
 		if views.is_empty() {
 			//todo: error or ok if no views?
@@ -728,7 +867,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		let views = self.views.clone();
-		self.watched_xts.write().push(xt.clone());
+		self.mempool.push_watched(xt.clone());
 
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
@@ -962,26 +1101,27 @@ where
 
 	async fn update_view(&self, view: &mut View<PoolApi>) {
 		log::info!(
-			"update_view: {:?} xts:{}/{} v:{}",
+			"update_view: {:?} xts:{:?} v:{}",
 			view.at,
-			self.xts.read().len(),
-			self.watched_xts.read().len(),
+			self.mempool.len(),
 			self.views_len()
 		);
 		//todo: source?
 		let source = TransactionSource::External;
-		let xts = self.xts.read().clone();
+
+		//todo this clone is not neccessary, try to use iterators
+		let xts = self.mempool.clone_unwatched();
+
 		//todo: internal checked banned: not required any more?
 		let _ = view.pool.submit_at(&view.at, source, xts).await;
 		let view = Arc::from(view);
 
 		let futs = {
-			let watched_xts = self.watched_xts.read();
-			let futs = watched_xts
-				.iter()
+			let futs = self
+				.mempool
+				.watched_xts()
 				.map(|t| {
 					let view = view.clone();
-					let t = t.clone();
 					async move {
 						let tx_hash = self.hash_of(&t);
 						let result = view.pool.submit_and_watch(&view.at, source, t.clone()).await;
@@ -1154,94 +1294,10 @@ where
 			})
 		}
 
-		// todo: async!
-		// self.revalidation_queue.purge_transactions_later();
-		self.purge_transactions(finalized_hash).await;
-		log::info!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
-	}
-
-	async fn purge_transactions(&self, finalized_block: Block::Hash) {
-		// xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
-		// watched_xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
-
-		let xts = self
-			.xts
-			.read()
-			.clone()
-			.into_iter()
-			.map(|xt| (self.api.hash_and_length(&xt).0, xt))
-			.collect::<Vec<_>>();
-
-		let xts_watched = self
-			.watched_xts
-			.read()
-			.clone()
-			.into_iter()
-			.map(|xt| (self.api.hash_and_length(&xt).0, xt))
-			.collect::<Vec<_>>();
-
-		// 	todo: source
-		let source = TransactionSource::External;
-
-		let validation_results = futures::future::join_all(xts.into_iter().map(|(xt_hash, xt)| {
-			self.api
-				.validate_transaction(finalized_block, source, xt)
-				.map(move |validation_result| (xt_hash, validation_result))
-		}))
-		.await;
-		let validation_results_watched =
-			futures::future::join_all(xts_watched.into_iter().map(|(xt_hash, xt)| {
-				self.api
-					.validate_transaction(finalized_block, source, xt)
-					.map(move |validation_result| (xt_hash, validation_result))
-			}))
+		self.revalidation_queue
+			.purge_transactions_later(self.mempool.clone(), finalized_hash)
 			.await;
-
-		let mut invalid_hashes = Vec::new();
-		let mut invalid_hashes_watched = Vec::new();
-
-		for (xt_hash, validation_result) in validation_results {
-			match validation_result {
-				Ok(Ok(_)) |
-				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {},
-				Err(_) |
-				Ok(Err(TransactionValidityError::Unknown(_))) |
-				Ok(Err(TransactionValidityError::Invalid(_))) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"[{:?}]: Purging: invalid: {:?}",
-						xt_hash,
-						validation_result,
-					);
-					invalid_hashes.push(xt_hash);
-				},
-			}
-		}
-		for (xt_hash, validation_result) in validation_results_watched {
-			match validation_result {
-				Ok(Ok(_)) |
-				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {},
-				Err(_) |
-				Ok(Err(TransactionValidityError::Unknown(_))) |
-				Ok(Err(TransactionValidityError::Invalid(_))) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"[{:?}]: Purging: invalid: {:?}",
-						xt_hash,
-						validation_result,
-					);
-					invalid_hashes_watched.push(xt_hash);
-				},
-			}
-		}
-
-		self.xts
-			.write()
-			.retain(|xt| !invalid_hashes.contains(&self.api.hash_and_length(xt).0));
-
-		self.watched_xts
-			.write()
-			.retain(|xt| !invalid_hashes_watched.contains(&self.api.hash_and_length(xt).0));
+		log::info!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
 	}
 }
 
