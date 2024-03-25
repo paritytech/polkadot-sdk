@@ -67,7 +67,7 @@ fn main() -> Result<(), String> {
 		"charts/availability-distribution-regression-bench.json",
 		average_usage.to_json().map_err(|e| e.to_string())?,
 	)
-	.map_err(|e| e.to_string());
+	.map_err(|e| e.to_string())?;
 	println!("{}", average_usage);
 
 	// We expect no variance for received and sent
