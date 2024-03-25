@@ -292,6 +292,7 @@ where
 
 #[cfg(test)]
 mod tests {
+	use self::UpgradeCheckSelect;
 	use super::*;
 	use crate::{
 		storage::types::{self, CountedStorageMapInstance, CountedStorageNMapInstance, Key},
