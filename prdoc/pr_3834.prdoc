@@ -13,7 +13,7 @@ doc:
 
 crates:
   - name: "pallet-example-single-block-migrations"
-  - name: "pallet-staging-xcm"
+  - name: "pallet-xcm"
   - name: "pallet-grandpa"
   - name: "pallet-identity"
   - name: "pallet-nomination-pools"
