@@ -919,8 +919,8 @@ pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
 	fn call(&self) -> &Self::Call;
 }
 
-impl<Address, Call, Signature, Extra> ExtrinsicCall
-	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
+impl<Address, Call, Signature, Extra, Context> ExtrinsicCall
+	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra, Context>
 where
 	Address: TypeInfo,
 	Call: TypeInfo,
