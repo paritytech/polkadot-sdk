@@ -162,7 +162,7 @@ fn send_xcm_from_para_to_system_para_paying_fee_with_assets_works() {
 		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send_blob(
 			root_origin,
 			bx!(system_para_destination),
-			xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
+			xcm.encode().try_into().unwrap(),
 		));
 
 		PenpalA::assert_xcm_pallet_sent();
