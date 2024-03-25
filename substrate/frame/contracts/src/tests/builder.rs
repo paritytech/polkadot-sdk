@@ -24,9 +24,19 @@ use crate::{
 };
 use codec::Compact;
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
+use paste::paste;
 
 /// Helper macro to generate a builder for contract API calls.
 macro_rules! builder {
+	// Entry point to generate a builder for the given method.
+	(
+		$method:ident($($field:ident: $type:ty,)*) -> $result:ty
+	) => {
+		paste!{
+			builder!([< $method:camel Builder >], $method($($field: $type,)* ) -> $result);
+		}
+	};
+	// Generate the builder struct and its methods.
 	(
 		$name:ident,
 		$method:ident(
@@ -59,7 +69,6 @@ macro_rules! builder {
 }
 
 builder!(
-InstantiateWithCodeBuilder,
 instantiate_with_code(
 	origin: OriginFor<Test>,
 	value: BalanceOf<Test>,
@@ -72,7 +81,6 @@ instantiate_with_code(
 );
 
 builder!(
-InstantiateBuilder,
 instantiate(
 	origin: OriginFor<Test>,
 	value: BalanceOf<Test>,
@@ -85,7 +93,6 @@ instantiate(
 );
 
 builder!(
-	BareInstantiateBuilder,
 	bare_instantiate(
 		origin: AccountIdOf<Test>,
 		value: BalanceOf<Test>,
@@ -100,7 +107,6 @@ builder!(
 );
 
 builder!(
-	CallBuilder,
 	call(
 		origin: OriginFor<Test>,
 		dest: AccountIdLookupOf<Test>,
@@ -112,7 +118,6 @@ builder!(
 );
 
 builder!(
-	BareCallBuilder,
 	bare_call(
 		origin: AccountIdOf<Test>,
 		dest: AccountIdOf<Test>,
