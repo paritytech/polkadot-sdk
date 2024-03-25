@@ -15,14 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
-use sp_std::{
-	collections::btree_set::BTreeSet,
-	iter::{DoubleEndedIterator, IntoIterator},
-	vec::Vec,
-};
 use trie_db::node_db::Hasher;
+use core::iter::{DoubleEndedIterator, IntoIterator};
+use scale_info::TypeInfo;
+
 // Note that `LayoutV1` usage here (proof compaction) is compatible
 // with `LayoutV0`.
 use crate::LayoutV1 as Layout;

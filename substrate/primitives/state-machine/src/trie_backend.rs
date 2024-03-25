@@ -348,7 +348,7 @@ struct CachedIter<H, C, R>
 where
 	H: Hasher,
 {
-	last_key: sp_std::vec::Vec<u8>,
+	last_key: alloc::vec::Vec<u8>,
 	iter: RawIter<H, C, R>,
 }
 
@@ -452,67 +452,13 @@ where
 	}
 }
 
-#[cfg(feature = "std")]
-pub struct WithRecorder<'a, H, C, R>
-where
-	H: Hasher,
-	H::Out: Codec,
-	C: TrieCacheProvider<H> + Send + Sync,
-	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
-{
-	backend: &'a TrieBackend<H, C, R>,
-	recorder: Option<R>,
-}
-
-#[cfg(feature = "std")]
-impl<'a, H, C, R> WithRecorder<'a, H, C, R>
-where
-	H: Hasher,
-	H::Out: Codec,
-	C: TrieCacheProvider<H> + Send + Sync,
-	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
-{
-	fn new(backend: &'a TrieBackend<H, C, R>, recorder: R) -> Self {
-		let prev_recorder = backend.set_recorder(Some(recorder));
-		Self { backend, recorder: prev_recorder }
-	}
-}
-
-#[cfg(feature = "std")]
-impl<H, C, R> Drop for WithRecorder<'_, H, C, R>
-where
-	H: Hasher,
-	H::Out: Codec,
-	C: TrieCacheProvider<H> + Send + Sync,
-	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
-{
-	fn drop(&mut self) {
-		self.backend.set_recorder(self.recorder.take());
-	}
-}
-
-#[cfg(feature = "std")]
-impl<'a, H, C, R> core::ops::Deref for WithRecorder<'a, H, C, R>
-where
-	H: Hasher,
-	H::Out: Codec,
-	C: TrieCacheProvider<H> + Send + Sync,
-	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
-{
-	type Target = TrieBackend<H, C, R>;
-
-	fn deref(&self) -> &Self::Target {
-		self.backend
-	}
-}
-
 impl<H, C, R> sp_std::fmt::Debug for TrieBackend<H, C, R>
 where
 	H: Hasher,
 	C: TrieCacheProvider<H>,
 	R: TrieRecorderProvider<H, DBLocation>,
 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(f, "TrieBackend")
 	}
 }

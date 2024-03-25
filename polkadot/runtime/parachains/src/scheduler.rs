@@ -37,7 +37,7 @@
 //! availability cores over time.
 
 use crate::{configuration, initializer::SessionChangeNotification, paras};
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::Defensive};
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
 use primitives::{
@@ -59,6 +59,7 @@ pub use pallet::*;
 mod tests;
 
 const LOG_TARGET: &str = "runtime::parachains::scheduler";
+
 pub mod migration;
 
 #[frame_support::pallet]
@@ -88,10 +89,8 @@ pub mod pallet {
 	#[pallet::getter(fn validator_groups)]
 	pub(crate) type ValidatorGroups<T> = StorageValue<_, Vec<Vec<ValidatorIndex>>, ValueQuery>;
 
-	/// One entry for each availability core. Entries are `None` if the core is not currently
-	/// occupied. Can be temporarily `Some` if scheduled but not occupied.
-	/// The i'th parachain belongs to the i'th core, with the remaining cores all being
-	/// parathread-multiplexers.
+	/// One entry for each availability core. The i'th parachain belongs to the i'th core, with the
+	/// remaining cores all being on demand parachain multiplexers.
 	///
 	/// Bounded by the maximum of either of these two values:
 	///   * The number of parachains and parathread multiplexers
@@ -146,7 +145,7 @@ pub mod pallet {
 
 	/// One entry for each availability core. The `VecDeque` represents the assignments to be
 	/// scheduled on that core. The value contained here will not be valid after the end of
-	/// a block. Runtime APIs should be used to determine scheduled cores/ for the upcoming block.
+	/// a block. Runtime APIs should be used to determine scheduled cores for the upcoming block.
 	#[pallet::storage]
 	#[pallet::getter(fn claimqueue)]
 	pub(crate) type ClaimQueue<T: Config> =
@@ -236,8 +235,16 @@ impl<T: Config> Pallet<T> {
 		if n_cores == 0 || validators.is_empty() {
 			ValidatorGroups::<T>::set(Vec::new());
 		} else {
-			let group_base_size = validators.len() / n_cores as usize;
-			let n_larger_groups = validators.len() % n_cores as usize;
+			let group_base_size = validators
+				.len()
+				.checked_div(n_cores as usize)
+				.defensive_proof("n_cores should not be 0")
+				.unwrap_or(0);
+			let n_larger_groups = validators
+				.len()
+				.checked_rem(n_cores as usize)
+				.defensive_proof("n_cores should not be 0")
+				.unwrap_or(0);
 
 			// Groups contain indices into the validators from the session change notification,
 			// which are already shuffled.
@@ -389,16 +396,6 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 		});
-	}
-
-	/// Get the para (chain or thread) ID assigned to a particular core or index, if any. Core
-	/// indices out of bounds will return `None`, as will indices of unassigned cores.
-	pub(crate) fn core_para(core_index: CoreIndex) -> Option<ParaId> {
-		let cores = AvailabilityCores::<T>::get();
-		match cores.get(core_index.0 as usize) {
-			None | Some(CoreOccupied::Free) => None,
-			Some(CoreOccupied::Paras(entry)) => Some(entry.para_id()),
-		}
 	}
 
 	/// Get the validators in the given group, if the group index is valid for this session.

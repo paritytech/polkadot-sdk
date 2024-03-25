@@ -20,12 +20,15 @@
 #[cfg(feature = "std")]
 use crate::trie_backend::TrieBackend;
 use crate::{ChildStorageCollection, StorageCollection, StorageKey, StorageValue, UsageInfo};
+#[cfg(feature = "std")]
+use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use alloc::boxed::Box;
 use codec::Encode;
 use core::marker::PhantomData;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
-use sp_std::{boxed::Box, vec::Vec};
 use trie_db::node_db::Hasher;
 
 // TODO should parameterized location from db
@@ -182,7 +185,7 @@ pub type BackendTransaction<H> = trie_db::Changeset<H, DBLocation>;
 /// to it.
 ///
 /// The clone operation (if implemented) should be cheap.
-pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
+pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// An error type when fetching data is not possible.
 	type Error: super::Error;
 

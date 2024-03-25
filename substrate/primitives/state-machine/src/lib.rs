@@ -20,7 +20,6 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(not(feature = "std"))]
 extern crate alloc;
 
 pub mod backend;
@@ -121,8 +120,8 @@ pub type DefaultError = String;
 pub struct DefaultError;
 
 #[cfg(not(feature = "std"))]
-impl sp_std::fmt::Display for DefaultError {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl core::fmt::Display for DefaultError {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "DefaultError")
 	}
 }

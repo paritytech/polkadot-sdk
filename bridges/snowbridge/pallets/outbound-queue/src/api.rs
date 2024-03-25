@@ -4,8 +4,12 @@
 
 use crate::{Config, MessageLeaves};
 use frame_support::storage::StorageStreamIter;
-use snowbridge_core::outbound::{Message, SendMessage};
+use snowbridge_core::{
+	outbound::{Command, Fee, GasMeter},
+	PricingParameters,
+};
 use snowbridge_outbound_queue_merkle_tree::{merkle_proof, MerkleProof};
+use sp_core::Get;
 
 pub fn prove_message<T>(leaf_index: u64) -> Option<MerkleProof>
 where
@@ -19,12 +23,14 @@ where
 	Some(proof)
 }
 
-pub fn calculate_fee<T>(message: Message) -> Option<T::Balance>
+pub fn calculate_fee<T>(
+	command: Command,
+	parameters: Option<PricingParameters<T::Balance>>,
+) -> Fee<T::Balance>
 where
 	T: Config,
 {
-	match crate::Pallet::<T>::validate(&message) {
-		Ok((_, fees)) => Some(fees.total()),
-		_ => None,
-	}
+	let gas_used_at_most = T::GasMeter::maximum_gas_used_at_most(&command);
+	let parameters = parameters.unwrap_or(T::PricingParameters::get());
+	crate::Pallet::<T>::calculate_fee(gas_used_at_most, parameters)
 }
