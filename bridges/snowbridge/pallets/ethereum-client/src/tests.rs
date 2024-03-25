@@ -634,6 +634,62 @@ fn submit_finalized_header_update_with_gap_at_limit() {
 		);
 	});
 }
+
+/// Check that a gap of more than 8192 slots between finalized headers is not allowed.
+#[test]
+fn submit_finalized_header_update_with_too_large_gap() {
+	let checkpoint = Box::new(load_checkpoint_update_fixture());
+	let update = Box::new(load_sync_committee_update_fixture());
+	let mut next_update = Box::new(load_next_sync_committee_update_fixture());
+
+	// Adds 8193 slots, so that the next update is still in the next sync committee, but the
+	// gap between the finalized headers is more than 8192 slots.
+	let slot_with_large_gap = checkpoint.header.slot + SLOTS_PER_HISTORICAL_ROOT as u64 + 1;
+
+	next_update.finalized_header.slot = slot_with_large_gap;
+	// Adding some slots to the attested header and signature slot since they need to be ahead
+	// of the finalized header.
+	next_update.attested_header.slot = slot_with_large_gap + 33;
+	next_update.signature_slot = slot_with_large_gap + 43;
+
+	new_tester().execute_with(|| {
+		assert_ok!(EthereumBeaconClient::process_checkpoint_update(&checkpoint));
+		assert_ok!(EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone()));
+		assert!(<NextSyncCommittee<Test>>::exists());
+		assert_err!(
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), next_update.clone()),
+			Error::<Test>::InvalidFinalizedHeaderGap
+		);
+	});
+}
+
+/// Check that a gap of 8192 slots between finalized headers is allowed.
+#[test]
+fn submit_finalized_header_update_with_gap_at_limit() {
+	let checkpoint = Box::new(load_checkpoint_update_fixture());
+	let update = Box::new(load_sync_committee_update_fixture());
+	let mut next_update = Box::new(load_next_sync_committee_update_fixture());
+
+	next_update.finalized_header.slot = checkpoint.header.slot + SLOTS_PER_HISTORICAL_ROOT as u64;
+	// Adding some slots to the attested header and signature slot since they need to be ahead
+	// of the finalized header.
+	next_update.attested_header.slot =
+		checkpoint.header.slot + SLOTS_PER_HISTORICAL_ROOT as u64 + 33;
+	next_update.signature_slot = checkpoint.header.slot + SLOTS_PER_HISTORICAL_ROOT as u64 + 43;
+
+	new_tester().execute_with(|| {
+		assert_ok!(EthereumBeaconClient::process_checkpoint_update(&checkpoint));
+		assert_ok!(EthereumBeaconClient::submit(RuntimeOrigin::signed(1), update.clone()));
+		assert!(<NextSyncCommittee<Test>>::exists());
+		assert_err!(
+			EthereumBeaconClient::submit(RuntimeOrigin::signed(1), next_update.clone()),
+			// The test should pass the InvalidFinalizedHeaderGap check, and will fail at the
+			// next check, the merkle proof, because we changed the next_update slots.
+			Error::<Test>::InvalidHeaderMerkleProof
+		);
+	});
+}
+
 /* IMPLS */
 
 #[test]
