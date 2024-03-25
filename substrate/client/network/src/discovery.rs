@@ -1089,17 +1089,20 @@ mod tests {
 												.unwrap();
 											// Test both genesis hash-based and legacy
 											// protocol names.
-											let protocol_name = if swarm_n % 2 == 0 {
-												kademlia_protocol_name(genesis_hash, fork_id)
+											let protocol_names = if swarm_n % 2 == 0 {
+												vec![kademlia_protocol_name(genesis_hash, fork_id)]
 											} else {
-												legacy_kademlia_protocol_name(&protocol_id)
+												vec![
+													legacy_kademlia_protocol_name(&protocol_id),
+													kademlia_protocol_name(genesis_hash, fork_id),
+												]
 											};
 											swarms[swarm_n]
 												.0
 												.behaviour_mut()
 												.add_self_reported_address(
 													&other,
-													&[protocol_name],
+													protocol_names.into_iter(),
 													addr,
 												);
 
@@ -1195,9 +1198,30 @@ mod tests {
 			&[kademlia_protocol_name(supported_genesis_hash, None)],
 			remote_addr.clone(),
 		);
+		// Note: legacy protocol is not support without genesis hash and fork ID,
+		// if the legacy is the only protocol supported, then the peer will not be added.
 		discovery.add_self_reported_address(
 			&another_peer_id,
 			&[legacy_kademlia_protocol_name(&supported_protocol_id)],
+			another_addr.clone(),
+		);
+
+		{
+			let kademlia = discovery.kademlia.as_mut().unwrap();
+			assert_eq!(
+				1,
+				kademlia.kbuckets().fold(0, |acc, bucket| acc + bucket.num_entries()),
+				"Expect peers with supported protocol to be added."
+			);
+		}
+
+		// Supported legacy and genesis based protocols are allowed to be added.
+		discovery.add_self_reported_address(
+			&another_peer_id,
+			&[
+				legacy_kademlia_protocol_name(&supported_protocol_id),
+				kademlia_protocol_name(supported_genesis_hash, None),
+			],
 			another_addr.clone(),
 		);
 
