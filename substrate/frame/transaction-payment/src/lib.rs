@@ -964,11 +964,7 @@ use codec::Codec;
 use core::fmt::Debug;
 use frame_support::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::StaticTypeInfo;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{IdentifyAccount, Verify},
-};
+use sp_runtime::traits::{IdentifyAccount, Verify};
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum FeeAgent<AccountId> {
@@ -1003,67 +999,79 @@ impl<AccountId> Default for Context<AccountId> {
 )]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
-pub struct SetFeeAgent<V: Verify>
+pub struct SetFeeAgent<V: Verify, Tx>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
 		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	Tx: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 {
-	pub agent: Option<(V, <V::Signer as IdentifyAccount>::AccountId)>,
+	pub agent: Option<<V::Signer as IdentifyAccount>::AccountId>,
+	pub rest: Option<Tx>,
 }
 
-impl<V: Verify> Default for SetFeeAgent<V>
+impl<V: Verify, Tx> Default for SetFeeAgent<V, Tx>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
 		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	Tx: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 {
 	fn default() -> Self {
-		Self { agent: None }
+		Self { agent: None, rest: None }
 	}
 }
 
-impl<V: Verify> SetFeeAgent<V>
+impl<V: Verify, Tx> SetFeeAgent<V, Tx>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
 		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	Tx: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 {
-	pub fn new_with_agent(
-		signature: V,
-		account_id: <V::Signer as IdentifyAccount>::AccountId,
-	) -> Self {
-		Self { agent: Some((signature, account_id)) }
+	pub fn new_with_agent(account_id: <V::Signer as IdentifyAccount>::AccountId, tx: Tx) -> Self {
+		Self { agent: Some(account_id), rest: Some(tx) }
 	}
 }
 
-impl<V: Verify> TransactionExtensionBase for SetFeeAgent<V>
+impl<V: Verify, Tx> TransactionExtensionBase for SetFeeAgent<V, Tx>
 where
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
 		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	Tx: TransactionExtensionBase
+		+ Codec
+		+ Debug
+		+ Sync
+		+ Send
+		+ Clone
+		+ Eq
+		+ PartialEq
+		+ StaticTypeInfo,
 {
 	const IDENTIFIER: &'static str = "SetFeeAgent";
 	type Implicit = ();
 }
 
-impl<Call: Dispatchable, V: Verify>
-	TransactionExtension<Call, Context<<V::Signer as IdentifyAccount>::AccountId>> for SetFeeAgent<V>
+impl<Call: Dispatchable, V: Verify, InnerTx>
+	TransactionExtension<Call, Context<<V::Signer as IdentifyAccount>::AccountId>>
+	for SetFeeAgent<V, InnerTx>
 where
+	Call: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 	<V::Signer as IdentifyAccount>::AccountId:
 		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
+	InnerTx: TransactionExtension<Call, Context<<V::Signer as IdentifyAccount>::AccountId>>,
 {
-	type Val = ();
-	type Pre = ();
-	impl_tx_ext_default!(Call; Context<<V::Signer as IdentifyAccount>::AccountId>; prepare);
+	type Val = Option<InnerTx::Val>;
+	type Pre = Option<InnerTx::Pre>;
 
 	fn validate(
 		&self,
 		origin: <Call as Dispatchable>::RuntimeOrigin,
-		_call: &Call,
-		_info: &DispatchInfoOf<Call>,
-		_len: usize,
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
 		context: &mut Context<<V::Signer as IdentifyAccount>::AccountId>,
 		_: (),
 		inherited_implication: &impl Encode,
@@ -1071,17 +1079,53 @@ where
 		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let (signature, account_id) = match &self.agent {
-			None => return Ok((ValidTransaction::default(), (), origin)),
-			Some((s, a)) => (s, a.clone()), // TODO check if origin None
+		let account_id = match &self.agent {
+			None => return Ok((ValidTransaction::default(), None, origin)),
+			Some(a) => a.clone(), // TODO check if origin None
 		};
 
-		let msg = inherited_implication.using_encoded(blake2_256);
+		let rest = match &self.rest {
+			Some(inner) => inner,
+			None => return Ok((ValidTransaction::default(), None, origin)),
+		};
 
-		if !signature.verify(&msg[..], &account_id) {
-			Err(InvalidTransaction::BadProof)?
-		}
 		*context = Context { fee_agent: Some(account_id) };
-		Ok((ValidTransaction::default(), (), origin))
+		let rest_implicit = rest.implicit()?;
+		let (validity, val, origin) =
+			rest.validate(origin, call, info, len, context, rest_implicit, inherited_implication)?;
+		Ok((validity, Some(val), origin))
+	}
+
+	fn prepare(
+		self,
+		val: Self::Val,
+		origin: &<Call as Dispatchable>::RuntimeOrigin,
+		call: &Call,
+		info: &DispatchInfoOf<Call>,
+		len: usize,
+		context: &Context<<V::Signer as IdentifyAccount>::AccountId>,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		match self.rest {
+			Some(inner) => {
+				let val = val.unwrap();
+				let pre = inner.prepare(val, origin, call, info, len, context)?;
+				Ok(Some(pre))
+			},
+			None => Ok(None),
+		}
+	}
+
+	fn post_dispatch(
+		pre: Self::Pre,
+		info: &DispatchInfoOf<Call>,
+		post_info: &PostDispatchInfoOf<Call>,
+		len: usize,
+		result: &DispatchResult,
+		context: &Context<<V::Signer as IdentifyAccount>::AccountId>,
+	) -> Result<(), TransactionValidityError> {
+		match pre {
+			Some(pre) => InnerTx::post_dispatch(pre, info, post_info, len, result, context),
+			None => Ok(()),
+		}
 	}
 }

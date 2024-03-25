@@ -22,7 +22,7 @@ use crate::Pallet;
 use frame_benchmarking::v2::*;
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_system::{EventRecord, RawOrigin};
-use sp_runtime::traits::{DispatchTransaction, Dispatchable};
+use sp_runtime::traits::Dispatchable;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	let events = frame_system::Pallet::<T>::events();
@@ -60,15 +60,31 @@ mod benchmarks {
 			actual_weight: Some(Weight::from_parts(10, 0)),
 			pays_fee: Pays::Yes,
 		};
+		let mut context: Context<T::AccountId> = Context::default();
 
 		#[block]
 		{
-			assert!(ext
-				.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 10, |_| Ok(
-					post_info
-				))
-				.unwrap()
-				.is_ok());
+			let (_, val, origin) = ext
+				.validate(
+					RawOrigin::Signed(caller.clone()).into(),
+					&call,
+					&info,
+					10,
+					&mut context,
+					(),
+					&call,
+				)
+				.unwrap();
+			let pre = ext.prepare(val, &origin, &call, &info, 10, &context).unwrap();
+			ChargeTransactionPayment::<T>::post_dispatch(
+				pre,
+				&info,
+				&post_info,
+				10,
+				&Ok(()),
+				&context,
+			)
+			.unwrap();
 		}
 
 		let actual_fee = Pallet::<T>::compute_actual_fee(10, &info, &post_info, tip);

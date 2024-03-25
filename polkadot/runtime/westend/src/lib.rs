@@ -29,21 +29,22 @@ use frame_election_provider_support::{bounds::ElectionBoundsBuilder, onchain, Se
 use frame_support::{
 	construct_runtime, derive_impl,
 	genesis_builder_helper::{build_config, create_default_config},
+	pallet_prelude::{InvalidTransaction, TransactionValidityError},
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, ConstU32, Contains, EitherOf, EitherOfDiverse, EverythingBut,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
+		ExtrinsicCall, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage,
 		ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
-use frame_system::{EnsureRoot, EnsureSigned};
+use frame_system::{ChainContext, EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::historical as session_historical;
 use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use parity_scale_codec::{Decode, Encode, EncodeLike, Error as CodecError, Input, MaxEncodedLen};
 use primitives::{
 	slashing,
 	vstaging::{ApprovalVotingParams, NodeFeatures},
@@ -81,19 +82,22 @@ use runtime_parachains::{
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
-use scale_info::TypeInfo;
+use scale_info::{Type, TypeInfo};
 use sp_core::{OpaqueMetadata, RuntimeDebug, H256};
 use sp_runtime::{
 	create_runtime_str,
 	curve::PiecewiseLinear,
-	generic, impl_opaque_keys,
+	generic::{self, ExtrinsicFormat, Preamble},
+	impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT, IdentityLookup,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		BlakeTwo256, Block as BlockT, Checkable, ConvertInto, DispatchInfoOf, Dispatchable,
+		Extrinsic as ExtrinsicT, ExtrinsicMetadata, IdentityLookup, Keccak256, Lookup, OpaqueKeys,
+		PostDispatchInfoOf, SaturatedConversion, TransactionExtension, TransactionExtensionBase,
+		ValidateUnsigned, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, BoundToRuntimeAppPublic, FixedU128, KeyTypeId, Perbill, Percent, Permill,
-	RuntimeAppPublic,
+	ApplyExtrinsicResult, ApplyExtrinsicResultWithInfo, BoundToRuntimeAppPublic, FixedU128,
+	KeyTypeId, Perbill, Percent, Permill, RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -822,33 +826,56 @@ where
 			// so the actual block number is `n`.
 			.saturating_sub(1);
 		let tip = 0;
-		let tx_ext: TxExtension = (
-			pallet_transaction_payment::SetFeeAgent::<sp_runtime::MultiSignature>::default(),
-			frame_support::transaction_extensions::SignedOriginSignature::<
+		let inner_tx: (
+			pallet_transaction_payment::SetFeeAgent<
 				sp_runtime::MultiSignature,
-			>::default(),
-			frame_system::CheckNonZeroSender::<Runtime>::new(),
-			frame_system::CheckSpecVersion::<Runtime>::new(),
-			frame_system::CheckTxVersion::<Runtime>::new(),
-			frame_system::CheckGenesis::<Runtime>::new(),
-			frame_system::CheckMortality::<Runtime>::from(generic::Era::mortal(
-				period,
-				current_block,
-			)),
-			frame_system::CheckNonce::<Runtime>::from(nonce),
-			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+				(
+					frame_system::CheckNonce<Runtime>,
+					frame_support::transaction_extensions::CheckSignedPayload<
+						sp_runtime::MultiSignature,
+						(
+							RuntimeCall,
+							BaseTxExtension,
+							<BaseTxExtension as TransactionExtensionBase>::Implicit,
+						),
+					>,
+				),
+			>,
+			BaseTxExtension,
+		) = (
+			pallet_transaction_payment::SetFeeAgent::default(),
+			(
+				frame_system::CheckNonZeroSender::<Runtime>::new(),
+				frame_system::CheckSpecVersion::<Runtime>::new(),
+				frame_system::CheckTxVersion::<Runtime>::new(),
+				frame_system::CheckGenesis::<Runtime>::new(),
+				frame_system::CheckMortality::<Runtime>::from(generic::Era::mortal(
+					period,
+					current_block,
+				)),
+				frame_system::CheckNonce::<Runtime>::from(nonce),
+				frame_system::CheckWeight::<Runtime>::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			),
 		)
 			.into();
-		let raw_payload = SignedPayload::new(call, tx_ext)
+		let tx_implicit = inner_tx
+			.implicit()
 			.map_err(|e| {
 				log::warn!("Unable to create signed payload: {:?}", e);
 			})
 			.ok()?;
-		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
-		let (call, tx_ext, _) = raw_payload.deconstruct();
-		let address = <Runtime as frame_system::Config>::Lookup::unlookup(account);
-		Some((call, (address, signature, tx_ext)))
+		let raw_payload = (call, inner_tx, tx_implicit);
+		let signature = raw_payload
+			.using_encoded(|payload| C::sign(&sp_io::hashing::blake2_256(payload)[..], public))?;
+		let (call, inner_tx, _) = raw_payload;
+		let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
+		let tx_ext = frame_support::transaction_extensions::SignedOriginSignature::new_with_sign(
+			signature.clone(),
+			account,
+			inner_tx,
+		);
+		Some((call, (address, signature, (tx_ext,))))
 	}
 }
 
@@ -1555,10 +1582,7 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// `BlockId` type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The extension to the basic transaction logic.
-pub type TxExtension = (
-	pallet_transaction_payment::SetFeeAgent<sp_runtime::MultiSignature>,
-	frame_support::transaction_extensions::SignedOriginSignature<sp_runtime::MultiSignature>,
+pub type BaseTxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -1568,6 +1592,173 @@ pub type TxExtension = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
+pub type InnerUnsigned = (
+	pallet_transaction_payment::SetFeeAgent<
+		sp_runtime::MultiSignature,
+		(
+			frame_system::CheckNonce<Runtime>,
+			frame_support::transaction_extensions::CheckSignedPayload<
+				sp_runtime::MultiSignature,
+				(
+					RuntimeCall,
+					BaseTxExtension,
+					<BaseTxExtension as TransactionExtensionBase>::Implicit,
+				),
+			>,
+		),
+	>,
+	BaseTxExtension,
+);
+/// The extension to the basic transaction logic.
+pub type TxExtension = (
+	frame_support::transaction_extensions::SignedOriginSignature<
+		sp_runtime::MultiSignature,
+		(
+			pallet_transaction_payment::SetFeeAgent<
+				sp_runtime::MultiSignature,
+				(
+					frame_system::CheckNonce<Runtime>,
+					frame_support::transaction_extensions::CheckSignedPayload<
+						sp_runtime::MultiSignature,
+						(
+							RuntimeCall,
+							BaseTxExtension,
+							<BaseTxExtension as TransactionExtensionBase>::Implicit,
+						),
+					>,
+				),
+			>,
+			BaseTxExtension,
+		),
+	>,
+);
+
+impl sp_runtime::traits::Applyable for CheckedExtrinsic {
+	type Call = RuntimeCall;
+
+	fn validate<I: ValidateUnsigned<Call = Self::Call>>(
+		&self,
+		source: TransactionSource,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> TransactionValidity {
+		match self.0.format {
+			ExtrinsicFormat::Bare => {
+				let inherent_validation = I::validate_unsigned(source, &self.0.function)?;
+				#[allow(deprecated)]
+				let legacy_validation = TxExtension::validate_bare_compat(&self.0.function, info, len)?;
+				Ok(legacy_validation.combine_with(inherent_validation))
+			},
+			ExtrinsicFormat::Signed(ref signer, ref extension) => {
+				let origin = Some(signer.clone()).into();
+				extension
+					.0
+					.extension
+					.validate(
+						origin,
+						&self.0.function,
+						info,
+						len,
+						&mut Default::default(),
+						extension.0.extension.implicit()?,
+						&self.0.function,
+					)
+					.map(|x| x.0)
+			},
+			ExtrinsicFormat::General(ref extension) => {
+				let mut context = pallet_transaction_payment::Context::default();
+				extension
+					.validate(
+						None.into(),
+						&self.0.function,
+						info,
+						len,
+						&mut context,
+						extension.implicit()?,
+						&self.0.function,
+					)
+					.map(|x| x.0)
+			},
+		}
+	}
+
+	fn apply<I: ValidateUnsigned<Call = Self::Call>>(
+		self,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> crate::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<Self::Call>> {
+		match self.0.format {
+			ExtrinsicFormat::Bare => {
+				I::pre_dispatch(&self.0.function)?;
+				// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
+				//   or `LegacyExtension` is removed.
+				#[allow(deprecated)]
+				TxExtension::validate_bare_compat(&self.0.function, info, len)?;
+				#[allow(deprecated)]
+				TxExtension::pre_dispatch_bare_compat(&self.0.function, info, len)?;
+				let res = self.0.function.dispatch(None.into());
+				let post_info = res.unwrap_or_else(|err| err.post_info);
+				let pd_res = res.map(|_| ()).map_err(|e| e.error);
+				// TODO: Remove below once `pre_dispatch_unsigned` is removed from `LegacyExtension`
+				//   or `LegacyExtension` is removed.
+				#[allow(deprecated)]
+				TxExtension::post_dispatch_bare_compat(info, &post_info, len, &pd_res)?;
+				Ok(res)
+			},
+			ExtrinsicFormat::Signed(signer, extension) => {
+				// extension.dispatch_transaction(Some(signer).into(), self.function, info, len),
+				let inner_extension: InnerUnsigned = extension.0.extension;
+				let mut context = pallet_transaction_payment::Context::default();
+				let (_, val, origin) = inner_extension
+					.validate(
+						Some(signer).into(),
+						&self.0.function,
+						info,
+						len,
+						&mut context,
+						inner_extension.implicit().unwrap(),
+						&self.0.function,
+					)
+					.unwrap();
+				let pre =
+					inner_extension.prepare(val, &origin, &self.0.function, info, len, &context)?;
+				let res = self.0.function.dispatch(origin);
+				let post_info = res.unwrap_or_else(|err| err.post_info);
+				let pd_res = res.map(|_| ()).map_err(|e| e.error);
+				InnerUnsigned::post_dispatch(pre, info, &post_info, len, &pd_res, &context)?;
+				Ok(res)
+			},
+			ExtrinsicFormat::General(extension) =>
+			// extension.dispatch_transaction(None.into(), self.function, info, len),
+			{
+				let mut context = pallet_transaction_payment::Context::default();
+				let (_, val, origin) = extension
+					.validate(
+						None.into(),
+						&self.0.function,
+						&info,
+						len,
+						&mut context,
+						extension.implicit().unwrap(),
+						&self.0.function,
+					)
+					.unwrap();
+				let pre = extension.prepare(val, &origin, &self.0.function, info, len, &context)?;
+				let res = self.0.function.dispatch(origin);
+				let post_info = res.unwrap_or_else(|err| err.post_info);
+				let pd_res = res.map(|_| ()).map_err(|e| e.error);
+				TxExtension::post_dispatch(pre, info, &post_info, len, &pd_res, &context)?;
+				Ok(res)
+			},
+		}
+	}
+}
+
+impl frame_support::dispatch::GetDispatchInfo for CheckedExtrinsic {
+	fn get_dispatch_info(&self) -> frame_support::dispatch::DispatchInfo {
+		self.0.function.get_dispatch_info()
+	}
+}
 
 #[test]
 fn free_transaction_extension_test() {
@@ -1578,29 +1769,31 @@ fn free_transaction_extension_test() {
 		};
 		use keyring::AccountKeyring;
 		use sp_io::hashing::blake2_256;
-		use sp_runtime::{
-			traits::{DispatchTransaction, TransactionExtensionBase},
-			MultiSignature,
-		};
+		use sp_runtime::{traits::TransactionExtensionBase, MultiSignature};
 
-		// The part of `TxExtension` that has to be provided and signed by user who wants
-		// the transaciton fee to be sponsored by someone else.
-		type BaseTxExtension = (
-			frame_system::CheckNonZeroSender<Runtime>,
-			frame_system::CheckSpecVersion<Runtime>,
-			frame_system::CheckTxVersion<Runtime>,
-			frame_system::CheckGenesis<Runtime>,
-			frame_system::CheckMortality<Runtime>,
-			frame_system::CheckNonce<Runtime>,
-			frame_system::CheckWeight<Runtime>,
-			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		type CheckSignedInnerTxExtension =
+			frame_support::transaction_extensions::CheckSignedPayload<
+				sp_runtime::MultiSignature,
+				(
+					RuntimeCall,
+					BaseTxExtension,
+					<BaseTxExtension as TransactionExtensionBase>::Implicit,
+				),
+			>;
+
+		type InnerUnsignedTxExtension = (
+			pallet_transaction_payment::SetFeeAgent<
+				sp_runtime::MultiSignature,
+				(frame_system::CheckNonce<Runtime>, CheckSignedInnerTxExtension),
+			>,
+			BaseTxExtension,
 		);
 
-		// The part of `TxExtension` that has to be provided and signed by the fee agent,
-		// the user who sponsors the transaction fee.
-		type SignedTxExtension = (
-			frame_support::transaction_extensions::SignedOriginSignature<MultiSignature>,
-			BaseTxExtension,
+		type OuterSignedTxExtension = (
+			frame_support::transaction_extensions::SignedOriginSignature<
+				sp_runtime::MultiSignature,
+				InnerUnsignedTxExtension,
+			>,
 		);
 
 		frame_system::GenesisConfig::<Runtime>::default().build();
@@ -1609,13 +1802,16 @@ fn free_transaction_extension_test() {
 		// Alice wants the transaction fee to be sponsored by Bob.
 		let alice_keyring = AccountKeyring::Alice;
 		let bob_keyring = AccountKeyring::Bob;
+		let charlie_keyring = AccountKeyring::Charlie;
 
 		let alice_account = AccountId::from(alice_keyring.public());
 		let bob_account = AccountId::from(bob_keyring.public());
+		let charlie_account = AccountId::from(charlie_keyring.public());
 
 		// Setup the initial balances.
 		let alice_balance = 10 * ExistentialDeposit::get();
 		let bob_balance = 10 * ExistentialDeposit::get();
+		let charlie_balance = 10 * ExistentialDeposit::get();
 
 		Balances::force_set_balance(
 			RuntimeOrigin::root(),
@@ -1627,11 +1823,23 @@ fn free_transaction_extension_test() {
 		Balances::force_set_balance(RuntimeOrigin::root(), bob_account.clone().into(), bob_balance)
 			.unwrap();
 
+		Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			charlie_account.clone().into(),
+			charlie_balance,
+		)
+		.unwrap();
+
 		// The call that Alice wants to be executed.
 		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
 
+		let alice_initial_nonce = frame_system::Pallet::<Runtime>::account(&alice_account).nonce;
+		let bob_initial_nonce = frame_system::Pallet::<Runtime>::account(&bob_account).nonce;
+		let charlie_initial_nonce =
+			frame_system::Pallet::<Runtime>::account(&charlie_account).nonce;
+
 		// Alice builds the transaction extension for the sponsored transaction.
-		let stmt_ext: BaseTxExtension = (
+		let alice_base_ext: BaseTxExtension = (
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -1650,60 +1858,168 @@ fn free_transaction_extension_test() {
 		)
 			.into();
 
+		let alice_base_ext_implicit = alice_base_ext.implicit().unwrap();
+
 		// Alice signs the transaction extension and shares it.
 
-		let stmt_sign = MultiSignature::Sr25519(
-			(call.clone(), stmt_ext.clone(), stmt_ext.implicit().unwrap())
+		let alice_base_sign = MultiSignature::Sr25519(
+			(call.clone(), alice_base_ext.clone(), alice_base_ext_implicit.clone())
 				.using_encoded(|e| alice_keyring.sign(&blake2_256(e))),
 		);
 
-		let statement = (call.clone(), stmt_ext, stmt_sign).encode();
-
-		type Statement = (RuntimeCall, BaseTxExtension, MultiSignature);
-		let (stmt_call, stmt_ext, stmt_sign) = Statement::decode(&mut &statement[..]).unwrap();
-
 		// Bob constructs the transaction based on Alice statemnt.
 
-		let signed_tx_ext = frame_support::transaction_extensions::SignedOriginSignature::<
-			MultiSignature,
-		>::new_with_sign(stmt_sign, alice_account.clone());
+		let alice_signed_tx_ext = CheckSignedInnerTxExtension::new_with_sign(
+			alice_base_sign,
+			alice_account.clone(),
+			(call.clone(), alice_base_ext.clone(), alice_base_ext_implicit.clone()),
+		);
 
-		let mut signed_tx_ext = signed_tx_ext.encode();
-		signed_tx_ext.append(&mut stmt_ext.encode());
-		let signed_tx_ext: SignedTxExtension =
-			SignedTxExtension::decode(&mut &signed_tx_ext[..]).unwrap();
+		let bob_unsigned_tx_ext = (
+			pallet_transaction_payment::SetFeeAgent::new_with_agent(
+				bob_account.clone(),
+				(
+					frame_system::CheckNonce::<Runtime>::from(
+						frame_system::Pallet::<Runtime>::account(&bob_account).nonce,
+					),
+					alice_signed_tx_ext,
+				),
+			),
+			alice_base_ext,
+		);
 
-		// Bob signs the transaction with Alice's part to poof he is willing to sponser the fee.
-		let signed_tx_sign = MultiSignature::Sr25519(
-			(stmt_call, signed_tx_ext.clone(), signed_tx_ext.implicit().unwrap())
+		let bob_unsigned_tx_ext_implicit = bob_unsigned_tx_ext.implicit().unwrap();
+		let bob_sign = MultiSignature::Sr25519(
+			(call.clone(), bob_unsigned_tx_ext.clone(), bob_unsigned_tx_ext_implicit)
 				.using_encoded(|e| bob_keyring.sign(&blake2_256(e))),
 		);
 
-		let tx_ext = pallet_transaction_payment::SetFeeAgent::<MultiSignature>::new_with_agent(
-			signed_tx_sign,
-			bob_account.clone(),
-		);
+		let bob_signed_tx_ext: OuterSignedTxExtension =
+			(frame_support::transaction_extensions::SignedOriginSignature::new_with_sign(
+				bob_sign,
+				bob_account.clone(),
+				bob_unsigned_tx_ext,
+			),);
 
-		let mut tx_ext_encoded = tx_ext.encode();
-		tx_ext_encoded.append(&mut signed_tx_ext.encode());
-
-		// The final valid for submission transaction extension.
-		let tx_ext: TxExtension = TxExtension::decode(&mut &tx_ext_encoded[..]).unwrap();
-
-		let _ = SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
-
-		let _ = TxExtension::dispatch_transaction(
-			tx_ext,
-			RawOrigin::None.into(),
-			call,
-			&DispatchInfo::default(),
-			0,
-		)
-		.unwrap();
+		// Dispatch the transaction
+		{
+			let mut context = pallet_transaction_payment::Context::default();
+			let info = DispatchInfo::default();
+			let len = call.encoded_size();
+			let (_, val, origin) = bob_signed_tx_ext
+				.validate(
+					RawOrigin::None.into(),
+					&call,
+					&info,
+					len,
+					&mut context,
+					bob_signed_tx_ext.implicit().unwrap(),
+					&call,
+				)
+				.unwrap();
+			let pre = bob_signed_tx_ext.prepare(val, &origin, &call, &info, len, &context).unwrap();
+			let res = call.dispatch(origin);
+			let post_info = res.unwrap_or_else(|err| err.post_info);
+			let pd_res = res.map(|_| ()).map_err(|e| e.error);
+			OuterSignedTxExtension::post_dispatch(pre, &info, &post_info, len, &pd_res, &context)
+				.unwrap();
+		}
 
 		// Alice balance is unchanged, Bob paid the transaction fee.
-		assert_eq!(alice_balance, Balances::free_balance(alice_account));
-		assert!(bob_balance > Balances::free_balance(bob_account));
+		assert_eq!(alice_balance, Balances::free_balance(alice_account.clone()));
+		assert!(bob_balance > Balances::free_balance(bob_account.clone()));
+
+		assert!(System::events().iter().any(|ev| ev.event ==
+			RuntimeEvent::System(frame_system::Event::Remarked {
+				sender: alice_account.clone(),
+				hash:
+					<<Runtime as frame_system::Config>::Hashing as sp_runtime::traits::Hash>::hash(
+						&[1u8]
+					)
+			})));
+
+		assert_eq!(
+			alice_initial_nonce.saturating_add(1),
+			frame_system::Pallet::<Runtime>::account(&alice_account).nonce
+		);
+		assert_eq!(
+			bob_initial_nonce.saturating_add(1),
+			frame_system::Pallet::<Runtime>::account(&bob_account).nonce
+		);
+
+		// The call that Charlie wants to be executed.
+		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![3] });
+
+		let charlie_unsigned_tx_ext = (
+			pallet_transaction_payment::SetFeeAgent::default(),
+			(
+				frame_system::CheckNonZeroSender::<Runtime>::new(),
+				frame_system::CheckSpecVersion::<Runtime>::new(),
+				frame_system::CheckTxVersion::<Runtime>::new(),
+				frame_system::CheckGenesis::<Runtime>::new(),
+				frame_system::CheckMortality::<Runtime>::from(sp_runtime::generic::Era::immortal()),
+				frame_system::CheckNonce::<Runtime>::from(
+					frame_system::Pallet::<Runtime>::account(&charlie_account).nonce,
+				),
+				frame_system::CheckWeight::<Runtime>::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+			),
+		);
+
+		let charlie_unsigned_tx_ext_implicit = charlie_unsigned_tx_ext.implicit().unwrap();
+		let charlie_sign = MultiSignature::Sr25519(
+			(call.clone(), charlie_unsigned_tx_ext.clone(), charlie_unsigned_tx_ext_implicit)
+				.using_encoded(|e| charlie_keyring.sign(&blake2_256(e))),
+		);
+
+		let charlie_signed_tx_ext: OuterSignedTxExtension =
+			(frame_support::transaction_extensions::SignedOriginSignature::new_with_sign(
+				charlie_sign,
+				charlie_account.clone(),
+				charlie_unsigned_tx_ext,
+			),);
+
+		// Dispatch the transaction
+		{
+			let mut context = pallet_transaction_payment::Context::default();
+			let info = DispatchInfo::default();
+			let len = call.encoded_size();
+			let (_, val, origin) = charlie_signed_tx_ext
+				.validate(
+					RawOrigin::None.into(),
+					&call,
+					&info,
+					len,
+					&mut context,
+					charlie_signed_tx_ext.implicit().unwrap(),
+					&call,
+				)
+				.unwrap();
+			let pre = charlie_signed_tx_ext
+				.prepare(val, &origin, &call, &info, len, &context)
+				.unwrap();
+			let res = call.dispatch(origin);
+			let post_info = res.unwrap_or_else(|err| err.post_info);
+			let pd_res = res.map(|_| ()).map_err(|e| e.error);
+			OuterSignedTxExtension::post_dispatch(pre, &info, &post_info, len, &pd_res, &context)
+				.unwrap();
+		}
+
+		assert!(charlie_balance > Balances::free_balance(charlie_account.clone()));
+
+		assert!(System::events().iter().any(|ev| ev.event ==
+			RuntimeEvent::System(frame_system::Event::Remarked {
+				sender: charlie_account.clone(),
+				hash:
+					<<Runtime as frame_system::Config>::Hashing as sp_runtime::traits::Hash>::hash(
+						&[3u8]
+					)
+			})));
+
+		assert_eq!(
+			charlie_initial_nonce.saturating_add(1),
+			frame_system::Pallet::<Runtime>::account(&charlie_account).nonce
+		);
 	});
 }
 
@@ -1859,13 +2175,167 @@ pub mod migrations {
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<
-	Address,
-	RuntimeCall,
-	Signature,
-	TxExtension,
-	pallet_transaction_payment::Context<AccountId>,
->;
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct UncheckedExtrinsic(
+	pub  generic::UncheckedExtrinsic<
+		Address,
+		RuntimeCall,
+		Signature,
+		TxExtension,
+		pallet_transaction_payment::Context<AccountId>,
+	>,
+);
+
+impl frame_support::dispatch::GetDispatchInfo for UncheckedExtrinsic {
+	fn get_dispatch_info(&self) -> frame_support::dispatch::DispatchInfo {
+		self.0.function.get_dispatch_info()
+	}
+}
+
+impl TypeInfo for UncheckedExtrinsic {
+	type Identity = generic::UncheckedExtrinsic<
+		Address,
+		RuntimeCall,
+		Signature,
+		TxExtension,
+		pallet_transaction_payment::Context<AccountId>,
+	>;
+
+	fn type_info() -> Type {
+		generic::UncheckedExtrinsic::<
+			Address,
+			RuntimeCall,
+			Signature,
+			TxExtension,
+			pallet_transaction_payment::Context<AccountId>,
+		>::type_info()
+	}
+}
+
+impl ExtrinsicMetadata for UncheckedExtrinsic {
+	const VERSION: u8 = 5;
+	type Extra = TxExtension;
+}
+
+type UncheckedSignaturePayload =
+	sp_runtime::generic::UncheckedSignaturePayload<Address, Signature, TxExtension>;
+
+impl ExtrinsicT for UncheckedExtrinsic {
+	type Call = RuntimeCall;
+
+	type SignaturePayload = UncheckedSignaturePayload;
+
+	fn is_bare(&self) -> bool {
+		matches!(self.0.preamble, Preamble::Bare)
+	}
+
+	fn is_signed(&self) -> Option<bool> {
+		Some(matches!(self.0.preamble, Preamble::Signed(..)))
+	}
+
+	fn new(function: Self::Call, signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
+		Some(if let Some((address, signature, extra)) = signed_data {
+			Self(generic::UncheckedExtrinsic::new_signed(function, address, signature, extra))
+		} else {
+			Self(generic::UncheckedExtrinsic::new_bare(function))
+		})
+	}
+
+	fn new_inherent(function: Self::Call) -> Self {
+		Self(generic::UncheckedExtrinsic::new_bare(function))
+	}
+}
+
+impl ExtrinsicCall for UncheckedExtrinsic {
+	fn call(&self) -> &RuntimeCall {
+		&self.0.function
+	}
+}
+
+impl Encode for UncheckedExtrinsic {
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		self.0.using_encoded(f)
+	}
+}
+
+impl EncodeLike for UncheckedExtrinsic {}
+
+impl Decode for UncheckedExtrinsic {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
+		generic::UncheckedExtrinsic::<
+			Address,
+			RuntimeCall,
+			Signature,
+			TxExtension,
+			pallet_transaction_payment::Context<AccountId>,
+		>::decode(input)
+		.map(|inner| Self(inner))
+	}
+}
+
+impl serde::Serialize for UncheckedExtrinsic {
+	fn serialize<S>(&self, seq: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		self.using_encoded(|bytes| seq.serialize_bytes(bytes))
+	}
+}
+
+impl<'a> serde::Deserialize<'a> for UncheckedExtrinsic {
+	fn deserialize<D>(de: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'a>,
+	{
+		let r = sp_core::bytes::deserialize(de)?;
+		Self::decode(&mut &r[..]).map_err(|_e| serde::de::Error::custom("Decode error"))
+	}
+}
+
+impl Checkable<ChainContext<Runtime>> for UncheckedExtrinsic {
+	type Checked = CheckedExtrinsic;
+
+	fn check(
+		self,
+		lookup: &ChainContext<Runtime>,
+	) -> Result<Self::Checked, TransactionValidityError> {
+		Ok(match self.0.preamble {
+			Preamble::Signed(signed, signature, tx_ext) => {
+				let signed = lookup.lookup(signed)?;
+				// The `Implicit` is "implicitly" included in the payload.
+				let raw_payload = SignedPayload::new(self.0.function, tx_ext)?;
+				if !raw_payload.using_encoded(|payload| signature.verify(payload, &signed)) {
+					return Err(InvalidTransaction::BadProof.into())
+				}
+				let (function, tx_ext, _) = raw_payload.deconstruct();
+				CheckedExtrinsic(generic::CheckedExtrinsic {
+					format: ExtrinsicFormat::Signed(signed, tx_ext),
+					function,
+					_phantom: Default::default(),
+				})
+			},
+			Preamble::General(tx_ext) => CheckedExtrinsic(generic::CheckedExtrinsic {
+				format: ExtrinsicFormat::General(tx_ext),
+				function: self.0.function,
+				_phantom: Default::default(),
+			}),
+			Preamble::Bare => CheckedExtrinsic(generic::CheckedExtrinsic {
+				format: ExtrinsicFormat::Bare,
+				function: self.0.function,
+				_phantom: Default::default(),
+			}),
+		})
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn unchecked_into_checked_i_know_what_i_am_doing(
+		self,
+		_lookup: &ChainContext<Runtime>,
+	) -> Result<Self::Checked, TransactionValidityError> {
+		todo!();
+	}
+}
+
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -1877,6 +2347,15 @@ pub type Executive = frame_executive::Executive<
 >;
 /// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
+
+pub struct CheckedExtrinsic(
+	pub  generic::CheckedExtrinsic<
+		AccountId,
+		RuntimeCall,
+		TxExtension,
+		pallet_transaction_payment::Context<AccountId>,
+	>,
+);
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {

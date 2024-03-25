@@ -69,18 +69,16 @@ pub struct CheckedExtrinsic<AccountId, Call, Extension, Context = ()> {
 	pub function: Call,
 
 	/// Phantom type for `Context`.
-	#[codec(skip)]
 	pub _phantom: PhantomData<Context>,
 }
 
-impl<AccountId, Call, Extension, RuntimeOrigin, Context> traits::Applyable
-	for CheckedExtrinsic<AccountId, Call, Extension, Context>
+impl<AccountId, Call, Extension, RuntimeOrigin> traits::Applyable
+	for CheckedExtrinsic<AccountId, Call, Extension, ()>
 where
 	AccountId: Member + MaybeDisplay,
 	Call: Member + Dispatchable<RuntimeOrigin = RuntimeOrigin> + Encode,
-	Extension: TransactionExtension<Call, Context>,
+	Extension: TransactionExtension<Call, ()>,
 	RuntimeOrigin: From<Option<AccountId>>,
-	Context: Sync + Send + Default,
 {
 	type Call = Call;
 
