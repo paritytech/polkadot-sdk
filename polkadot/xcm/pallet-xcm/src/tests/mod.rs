@@ -306,10 +306,7 @@ fn send_works() {
 
 		let versioned_dest = Box::new(RelayLocation::get().into());
 		let versioned_message = VersionedXcm::from(message.clone());
-		let encoded_versioned_message = versioned_message
-			.encode()
-			.try_into()
-			.expect("MaxXcmEncodedSize should be big enough.");
+		let encoded_versioned_message = versioned_message.encode().try_into().unwrap();
 		assert_ok!(XcmPallet::send_blob(
 			RuntimeOrigin::signed(ALICE),
 			versioned_dest,
