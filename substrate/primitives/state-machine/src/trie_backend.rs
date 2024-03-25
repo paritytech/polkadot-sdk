@@ -452,7 +452,58 @@ where
 	}
 }
 
-impl<H, C, R> sp_std::fmt::Debug for TrieBackend<H, C, R>
+pub struct WithRecorder<'a, H, C, R>
+where
+	H: Hasher,
+	H::Out: Codec,
+	C: TrieCacheProvider<H> + Send + Sync,
+	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
+{
+	backend: &'a TrieBackend<H, C, R>,
+	recorder: Option<R>,
+}
+
+impl<'a, H, C, R> WithRecorder<'a, H, C, R>
+where
+	H: Hasher,
+	H::Out: Codec,
+	C: TrieCacheProvider<H> + Send + Sync,
+	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
+{
+	fn new(backend: &'a TrieBackend<H, C, R>, recorder: R) -> Self {
+		let prev_recorder = backend.set_recorder(Some(recorder));
+		Self { backend, recorder: prev_recorder }
+	}
+}
+
+impl<H, C, R> Drop for WithRecorder<'_, H, C, R>
+where
+	H: Hasher,
+	H::Out: Codec,
+	C: TrieCacheProvider<H> + Send + Sync,
+	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
+{
+	fn drop(&mut self) {
+		self.backend.set_recorder(self.recorder.take());
+	}
+}
+
+impl<'a, H, C, R> core::ops::Deref for WithRecorder<'a, H, C, R>
+where
+	H: Hasher,
+	H::Out: Codec,
+	C: TrieCacheProvider<H> + Send + Sync,
+	R: TrieRecorderProvider<H, DBLocation> + Send + Sync,
+{
+	type Target = TrieBackend<H, C, R>;
+
+	fn deref(&self) -> &Self::Target {
+		self.backend
+	}
+}
+
+
+impl<H, C, R> core::fmt::Debug for TrieBackend<H, C, R>
 where
 	H: Hasher,
 	C: TrieCacheProvider<H>,

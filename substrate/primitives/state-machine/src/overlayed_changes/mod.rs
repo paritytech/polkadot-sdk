@@ -261,8 +261,12 @@ impl<H: Hasher> core::fmt::Debug for StorageTransactionCache<H> {
 		let mut debug = f.debug_struct("StorageTransactionCache");
 
 		#[cfg(feature = "std")]
-		write!(_f, "storage_root={:?}", self.transaction.root_hash())?;
-		Ok(())
+		debug.field("transaction_storage_root", &self.transaction.root_hash());
+
+		#[cfg(not(feature = "std"))]
+		debug.field("transaction_storage_root", &self.transaction.root_hash().as_ref());
+
+		debug.finish()
 	}
 }
 

@@ -23,8 +23,6 @@ use crate::{
 	trie_backend::{AsDB, TrieCacheProvider},
 	warn, StorageKey, StorageValue,
 };
-#[cfg(feature = "std")]
-use alloc::sync::Arc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::Codec;
 use core::marker::PhantomData;
