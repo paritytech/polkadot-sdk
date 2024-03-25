@@ -27,8 +27,6 @@ use crate::{
 use alloc::sync::Arc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::Codec;
-#[cfg(feature = "std")]
-use parking_lot::RwLock;
 use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
