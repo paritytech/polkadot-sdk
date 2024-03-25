@@ -799,8 +799,11 @@ mod select_candidates {
 		let cores_with_code = [1, 4, 8];
 
 		// We can't be sure which one code upgrade the provisioner will pick. We can only assert
-		// that it only picks one.
-		let expected_cores = [[1, 7, 10, 12], [4, 7, 10, 12], [7, 8, 10, 12]];
+		// that it only picks one. These are the possible cores for which the provisioner will
+		// supply candidates.
+		// There are multiple possibilities depending on which code upgrade it
+		// chooses.
+		let possible_expected_cores = [[1, 7, 10, 12], [4, 7, 10, 12], [7, 8, 10, 12]];
 
 		let committed_receipts: Vec<_> = (0..=mock_cores.len())
 			.map(|i| {
@@ -840,7 +843,7 @@ mod select_candidates {
 		// Then, some of them get filtered due to new validation code rule.
 		let expected_backed: Vec<_> =
 			cores.iter().map(|&idx| backed_candidates[idx].clone()).collect();
-		let expected_backed_filtered: Vec<Vec<_>> = expected_cores
+		let expected_backed_filtered: Vec<Vec<_>> = possible_expected_cores
 			.iter()
 			.map(|indices| indices.iter().map(|&idx| candidates[idx].clone()).collect())
 			.collect();
@@ -886,19 +889,19 @@ mod select_candidates {
 		let prospective_parachains_mode =
 			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };
 		let mock_cores = vec![
-			// 1: Scheduled(default),
+			// 0: Scheduled(default),
 			Scheduled(scheduled_core(1)),
+			// 1: Scheduled(default),
+			Scheduled(scheduled_core(2)),
 			// 2: Scheduled(default),
 			Scheduled(scheduled_core(2)),
 			// 3: Scheduled(default),
 			Scheduled(scheduled_core(2)),
 			// 4: Scheduled(default),
-			Scheduled(scheduled_core(2)),
+			Scheduled(scheduled_core(3)),
 			// 5: Scheduled(default),
 			Scheduled(scheduled_core(3)),
 			// 6: Scheduled(default),
-			Scheduled(scheduled_core(3)),
-			// 7: Scheduled(default),
 			Scheduled(scheduled_core(3)),
 		];
 
@@ -907,7 +910,10 @@ mod select_candidates {
 
 		// We can't be sure which one code upgrade the provisioner will pick. We can only assert
 		// that it only picks one.
-		let expected_cores = [vec![0, 1], vec![1, 2, 3], vec![4, 1]];
+		// These are the possible cores for which the provisioner will
+		// supply candidates. There are multiple possibilities depending on which code upgrade it
+		// chooses.
+		let possible_expected_cores = [vec![0, 1], vec![1, 2, 3], vec![4, 1]];
 
 		let committed_receipts: Vec<_> = (0..mock_cores.len())
 			.map(|i| {
@@ -948,7 +954,7 @@ mod select_candidates {
 		// Then, some of them get filtered due to new validation code rule.
 		let expected_backed: Vec<_> =
 			(0..mock_cores.len()).map(|idx| backed_candidates[idx].clone()).collect();
-		let expected_backed_filtered: Vec<Vec<_>> = expected_cores
+		let expected_backed_filtered: Vec<Vec<_>> = possible_expected_cores
 			.iter()
 			.map(|indices| indices.iter().map(|&idx| candidates[idx].clone()).collect())
 			.collect();
