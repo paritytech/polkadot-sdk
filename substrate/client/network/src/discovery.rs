@@ -218,7 +218,8 @@ impl DiscoveryConfig {
 
 			config.set_replication_factor(kademlia_replication_factor);
 			// Populate kad with both the legacy and the new protocol names.
-			// TODO: Remove the legacy protocol.
+			// Remove the legacy protocol:
+			// https://github.com/paritytech/polkadot-sdk/issues/504
 			let kademlia_protocols = vec![kademlia_protocol.clone(), kademlia_legacy_protocol];
 			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
 			// By default Kademlia attempts to insert all peers into its routing table once a
@@ -317,7 +318,8 @@ pub struct DiscoveryBehaviour {
 	records_to_publish: HashMap<QueryId, Record>,
 	/// The chain based kademlia protocol name (including genesis hash and fork id).
 	///
-	/// TODO: Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia.
+	/// Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
+	/// https://github.com/paritytech/polkadot-sdk/issues/504.
 	kademlia_protocol: Vec<u8>,
 }
 
@@ -377,8 +379,10 @@ impl DiscoveryBehaviour {
 			}
 
 			// The supported protocols must include the chain-based Kademlia protocol.
-			// TODO: Extract the chain-based Kademlia protocol from `kademlia.protocol_names()`
-			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia.
+			//
+			// Extract the chain-based Kademlia protocol from `kademlia.protocol_name()`
+			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
+			// https://github.com/paritytech/polkadot-sdk/issues/504.
 			if !supported_protocols
 				.iter()
 				.any(|p| p.as_ref() == self.kademlia_protocol.as_slice())
@@ -1102,7 +1106,7 @@ mod tests {
 												.behaviour_mut()
 												.add_self_reported_address(
 													&other,
-													protocol_names.into_iter(),
+													protocol_names.as_slice(),
 													addr,
 												);
 
