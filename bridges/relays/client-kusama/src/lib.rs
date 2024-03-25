@@ -19,7 +19,7 @@
 pub mod codegen_runtime;
 
 use bp_kusama::{AccountInfoStorageMapKeyProvider, KUSAMA_SYNCED_HEADERS_GRANDPA_INFO_METHOD};
-use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
+use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithRuntimeVersion, ChainWithTransactions,
@@ -84,7 +84,7 @@ impl RelayChain for Kusama {
 impl ChainWithTransactions for Kusama {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction =
-		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_kusama::TransactionExtension>;
+		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_kusama::SignedExtension>;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
@@ -92,7 +92,7 @@ impl ChainWithTransactions for Kusama {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			bp_kusama::TransactionExtension::from_params(
+			bp_kusama::SignedExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,

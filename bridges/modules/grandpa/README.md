@@ -27,7 +27,7 @@ for provided header.
 There are two main things in GRANDPA that help building light clients:
 
 - there's no need to import all headers of the bridged chain. Light client may import finalized headers or just
-  some of finalized headders that it consider useful. While the validators set stays the same, the client may
+  some of finalized headers that it consider useful. While the validators set stays the same, the client may
   import any header that is finalized by this set;
 
 - when validators set changes, the GRANDPA gadget adds next set to the header. So light client doesn't need to
