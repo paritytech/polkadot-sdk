@@ -30,6 +30,7 @@ futures = "0.3"
 indicatif = "0.17.7"
 spinners = "4.1.0"
 tokio-retry = "0.3.0"
+async-stream = "0.3.5"
 
 [dev-dependencies]
 sp-tracing = { path = "../../../primitives/tracing" }
