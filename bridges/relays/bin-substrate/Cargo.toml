@@ -26,15 +26,15 @@ signal-hook-async-std = "0.2.2"
 strum = { version = "0.26.2", features = ["derive"] }
 
 # Bridge dependencies
-bp-bridge-hub-polkadot = { path = "../../primitives/chain-bridge-hub-polkadot" }
-bp-bridge-hub-rococo = { path = "../../primitives/chain-bridge-hub-rococo" }
+bp-bridge-hub-polkadot = { path = "../../chains/chain-bridge-hub-polkadot" }
+bp-bridge-hub-rococo = { path = "../../chains/chain-bridge-hub-rococo" }
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-messages = { path = "../../primitives/messages" }
 bp-parachains = { path = "../../primitives/parachains" }
-bp-polkadot-bulletin = { path = "../../primitives/chain-polkadot-bulletin" }
-bp-polkadot = { path = "../../primitives/chain-polkadot" }
+bp-polkadot-bulletin = { path = "../../chains/chain-polkadot-bulletin" }
+bp-polkadot = { path = "../../chains/chain-polkadot" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
-bp-rococo = { path = "../../primitives/chain-rococo" }
+bp-rococo = { path = "../../chains/chain-rococo" }
 bp-runtime = { path = "../../primitives/runtime" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 pallet-bridge-parachains = { path = "../../modules/parachains" }
