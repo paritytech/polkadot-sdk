@@ -425,14 +425,11 @@ where
 		self.essence.root()
 	}
 
-	// TODO in use??
-	#[cfg(feature = "std")]
 	/// Set recorder. Returns the previous recorder.
 	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {
 		self.essence.set_recorder(recorder)
 	}
 
-	#[cfg(feature = "std")]
 	/// Set recorder temporarily. Previous recorder is restored when the returned guard is dropped.
 	pub fn with_temp_recorder(&self, recorder: R) -> WithRecorder<H, C, R> {
 		//let proving_backend =
