@@ -25,7 +25,7 @@ use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis,
 	extensions::{
 		CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce, CheckSpecVersion, CheckTxVersion,
-		CheckWeight, GenericTransactionExtension, GenericTransactionExtensionSchema,
+		CheckWeight, GenericSignedExtension, GenericSignedExtensionSchema,
 	},
 	Chain, ChainId, TransactionEra,
 };
@@ -37,12 +37,7 @@ use frame_support::{
 };
 use frame_system::limits;
 use scale_info::TypeInfo;
-use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{Dispatchable, TransactionExtensionBase},
-	transaction_validity::TransactionValidityError,
-	Perbill,
-};
+use sp_runtime::{traits::DispatchInfoOf, transaction_validity::TransactionValidityError, Perbill};
 
 // This chain reuses most of Polkadot primitives.
 pub use bp_polkadot_core::{
@@ -76,10 +71,10 @@ pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 1024;
 pub const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 4096;
 
 /// This signed extension is used to ensure that the chain transactions are signed by proper
-pub type ValidateSigned = GenericTransactionExtensionSchema<(), ()>;
+pub type ValidateSigned = GenericSignedExtensionSchema<(), ()>;
 
 /// Signed extension schema, used by Polkadot Bulletin.
-pub type TransactionExtensionSchema = GenericTransactionExtension<(
+pub type SignedExtensionSchema = GenericSignedExtension<(
 	(
 		CheckNonZeroSender,
 		CheckSpecVersion,
@@ -92,30 +87,34 @@ pub type TransactionExtensionSchema = GenericTransactionExtension<(
 	ValidateSigned,
 )>;
 
-/// Transaction extension, used by Polkadot Bulletin.
+/// Signed extension, used by Polkadot Bulletin.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-pub struct TransactionExtension(TransactionExtensionSchema);
+pub struct SignedExtension(SignedExtensionSchema);
 
-impl TransactionExtensionBase for TransactionExtension {
+impl sp_runtime::traits::SignedExtension for SignedExtension {
 	const IDENTIFIER: &'static str = "Not needed.";
-	type Implicit = <TransactionExtensionSchema as TransactionExtensionBase>::Implicit;
+	type AccountId = ();
+	type Call = ();
+	type AdditionalSigned =
+		<SignedExtensionSchema as sp_runtime::traits::SignedExtension>::AdditionalSigned;
+	type Pre = ();
 
-	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		<TransactionExtensionSchema as TransactionExtensionBase>::implicit(&self.0)
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+		self.0.additional_signed()
+	}
+
+	fn pre_dispatch(
+		self,
+		_who: &Self::AccountId,
+		_call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		Ok(())
 	}
 }
 
-impl<C, Context> sp_runtime::traits::TransactionExtension<C, Context> for TransactionExtension
-where
-	C: Dispatchable,
-{
-	type Pre = ();
-	type Val = ();
-
-	impl_tx_ext_default!(C; Context; validate prepare);
-}
-
-impl TransactionExtension {
+impl SignedExtension {
 	/// Create signed extension from its components.
 	pub fn from_params(
 		spec_version: u32,
@@ -124,7 +123,7 @@ impl TransactionExtension {
 		genesis_hash: Hash,
 		nonce: Nonce,
 	) -> Self {
-		Self(GenericTransactionExtension::new(
+		Self(GenericSignedExtension::new(
 			(
 				(
 					(),              // non-zero sender
