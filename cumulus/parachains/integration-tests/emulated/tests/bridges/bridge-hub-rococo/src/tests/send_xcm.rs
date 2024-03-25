@@ -42,7 +42,7 @@ fn send_xcm_from_rococo_relay_to_westend_asset_hub_should_fail_on_not_applicable
 		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
 			sudo_origin,
 			bx!(destination),
-			xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
+			xcm.encode().try_into().unwrap(),
 		));
 
 		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
