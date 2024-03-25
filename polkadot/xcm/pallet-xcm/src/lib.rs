@@ -1495,6 +1495,16 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Execute an XCM from a local, signed, origin.
+		///
+		/// An event is deposited indicating whether the message could be executed completely
+		/// or only partially.
+		///
+		/// No more than `max_weight` will be used in its attempted execution. If this is less than
+		/// the maximum amount of weight that the message could take to be executed, then no
+		/// execution attempt will be made.
+		///
+		/// The message is passed in encoded. It needs to be decodable as a [`VersionedXcm`].
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::execute_blob())]
 		pub fn execute_blob(
@@ -1510,6 +1520,12 @@ pub mod pallet {
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute_blob())).into())
 		}
 
+		/// Send an XCM from a local, signed, origin.
+		///
+		/// The destination, `dest`, will receive this message with a `DescendOrigin` instruction
+		/// that makes the origin of the message be the origin on this system.
+		///
+		/// The message is passed in encoded. It needs to be decodable as a [`VersionedXcm`].
 		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::send_blob())]
 		pub fn send_blob(
