@@ -65,7 +65,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::Get;
-use sp_runtime::{DispatchError, Saturating};
+use sp_runtime::DispatchError;
 use sp_std::boxed::Box;
 
 /// A pool staker.
@@ -77,7 +77,6 @@ pub struct PoolStakerInfo<Balance> {
 }
 
 /// A staking pool.
-// #[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<AssetId, Balance, BlockNumber> {
 	/// The asset that is staked in this pool.
@@ -97,7 +96,7 @@ pub struct PoolInfo<AssetId, Balance, BlockNumber> {
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use codec::{EncodeLike, FullCodec};
+	use codec::FullCodec;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{tokens::AssetId, Incrementable},
