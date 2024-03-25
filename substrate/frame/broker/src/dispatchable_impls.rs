@@ -438,16 +438,15 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// If there is a sale ongoing returns the current price of a core.
-	pub fn api_sale_price() -> Option<BalanceOf<T>> {
-		let status = Status::<T>::get()?;
-		let sale = SaleInfo::<T>::get()?;
+	/// If there is an ongoing sale returns the current price of a core.
+	pub fn api_sale_price() -> Result<BalanceOf<T>, Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
-		// If there isn't an available core returns `None`.
-		if sale.first_core >= status.core_count || sale.cores_sold >= sale.cores_offered {
-			return None;
-		}
+		ensure!(sale.first_core < status.core_count, Error::<T>::Unavailable);
+		ensure!(sale.cores_sold < sale.cores_offered, Error::<T>::SoldOut);
+
 		let now = frame_system::Pallet::<T>::block_number();
-		Some(Self::sale_price(&sale, now))
+		Ok(Self::sale_price(&sale, now))
 	}
 }
