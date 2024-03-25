@@ -322,7 +322,7 @@ impl<T: Config> Pallet<T> {
 		if let Some(authorities_len) = <Authorities<T>>::decode_len() {
 			ensure!(
 				authorities_len as u32 <= T::MaxAuthorities::get(),
-				"Shouldn't have authorities than the pallet config allows."
+				"Authorities number exceeds what the pallet config allows."
 			);
 		} else {
 			return Err(sp_runtime::TryRuntimeError::Other(
@@ -333,11 +333,11 @@ impl<T: Config> Pallet<T> {
 		if let Some(next_authorities_len) = <NextAuthorities<T>>::decode_len() {
 			ensure!(
 				next_authorities_len as u32 <= T::MaxAuthorities::get(),
-				"Shouldn't have next authorities than the pallet config allows."
+				"Next authorities number exceeds what the pallet config allows."
 			);
 		} else {
 			return Err(sp_runtime::TryRuntimeError::Other(
-				"Failed to decode length of authorities",
+				"Failed to decode length of next authorities",
 			));
 		}
 		Ok(())
