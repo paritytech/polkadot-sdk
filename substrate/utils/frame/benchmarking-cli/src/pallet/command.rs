@@ -597,11 +597,14 @@ impl PalletCmd {
 		)?;
 
 		// Create a dummy WasmExecutor just to build the genesis storage.
+		let method =
+			execution_method_from_cli(self.wasm_method, self.wasmtime_instantiation_strategy);
 		let executor = WasmExecutor::<(
 			sp_io::SubstrateHostFunctions,
 			frame_benchmarking::benchmarking::HostFunctions,
 			F,
 		)>::builder()
+		.with_execution_method(method)
 		.with_allow_missing_host_functions(self.allow_missing_host_functions)
 		.build();
 
@@ -615,7 +618,7 @@ impl PalletCmd {
 				&executor,
 				"GenesisBuilder_create_default_config",
 				&[], // no args for this call
-				&mut Extensions::default(),
+				&mut Self::build_extensions(executor.clone()),
 				&runtime_code,
 				CallContext::Offchain,
 			),

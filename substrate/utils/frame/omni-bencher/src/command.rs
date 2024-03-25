@@ -81,6 +81,7 @@ pub struct Command {
 	sub: SubCommand,
 }
 
+/// Root-level subcommands.
 #[derive(Debug, clap::Subcommand)]
 pub enum SubCommand {
 	/// Compatibility syntax with the old benchmark runner.
@@ -97,11 +98,13 @@ pub struct V1Command {
 	sub: V1SubCommand,
 }
 
+/// The `v1 benchmark` subcommand.
 #[derive(Debug, clap::Subcommand)]
 pub enum V1SubCommand {
 	Benchmark(V1BenchmarkCommand),
 }
 
+/// Subcommands for `v1 benchmark`.
 #[derive(Parser, Debug)]
 pub struct V1BenchmarkCommand {
 	#[command(subcommand)]
@@ -116,20 +119,31 @@ type HostFunctions = (
 impl Command {
 	pub fn run(self) -> Result<()> {
 		match self.sub {
-			SubCommand::V1(V1Command {
-				sub:
-					V1SubCommand::Benchmark(V1BenchmarkCommand { sub: BenchmarkCmd::Pallet(pallet) }),
-			}) => {
-				if let Some(spec) = pallet.shared_params.chain {
-					return Err(format!(
-						"Chain specs are not supported. Please remove \
-					`--chain={spec}` and use `--runtime=<PATH>` instead"
-					)
-					.into())
-				}
-				pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
-			},
-			_ => Err("Invalid subcommand. Only `v1 benchmark pallet` is supported.".into()),
+			SubCommand::V1(V1Command { sub }) => sub.run(),
 		}
+	}
+}
+
+impl V1SubCommand {
+	pub fn run(self) -> Result<()> {
+		let pallet = match self {
+			V1SubCommand::Benchmark(V1BenchmarkCommand { sub }) => match sub {
+				BenchmarkCmd::Pallet(pallet) => pallet,
+				_ =>
+					return Err(
+						"Only the `v1 benchmark pallet` command is currently supported".into()
+					),
+			},
+		};
+
+		if let Some(spec) = pallet.shared_params.chain {
+			return Err(format!(
+				"Chain specs are not supported. Please remove `--chain={spec}` and use \
+				`--runtime=<PATH>` instead"
+			)
+			.into())
+		}
+
+		pallet.run_with_spec::<BlakeTwo256, HostFunctions>(None)
 	}
 }
