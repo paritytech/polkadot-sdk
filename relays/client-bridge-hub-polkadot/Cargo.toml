@@ -15,13 +15,13 @@ subxt = { version = "0.32.1", default-features = false, features = ["native"] }
 
 # Bridge dependencies
 
-bp-bridge-hub-polkadot = { path = "../../primitives/chain-bridge-hub-polkadot" }
+bp-bridge-hub-polkadot = { path = "../../chains/chain-bridge-hub-polkadot" }
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-messages = { path = "../../primitives/messages" }
 bp-parachains = { path = "../../primitives/parachains" }
-bp-polkadot = { path = "../../primitives/chain-polkadot" }
+bp-polkadot = { path = "../../chains/chain-polkadot" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
-bp-kusama = { path = "../../primitives/chain-kusama" }
+bp-kusama = { path = "../../chains/chain-kusama" }
 bp-runtime = { path = "../../primitives/runtime" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 relay-substrate-client = { path = "../client-substrate" }

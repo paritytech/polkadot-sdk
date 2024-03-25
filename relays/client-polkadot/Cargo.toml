@@ -15,7 +15,7 @@ subxt = { version = "0.32.1", default-features = false, features = ["native"] }
 
 # Bridge dependencies
 
-bp-polkadot = { path = "../../primitives/chain-polkadot" }
+bp-polkadot = { path = "../../chains/chain-polkadot" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
 bp-runtime = { path = "../../primitives/runtime" }
 

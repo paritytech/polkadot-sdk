@@ -15,7 +15,7 @@ subxt = { version = "0.32.1", default-features = false, features = ["native"] }
 
 # Bridge dependencies
 
-bp-bridge-hub-rococo = { path = "../../primitives/chain-bridge-hub-rococo" }
+bp-bridge-hub-rococo = { path = "../../chains/chain-bridge-hub-rococo" }
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-messages = { path = "../../primitives/messages" }
 bp-parachains = { path = "../../primitives/parachains" }

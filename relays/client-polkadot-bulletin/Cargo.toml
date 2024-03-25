@@ -18,7 +18,7 @@ subxt = { version = "0.32.1", default-features = false, features = ["native"] }
 bp-header-chain = { path = "../../primitives/header-chain" }
 bp-messages = { path = "../../primitives/messages" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
-bp-polkadot-bulletin = { path = "../../primitives/chain-polkadot-bulletin" }
+bp-polkadot-bulletin = { path = "../../chains/chain-polkadot-bulletin" }
 bp-runtime = { path = "../../primitives/runtime" }
 bridge-runtime-common = { path = "../../bin/runtime-common" }
 relay-substrate-client = { path = "../client-substrate" }
