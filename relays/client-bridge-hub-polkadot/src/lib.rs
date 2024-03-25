@@ -18,8 +18,8 @@
 
 pub mod codegen_runtime;
 
-use bp_bridge_hub_polkadot::{TransactionExtension, AVERAGE_BLOCK_INTERVAL};
-use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
+use bp_bridge_hub_polkadot::{SignedExtension, AVERAGE_BLOCK_INTERVAL};
+use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 use codec::Encode;
 use relay_substrate_client::{
 	calls::UtilityCall as MockUtilityCall, Chain, ChainWithBalances, ChainWithMessages,
@@ -41,8 +41,7 @@ pub type BridgeKusamaMessagesCall = runtime_types::pallet_bridge_messages::palle
 pub type BridgePolkadotBulletinGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call;
 pub type BridgeKusamaGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call;
 pub type BridgeParachainCall = runtime_types::pallet_bridge_parachains::pallet::Call;
-type UncheckedExtrinsic =
-	bp_bridge_hub_polkadot::UncheckedExtrinsic<RuntimeCall, TransactionExtension>;
+type UncheckedExtrinsic = bp_bridge_hub_polkadot::UncheckedExtrinsic<RuntimeCall, SignedExtension>;
 type UtilityCall = runtime_types::pallet_utility::pallet::Call;
 
 /// Polkadot chain definition
@@ -92,7 +91,7 @@ impl ChainWithTransactions for BridgeHubPolkadot {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			TransactionExtension::from_params(
+			SignedExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,

@@ -18,8 +18,8 @@
 
 pub mod codegen_runtime;
 
-use bp_bridge_hub_rococo::{TransactionExtension, AVERAGE_BLOCK_INTERVAL};
-use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
+use bp_bridge_hub_rococo::{SignedExtension, AVERAGE_BLOCK_INTERVAL};
+use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 use codec::Encode;
 use relay_substrate_client::{
 	calls::UtilityCall as MockUtilityCall, Chain, ChainWithBalances, ChainWithMessages,
@@ -39,8 +39,7 @@ pub type BridgeBulletinMessagesCall = runtime_types::pallet_bridge_messages::pal
 pub type BridgeGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call;
 pub type BridgeBulletinGrandpaCall = runtime_types::pallet_bridge_grandpa::pallet::Call2;
 pub type BridgeParachainCall = runtime_types::pallet_bridge_parachains::pallet::Call;
-type UncheckedExtrinsic =
-	bp_bridge_hub_rococo::UncheckedExtrinsic<RuntimeCall, TransactionExtension>;
+type UncheckedExtrinsic = bp_bridge_hub_rococo::UncheckedExtrinsic<RuntimeCall, SignedExtension>;
 type UtilityCall = runtime_types::pallet_utility::pallet::Call;
 
 /// Rococo chain definition
@@ -90,7 +89,7 @@ impl ChainWithTransactions for BridgeHubRococo {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			TransactionExtension::from_params(
+			SignedExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
