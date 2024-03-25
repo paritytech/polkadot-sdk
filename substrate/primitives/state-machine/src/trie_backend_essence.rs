@@ -211,10 +211,15 @@ pub struct TrieBackendEssence<H: Hasher, C, R> {
 	pub(crate) trie_node_cache: Option<C>,
 	#[cfg(feature = "std")]
 	pub(crate) recorder: RwLock<Option<R>>,
-	#[allow(dead_code)]
 	#[cfg(not(feature = "std"))]
 	pub(crate) recorder: RefCell<Option<R>>,
 }
+
+#[cfg(not(feature = "std"))]
+impl<H: Hasher, C, R> Send for TrieBackendEssence<H, C, R> {}
+
+#[cfg(not(feature = "std"))]
+impl<H: Hasher, C, R> Sync for TrieBackendEssence<H, C, R> {}
 
 impl<H, C, R> TrieBackendEssence<H, C, R>
 where
