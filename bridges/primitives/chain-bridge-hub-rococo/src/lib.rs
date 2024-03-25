@@ -59,6 +59,7 @@ impl Chain for BridgeHubRococo {
 
 impl Parachain for BridgeHubRococo {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_ROCOCO_PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE;
 }
 
 impl ChainWithMessages for BridgeHubRococo {

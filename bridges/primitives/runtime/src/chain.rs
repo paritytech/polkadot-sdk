@@ -247,6 +247,12 @@ where
 pub trait Parachain: Chain {
 	/// Parachain identifier.
 	const PARACHAIN_ID: u32;
+	/// Maximal size of the parachain header.
+	///
+	/// This isn't a strict limit. The relayer may submit larger headers and the
+	/// pallet will accept the call. The limit is only used to compute whether
+	/// the refund can be made.
+	const MAX_HEADER_SIZE: u32;
 }
 
 impl<T> Parachain for T
@@ -255,6 +261,8 @@ where
 	<T as UnderlyingChainProvider>::Chain: Parachain,
 {
 	const PARACHAIN_ID: u32 = <<T as UnderlyingChainProvider>::Chain as Parachain>::PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 =
+		<<T as UnderlyingChainProvider>::Chain as Parachain>::MAX_HEADER_SIZE;
 }
 
 /// Adapter for `Get<u32>` to access `PARACHAIN_ID` from `trait Parachain`
@@ -339,7 +347,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 
 						/// Returns free headers interval, if it is configured in the runtime.
 						/// The caller expects that his transactions for every `N`th header
-						/// (where `N` is the configured interval) wil be fee-free.
+						/// (where `N` is the configured interval) will be fee-free.
 						///
 						/// See [`pallet_bridge_grandpa::Config::FreeHeadersInterval`] for details.
 						fn free_headers_interval() -> Option<BlockNumber>;

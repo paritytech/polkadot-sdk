@@ -318,12 +318,7 @@ pub mod pallet {
 				improved_by,
 			);
 			if may_refund_call_fee {
-				FreeHeadersRemaining::<T, I>::mutate(|count| {
-					*count = match *count {
-						Some(count) if count > 1 => Some(count - 1),
-						_ => None,
-					}
-				});
+				on_free_header_imported::<T, I>();
 			}
 			insert_header::<T, I>(*finality_target, hash);
 
@@ -507,7 +502,23 @@ pub mod pallet {
 		InvalidAuthoritySetId,
 		/// The submitter wanted free execution, but we can't fit more free transactions
 		/// to the block.
-		CannotAcceptMoreFreeHeaders,
+		FreeHeadersLimitExceded,
+		/// The submitter wanted free execution, but the difference between best known and
+		/// bundled header numbers is below the `FreeHeadersInterval`.
+		BelowFreeHeaderInterval,
+	}
+
+	/// Called when new free header is imported.
+	pub fn on_free_header_imported<T: Config<I>, I: 'static>() {
+		FreeHeadersRemaining::<T, I>::mutate(|count| {
+			*count = match *count {
+				// never set to `None` here - the signed extension assumes that it is `None`
+				// outside of block execution - i.e. when transaction is validatied from
+				// the transaction pool
+				Some(count) => Some(count.saturating_sub(1)),
+				None => None,
+			}
+		});
 	}
 
 	/// Return true if we may refund transaction cost to the submitter. In other words,
@@ -1674,6 +1685,19 @@ mod tests {
 				),
 				DispatchError::BadOrigin,
 			);
+		})
+	}
+
+	#[test]
+	fn on_free_header_imported_never_sets_to_none() {
+		run_test(|| {
+			FreeHeadersRemaining::<TestRuntime, ()>::set(Some(2));
+			on_free_header_imported::<TestRuntime, ()>();
+			assert_eq!(FreeHeadersRemaining::<TestRuntime, ()>::get(), Some(1));
+			on_free_header_imported::<TestRuntime, ()>();
+			assert_eq!(FreeHeadersRemaining::<TestRuntime, ()>::get(), Some(0));
+			on_free_header_imported::<TestRuntime, ()>();
+			assert_eq!(FreeHeadersRemaining::<TestRuntime, ()>::get(), Some(0));
 		})
 	}
 }

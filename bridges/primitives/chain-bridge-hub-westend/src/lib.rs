@@ -58,6 +58,7 @@ impl Chain for BridgeHubWestend {
 
 impl Parachain for BridgeHubWestend {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_WESTEND_PARACHAIN_ID;
+	const MAX_HEADER_SIZE: u32 = MAX_BRIDGE_HUB_HEADER_SIZE;
 }
 
 impl ChainWithMessages for BridgeHubWestend {

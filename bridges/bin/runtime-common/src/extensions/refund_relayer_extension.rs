@@ -419,7 +419,6 @@ impl<T: RefundTransactionExtension> TransactionExtensionBase
 	for RefundTransactionExtensionAdapter<T>
 where
 	CallOf<T::Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
-		// 		+ IsSubType<CallableCallFor<UtilityPallet<T::Runtime>, T::Runtime>>
 		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
 {
 	const IDENTIFIER: &'static str = T::Id::STR;
@@ -430,7 +429,6 @@ impl<T: RefundTransactionExtension, Context> TransactionExtension<CallOf<T::Runt
 	for RefundTransactionExtensionAdapter<T>
 where
 	CallOf<T::Runtime>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
-		// 		+ IsSubType<CallableCallFor<UtilityPallet<T::Runtime>, T::Runtime>>
 		+ MessagesCallSubType<T::Runtime, <T::Msgs as RefundableMessagesLaneId>::Instance>,
 	<CallOf<T::Runtime> as Dispatchable>::RuntimeOrigin:
 		AsSystemOriginSigner<AccountIdOf<T::Runtime>> + Clone,
@@ -664,7 +662,7 @@ where
 	fn check_obsolete_parsed_call(
 		call: &CallOf<Runtime>,
 	) -> Result<&CallOf<Runtime>, TransactionValidityError> {
-		call.check_obsolete_submit_finality_proof(0).1?;
+		call.check_obsolete_submit_finality_proof()?;
 		call.check_obsolete_submit_parachain_heads()?;
 		call.check_obsolete_call()?;
 		Ok(call)
@@ -808,7 +806,7 @@ where
 	fn check_obsolete_parsed_call(
 		call: &CallOf<Runtime>,
 	) -> Result<&CallOf<Runtime>, TransactionValidityError> {
-		call.check_obsolete_submit_finality_proof(0).1?;
+		call.check_obsolete_submit_finality_proof()?;
 		call.check_obsolete_call()?;
 		Ok(call)
 	}
@@ -970,7 +968,7 @@ pub(crate) mod tests {
 	};
 
 	parameter_types! {
-		TestParachain: u32 = 1000;
+		pub TestParachain: u32 = 1000;
 		pub TestLaneId: LaneId = TEST_LANE_ID;
 		pub MsgProofsRewardsAccount: RewardsAccountParams = RewardsAccountParams::new(
 			TEST_LANE_ID,
@@ -1128,6 +1126,20 @@ pub(crate) mod tests {
 		})
 	}
 
+	pub fn submit_parachain_head_call_ex(
+		parachain_head_at_relay_header_number: RelayBlockNumber,
+	) -> RuntimeCall {
+		RuntimeCall::BridgeParachains(ParachainsCall::submit_parachain_heads_ex {
+			at_relay_block: (parachain_head_at_relay_header_number, RelayBlockHash::default()),
+			parachains: vec![(
+				ParaId(TestParachain::get()),
+				[parachain_head_at_relay_header_number as u8; 32].into(),
+			)],
+			parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
+			is_free_execution_expected: false,
+		})
+	}
+
 	fn message_delivery_call(best_message: MessageNonce) -> RuntimeCall {
 		RuntimeCall::BridgeMessages(MessagesCall::receive_messages_proof {
 			relayer_id_at_bridged_chain: relayer_account_at_bridged_chain(),
@@ -1255,7 +1267,7 @@ pub(crate) mod tests {
 		RuntimeCall::Utility(UtilityCall::batch_all {
 			calls: vec![
 				submit_relay_header_call_ex(relay_header_number),
-				submit_parachain_head_call(parachain_head_at_relay_header_number),
+				submit_parachain_head_call_ex(parachain_head_at_relay_header_number),
 				message_delivery_call(best_message),
 			],
 		})
@@ -1283,7 +1295,7 @@ pub(crate) mod tests {
 		RuntimeCall::Utility(UtilityCall::batch_all {
 			calls: vec![
 				submit_relay_header_call_ex(relay_header_number),
-				submit_parachain_head_call(parachain_head_at_relay_header_number),
+				submit_parachain_head_call_ex(parachain_head_at_relay_header_number),
 				message_confirmation_call(best_message),
 			],
 		})

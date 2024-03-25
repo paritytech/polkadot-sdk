@@ -195,14 +195,14 @@ pub mod pallet {
 		/// The GRANDPA pallet instance must be configured to import headers of relay chain that
 		/// we're interested in.
 		///
-		/// The associated GRANDPA pallet is also used to configure free parachain heads submissions.
-		/// The parachain head submission will be free if:
+		/// The associated GRANDPA pallet is also used to configure free parachain heads
+		/// submissions. The parachain head submission will be free if:
 		///
 		/// 1) the submission contains exactly one parachain head update that succeeds;
 		///
-		/// 2) the difference between relay chain block numbers, used to prove new parachain head and
-		///    previous best parachain head is larger than the `FreeHeadersInterval`, configured at
-		///    the associated GRANDPA pallet;
+		/// 2) the difference between relay chain block numbers, used to prove new parachain head
+		///    and previous best parachain head is larger than the `FreeHeadersInterval`, configured
+		///    at the associated GRANDPA pallet;
 		///
 		/// 3) there are slots for free submissions, remaining at the block. This is also configured
 		///    at the associated GRANDPA pallet using `MaxFreeHeadersPerBlock` parameter.
@@ -505,6 +505,7 @@ pub mod pallet {
 				}
 
 				// convert from parachain head into stored parachain head data
+				let parachain_head_size = parachain_head.0.len();
 				let parachain_head_data =
 					match T::ParaStoredHeaderDataBuilder::try_build(parachain, &parachain_head) {
 						Some(parachain_head_data) => parachain_head_data,
@@ -521,15 +522,17 @@ pub mod pallet {
 
 				let update_result: Result<_, ()> =
 					ParasInfo::<T, I>::try_mutate(parachain, |stored_best_head| {
-						let is_free = match stored_best_head {
-							Some(ref best_head)
-								if at_relay_block.0.saturating_sub(best_head
-									.best_head_hash
-									.at_relay_block_number) >= free_headers_interval =>
-								true,
-							Some(_) => false,
-							None => true,
-						};
+						let is_free = parachain_head_size <
+							T::ParaStoredHeaderDataBuilder::max_free_head_size() as usize &&
+							match stored_best_head {
+								Some(ref best_head)
+									if at_relay_block.0.saturating_sub(
+										best_head.best_head_hash.at_relay_block_number,
+									) >= free_headers_interval =>
+									true,
+								Some(_) => false,
+								None => true,
+							};
 						let artifacts = Pallet::<T, I>::update_parachain_head(
 							parachain,
 							stored_best_head.take(),
@@ -537,8 +540,6 @@ pub mod pallet {
 							parachain_head_data,
 							parachain_head_hash,
 						)?;
-
-						// TODO: do we want to refund submissions of large heads as we do for GRANDPA?
 
 						is_updated_something = true;
 						if is_free {
@@ -576,12 +577,13 @@ pub mod pallet {
 			})?;
 
 			// check if we allow this submission for free
-log::trace!("=== {} {} {}", total_parachains == 1, free_parachain_heads == total_parachains, SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free());
 			let is_free = total_parachains == 1
 				&& free_parachain_heads == total_parachains
 				&& SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free();
 			let pays_fee = if is_free {
 				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is free");
+				pallet_bridge_grandpa::on_free_header_imported::<T, T::BridgesGrandpaPalletInstance>(
+				);
 				Pays::No
 			} else {
 				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is paid");
@@ -658,7 +660,7 @@ log::trace!("=== {} {} {}", total_parachains == 1, free_parachain_heads == total
 				// don't actually matter here
 				is_free_execution_expected: false,
 			};
-			if SubmitParachainHeadsHelper::<T, I>::is_obsolete(&update).0 {
+			if SubmitParachainHeadsHelper::<T, I>::check_obsolete(&update).is_err() {
 				Self::deposit_event(Event::RejectedObsoleteParachainHead {
 					parachain,
 					parachain_head_hash: new_head_hash,
@@ -817,9 +819,9 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = 
 pub(crate) mod tests {
 	use super::*;
 	use crate::mock::{
-		run_test, test_relay_header, BigParachainHeader, FreeHeadersInterval, RegularParachainHasher,
-		RegularParachainHeader, RelayBlockHeader, RuntimeEvent as TestEvent, RuntimeOrigin,
-		TestRuntime, UNTRACKED_PARACHAIN_ID,
+		run_test, test_relay_header, BigParachain, BigParachainHeader, FreeHeadersInterval,
+		RegularParachainHasher, RegularParachainHeader, RelayBlockHeader,
+		RuntimeEvent as TestEvent, RuntimeOrigin, TestRuntime, UNTRACKED_PARACHAIN_ID,
 	};
 	use bp_test_utils::prepare_parachain_heads_proof;
 	use codec::Encode;
@@ -841,7 +843,7 @@ pub(crate) mod tests {
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::Pays,
 		storage::generator::{StorageDoubleMap, StorageMap},
-		traits::{Get, OnInitialize},
+		traits::Get,
 		weights::Weight,
 	};
 	use frame_system::{EventRecord, Pallet as System, Phase};
@@ -875,10 +877,6 @@ pub(crate) mod tests {
 		num: RelayBlockNumber,
 		state_root: RelayBlockHash,
 	) -> (ParaHash, GrandpaJustification<RelayBlockHeader>) {
-		pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::on_initialize(
-			0,
-		);
-
 		let header = test_relay_header(num, state_root);
 		let hash = header.hash();
 		let justification = make_default_justification(&header);
@@ -1783,8 +1781,9 @@ pub(crate) mod tests {
 			);
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 			// then we submit new head, proved at relay block `FreeHeadersInterval - 1` => Pays::Yes
-			let (state_root, proof, parachains) =
-				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 50))]);
+			let (state_root, proof, parachains) = prepare_parachain_heads_proof::<
+				RegularParachainHeader,
+			>(vec![(2, head_data(2, 50))]);
 			let relay_block_number = FreeHeadersInterval::get() - 1;
 			proceed(relay_block_number, state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
@@ -1795,8 +1794,9 @@ pub(crate) mod tests {
 			);
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 			// then we submit new head, proved after `FreeHeadersInterval` => Pays::No
-			let (state_root, proof, parachains) =
-				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 100))]);
+			let (state_root, proof, parachains) = prepare_parachain_heads_proof::<
+				RegularParachainHeader,
+			>(vec![(2, head_data(2, 100))]);
 			let relay_block_number = relay_block_number + FreeHeadersInterval::get();
 			proceed(relay_block_number, state_root);
 			let result = Pallet::<TestRuntime>::submit_parachain_heads(
@@ -1806,6 +1806,93 @@ pub(crate) mod tests {
 				proof,
 			);
 			assert_eq!(result.unwrap().pays_fee, Pays::No);
+			// then we submit new BIG head, proved after `FreeHeadersInterval` => Pays::Yes
+			// then we submit new head, proved after `FreeHeadersInterval` => Pays::No
+			let mut large_head = head_data(2, 100);
+			large_head.0.extend(&[42u8; BigParachain::MAX_HEADER_SIZE as _]);
+			let (state_root, proof, parachains) =
+				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, large_head)]);
+			let relay_block_number = relay_block_number + FreeHeadersInterval::get();
+			proceed(relay_block_number, state_root);
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
+				RuntimeOrigin::signed(1),
+				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
+				parachains,
+				proof,
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 		})
+	}
+
+	#[test]
+	fn grandpa_and_parachain_pallets_share_free_headers_counter() {
+		run_test(|| {
+			initialize(Default::default());
+			// set free headers limit to `4`
+			let mut free_headers_remaining = 4;
+			pallet_bridge_grandpa::FreeHeadersRemaining::<TestRuntime, BridgesGrandpaPalletInstance>::set(
+				Some(free_headers_remaining),
+			);
+			// import free GRANDPA and parachain headers
+			let mut relay_block_number = 0;
+			for i in 0..2 {
+				// import free GRANDPA header
+				let (state_root, proof, parachains) = prepare_parachain_heads_proof::<
+					RegularParachainHeader,
+				>(vec![(2, head_data(2, 5 + i))]);
+				relay_block_number = relay_block_number + FreeHeadersInterval::get();
+				proceed(relay_block_number, state_root);
+				assert_eq!(
+					pallet_bridge_grandpa::FreeHeadersRemaining::<
+						TestRuntime,
+						BridgesGrandpaPalletInstance,
+					>::get(),
+					Some(free_headers_remaining - 1),
+				);
+				free_headers_remaining = free_headers_remaining - 1;
+				// import free parachain header
+				assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
+					RuntimeOrigin::signed(1),
+					(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
+					parachains,
+					proof,
+				),);
+				assert_eq!(
+					pallet_bridge_grandpa::FreeHeadersRemaining::<
+						TestRuntime,
+						BridgesGrandpaPalletInstance,
+					>::get(),
+					Some(free_headers_remaining - 1),
+				);
+				free_headers_remaining = free_headers_remaining - 1;
+			}
+			// try to import free GRANDPA header => non-free execution
+			let (state_root, proof, parachains) =
+				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 7))]);
+			relay_block_number = relay_block_number + FreeHeadersInterval::get();
+			let result = pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::submit_finality_proof_ex(
+				RuntimeOrigin::signed(1),
+				Box::new(test_relay_header(relay_block_number, state_root)),
+				make_default_justification(&test_relay_header(relay_block_number, state_root)),
+				TEST_GRANDPA_SET_ID,
+				false,
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+			// try to import free parachain header => non-free execution
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
+				RuntimeOrigin::signed(1),
+				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
+				parachains,
+				proof,
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+			assert_eq!(
+				pallet_bridge_grandpa::FreeHeadersRemaining::<
+					TestRuntime,
+					BridgesGrandpaPalletInstance,
+				>::get(),
+				Some(0),
+			);
+		});
 	}
 }
