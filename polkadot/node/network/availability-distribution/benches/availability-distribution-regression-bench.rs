@@ -24,46 +24,55 @@
 //! - availability-store
 
 use polkadot_subsystem_bench::{
-	availability::{benchmark_availability_write, prepare_test, TestDataAvailability, TestState},
+	availability::{benchmark_availability_write, prepare_test, TestState},
 	configuration::TestConfiguration,
-	utils::{warm_up_and_benchmark, WarmUpOptions},
+	usage::BenchmarkUsage,
 };
+use std::io::Write;
+
+const BENCH_COUNT: usize = 50;
 
 fn main() -> Result<(), String> {
 	let mut messages = vec![];
 	let mut config = TestConfiguration::default();
-	// A single node effort roughly n_cores * needed_approvals / n_validators = 60 * 30 / 300
-	config.n_cores = 6;
+	// A single node effort roughly
+	config.n_cores = 10;
+	config.n_validators = 500;
 	config.num_blocks = 3;
 	config.generate_pov_sizes();
+	let state = TestState::new(&config);
 
-	let usage = warm_up_and_benchmark(
-		WarmUpOptions::new(&[
-			"availability-distribution",
-			"bitfield-distribution",
-			"availability-store",
-		]),
-		|| {
-			let mut state = TestState::new(&config);
-			let (mut env, _protocol_config) =
-				prepare_test(config.clone(), &mut state, TestDataAvailability::Write, false);
+	println!("Benchmarking...");
+	let usages: Vec<BenchmarkUsage> = (0..BENCH_COUNT)
+		.map(|n| {
+			print!("\r[{}{}]", "#".repeat(n), "_".repeat(BENCH_COUNT - n));
+			std::io::stdout().flush().unwrap();
+			let (mut env, _cfgs) = prepare_test(
+				&state,
+				polkadot_subsystem_bench::availability::TestDataAvailability::Write,
+				false,
+			);
 			env.runtime().block_on(benchmark_availability_write(
 				"data_availability_write",
 				&mut env,
-				state,
+				&state,
 			))
-		},
-	)?;
-	println!("{}", usage);
+		})
+		.collect();
+	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
+	let average_usage = BenchmarkUsage::average(&usages);
+	println!("{}", average_usage);
 
-	messages.extend(usage.check_network_usage(&[
-		("Received from peers", 443.333, 0.05),
-		("Sent to peers", 21818.555, 0.05),
+	// We expect no variance for received and sent
+	// but use 0.001 because we operate with floats
+	messages.extend(average_usage.check_network_usage(&[
+		("Received from peers", 433.3, 0.001),
+		("Sent to peers", 18480.0, 0.001),
 	]));
-	messages.extend(usage.check_cpu_usage(&[
-		("availability-distribution", 0.011, 0.05),
-		("bitfield-distribution", 0.029, 0.05),
-		("availability-store", 0.232, 0.05),
+	messages.extend(average_usage.check_cpu_usage(&[
+		("availability-distribution", 0.012, 0.05),
+		("availability-store", 0.153, 0.05),
+		("bitfield-distribution", 0.026, 0.05),
 	]));
 
 	if messages.is_empty() {
