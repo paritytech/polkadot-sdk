@@ -336,7 +336,7 @@ pub mod pallet {
 				target: LOG_TARGET,
 				"Successfully imported finalized header with hash {:?}! Free: {}",
 				hash,
-				if may_refund_call_fee { "No" } else { "Yes" },
+				if may_refund_call_fee { "Yes" } else { "No" },
 			);
 
 			// the proof size component of the call weight assumes that there are
