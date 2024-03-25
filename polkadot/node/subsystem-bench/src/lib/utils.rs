@@ -30,14 +30,14 @@ fn workspace_dir() -> String {
 
 // Saves a given string to a file
 pub fn save_to_file(path: &str, value: String) -> color_eyre::eyre::Result<()> {
-	let mut path: Vec<&str> = path.split("/").collect();
+	let mut path: Vec<&str> = path.split('/').collect();
 	let filename = path.pop().expect("Should contain a file name");
 	let dir = format!("{}/{}", workspace_dir(), path.join("/"));
 
 	if !path.is_empty() {
 		std::fs::create_dir_all(&dir)?;
 	}
-	let mut file = File::create(&format!("{}/{}", dir, filename))?;
+	let mut file = File::create(format!("{}/{}", dir, filename))?;
 	file.write_all(value.as_bytes())?;
 
 	Ok(())
