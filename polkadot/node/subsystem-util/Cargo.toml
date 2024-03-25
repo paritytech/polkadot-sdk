@@ -40,7 +40,7 @@ sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sc-client-api = { path = "../../../substrate/client/api" }
 
 kvdb = "0.13.0"
-parity-db = { version = "0.4.12" }
+parity-db = { version = "0.4.13" }
 
 [dev-dependencies]
 assert_matches = "1.4.0"

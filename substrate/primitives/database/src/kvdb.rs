@@ -18,7 +18,7 @@
 /// A wrapper around `kvdb::Database` that implements `sp_database::Database` trait
 use ::kvdb::{DBTransaction, KeyValueDB};
 
-use crate::{error, Change, ColumnId, Database, Transaction};
+use crate::{error, Change, ColumnId, DBLocation, Database, Transaction};
 
 struct DbAdapter<D: KeyValueDB + 'static>(D);
 
@@ -82,7 +82,7 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 						tx.put_vec(col, key.as_ref(), value);
 					},
 				},
-				Change::Reference(col, key) => {
+				Change::Reference(col, key) | Change::ReferenceTree(col, key) => {
 					if let (counter_key, Some(mut counter)) =
 						self.read_counter(col, key.as_ref())?
 					{
@@ -90,7 +90,7 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 						tx.put(col, &counter_key, &counter.to_le_bytes());
 					}
 				},
-				Change::Release(col, key) => {
+				Change::Release(col, key) | Change::ReleaseTree(col, key) => {
 					if let (counter_key, Some(mut counter)) =
 						self.read_counter(col, key.as_ref())?
 					{
@@ -103,6 +103,9 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 						}
 					}
 				},
+				Change::StoreTree(_col, _key, _tree) => {
+					unimplemented!("StoreTree is not supported by kvdb");
+				},
 			}
 		}
 		self.0.write(tx).map_err(|e| error::DatabaseError(Box::new(e)))
@@ -114,5 +117,14 @@ impl<D: KeyValueDB, H: Clone + AsRef<[u8]>> Database<H> for DbAdapter<D> {
 
 	fn contains(&self, col: ColumnId, key: &[u8]) -> bool {
 		handle_err(self.0.has_key(col, key))
+	}
+
+	fn get_node(
+		&self,
+		_col: ColumnId,
+		_key: &[u8],
+		_location: DBLocation,
+	) -> Option<(Vec<u8>, Vec<DBLocation>)> {
+		unreachable!("kvdb do not support multi tree")
 	}
 }
