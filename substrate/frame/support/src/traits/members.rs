@@ -295,6 +295,9 @@ pub trait RankedMembers {
 	/// Demote a member to the next lower rank; demoting beyond the `min_rank` removes the
 	/// member entirely.
 	fn demote(who: &Self::AccountId) -> DispatchResult;
+
+	/// The maximum rank possible in this membership organisation.
+	fn max_rank() -> Self::Rank;
 }
 
 /// Handler that can deal with the swap of two members.

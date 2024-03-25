@@ -135,6 +135,9 @@ impl RankedMembers for TestClub {
 			},
 		})
 	}
+	fn max_rank() -> Self::Rank {
+		CLUB.with(|club| club.borrow().values().max().cloned().unwrap_or(Self::min_rank()))
+	}
 }
 
 fn set_rank(who: u64, rank: u64) {

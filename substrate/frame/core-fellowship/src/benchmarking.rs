@@ -54,11 +54,12 @@ mod benchmarks {
 	}
 
 	fn set_benchmark_params<T: Config<I>, I: 'static>() -> Result<(), BenchmarkError> {
+		let max_rank: usize = T::Members::max_rank().into();
 		let params = ParamsType {
-			active_salary: [100u32.into(); 9],
-			passive_salary: [10u32.into(); 9],
-			demotion_period: [100u32.into(); 9],
-			min_promotion_period: [100u32.into(); 9],
+			active_salary: vec![100u32.into(); max_rank],
+			passive_salary: vec![10u32.into(); max_rank],
+			demotion_period: vec![100u32.into(); max_rank],
+			min_promotion_period: vec![100u32.into(); max_rank],
 			offboard_timeout: 1u32.into(),
 		};
 
@@ -68,11 +69,12 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_params() -> Result<(), BenchmarkError> {
+		make_member::<T, I>(9)?;
 		let params = ParamsType {
-			active_salary: [100u32.into(); 9],
-			passive_salary: [10u32.into(); 9],
-			demotion_period: [100u32.into(); 9],
-			min_promotion_period: [100u32.into(); 9],
+			active_salary: [100u32.into(); 9].to_vec(),
+			passive_salary: [10u32.into(); 9].to_vec(),
+			demotion_period: [100u32.into(); 9].to_vec(),
+			min_promotion_period: [100u32.into(); 9].to_vec(),
 			offboard_timeout: 1u32.into(),
 		};
 
@@ -104,9 +106,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn bump_demote() -> Result<(), BenchmarkError> {
-		set_benchmark_params::<T, I>()?;
-
 		let member = make_member::<T, I>(2)?;
+
+		set_benchmark_params::<T, I>()?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
 		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
@@ -149,14 +151,27 @@ mod benchmarks {
 
 	#[benchmark]
 	fn promote() -> Result<(), BenchmarkError> {
-		let member = make_member::<T, I>(1)?;
-		ensure_evidence::<T, I>(&member)?;
+		let candidate: T::AccountId = account("candidate", 0, SEED);
+
+		T::Members::induct(&candidate)?;
+
+		CoreFellowship::<T, I>::import(RawOrigin::Signed(candidate.clone()).into())?;
+
+		T::Members::promote(&candidate)?;
+
+		make_member::<T, I>(2)?;
+
+		set_benchmark_params::<T, I>()?;
+
+		ensure_evidence::<T, I>(&candidate)?;
+
+		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, member.clone(), 2u8.into());
+		_(RawOrigin::Root, candidate.clone(), 2u8.into());
 
-		assert_eq!(T::Members::rank_of(&member), Some(2));
-		assert!(!MemberEvidence::<T, I>::contains_key(&member));
+		assert_eq!(T::Members::rank_of(&candidate), Some(2));
+		assert!(!MemberEvidence::<T, I>::contains_key(&candidate));
 		Ok(())
 	}
 
