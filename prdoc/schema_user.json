@@ -132,7 +132,8 @@
           }
         },
         "required": [
-          "name"
+          "name",
+          "bump"
         ]
       },
       "migration_db": {
