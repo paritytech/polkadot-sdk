@@ -342,9 +342,9 @@ test-frame-examples-compile-to-wasm:
     RUST_BACKTRACE: 1
   script:
     - cd ./substrate/frame/examples/offchain-worker/
-    - cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+    - RUSTFLAGS="--cfg substrate_runtime" cargo build --locked --target=wasm32-unknown-unknown --no-default-features
     - cd ../basic
-    - cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+    - RUSTFLAGS="--cfg substrate_runtime" cargo build --locked --target=wasm32-unknown-unknown --no-default-features
   # FIXME
   allow_failure: true
 

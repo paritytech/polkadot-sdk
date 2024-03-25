@@ -1109,11 +1109,11 @@ macro_rules! impl_benchmark {
 					);
 
 					let start_pov = $crate::benchmarking::proof_size();
-					let start_extrinsic = $crate::benchmarking::current_time();
+					let start_extrinsic = $crate::current_time();
 
 					closure_to_benchmark()?;
 
-					let finish_extrinsic = $crate::benchmarking::current_time();
+					let finish_extrinsic = $crate::current_time();
 					let end_pov = $crate::benchmarking::proof_size();
 
 					// Calculate the diff caused by the benchmark.
@@ -1140,9 +1140,9 @@ macro_rules! impl_benchmark {
 					);
 
 					// Time the storage root recalculation.
-					let start_storage_root = $crate::benchmarking::current_time();
+					let start_storage_root = $crate::current_time();
 					$crate::__private::storage_root($crate::__private::StateVersion::V1);
-					let finish_storage_root = $crate::benchmarking::current_time();
+					let finish_storage_root = $crate::current_time();
 					let elapsed_storage_root = finish_storage_root - start_storage_root;
 
 					let skip_meta = [ $( stringify!($name_skip_meta).as_ref() ),* ];

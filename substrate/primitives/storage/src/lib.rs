@@ -34,11 +34,8 @@ use core::{
 use ref_cast::RefCast;
 
 /// Storage key.
-#[derive(PartialEq, Eq, RuntimeDebug)]
-#[cfg_attr(
-	feature = "serde",
-	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode)
-)]
+#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone, Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StorageKey(
 	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
 );
@@ -98,8 +95,8 @@ impl From<Vec<u8>> for TrackedStorageKey {
 }
 
 /// Storage key of a child trie, it contains the prefix to the key.
-#[derive(PartialEq, Eq, RuntimeDebug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone))]
+#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 #[derive(RefCast)]
 pub struct PrefixedStorageKey(
@@ -139,22 +136,24 @@ impl PrefixedStorageKey {
 }
 
 /// Storage data associated to a [`StorageKey`].
-#[derive(PartialEq, Eq, RuntimeDebug)]
-#[cfg_attr(
-	feature = "serde",
-	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)
-)]
+#[derive(PartialEq, Eq, RuntimeDebug, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StorageData(
 	#[cfg_attr(feature = "serde", serde(with = "impl_serde::serialize"))] pub Vec<u8>,
 );
 
 /// Map of data to use in a storage, it is a collection of
 /// byte key and values.
+pub type StorageMap = alloc::collections::BTreeMap<Vec<u8>, Vec<u8>>;
+
+/// Map of storage children.
 #[cfg(feature = "std")]
-pub type StorageMap = std::collections::BTreeMap<Vec<u8>, Vec<u8>>;
+pub type ChildrenMap = std::collections::HashMap<Vec<u8>, StorageChild>;
+
+#[cfg(not(feature = "std"))]
+pub type ChildrenMap = alloc::collections::BTreeMap<Vec<u8>, StorageChild>;
 
 /// Child trie storage data.
-#[cfg(feature = "std")]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct StorageChild {
 	/// Child data for storage.
@@ -165,19 +164,18 @@ pub struct StorageChild {
 }
 
 /// Struct containing data needed for a storage.
-#[cfg(feature = "std")]
 #[derive(Default, Debug, Clone)]
 pub struct Storage {
 	/// Top trie storage data.
 	pub top: StorageMap,
 	/// Children trie storage data. Key does not include prefix, only for the `default` trie kind,
 	/// of `ChildType::ParentKeyId` type.
-	pub children_default: std::collections::HashMap<Vec<u8>, StorageChild>,
+	pub children_default: ChildrenMap,
 }
 
 /// Storage change set
-#[derive(RuntimeDebug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, PartialEq, Eq, Clone))]
+#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct StorageChangeSet<Hash> {
 	/// Block hash
@@ -245,8 +243,7 @@ pub mod well_known_keys {
 pub const TRIE_VALUE_NODE_THRESHOLD: u32 = 33;
 
 /// Information related to a child state.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Debug, Clone)]
 pub enum ChildInfo {
 	/// This is the one used by default.
 	ParentKeyId(ChildTrieParentKeyId),
@@ -392,8 +389,7 @@ impl ChildType {
 /// It shares its trie nodes backend storage with every other child trie, so its storage key needs
 /// to be a unique id that will be use only once. Those unique id also required to be long enough to
 /// avoid any unique id to be prefixed by an other unique id.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode, Debug, Clone)]
 pub struct ChildTrieParentKeyId {
 	/// Data is the storage key without prefix.
 	data: Vec<u8>,

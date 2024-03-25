@@ -437,7 +437,7 @@ impl core::default::Default for WasmEntryAttributes {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod std_features {
 
 	use tracing_core::callsite;
@@ -629,11 +629,11 @@ mod std_features {
 
 	impl From<crate::WasmEntryAttributes> for tracing::Span {
 		fn from(a: crate::WasmEntryAttributes) -> tracing::Span {
-			let name = std::str::from_utf8(&a.metadata.name).unwrap_or_default();
-			let target = std::str::from_utf8(&a.metadata.target).unwrap_or_default();
-			let file = std::str::from_utf8(&a.metadata.file).unwrap_or_default();
+			let name = core::str::from_utf8(&a.metadata.name).unwrap_or_default();
+			let target = core::str::from_utf8(&a.metadata.target).unwrap_or_default();
+			let file = core::str::from_utf8(&a.metadata.file).unwrap_or_default();
 			let line = a.metadata.line;
-			let module_path = std::str::from_utf8(&a.metadata.module_path).unwrap_or_default();
+			let module_path = core::str::from_utf8(&a.metadata.module_path).unwrap_or_default();
 			let params = a.fields;
 			let metadata: &tracing_core::metadata::Metadata<'static> = (&a.metadata).into();
 
@@ -648,11 +648,11 @@ mod std_features {
 	impl crate::WasmEntryAttributes {
 		/// convert the given Attributes to an event and emit it using `tracing_core`.
 		pub fn emit(self: crate::WasmEntryAttributes) {
-			let name = std::str::from_utf8(&self.metadata.name).unwrap_or_default();
-			let target = std::str::from_utf8(&self.metadata.target).unwrap_or_default();
-			let file = std::str::from_utf8(&self.metadata.file).unwrap_or_default();
+			let name = core::str::from_utf8(&self.metadata.name).unwrap_or_default();
+			let target = core::str::from_utf8(&self.metadata.target).unwrap_or_default();
+			let file = core::str::from_utf8(&self.metadata.file).unwrap_or_default();
 			let line = self.metadata.line;
-			let module_path = std::str::from_utf8(&self.metadata.module_path).unwrap_or_default();
+			let module_path = core::str::from_utf8(&self.metadata.module_path).unwrap_or_default();
 			let params = self.fields;
 			let metadata: &tracing_core::metadata::Metadata<'static> = (&self.metadata).into();
 
@@ -665,5 +665,5 @@ mod std_features {
 	}
 }
 
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 pub use std_features::*;

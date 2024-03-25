@@ -26,7 +26,6 @@ use itertools::Itertools;
 use rand::{rngs::OsRng, RngCore};
 use scale_info::TypeInfo;
 pub use secrecy::{ExposeSecret, SecretString};
-use sp_runtime_interface::pass_by::PassByInner;
 #[doc(hidden)]
 pub use sp_std::ops::Deref;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
@@ -1061,11 +1060,11 @@ pub trait CryptoType {
 	Hash,
 	Encode,
 	Decode,
-	PassByInner,
 	crate::RuntimeDebug,
 	TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(transparent)]
 pub struct KeyTypeId(pub [u8; 4]);
 
 impl From<u32> for KeyTypeId {
@@ -1077,6 +1076,18 @@ impl From<u32> for KeyTypeId {
 impl From<KeyTypeId> for u32 {
 	fn from(x: KeyTypeId) -> Self {
 		u32::from_le_bytes(x.0)
+	}
+}
+
+impl From<[u8; 4]> for KeyTypeId {
+	fn from(value: [u8; 4]) -> Self {
+		Self(value)
+	}
+}
+
+impl AsRef<[u8]> for KeyTypeId {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
 	}
 }
 

@@ -114,12 +114,13 @@ fn host_function_not_found() {
 }
 
 #[test]
-#[should_panic(expected = "Invalid utf8 data provided")]
 fn test_invalid_utf8_data_should_return_an_error() {
-	call_wasm_method::<HostFunctions>(
+	call_wasm_method_with_result::<HostFunctions>(
 		wasm_binary_unwrap(),
 		"test_invalid_utf8_data_should_return_an_error",
-	);
+	)
+	.0
+	.unwrap_err();
 }
 
 #[test]
@@ -127,14 +128,6 @@ fn test_overwrite_native_function_implementation() {
 	call_wasm_method::<HostFunctions>(
 		wasm_binary_unwrap(),
 		"test_overwrite_native_function_implementation",
-	);
-}
-
-#[test]
-fn test_u128_i128_as_parameter_and_return_value() {
-	call_wasm_method::<HostFunctions>(
-		wasm_binary_unwrap(),
-		"test_u128_i128_as_parameter_and_return_value",
 	);
 }
 
@@ -301,4 +294,9 @@ fn test_returning_option_bytes_from_a_host_function_is_efficient() {
 	// So this assertion tests that deserializing `Option<Bytes>` allocates less than
 	// deserializing `Option<Vec<u8>>`.
 	assert_eq!(stats_bytes.bytes_allocated_sum + 16 * 1024 + 8, stats_vec.bytes_allocated_sum);
+}
+
+#[test]
+fn test_marshalling_strategies() {
+	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_marshalling_strategies");
 }
