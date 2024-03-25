@@ -105,7 +105,8 @@ pub struct DiscoveryConfig {
 	discovery_only_if_under_num: u64,
 	enable_mdns: bool,
 	kademlia_disjoint_query_paths: bool,
-	kademlia_protocols: Vec<Vec<u8>>,
+	kademlia_protocol: Vec<u8>,
+	kademlia_legacy_protocol: Vec<u8>,
 	kademlia_replication_factor: NonZeroUsize,
 }
 
@@ -121,7 +122,8 @@ impl DiscoveryConfig {
 			discovery_only_if_under_num: std::u64::MAX,
 			enable_mdns: false,
 			kademlia_disjoint_query_paths: false,
-			kademlia_protocols: Vec::new(),
+			kademlia_protocol: Vec::new(),
+			kademlia_legacy_protocol: Vec::new(),
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 		}
@@ -177,9 +179,8 @@ impl DiscoveryConfig {
 		fork_id: Option<&str>,
 		protocol_id: &ProtocolId,
 	) -> &mut Self {
-		self.kademlia_protocols = Vec::new();
-		self.kademlia_protocols.push(kademlia_protocol_name(genesis_hash, fork_id));
-		self.kademlia_protocols.push(legacy_kademlia_protocol_name(protocol_id));
+		self.kademlia_protocol = kademlia_protocol_name(genesis_hash, fork_id);
+		self.kademlia_legacy_protocol = legacy_kademlia_protocol_name(protocol_id);
 		self
 	}
 
@@ -207,14 +208,18 @@ impl DiscoveryConfig {
 			discovery_only_if_under_num,
 			enable_mdns,
 			kademlia_disjoint_query_paths,
-			kademlia_protocols,
+			kademlia_protocol,
+			kademlia_legacy_protocol,
 			kademlia_replication_factor,
 		} = self;
 
-		let kademlia = if !kademlia_protocols.is_empty() {
+		let kademlia = if !kademlia_protocol.is_empty() {
 			let mut config = KademliaConfig::default();
 
 			config.set_replication_factor(kademlia_replication_factor);
+			// Populate kad with both the legacy and the new protocol names.
+			// TODO: Remove the legacy protocol.
+			let kademlia_protocols = vec![kademlia_protocol.clone(), kademlia_legacy_protocol];
 			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
 			// By default Kademlia attempts to insert all peers into its routing table once a
 			// dialing attempt succeeds. In order to control which peer is added, disable the
@@ -266,6 +271,7 @@ impl DiscoveryConfig {
 					.expect("value is a constant; constant is non-zero; qed."),
 			),
 			records_to_publish: Default::default(),
+			kademlia_protocol,
 		}
 	}
 }
@@ -309,6 +315,10 @@ pub struct DiscoveryBehaviour {
 	/// did not return the record(in `FinishedWithNoAdditionalRecord`). We will then put the record
 	/// to these peers.
 	records_to_publish: HashMap<QueryId, Record>,
+	/// The chain based kademlia protocol name (including genesis hash and fork id).
+	///
+	/// TODO: Remove when all nodes are upgraded to genesis hash and fork ID-based Kademlia.
+	kademlia_protocol: Vec<u8>,
 }
 
 impl DiscoveryBehaviour {
@@ -366,11 +376,12 @@ impl DiscoveryBehaviour {
 				return
 			}
 
-			// The supported protocols must include all kademlia protocol names.
-			if !kademlia
-				.protocol_names()
+			// The supported protocols must include the chain-based Kademlia protocol.
+			// TODO: Extract the chain-based Kademlia protocol from `kademlia.protocol_names()`
+			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia.
+			if !supported_protocols
 				.iter()
-				.all(|proto| supported_protocols.iter().any(|p| p.as_ref() == proto.as_ref()))
+				.any(|p| p.as_ref() == self.kademlia_protocol.as_slice())
 			{
 				trace!(
 					target: "sub-libp2p",
