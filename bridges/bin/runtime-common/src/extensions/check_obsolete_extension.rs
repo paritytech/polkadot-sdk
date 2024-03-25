@@ -388,7 +388,7 @@ mod tests {
 	}
 
 	#[test]
-	fn grandpa_wrapper_boosts_extensions_for_unregistered_relayer() {
+	fn grandpa_wrapper_boosts_extensions_for_registered_relayer() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 			BridgeRelayers::register(RuntimeOrigin::signed(relayer_account_at_this_chain()), 1000)
