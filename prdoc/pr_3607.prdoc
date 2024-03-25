@@ -18,9 +18,9 @@ doc:
       ```
       The first three relate to XCM execution fees, given an XCM, you can query its weight, then which assets are acceptable for buying weight and convert weight to a number of those assets.
       The last one takes in a destination and a message you want to send from the runtime you're executing this on, it will give you the delivery fees.
-	
+
 crates:
   - name: xcm-fee-payment-runtime-api
   - name: rococo-runtime
   - name: westend-runtime
-  
+
