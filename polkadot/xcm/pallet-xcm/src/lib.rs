@@ -546,6 +546,9 @@ pub mod pallet {
 		LocalExecutionIncomplete,
 		/// Could not decode XCM.
 		UnableToDecode,
+		/// XCM encoded length is too large.
+		/// Returned when an XCM encoded length is larger than `MaxXcmEncodedSize`.
+		XcmTooLarge,
 	}
 
 	impl<T: Config> From<SendError> for Error<T> {
