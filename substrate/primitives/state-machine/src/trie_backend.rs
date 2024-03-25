@@ -426,11 +426,13 @@ where
 	}
 
 	/// Set recorder. Returns the previous recorder.
+	#[cfg(feature = "std")]
 	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {
 		self.essence.set_recorder(recorder)
 	}
 
 	/// Set recorder temporarily. Previous recorder is restored when the returned guard is dropped.
+	#[cfg(feature = "std")]
 	pub fn with_temp_recorder(&self, recorder: R) -> WithRecorder<H, C, R> {
 		//let proving_backend =
 		//	TrieBackendBuilder::wrap(trie_backend).with_recorder(Default::default()).build();
@@ -460,6 +462,7 @@ where
 	recorder: Option<R>,
 }
 
+#[cfg(feature = "std")]
 impl<'a, H, C, R> WithRecorder<'a, H, C, R>
 where
 	H: Hasher,
@@ -473,6 +476,7 @@ where
 	}
 }
 
+#[cfg(feature = "std")]
 impl<H, C, R> Drop for WithRecorder<'_, H, C, R>
 where
 	H: Hasher,
