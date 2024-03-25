@@ -168,8 +168,8 @@ fn default_parachains_host_configuration(
 			paras_availability_period: 4,
 			..Default::default()
 		},
-		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 5 }..
-			Default::default(),
+		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 5 },
+		..Default::default()
 	}
 }
 
