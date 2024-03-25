@@ -373,7 +373,7 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 						$crate::impls::assert_ok!(<Self as [<$chain RelayPallet>]>::XcmPallet::send_blob(
 							root_origin,
 							bx!(destination.into()),
-							xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
+							xcm.encode().try_into().unwrap(),
 						));
 						Self::assert_xcm_pallet_sent();
 					});
