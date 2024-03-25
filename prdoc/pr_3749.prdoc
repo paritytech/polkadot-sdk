@@ -13,6 +13,9 @@ doc:
       `Box::new(xcm)` to both `execute` and `send`, you would pass in
       `xcm.encode().try_into()` and handle the potential error of its encoded length
       being bigger than `MAX_XCM_ENCODED_SIZE`.
+
+      pallet-contracts takes the XCM encoded now as well. It follows the same API as
+      `execute_blob` and `send_blob`.
   - audience: Runtime User
     description: |
       pallet-xcm has a new pair of extrinsics, `execute_blob` and `send_blob`.
@@ -22,6 +25,9 @@ doc:
       There's a new utility in PolkadotJS Apps for encoding XCMs you can use:
       https://polkadot.js.org/apps/#/utilities/xcm
       Just pass in the encoded XCM to the new extrinsics and you're done.
+
+      pallet-contracts takes the XCM encoded now as well. It follows the same API as
+      `execute_blob` and `send_blob`.
 
 crates:
 - name: pallet-xcm
