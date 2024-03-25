@@ -1080,6 +1080,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#933" id="933">933</a>
 <a href="#934" id="934">934</a>
 <a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1128,7 +1133,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, CoreState, Hash,
 	Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption, SessionIndex, SignedAvailabilityBitfield, ValidatorIndex,
 };
-<span class="kw">use </span>std::collections::{BTreeMap, HashMap, HashSet};
+<span class="kw">use </span>std::collections::{BTreeMap, HashMap};
 
 <span class="kw">mod </span>disputes;
 <span class="kw">mod </span>error;
@@ -1680,13 +1685,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	candidates: <span class="kw-2">&amp;</span>[CandidateReceipt],
 	relay_parent: Hash,
 	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ProvisionerSenderTrait,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(CandidateHash, Hash)&gt;, Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;ParaId, Vec&lt;(CandidateHash, Hash)&gt;&gt;, Error&gt; {
 	<span class="kw">let </span>block_number = get_block_number_under_construction(relay_parent, sender).<span class="kw">await</span><span class="question-mark">?</span>;
 
 	<span class="kw">let </span><span class="kw-2">mut </span>selected_candidates =
-		Vec::with_capacity(candidates.len().min(availability_cores.len()));
-	<span class="kw">let </span><span class="kw-2">mut </span>selected_parachains =
-		HashSet::with_capacity(candidates.len().min(availability_cores.len()));
+		HashMap::with_capacity(candidates.len().min(availability_cores.len()));
 
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
@@ -1720,7 +1723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			CoreState::Free =&gt; <span class="kw">continue</span>,
 		};
 
-		<span class="kw">if </span>selected_parachains.contains(<span class="kw-2">&amp;</span>scheduled_core.para_id) {
+		<span class="kw">if </span>selected_candidates.contains_key(<span class="kw-2">&amp;</span>scheduled_core.para_id) {
 			<span class="comment">// We already picked a candidate for this parachain. Elastic scaling only works with
 			// prospective parachains mode.
 			</span><span class="kw">continue
@@ -1759,8 +1762,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="string">&quot;Selected candidate receipt&quot;</span>,
 			);
 
-			selected_parachains.insert(candidate.descriptor.para_id);
-			selected_candidates.push((candidate_hash, candidate.descriptor.relay_parent));
+			selected_candidates.insert(
+				candidate.descriptor.para_id,
+				<span class="macro">vec!</span>[(candidate_hash, candidate.descriptor.relay_parent)],
+			);
 		}
 	}
 
@@ -1777,12 +1782,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	bitfields: <span class="kw-2">&amp;</span>[SignedAvailabilityBitfield],
 	relay_parent: Hash,
 	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ProvisionerSenderTrait,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(CandidateHash, Hash)&gt;, Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;ParaId, Vec&lt;(CandidateHash, Hash)&gt;&gt;, Error&gt; {
 	<span class="kw">let </span>block_number = get_block_number_under_construction(relay_parent, sender).<span class="kw">await</span><span class="question-mark">?</span>;
 
 	<span class="comment">// Record how many cores are scheduled for each paraid. Use a BTreeMap because
 	// we&#39;ll need to iterate through them.
-	</span><span class="kw">let </span><span class="kw-2">mut </span>scheduled_cores: BTreeMap&lt;ParaId, usize&gt; = BTreeMap::new();
+	</span><span class="kw">let </span><span class="kw-2">mut </span>scheduled_cores_per_para: BTreeMap&lt;ParaId, usize&gt; = BTreeMap::new();
 	<span class="comment">// The on-chain ancestors of a para present in availability-cores.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>ancestors: HashMap&lt;ParaId, Ancestors&gt; =
 		HashMap::with_capacity(availability_cores.len());
@@ -1791,7 +1796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>core_idx = CoreIndex(core_idx <span class="kw">as </span>u32);
 		<span class="kw">match </span>core {
 			CoreState::Scheduled(scheduled_core) =&gt; {
-				<span class="kw-2">*</span>scheduled_cores.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
+				<span class="kw-2">*</span>scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
 			},
 			CoreState::Occupied(occupied_core) =&gt; {
 				<span class="kw">let </span>is_available = bitfields_indicate_availability(
@@ -1808,14 +1813,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>scheduled_core) = occupied_core.next_up_on_available {
 						<span class="comment">// Request a new backable candidate for the newly scheduled para id.
-						</span><span class="kw-2">*</span>scheduled_cores.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
+						</span><span class="kw-2">*</span>scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
 					}
 				} <span class="kw">else if </span>occupied_core.time_out_at &lt;= block_number {
 					<span class="comment">// Timed out before being available.
 
 					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>scheduled_core) = occupied_core.next_up_on_time_out {
 						<span class="comment">// Candidate&#39;s availability timed out, practically same as scheduled.
-						</span><span class="kw-2">*</span>scheduled_cores.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
+						</span><span class="kw-2">*</span>scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
 					}
 				} <span class="kw">else </span>{
 					<span class="comment">// Not timed out and not available.
@@ -1829,10 +1834,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 	}
 
-	<span class="kw">let </span><span class="kw-2">mut </span>selected_candidates: Vec&lt;(CandidateHash, Hash)&gt; =
-		Vec::with_capacity(availability_cores.len());
+	<span class="kw">let </span><span class="kw-2">mut </span>selected_candidates: HashMap&lt;ParaId, Vec&lt;(CandidateHash, Hash)&gt;&gt; =
+		HashMap::with_capacity(scheduled_cores_per_para.len());
 
-	<span class="kw">for </span>(para_id, core_count) <span class="kw">in </span>scheduled_cores {
+	<span class="kw">for </span>(para_id, core_count) <span class="kw">in </span>scheduled_cores_per_para {
 		<span class="kw">let </span>para_ancestors = ancestors.remove(<span class="kw-2">&amp;</span>para_id).unwrap_or_default();
 
 		<span class="comment">// If elastic scaling MVP is disabled, only allow one candidate per parachain.
@@ -1859,7 +1864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">continue
 		</span>}
 
-		selected_candidates.extend(response.into_iter().take(core_count));
+		selected_candidates.insert(para_id, response);
 	}
 
 	<span class="prelude-val">Ok</span>(selected_candidates)
@@ -1908,33 +1913,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		selected_candidates.clone(),
 		tx,
 	));
-	<span class="kw">let </span><span class="kw-2">mut </span>candidates = rx.<span class="kw">await</span>.map_err(|err| Error::CanceledBackedCandidates(err))<span class="question-mark">?</span>;
+	<span class="kw">let </span>candidates = rx.<span class="kw">await</span>.map_err(|err| Error::CanceledBackedCandidates(err))<span class="question-mark">?</span>;
 	<span class="macro">gum::trace!</span>(target: LOG_TARGET, leaf_hash=<span class="question-mark">?</span>relay_parent,
 				<span class="string">&quot;Got {} backed candidates&quot;</span>, candidates.len());
 
 	<span class="comment">// keep only one candidate with validation code.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>with_validation_code = <span class="bool-val">false</span>;
-	candidates.retain(|c| {
-		<span class="kw">if </span>c.candidate().commitments.new_validation_code.is_some() {
-			<span class="kw">if </span>with_validation_code {
-				<span class="kw">return </span><span class="bool-val">false
-			</span>}
+	<span class="comment">// merge the candidates into a common collection, preserving the order
+	</span><span class="kw">let </span><span class="kw-2">mut </span>merged_candidates = Vec::with_capacity(availability_cores.len());
 
-			with_validation_code = <span class="bool-val">true</span>;
+	<span class="kw">for </span>para_candidates <span class="kw">in </span>candidates.into_values() {
+		<span class="kw">for </span>candidate <span class="kw">in </span>para_candidates {
+			<span class="kw">if </span>candidate.candidate().commitments.new_validation_code.is_some() {
+				<span class="kw">if </span>with_validation_code {
+					<span class="kw">break
+				</span>} <span class="kw">else </span>{
+					with_validation_code = <span class="bool-val">true</span>;
+				}
+			}
+
+			merged_candidates.push(candidate);
 		}
-
-		<span class="bool-val">true
-	</span>});
+	}
 
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
-		n_candidates = candidates.len(),
+		n_candidates = merged_candidates.len(),
 		n_cores = availability_cores.len(),
 		<span class="question-mark">?</span>relay_parent,
 		<span class="string">&quot;Selected backed candidates&quot;</span>,
 	);
 
-	<span class="prelude-val">Ok</span>(candidates)
+	<span class="prelude-val">Ok</span>(merged_candidates)
 }
 
 <span class="doccomment">/// Produces a block number 1 higher than that of the relay parent

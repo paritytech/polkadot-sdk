@@ -1360,6 +1360,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1213" id="1213">1213</a>
 <a href="#1214" id="1214">1214</a>
 <a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1444,8 +1451,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>CandidateBackingMessage {
 	<span class="doccomment">/// Requests a set of backable candidates attested by the subsystem.
 	///
-	/// Each pair is (candidate_hash, candidate_relay_parent).
-	</span>GetBackedCandidates(Vec&lt;(CandidateHash, Hash)&gt;, oneshot::Sender&lt;Vec&lt;BackedCandidate&gt;&gt;),
+	/// The order of candidates of the same para must be preserved in the response.
+	/// If a backed candidate of a para cannot be retrieved, the response should not contain any
+	/// candidates of the same para that follow it in the input vector. In other words, assuming
+	/// candidates are supplied in dependency order, we must ensure that this dependency order is
+	/// preserved.
+	</span>GetBackedCandidates(
+		HashMap&lt;ParaId, Vec&lt;(CandidateHash, Hash)&gt;&gt;,
+		oneshot::Sender&lt;HashMap&lt;ParaId, Vec&lt;BackedCandidate&gt;&gt;&gt;,
+	),
 	<span class="doccomment">/// Request the subsystem to check whether it&#39;s allowed to second given candidate.
 	/// The rule is to only fetch collations that are either built on top of the root
 	/// of some fragment tree or have a parent node which represents backed candidate.

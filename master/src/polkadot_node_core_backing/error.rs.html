@@ -272,6 +272,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -288,7 +290,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>fatality::Nested;
+</span><span class="kw">use </span>std::collections::HashMap;
+
+<span class="kw">use </span>fatality::Nested;
 <span class="kw">use </span>futures::channel::{mpsc, oneshot};
 
 <span class="kw">use </span>polkadot_node_subsystem::{
@@ -298,7 +302,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem_util::{runtime, Error <span class="kw">as </span>UtilError};
 <span class="kw">use </span>polkadot_primitives::{BackedCandidate, ValidationCodeHash};
 
-<span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
+<span class="kw">use crate</span>::{ParaId, LOG_TARGET};
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
 <span class="kw">pub type </span>FatalResult&lt;T&gt; = std::result::Result&lt;T, FatalError&gt;;
@@ -329,7 +333,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>InvalidSignature,
 
 	<span class="attr">#[error(<span class="string">&quot;Failed to send candidates {0:?}&quot;</span>)]
-	</span>Send(Vec&lt;BackedCandidate&gt;),
+	</span>Send(HashMap&lt;ParaId, Vec&lt;BackedCandidate&gt;&gt;),
 
 	<span class="attr">#[error(<span class="string">&quot;FetchPoV failed&quot;</span>)]
 	</span>FetchPoV,

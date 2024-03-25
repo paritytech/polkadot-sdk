@@ -8880,9 +8880,15 @@ enum BitfieldSigningMessage { }
 </span><span class="boring">fn main() {
 </span>enum CandidateBackingMessage {
   /// Requests a set of backable candidates attested by the subsystem.
-  ///
-  /// Each pair is (candidate_hash, candidate_relay_parent).
-  GetBackedCandidates(Vec&lt;(CandidateHash, Hash)&gt;, oneshot::Sender&lt;Vec&lt;BackedCandidate&gt;&gt;),
+  /// The order of candidates of the same para must be preserved in the response.
+  /// If a backed candidate of a para cannot be retrieved, the response should not contain any
+  /// candidates of the same para that follow it in the input vector. In other words, assuming
+  /// candidates are supplied in dependency order, we must ensure that this dependency order is
+  /// preserved.
+  GetBackedCandidates(
+    HashMap&lt;ParaId, Vec&lt;(CandidateHash, Hash)&gt;&gt;,
+    oneshot::Sender&lt;HashMap&lt;ParaId, Vec&lt;BackedCandidate&gt;&gt;&gt;,
+  ),
   /// Note that the Candidate Backing subsystem should second the given candidate in the context of the
   /// given relay-parent (ref. by hash). This candidate must be validated using the provided PoV.
   /// The PoV is expected to match the `pov_hash` in the descriptor.
@@ -9477,7 +9483,7 @@ pub enum CandidateValidationMessage {
 pub enum PvfCheckerMessage { }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-10-23, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/5ca909cc09">5ca909cc09</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
+<footer id="last-change">Last change: 2024-03-25, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/c6f7ccf51a">c6f7ccf51a</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
 <p>Types used within the runtime exclusively and pervasively.</p>
 <h2 id="host-configuration"><a class="header" href="#host-configuration">Host Configuration</a></h2>
 <p>The internal-to-runtime configuration of the parachain host is kept in <code>struct HostConfiguration</code>. This is expected to
