@@ -18,6 +18,7 @@
 //! Runtime API definition for the FRAME Broker pallet.
 
 use codec::Codec;
+use sp_runtime::DispatchError;
 
 sp_api::decl_runtime_apis! {
 	pub trait BrokerApi<Balance>
@@ -25,6 +26,6 @@ sp_api::decl_runtime_apis! {
 		Balance: Codec
 	{
 		/// If there is an ongoing sale returns the current price of a core.
-		fn sale_price() -> Option<Balance>;
+		fn sale_price() -> Result<Balance, DispatchError>;
 	}
 }

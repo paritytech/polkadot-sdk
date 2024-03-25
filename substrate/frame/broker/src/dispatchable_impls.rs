@@ -440,7 +440,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn ensure_core_availability(
 		status: &StatusRecord,
 		sale: &SaleInfoRecordOf<T>,
-	) -> Result<(), Error<T>> {
+	) -> Result<(), DispatchError> {
 		ensure!(sale.first_core < status.core_count, Error::<T>::Unavailable);
 		ensure!(sale.cores_sold < sale.cores_offered, Error::<T>::SoldOut);
 
@@ -448,7 +448,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// If there is an ongoing sale returns the current price of a core.
-	pub fn api_sale_price() -> Result<BalanceOf<T>, Error<T>> {
+	pub fn api_sale_price() -> Result<BalanceOf<T>, DispatchError> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 

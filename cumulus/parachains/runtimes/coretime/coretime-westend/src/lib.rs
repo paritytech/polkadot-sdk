@@ -64,7 +64,7 @@ use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiAddress, Perbill,
+	ApplyExtrinsicResult, DispatchError, MultiAddress, Perbill,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -587,7 +587,7 @@ impl_runtime_apis! {
 	}
 
 	impl pallet_broker::runtime_api::BrokerApi<Block, Balance> for Runtime {
-		fn sale_price() -> Option<Balance> {
+		fn sale_price() -> Result<Balance, DispatchError> {
 			Broker::api_sale_price()
 		}
 	}
