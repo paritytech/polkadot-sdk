@@ -846,7 +846,7 @@ pub(crate) mod tests {
 		dispatch::DispatchResultWithPostInfo,
 		pallet_prelude::Pays,
 		storage::generator::{StorageDoubleMap, StorageMap},
-		traits::{Get, OnInitialize},
+		traits::Get,
 		weights::Weight,
 	};
 	use frame_system::{EventRecord, Pallet as System, Phase};
@@ -880,10 +880,6 @@ pub(crate) mod tests {
 		num: RelayBlockNumber,
 		state_root: RelayBlockHash,
 	) -> (ParaHash, GrandpaJustification<RelayBlockHeader>) {
-		pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::on_initialize(
-			0,
-		);
-
 		let header = test_relay_header(num, state_root);
 		let hash = header.hash();
 		let justification = make_default_justification(&header);
@@ -1829,5 +1825,77 @@ pub(crate) mod tests {
 			);
 			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
 		})
+	}
+
+	#[test]
+	fn grandpa_and_parachain_pallets_share_free_headers_counter() {
+		run_test(|| {
+			initialize(Default::default());
+			// set free headers limit to `4`
+			let mut free_headers_remaining = 4;
+			pallet_bridge_grandpa::FreeHeadersRemaining::<TestRuntime, BridgesGrandpaPalletInstance>::set(
+				Some(free_headers_remaining),
+			);
+			// import free GRANDPA and parachain headers
+			let mut relay_block_number = 0;
+			for i in 0..2 {
+				// import free GRANDPA header
+				let (state_root, proof, parachains) = prepare_parachain_heads_proof::<
+					RegularParachainHeader,
+				>(vec![(2, head_data(2, 5 + i))]);
+				relay_block_number = relay_block_number + FreeHeadersInterval::get();
+				proceed(relay_block_number, state_root);
+				assert_eq!(
+					pallet_bridge_grandpa::FreeHeadersRemaining::<
+						TestRuntime,
+						BridgesGrandpaPalletInstance,
+					>::get(),
+					Some(free_headers_remaining - 1),
+				);
+				free_headers_remaining = free_headers_remaining - 1;
+				// import free parachain header
+				assert_ok!(Pallet::<TestRuntime>::submit_parachain_heads(
+					RuntimeOrigin::signed(1),
+					(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
+					parachains,
+					proof,
+				),);
+				assert_eq!(
+					pallet_bridge_grandpa::FreeHeadersRemaining::<
+						TestRuntime,
+						BridgesGrandpaPalletInstance,
+					>::get(),
+					Some(free_headers_remaining - 1),
+				);
+				free_headers_remaining = free_headers_remaining - 1;
+			}
+			// try to import free GRANDPA header => non-free execution
+			let (state_root, proof, parachains) =
+				prepare_parachain_heads_proof::<RegularParachainHeader>(vec![(2, head_data(2, 7))]);
+			relay_block_number = relay_block_number + FreeHeadersInterval::get();
+			let result = pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::submit_finality_proof_ex(
+				RuntimeOrigin::signed(1),
+				Box::new(test_relay_header(relay_block_number, state_root)),
+				make_default_justification(&test_relay_header(relay_block_number, state_root)),
+				TEST_GRANDPA_SET_ID,
+				false,
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+			// try to import free parachain header => non-free execution
+			let result = Pallet::<TestRuntime>::submit_parachain_heads(
+				RuntimeOrigin::signed(1),
+				(relay_block_number, test_relay_header(relay_block_number, state_root).hash()),
+				parachains,
+				proof,
+			);
+			assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+			assert_eq!(
+				pallet_bridge_grandpa::FreeHeadersRemaining::<
+					TestRuntime,
+					BridgesGrandpaPalletInstance,
+				>::get(),
+				Some(0),
+			);
+		});
 	}
 }
