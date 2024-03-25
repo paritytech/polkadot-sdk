@@ -836,22 +836,16 @@ async fn select_candidates(
 	let mut merged_candidates = Vec::with_capacity(availability_cores.len());
 
 	for para_candidates in candidates.into_values() {
-		let mut stop_at_index = None;
-		for (index, candidate) in para_candidates.iter().enumerate() {
+		for candidate in para_candidates {
 			if candidate.candidate().commitments.new_validation_code.is_some() {
 				if with_validation_code {
-					stop_at_index = Some(index);
 					break
 				} else {
 					with_validation_code = true;
 				}
 			}
-		}
 
-		if let Some(stop_at_index) = stop_at_index {
-			merged_candidates.extend(para_candidates.into_iter().take(stop_at_index));
-		} else {
-			merged_candidates.extend(para_candidates.into_iter());
+			merged_candidates.push(candidate);
 		}
 	}
 
