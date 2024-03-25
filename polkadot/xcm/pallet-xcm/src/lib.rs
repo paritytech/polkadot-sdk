@@ -1079,7 +1079,9 @@ pub mod pallet {
 		/// WARNING: DEPRECATED. `execute` will be removed after June 2024. Use `execute_blob`
 		/// instead.
 		#[allow(deprecated)]
-		#[deprecated(note = "`execute` will be removed after June 2024. Use `execute_blob` instead.")]
+		#[deprecated(
+			note = "`execute` will be removed after June 2024. Use `execute_blob` instead."
+		)]
 		#[pallet::call_index(3)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		pub fn execute(

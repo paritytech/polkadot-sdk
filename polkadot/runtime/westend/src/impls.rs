@@ -167,10 +167,11 @@ where
 			},
 		]);
 
-		let encoded_versioned_xcm = VersionedXcm::V4(program).encode().try_into().map_err(|error| {
-			log::error!(target: "runtime::on_reap_identity", "XCM too large, error: {:?}", error);
-			pallet_xcm::Error::<Runtime>::XcmTooLarge
-		})?;
+		let encoded_versioned_xcm =
+			VersionedXcm::V4(program).encode().try_into().map_err(|error| {
+				log::error!(target: "runtime::on_reap_identity", "XCM too large, error: {:?}", error);
+				pallet_xcm::Error::<Runtime>::XcmTooLarge
+			})?;
 		// send
 		let _ = <pallet_xcm::Pallet<Runtime>>::send_blob(
 			RawOrigin::Root.into(),
