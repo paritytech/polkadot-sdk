@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 async-std = "1.6.5"
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 backoff = "0.4"
 bp-header-chain = { path = "../../primitives/header-chain" }
 futures = "0.3.30"
