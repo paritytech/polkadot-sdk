@@ -25,6 +25,7 @@ use frame_support::{
 };
 use pallet_bridge_grandpa::SubmitFinalityProofHelper;
 use sp_runtime::{
+	traits::Zero,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	RuntimeDebug,
 };
