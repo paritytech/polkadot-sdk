@@ -281,8 +281,8 @@ where
 	}
 
 	/// Set recorder. Returns old recorder if any.
-	#[cfg(feature = "std")]
 	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {
+		#[cfg(feature = "std")]
 		if recorder.is_some() {
 			// TODO try without reset.
 			self.reset_cache();
