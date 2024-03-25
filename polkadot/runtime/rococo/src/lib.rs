@@ -1804,7 +1804,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block, RuntimeCall> for Runtime {
+	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
 			if !matches!(xcm_version, 3 | 4) {
 				return Err(XcmPaymentApiError::UnhandledXcmVersion);
@@ -1826,7 +1826,7 @@ sp_api::impl_runtime_apis! {
 			Ok(WeightToFee::weight_to_fee(&weight))
 		}
 
-		fn query_xcm_weight(message: VersionedXcm<RuntimeCall>) -> Result<Weight, XcmPaymentApiError> {
+		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
 			let mut message = message
 				.try_into()
 				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;

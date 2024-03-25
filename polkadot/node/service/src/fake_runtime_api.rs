@@ -30,7 +30,6 @@ use polkadot_primitives::{
 	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
 	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
-use rococo_runtime::RuntimeCall;
 
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -399,7 +398,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block, RuntimeCall> for Runtime {
+	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(_: xcm::Version) -> Result<Vec<VersionedAssetId>, xcm_fee_payment_runtime_api::Error> {
 			unimplemented!()
 		}
@@ -408,7 +407,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn query_xcm_weight(_: VersionedXcm<RuntimeCall>) -> Result<Weight, xcm_fee_payment_runtime_api::Error> {
+		fn query_xcm_weight(_: VersionedXcm<()>) -> Result<Weight, xcm_fee_payment_runtime_api::Error> {
 			unimplemented!()
 		}
 

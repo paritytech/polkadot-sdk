@@ -18,7 +18,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Codec, Decode, Encode};
+use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
 use sp_std::vec::Vec;
 use sp_weights::Weight;
@@ -36,10 +36,7 @@ sp_api::decl_runtime_apis! {
 	///
 	/// To determine the execution weight of the calls required for
 	/// [`xcm::latest::Instruction::Transact`] instruction, `TransactionPaymentCallApi` can be used.
-	pub trait XcmPaymentApi<Call>
-	where
-		Call: Codec,
-	{
+	pub trait XcmPaymentApi {
 		/// Returns a list of acceptable payment assets.
 		///
 		/// # Arguments
@@ -52,7 +49,7 @@ sp_api::decl_runtime_apis! {
 		/// # Arguments
 		///
 		/// * `message`: `VersionedXcm`.
-		fn query_xcm_weight(message: VersionedXcm<Call>) -> Result<Weight, Error>;
+		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, Error>;
 
 		/// Converts a weight into a fee for the specified `AssetId`.
 		///
