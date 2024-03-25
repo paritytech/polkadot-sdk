@@ -44,6 +44,8 @@ pub struct SubmitFinalityProofInfo<N> {
 	/// An identifier of the validators set that has signed the submitted justification.
 	/// It might be `None` if deprecated version of the `submit_finality_proof` is used.
 	pub current_set_id: Option<SetId>,
+	/// If `true`, then the call proves new **mandatory** header.
+	pub is_mandatory: bool,
 	/// If `true`, then the call must be free (assuming that everything else is valid) to
 	/// be treated as valid.
 	pub is_free_execution_expected: bool,
@@ -132,18 +134,21 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		}
 
 		// ensure that the `improved_by` is larger than the configured free interval
-		if let Some(free_headers_interval) = T::FreeHeadersInterval::get() {
-			if improved_by < free_headers_interval.into() {
-				log::trace!(
-					target: crate::LOG_TARGET,
-					"Cannot accept free {:?} header {:?}. Too small difference between submitted headers: {:?} vs {}",
-					T::BridgedChain::ID,
-					call_info.block_number,
-					improved_by,
-					free_headers_interval,
-				);
+		if !call_info.is_mandatory {
+			if let Some(free_headers_interval) = T::FreeHeadersInterval::get() {
+				if improved_by < free_headers_interval.into() {
+					log::trace!(
+						target: crate::LOG_TARGET,
+						"Cannot accept free {:?} header {:?}. Too small difference \
+						between submitted headers: {:?} vs {}",
+						T::BridgedChain::ID,
+						call_info.block_number,
+						improved_by,
+						free_headers_interval,
+					);
 
-				return Err(Error::<T, I>::BelowFreeHeaderInterval);
+					return Err(Error::<T, I>::BelowFreeHeaderInterval);
+				}
 			}
 		}
 
@@ -340,6 +345,7 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 	SubmitFinalityProofInfo {
 		block_number,
 		current_set_id,
+		is_mandatory: is_mandatory_finality_target,
 		is_free_execution_expected,
 		extra_weight,
 		extra_size,
@@ -363,6 +369,7 @@ mod tests {
 		make_default_justification, make_justification_for_header, JustificationGeneratorParams,
 		TEST_GRANDPA_SET_ID,
 	};
+	use codec::Encode;
 	use frame_support::weights::Weight;
 	use sp_runtime::{testing::DigestItem, traits::Header as _, SaturatedConversion};
 
@@ -506,6 +513,40 @@ mod tests {
 				bridge_grandpa_call.clone(),
 			),)
 			.is_ok());
+
+			// when `improved_by` is less than the free interval BUT it is a mandatory header
+			let mut mandatory_header = test_header(100);
+			let consensus_log = sp_consensus_grandpa::ConsensusLog::<TestNumber>::ScheduledChange(
+				sp_consensus_grandpa::ScheduledChange {
+					next_authorities: bp_test_utils::authority_list(),
+					delay: 0,
+				},
+			);
+			mandatory_header.digest = sp_runtime::Digest {
+				logs: vec![DigestItem::Consensus(
+					sp_consensus_grandpa::GRANDPA_ENGINE_ID,
+					consensus_log.encode(),
+				)],
+			};
+			let justification = make_justification_for_header(JustificationGeneratorParams {
+				header: mandatory_header.clone(),
+				set_id: 1,
+				..Default::default()
+			});
+			let bridge_grandpa_call = crate::Call::<TestRuntime, ()>::submit_finality_proof_ex {
+				finality_target: Box::new(mandatory_header),
+				justification,
+				current_set_id: 0,
+				is_free_execution_expected: true,
+			};
+			BestFinalized::<TestRuntime, ()>::put(HeaderId(
+				100 - FreeHeadersInterval::get() as u64 + 1,
+				sp_core::H256::default(),
+			));
+			assert!(RuntimeCall::check_obsolete_submit_finality_proof(&RuntimeCall::Grandpa(
+				bridge_grandpa_call.clone(),
+			),)
+			.is_ok());
 		})
 	}
 
@@ -534,6 +575,7 @@ mod tests {
 				current_set_id: None,
 				extra_weight: Weight::zero(),
 				extra_size: 0,
+				is_mandatory: false,
 				is_free_execution_expected: false,
 			})
 		);
@@ -553,6 +595,7 @@ mod tests {
 				current_set_id: Some(777),
 				extra_weight: Weight::zero(),
 				extra_size: 0,
+				is_mandatory: false,
 				is_free_execution_expected: false,
 			})
 		);
