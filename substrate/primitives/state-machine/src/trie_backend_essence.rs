@@ -209,6 +209,7 @@ pub struct TrieBackendEssence<H: Hasher, C, R> {
 	pub(crate) trie_node_cache: Option<C>,
 	#[cfg(feature = "std")]
 	pub(crate) recorder: RwLock<Option<R>>,
+	#[allow(dead_code)]
 	#[cfg(not(feature = "std"))]
 	pub(crate) recorder: Option<R>,
 }
