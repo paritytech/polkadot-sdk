@@ -4,7 +4,7 @@ use super::*;
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, Everything},
+	traits::{ConstU128, ConstU32, Everything},
 	weights::IdentityFee,
 };
 use hex_literal::hex;
