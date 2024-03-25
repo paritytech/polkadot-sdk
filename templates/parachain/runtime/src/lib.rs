@@ -527,21 +527,6 @@ construct_runtime!(
 	}
 );
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benches {
-	frame_benchmarking::define_benchmarks!(
-		[frame_system, SystemBench::<Runtime>]
-		[pallet_balances, Balances]
-		[pallet_session, SessionBench::<Runtime>]
-		[pallet_timestamp, Timestamp]
-		[pallet_message_queue, MessageQueue]
-		[pallet_sudo, Sudo]
-		[pallet_collator_selection, CollatorSelection]
-		[cumulus_pallet_parachain_system, ParachainSystem]
-		[cumulus_pallet_xcmp_queue, XcmpQueue]
-	);
-}
-
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
@@ -770,3 +755,6 @@ cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
 	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks;
