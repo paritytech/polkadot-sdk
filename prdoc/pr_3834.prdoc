@@ -7,9 +7,9 @@ doc:
   - audience: Runtime Dev
     description: |
       Currently, it is possible to accidentally use inner unversioned migration instead of `VersionedMigration` 
-      since both implement `OnRuntimeUpgrade`. With this change, we prevent this by bounding `Inner` 
-      to new trait `UncheckedOnRuntimeUpgrade`, which has the same interface as `OnRuntimeUpgrade`. It also 
-      improves code readability by making it clear that `Inner` is not intended to be used directly.
+      since both implement `OnRuntimeUpgrade`. With this change, we make it clear that `Inner` is not intended 
+      to be used directly. It is achieved by bounding `Inner` to new trait `UncheckedOnRuntimeUpgrade`, which 
+      has the same interface as `OnRuntimeUpgrade`, but can not be used directly for runtime upgrade migrations.
 
 crates:
   - name: "pallet-example-single-block-migrations"
