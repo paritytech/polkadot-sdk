@@ -447,7 +447,6 @@ impl<T: Config> Pallet<T> {
 			return None;
 		}
 		let now = frame_system::Pallet::<T>::block_number();
-		let price = Self::sale_price(&sale, now);
-		Some(price)
+		Some(Self::sale_price(&sale, now))
 	}
 }
