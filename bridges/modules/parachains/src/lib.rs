@@ -541,9 +541,6 @@ pub mod pallet {
 							parachain_head_hash,
 						)?;
 
-						// TODO: do we want to refund submissions of large heads as we do for
-						// GRANDPA?
-
 						is_updated_something = true;
 						if is_free {
 							free_parachain_heads = free_parachain_heads + 1;
