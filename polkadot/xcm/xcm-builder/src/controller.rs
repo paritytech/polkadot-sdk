@@ -66,7 +66,7 @@ pub trait ExecuteController<Origin, RuntimeCall> {
 	/// # Parameters
 	///
 	/// - `origin`: the origin of the call.
-	/// - `message`: the XCM program to be executed, encoded.
+	/// - `msg`: the encoded XCM to be executed, should be decodable as a [`VersionedXcm`]
 	/// - `max_weight`: the maximum weight that can be consumed by the execution.
 	fn execute_blob(
 		origin: Origin,
