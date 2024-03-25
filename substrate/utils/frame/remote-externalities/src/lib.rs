@@ -409,31 +409,16 @@ where
 		prefix: &'a StorageKey,
 		block: B::Hash,
 	) -> impl Stream<Item = Vec<KeyValue>> + 'a {
-		/// Divide the workload and return the start key of each chunks. Guaranteed to return a
-		/// non-empty list.
 		fn gen_start_keys(prefix: &StorageKey) -> Vec<StorageKey> {
 			let mut prefix = prefix.as_ref().to_vec();
 			let scale = 32usize.saturating_sub(prefix.len());
 
-			// no need to divide workload
-			if scale < 9 {
-				prefix.extend(vec![0; scale]);
+			if prefix.len() == 32 {
 				return vec![StorageKey(prefix)];
 			}
 
-			let chunks = 16;
-			let step = 0x10000 / chunks;
-			let ext = scale - 2;
-
-			(0..chunks)
-				.map(|i| {
-					let mut key = prefix.clone();
-					let start = i * step;
-					key.extend(vec![(start >> 8) as u8, (start & 0xff) as u8]);
-					key.extend(vec![0; ext]);
-					StorageKey(key)
-				})
-				.collect()
+			prefix.extend(vec![0; scale]);
+			vec![StorageKey(prefix)]
 		}
 
 		async_stream::stream! {
