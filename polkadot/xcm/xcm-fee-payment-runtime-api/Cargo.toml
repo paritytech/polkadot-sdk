@@ -31,11 +31,11 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 default = ["std"]
 std = [
 	"codec/std",
+	"frame-support/std",
 	"scale-info/std",
 	"sp-api/std",
-	"sp-std/std",
 	"sp-runtime/std",
+	"sp-std/std",
 	"sp-weights/std",
 	"xcm/std",
-	"frame-support/std",
 ]

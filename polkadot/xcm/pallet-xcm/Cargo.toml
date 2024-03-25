@@ -55,8 +55,8 @@ std = [
 	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"xcm/std",
 	"xcm-fee-payment-runtime-api/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
