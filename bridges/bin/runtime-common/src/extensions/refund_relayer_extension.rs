@@ -1295,6 +1295,7 @@ pub(crate) mod tests {
 					current_set_id: None,
 					extra_weight: Weight::zero(),
 					extra_size: 0,
+					is_mandatory: false,
 					is_free_execution_expected: false,
 				},
 				SubmitParachainHeadsInfo {
@@ -1334,6 +1335,7 @@ pub(crate) mod tests {
 					current_set_id: None,
 					extra_weight: Weight::zero(),
 					extra_size: 0,
+					is_mandatory: false,
 					is_free_execution_expected: false,
 				},
 				SubmitParachainHeadsInfo {
@@ -1369,6 +1371,7 @@ pub(crate) mod tests {
 					current_set_id: None,
 					extra_weight: Weight::zero(),
 					extra_size: 0,
+					is_mandatory: false,
 					is_free_execution_expected: false,
 				},
 				MessagesCallInfo::ReceiveMessagesProof(ReceiveMessagesProofInfo {
@@ -1402,6 +1405,7 @@ pub(crate) mod tests {
 					current_set_id: None,
 					extra_weight: Weight::zero(),
 					extra_size: 0,
+					is_mandatory: false,
 					is_free_execution_expected: false,
 				},
 				MessagesCallInfo::ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo(
