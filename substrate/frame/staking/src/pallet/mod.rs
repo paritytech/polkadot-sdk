@@ -387,6 +387,14 @@ pub mod pallet {
 	pub type Nominators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
 
+	/// Super nominators stored as keys.
+	///
+	/// Super nominators are privileged nominators whose funds are managed/locked externally by
+	/// another pallet (such as pallet-nomination-pools). These are expected to be keyless accounts
+	/// and can never directly call any staking pallet dispatchable.
+	#[pallet::storage]
+	pub type SuperNominators<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, ()>;
+
 	/// The maximum nominator count before we stop allowing new validators to join.
 	///
 	/// When this value is not set, no limits are enforced.
