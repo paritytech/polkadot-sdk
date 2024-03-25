@@ -354,10 +354,7 @@ fn send_fails_when_xcm_router_blocks() {
 			XcmPallet::send_blob(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(Location::ancestor(8).into()),
-				VersionedXcm::from(message.clone())
-					.encode()
-					.try_into()
-					.expect("MaxXcmEncodedSize should be big enough."),
+				VersionedXcm::from(message.clone()).encode().try_into().unwrap(),
 			),
 			crate::Error::<Test>::SendFailure
 		);
