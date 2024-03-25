@@ -1065,39 +1065,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#918" id="918">918</a>
 <a href="#919" id="919">919</a>
 <a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
-<a href="#949" id="949">949</a>
-<a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1122,7 +1089,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::crypto::Ss58Codec;
-<span class="kw">use </span><span class="kw">crate</span>::crypto::{DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair, SecretStringError};
+<span class="kw">use </span><span class="kw">crate</span>::crypto::{
+	CryptoBytes, DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair, SecretStringError,
+};
 <span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">use </span>schnorrkel::signing_context;
 <span class="kw">use </span>schnorrkel::{
@@ -1131,9 +1100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_std::vec::Vec;
 
-<span class="kw">use </span><span class="kw">crate</span>::crypto::{
-	CryptoType, CryptoTypeId, Derive, Public <span class="kw">as </span>TraitPublic, PublicBytes, SignatureBytes,
-};
+<span class="kw">use </span><span class="kw">crate</span>::crypto::{CryptoType, CryptoTypeId, Derive, Public <span class="kw">as </span>TraitPublic, SignatureBytes};
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
@@ -1159,20 +1126,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub struct </span>Sr25519Tag;
+<span class="attr">#[doc(hidden)]
+</span><span class="kw">pub struct </span>Sr25519PublicTag;
 
 <span class="doccomment">/// An Schnorrkel/Ristretto x25519 (&quot;sr25519&quot;) public key.
-</span><span class="kw">pub type </span>Public = PublicBytes&lt;PUBLIC_KEY_SERIALIZED_SIZE, Sr25519Tag&gt;;
+</span><span class="kw">pub type </span>Public = CryptoBytes&lt;PUBLIC_KEY_SERIALIZED_SIZE, Sr25519PublicTag&gt;;
 
-<span class="doccomment">/// An Schnorrkel/Ristretto x25519 (&quot;sr25519&quot;) key pair.
-</span><span class="kw">pub struct </span>Pair(Keypair);
+<span class="kw">impl </span>TraitPublic <span class="kw">for </span>Public {}
 
-<span class="kw">impl </span>Clone <span class="kw">for </span>Pair {
-	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-		Pair(schnorrkel::Keypair {
-			public: <span class="self">self</span>.<span class="number">0</span>.public,
-			secret: schnorrkel::SecretKey::from_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.secret.to_bytes()[..])
-				.expect(<span class="string">&quot;key is always the correct size; qed&quot;</span>),
-		})
+<span class="kw">impl </span>Derive <span class="kw">for </span>Public {
+	<span class="doccomment">/// Derive a child key from a series of given junctions.
+	///
+	/// `None` if there are any hard junctions in there.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+	</span><span class="kw">fn </span>derive&lt;Iter: Iterator&lt;Item = DeriveJunction&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, path: Iter) -&gt; <span class="prelude-ty">Option</span>&lt;Public&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>acc = PublicKey::from_bytes(<span class="self">self</span>.as_ref()).ok()<span class="question-mark">?</span>;
+		<span class="kw">for </span>j <span class="kw">in </span>path {
+			<span class="kw">match </span>j {
+				DeriveJunction::Soft(cc) =&gt; acc = acc.derived_key_simple(ChainCode(cc), <span class="kw-2">&amp;</span>[]).<span class="number">0</span>,
+				DeriveJunction::Hard(_cc) =&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+			}
+		}
+		<span class="prelude-val">Some</span>(<span class="self">Self</span>::from(acc.to_bytes()))
 	}
 }
 
@@ -1229,29 +1204,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// An Schnorrkel/Ristretto x25519 (&quot;sr25519&quot;) signature.
 </span><span class="kw">pub type </span>Signature = SignatureBytes&lt;SIGNATURE_SERIALIZED_SIZE, Sr25519Tag&gt;;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl </span>Serialize <span class="kw">for </span>Signature {
-	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
-	<span class="kw">where
-		</span>S: Serializer,
-	{
-		serializer.serialize_str(<span class="kw-2">&amp;</span>array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="self">self</span>))
-	}
-}
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Signature {
-	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
-	<span class="kw">where
-		</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
-	{
-		<span class="kw">let </span>signature_hex = array_bytes::hex2bytes(<span class="kw-2">&amp;</span>String::deserialize(deserializer)<span class="question-mark">?</span>)
-			.map_err(|e| de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))<span class="question-mark">?</span>;
-		Signature::try_from(signature_hex.as_ref())
-			.map_err(|e| de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))
-	}
-}
-
 <span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">impl </span>From&lt;schnorrkel::Signature&gt; <span class="kw">for </span>Signature {
 	<span class="kw">fn </span>from(s: schnorrkel::Signature) -&gt; Signature {
@@ -1259,36 +1211,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>Signature {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="kw">crate</span>::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>))
-	}
+<span class="doccomment">/// An Schnorrkel/Ristretto x25519 (&quot;sr25519&quot;) key pair.
+</span><span class="kw">pub struct </span>Pair(Keypair);
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
-		<span class="prelude-val">Ok</span>(())
-	}
-}
-
-<span class="kw">impl </span>Derive <span class="kw">for </span>Public {
-	<span class="doccomment">/// Derive a child key from a series of given junctions.
-	///
-	/// `None` if there are any hard junctions in there.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-	</span><span class="kw">fn </span>derive&lt;Iter: Iterator&lt;Item = DeriveJunction&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, path: Iter) -&gt; <span class="prelude-ty">Option</span>&lt;Public&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>acc = PublicKey::from_bytes(<span class="self">self</span>.as_ref()).ok()<span class="question-mark">?</span>;
-		<span class="kw">for </span>j <span class="kw">in </span>path {
-			<span class="kw">match </span>j {
-				DeriveJunction::Soft(cc) =&gt; acc = acc.derived_key_simple(ChainCode(cc), <span class="kw-2">&amp;</span>[]).<span class="number">0</span>,
-				DeriveJunction::Hard(_cc) =&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
-			}
-		}
-		<span class="prelude-val">Some</span>(<span class="self">Self</span>::from(acc.to_bytes()))
+<span class="kw">impl </span>Clone <span class="kw">for </span>Pair {
+	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+		Pair(schnorrkel::Keypair {
+			public: <span class="self">self</span>.<span class="number">0</span>.public,
+			secret: schnorrkel::SecretKey::from_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.secret.to_bytes()[..])
+				.expect(<span class="string">&quot;key is always the correct size; qed&quot;</span>),
+		})
 	}
 }
-
-<span class="kw">impl </span>TraitPublic <span class="kw">for </span>Public {}
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">impl </span>From&lt;MiniSecretKey&gt; <span class="kw">for </span>Pair {

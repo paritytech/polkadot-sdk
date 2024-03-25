@@ -1603,59 +1603,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1456" id="1456">1456</a>
 <a href="#1457" id="1457">1457</a>
 <a href="#1458" id="1458">1458</a>
-<a href="#1459" id="1459">1459</a>
-<a href="#1460" id="1460">1460</a>
-<a href="#1461" id="1461">1461</a>
-<a href="#1462" id="1462">1462</a>
-<a href="#1463" id="1463">1463</a>
-<a href="#1464" id="1464">1464</a>
-<a href="#1465" id="1465">1465</a>
-<a href="#1466" id="1466">1466</a>
-<a href="#1467" id="1467">1467</a>
-<a href="#1468" id="1468">1468</a>
-<a href="#1469" id="1469">1469</a>
-<a href="#1470" id="1470">1470</a>
-<a href="#1471" id="1471">1471</a>
-<a href="#1472" id="1472">1472</a>
-<a href="#1473" id="1473">1473</a>
-<a href="#1474" id="1474">1474</a>
-<a href="#1475" id="1475">1475</a>
-<a href="#1476" id="1476">1476</a>
-<a href="#1477" id="1477">1477</a>
-<a href="#1478" id="1478">1478</a>
-<a href="#1479" id="1479">1479</a>
-<a href="#1480" id="1480">1480</a>
-<a href="#1481" id="1481">1481</a>
-<a href="#1482" id="1482">1482</a>
-<a href="#1483" id="1483">1483</a>
-<a href="#1484" id="1484">1484</a>
-<a href="#1485" id="1485">1485</a>
-<a href="#1486" id="1486">1486</a>
-<a href="#1487" id="1487">1487</a>
-<a href="#1488" id="1488">1488</a>
-<a href="#1489" id="1489">1489</a>
-<a href="#1490" id="1490">1490</a>
-<a href="#1491" id="1491">1491</a>
-<a href="#1492" id="1492">1492</a>
-<a href="#1493" id="1493">1493</a>
-<a href="#1494" id="1494">1494</a>
-<a href="#1495" id="1495">1495</a>
-<a href="#1496" id="1496">1496</a>
-<a href="#1497" id="1497">1497</a>
-<a href="#1498" id="1498">1498</a>
-<a href="#1499" id="1499">1499</a>
-<a href="#1500" id="1500">1500</a>
-<a href="#1501" id="1501">1501</a>
-<a href="#1502" id="1502">1502</a>
-<a href="#1503" id="1503">1503</a>
-<a href="#1504" id="1504">1504</a>
-<a href="#1505" id="1505">1505</a>
-<a href="#1506" id="1506">1506</a>
-<a href="#1507" id="1507">1507</a>
-<a href="#1508" id="1508">1508</a>
-<a href="#1509" id="1509">1509</a>
-<a href="#1510" id="1510">1510</a>
-<a href="#1511" id="1511">1511</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2143,8 +2090,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Trait suitable for typical cryptographic key public type.
-</span><span class="kw">pub trait </span>Public: CryptoType + ByteArray + Derive + PartialEq + Eq + Clone + Send + Sync {}
+<span class="doccomment">/// Trait suitable for cryptographic public keys.
+</span><span class="kw">pub trait </span>Public: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync + Derive {}
+
+<span class="doccomment">/// Trait suitable for cryptographic signatures.
+</span><span class="kw">pub trait </span>Signature: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync {}
 
 <span class="doccomment">/// An opaque 32-byte cryptographic identifier.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -2306,32 +2256,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>dummy {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
+	<span class="attr">#[doc(hidden)]
+	</span><span class="kw">pub struct </span>DummyTag;
+
 	<span class="doccomment">/// Dummy cryptography. Doesn&#39;t do anything.
-	</span><span class="attr">#[derive(Clone, Hash, Default, Eq, PartialEq)]
-	</span><span class="kw">pub struct </span>Dummy;
-
-	<span class="kw">impl </span>AsRef&lt;[u8]&gt; <span class="kw">for </span>Dummy {
-		<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-			<span class="kw-2">&amp;</span><span class="string">b&quot;&quot;</span>[..]
-		}
-	}
-
-	<span class="kw">impl </span>AsMut&lt;[u8]&gt; <span class="kw">for </span>Dummy {
-		<span class="kw">fn </span>as_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
-			<span class="kw">unsafe </span>{
-				<span class="attr">#[allow(mutable_transmutes)]
-				</span>sp_std::mem::transmute::&lt;<span class="kw">_</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="kw-2">mut </span>[u8]&gt;(<span class="kw-2">&amp;</span><span class="string">b&quot;&quot;</span>[..])
-			}
-		}
-	}
-
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt; <span class="kw">for </span>Dummy {
-		<span class="kw">type </span>Error = ();
-
-		<span class="kw">fn </span>try_from(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt; {
-			<span class="prelude-val">Ok</span>(<span class="self">Self</span>)
-		}
-	}
+	</span><span class="kw">pub type </span>Dummy = CryptoBytes&lt;<span class="number">0</span>, DummyTag&gt;;
 
 	<span class="kw">impl </span>CryptoType <span class="kw">for </span>Dummy {
 		<span class="kw">type </span>Pair = Dummy;
@@ -2339,20 +2268,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>Derive <span class="kw">for </span>Dummy {}
 
-	<span class="kw">impl </span>ByteArray <span class="kw">for </span>Dummy {
-		<span class="kw">const </span>LEN: usize = <span class="number">0</span>;
-		<span class="kw">fn </span>from_slice(<span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt; {
-			<span class="prelude-val">Ok</span>(<span class="self">Self</span>)
-		}
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-		</span><span class="kw">fn </span>to_raw_vec(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-			<span class="macro">vec!</span>[]
-		}
-		<span class="kw">fn </span>as_slice(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-			<span class="string">b&quot;&quot;
-		</span>}
-	}
 	<span class="kw">impl </span>Public <span class="kw">for </span>Dummy {}
+
+	<span class="kw">impl </span>Signature <span class="kw">for </span>Dummy {}
 
 	<span class="kw">impl </span>Pair <span class="kw">for </span>Dummy {
 		<span class="kw">type </span>Public = Dummy;
@@ -2374,27 +2292,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_</span>: Iter,
 			<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;Dummy&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="prelude-ty">Option</span>&lt;Dummy&gt;), DeriveError&gt; {
-			<span class="prelude-val">Ok</span>((<span class="self">Self</span>, <span class="prelude-val">None</span>))
+			<span class="prelude-val">Ok</span>((<span class="self">Self</span>::default(), <span class="prelude-val">None</span>))
 		}
 
 		<span class="kw">fn </span>from_seed_slice(<span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SecretStringError&gt; {
-			<span class="prelude-val">Ok</span>(<span class="self">Self</span>)
+			<span class="prelude-val">Ok</span>(<span class="self">Self</span>::default())
 		}
 
 		<span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Signature {
-			<span class="self">Self
-		</span>}
+			<span class="self">Self</span>::default()
+		}
 
 		<span class="kw">fn </span>verify&lt;M: AsRef&lt;[u8]&gt;&gt;(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>::Signature, <span class="kw">_</span>: M, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>::Public) -&gt; bool {
 			<span class="bool-val">true
 		</span>}
 
 		<span class="kw">fn </span>public(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Public {
-			<span class="self">Self
-		</span>}
+			<span class="self">Self</span>::default()
+		}
 
 		<span class="kw">fn </span>to_raw_vec(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-			<span class="macro">vec!</span>[]
+			Default::default()
 		}
 	}
 }
@@ -2503,7 +2421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The type used to represent a signature. Can be created from a key pair and a message
 	/// and verified with the message and a public key.
-	</span><span class="kw">type </span>Signature: AsRef&lt;[u8]&gt;;
+	</span><span class="kw">type </span>Signature: Signature;
 
 	<span class="doccomment">/// Generate new secure (random) key pair.
 	///
@@ -2876,6 +2794,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::DeriveJunction;
 
+	<span class="kw">struct </span>TestCryptoTag;
+
 	<span class="attr">#[derive(Clone, Eq, PartialEq, Debug)]
 	</span><span class="kw">enum </span>TestPair {
 		Generated,
@@ -2884,59 +2804,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Standard { phrase: String, password: <span class="prelude-ty">Option</span>&lt;String&gt;, path: Vec&lt;DeriveJunction&gt; },
 		Seed(Vec&lt;u8&gt;),
 	}
+
 	<span class="kw">impl </span>Default <span class="kw">for </span>TestPair {
 		<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 			TestPair::Generated
 		}
 	}
+
 	<span class="kw">impl </span>CryptoType <span class="kw">for </span>TestPair {
 		<span class="kw">type </span>Pair = <span class="self">Self</span>;
 	}
 
-	<span class="attr">#[derive(Clone, PartialEq, Eq, Hash, Default)]
-	</span><span class="kw">struct </span>TestPublic;
-	<span class="kw">impl </span>AsRef&lt;[u8]&gt; <span class="kw">for </span>TestPublic {
-		<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-			<span class="kw-2">&amp;</span>[]
-		}
-	}
-	<span class="kw">impl </span>AsMut&lt;[u8]&gt; <span class="kw">for </span>TestPublic {
-		<span class="kw">fn </span>as_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
-			<span class="kw-2">&amp;mut </span>[]
-		}
-	}
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt; <span class="kw">for </span>TestPublic {
-		<span class="kw">type </span>Error = ();
+	<span class="kw">type </span>TestPublic = PublicBytes&lt;<span class="number">0</span>, TestCryptoTag&gt;;
 
-		<span class="kw">fn </span>try_from(data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt; {
-			<span class="self">Self</span>::from_slice(data)
-		}
-	}
 	<span class="kw">impl </span>CryptoType <span class="kw">for </span>TestPublic {
 		<span class="kw">type </span>Pair = TestPair;
 	}
-	<span class="kw">impl </span>Derive <span class="kw">for </span>TestPublic {}
-	<span class="kw">impl </span>ByteArray <span class="kw">for </span>TestPublic {
-		<span class="kw">const </span>LEN: usize = <span class="number">0</span>;
-		<span class="kw">fn </span>from_slice(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt; {
-			<span class="kw">if </span>bytes.is_empty() {
-				<span class="prelude-val">Ok</span>(<span class="self">Self</span>)
-			} <span class="kw">else </span>{
-				<span class="prelude-val">Err</span>(())
-			}
-		}
-		<span class="kw">fn </span>as_slice(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
-			<span class="kw-2">&amp;</span>[]
-		}
-		<span class="kw">fn </span>to_raw_vec(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-			<span class="macro">vec!</span>[]
-		}
+
+	<span class="kw">type </span>TestSignature = SignatureBytes&lt;<span class="number">0</span>, TestCryptoTag&gt;;
+
+	<span class="kw">impl </span>CryptoType <span class="kw">for </span>TestSignature {
+		<span class="kw">type </span>Pair = TestPair;
 	}
-	<span class="kw">impl </span>Public <span class="kw">for </span>TestPublic {}
+
 	<span class="kw">impl </span>Pair <span class="kw">for </span>TestPair {
 		<span class="kw">type </span>Public = TestPublic;
 		<span class="kw">type </span>Seed = [u8; <span class="number">8</span>];
-		<span class="kw">type </span>Signature = [u8; <span class="number">0</span>];
+		<span class="kw">type </span>Signature = TestSignature;
 
 		<span class="kw">fn </span>generate() -&gt; (<span class="self">Self</span>, &lt;<span class="self">Self </span><span class="kw">as </span>Pair&gt;::Seed) {
 			(TestPair::Generated, [<span class="number">0u8</span>; <span class="number">8</span>])
@@ -2985,7 +2879,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, _message: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Signature {
-			[]
+			TestSignature::default()
 		}
 
 		<span class="kw">fn </span>verify&lt;M: AsRef&lt;[u8]&gt;&gt;(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>::Signature, <span class="kw">_</span>: M, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>::Public) -&gt; bool {
@@ -2993,7 +2887,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 
 		<span class="kw">fn </span>public(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Public {
-			TestPublic
+			TestPublic::default()
 		}
 
 		<span class="kw">fn </span>from_seed_slice(seed: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SecretStringError&gt; {

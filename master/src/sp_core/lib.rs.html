@@ -693,26 +693,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>crypto;
 <span class="kw">pub mod </span>hexdisplay;
 <span class="kw">pub use </span>paste;
-
 <span class="kw">mod </span>address_uri;
+<span class="kw">pub mod </span>defer;
+<span class="kw">pub mod </span>hash;
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">mod </span>hasher;
+<span class="kw">pub mod </span>offchain;
+<span class="kw">pub mod </span>testing;
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">pub mod </span>traits;
+<span class="kw">pub mod </span>uint;
+
 <span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
 </span><span class="kw">pub mod </span>bandersnatch;
 <span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
 </span><span class="kw">pub mod </span>bls;
 <span class="kw">pub mod </span>crypto_bytes;
-<span class="kw">pub mod </span>defer;
 <span class="kw">pub mod </span>ecdsa;
 <span class="kw">pub mod </span>ed25519;
-<span class="kw">pub mod </span>hash;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">mod </span>hasher;
-<span class="kw">pub mod </span>offchain;
 <span class="kw">pub mod </span>paired_crypto;
 <span class="kw">pub mod </span>sr25519;
-<span class="kw">pub mod </span>testing;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub mod </span>traits;
-<span class="kw">pub mod </span>uint;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
 </span><span class="kw">pub use </span>bls::{bls377, bls381};
