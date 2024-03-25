@@ -45,7 +45,7 @@ use polkadot_primitives::{
 	async_backing, slashing,
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
-	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreState,
+	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData,
 	Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
 	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
@@ -55,7 +55,7 @@ use polkadot_primitives::{
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
 };
 
@@ -739,6 +739,9 @@ pub enum RuntimeApiRequest {
 	/// Approval voting params
 	/// `V10`
 	ApprovalVotingParams(SessionIndex, RuntimeApiSender<ApprovalVotingParams>),
+	/// Fetch the `ClaimQueue` from scheduler pallet
+	/// `V11`
+	ClaimQueue(RuntimeApiSender<BTreeMap<CoreIndex, VecDeque<ParaId>>>),
 }
 
 impl RuntimeApiRequest {
@@ -773,6 +776,9 @@ impl RuntimeApiRequest {
 
 	/// `approval_voting_params`
 	pub const APPROVAL_VOTING_PARAMS_REQUIREMENT: u32 = 10;
+
+	/// `ClaimQueue`
+	pub const CLAIM_QUEUE_RUNTIME_REQUIREMENT: u32 = 11;
 }
 
 /// A message to the Runtime API subsystem.
@@ -1124,7 +1130,7 @@ pub struct ProspectiveValidationDataRequest {
 }
 
 /// The parent head-data hash with optional data itself.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParentHeadData {
 	/// Parent head-data hash.
 	OnlyHash(Hash),
@@ -1135,6 +1141,16 @@ pub enum ParentHeadData {
 		/// Parent head-data hash.
 		hash: Hash,
 	},
+}
+
+impl ParentHeadData {
+	/// Return the hash of the parent head-data.
+	pub fn hash(&self) -> Hash {
+		match self {
+			ParentHeadData::OnlyHash(hash) => *hash,
+			ParentHeadData::WithData { hash, .. } => *hash,
+		}
+	}
 }
 
 /// Indicates the relay-parents whose fragment tree a candidate
