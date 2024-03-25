@@ -4,9 +4,8 @@
 title: "Broker: sale price runtime api"
 
 doc:
-  - audience: 
-    - Runtime Dev 
-    - Runtime User
+  - audience: Runtime Dev
+  - audience: Runtime User
 
     description: |
       Defines a runtime api for `pallet-broker` for getting the current price 
