@@ -340,9 +340,15 @@ enum BitfieldSigningMessage { }
 ```rust
 enum CandidateBackingMessage {
   /// Requests a set of backable candidates attested by the subsystem.
-  ///
-  /// Each pair is (candidate_hash, candidate_relay_parent).
-  GetBackedCandidates(Vec<(CandidateHash, Hash)>, oneshot::Sender<Vec<BackedCandidate>>),
+  /// The order of candidates of the same para must be preserved in the response.
+  /// If a backed candidate of a para cannot be retrieved, the response should not contain any
+  /// candidates of the same para that follow it in the input vector. In other words, assuming
+  /// candidates are supplied in dependency order, we must ensure that this dependency order is
+  /// preserved.
+  GetBackedCandidates(
+    HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
+    oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
+  ),
   /// Note that the Candidate Backing subsystem should second the given candidate in the context of the
   /// given relay-parent (ref. by hash). This candidate must be validated using the provided PoV.
   /// The PoV is expected to match the `pov_hash` in the descriptor.
