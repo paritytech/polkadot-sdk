@@ -124,6 +124,7 @@ pub trait TargetClient<P: ParachainsPipeline>: RelayClient {
 		at_source_block: HeaderIdOf<P::SourceRelayChain>,
 		para_head_hash: ParaHash,
 		proof: ParaHeadsProof,
+		is_free_execution_expected: bool,
 	) -> Result<Self::TransactionTracker, Self::Error>;
 }
 
@@ -382,7 +383,12 @@ where
 			);
 
 			let transaction_tracker = target_client
-				.submit_parachain_head_proof(prove_at_relay_block, head_hash, head_proof)
+				.submit_parachain_head_proof(
+					prove_at_relay_block,
+					head_hash,
+					head_proof,
+					only_free_headers,
+				)
 				.await
 				.map_err(|e| {
 					log::warn!(
@@ -816,6 +822,7 @@ mod tests {
 			at_source_block: HeaderIdOf<TestChain>,
 			_updated_parachain_head: ParaHash,
 			_proof: ParaHeadsProof,
+			_is_free_execution_expected: bool,
 		) -> Result<TestTransactionTracker, Self::Error> {
 			let mut data = self.data.lock().await;
 			data.target_submit_result.clone()?;

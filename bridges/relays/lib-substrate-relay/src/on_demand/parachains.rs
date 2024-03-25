@@ -222,6 +222,7 @@ where
 			proved_relay_block,
 			vec![(para_id, para_hash)],
 			para_proof,
+			false,
 		));
 
 		Ok((proved_parachain_block, calls))

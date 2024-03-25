@@ -177,12 +177,14 @@ where
 		at_relay_block: HeaderIdOf<P::SourceRelayChain>,
 		updated_head_hash: ParaHash,
 		proof: ParaHeadsProof,
+		is_free_execution_expected: bool,
 	) -> Result<Self::TransactionTracker, Self::Error> {
 		let transaction_params = self.transaction_params.clone();
 		let call = P::SubmitParachainHeadsCallBuilder::build_submit_parachain_heads_call(
 			at_relay_block,
 			vec![(ParaId(P::SourceParachain::PARACHAIN_ID), updated_head_hash)],
 			proof,
+			is_free_execution_expected,
 		);
 		self.target_client
 			.submit_and_watch_signed_extrinsic(
