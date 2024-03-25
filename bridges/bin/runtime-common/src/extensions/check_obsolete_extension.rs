@@ -18,7 +18,7 @@
 //! obsolete (duplicated) data or do not pass some additional pallet-specific
 //! checks.
 
-use crate::messages_call_ext::MessagesCallSubType;
+use crate::{messages_call_ext::MessagesCallSubType, RefundableParachainId};
 use bp_relayers::ExplicitOrAccountParams;
 use pallet_bridge_grandpa::{
 	BridgedBlockNumber, CallSubType as GrandpaCallSubType, SubmitFinalityProofHelper,
@@ -115,16 +115,17 @@ where
 /// `(BundledHeaderNumber - 1 - BestKnownHeaderNumber) * Priority::get()`.
 /// The boost is only applied if submitter has active registration in the relayers
 /// pallet.
-pub struct CheckAndBoostBridgeParachainsTransactions<T, I, Priority, SlashAccount>(
-	PhantomData<(T, I, Priority, SlashAccount)>,
+pub struct CheckAndBoostBridgeParachainsTransactions<T, RefPara, Priority, SlashAccount>(
+	PhantomData<(T, RefPara, Priority, SlashAccount)>,
 );
 
-impl<T, I: 'static, Priority: Get<TransactionPriority>, SlashAccount: Get<T::AccountId>>
+impl<T, RefPara, Priority: Get<TransactionPriority>, SlashAccount: Get<T::AccountId>>
 	BridgeRuntimeFilterCall<T::AccountId, T::RuntimeCall>
-	for CheckAndBoostBridgeParachainsTransactions<T, I, Priority, SlashAccount>
+	for CheckAndBoostBridgeParachainsTransactions<T, RefPara, Priority, SlashAccount>
 where
-	T: pallet_bridge_relayers::Config + pallet_bridge_parachains::Config<I>,
-	T::RuntimeCall: ParachainsCallSubtype<T, I>,
+	T: pallet_bridge_relayers::Config + pallet_bridge_parachains::Config<RefPara::Instance>,
+	RefPara: RefundableParachainId,
+	T::RuntimeCall: ParachainsCallSubtype<T, RefPara::Instance>,
 {
 	// bridged header number, bundled in transaction
 	type ToPostDispatch = Option<SubmitParachainHeadsInfo>;
@@ -133,8 +134,10 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 	) -> (Self::ToPostDispatch, TransactionValidity) {
-		match ParachainsCallSubtype::<T, I>::check_obsolete_submit_parachain_heads(call) {
-			Ok(Some(our_tx)) => {
+		match ParachainsCallSubtype::<T, RefPara::Instance>::check_obsolete_submit_parachain_heads(
+			call,
+		) {
+			Ok(Some(our_tx)) if our_tx.base.para_id.0 == RefPara::Id::get() => {
 				let to_post_dispatch = Some(our_tx.base);
 				let total_priority_boost =
 					compute_priority_boost::<T, _, Priority>(&who, our_tx.improved_by);
@@ -143,7 +146,7 @@ where
 					ValidTransactionBuilder::default().priority(total_priority_boost).build(),
 				)
 			},
-			Ok(None) => (None, ValidTransactionBuilder::default().build()),
+			Ok(_) => (None, ValidTransactionBuilder::default().build()),
 			Err(e) => (None, Err(e)),
 		}
 	}
@@ -152,7 +155,8 @@ where
 		// we are only interested in associated pallet submissions
 		let Some(update) = maybe_update else { return };
 		// we are only interested in failed or unneeded transactions
-		let has_failed = has_failed || !SubmitParachainHeadsHelper::<T, I>::was_successful(&update);
+		let has_failed = has_failed ||
+			!SubmitParachainHeadsHelper::<T, RefPara::Instance>::was_successful(&update);
 
 		if !has_failed {
 			return
@@ -356,6 +360,7 @@ mod tests {
 			submit_relay_header_call_ex, TestParachain,
 		},
 		mock::*,
+		DefaultRefundableParachainId,
 	};
 	use bp_polkadot_core::parachains::ParaId;
 	use codec::Encode;
@@ -511,7 +516,7 @@ mod tests {
 
 	type BridgeParachainsWrapper = CheckAndBoostBridgeParachainsTransactions<
 		TestRuntime,
-		(),
+		DefaultRefundableParachainId<(), TestParachain>,
 		ConstU64<1_000>,
 		SlashDestination,
 	>;
