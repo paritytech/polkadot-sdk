@@ -443,7 +443,8 @@ impl<T: Config> Pallet<T> {
 		let status = Status::<T>::get()?;
 		let sale = SaleInfo::<T>::get()?;
 
-		if sale.first_core < status.core_count || sale.cores_sold < sale.cores_offered {
+		// If there isn't an available core returns `None`.
+		if sale.first_core >= status.core_count || sale.cores_sold >= sale.cores_offered {
 			return None;
 		}
 		let now = frame_system::Pallet::<T>::block_number();
