@@ -2365,26 +2365,25 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, FeePaymentError> {
-		let message = Xcm::<()>::try_from(message)
-			.map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+		let message =
+			Xcm::<()>::try_from(message).map_err(|_| FeePaymentError::VersionedConversionFailed)?;
 
-		T::Weigher::weight(&mut message.into())
-			.map_err(|()| {
-				log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
-				FeePaymentError::WeightNotComputable
-			})
+		T::Weigher::weight(&mut message.into()).map_err(|()| {
+			log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
+			FeePaymentError::WeightNotComputable
+		})
 	}
 
-	pub fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, FeePaymentError> {
+	pub fn query_delivery_fees(
+		destination: VersionedLocation,
+		message: VersionedXcm<()>,
+	) -> Result<VersionedAssets, FeePaymentError> {
 		let result_version = destination.identify_version().max(message.identify_version());
 
-		let destination = destination
-			.try_into()
-			.map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+		let destination =
+			destination.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
 
-		let message = message
-			.try_into()
-			.map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+		let message = message.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
 
 		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
 			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Error when querying delivery fees: {:?}", error);
