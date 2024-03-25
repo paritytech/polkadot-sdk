@@ -220,7 +220,7 @@ impl DiscoveryConfig {
 			// Populate kad with both the legacy and the new protocol names.
 			// Remove the legacy protocol:
 			// https://github.com/paritytech/polkadot-sdk/issues/504
-			let kademlia_protocols = vec![kademlia_protocol.clone(), kademlia_legacy_protocol];
+			let kademlia_protocols = [kademlia_protocol.clone(), kademlia_legacy_protocol];
 			config.set_protocol_names(kademlia_protocols.into_iter().map(Into::into).collect());
 			// By default Kademlia attempts to insert all peers into its routing table once a
 			// dialing attempt succeeds. In order to control which peer is added, disable the
@@ -1202,7 +1202,7 @@ mod tests {
 			&[kademlia_protocol_name(supported_genesis_hash, None)],
 			remote_addr.clone(),
 		);
-		// Note: legacy protocol is not support without genesis hash and fork ID,
+		// Note: legacy protocol is not supported without genesis hash and fork ID,
 		// if the legacy is the only protocol supported, then the peer will not be added.
 		discovery.add_self_reported_address(
 			&another_peer_id,
