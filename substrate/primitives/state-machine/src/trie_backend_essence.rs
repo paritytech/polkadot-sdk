@@ -216,10 +216,10 @@ pub struct TrieBackendEssence<H: Hasher, C, R> {
 }
 
 #[cfg(not(feature = "std"))]
-impl<H: Hasher, C, R> Send for TrieBackendEssence<H, C, R> {}
+unsafe impl<H: Hasher, C, R> Send for TrieBackendEssence<H, C, R> {}
 
 #[cfg(not(feature = "std"))]
-impl<H: Hasher, C, R> Sync for TrieBackendEssence<H, C, R> {}
+unsafe impl<H: Hasher, C, R> Sync for TrieBackendEssence<H, C, R> {}
 
 impl<H, C, R> TrieBackendEssence<H, C, R>
 where
