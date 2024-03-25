@@ -378,6 +378,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -416,6 +418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;subsystem-bench::runtime-api-mock&quot;</span>;
 
 <span class="doccomment">/// Minimal state to answer requests.
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>RuntimeApiState {
 	<span class="comment">// All authorities in the test,
 	</span>authorities: TestAuthorities,
@@ -429,6 +432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A mocked `runtime-api` subsystem.
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>MockRuntimeApi {
 	state: RuntimeApiState,
 	config: TestConfiguration,

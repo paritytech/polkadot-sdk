@@ -291,6 +291,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -310,6 +317,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Test usage implementation
 
 </span><span class="kw">use </span>colored::Colorize;
+<span class="kw">use </span>itertools::Itertools;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::collections::HashMap;
 
@@ -330,10 +338,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.network_usage
 				.iter()
 				.map(|v| v.to_string())
+				.sorted()
 				.collect::&lt;Vec&lt;String&gt;&gt;()
 				.join(<span class="string">&quot;\n&quot;</span>),
 			<span class="macro">format!</span>(<span class="string">&quot;{:&lt;32}{:&gt;12}{:&gt;12}&quot;</span>, <span class="string">&quot;CPU usage, seconds&quot;</span>, <span class="string">&quot;total&quot;</span>, <span class="string">&quot;per block&quot;</span>).blue(),
-			<span class="self">self</span>.cpu_usage.iter().map(|v| v.to_string()).collect::&lt;Vec&lt;String&gt;&gt;().join(<span class="string">&quot;\n&quot;</span>)
+			<span class="self">self</span>.cpu_usage
+				.iter()
+				.map(|v| v.to_string())
+				.sorted()
+				.collect::&lt;Vec&lt;String&gt;&gt;()
+				.join(<span class="string">&quot;\n&quot;</span>)
 		)
 	}
 }
@@ -394,8 +408,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None
 		</span>} <span class="kw">else </span>{
 			<span class="prelude-val">Some</span>(<span class="macro">format!</span>(
-				<span class="string">&quot;The resource `{}` is expected to be equal to {} with a precision {}, but the current value is {}&quot;</span>,
-				resource_name, base, precision, usage.per_block
+				<span class="string">&quot;The resource `{}` is expected to be equal to {} with a precision {}, but the current value is {} ({})&quot;</span>,
+				resource_name, base, precision, usage.per_block, diff
 			))
 		}
 	} <span class="kw">else </span>{
@@ -412,7 +426,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>ResourceUsage {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;{:&lt;32}{:&gt;12.3}{:&gt;12.3}&quot;</span>, <span class="self">self</span>.resource_name.cyan(), <span class="self">self</span>.total, <span class="self">self</span>.per_block)
+		<span class="macro">write!</span>(f, <span class="string">&quot;{:&lt;32}{:&gt;12.4}{:&gt;12.4}&quot;</span>, <span class="self">self</span>.resource_name.cyan(), <span class="self">self</span>.total, <span class="self">self</span>.per_block)
 	}
 }
 

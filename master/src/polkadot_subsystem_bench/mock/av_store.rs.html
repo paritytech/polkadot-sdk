@@ -356,6 +356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -399,6 +400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Mockup helper. Contains Ccunks and full availability data of all parachain blocks
 /// used in a test.
+</span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>NetworkAvailabilityState {
 	<span class="kw">pub </span>candidate_hashes: HashMap&lt;CandidateHash, usize&gt;,
 	<span class="kw">pub </span>available_data: Vec&lt;AvailableData&gt;,
