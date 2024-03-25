@@ -204,7 +204,16 @@ impl<Xt> traits::HeaderProvider for Block<Xt> {
 }
 
 impl<
-		Xt: 'static + Codec + Sized + Send + Sync + Serialize + Clone + Eq + Debug + traits::Extrinsic,
+		Xt: 'static
+			+ Codec
+			+ Sized
+			+ Send
+			+ Sync
+			+ Serialize
+			+ Clone
+			+ Eq
+			+ Debug
+			+ traits::ExtrinsicLike,
 	> traits::Block for Block<Xt>
 {
 	type Extrinsic = Xt;

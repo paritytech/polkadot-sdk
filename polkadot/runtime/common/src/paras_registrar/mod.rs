@@ -740,7 +740,7 @@ mod tests {
 		}
 	);
 
-	impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+	impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 	where
 		RuntimeCall: From<C>,
 	{

@@ -209,7 +209,7 @@ impl pallet_offences::Config for Test {
 	type OnOffenceHandler = Staking;
 }
 
-impl<T> frame_system::offchain::SendTransactionTypes<T> for Test
+impl<T> frame_system::offchain::CreateTransactionBase<T> for Test
 where
 	RuntimeCall: From<T>,
 {

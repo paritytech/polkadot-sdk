@@ -28,7 +28,7 @@ use sp_application_crypto::sr25519;
 
 use alloc::vec::Vec;
 pub use sp_core::{hash::H256, RuntimeDebug};
-use sp_runtime::traits::{BlakeTwo256, Extrinsic as ExtrinsicT, Verify};
+use sp_runtime::traits::{BlakeTwo256, ExtrinsicLike, Verify};
 
 /// Extrinsic for test-runtime.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
@@ -47,10 +47,7 @@ impl serde::Serialize for Extrinsic {
 	}
 }
 
-impl ExtrinsicT for Extrinsic {
-	type Call = Extrinsic;
-	type SignaturePayload = ();
-
+impl ExtrinsicLike for Extrinsic {
 	fn is_signed(&self) -> Option<bool> {
 		if let Extrinsic::IncludeData(_) = *self {
 			Some(false)
@@ -59,8 +56,12 @@ impl ExtrinsicT for Extrinsic {
 		}
 	}
 
-	fn new(call: Self::Call, _signature_payload: Option<Self::SignaturePayload>) -> Option<Self> {
-		Some(call)
+	fn is_bare(&self) -> bool {
+		if let Extrinsic::IncludeData(_) = *self {
+			true
+		} else {
+			false
+		}
 	}
 }
 

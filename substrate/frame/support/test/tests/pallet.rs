@@ -36,7 +36,7 @@ use sp_io::{
 	TestExternalities,
 };
 use sp_runtime::{
-	traits::{Dispatchable, Extrinsic as ExtrinsicT, SignaturePayload as SignaturePayloadT},
+	traits::{CreateSignedTransaction, Dispatchable, SignaturePayload as SignaturePayloadT},
 	DispatchError, ModuleError,
 };
 
@@ -1854,12 +1854,12 @@ fn metadata() {
 			ty: meta_type::<()>(),
 			additional_signed: meta_type::<()>(),
 		}],
-		address_ty: meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(),
-		call_ty: meta_type::<<UncheckedExtrinsic as ExtrinsicT>::Call>(),
+		address_ty: meta_type::<<<UncheckedExtrinsic as CreateSignedTransaction>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(),
+		call_ty: meta_type::<<UncheckedExtrinsic as CreateSignedTransaction>::Call>(),
 		signature_ty: meta_type::<
-			<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::Signature
+			<<UncheckedExtrinsic as CreateSignedTransaction>::SignaturePayload as SignaturePayloadT>::Signature
 		>(),
-		extra_ty: meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(),
+		extra_ty: meta_type::<<<UncheckedExtrinsic as CreateSignedTransaction>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(),
 	};
 
 	let outer_enums = OuterEnums {
@@ -1938,21 +1938,21 @@ fn metadata_ir_pallet_runtime_docs() {
 fn extrinsic_metadata_ir_types() {
 	let ir = Runtime::metadata_ir().extrinsic;
 
-	assert_eq!(meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(), ir.address_ty);
+	assert_eq!(meta_type::<<<UncheckedExtrinsic as CreateSignedTransaction>::SignaturePayload as SignaturePayloadT>::SignatureAddress>(), ir.address_ty);
 	assert_eq!(meta_type::<u64>(), ir.address_ty);
 
-	assert_eq!(meta_type::<<UncheckedExtrinsic as ExtrinsicT>::Call>(), ir.call_ty);
+	assert_eq!(meta_type::<<UncheckedExtrinsic as CreateSignedTransaction>::Call>(), ir.call_ty);
 	assert_eq!(meta_type::<RuntimeCall>(), ir.call_ty);
 
 	assert_eq!(
 		meta_type::<
-			<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::Signature,
+			<<UncheckedExtrinsic as CreateSignedTransaction>::SignaturePayload as SignaturePayloadT>::Signature,
 		>(),
 		ir.signature_ty
 	);
 	assert_eq!(meta_type::<AccountU64>(), ir.signature_ty);
 
-	assert_eq!(meta_type::<<<UncheckedExtrinsic as ExtrinsicT>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(), ir.extra_ty);
+	assert_eq!(meta_type::<<<UncheckedExtrinsic as CreateSignedTransaction>::SignaturePayload as SignaturePayloadT>::SignatureExtra>(), ir.extra_ty);
 	assert_eq!(meta_type::<frame_system::CheckNonZeroSender<Runtime>>(), ir.extra_ty);
 }
 
