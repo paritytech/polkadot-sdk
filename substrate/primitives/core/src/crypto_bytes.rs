@@ -36,6 +36,9 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 
+pub use public_bytes::*;
+pub use signature_bytes::*;
+
 /// Generic byte array holding some crypto-related raw data.
 ///
 /// The type is generic over a constant length `N` and a "tag" `T` which
@@ -374,6 +377,3 @@ mod signature_bytes {
 		}
 	}
 }
-
-pub use public_bytes::*;
-pub use signature_bytes::*;
