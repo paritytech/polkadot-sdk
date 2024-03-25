@@ -107,7 +107,7 @@ fn should_contain_valid_leaf_data() {
 	let mut ext = new_test_ext(vec![1, 2, 3, 4]);
 	let parent_hash = ext.execute_with(|| {
 		init_block(1);
-		<frame_system::Pallet<Test>>::parent_hash()
+		frame_system::Pallet::<Test>::parent_hash()
 	});
 
 	let mmr_leaf = read_mmr_leaf(&mut ext, node_offchain_key(0, parent_hash));
@@ -132,7 +132,7 @@ fn should_contain_valid_leaf_data() {
 	// build second block on top
 	let parent_hash = ext.execute_with(|| {
 		init_block(2);
-		<frame_system::Pallet<Test>>::parent_hash()
+		frame_system::Pallet::<Test>::parent_hash()
 	});
 
 	let mmr_leaf = read_mmr_leaf(&mut ext, node_offchain_key(1, parent_hash));

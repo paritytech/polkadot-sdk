@@ -42,7 +42,10 @@ jsonrpsee = { version = "0.22", features = ["server"] }
 people-rococo-runtime = { path = "../parachains/runtimes/people/people-rococo" }
 people-westend-runtime = { path = "../parachains/runtimes/people/people-westend" }
 parachains-common = { path = "../parachains/common" }
-testnet-parachains-constants = { path = "../parachains/runtimes/constants", default-features = false, features = ["rococo", "westend"] }
+testnet-parachains-constants = { path = "../parachains/runtimes/constants", default-features = false, features = [
+	"rococo",
+	"westend",
+] }
 
 # Substrate
 frame-benchmarking = { path = "../../substrate/frame/benchmarking" }
@@ -169,6 +172,5 @@ try-runtime = [
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-fast-runtime = [
-	"bridge-hub-rococo-runtime/fast-runtime",
-]
+fast-runtime = ["bridge-hub-rococo-runtime/fast-runtime"]
+elastic-scaling-experimental = ["polkadot-service/elastic-scaling-experimental"]
