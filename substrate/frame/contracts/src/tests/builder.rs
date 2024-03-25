@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(dead_code)]
 use super::{AccountId32, Test, ALICE, GAS_LIMIT};
 use crate::{
 	tests::RuntimeOrigin, AccountIdLookupOf, AccountIdOf, BalanceOf, Code, CodeHash, CollectEvents,
@@ -48,6 +47,7 @@ macro_rules! builder {
 			$($field: $type,)*
 		}
 
+		#[allow(dead_code)]
 		impl $name
 		{
 			$(
