@@ -270,6 +270,9 @@ pub mod pallet {
 		/// implementation should be the same as `Balance` as used in the `Configuration`.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
+		/// The default channel size and capacity to use when opening a channel to a system parachain.
+		type DefaultChannelSizeAndCapacityToSystem: Get<(u32, u32)>;
+
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -848,12 +851,14 @@ pub mod pallet {
 
 			ensure!(recipient.is_system(), Error::<T>::ChannelCreationNotAuthorized);
 
-			let config = <configuration::Pallet<T>>::config();
-			let max_message_size = config.hrmp_channel_max_message_size;
-			let max_capacity = config.hrmp_channel_max_capacity;
+			let (max_message_size, max_capacity) = T::DefaultChannelSizeAndCapacityToSystem::get();
 
+			// create bidirectional channell
 			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
 			Self::accept_open_channel(recipient, sender)?;
+
+			Self::init_open_channel(recipient, sender, max_capacity, max_message_size)?;
+			Self::accept_open_channel(sender, recipient)?;
 
 			Self::deposit_event(Event::HrmpSystemChannelOpened {
 				sender,
