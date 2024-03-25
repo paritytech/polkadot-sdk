@@ -16,7 +16,7 @@ subxt = { version = "0.32.1", default-features = false, features = ["native"] }
 # Bridge dependencies
 
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }
-bp-rococo = { path = "../../primitives/chain-rococo" }
+bp-rococo = { path = "../../chains/chain-rococo" }
 
 relay-substrate-client = { path = "../client-substrate" }
 relay-utils = { path = "../utils" }
