@@ -1,0 +1,24 @@
+name: Release - Publish draft
+
+on:
+  # push:
+  #   tags:
+  #     # Catches v1.2.3 and v1.2.3-rc1
+  #     - v[0-9]+.[0-9]+.[0-9]+*
+
+  workflow_dispatch:
+
+jobs:
+  get-rust-versions:
+    runs-on: ubuntu-latest
+    container:
+      image: paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240109
+    outputs:
+      rustc-stable: ${{ steps.get-rust-versions.outputs.stable }}
+      rustc-nightly: ${{ steps.get-rust-versions.outputs.nightly }}
+    steps:
+      - id: get-rust-versions
+        run: |
+          echo "stable=$(rustc +stable --version)" >> $GITHUB_OUTPUT
+          echo "nightly=$(rustc +nightly --version)" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
