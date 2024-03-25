@@ -99,7 +99,7 @@ fn create_agent() {
 		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
 			sudo_origin,
 			bx!(destination),
-			remote_xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
+			remote_xcm.encode().try_into().unwrap(),
 		));
 
 		type RuntimeEvent = <Rococo as Chain>::RuntimeEvent;
