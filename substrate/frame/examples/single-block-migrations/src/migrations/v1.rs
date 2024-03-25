@@ -17,7 +17,7 @@
 
 use frame_support::{
 	storage_alias,
-	traits::{Get, OnRuntimeUpgrade},
+	traits::{Get, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
 };
 
 #[cfg(feature = "try-runtime")]
@@ -57,7 +57,7 @@ mod version_unchecked {
 	/// layout.
 	pub struct MigrateV0ToV1<T: crate::Config>(sp_std::marker::PhantomData<T>);
 
-	impl<T: crate::Config> OnRuntimeUpgrade for MigrateV0ToV1<T> {
+	impl<T: crate::Config> UncheckedOnRuntimeUpgrade for MigrateV0ToV1<T> {
 		/// Return the existing [`crate::Value`] so we can check that it was correctly set in
 		/// `version_unchecked::MigrateV0ToV1::post_upgrade`.
 		#[cfg(feature = "try-runtime")]
@@ -75,7 +75,7 @@ mod version_unchecked {
 		/// - If the value doesn't exist, there is nothing to do.
 		/// - If the value exists, it is read and then written back to storage inside a
 		/// [`crate::CurrentAndPreviousValue`].
-		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn unchecked_on_runtime_upgrade() -> frame_support::weights::Weight {
 			// Read the old value from storage
 			if let Some(old_value) = v0::Value::<T>::take() {
 				// Write the new value to storage
@@ -155,10 +155,10 @@ pub mod versioned {
 /// 3. The storage is in the expected state after the migration
 #[cfg(any(all(feature = "try-runtime", test), doc))]
 mod test {
+	use self::version_unchecked::MigrateV0ToV1;
 	use super::*;
 	use crate::mock::{new_test_ext, MockRuntime};
 	use frame_support::assert_ok;
-	use version_unchecked::MigrateV0ToV1;
 
 	#[test]
 	fn handles_no_existing_value() {
@@ -174,7 +174,7 @@ mod test {
 			};
 
 			// Execute the migration
-			let weight = MigrateV0ToV1::<MockRuntime>::on_runtime_upgrade();
+			let weight = MigrateV0ToV1::<MockRuntime>::unchecked_on_runtime_upgrade();
 
 			// Verify post_upgrade succeeds
 			assert_ok!(MigrateV0ToV1::<MockRuntime>::post_upgrade(bytes));
@@ -201,7 +201,7 @@ mod test {
 			};
 
 			// Execute the migration
-			let weight = MigrateV0ToV1::<MockRuntime>::on_runtime_upgrade();
+			let weight = MigrateV0ToV1::<MockRuntime>::unchecked_on_runtime_upgrade();
 
 			// Verify post_upgrade succeeds
 			assert_ok!(MigrateV0ToV1::<MockRuntime>::post_upgrade(bytes));

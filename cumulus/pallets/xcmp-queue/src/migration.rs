@@ -20,7 +20,7 @@ use crate::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAU
 use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{EnqueueMessage, OnRuntimeUpgrade, StorageVersion},
+	traits::{EnqueueMessage, StorageVersion, UncheckedOnRuntimeUpgrade},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 
@@ -96,9 +96,9 @@ pub mod v2 {
 	/// 2D weights).
 	pub struct UncheckedMigrationToV2<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV2<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		#[allow(deprecated)]
-		fn on_runtime_upgrade() -> Weight {
+		fn unchecked_on_runtime_upgrade() -> Weight {
 			let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
 				v2::QueueConfigData {
 					suspend_threshold: pre.suspend_threshold,
@@ -187,8 +187,8 @@ pub mod v3 {
 	/// Migrates the pallet storage to v3.
 	pub struct UncheckedMigrationToV3<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV3<T> {
-		fn on_runtime_upgrade() -> Weight {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV3<T> {
+		fn unchecked_on_runtime_upgrade() -> Weight {
 			#[frame_support::storage_alias]
 			type Overweight<T: Config> =
 				CountedStorageMap<Pallet<T>, Twox64Concat, OverweightIndex, ParaId>;
@@ -266,8 +266,8 @@ pub mod v4 {
 	/// thresholds to at least the default values.
 	pub struct UncheckedMigrationToV4<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV4<T> {
-		fn on_runtime_upgrade() -> Weight {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV4<T> {
+		fn unchecked_on_runtime_upgrade() -> Weight {
 			let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
 				let pre_default = v2::QueueConfigData::default();
 				// If the previous values are the default ones, let's replace them with the new
