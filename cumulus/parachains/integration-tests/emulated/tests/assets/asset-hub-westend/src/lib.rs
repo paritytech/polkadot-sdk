@@ -72,7 +72,6 @@ mod imports {
 	pub use penpal_runtime::xcm_config::{
 		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
 		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
-		XcmConfig as PenpalWestendXcmConfig,
 	};
 	pub use westend_runtime::xcm_config::XcmConfig as WestendXcmConfig;
 
