@@ -22,7 +22,6 @@ use crate::{error::Error, trie_constants};
 use alloc::{borrow::Borrow, vec::Vec};
 use codec::{Compact, Decode, Encode, Input};
 use core::{marker::PhantomData, ops::Range};
-use hash_db::Hasher;
 use trie_db::{
 	nibble_ops,
 	node::{NibbleSlicePlan, NodeHandlePlan, NodePlan, Value, ValuePlan},
