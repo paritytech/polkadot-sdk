@@ -373,7 +373,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send_blob(
 			penpal_root,
 			bx!(asset_hub_location),
-			xcm.encode().try_into().expect("MaxXcmEncodedSize should be big enough."),
+			xcm.encode().try_into().unwrap(),
 		));
 
 		PenpalA::assert_xcm_pallet_sent();
