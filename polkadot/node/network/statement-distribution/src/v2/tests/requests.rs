@@ -1891,7 +1891,7 @@ fn local_node_sanity_checks_incoming_requests() {
 			let mask = StatementFilter::blank(state.config.group_size + 1);
 			let response = state
 				.send_request(
-					peer_c,
+					peer_a,
 					request_v2::AttestedCandidateRequest { candidate_hash: candidate.hash(), mask },
 				)
 				.await

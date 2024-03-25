@@ -60,6 +60,8 @@ use futures::{
 	channel::{mpsc, oneshot},
 	stream::FuturesUnordered,
 	SinkExt, StreamExt,
+	select,
+	future::FutureExt,
 };
 
 use std::{
@@ -3350,33 +3352,56 @@ pub(crate) async fn respond_task(
 	mut sender: mpsc::Sender<ResponderMessage>,
 ) {
 	let mut pending_out = FuturesUnordered::new();
+	let mut active_peers = HashSet::new();
+
 	loop {
-		// Ensure we are not handling too many requests in parallel.
-		if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
-			// Wait for one to finish:
-			pending_out.next().await;
-		}
+		select! {
+			// New request
+			request_result = receiver.recv(|| vec![COST_INVALID_REQUEST]).fuse() => {
+				let request = match request_result.into_nested() {
+					Ok(Ok(v)) => v,
+					Err(fatal) => {
+						gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
+						return
+					},
+					Ok(Err(jfyi)) => {
+						gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
+						continue
+					},
+				};
 
-		let req = match receiver.recv(|| vec![COST_INVALID_REQUEST]).await.into_nested() {
-			Ok(Ok(v)) => v,
-			Err(fatal) => {
-				gum::debug!(target: LOG_TARGET, error = ?fatal, "Shutting down request responder");
-				return
-			},
-			Ok(Err(jfyi)) => {
-				gum::debug!(target: LOG_TARGET, error = ?jfyi, "Decoding request failed");
-				continue
-			},
-		};
+				// If peer currently being served drop request
+				if active_peers.contains(&request.peer) {
+					gum::debug!(target: LOG_TARGET, "Dropping repeated request from peer");
+					continue
+				}
 
-		let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
-		if let Err(err) = sender
-			.feed(ResponderMessage { request: req, sent_feedback: pending_sent_tx })
-			.await
-		{
-			gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
-			return
+				// If we are over parallel limit wait for one to finish
+				if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+					let result = pending_out.select_next_some().await;
+					let (_, peer) = result;
+					active_peers.remove(&peer);
+				}
+
+				// Start serving the request
+				let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
+				let peer = request.peer.clone();
+				if let Err(err) = sender
+					.feed(ResponderMessage { request: request, sent_feedback: pending_sent_tx })
+					.await
+				{
+					gum::debug!(target: LOG_TARGET, ?err, "Shutting down responder");
+					return
+				}
+				let future_with_peer = pending_sent_rx.map(move |result| (result, peer));
+				pending_out.push(future_with_peer);
+				active_peers.insert(peer);
+			},
+			// Request served/finished
+			result = pending_out.select_next_some() => {
+				let (_, peer) = result;
+				active_peers.remove(&peer);
+			},
 		}
-		pending_out.push(pending_sent_rx);
 	}
 }
