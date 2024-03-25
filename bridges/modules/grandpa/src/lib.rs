@@ -503,6 +503,9 @@ pub mod pallet {
 		/// The submitter wanted free execution, but we can't fit more free transactions
 		/// to the block.
 		FreeHeadersLimitExceded,
+		/// The submitter wanted free execution, but the difference between best known and
+		/// bundled header numbers is below the `FreeHeadersInterval`.
+		BelowFreeHeaderInterval,
 	}
 
 	/// Called when new free header is imported.

@@ -94,15 +94,8 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 			reject
 		} else {
 			// free headers interval is not configured and call is expected to execute
-			// for free => reject it
-			log::trace!(
-				target: crate::LOG_TARGET,
-				"The free parachain {:?} head can't be updated: free interval is not \
-				configured in the runtime.",
-				update.para_id,
-			);
-
-			true
+			// for free => it is a relayer error, it should've been able to detect that
+			false
 		}
 	}
 
@@ -268,7 +261,7 @@ where
 #[cfg(test)]
 mod tests {
 	use crate::{
-		mock::{run_test, RuntimeCall, TestRuntime},
+		mock::{run_test, FreeHeadersInterval, RuntimeCall, TestRuntime},
 		CallSubType, PalletOperatingMode, ParaInfo, ParasInfo, RelayBlockHash, RelayBlockNumber,
 	};
 	use bp_header_chain::StoredHeaderData;
@@ -280,10 +273,25 @@ mod tests {
 		num: RelayBlockNumber,
 		parachains: Vec<(ParaId, ParaHash)>,
 	) -> bool {
-		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads {
+		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads_ex {
 			at_relay_block: (num, [num as u8; 32].into()),
 			parachains,
 			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			is_free_execution_expected: false,
+		})
+		.check_obsolete_submit_parachain_heads()
+		.is_ok()
+	}
+
+	fn validate_free_submit_parachain_heads(
+		num: RelayBlockNumber,
+		parachains: Vec<(ParaId, ParaHash)>,
+	) -> bool {
+		RuntimeCall::Parachains(crate::Call::<TestRuntime, ()>::submit_parachain_heads_ex {
+			at_relay_block: (num, [num as u8; 32].into()),
+			parachains,
+			parachain_heads_proof: ParaHeadsProof { storage_proof: Vec::new() },
+			is_free_execution_expected: true,
 		})
 		.check_obsolete_submit_parachain_heads()
 		.is_ok()
@@ -394,6 +402,44 @@ mod tests {
 			// when relay chain header is unknown => "ok"
 			insert_relay_block(15);
 			assert!(validate_submit_parachain_heads(15, vec![(ParaId(2), [15u8; 32].into())]));
+		});
+	}
+
+	#[test]
+	fn extension_rejects_free_parachain_head_if_no_free_slots_remaining() {
+		run_test(|| {
+			// when current best finalized is #10 and we're trying to import header#15 => tx should
+			// be accepted
+			sync_to_relay_header_10();
+			insert_relay_block(15);
+			// ... but since we have specified `is_free_execution_expected = true`, it'll be
+			// rejected
+			assert!(!validate_free_submit_parachain_heads(15, vec![(ParaId(1), [2u8; 32].into())]));
+			// ... if we have specify `is_free_execution_expected = false`, it'll be accepted
+			assert!(validate_submit_parachain_heads(15, vec![(ParaId(1), [2u8; 32].into())]));
+		});
+	}
+
+	#[test]
+	fn extension_rejects_free_parachain_head_if_improves_by_is_below_expected() {
+		run_test(|| {
+			// when current best finalized is #10 and we're trying to import header#15 => tx should
+			// be accepted
+			sync_to_relay_header_10();
+			insert_relay_block(10 + FreeHeadersInterval::get() - 1);
+			insert_relay_block(10 + FreeHeadersInterval::get());
+			// try to submit at 10 + FreeHeadersInterval::get() - 1 => failure
+			let relay_header = 10 + FreeHeadersInterval::get() - 1;
+			assert!(!validate_free_submit_parachain_heads(
+				relay_header,
+				vec![(ParaId(1), [2u8; 32].into())]
+			));
+			// ... if we have specify `is_free_execution_expected = false`, it'll be accepted
+			let relay_header = 10 + FreeHeadersInterval::get();
+			assert!(validate_free_submit_parachain_heads(
+				relay_header,
+				vec![(ParaId(1), [2u8; 32].into())]
+			));
 		});
 	}
 }
