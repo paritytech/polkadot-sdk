@@ -132,7 +132,7 @@ pub trait QueryController<Origin, Timeout>: QueryHandler {
 		origin: Origin,
 		timeout: Timeout,
 		match_querier: VersionedLocation,
-	) -> Result<Self::QueryId, DispatchError>;
+	) -> Result<QueryId, DispatchError>;
 }
 
 impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
@@ -186,7 +186,7 @@ impl<Origin, Timeout> QueryController<Origin, Timeout> for () {
 		_origin: Origin,
 		_timeout: Timeout,
 		_match_querier: VersionedLocation,
-	) -> Result<Self::QueryId, DispatchError> {
+	) -> Result<QueryId, DispatchError> {
 		Ok(Default::default())
 	}
 }
