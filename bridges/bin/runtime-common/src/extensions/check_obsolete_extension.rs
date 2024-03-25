@@ -363,7 +363,6 @@ mod tests {
 		DefaultRefundableParachainId,
 	};
 	use bp_polkadot_core::parachains::ParaId;
-	use codec::Encode;
 	use frame_support::assert_err;
 	use sp_runtime::{
 		traits::{ConstU64, SignedExtension},
