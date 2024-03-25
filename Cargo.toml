@@ -7,7 +7,6 @@ homepage = "https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/i
 
 [workspace]
 resolver = "2"
-
 members = [
 	"bridges/bin/runtime-common",
 	"bridges/modules/grandpa",
@@ -152,10 +151,10 @@ members = [
 	"polkadot/node/core/prospective-parachains",
 	"polkadot/node/core/provisioner",
 	"polkadot/node/core/pvf",
-	"polkadot/node/core/pvf-checker",
 	"polkadot/node/core/pvf/common",
 	"polkadot/node/core/pvf/execute-worker",
 	"polkadot/node/core/pvf/prepare-worker",
+	"polkadot/node/core/pvf-checker",
 	"polkadot/node/core/runtime-api",
 	"polkadot/node/gum",
 	"polkadot/node/gum/proc-macro",
@@ -258,7 +257,6 @@ members = [
 	"substrate/client/merkle-mountain-range/rpc",
 	"substrate/client/mixnet",
 	"substrate/client/network",
-	"substrate/client/network-gossip",
 	"substrate/client/network/bitswap",
 	"substrate/client/network/common",
 	"substrate/client/network/light",
@@ -266,6 +264,7 @@ members = [
 	"substrate/client/network/sync",
 	"substrate/client/network/test",
 	"substrate/client/network/transactions",
+	"substrate/client/network-gossip",
 	"substrate/client/offchain",
 	"substrate/client/proposer-metrics",
 	"substrate/client/rpc",
@@ -499,18 +498,15 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
-
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
-
-	"templates/solochain/node",
-	"templates/solochain/pallets/template",
-	"templates/solochain/runtime",
-
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
+	"templates/solochain/node",
+	"templates/solochain/pallets/template",
+	"templates/solochain/runtime",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]
 
