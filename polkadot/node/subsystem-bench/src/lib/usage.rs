@@ -18,7 +18,6 @@
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::{collections::HashMap, fs::File, io::Write};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -77,42 +76,29 @@ impl BenchmarkUsage {
 		}
 	}
 
-	pub fn save_as_json(&self, path: &str) -> std::io::Result<()> {
+	pub fn save_as_json(&self, path: &str) -> color_eyre::eyre::Result<()> {
 		let mut file = File::create(path)?;
-		file.write_all(self.to_json().as_bytes())?;
+		file.write_all(self.to_json()?.as_bytes())?;
 		Ok(())
 	}
 
-	fn to_json(&self) -> String {
-		let mut res: Vec<String> = vec![];
-		res.extend(
-			self.network_usage
-				.iter()
-				.map(|v| {
-					json!({
-						"name": v.resource_name,
-						"unit": "KiB",
-						"value": v.per_block
-					})
-					.to_string()
-				})
-				.collect::<Vec<_>>(),
-		);
-		res.extend(
-			self.cpu_usage
-				.iter()
-				.map(|v| {
-					json!({
-						"name": v.resource_name,
-						"unit": "seconds",
-						"value": v.per_block
-					})
-					.to_string()
-				})
-				.collect::<Vec<_>>(),
-		);
+	fn to_json(&self) -> color_eyre::eyre::Result<String> {
+		let chart = self
+			.network_usage
+			.iter()
+			.map(|v| ChartItem {
+				name: v.resource_name.clone(),
+				unit: "KiB".to_string(),
+				value: v.per_block,
+			})
+			.chain(self.cpu_usage.iter().map(|v| ChartItem {
+				name: v.resource_name.clone(),
+				unit: "seconds".to_string(),
+				value: v.per_block,
+			}))
+			.collect::<Vec<_>>();
 
-		format!("[{}]", res.join(","))
+		Ok(serde_json::to_string(&chart)?)
 	}
 }
 
@@ -183,3 +169,10 @@ impl ResourceUsage {
 }
 
 type ResourceUsageCheck<'a> = (&'a str, f64, f64);
+
+#[derive(Debug, Serialize)]
+pub struct ChartItem {
+	pub name: String,
+	pub unit: String,
+	pub value: f64,
+}
