@@ -76,19 +76,24 @@ pub enum Error {
 	/// An API part is unsupported.
 	#[codec(index = 0)]
 	Unimplemented,
+
 	/// Converting a versioned data structure from one version to another failed.
 	#[codec(index = 1)]
 	VersionedConversionFailed,
+
 	/// XCM message weight calculation failed.
 	#[codec(index = 2)]
 	WeightNotComputable,
+
 	/// XCM version not able to be handled.
 	#[codec(index = 3)]
 	UnhandledXcmVersion,
-	/// The given asset is not handled(as a fee payment).
+
+	/// The given asset is not handled as a fee asset.
 	#[codec(index = 4)]
 	AssetNotFound,
-	// Destination is known to be unroutable.
+
+	/// Destination is known to be unroutable.
 	#[codec(index = 5)]
 	Unroutable,
 }
