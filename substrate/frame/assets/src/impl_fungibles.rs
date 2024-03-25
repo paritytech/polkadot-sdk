@@ -164,7 +164,22 @@ impl<T: Config<I>, I: 'static> fungibles::Unbalanced<T::AccountId> for Pallet<T,
 		Ok(amount)
 	}
 
-	// TODO: #13196 implement deactivate/reactivate once we have inactive balance tracking.
+	fn deactivate(asset: Self::AssetId, amount: Self::Balance) {
+		Asset::<T, I>::mutate(&asset, |maybe_asset| match maybe_asset {
+			Some(ref mut asset) => {
+				// Inactive amount can't exceed supply
+				asset.inactive = asset.inactive.saturating_add(amount).max(asset.supply);
+			},
+			None => log::error!("Called deactivate for nonexistent asset {:?}", asset),
+		});
+	}
+
+	fn reactivate(asset: Self::AssetId, amount: Self::Balance) {
+		Asset::<T, I>::mutate(&asset, |maybe_asset| match maybe_asset {
+			Some(ref mut asset) => asset.inactive.saturating_reduce(amount),
+			None => log::error!("Called reactivate for nonexistent asset {:?}", asset),
+		});
+	}
 }
 
 impl<T: Config<I>, I: 'static> fungibles::Create<T::AccountId> for Pallet<T, I> {
