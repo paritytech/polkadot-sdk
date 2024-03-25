@@ -699,6 +699,7 @@ mod tests {
 			Result<Option<BlockNumberOf<TestChain>>, TestError>,
 		target_best_block: Result<HeaderIdOf<TestChain>, TestError>,
 		target_best_finalized_source_block: Result<HeaderIdOf<TestChain>, TestError>,
+		#[allow(clippy::type_complexity)]
 		target_head: Result<Option<(HeaderIdOf<TestChain>, HeaderIdOf<TestParachain>)>, TestError>,
 		target_submit_result: Result<(), TestError>,
 

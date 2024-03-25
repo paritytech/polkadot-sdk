@@ -51,7 +51,7 @@ pub enum JustifiedHeaderSelector<P: FinalitySyncPipeline> {
 }
 
 impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
-	/// Selects last header with persitent justification, missing from the target and matching
+	/// Selects last header with persistent justification, missing from the target and matching
 	/// the `headers_to_relay` criteria.
 	pub(crate) async fn new<SC: SourceClient<P>, TC: TargetClient<P>>(
 		source_client: &SC,
