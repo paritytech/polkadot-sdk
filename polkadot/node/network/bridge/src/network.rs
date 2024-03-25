@@ -205,6 +205,7 @@ pub trait Network: Clone + Send + 'static {
 		multiaddresses: HashSet<Multiaddr>,
 	) -> Result<(), String>;
 
+	/// Ask the network to extend the reserved set with these nodes.
 	async fn add_peers_to_reserved_set(
 		&mut self,
 		protocol: ProtocolName,

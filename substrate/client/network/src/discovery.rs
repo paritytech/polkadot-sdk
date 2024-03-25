@@ -818,9 +818,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							}) => {
 								debug!(
 									target: "sub-libp2p",
-									"Libp2p => Finished with no-additional-record {:?} stats {:?}",
+									"Libp2p => Finished with no-additional-record {:?} stats {:?} took {:?} ms",
 									id,
 									stats,
+									stats.duration().map(|val| val.as_millis())
 								);
 								// We always need to remove the record to not leak any data!
 								if let Some(record) = self.records_to_publish.remove(&id) {

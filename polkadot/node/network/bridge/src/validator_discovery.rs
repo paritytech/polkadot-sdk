@@ -270,6 +270,15 @@ mod tests {
 			Ok(())
 		}
 
+		async fn add_peers_to_reserved_set(
+			&mut self,
+			_protocol: ProtocolName,
+			multiaddresses: HashSet<Multiaddr>,
+		) -> Result<(), String> {
+			self.peers_set.extend(extract_peer_ids(multiaddresses.into_iter()));
+			Ok(())
+		}
+
 		async fn remove_from_peers_set(
 			&mut self,
 			_protocol: ProtocolName,
