@@ -38,7 +38,7 @@ pub const EXTRA_STORAGE_PROOF_SIZE: u32 = 1024;
 pub trait WeightInfoExt: WeightInfo {
 	// Our configuration assumes that the runtime has special signed extensions used to:
 	//
-	// 1) boost priority of `submit_finality_proof` transactions;
+	// 1) boost priority of `submit_parachain_heads` transactions;
 	//
 	// 2) slash relayer if he submits an invalid transaction.
 	//
