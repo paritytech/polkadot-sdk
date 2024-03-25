@@ -98,7 +98,7 @@ pub trait SendController<Origin> {
 	///
 	/// - `origin`: the origin of the call.
 	/// - `dest`: the destination of the message.
-	/// - `msg`: the XCM to be sent, encoded.
+	/// - `msg`: the encoded XCM to be sent, should be decodable as a [`VersionedXcm`]
 	fn send_blob(
 		origin: Origin,
 		dest: Box<VersionedLocation>,
