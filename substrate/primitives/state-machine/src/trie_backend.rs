@@ -444,7 +444,7 @@ where
 		#[cfg(feature = "std")]
 		let r = &*self.essence.recorder.read();
 		#[cfg(not(feature = "std"))]
-		let r = &self.essence.recorder;
+		let r = self.essence.recorder.borrow();
 		r.as_ref().and_then(|r| r.drain_storage_proof())
 	}
 }
