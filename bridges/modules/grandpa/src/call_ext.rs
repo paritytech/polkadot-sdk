@@ -136,7 +136,7 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 			if improved_by < free_headers_interval.into() {
 				log::trace!(
 					target: crate::LOG_TARGET,
-					"Cannot accept free {:?} header {:?}. Too small difference between submitted headers: {} vs {}",
+					"Cannot accept free {:?} header {:?}. Too small difference between submitted headers: {:?} vs {}",
 					T::BridgedChain::ID,
 					call_info.block_number,
 					improved_by,
