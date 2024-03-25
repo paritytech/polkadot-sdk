@@ -170,10 +170,7 @@ fn create_channel() {
 		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
 			sudo_origin.clone(),
 			bx!(destination.clone()),
-			create_agent_xcm
-				.encode()
-				.try_into()
-				.expect("MaxXcmEncodedSize should be big enough."),
+			create_agent_xcm.encode().try_into().unwrap(),
 		));
 
 		assert_ok!(<Rococo as RococoPallet>::XcmPallet::send_blob(
