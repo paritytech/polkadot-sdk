@@ -1,0 +1,24 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "migrations: prevent accidentally using inner unversioned migration instead of `VersionedMigration`"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Currently, it is possible to accidentally use inner unversioned migration instead of `VersionedMigration` 
+      since both implement `OnRuntimeUpgrade`. With this change, we prevent this by bounding `Inner` 
+      to new trait `UncheckedOnRuntimeUpgrade`, which has the same interface as `OnRuntimeUpgrade`. It also 
+      improves code readability by making it clear that `Inner` is not intended to be used directly.
+
+crates:
+  - name: "pallet-example-single-block-migrations"
+  - name: "pallet-staging-xcm"
+  - name: "pallet-grandpa"
+  - name: "pallet-identity"
+  - name: "pallet-nomination-pools"
+  - name: "pallet-society"
+  - name: "frame-support"
+  - name: "pallet-uniques"
+  - name: "polkadot-runtime-parachains"
+  - name: "polkadot-runtime-common"

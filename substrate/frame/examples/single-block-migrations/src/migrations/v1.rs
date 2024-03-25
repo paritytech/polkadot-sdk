@@ -17,7 +17,7 @@
 
 use frame_support::{
 	storage_alias,
-	traits::{Get, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+	traits::{Get, UncheckedOnRuntimeUpgrade},
 };
 
 #[cfg(feature = "try-runtime")]
