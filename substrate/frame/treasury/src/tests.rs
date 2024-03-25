@@ -176,7 +176,6 @@ impl Config for Test {
 	type Currency = pallet_balances::Pallet<Test>;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSlash = ();
 	type SpendPeriod = ConstU64<2>;
 	type Burn = Burn;
 	type BurnDestination = (); // Just gets burned.

@@ -210,9 +210,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
-		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
-
 		/// Period between successive spends.
 		#[pallet::constant]
 		type SpendPeriod: Get<BlockNumberFor<Self>>;
