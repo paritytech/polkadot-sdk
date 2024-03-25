@@ -512,8 +512,6 @@ where
 					return;
 				}
 
-				self.publish_interval.set_to_start();
-
 				if let Some(metrics) = &self.metrics {
 					metrics.dht_event_received.with_label_values(&["value_put_failed"]).inc();
 				}
