@@ -372,13 +372,13 @@ fn execute_withdraw_to_deposit_works() {
 		let weight = BaseXcmWeight::get() * 3;
 		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm(vec![
 				WithdrawAsset((Here, SEND_AMOUNT).into()),
 				buy_execution((Here, SEND_AMOUNT)),
 				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
-			]))),
+			])).encode().try_into().unwrap(),
 			weight
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
@@ -400,9 +400,9 @@ fn trapped_assets_can_be_claimed() {
 		let weight = BaseXcmWeight::get() * 6;
 		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm(vec![
 				WithdrawAsset((Here, SEND_AMOUNT).into()),
 				buy_execution((Here, SEND_AMOUNT)),
 				// Don't propagated the error into the result.
@@ -411,7 +411,7 @@ fn trapped_assets_can_be_claimed() {
 				Trap(0),
 				// This would succeed, but we never get to it.
 				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest.clone() },
-			]))),
+			])).encode().try_into().unwrap(),
 			weight
 		));
 		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -438,13 +438,13 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(trapped, expected);
 
 		let weight = BaseXcmWeight::get() * 3;
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm(vec![
 				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
 				buy_execution((Here, SEND_AMOUNT)),
 				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest.clone() },
-			]))),
+			])).encode().try_into().unwrap(),
 			weight
 		));
 
@@ -454,13 +454,13 @@ fn trapped_assets_can_be_claimed() {
 
 		// Can't claim twice.
 		assert_err_ignore_postinfo!(
-			XcmPallet::execute(
+			XcmPallet::execute_blob(
 				RuntimeOrigin::signed(ALICE),
-				Box::new(VersionedXcm::from(Xcm(vec![
+				VersionedXcm::from(Xcm(vec![
 					ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
 					buy_execution((Here, SEND_AMOUNT)),
 					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
-				]))),
+				])).encode().try_into().unwrap(),
 				weight
 			),
 			Error::<Test>::LocalExecutionIncomplete
@@ -477,9 +477,9 @@ fn claim_assets_works() {
 		let trapping_program =
 			Xcm::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT).into()).build();
 		// Even though assets are trapped, the extrinsic returns success.
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::V4(trapping_program)),
+			VersionedXcm::V4(trapping_program).encode().try_into().unwrap(),
 			BaseXcmWeight::get() * 2,
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
@@ -532,9 +532,9 @@ fn incomplete_execute_reverts_side_effects() {
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		let amount_to_send = INITIAL_BALANCE - ExistentialDeposit::get();
 		let assets: Assets = (Here, amount_to_send).into();
-		let result = XcmPallet::execute(
+		let result = XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm(vec![
 				// Withdraw + BuyExec + Deposit should work
 				WithdrawAsset(assets.clone()),
 				buy_execution(assets.inner()[0].clone()),
@@ -542,7 +542,7 @@ fn incomplete_execute_reverts_side_effects() {
 				// Withdrawing once more will fail because of InsufficientBalance, and we expect to
 				// revert the effects of the above instructions as well
 				WithdrawAsset(assets),
-			]))),
+			])).encode().try_into().unwrap(),
 			weight,
 		);
 		// all effects are reverted and balances unchanged for either sender or receiver
@@ -553,7 +553,7 @@ fn incomplete_execute_reverts_side_effects() {
 			result,
 			Err(sp_runtime::DispatchErrorWithPostInfo {
 				post_info: frame_support::dispatch::PostDispatchInfo {
-					actual_weight: Some(<<Test as crate::Config>::WeightInfo>::execute() + weight),
+					actual_weight: Some(<<Test as crate::Config>::WeightInfo>::execute_blob() + weight),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
 				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
