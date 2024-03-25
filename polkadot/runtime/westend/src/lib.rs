@@ -106,7 +106,6 @@ use xcm::{
 };
 use xcm_builder::PayOverXcm;
 
-use xcm_executor::traits::WeightBounds;
 use xcm_fee_payment_runtime_api::Error as XcmPaymentApiError;
 
 pub use frame_system::Call as SystemCall;
@@ -2281,28 +2280,11 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
-			let mut message = message
-				.try_into()
-				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
-			<xcm_config::XcmConfig as xcm_executor::Config>::Weigher::weight(&mut message)
-				.map_err(|error| {
-					log::error!("Error when querying XCM weight: {:?}", error);
-					XcmPaymentApiError::WeightNotComputable
-				})
+			XcmPallet::query_xcm_weight(message)
 		}
 
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
-			let destination = destination
-				.try_into()
-				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
-			let message = message
-				.try_into()
-				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
-			let (_, fees) = xcm_config::XcmRouter::validate(&mut Some(destination), &mut Some(message)).map_err(|error| {
-				log::error!("Error when querying delivery fees: {:?}", error);
-				XcmPaymentApiError::Unroutable
-			})?;
-			Ok(VersionedAssets::from(fees))
+			XcmPallet::query_delivery_fees(destination, message)
 		}
 	}
 

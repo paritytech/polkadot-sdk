@@ -61,6 +61,7 @@ use xcm_executor::{
 	},
 	AssetsInHolding,
 };
+use xcm_fee_payment_runtime_api::Error as FeePaymentError;
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -2361,6 +2362,38 @@ impl<T: Config> Pallet<T> {
 	pub fn check_account() -> T::AccountId {
 		const ID: PalletId = PalletId(*b"py/xcmch");
 		AccountIdConversion::<T::AccountId>::into_account_truncating(&ID)
+	}
+
+	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, FeePaymentError> {
+		let message = Xcm::<()>::try_from(message)
+			.map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+
+		T::Weigher::weight(&mut message.into())
+			.map_err(|()| {
+				log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
+				FeePaymentError::WeightNotComputable
+			})
+	}
+
+	pub fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, FeePaymentError> {
+		let result_version = destination.identify_version().max(message.identify_version());
+
+		let destination = destination
+			.try_into()
+			.map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+
+		let message = message
+			.try_into()
+			.map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+
+		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
+			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Error when querying delivery fees: {:?}", error);
+			FeePaymentError::Unroutable
+		})?;
+
+		VersionedAssets::from(fees)
+			.into_version(result_version)
+			.map_err(|_| FeePaymentError::VersionedConversionFailed)
 	}
 
 	/// Create a new expectation of a query response with the querier being here.
