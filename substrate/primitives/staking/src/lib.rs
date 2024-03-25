@@ -314,6 +314,176 @@ pub trait StakingInterface {
 	fn set_current_era(era: EraIndex);
 }
 
+pub trait StakingConfig {
+	/// Balance type used by the staking system.
+	type Balance: Sub<Output = Self::Balance>
+	+ Ord
+	+ PartialEq
+	+ Default
+	+ Copy
+	+ MaxEncodedLen
+	+ FullCodec
+	+ TypeInfo
+	+ Zero
+	+ Saturating;
+
+	/// The minimum amount required to bond in order to set nomination intentions. This does not
+	/// necessarily mean the nomination will be counted in an election, but instead just enough to
+	/// be stored as a nominator. In other words, this is the minimum amount to register the
+	/// intention to nominate.
+	fn minimum_nominator_bond() -> Self::Balance;
+
+	/// The minimum amount required to bond in order to set validation intentions.
+	fn minimum_validator_bond() -> Self::Balance;
+
+	/// Number of eras that staked funds must remain bonded for.
+	fn bonding_duration() -> EraIndex;
+
+	/// The ideal number of active validators.
+	fn desired_validator_count() -> u32;
+
+	/// Returns the fraction of the slash to be rewarded to reporter.
+	fn slash_reward_fraction() -> Perbill;
+}
+pub trait StakingInspect {
+	/// Balance type used by the staking system.
+	type Balance: Sub<Output = Self::Balance>
+	+ Ord
+	+ PartialEq
+	+ Default
+	+ Copy
+	+ MaxEncodedLen
+	+ FullCodec
+	+ TypeInfo
+	+ Zero
+	+ Saturating;
+
+	/// AccountId type used by the staking system.
+	type AccountId: Clone + core::fmt::Debug;
+
+	/// Means of converting Currency to VoteWeight.
+	type CurrencyToVote: CurrencyToVote<Self::Balance>;
+
+	/// Return a stash account that is controlled by a `controller`.
+	///
+	/// ## Note
+	///
+	/// The controller abstraction is not permanent and might go away. Avoid using this as much as
+	/// possible.
+	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError>;
+
+	/// The current era index.
+	///
+	/// This should be the latest planned era that the staking system knows about.
+	fn current_era() -> EraIndex;
+
+	/// Returns the [`Stake`] of `who`.
+	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError>;
+
+	/// Total stake of a staker, `Err` if not a staker.
+	fn total_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
+		Self::stake(who).map(|s| s.total)
+	}
+
+	/// Total active portion of a staker's [`Stake`], `Err` if not a staker.
+	fn active_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
+		Self::stake(who).map(|s| s.active)
+	}
+
+	/// Returns whether a staker is unbonding, `Err` if not a staker at all.
+	fn is_unbonding(who: &Self::AccountId) -> Result<bool, DispatchError> {
+		Self::stake(who).map(|s| s.active != s.total)
+	}
+
+	/// Whether there is an ongoing election.
+	fn election_ongoing() -> bool;
+
+	/// Checks whether an account `staker` has been exposed in an era.
+	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool;
+
+	/// Return the status of the given staker, `Err` if not staked at all.
+	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError>;
+
+	/// Checks whether or not this is a validator account.
+	fn is_validator(who: &Self::AccountId) -> bool {
+		Self::status(who).map(|s| matches!(s, StakerStatus::Validator)).unwrap_or(false)
+	}
+
+	/// Get the nominations of a stash, if they are a nominator, `None` otherwise.
+	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
+		match Self::status(who) {
+			Ok(StakerStatus::Nominator(t)) => Some(t),
+			_ => None,
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_exposure_page_size() -> Page;
+}
+pub trait StakingMutate: StakingInspect {
+	/// Bond (lock) `value` of `who`'s balance, while forwarding any rewards to `payee`.
+	fn bond(who: &Self::AccountId, value: Self::Balance, payee: &Self::AccountId)
+			-> DispatchResult;
+
+	/// Have `who` nominate `validators`.
+	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult;
+
+	/// Chill `who`.
+	fn chill(who: &Self::AccountId) -> DispatchResult;
+
+	/// Bond some extra amount in `who`'s free balance against the active bonded balance of
+	/// the account. The amount extra actually bonded will never be more than `who`'s free
+	/// balance.
+	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult;
+
+	/// Schedule a portion of the active bonded balance to be unlocked at era
+	/// [Self::current_era] + [`Self::bonding_duration`].
+	///
+	/// Once the unlock era has been reached, [`Self::withdraw_unbonded`] can be called to unlock
+	/// the funds.
+	///
+	/// The amount of times this can be successfully called is limited based on how many distinct
+	/// eras funds are schedule to unlock in. Calling [`Self::withdraw_unbonded`] after some unlock
+	/// schedules have reached their unlocking era should allow more calls to this function.
+	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult;
+
+
+	/// Schedules all the active bonded balance of `who` to be unlocked after
+	/// [`Self::bonding_duration`] eras.
+	///
+	/// Returns whether a staker is FULLY unbonding, `Err` if not a staker at all.
+	fn fully_unbond(who: &Self::AccountId) -> DispatchResult {
+		Self::unbond(who, Self::stake(who)?.active)
+	}
+
+	/// Unlock any funds schedule to unlock before or at the current era.
+	///
+	/// Returns whether the stash was killed because of this withdraw or not.
+	fn withdraw_unbonded(
+		stash: Self::AccountId,
+		num_slashing_spans: u32,
+	) -> Result<bool, DispatchError>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_era_stakers(
+		current_era: &EraIndex,
+		stash: &Self::AccountId,
+		exposures: Vec<(Self::AccountId, Self::Balance)>,
+	);
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_current_era(era: EraIndex);
+}
+pub trait StakingUnsafe: StakingMutate {
+	/// Force a current staker to become completely unstaked, immediately.
+	fn force_unstake(who: Self::AccountId) -> DispatchResult;
+
+	/// Release all funds bonded for stake.
+	///
+	/// Unsafe, only used for migration of `delegatee` accounts.
+	fn unsafe_release_all(who: &Self::AccountId);
+}
+
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
