@@ -17,9 +17,31 @@
 
 //! # FRAME Staking Rewards Pallet
 //!
-//! A pallet that allows users to stake assets and receive rewards in return.
+//! Allows rewarding fungible token holders.
 //!
-//! Based on the [AccumulatedRewardsPerShare](https://dev.to/heymarkkop/understanding-sushiswaps-masterchef-staking-rewards-1m6f) algorithm.
+//! ## Overview
+//!
+//! Governance can create a new incentive program for a fungible asset by creating a new pool.
+//!
+//! When creating the pool, governance specifies a 'staking asset', 'reward asset', and 'reward rate
+//! per block'.
+//!
+//! Once the pool is created, holders of the 'staking asset' can stake them in this pallet (creating
+//! a new Freeze). Once staked, the staker begins accumulating the right to claim the 'reward asset'
+//! each block, proportional to their share of the total staked tokens in the pool.
+//!
+//! Reward assets pending distribution are held in an account derived from the Pallet's ID.
+//! This pool should be adequately funded to ensure there are enough funds to make good on staker
+//! claims.
+//!
+//! ## Implementation Notes
+//!
+//! The implementation is based on the [AccumulatedRewardsPerShare](https://dev.to/heymarkkop/understanding-sushiswaps-masterchef-staking-rewards-1m6f) algorithm.
+//!
+//! Rewards are calculated JIT (just-in-time), when a staker claims their rewards.
+//!
+//! All operations are O(1), allowing the approach to scale to an arbitrary amount of pools and
+//! stakers.
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -43,7 +65,7 @@ use sp_std::boxed::Box;
 pub type PoolId<AssetId> = (AssetId, AssetId);
 
 /// Information on a user currently staking in a pool.
-#[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 pub struct PoolStakerInfo<Balance> {
 	amount: Balance,
 	rewards: Balance,
@@ -51,7 +73,7 @@ pub struct PoolStakerInfo<Balance> {
 }
 
 /// Staking pool.
-#[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<Balance, BlockNumber> {
 	reward_rate_per_block: Balance,
 	total_tokens_staked: Balance,
@@ -115,7 +137,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// An account staked some tokens in a pool.
-		Stake {
+		Staked {
 			/// The account.
 			who: T::AccountId,
 			/// The pool.
@@ -124,7 +146,7 @@ pub mod pallet {
 			amount: T::Balance,
 		},
 		/// An account unstaked some tokens from a pool.
-		Unstake {
+		Unstaked {
 			/// The account.
 			who: T::AccountId,
 			/// The pool.
@@ -190,8 +212,8 @@ pub mod pallet {
 		/// Create a new reward pool.
 		pub fn create_pool(
 			_origin: OriginFor<T>,
-			_staked_asset_id: T::AssetId,
-			_reward_asset_id: T::AssetId,
+			_staked_asset_id: Box<T::AssetId>,
+			_reward_asset_id: Box<T::AssetId>,
 		) -> DispatchResult {
 			todo!()
 		}
@@ -201,8 +223,8 @@ pub mod pallet {
 		/// TODO decide how to manage clean up of stakers from a removed pool
 		pub fn remove_pool(
 			_origin: OriginFor<T>,
-			_staked_asset_id: T::AssetId,
-			_reward_asset_id: T::AssetId,
+			_staked_asset_id: Box<T::AssetId>,
+			_reward_asset_id: Box<T::AssetId>,
 		) -> DispatchResult {
 			todo!()
 		}
@@ -210,8 +232,8 @@ pub mod pallet {
 		/// Stake tokens in a pool.
 		pub fn stake(
 			_origin: OriginFor<T>,
-			_staked_asset_id: T::AssetId,
-			_reward_asset_id: T::AssetId,
+			_staked_asset_id: Box<T::AssetId>,
+			_reward_asset_id: Box<T::AssetId>,
 			_amount: T::Balance,
 		) -> DispatchResult {
 			todo!()
@@ -220,8 +242,8 @@ pub mod pallet {
 		/// Unstake tokens from a pool.
 		pub fn unstake(
 			_origin: OriginFor<T>,
-			_staked_asset_id: T::AssetId,
-			_reward_asset_id: T::AssetId,
+			_staked_asset_id: Box<T::AssetId>,
+			_reward_asset_id: Box<T::AssetId>,
 			_amount: T::Balance,
 		) -> DispatchResult {
 			todo!()
@@ -230,8 +252,17 @@ pub mod pallet {
 		/// Harvest unclaimed pool rewards.
 		pub fn harvest_rewards(
 			_origin: OriginFor<T>,
-			_staked_asset_id: T::AssetId,
-			_reward_asset_id: T::AssetId,
+			_staked_asset_id: Box<T::AssetId>,
+			_reward_asset_id: Box<T::AssetId>,
+		) -> DispatchResult {
+			todo!()
+		}
+
+		/// Modify the reward rate of a pool.
+		pub fn modify_pool(
+			_origin: OriginFor<T>,
+			_staked_asset_id: Box<T::AssetId>,
+			_reward_asset_id: Box<T::AssetId>,
 		) -> DispatchResult {
 			todo!()
 		}
