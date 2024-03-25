@@ -30,7 +30,7 @@ use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
-use polkadot_primitives::{slashing, CoreIndex, ExecutorParams, async_backing::BackingState};
+use polkadot_primitives::{async_backing::BackingState, slashing, CoreIndex, ExecutorParams};
 
 pub use overseer::{
 	gen::{OrchestraError as OverseerError, Timeout},
