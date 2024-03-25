@@ -248,6 +248,7 @@ impl crate::dmp::Config for Test {}
 
 parameter_types! {
 	pub const FirstMessageFactorPercent: u64 = 100;
+	pub const DefaultChannelSizeAndCapacityToSystem: (u32, u32) = (51200, 500);
 }
 
 impl crate::hrmp::Config for Test {
@@ -255,6 +256,7 @@ impl crate::hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
+	type DefaultChannelSizeAndCapacityToSystem = DefaultChannelSizeAndCapacityToSystem;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }
 
