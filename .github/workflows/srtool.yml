@@ -12,6 +12,10 @@ on:
       - release-v[0-9]+.[0-9]+.[0-9]+*
       - release-cumulus-v[0-9]+*
       - release-polkadot-v[0-9]+*
+  workflow_call:
+    inputs:
+      excluded_runtimes:
+        type: string
 
   schedule:
     - cron: "00 02 * * 1" # 2AM weekly on monday
@@ -39,7 +43,7 @@ jobs:
 
         - name: Scan runtimes
           env:
-            EXCLUDED_RUNTIMES: "substrate-test"
+            EXCLUDED_RUNTIMES: ${{ inputs.excluded_runtimes }}:"substrate-test"
           run: |
             . ./.github/scripts/common/lib.sh
 

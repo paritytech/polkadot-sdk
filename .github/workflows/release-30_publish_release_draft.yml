@@ -21,4 +21,8 @@ jobs:
         run: |
           echo "stable=$(rustc +stable --version)" >> $GITHUB_OUTPUT
           echo "nightly=$(rustc +nightly --version)" >> $GITHUB_OUTPUT
-          cat $GITHUB_OUTPUT
+
+  build-runtimes:
+    uses: "./.github/workflows/srtool.yml"
+    with:
+       excluded_runtimes: "substrate-test cumulus-test-runtime kitchensink-runtime minimal-template-runtime parachain-template-runtime penpal-runtime polkadot-test-runtime rococo-parachain-runtime rococo-runtime-diff seedling-runtime shell-runtime westend-runtime-diff"
