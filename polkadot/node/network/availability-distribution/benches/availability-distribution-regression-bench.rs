@@ -27,6 +27,7 @@ use polkadot_subsystem_bench::{
 	availability::{benchmark_availability_write, prepare_test, TestState},
 	configuration::TestConfiguration,
 	usage::BenchmarkUsage,
+	utils::save_to_file,
 };
 use std::io::Write;
 
@@ -60,7 +61,13 @@ fn main() -> Result<(), String> {
 		})
 		.collect();
 	println!("\rDone!{}", " ".repeat(BENCH_COUNT));
+
 	let average_usage = BenchmarkUsage::average(&usages);
+	save_to_file(
+		"charts/availability-distribution-regression-bench.json",
+		average_usage.to_json().map_err(|e| e.to_string())?,
+	)
+	.map_err(|e| e.to_string());
 	println!("{}", average_usage);
 
 	// We expect no variance for received and sent

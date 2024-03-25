@@ -19,7 +19,7 @@
 use colored::Colorize;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs::File, io::Write};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BenchmarkUsage {
@@ -83,13 +83,7 @@ impl BenchmarkUsage {
 		}
 	}
 
-	pub fn save_as_json(&self, path: &str) -> color_eyre::eyre::Result<()> {
-		let mut file = File::create(path)?;
-		file.write_all(self.to_json()?.as_bytes())?;
-		Ok(())
-	}
-
-	fn to_json(&self) -> color_eyre::eyre::Result<String> {
+	pub fn to_json(&self) -> color_eyre::eyre::Result<String> {
 		let chart = self
 			.network_usage
 			.iter()
