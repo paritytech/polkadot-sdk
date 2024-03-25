@@ -20,8 +20,8 @@ frame-system = { path = "../../../substrate/frame/system", default-features = fa
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
-cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
-cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction", default-features = false }
+cumulus-primitives-core = { path = "../core", default-features = false }
+cumulus-primitives-proof-size-hostfunction = { path = "../proof-size-hostfunction", default-features = false }
 docify = "0.2.7"
 
 [dev-dependencies]
