@@ -41,17 +41,17 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// It takes 5 type parameters:
 /// - `From`: The version being upgraded from.
 /// - `To`: The version being upgraded to.
-/// - `Inner`: An implementation of [`UncheckedOnRuntimeUpgrade`].
+/// - `Inner`: An implementation of `UncheckedOnRuntimeUpgrade`.
 /// - `Pallet`: The Pallet being upgraded.
 /// - `Weight`: The runtime's RuntimeDbWeight implementation.
 ///
 /// When a [`VersionedMigration`] `on_runtime_upgrade`, `pre_upgrade`, or `post_upgrade` method is
 /// called, the on-chain version of the pallet is compared to `From`. If they match, the `Inner`
-/// [`UncheckedOnRuntimeUpgrade`] is called and the pallets on-chain version is set to `To`
+/// `UncheckedOnRuntimeUpgrade` is called and the pallets on-chain version is set to `To`
 /// after the migration. Otherwise, a warning is logged notifying the developer that the upgrade was
 /// a noop and should probably be removed.
 ///
-/// By not bounding `Inner` with [`OnRuntimeUpgrade`], we prevent developers from
+/// By not bounding `Inner` with `OnRuntimeUpgrade`, we prevent developers from
 /// accidentally using the unchecked version of the migration in a runtime upgrade instead of
 /// [`VersionedMigration`].
 ///

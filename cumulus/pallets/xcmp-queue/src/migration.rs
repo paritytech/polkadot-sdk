@@ -315,6 +315,7 @@ pub mod v4 {
 mod tests {
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
+	use frame_support::traits::OnRuntimeUpgrade;
 
 	#[test]
 	#[allow(deprecated)]
