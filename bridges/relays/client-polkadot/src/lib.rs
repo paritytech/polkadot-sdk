@@ -19,7 +19,7 @@
 mod codegen_runtime;
 
 use bp_polkadot::{AccountInfoStorageMapKeyProvider, POLKADOT_SYNCED_HEADERS_GRANDPA_INFO_METHOD};
-use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
+use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithRuntimeVersion, ChainWithTransactions,
@@ -84,7 +84,7 @@ impl RelayChain for Polkadot {
 impl ChainWithTransactions for Polkadot {
 	type AccountKeyPair = sp_core::sr25519::Pair;
 	type SignedTransaction =
-		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_polkadot::TransactionExtension>;
+		bp_polkadot_core::UncheckedExtrinsic<Self::Call, bp_polkadot::SignedExtension>;
 
 	fn sign_transaction(
 		param: SignParam<Self>,
@@ -92,7 +92,7 @@ impl ChainWithTransactions for Polkadot {
 	) -> Result<Self::SignedTransaction, SubstrateError> {
 		let raw_payload = SignedPayload::new(
 			unsigned.call,
-			bp_polkadot::TransactionExtension::from_params(
+			bp_polkadot::SignedExtension::from_params(
 				param.spec_version,
 				param.transaction_version,
 				unsigned.era,
