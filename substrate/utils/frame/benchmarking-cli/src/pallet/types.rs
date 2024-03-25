@@ -61,3 +61,18 @@ where
 		}
 	}
 }
+
+/// Maps a (pallet, benchmark) to its component ranges.
+pub(crate) type ComponentRangeMap =
+	std::collections::HashMap<(String, String), Vec<ComponentRange>>;
+
+/// The inclusive range of a component.
+#[derive(serde::Serialize, Debug, Clone, Eq, PartialEq)]
+pub(crate) struct ComponentRange {
+	/// Name of the component.
+	pub(crate) name: String,
+	/// Minimal valid value of the component.
+	pub(crate) min: u32,
+	/// Maximal valid value of the component.
+	pub(crate) max: u32,
+}
