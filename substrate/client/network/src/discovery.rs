@@ -366,23 +366,26 @@ impl DiscoveryBehaviour {
 				return
 			}
 
-			if let Some(matching_protocol) = supported_protocols
+			// The supported protocols must include all kademlia protocol names.
+			if !kademlia
+				.protocol_names()
 				.iter()
-				.find(|p| kademlia.protocol_names().iter().any(|k| k.as_ref() == p.as_ref()))
+				.all(|proto| supported_protocols.iter().any(|p| p.as_ref() == proto.as_ref()))
 			{
-				trace!(
-					target: "sub-libp2p",
-					"Adding self-reported address {} from {} to Kademlia DHT {}.",
-					addr, peer_id, String::from_utf8_lossy(matching_protocol.as_ref()),
-				);
-				kademlia.add_address(peer_id, addr.clone());
-			} else {
 				trace!(
 					target: "sub-libp2p",
 					"Ignoring self-reported address {} from {} as remote node is not part of the \
 					 Kademlia DHT supported by the local node.", addr, peer_id,
 				);
+				return
 			}
+
+			trace!(
+				target: "sub-libp2p",
+				"Adding self-reported address {} from {} to Kademlia DHT.",
+				addr, peer_id
+			);
+			kademlia.add_address(peer_id, addr.clone());
 		}
 	}
 
