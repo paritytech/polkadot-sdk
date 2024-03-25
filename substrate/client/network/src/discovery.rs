@@ -775,9 +775,11 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							Ok(GetRecordOk::FoundRecord(r)) => {
 								debug!(
 									target: "sub-libp2p",
-									"Libp2p => Found record ({:?}) with value: {:?}",
+									"Libp2p => Found record ({:?}) with value: {:?} id {:?} stats {:?}",
 									r.record.key,
 									r.record.value,
+									id,
+									stats,
 								);
 
 								// Let's directly finish the query, as we are only interested in a
@@ -805,6 +807,12 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							Ok(GetRecordOk::FinishedWithNoAdditionalRecord {
 								cache_candidates,
 							}) => {
+								debug!(
+									target: "sub-libp2p",
+									"Libp2p => Finished with no-additional-record {:?} stats {:?}",
+									id,
+									stats,
+								);
 								// We always need to remove the record to not leak any data!
 								if let Some(record) = self.records_to_publish.remove(&id) {
 									if cache_candidates.is_empty() {

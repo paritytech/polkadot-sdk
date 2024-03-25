@@ -141,7 +141,7 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 
 	/// Set of lookups we can still received records.
 	/// These are the entries in the `in_flight_lookups` for which
-	/// we got at least on successfull result.
+	/// we got at least one successfull result.
 	known_lookups: HashMap<KademliaKey, AuthorityId>,
 
 	addr_cache: addr_cache::AddrCache,
