@@ -251,7 +251,7 @@ type OffchainResult<T, A> = Result<A, OffchainErr<BlockNumberFor<T>>>;
 pub mod pallet {
 	use super::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -338,26 +338,22 @@ pub mod pallet {
 	/// progress estimate from `NextSessionRotation`, as those estimates should be
 	/// more accurate then the value we calculate for `HeartbeatAfter`.
 	#[pallet::storage]
-	#[pallet::getter(fn heartbeat_after)]
-	pub(super) type HeartbeatAfter<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type HeartbeatAfter<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// The current set of keys that may issue a heartbeat.
 	#[pallet::storage]
-	#[pallet::getter(fn keys)]
-	pub(super) type Keys<T: Config> =
+	pub type Keys<T: Config> =
 		StorageValue<_, WeakBoundedVec<T::AuthorityId, T::MaxKeys>, ValueQuery>;
 
 	/// For each session index, we keep a mapping of `SessionIndex` and `AuthIndex`.
 	#[pallet::storage]
-	#[pallet::getter(fn received_heartbeats)]
-	pub(super) type ReceivedHeartbeats<T: Config> =
+	pub type ReceivedHeartbeats<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, SessionIndex, Twox64Concat, AuthIndex, bool>;
 
 	/// For each session index, we keep a mapping of `ValidatorId<T>` to the
 	/// number of blocks authored by the given authority.
 	#[pallet::storage]
-	#[pallet::getter(fn authored_blocks)]
-	pub(super) type AuthoredBlocks<T: Config> = StorageDoubleMap<
+	pub type AuthoredBlocks<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,

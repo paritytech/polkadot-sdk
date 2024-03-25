@@ -70,7 +70,7 @@ use std::{
 	sync::Arc,
 };
 
-use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+use bitvec::vec::BitVec;
 use futures::{
 	channel::{mpsc, oneshot},
 	future::BoxFuture,
@@ -494,20 +494,15 @@ fn table_attested_to_backed(
 	}
 	vote_positions.sort_by_key(|(_orig, pos_in_group)| *pos_in_group);
 
-	if inject_core_index {
-		let core_index_to_inject: BitVec<u8, BitOrderLsb0> =
-			BitVec::from_vec(vec![core_index.0 as u8]);
-		validator_indices.extend(core_index_to_inject);
-	}
-
-	Some(BackedCandidate {
+	Some(BackedCandidate::new(
 		candidate,
-		validity_votes: vote_positions
+		vote_positions
 			.into_iter()
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
 		validator_indices,
-	})
+		inject_core_index.then_some(core_index),
+	))
 }
 
 async fn store_available_data(
@@ -1775,7 +1770,7 @@ async fn post_import_statement_actions<Context>(
 				&rp_state.table_context,
 				rp_state.inject_core_index,
 			) {
-				let para_id = backed.candidate.descriptor.para_id;
+				let para_id = backed.candidate().descriptor.para_id;
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_hash,
@@ -1796,7 +1791,7 @@ async fn post_import_statement_actions<Context>(
 					// notify collator protocol.
 					ctx.send_message(CollatorProtocolMessage::Backed {
 						para_id,
-						para_head: backed.candidate.descriptor.para_head,
+						para_head: backed.candidate().descriptor.para_head,
 					})
 					.await;
 					// Notify statement distribution of backed candidate.

@@ -63,7 +63,7 @@
 //! LocalFee(Message) = WeightToFee(ProcessMessageWeight(Message))
 //! RemoteFee(Message) = MaxGasRequired(Message) * Params.MaxFeePerGas + Params.Reward
 //! RemoteFeeAdjusted(Message) = Params.Multiplier * (RemoteFee(Message) / Params.Ratio("ETH/DOT"))
-//! Fee(Message) = LocalFee(Message) + Params.Multiplier * RemoteFeeAdjusted(Message)
+//! Fee(Message) = LocalFee(Message) + RemoteFeeAdjusted(Message)
 //! ```
 //!
 //! By design, the computed fee includes a safety factor (the `Multiplier`) to cover
@@ -77,7 +77,7 @@
 //! Min(GasPrice, Message.MaxFeePerGas) * GasUsed() + Message.Reward
 //! ```
 //! Or in plain english, relayers are refunded for gas consumption, using a
-//! price that is a minimum of the actual gas price, or `Message.MaxFeePerGas``.
+//! price that is a minimum of the actual gas price, or `Message.MaxFeePerGas`.
 //!
 //! # Extrinsics
 //!

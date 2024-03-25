@@ -634,6 +634,7 @@ fn submit_finalized_header_update_with_gap_at_limit() {
 		);
 	});
 }
+
 /* IMPLS */
 
 #[test]

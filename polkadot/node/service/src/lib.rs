@@ -92,6 +92,7 @@ pub use chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
 pub use consensus_common::{Proposal, SelectChain};
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use mmr_gadget::MmrGadget;
+use polkadot_node_subsystem_types::DefaultSubsystemClient;
 pub use polkadot_primitives::{Block, BlockId, BlockNumber, CollatorPair, Hash, Id as ParaId};
 pub use sc_client_api::{Backend, CallExecutor};
 pub use sc_consensus::{BlockImport, LongestChain};
@@ -806,6 +807,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
+	let auth_disc_public_addresses = config.network.public_addresses.clone();
 	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
 
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
@@ -1060,6 +1062,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			let (worker, service) = sc_authority_discovery::new_worker_and_service_with_config(
 				sc_authority_discovery::WorkerConfig {
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
+					public_addresses: auth_disc_public_addresses,
 					// Require that authority discovery records are signed.
 					strict_record_validation: true,
 					..Default::default()
@@ -1081,12 +1084,17 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			None
 		};
 
+	let runtime_client = Arc::new(DefaultSubsystemClient::new(
+		overseer_client.clone(),
+		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
+	));
+
 	let overseer_handle = if let Some(authority_discovery_service) = authority_discovery_service {
 		let (overseer, overseer_handle) = overseer_gen
-			.generate::<service::SpawnTaskHandle, FullClient>(
+			.generate::<service::SpawnTaskHandle, DefaultSubsystemClient<FullClient>>(
 				overseer_connector,
 				OverseerGenArgs {
-					runtime_client: overseer_client.clone(),
+					runtime_client,
 					network_service: network.clone(),
 					sync_service: sync_service.clone(),
 					authority_discovery_service,
@@ -1099,9 +1107,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					overseer_message_channel_capacity_override,
 					req_protocol_names,
 					peerset_protocol_names,
-					offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
-						transaction_pool.clone(),
-					),
 					notification_services,
 				},
 				ext_overseer_args,

@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 /// Copied from `sp-runtime` and documented there.
 #[macro_export]
 macro_rules! assert_eq_error_rate {
@@ -49,7 +51,8 @@ pub use per_things::{
 };
 pub use rational::{MultiplyRational, Rational128, RationalInfinite};
 
-use sp_std::{cmp::Ordering, fmt::Debug, prelude::*};
+use alloc::vec::Vec;
+use core::{cmp::Ordering, fmt::Debug};
 use traits::{BaseArithmetic, One, SaturatedConversion, Unsigned, Zero};
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -98,7 +101,7 @@ where
 	fn tcmp(&self, other: &T, threshold: T) -> Ordering {
 		// early exit.
 		if threshold.is_zero() {
-			return self.cmp(other)
+			return self.cmp(other);
 		}
 
 		let upper_bound = other.saturating_add(threshold);
@@ -203,12 +206,12 @@ where
 
 	// Nothing to do here.
 	if count.is_zero() {
-		return Ok(Vec::<T>::new())
+		return Ok(Vec::<T>::new());
 	}
 
 	let diff = targeted_sum.max(sum) - targeted_sum.min(sum);
 	if diff.is_zero() {
-		return Ok(input.to_vec())
+		return Ok(input.to_vec());
 	}
 
 	let needs_bump = targeted_sum > sum;
@@ -251,7 +254,7 @@ where
 				min_index += 1;
 				min_index %= count;
 			}
-			leftover -= One::one()
+			leftover -= One::one();
 		}
 	} else {
 		// must decrease the stakes a bit. decrement from the max element. index of maximum is now
@@ -285,7 +288,7 @@ where
 				if output_with_idx[max_index].1 <= threshold {
 					max_index = max_index.checked_sub(1).unwrap_or(count - 1);
 				}
-				leftover -= One::one()
+				leftover -= One::one();
 			} else {
 				max_index = max_index.checked_sub(1).unwrap_or(count - 1);
 			}
@@ -297,7 +300,7 @@ where
 		targeted_sum,
 		"sum({:?}) != {:?}",
 		output_with_idx,
-		targeted_sum,
+		targeted_sum
 	);
 
 	// sort again based on the original index.
@@ -353,7 +356,7 @@ mod normalize_tests {
 			vec![
 				Perbill::from_parts(333333334),
 				Perbill::from_parts(333333333),
-				Perbill::from_parts(333333333),
+				Perbill::from_parts(333333333)
 			]
 		);
 
@@ -364,7 +367,7 @@ mod normalize_tests {
 			vec![
 				Perbill::from_parts(316666668),
 				Perbill::from_parts(383333332),
-				Perbill::from_parts(300000000),
+				Perbill::from_parts(300000000)
 			]
 		);
 	}
@@ -375,13 +378,13 @@ mod normalize_tests {
 		// could have a situation where the sum cannot be calculated in the inner type. Calculating
 		// using the upper type of the per_thing should assure this to be okay.
 		assert_eq!(
-			vec![PerU16::from_percent(40), PerU16::from_percent(40), PerU16::from_percent(40),]
+			vec![PerU16::from_percent(40), PerU16::from_percent(40), PerU16::from_percent(40)]
 				.normalize(PerU16::one())
 				.unwrap(),
 			vec![
 				PerU16::from_parts(21845), // 33%
 				PerU16::from_parts(21845), // 33%
-				PerU16::from_parts(21845), // 33%
+				PerU16::from_parts(21845)  // 33%
 			]
 		);
 	}
@@ -426,10 +429,92 @@ mod normalize_tests {
 }
 
 #[cfg(test)]
+mod per_and_fixed_examples {
+	use super::*;
+
+	#[docify::export]
+	#[test]
+	fn percent_mult() {
+		let percent = Percent::from_rational(5u32, 100u32); // aka, 5%
+		let five_percent_of_100 = percent * 100u32; // 5% of 100 is 5.
+		assert_eq!(five_percent_of_100, 5)
+	}
+	#[docify::export]
+	#[test]
+	fn perbill_example() {
+		let p = Perbill::from_percent(80);
+		// 800000000 bil, or a representative of 0.800000000.
+		// Precision is in the billions place.
+		assert_eq!(p.deconstruct(), 800000000);
+	}
+
+	#[docify::export]
+	#[test]
+	fn percent_example() {
+		let percent = Percent::from_rational(190u32, 400u32);
+		assert_eq!(percent.deconstruct(), 47);
+	}
+
+	#[docify::export]
+	#[test]
+	fn fixed_u64_block_computation_example() {
+		// Calculate a very rudimentary on-chain price from supply / demand
+		// Supply: Cores available per block
+		// Demand: Cores being ordered per block
+		let price = FixedU64::from_rational(5u128, 10u128);
+
+		// 0.5 DOT per core
+		assert_eq!(price, FixedU64::from_float(0.5));
+
+		// Now, the story has changed - lots of demand means we buy as many cores as there
+		// available.  This also means that price goes up! For the sake of simplicity, we don't care
+		// about who gets a core - just about our very simple price model
+
+		// Calculate a very rudimentary on-chain price from supply / demand
+		// Supply: Cores available per block
+		// Demand: Cores being ordered per block
+		let price = FixedU64::from_rational(19u128, 10u128);
+
+		// 1.9 DOT per core
+		assert_eq!(price, FixedU64::from_float(1.9));
+	}
+
+	#[docify::export]
+	#[test]
+	fn fixed_u64() {
+		// The difference between this and perthings is perthings operates within the relam of [0,
+		// 1] In cases where we need > 1, we can used fixed types such as FixedU64
+
+		let rational_1 = FixedU64::from_rational(10, 5); //" 200%" aka 2.
+		let rational_2 = FixedU64::from_rational_with_rounding(5, 10, Rounding::Down); // "50%" aka 0.50...
+
+		assert_eq!(rational_1, (2u64).into());
+		assert_eq!(rational_2.into_perbill(), Perbill::from_float(0.5));
+	}
+
+	#[docify::export]
+	#[test]
+	fn fixed_u64_operation_example() {
+		let rational_1 = FixedU64::from_rational(10, 5); // "200%" aka 2.
+		let rational_2 = FixedU64::from_rational(8, 5); // "160%" aka 1.6.
+
+		let addition = rational_1 + rational_2;
+		let multiplication = rational_1 * rational_2;
+		let division = rational_1 / rational_2;
+		let subtraction = rational_1 - rational_2;
+
+		assert_eq!(addition, FixedU64::from_float(3.6));
+		assert_eq!(multiplication, FixedU64::from_float(3.2));
+		assert_eq!(division, FixedU64::from_float(1.25));
+		assert_eq!(subtraction, FixedU64::from_float(0.4));
+	}
+}
+
+#[cfg(test)]
 mod threshold_compare_tests {
 	use super::*;
 	use crate::traits::Saturating;
-	use sp_std::cmp::Ordering;
+	use core::cmp::Ordering;
 
 	#[test]
 	fn epsilon_ord_works() {
@@ -437,15 +522,15 @@ mod threshold_compare_tests {
 		let e = Perbill::from_percent(10).mul_ceil(b);
 
 		// [115 - 11,5 (103,5), 115 + 11,5 (126,5)] is all equal
-		assert_eq!(103u32.tcmp(&b, e), Ordering::Equal);
-		assert_eq!(104u32.tcmp(&b, e), Ordering::Equal);
-		assert_eq!(115u32.tcmp(&b, e), Ordering::Equal);
-		assert_eq!(120u32.tcmp(&b, e), Ordering::Equal);
-		assert_eq!(126u32.tcmp(&b, e), Ordering::Equal);
-		assert_eq!(127u32.tcmp(&b, e), Ordering::Equal);
+		assert_eq!((103u32).tcmp(&b, e), Ordering::Equal);
+		assert_eq!((104u32).tcmp(&b, e), Ordering::Equal);
+		assert_eq!((115u32).tcmp(&b, e), Ordering::Equal);
+		assert_eq!((120u32).tcmp(&b, e), Ordering::Equal);
+		assert_eq!((126u32).tcmp(&b, e), Ordering::Equal);
+		assert_eq!((127u32).tcmp(&b, e), Ordering::Equal);
 
-		assert_eq!(128u32.tcmp(&b, e), Ordering::Greater);
-		assert_eq!(102u32.tcmp(&b, e), Ordering::Less);
+		assert_eq!((128u32).tcmp(&b, e), Ordering::Greater);
+		assert_eq!((102u32).tcmp(&b, e), Ordering::Less);
 	}
 
 	#[test]
@@ -455,15 +540,15 @@ mod threshold_compare_tests {
 		let e = Perbill::from_parts(100) * b;
 
 		// [115 - 11,5 (103,5), 115 + 11,5 (126,5)] is all equal
-		assert_eq!(103u32.tcmp(&b, e), 103u32.cmp(&b));
-		assert_eq!(104u32.tcmp(&b, e), 104u32.cmp(&b));
-		assert_eq!(115u32.tcmp(&b, e), 115u32.cmp(&b));
-		assert_eq!(120u32.tcmp(&b, e), 120u32.cmp(&b));
-		assert_eq!(126u32.tcmp(&b, e), 126u32.cmp(&b));
-		assert_eq!(127u32.tcmp(&b, e), 127u32.cmp(&b));
+		assert_eq!((103u32).tcmp(&b, e), (103u32).cmp(&b));
+		assert_eq!((104u32).tcmp(&b, e), (104u32).cmp(&b));
+		assert_eq!((115u32).tcmp(&b, e), (115u32).cmp(&b));
+		assert_eq!((120u32).tcmp(&b, e), (120u32).cmp(&b));
+		assert_eq!((126u32).tcmp(&b, e), (126u32).cmp(&b));
+		assert_eq!((127u32).tcmp(&b, e), (127u32).cmp(&b));
 
-		assert_eq!(128u32.tcmp(&b, e), 128u32.cmp(&b));
-		assert_eq!(102u32.tcmp(&b, e), 102u32.cmp(&b));
+		assert_eq!((128u32).tcmp(&b, e), (128u32).cmp(&b));
+		assert_eq!((102u32).tcmp(&b, e), (102u32).cmp(&b));
 	}
 
 	#[test]

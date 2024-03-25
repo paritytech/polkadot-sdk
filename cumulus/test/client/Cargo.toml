@@ -41,6 +41,7 @@ cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
+cumulus-primitives-storage-weight-reclaim = { path = "../../primitives/storage-weight-reclaim" }
 
 [features]
 runtime-benchmarks = [
