@@ -22,6 +22,8 @@ mod offchain;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
+#[cfg(not(feature = "std"))]
+use alloc::collections::btree_map::BTreeMap as Map;
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode};
 pub use offchain::OffchainOverlayedChanges;
@@ -31,8 +33,6 @@ use sp_core::{
 };
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
-#[cfg(not(feature = "std"))]
-use alloc::collections::btree_map::BTreeMap as Map;
 use sp_trie::{empty_child_trie_root, DBLocation, LayoutV1};
 #[cfg(feature = "std")]
 use std::collections::{hash_map::Entry as MapEntry, HashMap as Map};

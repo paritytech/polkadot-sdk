@@ -20,8 +20,7 @@
 #[cfg(feature = "std")]
 use crate::trie_backend::TrieBackend;
 use crate::{ChildStorageCollection, StorageCollection, StorageKey, StorageValue, UsageInfo};
-use alloc::vec::Vec;
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 use core::marker::PhantomData;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};

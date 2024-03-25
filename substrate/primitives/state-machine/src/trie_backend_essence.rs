@@ -25,6 +25,8 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::Codec;
+#[cfg(not(feature = "std"))]
+use core::cell::RefCell;
 use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
@@ -211,7 +213,7 @@ pub struct TrieBackendEssence<H: Hasher, C, R> {
 	pub(crate) recorder: RwLock<Option<R>>,
 	#[allow(dead_code)]
 	#[cfg(not(feature = "std"))]
-	pub(crate) recorder: Option<R>,
+	pub(crate) recorder: RefCell<Option<R>>,
 }
 
 impl<H, C, R> TrieBackendEssence<H, C, R>
@@ -236,7 +238,7 @@ where
 			#[cfg(feature = "std")]
 			recorder: RwLock::new(None),
 			#[cfg(not(feature = "std"))]
-			recorder: None,
+			recorder: RefCell::new(None),
 		}
 	}
 
@@ -257,7 +259,7 @@ where
 			#[cfg(feature = "std")]
 			recorder: RwLock::new(recorder),
 			#[cfg(not(feature = "std"))]
-			recorder,
+			recorder: RefCell::new(recorder),
 		}
 	}
 
@@ -282,13 +284,16 @@ where
 	}
 
 	/// Set recorder. Returns old recorder if any.
-	#[cfg(feature = "std")]
 	pub fn set_recorder(&self, recorder: Option<R>) -> Option<R> {
 		if recorder.is_some() {
 			// TODO try without reset.
 			self.reset_cache();
 		}
-		core::mem::replace(&mut *self.recorder.write(), recorder)
+		#[cfg(feature = "std")]
+		let r = core::mem::replace(&mut *self.recorder.write(), recorder);
+		#[cfg(not(feature = "std"))]
+		let r = core::mem::replace(&mut *self.recorder.borrow_mut(), recorder);
+		r
 	}
 
 	#[cfg(feature = "std")]
@@ -325,7 +330,7 @@ where
 		#[cfg(feature = "std")]
 		let recorder = self.recorder.read();
 		#[cfg(not(feature = "std"))]
-		let recorder = &self.recorder;
+		let recorder = self.recorder.borrow();
 		let mut recorder = recorder.as_ref().map(|r| r.as_trie_recorder(storage_root));
 		let recorder = match recorder.as_mut() {
 			Some(recorder) => Some(recorder as &mut dyn TrieRecorder<H::Out, DBLocation>),
@@ -353,7 +358,7 @@ where
 		#[cfg(feature = "std")]
 		let recorder = self.recorder.read();
 		#[cfg(not(feature = "std"))]
-		let recorder = &self.recorder;
+		let recorder = self.recorder.borrow();
 		let mut recorder = recorder.as_ref().map(|r| r.as_trie_recorder(storage_root));
 		let recorder = match recorder.as_mut() {
 			Some(recorder) => Some(recorder as &mut dyn TrieRecorder<H::Out, DBLocation>),
