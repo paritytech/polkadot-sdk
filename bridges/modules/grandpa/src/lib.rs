@@ -512,6 +512,9 @@ pub mod pallet {
 	pub fn on_free_header_imported<T: Config<I>, I: 'static>() {
 		FreeHeadersRemaining::<T, I>::mutate(|count| {
 			*count = match *count {
+				// never set to `None` here - the signed extension assumes that it is `None`
+				// outside of block execution - i.e. when transaction is validatied from
+				// the transaction pool
 				Some(count) => Some(count.saturating_sub(1)),
 				None => None,
 			}
@@ -1682,6 +1685,19 @@ mod tests {
 				),
 				DispatchError::BadOrigin,
 			);
+		})
+	}
+
+	#[test]
+	fn on_free_header_imported_never_sets_to_none() {
+		run_test(|| {
+			FreeHeadersRemaining::<TestRuntime, ()>::set(Some(2));
+			on_free_header_imported::<TestRuntime, ()>();
+			assert_eq!(FreeHeadersRemaining::<TestRuntime, ()>::get(), Some(1));
+			on_free_header_imported::<TestRuntime, ()>();
+			assert_eq!(FreeHeadersRemaining::<TestRuntime, ()>::get(), Some(0));
+			on_free_header_imported::<TestRuntime, ()>();
+			assert_eq!(FreeHeadersRemaining::<TestRuntime, ()>::get(), Some(0));
 		})
 	}
 }
