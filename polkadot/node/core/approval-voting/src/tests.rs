@@ -2542,9 +2542,6 @@ fn inclusion_events_can_be_unordered_by_core_index() {
 			receipt.descriptor.para_id = ParaId::from(2_u32);
 			receipt
 		};
-		// let candidate_hash0 = candidate_receipt0.hash();
-		// let candidate_hash1 = candidate_receipt1.hash();
-		// let candidate_hash2 = candidate_receipt2.hash();
 		let candidate_index0 = 0;
 		let candidate_index1 = 1;
 		let candidate_index2 = 2;
@@ -2553,7 +2550,6 @@ fn inclusion_events_can_be_unordered_by_core_index() {
 		let validator1 = ValidatorIndex(1);
 		let validator2 = ValidatorIndex(2);
 		let validator3 = ValidatorIndex(3);
-		// let session_index = 1;
 
 		let validators = vec![
 			Sr25519Keyring::Alice,
