@@ -33,7 +33,6 @@
 //! This documentation is organized to help you understand how this runtime is configured and how
 //! it uses the Multi-Block Migrations Framework.
 
-use crate::{migrations::v1, mock::v1::weights::SubstrateWeight};
 use frame_support::{
 	construct_runtime, derive_impl, migrations::FreezeChainOnFailedMigration,
 	pallet_prelude::Weight, traits::ConstU32,

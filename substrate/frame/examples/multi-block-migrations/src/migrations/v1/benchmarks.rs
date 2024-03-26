@@ -22,12 +22,13 @@ mod benches {
 
 		#[block]
 		{
-			v1::LazyMigrationV1::<T>::step(None, &mut meter).unwrap();
+			v1::LazyMigrationV1::<T, weights::SubstrateWeight<T>>::step(None, &mut meter).unwrap();
 		}
 
 		// Check that the new storage is decodable:
 		assert_eq!(crate::MyMap::<T>::get(0), Some(0));
-		assert_eq!(meter.consumed(), weights::SubstrateWeight::<T>::step());
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), weights::SubstrateWeight::<T>::step() * 2);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Runtime);
