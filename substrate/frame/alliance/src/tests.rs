@@ -26,7 +26,7 @@ use crate::mock::*;
 type AllianceMotionEvent = pallet_collective::Event<Test, pallet_collective::Instance1>;
 
 fn assert_powerless(user: RuntimeOrigin, user_is_member: bool) {
-	//vote / veto with a valid propsal
+	//vote / veto with a valid proposal
 	let cid = test_cid();
 	let (proposal, _, _) = make_kick_member_proposal(42);
 
@@ -187,8 +187,8 @@ fn propose_works() {
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_eq!(*AllianceMotion::proposals(), vec![hash]);
-		assert_eq!(AllianceMotion::proposal_of(&hash), Some(proposal));
+		assert_eq!(*pallet_collective::Proposals::<Test, Instance1>::get(), vec![hash]);
+		assert_eq!(pallet_collective::ProposalOf::<Test, Instance1>::get(&hash), Some(proposal));
 		assert_eq!(
 			System::events(),
 			vec![EventRecord {

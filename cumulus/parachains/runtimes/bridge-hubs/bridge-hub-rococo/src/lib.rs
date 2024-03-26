@@ -38,7 +38,9 @@ pub mod xcm_config;
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{
-	gwei, meth, outbound::Message, AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
+	gwei, meth,
+	outbound::{Command, Fee},
+	AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
 };
 use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_api::impl_runtime_apis;
@@ -202,7 +204,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_007_000,
+	spec_version: 1_009_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 4,
@@ -242,7 +244,7 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -277,10 +279,7 @@ impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
-	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
-	#[cfg(not(feature = "experimental"))]
-	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
@@ -445,7 +444,6 @@ impl pallet_aura::Config for Runtime {
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	#[cfg(feature = "experimental")]
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
@@ -507,7 +505,8 @@ parameter_types! {
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
-		rewards: Rewards { local: 1 * UNITS, remote: meth(1) }
+		rewards: Rewards { local: 1 * UNITS, remote: meth(1) },
+		multiplier: FixedU128::from_rational(1, 1),
 	};
 }
 
@@ -794,7 +793,7 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			Aura::authorities().into_inner()
+			pallet_aura::Authorities::<Runtime>::get().into_inner()
 		}
 	}
 
@@ -1026,8 +1025,8 @@ impl_runtime_apis! {
 			snowbridge_pallet_outbound_queue::api::prove_message::<Runtime>(leaf_index)
 		}
 
-		fn calculate_fee(message: Message) -> Option<Balance> {
-			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(message)
+		fn calculate_fee(command: Command, parameters: Option<PricingParameters<Balance>>) -> Fee<Balance> {
+			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(command, parameters)
 		}
 	}
 
@@ -1147,6 +1146,13 @@ impl_runtime_apis! {
 						native_location,
 						dest
 					)
+				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(Location::parent()),
+						fun: Fungible(ExistentialDeposit::get()),
+					}
 				}
 			}
 

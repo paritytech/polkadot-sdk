@@ -337,7 +337,7 @@ build-runtimes-polkavm:
     - .common-refs
     - .run-immediately
   script:
-    - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p minimal-runtime
+    - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p minimal-template-runtime
     - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p westend-runtime
     - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p rococo-runtime
     - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p polkadot-test-runtime
@@ -350,7 +350,7 @@ build-runtimes-polkavm:
     - .run-immediately
     # - .collect-artifact
   variables:
-    # this variable gets overriden by "rusty-cachier environment inject", use the value as default
+    # this variable gets overridden by "rusty-cachier environment inject", use the value as default
     CARGO_TARGET_DIR: "$CI_PROJECT_DIR/target"
   before_script:
     - mkdir -p ./artifacts/subkey

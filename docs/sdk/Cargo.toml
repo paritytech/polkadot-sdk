@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk-docs"
-description = "The one stop shop for developers of the polakdot-sdk"
+description = "The one stop shop for developers of the polkadot-sdk"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "paritytech.github.io"
 repository.workspace = true
@@ -65,6 +65,7 @@ pallet-aura = { path = "../../substrate/frame/aura", default-features = false }
 # Pallets and FRAME internals
 pallet-timestamp = { path = "../../substrate/frame/timestamp" }
 pallet-balances = { path = "../../substrate/frame/balances" }
+pallet-assets = { path = "../../substrate/frame/assets" }
 pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
 pallet-utility = { path = "../../substrate/frame/utility" }
 pallet-multisig = { path = "../../substrate/frame/multisig" }
@@ -80,11 +81,15 @@ sp-api = { path = "../../substrate/primitives/api" }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../substrate/primitives/runtime" }
+sp-arithmetic = { path = "../../substrate/primitives/arithmetic" }
+
+# Misc pallet dependencies
+pallet-referenda = { path = "../../substrate/frame/referenda" }
+pallet-broker = { path = "../../substrate/frame/broker" }
+pallet-babe = { path = "../../substrate/frame/babe" }
+
 sp-offchain = { path = "../../substrate/primitives/offchain" }
 sp-version = { path = "../../substrate/primitives/version" }
 
 # XCM
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
-
-[features]
-experimental = ["pallet-aura/experimental"]

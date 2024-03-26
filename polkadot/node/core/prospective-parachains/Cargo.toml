@@ -23,6 +23,7 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 
 [dev-dependencies]
+rstest = "0.18.2"
 assert_matches = "1"
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-node-subsystem-types = { path = "../../subsystem-types" }

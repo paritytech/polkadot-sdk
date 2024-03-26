@@ -165,6 +165,15 @@ macro_rules! versioned_type {
 				<$v3>::max_encoded_len()
 			}
 		}
+		impl IdentifyVersion for $n {
+			fn identify_version(&self) -> Version {
+				use $n::*;
+				match self {
+					V3(_) => v3::VERSION,
+					V4(_) => v4::VERSION,
+				}
+			}
+		}
 	};
 
 	($(#[$attr:meta])* pub enum $n:ident {
@@ -285,6 +294,16 @@ macro_rules! versioned_type {
 		impl MaxEncodedLen for $n {
 			fn max_encoded_len() -> usize {
 				<$v3>::max_encoded_len()
+			}
+		}
+		impl IdentifyVersion for $n {
+			fn identify_version(&self) -> Version {
+				use $n::*;
+				match self {
+					V2(_) => v2::VERSION,
+					V3(_) => v3::VERSION,
+					V4(_) => v4::VERSION,
+				}
 			}
 		}
 	};
@@ -424,6 +443,16 @@ impl<C> IntoVersion for VersionedXcm<C> {
 	}
 }
 
+impl<C> IdentifyVersion for VersionedXcm<C> {
+	fn identify_version(&self) -> Version {
+		match self {
+			Self::V2(_) => v2::VERSION,
+			Self::V3(_) => v3::VERSION,
+			Self::V4(_) => v4::VERSION,
+		}
+	}
+}
+
 impl<RuntimeCall> From<v2::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
 	fn from(x: v2::Xcm<RuntimeCall>) -> Self {
 		VersionedXcm::V2(x)
@@ -491,6 +520,12 @@ pub trait WrapVersion {
 		dest: &latest::Location,
 		xcm: impl Into<VersionedXcm<RuntimeCall>>,
 	) -> Result<VersionedXcm<RuntimeCall>, ()>;
+}
+
+/// Used to get the version out of a versioned type.
+// TODO(XCMv5): This could be `GetVersion` and we change the current one to `GetVersionFor`.
+pub trait IdentifyVersion {
+	fn identify_version(&self) -> Version;
 }
 
 /// Check and return the `Version` that should be used for the `Xcm` datum for the destination
@@ -572,9 +607,9 @@ pub type AlwaysLts = AlwaysV4;
 pub mod prelude {
 	pub use super::{
 		latest::prelude::*, AlwaysLatest, AlwaysLts, AlwaysV2, AlwaysV3, AlwaysV4, GetVersion,
-		IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset, VersionedAssetId,
-		VersionedAssets, VersionedInteriorLocation, VersionedLocation, VersionedResponse,
-		VersionedXcm, WrapVersion,
+		IdentifyVersion, IntoVersion, Unsupported, Version as XcmVersion, VersionedAsset,
+		VersionedAssetId, VersionedAssets, VersionedInteriorLocation, VersionedLocation,
+		VersionedResponse, VersionedXcm, WrapVersion,
 	};
 }
 

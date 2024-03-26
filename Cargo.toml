@@ -3,30 +3,31 @@ authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 repository = "https://github.com/paritytech/polkadot-sdk.git"
 license = "GPL-3.0-only"
+homepage = "https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/index.html"
 
 [workspace]
 resolver = "2"
 
 members = [
 	"bridges/bin/runtime-common",
+	"bridges/chains/chain-asset-hub-rococo",
+	"bridges/chains/chain-asset-hub-westend",
+	"bridges/chains/chain-bridge-hub-cumulus",
+	"bridges/chains/chain-bridge-hub-kusama",
+	"bridges/chains/chain-bridge-hub-polkadot",
+	"bridges/chains/chain-bridge-hub-rococo",
+	"bridges/chains/chain-bridge-hub-westend",
+	"bridges/chains/chain-kusama",
+	"bridges/chains/chain-polkadot",
+	"bridges/chains/chain-polkadot-bulletin",
+	"bridges/chains/chain-rococo",
+	"bridges/chains/chain-westend",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
 	"bridges/modules/relayers",
 	"bridges/modules/xcm-bridge-hub",
 	"bridges/modules/xcm-bridge-hub-router",
-	"bridges/primitives/chain-asset-hub-rococo",
-	"bridges/primitives/chain-asset-hub-westend",
-	"bridges/primitives/chain-bridge-hub-cumulus",
-	"bridges/primitives/chain-bridge-hub-kusama",
-	"bridges/primitives/chain-bridge-hub-polkadot",
-	"bridges/primitives/chain-bridge-hub-rococo",
-	"bridges/primitives/chain-bridge-hub-westend",
-	"bridges/primitives/chain-kusama",
-	"bridges/primitives/chain-polkadot",
-	"bridges/primitives/chain-polkadot-bulletin",
-	"bridges/primitives/chain-rococo",
-	"bridges/primitives/chain-westend",
 	"bridges/primitives/header-chain",
 	"bridges/primitives/messages",
 	"bridges/primitives/parachains",
@@ -74,9 +75,6 @@ members = [
 	"cumulus/pallets/solo-to-para",
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
-	"cumulus/parachain-template/node",
-	"cumulus/parachain-template/pallets/template",
-	"cumulus/parachain-template/runtime",
 	"cumulus/parachains/common",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo",
 	"cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend",
@@ -216,14 +214,10 @@ members = [
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
 	"polkadot/xcm/xcm-executor/integration-tests",
+	"polkadot/xcm/xcm-fee-payment-runtime-api",
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
-	"substrate/bin/minimal/node",
-	"substrate/bin/minimal/runtime",
-	"substrate/bin/node-template/node",
-	"substrate/bin/node-template/pallets/template",
-	"substrate/bin/node-template/runtime",
 	"substrate/bin/node/bench",
 	"substrate/bin/node/cli",
 	"substrate/bin/node/inspect",
@@ -256,6 +250,7 @@ members = [
 	"substrate/client/db",
 	"substrate/client/executor",
 	"substrate/client/executor/common",
+	"substrate/client/executor/polkavm",
 	"substrate/client/executor/runtime-test",
 	"substrate/client/executor/wasmtime",
 	"substrate/client/informant",
@@ -503,7 +498,20 @@ members = [
 	"substrate/utils/frame/rpc/system",
 	"substrate/utils/frame/try-runtime/cli",
 	"substrate/utils/prometheus",
+	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
+
+	"templates/minimal/node",
+	"templates/minimal/pallets/template",
+	"templates/minimal/runtime",
+
+	"templates/solochain/node",
+	"templates/solochain/pallets/template",
+	"templates/solochain/runtime",
+
+	"templates/parachain/node",
+	"templates/parachain/pallets/template",
+	"templates/parachain/runtime",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]
 
@@ -537,16 +545,17 @@ extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
 
 [workspace.dependencies]
-polkavm-linker = "0.8.2"
-polkavm-derive = "0.8.0"
-log = { version = "0.4.20", default-features = false }
+polkavm = "0.9.3"
+polkavm-linker = "0.9.2"
+polkavm-derive = "0.9.1"
+log = { version = "0.4.21", default-features = false }
 quote = { version = "1.0.33" }
 serde = { version = "1.0.197", default-features = false }
 serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
 serde_json = { version = "1.0.114", default-features = false }
 serde_yaml = { version = "0.9" }
-syn = { version = "2.0.50" }
+syn = { version = "2.0.53" }
 thiserror = { version = "1.0.48" }
 
 [profile.release]

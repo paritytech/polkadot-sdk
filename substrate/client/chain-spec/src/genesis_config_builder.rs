@@ -33,7 +33,7 @@ use std::borrow::Cow;
 /// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
 ///
 /// `EHF` type allows to specify the extended host function required for building runtime's genesis
-/// config. The type will be compbined with default `sp_io::SubstrateHostFunctions`.
+/// config. The type will be combined with default `sp_io::SubstrateHostFunctions`.
 pub struct GenesisConfigBuilderRuntimeCaller<'a, EHF = ()>
 where
 	EHF: HostFunctions,
@@ -81,7 +81,8 @@ where
 			.0
 	}
 
-	/// Returns the default `GenesisConfig` provided by the `runtime`.
+	/// Returns a json representation of the default `RuntimeGenesisConfig` provided by the
+	/// `runtime`.
 	///
 	/// Calls [`GenesisBuilder::create_default_config`](sp_genesis_builder::GenesisBuilder::create_default_config) in the `runtime`.
 	pub fn get_default_config(&self) -> core::result::Result<Value, String> {
@@ -94,7 +95,7 @@ where
 		Ok(from_slice(&default_config[..]).expect("returned value is json. qed."))
 	}
 
-	/// Build the given `GenesisConfig` and returns the genesis state.
+	/// Builds `RuntimeGenesisConfig` from given json blob and returns the genesis state.
 	///
 	/// Calls [`GenesisBuilder::build_config`](sp_genesis_builder::GenesisBuilder::build_config)
 	/// provided by the `runtime`.
@@ -111,25 +112,26 @@ where
 		Ok(ext.into_storages())
 	}
 
-	/// Creates the genesis state by patching the default `GenesisConfig` and applying it.
+	/// Creates the genesis state by patching the default `RuntimeGenesisConfig`.
 	///
-	/// This function generates the `GenesisConfig` for the runtime by applying a provided JSON
-	/// patch. The patch modifies the default `GenesisConfig` allowing customization of the specific
-	/// keys. The resulting `GenesisConfig` is then deserialized from the patched JSON
-	/// representation and stored in the storage.
+	/// This function generates the `RuntimeGenesisConfig` for the runtime by applying a provided
+	/// JSON patch. The patch modifies the default `RuntimeGenesisConfig` allowing customization of
+	/// the specific keys. The resulting `RuntimeGenesisConfig` is then deserialized from the
+	/// patched JSON representation and stored in the storage.
 	///
 	/// If the provided JSON patch is incorrect or the deserialization fails the error will be
 	/// returned.
 	///
-	/// The patching process modifies the default `GenesisConfig` according to the following rules:
+	/// The patching process modifies the default `RuntimeGenesisConfig` according to the following
+	/// rules:
 	/// 1. Existing keys in the default configuration will be overridden by the corresponding values
 	///    in the patch.
 	/// 2. If a key exists in the patch but not in the default configuration, it will be added to
-	///    the resulting `GenesisConfig`.
+	///    the resulting `RuntimeGenesisConfig`.
 	/// 3. Keys in the default configuration that have null values in the patch will be removed from
-	///    the resulting  `GenesisConfig`. This is helpful for changing enum variant value.
+	///    the resulting `RuntimeGenesisConfig`. This is helpful for changing enum variant value.
 	///
-	/// Please note that the patch may contain full `GenesisConfig`.
+	/// Please note that the patch may contain full `RuntimeGenesisConfig`.
 	pub fn get_storage_for_patch(&self, patch: Value) -> core::result::Result<Storage, String> {
 		let mut config = self.get_default_config()?;
 		crate::json_patch::merge(&mut config, patch);

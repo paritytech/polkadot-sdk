@@ -451,7 +451,7 @@ enum AccountType {
 /// The permission a pool member can set for other accounts to claim rewards on their behalf.
 #[derive(Encode, Decode, MaxEncodedLen, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
 pub enum ClaimPermission {
-	/// Only the pool member themself can claim their rewards.
+	/// Only the pool member themselves can claim their rewards.
 	Permissioned,
 	/// Anyone can compound rewards on a pool member's behalf.
 	PermissionlessCompound,
@@ -2066,7 +2066,7 @@ pub mod pallet {
 		/// The member will earn rewards pro rata based on the members stake vs the sum of the
 		/// members in the pools stake. Rewards do not "expire".
 		///
-		/// See `claim_payout_other` to caim rewards on bahalf of some `other` pool member.
+		/// See `claim_payout_other` to claim rewards on behalf of some `other` pool member.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout(origin: OriginFor<T>) -> DispatchResult {
@@ -2401,6 +2401,11 @@ pub mod pallet {
 		///
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
+		///
+		/// # Note
+		///
+		/// In addition to a `root` or `nominator` role of `origin`, pool's depositor needs to have
+		/// at least `depositor_min_bond` in the pool to start nominating.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() as u32))]
 		pub fn nominate(
@@ -2411,6 +2416,16 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
 			ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+
+			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
+				.ok_or(Error::<T>::PoolMemberNotFound)?
+				.active_points();
+
+			ensure!(
+				bonded_pool.points_to_balance(depositor_points) >= Self::depositor_min_bond(),
+				Error::<T>::MinimumBondNotMet
+			);
+
 			T::Staking::nominate(&bonded_pool.bonded_account(), validators)
 		}
 
@@ -2573,17 +2588,37 @@ pub mod pallet {
 
 		/// Chill on behalf of the pool.
 		///
-		/// The dispatch origin of this call must be signed by the pool nominator or the pool
+		/// The dispatch origin of this call can be signed by the pool nominator or the pool
 		/// root role, same as [`Pallet::nominate`].
 		///
+		/// Under certain conditions, this call can be dispatched permissionlessly (i.e. by any
+		/// account).
+		///
+		/// # Conditions for a permissionless dispatch:
+		/// * When pool depositor has less than `MinNominatorBond` staked, otherwise  pool members
+		///   are unable to unbond.
+		///
+		/// # Conditions for permissioned dispatch:
+		/// * The caller has a nominator or root role of the pool.
 		/// This directly forward the call to the staking pallet, on behalf of the pool bonded
 		/// account.
 		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::chill())]
 		pub fn chill(origin: OriginFor<T>, pool_id: PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
-			ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+
+			let depositor_points = PoolMembers::<T>::get(&bonded_pool.roles.depositor)
+				.ok_or(Error::<T>::PoolMemberNotFound)?
+				.active_points();
+
+			if bonded_pool.points_to_balance(depositor_points) >=
+				T::Staking::minimum_nominator_bond()
+			{
+				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
+			}
+
 			T::Staking::chill(&bonded_pool.bonded_account())
 		}
 
@@ -2762,7 +2797,7 @@ pub mod pallet {
 		/// Set or remove a pool's commission claim permission.
 		///
 		/// Determines who can claim the pool's pending commission. Only the `Root` role of the pool
-		/// is able to conifigure commission claim permissions.
+		/// is able to configure commission claim permissions.
 		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
 		pub fn set_commission_claim_permission(
@@ -2801,7 +2836,7 @@ pub mod pallet {
 			assert!(
 				T::Staking::bonding_duration() < TotalUnbondingPools::<T>::get(),
 				"There must be more unbonding pools then the bonding duration /
-				so a slash can be applied to relevant unboding pools. (We assume /
+				so a slash can be applied to relevant unbonding pools. (We assume /
 				the bonding duration > slash deffer duration.",
 			);
 		}

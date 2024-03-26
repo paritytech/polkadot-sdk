@@ -54,7 +54,7 @@ const COMMAND_QUEUE_SIZE: usize = 64;
 /// Type representing subscribers of a notification protocol.
 type Subscribers = Arc<Mutex<Vec<TracingUnboundedSender<InnerNotificationEvent>>>>;
 
-/// Type represending a distributable message sink.
+/// Type representing a distributable message sink.
 /// Detached message sink must carry the protocol name for registering metrics.
 ///
 /// See documentation for [`PeerContext`] for more details.
@@ -175,11 +175,11 @@ pub enum NotificationCommand {
 /// and an additional, distributable `NotificationsSink` which the protocol may acquire
 /// if it wishes to send notifications through `NotificationsSink` directly.
 ///
-/// The distributable `NoticationsSink` is wrapped in an `Arc<Mutex<>>` to allow
+/// The distributable `NotificationsSink` is wrapped in an `Arc<Mutex<>>` to allow
 /// `NotificationsService` to swap the underlying sink in case it's replaced.
 #[derive(Debug, Clone)]
 struct PeerContext {
-	/// Sink for sending notificaitons.
+	/// Sink for sending notifications.
 	sink: NotificationsSink,
 
 	/// Distributable notification sink.

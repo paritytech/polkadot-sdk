@@ -58,7 +58,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.7.0";
+pub const NODE_VERSION: &'static str = "1.9.0";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -74,7 +74,7 @@ pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;
 pub const POV_BOMB_LIMIT: usize = (MAX_POV_SIZE * 4u32) as usize;
 
 /// How many blocks after finalization an information about backed/included candidate should be
-/// pre-loaded (when scraoing onchain votes) and kept locally (when pruning).
+/// pre-loaded (when scraping onchain votes) and kept locally (when pruning).
 ///
 /// We don't want to remove scraped candidates on finalization because we want to
 /// be sure that disputes will conclude on abandoned forks.

@@ -399,6 +399,13 @@ pub const MAX_POV_SIZE: u32 = 5 * 1024 * 1024;
 /// Can be adjusted in configuration.
 pub const ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = 10_000;
 
+/// Maximum for maximum queue size.
+///
+/// Setting `on_demand_queue_max_size` to a value higher than this is unsound. This is more a
+/// theoretical limit, just below enough what the target type supports, so comparisons are possible
+/// even with indices that are overflowing the underyling type.
+pub const ON_DEMAND_MAX_QUEUE_MAX_SIZE: u32 = 1_000_000_000;
+
 /// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
 /// prior to v9 configuration migration.
 pub const LEGACY_MIN_BACKING_VOTES: u32 = 2;
@@ -531,18 +538,6 @@ impl<H> CandidateReceipt<H> {
 	{
 		CandidateHash(BlakeTwo256::hash_of(self))
 	}
-}
-
-/// All data pertaining to the execution of a para candidate.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-pub struct FullCandidateReceipt<H = Hash, N = BlockNumber> {
-	/// The inner candidate receipt.
-	pub inner: CandidateReceipt<H>,
-	/// The validation data derived from the relay-chain state at that
-	/// point. The hash of the persisted validation data should
-	/// match the `persisted_validation_data_hash` in the descriptor
-	/// of the receipt.
-	pub validation_data: PersistedValidationData<H, N>,
 }
 
 /// A candidate-receipt with commitments directly included.
@@ -1462,7 +1457,7 @@ pub enum ValidDisputeStatementKind {
 	#[codec(index = 3)]
 	ApprovalChecking,
 	/// An approval vote from the new version.
-	/// We can't create this version untill all nodes
+	/// We can't create this version until all nodes
 	/// have been updated to support it and max_approval_coalesce_count
 	/// is set to more than 1.
 	#[codec(index = 4)]
@@ -1609,7 +1604,7 @@ impl ValidityAttestation {
 	pub fn to_compact_statement(&self, candidate_hash: CandidateHash) -> CompactStatement {
 		// Explicit and implicit map directly from
 		// `ValidityVote::Valid` and `ValidityVote::Issued`, and hence there is a
-		// `1:1` relationshow which enables the conversion.
+		// `1:1` relationship which enables the conversion.
 		match *self {
 			ValidityAttestation::Implicit(_) => CompactStatement::Seconded(candidate_hash),
 			ValidityAttestation::Explicit(_) => CompactStatement::Valid(candidate_hash),
@@ -1965,11 +1960,11 @@ mod tests {
 			descriptor: CandidateDescriptor {
 				para_id: 0.into(),
 				relay_parent: zeros,
-				collator: CollatorId::from(sr25519::Public::from_raw([0; 32])),
+				collator: CollatorId::from(sr25519::Public::default()),
 				persisted_validation_data_hash: zeros,
 				pov_hash: zeros,
 				erasure_root: zeros,
-				signature: CollatorSignature::from(sr25519::Signature([0u8; 64])),
+				signature: CollatorSignature::from(sr25519::Signature::default()),
 				para_head: zeros,
 				validation_code_hash: ValidationCode(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).hash(),
 			},
