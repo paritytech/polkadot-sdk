@@ -17,7 +17,7 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 
 # Bridge Dependencies
-bp-xcm-bridge-hub-router = { path = "../xcm-bridge-hub-router", default-features = false }
+bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false }
 
 [features]
 default = ["std"]
