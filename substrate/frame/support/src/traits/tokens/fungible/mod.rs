@@ -69,11 +69,10 @@
 //! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
 //!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
 //!   the free plus the held balance (i.e. the total balance) falls below this, then the account is
-//!   said to be dead. It loses its functionality as well as any prior history and all
-//!   information on it is removed from the chain's state. No account should ever have a total
-//!   balance that is strictly between 0 and the existential deposit (exclusive). If this ever
-//!   happens, it indicates either a bug in the implementation of this trait or an erroneous raw
-//!   mutation of storage.
+//!   said to be dead. It loses its functionality as well as any prior history and all information
+//!   on it is removed from the chain's state. No account should ever have a total balance that is
+//!   strictly between 0 and the existential deposit (exclusive). If this ever happens, it indicates
+//!   either a bug in the implementation of this trait or an erroneous raw mutation of storage.
 //!
 //! - **Untouchable Balance**: The part of a user's free balance they cannot spend, due to ED or
 //!   Freeze(s).
