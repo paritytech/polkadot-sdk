@@ -343,24 +343,32 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// We have ended a spend period and will now allocate funds.
+		#[codec(index = 1)]
 		Spending { budget_remaining: BalanceOf<T, I> },
 		/// Some funds have been allocated.
+		#[codec(index = 2)]
 		Awarded { proposal_index: ProposalIndex, award: BalanceOf<T, I>, account: T::AccountId },
 		/// Some of our funds have been burnt.
+		#[codec(index = 4)]
 		Burnt { burnt_funds: BalanceOf<T, I> },
 		/// Spending has finished; this is the amount that rolls over until next spend.
+		#[codec(index = 5)]
 		Rollover { rollover_balance: BalanceOf<T, I> },
 		/// Some funds have been deposited.
+		#[codec(index = 6)]
 		Deposit { value: BalanceOf<T, I> },
 		/// A new spend proposal has been approved.
+		#[codec(index = 7)]
 		SpendApproved {
 			proposal_index: ProposalIndex,
 			amount: BalanceOf<T, I>,
 			beneficiary: T::AccountId,
 		},
 		/// The inactive funds of the pallet have been updated.
+		#[codec(index = 8)]
 		UpdatedInactive { reactivated: BalanceOf<T, I>, deactivated: BalanceOf<T, I> },
 		/// A new asset spend proposal has been approved.
+		#[codec(index = 9)]
 		AssetSpendApproved {
 			index: SpendIndex,
 			asset_kind: T::AssetKind,
@@ -370,13 +378,17 @@ pub mod pallet {
 			expire_at: BlockNumberFor<T>,
 		},
 		/// An approved spend was voided.
+		#[codec(index = 10)]
 		AssetSpendVoided { index: SpendIndex },
 		/// A payment happened.
+		#[codec(index = 11)]
 		Paid { index: SpendIndex, payment_id: <T::Paymaster as Pay>::Id },
 		/// A payment failed and can be retried.
+		#[codec(index = 12)]
 		PaymentFailed { index: SpendIndex, payment_id: <T::Paymaster as Pay>::Id },
 		/// A spend was processed and removed from the storage. It might have been successfully
 		/// paid or it may have expired.
+		#[codec(index = 13)]
 		SpendProcessed { index: SpendIndex },
 	}
 
@@ -384,27 +396,38 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
 		/// No proposal, bounty or spend at that index.
+		#[codec(index = 1)]
 		InvalidIndex,
 		/// Too many approvals in the queue.
+		#[codec(index = 2)]
 		TooManyApprovals,
 		/// The spend origin is valid but the amount it is allowed to spend is lower than the
 		/// amount to be spent.
+		#[codec(index = 3)]
 		InsufficientPermission,
 		/// Proposal has not been approved.
+		#[codec(index = 4)]
 		ProposalNotApproved,
 		/// The balance of the asset kind is not convertible to the balance of the native asset.
+		#[codec(index = 5)]
 		FailedToConvertBalance,
 		/// The spend has expired and cannot be claimed.
+		#[codec(index = 6)]
 		SpendExpired,
 		/// The spend is not yet eligible for payout.
+		#[codec(index = 7)]
 		EarlyPayout,
 		/// The payment has already been attempted.
+		#[codec(index = 8)]
 		AlreadyAttempted,
 		/// There was some issue with the mechanism of payment.
+		#[codec(index = 9)]
 		PayoutError,
 		/// The payout was not yet attempted/claimed.
+		#[codec(index = 10)]
 		NotAttempted,
 		/// The payment has neither failed nor succeeded yet.
+		#[codec(index = 11)]
 		Inconclusive,
 	}
 
