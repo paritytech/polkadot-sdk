@@ -8,7 +8,6 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod configs;
 mod weights;
-pub mod xcm_config;
 
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;

@@ -1,3 +1,5 @@
+mod xcm_config;
+
 // Substrate and Polkadot dependencies
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
@@ -23,13 +25,12 @@ use sp_runtime::Perbill;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
 
-// Template pallet import 
+// Template pallet import
 pub use pallet_parachain_template;
 
 // Local module imports
 use super::{
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-	xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin},
 	AccountId, Aura, Balance, Balances, Block, BlockNumber, CollatorSelection, Hash, MessageQueue,
 	Nonce, PalletInfo, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason,
 	RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Session, SessionKeys, System, WeightToFee,
@@ -37,6 +38,7 @@ use super::{
 	MAXIMUM_BLOCK_WEIGHT, MICROUNIT, NORMAL_DISPATCH_RATIO, RELAY_CHAIN_SLOT_DURATION_MILLIS,
 	SLOT_DURATION, UNINCLUDED_SEGMENT_CAPACITY, VERSION,
 };
+use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
 // Feature-gated imports for development and testing
 #[cfg(any(feature = "std", test))]
