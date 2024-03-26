@@ -163,6 +163,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
+    /// The listings of regions available for secondary market sale.
+    #[pallet::storage]
+    pub type Listings<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        RegionId,
+        BalanceOf<T>, // price
+        OptionQuery
+    >;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -410,6 +420,24 @@ pub mod pallet {
 			/// The core whose workload is no longer available to be renewed for `when`.
 			core: CoreIndex,
 		},
+		/// A new listing has been created.
+		ListingCreated {
+			region_id: RegionId,
+			owner: T::AccountId,
+			price: BalanceOf<T>,
+		},
+		/// A region has been successfully sold.
+		RegionSold {
+			region_id: RegionId,
+			seller: T::AccountId,
+			buyer: T::AccountId,
+			price: BalanceOf<T>,
+		},
+		/// A listing has been removed.
+		ListingRemoved {
+			region_id: RegionId,
+			owner: T::AccountId,
+		},
 	}
 
 	#[pallet::error]
@@ -474,6 +502,13 @@ pub mod pallet {
 		AlreadyExpired,
 		/// The configuration could not be applied because it is invalid.
 		InvalidConfig,
+
+		/// Region cannot be listed or sold because it has expired.
+		ExpiredRegion,
+        /// The region is not available for listing.
+        UnknownListing,
+        /// The listing has an invalid price.
+        InvalidPrice,
 	}
 
 	#[pallet::hooks]
@@ -786,5 +821,50 @@ pub mod pallet {
 			Self::do_notify_core_count(core_count)?;
 			Ok(())
 		}
+
+        /// Create a new listing for a region that you own.
+		/// The listing will be available for purchase by other users.
+		/// - `origin`: Must be a Signed origin.
+		/// - `region_id`: The region to list for sale.
+		/// - `price`: The price at which to list the region.
+		#[pallet::call_index(20)]
+		#[pallet::weight({10_000})]
+        pub fn create_listing(
+            origin: OriginFor<T>,
+            region_id: RegionId,
+            price: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			Self::do_create_listing(who, region_id, price)?;
+            Ok(().into())
+        }
+
+        /// Purchase a listed region.
+		/// - `origin`: Must be a Signed origin.
+		/// - `region_id`: The region to purchase.
+		#[pallet::call_index(21)]
+        #[pallet::weight({10_000})]
+        pub fn purchase_listing(
+            origin: OriginFor<T>,
+            region_id: RegionId,
+        ) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+            Self::do_purchase_listing(who, region_id)?;
+			Ok(Pays::No.into())
+        }
+
+		/// Remove a listed region. Only the owner of the region can remove the listing.
+		/// - `origin`: Must be a Signed origin.
+		/// - `region_id`: The region to purchase.
+		#[pallet::call_index(22)]
+        #[pallet::weight({10_000})]
+        pub fn remove_listing(
+            origin: OriginFor<T>,
+            region_id: RegionId,
+        ) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+            Self::do_remove_listing(who, region_id)?;
+			Ok(Pays::No.into())
+        }
 	}
 }

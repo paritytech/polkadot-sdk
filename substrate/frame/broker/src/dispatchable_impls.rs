@@ -437,4 +437,75 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::AllowedRenewalDropped { core, when });
 		Ok(())
 	}
+
+	pub(crate) fn do_create_listing(
+		who: T::AccountId,
+		region_id: RegionId,
+		price: BalanceOf<T>,
+	) -> DispatchResult {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
+		
+		// Check if the owner is the same as the one who is creating the listing
+		ensure!(region.owner == who, Error::<T>::NotOwner);
+		// Check if the region is still valid and hasn't expired, there is no point in listing an expired region
+		ensure!(status.last_committed_timeslice <= region.end, Error::<T>::ExpiredRegion);
+
+		Listings::<T>::insert(region_id, price);
+
+		Self::deposit_event(Event::ListingCreated {
+			region_id,
+			owner: who,
+			price,
+		});
+		Ok(())
+	}
+
+	pub(crate) fn do_purchase_listing(
+		buyer: T::AccountId,
+		region_id: RegionId,
+	) -> DispatchResult {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
+		let listing_price = Listings::<T>::get(&region_id).ok_or(Error::<T>::UnknownListing)?;
+
+		let old_owner = region.owner;
+
+		// Check if the region is still valid and hasn't expired, there is no point in buying an expired region
+		ensure!(status.last_committed_timeslice <= region.end, Error::<T>::ExpiredRegion);
+
+		// Buyer pays the listing price
+        T::Currency::transfer(&buyer, &old_owner, listing_price, Expendable)?;
+
+		// Transfer the region to the buyer
+		Self::do_transfer(region_id, Some(old_owner.clone()), buyer.clone())?;
+
+		// Remove the listing
+		Listings::<T>::remove(region_id);
+
+		// Emit the event
+		Self::deposit_event(Event::RegionSold {
+			region_id,
+			seller: old_owner,
+			buyer,
+			price: listing_price,
+		});
+		Ok(())
+	}
+
+	pub(crate) fn do_remove_listing(
+		who: T::AccountId,
+		region_id: RegionId,
+	) -> DispatchResult {
+		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
+		ensure!(region.owner == who, Error::<T>::NotOwner);
+
+		// Remove the listing
+		Listings::<T>::remove(region_id);
+		
+		// Emit the event
+		Self::deposit_event(Event::ListingRemoved { region_id, owner: who });
+		Ok(())
+	}
+
 }
