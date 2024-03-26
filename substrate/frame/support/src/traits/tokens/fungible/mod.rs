@@ -53,7 +53,7 @@
 //!   be slashed, but only after all the free balance has been slashed.
 //!
 //!   Multiple holds stack rather than overlay. This means that if an account has
-//!   3 locks for 100 units, the account can spend its funds for any reason down to 300 units, at
+//!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
 //!   which point the holds will start to come into play.
 //!
 //! - **Frozen Balance**: A freeze on a specified amount of an account's free balance until a
