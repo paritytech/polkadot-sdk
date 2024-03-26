@@ -18,6 +18,7 @@
 
 use crate::{
 	chain::{Chain, ChainWithTransactions},
+	guard::Environment,
 	rpc::{
 		SubstrateAuthorClient, SubstrateChainClient, SubstrateFinalityClient,
 		SubstrateFrameSystemClient, SubstrateStateClient, SubstrateSystemClient,
@@ -49,7 +50,7 @@ use sp_runtime::{
 };
 use sp_trie::StorageProof;
 use sp_version::RuntimeVersion;
-use std::future::Future;
+use std::{cmp::Ordering, future::Future};
 
 const SUB_API_GRANDPA_AUTHORITIES: &str = "GrandpaApi_grandpa_authorities";
 const SUB_API_GRANDPA_GENERATE_KEY_OWNERSHIP_PROOF: &str =
@@ -101,7 +102,7 @@ impl SimpleRuntimeVersion {
 }
 
 /// Chain runtime version in client
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum ChainRuntimeVersion {
 	/// Auto query from chain.
 	Auto,
@@ -164,7 +165,7 @@ impl<C: Chain> Clone for Client<C> {
 	fn clone(&self) -> Self {
 		Client {
 			params: self.params.clone(),
-			chain_runtime_version: self.chain_runtime_version.clone(),
+			chain_runtime_version: self.chain_runtime_version,
 			submit_signed_extrinsic_lock: self.submit_signed_extrinsic_lock.clone(),
 			genesis_hash: self.genesis_hash,
 			data: self.data.clone(),
@@ -214,14 +215,48 @@ impl<C: Chain> Client<C> {
 			})
 			.await??;
 
-		let chain_runtime_version = params.chain_runtime_version.clone();
-		Ok(Self {
+		let chain_runtime_version = params.chain_runtime_version;
+		let mut client = Self {
 			params,
 			chain_runtime_version,
 			submit_signed_extrinsic_lock: Arc::new(Mutex::new(())),
 			genesis_hash,
 			data: Arc::new(RwLock::new(ClientData { tokio, client })),
-		})
+		};
+		Self::ensure_correct_runtime_version(&mut client, chain_runtime_version).await?;
+		Ok(client)
+	}
+
+	// Check runtime version to understand if we need are connected to expected version, or we
+	// need to wait for upgrade, we need to abort immediately.
+	async fn ensure_correct_runtime_version<E: Environment<C, Error = Error>>(
+		env: &mut E,
+		expected: ChainRuntimeVersion,
+	) -> Result<()> {
+		// we are only interested if version mode is bundled or passed using CLI
+		let expected = match expected {
+			ChainRuntimeVersion::Auto => return Ok(()),
+			ChainRuntimeVersion::Custom(expected) => expected,
+		};
+
+		// we need to wait if actual version is < than expected, we are OK of versions are the
+		// same and we need to abort if actual version is > than expected
+		let actual = SimpleRuntimeVersion::from_runtime_version(&env.runtime_version().await?);
+		match actual.spec_version.cmp(&expected.spec_version) {
+			Ordering::Less =>
+				Err(Error::WaitingForRuntimeUpgrade { chain: C::NAME.into(), expected, actual }),
+			Ordering::Equal => Ok(()),
+			Ordering::Greater => {
+				log::error!(
+					target: "bridge",
+					"The {} client is configured to use runtime version {expected:?} and actual \
+					version is {actual:?}. Aborting",
+					C::NAME,
+				);
+				env.abort().await;
+				Err(Error::Custom("Aborted".into()))
+			},
+		}
 	}
 
 	/// Build client to use in connection.
@@ -847,5 +882,99 @@ impl<T: DeserializeOwned> Subscription<T> {
 				},
 			}
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{guard::tests::TestEnvironment, test_chain::TestChain};
+	use futures::{channel::mpsc::unbounded, FutureExt};
+
+	async fn run_ensure_correct_runtime_version(
+		expected: ChainRuntimeVersion,
+		actual: RuntimeVersion,
+	) -> Result<()> {
+		let (
+			(mut runtime_version_tx, runtime_version_rx),
+			(slept_tx, _slept_rx),
+			(aborted_tx, mut aborted_rx),
+		) = (unbounded(), unbounded(), unbounded());
+		runtime_version_tx.send(actual).await.unwrap();
+		let mut env = TestEnvironment { runtime_version_rx, slept_tx, aborted_tx };
+
+		let ensure_correct_runtime_version =
+			Client::<TestChain>::ensure_correct_runtime_version(&mut env, expected).boxed();
+		let aborted = aborted_rx.next().map(|_| Err(Error::Custom("".into()))).boxed();
+		futures::pin_mut!(ensure_correct_runtime_version, aborted);
+		futures::future::select(ensure_correct_runtime_version, aborted)
+			.await
+			.into_inner()
+			.0
+	}
+
+	#[async_std::test]
+	async fn ensure_correct_runtime_version_works() {
+		// when we are configured to use auto version
+		assert!(matches!(
+			run_ensure_correct_runtime_version(
+				ChainRuntimeVersion::Auto,
+				RuntimeVersion {
+					spec_version: 100,
+					transaction_version: 100,
+					..Default::default()
+				},
+			)
+			.await,
+			Ok(()),
+		));
+		// when actual == expected
+		assert!(matches!(
+			run_ensure_correct_runtime_version(
+				ChainRuntimeVersion::Custom(SimpleRuntimeVersion {
+					spec_version: 100,
+					transaction_version: 100
+				}),
+				RuntimeVersion {
+					spec_version: 100,
+					transaction_version: 100,
+					..Default::default()
+				},
+			)
+			.await,
+			Ok(()),
+		));
+		// when actual spec version < expected spec version
+		assert!(matches!(
+			run_ensure_correct_runtime_version(
+				ChainRuntimeVersion::Custom(SimpleRuntimeVersion {
+					spec_version: 100,
+					transaction_version: 100
+				}),
+				RuntimeVersion { spec_version: 99, transaction_version: 100, ..Default::default() },
+			)
+			.await,
+			Err(Error::WaitingForRuntimeUpgrade {
+				expected: SimpleRuntimeVersion { spec_version: 100, transaction_version: 100 },
+				actual: SimpleRuntimeVersion { spec_version: 99, transaction_version: 100 },
+				..
+			}),
+		));
+		// when actual spec version > expected spec version
+		assert!(matches!(
+			run_ensure_correct_runtime_version(
+				ChainRuntimeVersion::Custom(SimpleRuntimeVersion {
+					spec_version: 100,
+					transaction_version: 100
+				}),
+				RuntimeVersion {
+					spec_version: 101,
+					transaction_version: 100,
+					..Default::default()
+				},
+			)
+			.await,
+			Err(Error::Custom(_)),
+		));
 	}
 }
