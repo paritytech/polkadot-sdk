@@ -6,7 +6,6 @@ edition.workspace = true
 license = "Apache-2.0"
 repository.workspace = true
 description = "XCM fee payment runtime API"
-readme = "README.md"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
