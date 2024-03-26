@@ -270,7 +270,7 @@ fn change_controller_works() {
 		assert_eq!(ledger.controller(), Some(stash));
 
 		// the raw storage ledger's controller is always `None`. however, we can still fetch the
-		// correct controller with `ledger.controler()`.
+		// correct controller with `ledger.controller()`.
 		let raw_ledger = <Ledger<Test>>::get(&stash).unwrap();
 		assert_eq!(raw_ledger.controller, None);
 
@@ -1257,7 +1257,7 @@ fn bond_extra_controller_bad_state_works() {
 		Bonded::<Test>::insert(31, 41);
 
 		// we confirm that the ledger is in bad state: 31 has 41 as controller and when fetching
-		// the ledger associated with the controler 41, its stash is 41 (and not 31).
+		// the ledger associated with the controller 41, its stash is 41 (and not 31).
 		assert_eq!(Ledger::<Test>::get(41).unwrap().stash, 41);
 
 		// if the ledger is in this bad state, the `bond_extra` should fail.
@@ -1815,7 +1815,7 @@ fn max_staked_rewards_works() {
 		let total_payout = treasury_payout + validators_payout;
 
 		// max stakers payout (without max staked rewards cap applied) is larger than the final
-		// validator rewards. The final payment and remainder should be adjusted by redestributing
+		// validator rewards. The final payment and remainder should be adjusted by redistributing
 		// the era inflation to apply the cap...
 		assert!(max_stakers_payout > validators_payout);
 
@@ -4686,7 +4686,7 @@ fn bond_during_era_does_not_populate_legacy_claimed_rewards() {
 			}
 		);
 
-		// make sure only era upto history depth is stored
+		// make sure only era up to history depth is stored
 		let current_era = 99;
 		mock::start_active_era(current_era);
 		bond_validator(13, 1000);
@@ -5412,7 +5412,7 @@ mod election_data_provider {
 					Event::SnapshotVotersSizeExceeded { size: 75 }
 				);
 
-				// however, if the election voter size bounds were largers, the snapshot would
+				// however, if the election voter size bounds were larger, the snapshot would
 				// include the electing voters of 70.
 				let bounds = ElectionBoundsBuilder::default().voters_size(1_000.into()).build();
 				assert_eq!(
