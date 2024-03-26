@@ -56,9 +56,14 @@ jobs:
         run: |
           VERSION=$(echo "$VERSION" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
           TMP=$(mktemp -d)
+          echo "TMP: $TMP"
+
           alias prdoc='docker run --rm -it -v $PWD:/repo paritytech/prdoc'
+          prdoc --version
+          
           ./scripts/release/build-changelogs.sh
 
+          echo "TMP: $TMP"
           ls -al $TMP
           mv $TMP/relnote_combined.md CHANGELOG.md
           cat CHANGELOG.md
