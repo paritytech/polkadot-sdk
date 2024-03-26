@@ -461,6 +461,7 @@ fn rococo_staging_testnet_config_genesis() -> serde_json::Value {
 							x.6,
 							x.7,
 						),
+						)
 				})
 				.collect::<Vec<_>>(),
 		},
