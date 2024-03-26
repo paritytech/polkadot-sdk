@@ -47,8 +47,7 @@ pub mod signed_extensions;
 pub mod frame_origin;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
-// TODO: @CrackTheCode016 https://github.com/paritytech/polkadot-sdk-docs/issues/44
-pub mod safe_defensive_programming;
+pub mod defensive_programming;
 
 /// Learn about composite enums and other runtime level types, such as "RuntimeEvent" and
 /// "RuntimeCall".
@@ -103,3 +102,7 @@ pub mod light_nodes;
 /// Learn about the offchain workers, how they function, and how to use them, as provided by the
 /// [`frame`] APIs.
 pub mod frame_offchain_workers;
+
+/// Learn about the different ways through which multiple [`frame`] pallets can be combined to work
+/// together.
+pub mod frame_pallet_coupling;

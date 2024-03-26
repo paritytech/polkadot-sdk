@@ -99,5 +99,3 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]

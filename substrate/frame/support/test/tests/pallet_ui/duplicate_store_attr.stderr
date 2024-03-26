@@ -1,5 +1,0 @@
-error: Unexpected duplicated attribute
-  --> tests/pallet_ui/duplicate_store_attr.rs:29:3
-   |
-29 |     #[pallet::generate_store(trait Store)]
-   |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

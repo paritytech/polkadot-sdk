@@ -15,9 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, Error, Input};
+use core::cmp;
 use scale_info::TypeInfo;
-use sp_std::{cmp, prelude::*};
 
 use crate::{Payload, ValidatorSetId};
 
@@ -97,10 +98,10 @@ pub struct SignedCommitment<TBlockNumber, TSignature> {
 	pub signatures: Vec<Option<TSignature>>,
 }
 
-impl<TBlockNumber: sp_std::fmt::Debug, TSignature> sp_std::fmt::Display
+impl<TBlockNumber: core::fmt::Debug, TSignature> core::fmt::Display
 	for SignedCommitment<TBlockNumber, TSignature>
 {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		let signatures_count = self.signatures.iter().filter(|s| s.is_some()).count();
 		write!(
 			f,
@@ -254,8 +255,8 @@ pub enum VersionedFinalityProof<N, S> {
 	V1(SignedCommitment<N, S>),
 }
 
-impl<N: sp_std::fmt::Debug, S> sp_std::fmt::Display for VersionedFinalityProof<N, S> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl<N: core::fmt::Debug, S> core::fmt::Display for VersionedFinalityProof<N, S> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			VersionedFinalityProof::V1(sc) => write!(f, "VersionedFinalityProof::V1({})", sc),
 		}

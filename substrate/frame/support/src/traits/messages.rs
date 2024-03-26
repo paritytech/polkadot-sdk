@@ -123,6 +123,8 @@ impl<OverweightAddr> ServiceQueues for NoopServiceQueues<OverweightAddr> {
 pub struct QueueFootprint {
 	/// The number of pages in the queue (including overweight pages).
 	pub pages: u32,
+	/// The number of pages that are ready (not yet processed and also not overweight).
+	pub ready_pages: u32,
 	/// The storage footprint of the queue (including overweight messages).
 	pub storage: Footprint,
 }

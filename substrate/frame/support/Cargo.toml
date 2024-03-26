@@ -95,9 +95,9 @@ std = [
 	"sp-staking/std",
 	"sp-state-machine/std",
 	"sp-std/std",
+	"sp-timestamp/std",
 	"sp-tracing/std",
 	"sp-weights/std",
-	"sp-timestamp/std"
 ]
 runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
@@ -109,7 +109,9 @@ try-runtime = [
 	"sp-debug-derive/force-debug",
 	"sp-runtime/try-runtime",
 ]
-experimental = []
+experimental = [
+	"frame-support-procedural/experimental",
+]
 # By default some types have documentation, `no-metadata-docs` allows to reduce the documentation
 # in the metadata.
 no-metadata-docs = [
