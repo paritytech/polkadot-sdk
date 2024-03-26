@@ -207,7 +207,7 @@ fn get_cargo_command(target: RuntimeTarget) -> CargoCommand {
 	} else {
 		// If no command before provided us with a cargo that supports our Substrate wasm env, we
 		// try to search one with rustup. If that fails as well, we return the default cargo and let
-		// the prequisities check fail.
+		// the perquisites check fail.
 		get_rustup_command(target).unwrap_or(default_cargo)
 	}
 }

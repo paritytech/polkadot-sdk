@@ -134,7 +134,7 @@ cargo check -p bridge-runtime-common
 cargo check -p bridge-runtime-common --features runtime-benchmarks
 cargo check -p bridge-runtime-common --features integrity-test
 
-# we're removing lock file after all chechs are done. Otherwise we may use different
+# we're removing lock file after all checks are done. Otherwise we may use different
 # Substrate/Polkadot/Cumulus commits and our checks will fail
 rm -f $BRIDGES_FOLDER/Cargo.lock
 
