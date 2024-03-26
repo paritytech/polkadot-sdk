@@ -78,7 +78,7 @@
 //! this trait, without needing any knowledge of what those pallets may be or requiring changes to
 //! support new pallets which may be written in the future.
 //!
-//! Read more about coupling, and the benefits to loose coupling
+//! Read more about coupling, and the benefits of loose coupling
 //! [here](crate::reference_docs::frame_pallet_coupling).
 //!
 //! ##### *Rust Advanced Tip
