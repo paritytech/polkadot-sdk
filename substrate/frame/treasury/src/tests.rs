@@ -777,6 +777,81 @@ fn check_status_works() {
 }
 
 #[test]
+fn try_state_proposals_invariant_1_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		use frame_support::pallet_prelude::DispatchError::Other;
+		// Add a proposal and approve using `spend_local`
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
+
+		assert_eq!(Proposals::<Test>::iter().count(), 1);
+		assert_eq!(ProposalCount::<Test>::get(), 1);
+		// Check invariant 1 holds
+		assert!(ProposalCount::<Test>::get() as usize >= Proposals::<Test>::iter().count());
+		// Break invariant 1 by decreasing `ProposalCount`
+		ProposalCount::<Test>::put(0);
+		// Invariant 1 should be violated
+		assert_eq!(
+			Treasury::do_try_state(),
+			Err(Other("Actual number of proposals exceeds `ProposalCount`."))
+		);
+	});
+}
+
+#[test]
+fn try_state_proposals_invariant_2_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		use frame_support::pallet_prelude::DispatchError::Other;
+		// Add a proposal and approve using `spend_local`
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
+
+		assert_eq!(Proposals::<Test>::iter().count(), 1);
+		assert_eq!(Approvals::<Test>::get().len(), 1);
+		let current_proposal_count = ProposalCount::<Test>::get();
+		assert_eq!(current_proposal_count, 1);
+		// Check invariant 2 holds
+		assert!(
+			Proposals::<Test>::iter_keys()
+			.all(|proposal_index| {
+					proposal_index < current_proposal_count
+			})
+		);
+		// Break invariant 2 by inserting the proposal under key = 1
+		let proposal = Proposals::<Test>::take(0).unwrap();
+		Proposals::<Test>::insert(1, proposal);
+		// Invariant 2 should be violated
+		assert_eq!(
+			Treasury::do_try_state(),
+			Err(Other("`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`."))
+		);
+	});
+}
+
+#[test]
+fn try_state_proposals_invariant_3_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		use frame_support::pallet_prelude::DispatchError::Other;
+		// Add a proposal and approve using `spend_local`
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 10, 3));
+
+		assert_eq!(Proposals::<Test>::iter().count(), 1);
+		assert_eq!(Approvals::<Test>::get().len(), 1);
+		// Check invariant 3 holds
+		assert!(Approvals::<Test>::get()
+			.iter()
+			.all(|proposal_index| { Proposals::<Test>::contains_key(proposal_index) }));
+		// Break invariant 3 by adding another key to `Approvals`
+		let mut approvals_modified = Approvals::<Test>::get();
+		approvals_modified.try_push(2).unwrap();
+		Approvals::<Test>::put(approvals_modified);
+		// Invariant 3 should be violated
+		assert_eq!(
+			Treasury::do_try_state(),
+			Err(Other("Proposal indices in `Approvals` must also be contained in `Proposals`."))
+		);
+	});
+}
+
+#[test]
 fn try_state_spends_invariant_1_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
