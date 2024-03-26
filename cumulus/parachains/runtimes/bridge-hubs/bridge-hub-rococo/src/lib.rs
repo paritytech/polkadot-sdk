@@ -640,14 +640,9 @@ parameter_types! {
 	};
 }
 
-parameter_types! {
-	pub const MaxExecutionHeadersToKeep: u32 = 8192 * 20;
-}
-
 impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
-	type MaxExecutionHeadersToKeep = MaxExecutionHeadersToKeep;
 	type WeightInfo = weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>;
 }
 

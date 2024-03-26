@@ -98,13 +98,11 @@ parameter_types! {
 			epoch: 0,
 		}
 	};
-	pub const ExecutionHeadersPruneThreshold: u32 = 8192;
 }
 
 impl ethereum_beacon_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
-	type MaxExecutionHeadersToKeep = ExecutionHeadersPruneThreshold;
 	type WeightInfo = ();
 }
 
