@@ -13572,7 +13572,6 @@ dependencies = [
  "sp-version",
  "sp-weights",
  "staging-xcm",
- "staging-xcm-builder",
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror",
