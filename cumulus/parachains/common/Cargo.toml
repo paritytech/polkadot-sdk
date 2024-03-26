@@ -32,7 +32,7 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 # Polkadot
-pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false, version = "9.0.0" }
+pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false, version = "9.0.1" }
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "9.0.0" }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "9.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "9.0.1" }

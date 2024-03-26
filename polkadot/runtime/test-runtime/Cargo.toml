@@ -63,7 +63,7 @@ pallet-vesting = { path = "../../../substrate/frame/vesting", default-features =
 
 runtime-common = { package = "polkadot-runtime-common", path = "../common", default-features = false, version = "9.0.0" }
 primitives = { package = "polkadot-primitives", path = "../../primitives", default-features = false, version = "9.0.0" }
-pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, version = "9.0.0" }
+pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, version = "9.0.1" }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false, version = "8.0.0" }
 polkadot-runtime-parachains = { path = "../parachains", default-features = false, version = "9.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "9.0.0" }

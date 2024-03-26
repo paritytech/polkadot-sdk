@@ -26,7 +26,7 @@ pallet-message-queue = { version = "33.0.0", path = "../../message-queue" }
 pallet-proxy = { version = "30.0.0", path = "../../proxy" }
 pallet-timestamp = { version = "29.0.0", path = "../../timestamp" }
 pallet-utility = { version = "30.0.0", path = "../../utility" }
-pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "9.0.0" }
+pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "9.0.1" }
 polkadot-parachain-primitives = { version = "8.0.0", path = "../../../../polkadot/parachain" }
 polkadot-primitives = { version = "9.0.0", path = "../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { version = "9.0.0", path = "../../../../polkadot/runtime/parachains" }
