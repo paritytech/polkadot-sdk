@@ -54,7 +54,7 @@ jobs:
           ./scripts/release/build-changelogs.sh
 
           ls -al $TMP
-          mv $TMP/elnote_combined.md CHANGELOG.md
+          mv $TMP/relnote_combined.md CHANGELOG.md
           cat CHANGELOG.md
 
       - name: Download artifacts
