@@ -1201,7 +1201,7 @@ impl pallet_message_queue::Config for Runtime {
 impl parachains_dmp::Config for Runtime {}
 
 parameter_types! {
-	pub const DefaultChannelSizeAndCapacityToSystem: (u32, u32) = (51200, 500);
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (51200, 500);
 }
 
 impl parachains_hrmp::Config for Runtime {
@@ -1209,7 +1209,7 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type DefaultChannelSizeAndCapacityToSystem = DefaultChannelSizeAndCapacityToSystem;
+	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type WeightInfo = weights::runtime_parachains_hrmp::WeightInfo<Self>;
 }
 

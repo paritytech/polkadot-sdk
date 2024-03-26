@@ -554,7 +554,7 @@ impl parachains_dmp::Config for Runtime {}
 
 parameter_types! {
 	pub const FirstMessageFactorPercent: u64 = 100;
-	pub const DefaultChannelSizeAndCapacityToSystem: (u32, u32) = (51200, 500);
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (51200, 500);
 }
 
 impl parachains_hrmp::Config for Runtime {
@@ -562,7 +562,7 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type DefaultChannelSizeAndCapacityToSystem = DefaultChannelSizeAndCapacityToSystem;
+	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type WeightInfo = parachains_hrmp::TestWeightInfo;
 }
 

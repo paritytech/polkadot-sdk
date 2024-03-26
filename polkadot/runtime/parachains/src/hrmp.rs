@@ -1037,7 +1037,7 @@ impl<T: Config> Pallet<T> {
 	fn process_hrmp_open_channel_requests(config: &HostConfiguration<BlockNumberFor<T>>) {
 		let mut open_req_channels = HrmpOpenChannelRequestsList::<T>::get();
 		if open_req_channels.is_empty() {
-			return;
+			return
 		}
 
 		// iterate the vector starting from the end making our way to the beginning. This way we
