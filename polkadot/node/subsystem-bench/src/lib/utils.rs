@@ -25,7 +25,9 @@ pub fn save_to_file(path: &str, value: String) -> color_eyre::eyre::Result<()> {
 		.output()
 		.unwrap()
 		.stdout;
-	let workspace_dir = std::path::Path::new(std::str::from_utf8(&output).unwrap().trim());
+	let workspace_dir = std::path::Path::new(std::str::from_utf8(&output).unwrap().trim())
+		.parent()
+		.unwrap();
 	let path = workspace_dir.join(path);
 	if let Some(dir) = path.parent() {
 		std::fs::create_dir_all(dir)?;
