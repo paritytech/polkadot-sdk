@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{fs::File, io::Write, path::Path};
+use std::{fs::File, io::Write};
 
-fn workspace_dir() -> Path {
+// Saves a given string to a file
+pub fn save_to_file(path: &str, value: String) -> color_eyre::eyre::Result<()> {
 	let output = std::process::Command::new(env!("CARGO"))
 		.arg("locate-project")
 		.arg("--workspace")
@@ -24,12 +25,8 @@ fn workspace_dir() -> Path {
 		.output()
 		.unwrap()
 		.stdout;
-	std::path::Path::new(std::str::from_utf8(&output).unwrap().trim())
-}
-
-// Saves a given string to a file
-pub fn save_to_file(path: &str, value: String) -> color_eyre::eyre::Result<()> {
-	let path = workspace_dir().join(path);
+	let workspace_dir = std::path::Path::new(std::str::from_utf8(&output).unwrap().trim());
+	let path = workspace_dir.join(path);
 	if let Some(dir) = path.parent() {
 		std::fs::create_dir_all(dir)?;
 	}
