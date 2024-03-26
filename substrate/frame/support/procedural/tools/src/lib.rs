@@ -56,7 +56,7 @@ pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 /// We want to know if whatever the `path` takes us to, is exported from `frame` or not. In that
 /// case `path` would start with `frame`, something like `polkadot_sdk_frame::x::y:z`.
 pub fn is_using_frame_crate(path: &syn::Path) -> bool {
-	path.segments.first().map(|s| s.ident == "polkadot-sdk-frame").unwrap_or(false)
+	path.segments.first().map(|s| s.ident == "polkadot_sdk_frame").unwrap_or(false)
 }
 
 /// Generate the crate access for the crate using 2018 syntax.
