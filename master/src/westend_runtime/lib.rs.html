@@ -2861,6 +2861,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2714" id="2714">2714</a>
 <a href="#2715" id="2715">2715</a>
 <a href="#2716" id="2716">2716</a>
+<a href="#2717" id="2717">2717</a>
+<a href="#2718" id="2718">2718</a>
+<a href="#2719" id="2719">2719</a>
+<a href="#2720" id="2720">2720</a>
+<a href="#2721" id="2721">2721</a>
+<a href="#2722" id="2722">2722</a>
+<a href="#2723" id="2723">2723</a>
+<a href="#2724" id="2724">2724</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2925,7 +2933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedLocationConverter,
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
-	traits::Leaser,
+	traits::{Leaser, OnSwap},
 	BalanceToU256, BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate,
 	U256ToBalance,
 };
@@ -4165,7 +4173,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
-	<span class="kw">type </span>OnSwap = (Crowdloan, Slots);
+	<span class="kw">type </span>OnSwap = (Crowdloan, Slots, SwapLeases);
 	<span class="kw">type </span>ParaDeposit = ParaDeposit;
 	<span class="kw">type </span>DataDepositPerByte = RegistrarDataDepositPerByte;
 	<span class="kw">type </span>WeightInfo = weights::runtime_common_paras_registrar::WeightInfo&lt;Runtime&gt;;
@@ -4275,6 +4283,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>AssetKind = &lt;Runtime <span class="kw">as </span>pallet_treasury::Config&gt;::AssetKind;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
+}
+
+<span class="comment">// Notify `coretime` pallet when a lease swap occurs
+</span><span class="kw">pub struct </span>SwapLeases;
+<span class="kw">impl </span>OnSwap <span class="kw">for </span>SwapLeases {
+	<span class="kw">fn </span>on_swap(one: ParaId, other: ParaId) {
+		coretime::Pallet::&lt;Runtime&gt;::on_legacy_lease_swap(one, other);
+	}
 }
 
 <span class="attr">#[frame_support::runtime(legacy_ordering)]
