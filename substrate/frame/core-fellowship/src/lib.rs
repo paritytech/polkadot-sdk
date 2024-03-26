@@ -84,6 +84,15 @@ pub mod weights;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+macro_rules! override_params {
+	( $x:expr, $y: expr ) => {
+		for (base_element, new_element) in $x.iter_mut().zip($y) {
+			if new_element.is_some() {
+				*base_element = new_element.unwrap();
+			}
+		}
+	};
+}
 /// The desired outcome for which evidence is presented.
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 pub enum Wish {
@@ -196,6 +205,8 @@ pub mod pallet {
 	}
 
 	pub type ParamsOf<T, I> = ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, RANK_COUNT>;
+	pub type PartialParamsOf<T, I> =
+		ParamsType<Option<<T as Config<I>>::Balance>, Option<BlockNumberFor<T>>, RANK_COUNT>;
 	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
 
@@ -529,6 +540,31 @@ pub mod pallet {
 			Self::deposit_event(Event::<T, I>::Imported { who, rank });
 
 			Ok(Pays::No.into())
+		}
+
+		/// Set the parameters.
+		///
+		/// - `origin`: An origin complying with `ParamsOrigin` or root.
+		/// - `params`: The new parameters for the pallet.
+		#[pallet::weight(T::WeightInfo::set_params())]
+		#[pallet::call_index(9)]
+		pub fn set_partial_params(
+			origin: OriginFor<T>,
+			partial_params: Box<PartialParamsOf<T, I>>,
+		) -> DispatchResult {
+			T::ParamsOrigin::ensure_origin_or_root(origin)?;
+			Params::<T, I>::mutate(|p| {
+				override_params!(p.active_salary, partial_params.active_salary);
+				override_params!(p.passive_salary, partial_params.passive_salary);
+				override_params!(p.demotion_period, partial_params.demotion_period);
+				override_params!(p.min_promotion_period, partial_params.min_promotion_period);
+				if partial_params.offboard_timeout.is_some() {
+					p.offboard_timeout = partial_params.offboard_timeout.unwrap();
+				}
+			});
+			let params = Params::<T, I>::get();
+			Self::deposit_event(Event::<T, I>::ParamsChanged { params });
+			Ok(())
 		}
 	}
 

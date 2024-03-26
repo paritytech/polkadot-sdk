@@ -185,6 +185,24 @@ fn set_params_works() {
 }
 
 #[test]
+fn set_partial_params_works() {
+	new_test_ext().execute_with(|| {
+		let params = ParamsType {
+			active_salary: [None; 9],
+			passive_salary: [None; 9],
+			demotion_period: [None, Some(10), None, None, None, None, None, None, None],
+			min_promotion_period: [None; 9],
+			offboard_timeout: Some(1),
+		};
+		assert_noop!(
+			CoreFellowship::set_partial_params(signed(2), Box::new(params.clone())),
+			DispatchError::BadOrigin
+		);
+		assert_ok!(CoreFellowship::set_partial_params(signed(1), Box::new(params)));
+	});
+}
+
+#[test]
 fn induct_works() {
 	new_test_ext().execute_with(|| {
 		set_rank(0, 0);
