@@ -958,7 +958,7 @@ benchmarks! {
 		// corrupt ledger.
 		Ledger::<T>::remove(controller);
 		// TODO: None, None parameter inputs may not be the worst case scenario.
-	}: _(RawOrigin::Root, stash.clone(), None, None)
+	}: _(RawOrigin::Root, stash.clone(), None, None, None)
 	verify {
 		assert_eq!(Staking::<T>::status(&stash).unwrap(), StakerStatus::Nominator(vec![]));
 	}

@@ -7514,7 +7514,7 @@ mod ledger_recovery {
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
 
 			// try-state checks are ok now.
 			assert_ok!(Staking::do_try_state(System::block_number()));
@@ -7558,21 +7558,22 @@ mod ledger_recovery {
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
 
 			// for the try-state checks to pass, we also need to recover the stash 444 which is
 			// corrupted too by proxy of kill(333). Currently, both the lock and the ledger of 444
 			// have been cleared so we need to provide the new amount to restore the ledger.
 			assert_noop!(
-				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None,),
-				Error::<Test>::CannotResetLedger
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None, None),
+				Error::<Test>::CannotRestoreLedger
 			);
 
 			assert_ok!(Staking::restore_ledger(
 				RuntimeOrigin::root(),
 				444,
 				None,
-				Some(total_444_before_corruption)
+				Some(total_444_before_corruption),
+				None,
 			));
 
 			// try-state checks are ok now.
@@ -7613,7 +7614,7 @@ mod ledger_recovery {
 			assert_ok!(StakingLedger::<Test>::kill(&444));
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None));
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
 
 			// 444 does not need recover in this case since it's been killed successfully.
 			assert_eq!(Staking::inspect_bond_state(&444), Err(Error::<Test>::NotStash));
@@ -7670,15 +7671,16 @@ mod ledger_recovery {
 				RuntimeOrigin::root(),
 				333,
 				None,
-				Some(lock_333_before + 30)
+				Some(lock_333_before + 30),
+				None
 			));
 
 			// now recover 444 that although it's not corrupted, its lock and ledger.total are out
 			// of sync. in which case, we need to explicitly set the ledger's lock and amount,
 			// otherwise the ledger recover will fail.
 			assert_noop!(
-				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None,),
-				Error::<Test>::CannotResetLedger
+				Staking::restore_ledger(RuntimeOrigin::root(), 444, None, None, None),
+				Error::<Test>::CannotRestoreLedger
 			);
 
 			//and enforcing a new ledger lock/total on this non-corrupted ledger will work.
@@ -7686,7 +7688,8 @@ mod ledger_recovery {
 				RuntimeOrigin::root(),
 				444,
 				None,
-				Some(lock_444_before + 40)
+				Some(lock_444_before + 40),
+				None
 			));
 
 			// double-check that ledgers got to expected state and bond_extra done during the

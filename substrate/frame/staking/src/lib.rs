@@ -494,10 +494,14 @@ pub struct StakingLedger<T: Config> {
 /// State of a ledger with regards with its data and metadata integrity.
 #[derive(PartialEq, Debug)]
 enum LedgerIntegrityState {
-	/// Ledger and corresponding staking lock is OK.
+	/// Ledger, bond and corresponding staking lock is OK.
 	Ok,
+	/// Ledger and/or bond is corrupted. This means that the bond has a ledger with a different
+	/// stash than the bonded stash.
 	Corrupted,
+	/// Ledger was corrupted and it has been killed.
 	CorruptedKilled,
+	/// Ledger and bond are OK, however the ledger's stash lock is out of sync.
 	LockCorrupted,
 }
 
@@ -727,12 +731,6 @@ pub struct Nominations<T: Config> {
 	///
 	/// NOTE: this for future proofing and is thus far not used.
 	pub suppressed: bool,
-}
-
-impl<T: Config> Default for Nominations<T> {
-	fn default() -> Self {
-		Self { targets: Default::default(), submitted_in: 0, suppressed: false }
-	}
 }
 
 /// Facade struct to encapsulate `PagedExposureMetadata` and a single page of `ExposurePage`.

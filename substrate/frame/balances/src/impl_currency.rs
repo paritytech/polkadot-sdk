@@ -924,9 +924,6 @@ impl<T: Config<I>, I: 'static> InspectLockableCurrency<T::AccountId> for Pallet<
 		Self::locks(who)
 			.into_iter()
 			.filter(|l| l.id == id)
-			.collect::<Vec<_>>()
-			.pop()
-			.map(|l| l.amount)
-			.unwrap_or(Zero::zero())
+			.fold(Zero::zero(), |acc, l| acc + l.amount)
 	}
 }

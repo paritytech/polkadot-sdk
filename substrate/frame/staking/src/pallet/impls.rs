@@ -1869,42 +1869,13 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
+		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
-		Self::check_ledgers()?;
-		Self::check_locks()?;
 		Self::check_count()
-	}
-
-	/// Invariants:
-	///
-	/// * Staking locked funds for every bonded stash should be the same as its ledger's total.
-	///
-	/// NOTE: some of these checks result in warnings only. Once
-	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved, turn warns into check
-	/// failures.
-	fn check_locks() -> Result<(), TryRuntimeError> {
-		for (_, controller) in <Bonded<T>>::iter() {
-			if let Some(ledger) = <Ledger<T>>::get(&controller) {
-				let lock = <T::Currency as InspectLockableCurrency<T::AccountId>>::balance_locked(
-					crate::STAKING_ID,
-					&ledger.stash,
-				);
-
-				if lock != ledger.total {
-					// TODO before merging: use warn
-					//log!(warn, "ledger.total != ledger.stash staking lock");
-					return Err("ledger.total != ledger.stash staking lock".into());
-				}
-			} else {
-				log!(warn, "bonded ledger does not exist");
-			}
-		}
-
-		Ok(())
 	}
 
 	/// Invariants:
@@ -2007,19 +1978,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
-	/// * `ledger.controller` is not stored in the storage (but populated at retrieval).
 	/// * Stake consistency: ledger.total == ledger.active + sum(ledger.unlocking).
 	/// * The controller keyeing the ledger and the ledger stash matches the state of the `Bonded`
+	/// * Staking locked funds for every bonded stash should be the same as its ledger's total.
+	/// * Staking ledger and bond are not corrupted.
 	/// storage.
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
 			.map(|(stash, ctrl)| {
-				// `ledger.controller` is never stored in raw storage.
-				let raw = Ledger::<T>::get(stash).unwrap_or_else(|| {
-					Ledger::<T>::get(ctrl.clone())
-						.expect("try_check: bonded stash/ctrl does not have an associated ledger")
-				});
-				ensure!(raw.controller.is_none(), "raw storage controller should be None");
+				// ensure locks consistency.
+				ensure!(
+					Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+					"bond, ledger and/or staking lock inconsistent for a bonded stash."
+				);
 
 				// ensure ledger consistency.
 				Self::ensure_ledger_consistent(ctrl)

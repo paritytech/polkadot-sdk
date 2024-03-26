@@ -857,7 +857,7 @@ pub mod pallet {
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
 		/// Cannot reset a ledger.
-		CannotResetLedger,
+		CannotRestoreLedger,
 	}
 
 	#[pallet::hooks]
@@ -1987,17 +1987,14 @@ pub mod pallet {
 		/// Restores the state of a ledger which is in an inconsistent state.
 		///
 		/// The requirements to restore a ledger are the following:
-		/// * The stash is bonded;
-		/// * The stash is not bonded but it has a staking lock left behind;
-		/// * If the stash has an associated ledger, its state must be inconsistent;
+		/// * The stash is bonded; or
+		/// * The stash is not bonded but it has a staking lock left behind; or
+		/// * If the stash has an associated ledger and its state is inconsistent; or
 		/// * If the ledger is not corrupted *but* its staking lock is out of sync.
 		///
 		/// The `maybe_*` input parameters will overwrite the corresponding data and metadata of the
 		/// ledger associated with the stash. If the input parameters are not set, the ledger will
-		/// be reset with the current values.
-		///
-		/// Upon successful execution, this extrinsic will *recreate* the ledger based on its past
-		/// state and/or the `maybe_controller` and `maybe_total` input parameters.
+		/// be reset values from on-chain state.
 		#[pallet::call_index(29)]
 		#[pallet::weight(T::WeightInfo::restore_ledger())]
 		pub fn restore_ledger(
@@ -2005,23 +2002,9 @@ pub mod pallet {
 			stash: T::AccountId,
 			maybe_controller: Option<T::AccountId>,
 			maybe_total: Option<BalanceOf<T>>,
-		) -> DispatchResultWithPostInfo {
+			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
+		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-
-			// closure to call before return from extrinsic to ensure the restore was successful.
-			let integrity_checks = || {
-				let lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
-
-				if let Some(ledger) = Bonded::<T>::get(&stash).and_then(Ledger::<T>::get) {
-					ensure!(lock == ledger.total, Error::<T>::BadState);
-					ensure!(Payee::<T>::get(&stash).is_some(), Error::<T>::BadState);
-					ensure!(ledger.stash == stash, Error::<T>::BadState);
-				} else {
-					ensure!(lock == Zero::zero(), Error::<T>::BadState);
-				}
-
-				Ok::<_, Error<T>>(())
-			};
 
 			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
 
@@ -2049,7 +2032,7 @@ pub mod pallet {
 						// this case needs to restore both lock and ledger, so the new total needs
 						// to be given by the called since there's no way to restore the total
 						// on-chain.
-						ensure!(maybe_total.is_some(), Error::<T>::CannotResetLedger);
+						ensure!(maybe_total.is_some(), Error::<T>::CannotRestoreLedger);
 						Ok((
 							stash.clone(),
 							maybe_total.expect("total exists as per the check above; qed."),
@@ -2061,7 +2044,7 @@ pub mod pallet {
 				Ok(LedgerIntegrityState::LockCorrupted) => {
 					// ledger is not corrupted but its locks are out of sync. In this case, we need
 					// to enforce a new ledger.total and staking lock for this stash.
-					let new_total = maybe_total.ok_or(Error::<T>::CannotResetLedger)?;
+					let new_total = maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?;
 					T::Currency::set_lock(
 						crate::STAKING_ID,
 						&stash,
@@ -2074,24 +2057,30 @@ pub mod pallet {
 				Err(Error::<T>::BadState) => {
 					// the stash and ledger do not exist but lock is lingering.
 					T::Currency::remove_lock(crate::STAKING_ID, &stash);
-					integrity_checks()?;
+					ensure!(
+						Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
+						Error::<T>::BadState
+					);
 
-					return Ok(Pays::No.into());
+					return Ok(());
 				},
-				Ok(LedgerIntegrityState::Ok) | Err(_) => Err(Error::<T>::CannotResetLedger),
+				Ok(LedgerIntegrityState::Ok) | Err(_) => Err(Error::<T>::CannotRestoreLedger),
 			}?;
 
 			// re-bond stash and controller tuple.
 			Bonded::<T>::insert(&stash, &new_controller);
 
-			// reset ledger state.
+			// resoter ledger state.
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
 			ledger.controller = Some(new_controller);
+			ledger.unlocking = maybe_unlocking.unwrap_or_default();
 			ledger.update()?;
 
-			integrity_checks()?;
-
-			Ok(Pays::No.into())
+			ensure!(
+				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+				Error::<T>::BadState
+			);
+			Ok(())
 		}
 	}
 }
