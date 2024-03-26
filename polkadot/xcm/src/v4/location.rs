@@ -530,6 +530,13 @@ impl<Interior: Into<Junctions>> From<AncestorThen<Interior>> for Location {
 	}
 }
 
+impl From<[u8; 32]> for Location {
+	fn from(bytes: [u8; 32]) -> Self {
+		let junction: Junction = bytes.into();
+		junction.into()
+	}
+}
+
 xcm_procedural::impl_conversion_functions_for_location_v4!();
 
 #[cfg(test)]

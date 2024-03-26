@@ -22,11 +22,11 @@ use xcm::latest::prelude::*;
 #[test]
 fn builder_pattern_works() {
 	let asset: Asset = (Here, 100u128).into();
-	let beneficiary: Location = AccountId32 { id: [0u8; 32], network: None }.into();
+	let beneficiary: Location = [0u8; 32].into();
 	let message: Xcm<()> = Xcm::builder()
-		.receive_teleported_asset(asset.clone().into())
+		.receive_teleported_asset(asset.clone())
 		.buy_execution(asset.clone(), Unlimited)
-		.deposit_asset(asset.clone().into(), beneficiary.clone())
+		.deposit_asset(asset.clone(), beneficiary.clone())
 		.build();
 	assert_eq!(
 		message,
@@ -53,8 +53,8 @@ fn default_builder_requires_buy_execution() {
 	// To be able to do that, we need to use the explicitly unpaid variant
 	let message: Xcm<()> = Xcm::builder_unpaid()
 		.unpaid_execution(Unlimited, None)
-		.withdraw_asset(asset.clone().into())
-		.deposit_asset(asset.clone().into(), beneficiary.clone())
+		.withdraw_asset(asset.clone())
+		.deposit_asset(asset.clone(), beneficiary.clone())
 		.build(); // This works
 	assert_eq!(
 		message,
@@ -68,8 +68,8 @@ fn default_builder_requires_buy_execution() {
 	// The other option doesn't have any limits whatsoever, so it should
 	// only be used when you really know what you're doing.
 	let message: Xcm<()> = Xcm::builder_unsafe()
-		.withdraw_asset(asset.clone().into())
-		.deposit_asset(asset.clone().into(), beneficiary.clone())
+		.withdraw_asset(asset.clone())
+		.deposit_asset(asset.clone(), beneficiary.clone())
 		.build();
 	assert_eq!(
 		message,
