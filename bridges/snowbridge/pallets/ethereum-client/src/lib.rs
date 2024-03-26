@@ -84,9 +84,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		#[pallet::constant]
 		type ForkVersions: Get<ForkVersions>;
-		/// Maximum number of execution headers to keep
-		#[pallet::constant]
-		type MaxExecutionHeadersToKeep: Get<u32>;
 		type WeightInfo: WeightInfo;
 	}
 

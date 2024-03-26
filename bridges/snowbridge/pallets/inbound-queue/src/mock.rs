@@ -4,7 +4,7 @@ use super::*;
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, Everything},
+	traits::{ConstU32, Everything},
 	weights::IdentityFee,
 };
 use hex_literal::hex;
@@ -88,7 +88,6 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ExecutionHeadersPruneThreshold: u32 = 10;
 	pub const ChainForkVersions: ForkVersions = ForkVersions{
 		genesis: Fork {
 			version: [0, 0, 0, 1], // 0x00000001
@@ -116,7 +115,6 @@ parameter_types! {
 impl snowbridge_pallet_ethereum_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
-	type MaxExecutionHeadersToKeep = ExecutionHeadersPruneThreshold;
 	type WeightInfo = ();
 }
 
