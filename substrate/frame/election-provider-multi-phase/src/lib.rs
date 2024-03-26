@@ -1134,7 +1134,7 @@ pub mod pallet {
 		/// A solution was stored with the given compute.
 		///
 		/// The `origin` indicates the origin of the solution. If `origin` is `Some(AccountId)`,
-		/// the stored solution was submited in the signed phase by a miner with the `AccountId`.
+		/// the stored solution was submitted in the signed phase by a miner with the `AccountId`.
 		/// Otherwise, the solution was stored either during the unsigned phase or by
 		/// `T::ForceOrigin`. The `bool` is `true` when a previous solution was ejected to make
 		/// room for this one.
@@ -1192,7 +1192,7 @@ pub mod pallet {
 		BoundNotMet,
 		/// Submitted solution has too many winners
 		TooManyWinners,
-		/// Sumission was prepared for a different round.
+		/// Submission was prepared for a different round.
 		PreDispatchDifferentRound,
 	}
 

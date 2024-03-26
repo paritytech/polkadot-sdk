@@ -9,7 +9,7 @@ use snowbridge_beacon_primitives::CompactExecutionHeader;
 use snowbridge_core::inbound::{Log, Message, Proof};
 use sp_std::vec;
 
-pub fn make_register_token_with_infufficient_fee_message() -> InboundQueueFixture {
+pub fn make_register_token_with_insufficient_fee_message() -> InboundQueueFixture {
 	InboundQueueFixture {
         execution_header: CompactExecutionHeader{
             parent_hash: hex!("998e81dc6df788a920b67e058fbde0dc3f4ec6f11f3f7cd8c3148e6d99584885").into(),

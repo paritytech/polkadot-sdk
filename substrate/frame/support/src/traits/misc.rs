@@ -1424,7 +1424,7 @@ mod test {
 		assert_eq!(<WrapperOpaque<[u8; 2usize.pow(14)]>>::max_encoded_len(), 2usize.pow(14) + 4);
 
 		let data = 4u64;
-		// Ensure that we check that the `Vec<u8>` is consumed completly on decode.
+		// Ensure that we check that the `Vec<u8>` is consumed completely on decode.
 		assert!(WrapperOpaque::<u32>::decode(&mut &data.encode().encode()[..]).is_err());
 	}
 
