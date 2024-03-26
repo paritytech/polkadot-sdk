@@ -42,7 +42,6 @@ sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
 tokio = "1.22.0"
 
-
 [dev-dependencies]
 serde = { workspace = true, default-features = true }
 tempfile = "3.1.0"

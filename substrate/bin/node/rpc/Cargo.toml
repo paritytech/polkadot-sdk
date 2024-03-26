@@ -26,6 +26,7 @@ sc-consensus-babe = { path = "../../../client/consensus/babe" }
 sc-consensus-babe-rpc = { path = "../../../client/consensus/babe/rpc" }
 sc-consensus-beefy = { path = "../../../client/consensus/beefy" }
 sc-consensus-beefy-rpc = { path = "../../../client/consensus/beefy/rpc" }
+sp-consensus-beefy = { path = "../../../primitives/consensus/beefy" }
 sc-consensus-grandpa = { path = "../../../client/consensus/grandpa" }
 sc-consensus-grandpa-rpc = { path = "../../../client/consensus/grandpa/rpc" }
 sc-mixnet = { path = "../../../client/mixnet" }
@@ -41,6 +42,7 @@ sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }
+sp-application-crypto = { path = "../../../primitives/application-crypto" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
 substrate-frame-rpc-system = { path = "../../../utils/frame/rpc/system" }
 substrate-state-trie-migration-rpc = { path = "../../../utils/frame/rpc/state-trie-migration-rpc" }
