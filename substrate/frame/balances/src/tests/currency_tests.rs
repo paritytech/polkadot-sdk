@@ -1042,7 +1042,7 @@ fn slash_consumed_slash_partial_works() {
 }
 
 #[test]
-fn slash_on_non_existant_works() {
+fn slash_on_non_existent_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		// Slash on non-existent account is okay.
 		assert_eq!(Balances::slash(&12345, 1_300), (NegativeImbalance::new(0), 1300));
@@ -1089,7 +1089,7 @@ fn slash_reserved_overslash_does_not_touch_free_balance() {
 }
 
 #[test]
-fn slash_reserved_on_non_existant_works() {
+fn slash_reserved_on_non_existent_works() {
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		// Slash on non-existent account is okay.
 		assert_eq!(Balances::slash_reserved(&12345, 1_300), (NegativeImbalance::new(0), 1300));

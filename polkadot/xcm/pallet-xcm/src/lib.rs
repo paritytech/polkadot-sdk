@@ -61,6 +61,7 @@ use xcm_executor::{
 	},
 	AssetsInHolding,
 };
+use xcm_fee_payment_runtime_api::Error as FeePaymentError;
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -374,7 +375,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			timeout: BlockNumberFor<T>,
 			match_querier: VersionedLocation,
-		) -> Result<Self::QueryId, DispatchError> {
+		) -> Result<QueryId, DispatchError> {
 			let responder = <T as Config>::ExecuteXcmOrigin::ensure_origin(origin)?;
 			let query_id = <Self as QueryHandler>::new_query(
 				responder,
@@ -1478,7 +1479,6 @@ impl<T: Config> sp_std::fmt::Debug for FeesHandling<T> {
 }
 
 impl<T: Config> QueryHandler for Pallet<T> {
-	type QueryId = u64;
 	type BlockNumber = BlockNumberFor<T>;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
@@ -1488,7 +1488,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		responder: impl Into<Location>,
 		timeout: BlockNumberFor<T>,
 		match_querier: impl Into<Location>,
-	) -> Self::QueryId {
+	) -> QueryId {
 		Self::do_new_query(responder, None, timeout, match_querier)
 	}
 
@@ -1498,7 +1498,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 		message: &mut Xcm<()>,
 		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
-	) -> Result<Self::QueryId, Self::Error> {
+	) -> Result<QueryId, Self::Error> {
 		let responder = responder.into();
 		let destination = Self::UniversalLocation::get()
 			.invert_target(&responder)
@@ -1511,7 +1511,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	}
 
 	/// Removes response when ready and emits [Event::ResponseTaken] event.
-	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+	fn take_response(query_id: QueryId) -> QueryResponseStatus<Self::BlockNumber> {
 		match Queries::<T>::get(query_id) {
 			Some(QueryStatus::Ready { response, at }) => match response.try_into() {
 				Ok(response) => {
@@ -1528,7 +1528,7 @@ impl<T: Config> QueryHandler for Pallet<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn expect_response(id: Self::QueryId, response: Response) {
+	fn expect_response(id: QueryId, response: Response) {
 		let response = response.into();
 		Queries::<T>::insert(
 			id,
@@ -1991,6 +1991,7 @@ impl<T: Config> Pallet<T> {
 		]);
 		Ok(Xcm(vec![
 			WithdrawAsset(assets.into()),
+			SetFeesMode { jit_withdraw: true },
 			InitiateReserveWithdraw {
 				assets: Wild(AllCounted(max_assets)),
 				reserve,
@@ -2361,6 +2362,37 @@ impl<T: Config> Pallet<T> {
 	pub fn check_account() -> T::AccountId {
 		const ID: PalletId = PalletId(*b"py/xcmch");
 		AccountIdConversion::<T::AccountId>::into_account_truncating(&ID)
+	}
+
+	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, FeePaymentError> {
+		let message =
+			Xcm::<()>::try_from(message).map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+
+		T::Weigher::weight(&mut message.into()).map_err(|()| {
+			log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
+			FeePaymentError::WeightNotComputable
+		})
+	}
+
+	pub fn query_delivery_fees(
+		destination: VersionedLocation,
+		message: VersionedXcm<()>,
+	) -> Result<VersionedAssets, FeePaymentError> {
+		let result_version = destination.identify_version().max(message.identify_version());
+
+		let destination =
+			destination.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+
+		let message = message.try_into().map_err(|_| FeePaymentError::VersionedConversionFailed)?;
+
+		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
+			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Error when querying delivery fees: {:?}", error);
+			FeePaymentError::Unroutable
+		})?;
+
+		VersionedAssets::from(fees)
+			.into_version(result_version)
+			.map_err(|_| FeePaymentError::VersionedConversionFailed)
 	}
 
 	/// Create a new expectation of a query response with the querier being here.

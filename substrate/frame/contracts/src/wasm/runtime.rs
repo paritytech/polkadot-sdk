@@ -245,7 +245,7 @@ pub enum RuntimeCosts {
 	/// Weight of calling `account_reentrance_count`
 	AccountEntranceCount,
 	/// Weight of calling `instantiation_nonce`
-	InstantationNonce,
+	InstantiationNonce,
 	/// Weight of calling `lock_delegate_dependency`
 	LockDelegateDependency,
 	/// Weight of calling `unlock_delegate_dependency`
@@ -337,7 +337,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			EcdsaToEthAddress => s.ecdsa_to_eth_address,
 			ReentrantCount => s.reentrance_count,
 			AccountEntranceCount => s.account_reentrance_count,
-			InstantationNonce => s.instantiation_nonce,
+			InstantiationNonce => s.instantiation_nonce,
 			LockDelegateDependency => s.lock_delegate_dependency,
 			UnlockDelegateDependency => s.unlock_delegate_dependency,
 		}
@@ -2298,7 +2298,7 @@ pub mod env {
 	/// Returns a nonce that is unique per contract instantiation.
 	/// See [`pallet_contracts_uapi::HostFn::instantiation_nonce`].
 	fn instantiation_nonce(ctx: _, _memory: _) -> Result<u64, TrapReason> {
-		ctx.charge_gas(RuntimeCosts::InstantationNonce)?;
+		ctx.charge_gas(RuntimeCosts::InstantiationNonce)?;
 		Ok(ctx.ext.nonce())
 	}
 
