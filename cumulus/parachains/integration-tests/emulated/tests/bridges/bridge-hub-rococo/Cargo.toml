@@ -34,10 +34,10 @@ pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages
 bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false }
 
 # Cumulus
-parachains-common = { path = "../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../common" }
 testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["rococo"] }
 cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false }
-bridge-hub-rococo-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
+bridge-hub-rococo-runtime = { path = "../../../../../runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
 rococo-system-emulated-network = { path = "../../../networks/rococo-system" }
