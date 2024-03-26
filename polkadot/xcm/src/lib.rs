@@ -443,6 +443,16 @@ impl<C> IntoVersion for VersionedXcm<C> {
 	}
 }
 
+impl<C> IdentifyVersion for VersionedXcm<C> {
+	fn identify_version(&self) -> Version {
+		match self {
+			Self::V2(_) => v2::VERSION,
+			Self::V3(_) => v3::VERSION,
+			Self::V4(_) => v4::VERSION,
+		}
+	}
+}
+
 impl<RuntimeCall> From<v2::Xcm<RuntimeCall>> for VersionedXcm<RuntimeCall> {
 	fn from(x: v2::Xcm<RuntimeCall>) -> Self {
 		VersionedXcm::V2(x)
