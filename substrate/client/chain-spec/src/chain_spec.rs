@@ -1034,7 +1034,6 @@ mod tests {
 		assert!(raw_chain_spec.is_ok());
 	}
 
-	#[docify::export]
 	#[test]
 	fn generate_chain_spec_with_named_preset_works() {
 		sp_tracing::try_init_simple();
@@ -1049,14 +1048,6 @@ mod tests {
 		.build();
 
 		let actual = output.as_json(false).unwrap();
-		let mut file = std::fs::OpenOptions::new()
-			.create(true)
-			.write(true)
-			.open("/tmp/default_genesis_config.json")
-			.unwrap();
-		use std::io::Write;
-		file.write_all(actual.clone().as_bytes()).unwrap();
-
 		let expected =
 			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_named_preset.json"))
 				.unwrap();
@@ -1146,6 +1137,8 @@ mod tests {
 
 	#[test]
 	fn chain_spec_as_json_fails_with_invalid_config() {
+		let expected_error_message =
+			include_str!("../res/chain_spec_as_json_fails_with_invalid_config.err");
 		let j =
 			include_str!("../../../test-utils/runtime/res/default_genesis_config_invalid_2.json");
 		let output = ChainSpec::<()>::builder(
@@ -1158,10 +1151,9 @@ mod tests {
 		.with_genesis_config(from_str(j).unwrap())
 		.build();
 
-		assert_eq!(
-			output.as_json(true),
-			Err("Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 1 column 8".to_string())
-		);
+		let result = output.as_json(true);
+
+		assert_eq!(result.err().unwrap(), expected_error_message);
 	}
 
 	#[test]
