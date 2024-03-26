@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{fs::File, io::Write};
+use std::{fs::File, io::Write, path::Path};
 
 fn workspace_dir() -> Path {
 	let output = std::process::Command::new(env!("CARGO"))
