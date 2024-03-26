@@ -965,7 +965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>total_cpu = test_env_cpu_metrics.sum_by(<span class="string">&quot;substrate_tasks_polling_duration_sum&quot;</span>);
 
 		usage.push(ResourceUsage {
-			resource_name: <span class="string">&quot;Test environment&quot;</span>.to_string(),
+			resource_name: <span class="string">&quot;test-environment&quot;</span>.to_string(),
 			total: total_cpu,
 			per_block: total_cpu / num_blocks,
 		});

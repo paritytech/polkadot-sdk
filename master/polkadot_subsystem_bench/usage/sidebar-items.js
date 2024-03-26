@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BenchmarkUsage","ResourceUsage"]};
+window.SIDEBAR_ITEMS = {"struct":["BenchmarkUsage","ChartItem","ResourceUsage"]};

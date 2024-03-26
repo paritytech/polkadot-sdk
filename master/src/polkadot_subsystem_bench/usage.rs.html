@@ -298,6 +298,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -382,6 +410,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
 	}
+
+	<span class="comment">// Prepares a json string for a graph representation
+	// See: https://github.com/benchmark-action/github-action-benchmark?tab=readme-ov-file#examples
+	</span><span class="kw">pub fn </span>to_chart_json(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; color_eyre::eyre::Result&lt;String&gt; {
+		<span class="kw">let </span>chart = <span class="self">self
+			</span>.network_usage
+			.iter()
+			.map(|v| ChartItem {
+				name: v.resource_name.clone(),
+				unit: <span class="string">&quot;KiB&quot;</span>.to_string(),
+				value: v.per_block,
+			})
+			.chain(<span class="self">self</span>.cpu_usage.iter().map(|v| ChartItem {
+				name: v.resource_name.clone(),
+				unit: <span class="string">&quot;seconds&quot;</span>.to_string(),
+				value: v.per_block,
+			}))
+			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+		<span class="prelude-val">Ok</span>(serde_json::to_string(<span class="kw-2">&amp;</span>chart)<span class="question-mark">?</span>)
+	}
 }
 
 <span class="kw">fn </span>check_usage(
@@ -451,4 +500,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">type </span>ResourceUsageCheck&lt;<span class="lifetime">&#39;a</span>&gt; = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, f64, f64);
+
+<span class="attr">#[derive(Debug, Serialize)]
+</span><span class="kw">pub struct </span>ChartItem {
+	<span class="kw">pub </span>name: String,
+	<span class="kw">pub </span>unit: String,
+	<span class="kw">pub </span>value: f64,
+}
 </code></pre></div></section></main></body></html>
