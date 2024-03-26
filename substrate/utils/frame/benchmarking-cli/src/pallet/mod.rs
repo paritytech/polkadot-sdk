@@ -16,9 +16,10 @@
 // limitations under the License.
 
 mod command;
+mod types;
 mod writer;
 
-use crate::shared::HostInfoParams;
+use crate::{pallet::types::GenesisBuilder, shared::HostInfoParams};
 use clap::ValueEnum;
 use sc_cli::{
 	WasmExecutionMethod, WasmtimeInstantiationStrategy, DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
@@ -166,6 +167,21 @@ pub struct PalletCmd {
 	)]
 	pub wasmtime_instantiation_strategy: WasmtimeInstantiationStrategy,
 
+	/// Optional runtime blob to use instead of the one from the genesis config.
+	#[arg(long, conflicts_with = "chain")]
+	pub runtime: Option<PathBuf>,
+
+	/// Do not fail if there are unknown but also unused host functions in the runtime.
+	#[arg(long)]
+	pub allow_missing_host_functions: bool,
+
+	/// How to construct the genesis state.
+	///
+	/// Uses `GenesisBuilder::Spec` by default and  `GenesisConstructor::Runtime` if `runtime` is
+	/// set.
+	#[arg(long, value_enum)]
+	pub genesis_builder: Option<GenesisBuilder>,
+
 	/// DEPRECATED: This argument has no effect.
 	#[arg(long = "execution")]
 	pub execution: Option<String>,
@@ -221,4 +237,8 @@ pub struct PalletCmd {
 	/// This exists only to restore legacy behaviour. It should never actually be needed.
 	#[arg(long)]
 	pub unsafe_overwrite_results: bool,
+
+	/// Suppresses most prints.
+	#[arg(long)]
+	quiet: bool,
 }

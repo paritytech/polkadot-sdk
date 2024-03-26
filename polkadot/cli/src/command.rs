@@ -451,8 +451,10 @@ pub fn run() -> Result<()> {
 
 					if cfg!(feature = "runtime-benchmarks") {
 						runner.sync_run(|config| {
-							cmd.run::<sp_runtime::traits::HashingFor<service::Block>, ()>(config)
-								.map_err(|e| Error::SubstrateCli(e))
+							cmd.run_with_spec::<sp_runtime::traits::HashingFor<service::Block>, ()>(
+								Some(config.chain_spec),
+							)
+							.map_err(|e| Error::SubstrateCli(e))
 						})
 					} else {
 						Err(sc_cli::Error::Input(

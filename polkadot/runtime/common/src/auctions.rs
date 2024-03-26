@@ -1899,10 +1899,13 @@ mod benchmarking {
 
 			// Trigger epoch change for new random number value:
 			{
+				pallet_babe::EpochStart::<T>::set((Zero::zero(), u32::MAX.into()));
 				pallet_babe::Pallet::<T>::on_initialize(duration + now + T::EndingPeriod::get());
 				let authorities = pallet_babe::Pallet::<T>::authorities();
-				let next_authorities = authorities.clone();
-				pallet_babe::Pallet::<T>::enact_epoch_change(authorities, next_authorities, None);
+				// Check for non empty authority set since it otherwise emits a No-OP warning.
+				if !authorities.is_empty() {
+					pallet_babe::Pallet::<T>::enact_epoch_change(authorities.clone(), authorities, None);
+				}
 			}
 
 		}: {
