@@ -26,4 +26,3 @@ pub(crate) mod keyring;
 pub(crate) mod mock;
 pub(crate) mod network;
 pub mod usage;
-pub mod utils;
