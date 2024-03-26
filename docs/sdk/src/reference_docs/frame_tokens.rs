@@ -57,8 +57,9 @@
 //!
 //! **Trait implementations** are concrete implementations of these traits. For example, one of the
 //! many traits [`pallet_balances`] implements is
-//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)*. It provides the concrete way of inspecting the total issuance, balance of accounts, etc.
-//! There can be many implementations of the same traits.
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)*. It provides the concrete way
+//! of inspecting the total issuance, balance of accounts, etc. There can be many implementations of
+//! the same traits.
 //!
 //! The distinction between traits and trait implementations is helpful because it allows pallets
 //! and other logic to be generic over their dependencies, avoiding tight coupling.
@@ -116,10 +117,11 @@
 //!
 //! ## Non-Fungible Tokens in FRAME
 //!
-//! [`pallet_uniques`] is recommended to use for all NFT use cases in FRAME.
+//! [`pallet_nfts`] is recommended to use for all NFT use cases in FRAME.
 //! See the crate documentation for more info about this pallet.
 //!
-//! [`pallet_nfts`] is deprecated and should not be used.
+//! [`pallet_uniques`] is deprecated and should not be used.
+//!
 //!
 //! # What Next?
 //!
