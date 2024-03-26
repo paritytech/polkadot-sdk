@@ -3471,3 +3471,21 @@ from = "0.1.0"
 to = "0.1.0"
 bump = "major"
 publish = false
+
+[[crate]]
+name = "pallet-example-frame-crate"
+from = "0.1.0"
+to = "0.1.0"
+publish = false
+
+[[crate]]
+name = "minimal-template-runtime"
+from = "0.1.0"
+to = "0.1.0"
+publish = false
+
+[[crate]]
+name = "pallet-minimal-template"
+from = "0.1.0"
+to = "0.1.0"
+publish = false

@@ -27,7 +27,7 @@ pallet-message-queue = { version = "34.0.0", path = "../../../../../substrate/fr
 polkadot-primitives = { version = "10.0.0", path = "../../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { version = "10.0.0", path = "../../../../../polkadot/runtime/parachains" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", version = "10.0.0" }
-pallet-xcm = { version = "10.0.0", path = "../../../../../polkadot/xcm/pallet-xcm" }
+pallet-xcm = { version = "10.0.1", path = "../../../../../polkadot/xcm/pallet-xcm" }
 parachains-common = { version = "10.0.0", path = "../../../common" }
 cumulus-primitives-core = { version = "0.10.0", path = "../../../../primitives/core" }
 xcm-emulator = { version = "0.8.0", path = "../../../../xcm/xcm-emulator" }

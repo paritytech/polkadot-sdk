@@ -28,7 +28,7 @@ xcm = { package = "staging-xcm", path = "../..", version = "10.0.0" }
 xcm-simulator = { version = "10.0.0", path = ".." }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm-executor", version = "10.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder", version = "10.0.0" }
-pallet-xcm = { version = "10.0.0", path = "../../pallet-xcm" }
+pallet-xcm = { version = "10.0.1", path = "../../pallet-xcm" }
 polkadot-core-primitives = { version = "10.0.0", path = "../../../core-primitives" }
 polkadot-runtime-parachains = { version = "10.0.0", path = "../../../runtime/parachains" }
 polkadot-parachain-primitives = { version = "9.0.0", path = "../../../parachain" }

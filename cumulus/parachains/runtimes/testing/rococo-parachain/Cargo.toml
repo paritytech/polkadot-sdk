@@ -40,7 +40,7 @@ sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false, version = "32.0.0" }
 
 # Polkadot
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "10.0.0" }
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "10.0.1" }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "9.0.0" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "10.0.0" }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "10.0.0" }

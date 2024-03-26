@@ -325,6 +325,7 @@ members = [
 	"substrate/frame/election-provider-support/solution-type/fuzzer",
 	"substrate/frame/elections-phragmen",
 	"substrate/frame/examples",
+	"substrate/frame/examples/frame-crate",
 	"substrate/frame/examples/basic",
 	"substrate/frame/examples/default-config",
 	"substrate/frame/examples/dev-mode",

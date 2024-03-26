@@ -58,7 +58,7 @@ sp-version = { path = "../../../../../substrate/primitives/version", default-fea
 
 # Polkadot
 rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false, version = "10.0.0" }
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "10.0.0" }
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "10.0.1" }
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "10.0.0" }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "9.0.0" }
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false, version = "10.0.0" }
@@ -104,13 +104,13 @@ bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", de
 
 # Ethereum Bridge (Snowbridge)
 snowbridge-beacon-primitives = { path = "../../../../../bridges/snowbridge/primitives/beacon", default-features = false, version = "0.3.0" }
-snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/pallets/system", default-features = false, version = "0.3.0" }
+snowbridge-pallet-system = { path = "../../../../../bridges/snowbridge/pallets/system", default-features = false, version = "0.3.1" }
 snowbridge-system-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/system/runtime-api", default-features = false, version = "0.3.0" }
-snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false, version = "0.3.0" }
+snowbridge-core = { path = "../../../../../bridges/snowbridge/primitives/core", default-features = false, version = "0.3.1" }
 snowbridge-pallet-ethereum-client = { path = "../../../../../bridges/snowbridge/pallets/ethereum-client", default-features = false, version = "0.3.0" }
-snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.3.0" }
-snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false, version = "0.3.0" }
-snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false, version = "0.3.0" }
+snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/pallets/inbound-queue", default-features = false, version = "0.3.1" }
+snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false, version = "0.3.1" }
+snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false, version = "0.3.1" }
 snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/primitives/router", default-features = false, version = "0.9.0" }
 snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/runtime-common", default-features = false, version = "0.3.0" }
 
