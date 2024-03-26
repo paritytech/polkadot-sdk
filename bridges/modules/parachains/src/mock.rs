@@ -161,7 +161,7 @@ construct_runtime! {
 	}
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for TestRuntime {
 	type Block = Block;
 }
@@ -261,7 +261,7 @@ impl Chain for TestBridgedChain {
 impl ChainWithGrandpa for TestBridgedChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 8;
 	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
 	const AVERAGE_HEADER_SIZE: u32 = 64;
 }
@@ -294,7 +294,7 @@ impl Chain for OtherBridgedChain {
 impl ChainWithGrandpa for OtherBridgedChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 8;
 	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
 	const AVERAGE_HEADER_SIZE: u32 = 64;
 }

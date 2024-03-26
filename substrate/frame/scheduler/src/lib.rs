@@ -46,7 +46,7 @@
 //! 1. Scheduling a runtime call at a specific block.
 #![doc = docify::embed!("src/tests.rs", basic_scheduling_works)]
 //!
-//! 2. Scheduling a preimage hash of a runtime call at a specifc block
+//! 2. Scheduling a preimage hash of a runtime call at a specific block
 #![doc = docify::embed!("src/tests.rs", scheduling_with_preimages_works)]
 
 //!

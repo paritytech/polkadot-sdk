@@ -12,7 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::*;
+use crate::imports::*;
 use bridge_hub_rococo_runtime::{EthereumBeaconClient, EthereumInboundQueue, RuntimeOrigin};
 use codec::{Decode, Encode};
 use emulated_integration_tests_common::xcm_emulator::ConvertLocation;
@@ -23,7 +23,7 @@ use rococo_westend_system_emulated_network::BridgeHubRococoParaSender as BridgeH
 use snowbridge_core::outbound::OperatingMode;
 use snowbridge_pallet_inbound_queue_fixtures::{
 	register_token::make_register_token_message,
-	register_token_with_insufficient_fee::make_register_token_with_infufficient_fee_message,
+	register_token_with_insufficient_fee::make_register_token_with_insufficient_fee_message,
 	send_token::make_send_token_message, send_token_to_penpal::make_send_token_to_penpal_message,
 	InboundQueueFixture,
 };
@@ -514,7 +514,7 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 
 		// Construct RegisterToken message and sent to inbound queue
-		let message = make_register_token_with_infufficient_fee_message();
+		let message = make_register_token_with_insufficient_fee_message();
 		send_inbound_message(message).unwrap();
 
 		assert_expected_events!(

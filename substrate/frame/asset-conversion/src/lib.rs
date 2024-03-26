@@ -205,7 +205,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A successful call of the `CretaPool` extrinsic will create this event.
+		/// A successful call of the `CreatePool` extrinsic will create this event.
 		PoolCreated {
 			/// The account that created the pool.
 			creator: T::AccountId,
