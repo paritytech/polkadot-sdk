@@ -85,7 +85,7 @@ sp_api::decl_runtime_apis! {
 		/// Build `RuntimeGenesisConfig` from a JSON blob not using any defaults and store it in the
 		/// storage.
 		///
-		/// This function deserializes the full `RuntimeGenesisConfig` from the given JSON blob and
+		/// In the case of a FRAME-based runtime, this function deserializes the full `RuntimeGenesisConfig` from the given JSON blob and
 		/// puts it into the storage. If the provided JSON blob is incorrect or incomplete or the
 		/// deserialization fails, an error is returned.
 		///
