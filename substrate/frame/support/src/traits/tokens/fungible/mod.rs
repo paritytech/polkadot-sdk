@@ -127,6 +127,10 @@
 //! what the originating pallet and purpose is. These reasons are amalgomated into a single enum
 //! `RuntimeHoldReason` and `RuntimeFreezeReason` respectively, when the runtime is compiled.
 //!
+//! Note that `Hold` and `Freeze` reasons should remain in your runtime for as long as storage
+//! could exist in your runtime with those reasons, otherwise your runtime state could become
+//! undecodable.
+//!
 //! ### Should I use a Hold or Freeze?
 //!
 //! If you require a balance to be infaillibly slashed, then you should use Holds.
