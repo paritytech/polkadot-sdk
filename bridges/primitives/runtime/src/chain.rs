@@ -98,17 +98,6 @@ impl<ChainCall: Encode> Encode for EncodedOrDecodedCall<ChainCall> {
 	}
 }
 
-// dummy implementation to satisfy `SignedPayload` requirements
-impl<ChainCall> sp_runtime::traits::Dispatchable for EncodedOrDecodedCall<ChainCall> {
-	type RuntimeOrigin = ();
-	type Config = ();
-	type Info = ();
-	type PostInfo = ();
-	fn dispatch(self, _origin: ()) -> sp_runtime::DispatchResultWithInfo<()> {
-		unreachable!("never used by relayer; qed")
-	}
-}
-
 /// Minimal Substrate-based chain representation that may be used from no_std environment.
 pub trait Chain: Send + Sync + 'static {
 	/// Chain id.
