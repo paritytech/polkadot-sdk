@@ -2852,8 +2852,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2705" id="2705">2705</a>
 <a href="#2706" id="2706">2706</a>
 <a href="#2707" id="2707">2707</a>
-<a href="#2708" id="2708">2708</a>
-<a href="#2709" id="2709">2709</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3442,10 +3440,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>EstimateCallFee: EstimateCallFee&lt;Call&lt;<span class="self">Self</span>&gt;, BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Duration of the unsigned phase.
-		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>UnsignedPhase: Get&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
 		<span class="doccomment">/// Duration of the signed phase.
-		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>SignedPhase: Get&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The minimum amount of improvement to the solution score that defines a solution as
