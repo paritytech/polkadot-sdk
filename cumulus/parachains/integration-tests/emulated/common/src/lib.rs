@@ -67,7 +67,7 @@ parameter_types! {
 				xcm::v3::Junction::GeneralIndex(TELEPORTABLE_ASSET_ID.into()),
 			]
 		);
-	pub PenpalSiblingSovereigAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
+	pub PenpalSiblingSovereignAccount: AccountId = Sibling::from(PENPAL_ID).into_account_truncating();
 }
 
 /// Helper function to generate a crypto pair from seed
