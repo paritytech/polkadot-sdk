@@ -242,6 +242,8 @@ where
 			.subscriptions
 			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
+			// The spec says to return `LimitReached` if the follow subscription is invalid or
+			// stale.
 			return ResponsePayload::success(MethodResponse::LimitReached);
 		}
 
@@ -362,6 +364,8 @@ where
 			.subscriptions
 			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
+			// The spec says to return `LimitReached` if the follow subscription is invalid or
+			// stale.
 			return ResponsePayload::success(MethodResponse::LimitReached);
 		}
 
@@ -446,6 +450,8 @@ where
 			.subscriptions
 			.contains_subscription(connection_details.id(), &follow_subscription)
 		{
+			// The spec says to return `LimitReached` if the follow subscription is invalid or
+			// stale.
 			return ResponsePayload::success(MethodResponse::LimitReached);
 		}
 
