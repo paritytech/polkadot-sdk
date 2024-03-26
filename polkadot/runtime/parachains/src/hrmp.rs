@@ -272,7 +272,7 @@ pub mod pallet {
 
 		/// The default channel size and capacity to use when opening a channel to a system
 		/// parachain.
-		type DefaultChannelSizeAndCapacityToSystem: Get<(u32, u32)>;
+		type DefaultChannelSizeAndCapacityWithSystem: Get<(u32, u32)>;
 
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
