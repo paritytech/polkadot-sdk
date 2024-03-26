@@ -462,7 +462,7 @@ impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
 				S::get()
 			),
 		};
-		Ok(sp_std::vec::Vec::new())
+		Ok(Default::default())
 	}
 
 	#[cfg(feature = "try-runtime")]
