@@ -16,6 +16,7 @@
 
 //! Substrate node RPC errors.
 
+use crate::SimpleRuntimeVersion;
 use bp_polkadot_core::parachains::ParaId;
 use jsonrpsee::core::Error as RpcError;
 use relay_utils::MaybeConnectionError;
@@ -117,6 +118,17 @@ pub enum Error {
 	/// The Substrate transaction is invalid.
 	#[error("Substrate transaction is invalid: {0:?}")]
 	TransactionInvalid(#[from] TransactionValidityError),
+	/// The client is configured to use newer runtime version than the connected chain uses.
+	/// The client will keep waiting until chain is upgraded to given version.
+	#[error("Waiting for {chain} runtime upgrade: expected {expected:?} actual {actual:?}")]
+	WaitingForRuntimeUpgrade {
+		/// Name of the chain where the error has happened.
+		chain: String,
+		/// Expected runtime version.
+		expected: SimpleRuntimeVersion,
+		/// Actual runtime version.
+		actual: SimpleRuntimeVersion,
+	},
 	/// Custom logic error.
 	#[error("{0}")]
 	Custom(String),
