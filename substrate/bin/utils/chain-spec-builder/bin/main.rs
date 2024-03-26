@@ -99,7 +99,7 @@ fn inner_main() -> Result<(), String> {
 					)
 				})
 				.collect();
-			println!("Known presets are:\n{presets:#?}");
+			println!("{presets:#?}");
 		},
 		ChainSpecBuilderCmd::DisplayPreset(DisplayPresetCmd { runtime_wasm_path, preset_name }) => {
 			let code = fs::read(runtime_wasm_path.as_path())
