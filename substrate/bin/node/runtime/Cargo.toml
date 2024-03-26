@@ -89,6 +89,7 @@ pallet-elections-phragmen = { path = "../../../frame/elections-phragmen", defaul
 pallet-example-tasks = { path = "../../../frame/examples/tasks", default-features = false }
 pallet-fast-unstake = { path = "../../../frame/fast-unstake", default-features = false }
 pallet-migrations = { path = "../../../frame/migrations", default-features = false }
+pallet-example-pallet-mbm = { path = "../../../frame/examples/multi-block-migrations", default-features = false }
 pallet-nis = { path = "../../../frame/nis", default-features = false }
 pallet-grandpa = { path = "../../../frame/grandpa", default-features = false }
 pallet-im-online = { path = "../../../frame/im-online", default-features = false }
@@ -267,6 +268,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"pallet-example-pallet-mbm/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-pallet-pov/runtime-benchmarks",
@@ -342,6 +344,7 @@ runtime-benchmarks = [
 	"pallet-whitelist/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-example-pallet-mbm/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-benchmarking-pallet-pov/try-runtime",

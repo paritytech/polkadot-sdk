@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 //! # Multi-Block Migrations Example Pallet
 //!
 //! This pallet serves as a minimal example of a pallet that uses the [Multi-Block Migrations
@@ -67,6 +69,9 @@
 //! your migrations in addition to `try-runtime-cli`.
 
 pub mod migrations;
+mod mock;
+
+pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -80,5 +85,5 @@ pub mod pallet {
 
 	/// Define a storage item to illustrate multi-block migrations.
 	#[pallet::storage]
-	pub type StoredValue<T: Config> = StorageMap<_, Blake2_128Concat, u32, u64>;
+	pub type MyMap<T: Config> = StorageMap<_, Blake2_128Concat, u32, u64>;
 }
