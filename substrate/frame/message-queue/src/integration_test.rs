@@ -73,6 +73,7 @@ impl Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ServiceWeight;
 }
 
 /// Simulates heavy usage by enqueueing and processing large amounts of messages.
