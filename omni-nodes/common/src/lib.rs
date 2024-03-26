@@ -18,8 +18,8 @@ pub struct FakeRuntime;
 mod whatever {
 	pub(crate) type Header = sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>;
 	pub(crate) type Block = sp_runtime::generic::Block<Header, sp_runtime::OpaqueExtrinsic>;
-	pub(crate) type AccountId = ();
-	pub(crate) type Nonce = ();
+	pub(crate) type AccountId = sp_runtime::AccountId32;
+	pub(crate) type Nonce = u32;
 	pub(crate) type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 	pub(crate) type BlockNumber = u32;
 	pub(crate) type Balance = u128;

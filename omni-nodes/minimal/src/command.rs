@@ -17,7 +17,7 @@
 
 // TODO:
 // - [x] Ability to pass genesis state in a user friendly way.
-// - [ ] Test this with multiple variants of minimal runtime.
+// - [x] Test this with multiple variants of minimal runtime.
 // - [x] what is happening when I run this with --execution Native?
 // - [ ] Give it the polkadot runtime. Maybe even that will work?
 // - [ ] Give it a parachain runtime.
