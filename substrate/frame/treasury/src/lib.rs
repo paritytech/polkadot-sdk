@@ -343,12 +343,10 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// We have ended a spend period and will now allocate funds.
-		#[codec(index = 1)]
 		Spending { budget_remaining: BalanceOf<T, I> },
 		/// Some funds have been allocated.
 		Awarded { proposal_index: ProposalIndex, award: BalanceOf<T, I>, account: T::AccountId },
 		/// Some of our funds have been burnt.
-		#[codec(index = 4)]
 		Burnt { burnt_funds: BalanceOf<T, I> },
 		/// Spending has finished; this is the amount that rolls over until next spend.
 		Rollover { rollover_balance: BalanceOf<T, I> },
@@ -386,7 +384,6 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
 		/// No proposal, bounty or spend at that index.
-		#[codec(index = 1)]
 		InvalidIndex,
 		/// Too many approvals in the queue.
 		TooManyApprovals,
