@@ -12,8 +12,8 @@
 //! First, imagine we are writing a FRAME pallet. We represent this pallet with a `struct Pallet`,
 //! and this pallet wants to implement the functionalities of that pallet, for example a simple
 //! `transfer` function. For the sake of education, we are interested in having a `MinTransfer`
-//! amount, expressed as a [`polkadot_sdk_frame::traits::Get`], which will dictate what is the minimum amount
-//! that can be transferred.
+//! amount, expressed as a [`polkadot_sdk_frame::traits::Get`], which will dictate what is the
+//! minimum amount that can be transferred.
 //!
 //! We can foremost write this as simple as the following snippet:
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", basic)]

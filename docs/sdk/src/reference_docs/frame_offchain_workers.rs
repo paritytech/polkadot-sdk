@@ -96,8 +96,9 @@
 //! API into the WASM blob are:
 //!
 //! * Accessing the state is easier within the `offchain_worker` function, as it is already a part
-//!   of the runtime, and [`polkadot_sdk_frame::pallet_macros::storage`] provides all the tools needed to read
-//!   the state. Other client libraries might provide varying degrees of capability here.
+//!   of the runtime, and [`polkadot_sdk_frame::pallet_macros::storage`] provides all the tools
+//!   needed to read the state. Other client libraries might provide varying degrees of capability
+//!   here.
 //! * It will be updated in synchrony with the runtime. A Substrate's offchain application is part
 //!   of the same WASM blob, and is therefore guaranteed to be up to date.
 //!

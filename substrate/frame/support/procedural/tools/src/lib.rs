@@ -61,8 +61,8 @@ pub fn is_using_frame_crate(path: &syn::Path) -> bool {
 
 /// Generate the crate access for the crate using 2018 syntax.
 ///
-/// If `frame` is in scope, it will use `polkadot_sdk_frame::deps::<def_crate>`. Else, it will try and find
-/// `<def_crate>` directly.
+/// If `frame` is in scope, it will use `polkadot_sdk_frame::deps::<def_crate>`. Else, it will try
+/// and find `<def_crate>` directly.
 pub fn generate_access_from_frame_or_crate(def_crate: &str) -> Result<syn::Path, Error> {
 	if let Some(path) = get_frame_crate_path(def_crate) {
 		Ok(path)

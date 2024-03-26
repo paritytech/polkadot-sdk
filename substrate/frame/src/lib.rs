@@ -53,8 +53,8 @@
 /// being a pallet, eg `#[polkadot_sdk_frame::pallet] mod pallet { .. }`.
 ///
 /// Note that this is not part of the prelude, in order to make it such that the common way to
-/// define a macro is `#[polkadot_sdk_frame::pallet] mod pallet { .. }`, followed by `#[pallet::foo]`,
-/// `#[pallet::bar]` inside the mod.
+/// define a macro is `#[polkadot_sdk_frame::pallet] mod pallet { .. }`, followed by
+/// `#[pallet::foo]`, `#[pallet::bar]` inside the mod.
 pub use frame_support::pallet;
 
 pub use frame_support::pallet_macros::{import_section, pallet_section};

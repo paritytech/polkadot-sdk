@@ -70,18 +70,19 @@
 //!
 //! ### Defensive Traits
 //!
-//! The [`Defensive`](polkadot_sdk_frame::traits::Defensive) trait provides a number of functions, all of which
-//! provide an alternative to 'vanilla' Rust functions, e.g.,:
+//! The [`Defensive`](polkadot_sdk_frame::traits::Defensive) trait provides a number of functions,
+//! all of which provide an alternative to 'vanilla' Rust functions, e.g.,:
 //!
-//! - [`defensive_unwrap_or()`](polkadot_sdk_frame::traits::Defensive::defensive_unwrap_or) instead of
-//!   `unwrap_or()`
-//! - [`defensive_ok_or()`](polkadot_sdk_frame::traits::DefensiveOption::defensive_ok_or) instead of `ok_or()`
+//! - [`defensive_unwrap_or()`](polkadot_sdk_frame::traits::Defensive::defensive_unwrap_or) instead
+//!   of `unwrap_or()`
+//! - [`defensive_ok_or()`](polkadot_sdk_frame::traits::DefensiveOption::defensive_ok_or) instead of
+//!   `ok_or()`
 //!
 //! Defensive methods use [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions), which panic in development, but in
 //! production/release, they will merely log an error (i.e., `log::error`).
 //!
-//! The [`Defensive`](polkadot_sdk_frame::traits::Defensive) trait and its various implementations can be found
-//! [here](polkadot_sdk_frame::traits::Defensive).
+//! The [`Defensive`](polkadot_sdk_frame::traits::Defensive) trait and its various implementations
+//! can be found [here](polkadot_sdk_frame::traits::Defensive).
 //!
 //! ## Integer Overflow
 //!
@@ -187,9 +188,9 @@
 //! to avoid introducing the notion of any potential-panic or wrapping behavior.
 //!
 //! There is also a series of defensive alternatives via
-//! [`DefensiveSaturating`](polkadot_sdk_frame::traits::DefensiveSaturating), which introduces the same behavior
-//! of the [`Defensive`](polkadot_sdk_frame::traits::Defensive) trait, only with saturating, mathematical
-//! operations:
+//! [`DefensiveSaturating`](polkadot_sdk_frame::traits::DefensiveSaturating), which introduces the
+//! same behavior of the [`Defensive`](polkadot_sdk_frame::traits::Defensive) trait, only with
+//! saturating, mathematical operations:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     saturated_defensive_example
