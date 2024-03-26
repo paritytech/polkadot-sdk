@@ -289,3 +289,20 @@ where
 		Ok(())
 	}
 }
+
+/// Unique ID to identify a given voucher.
+pub type VoucherId = u64;
+
+/// A record of a voucher for on-demand coretime.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct Voucher<AccountId, Balance> {
+	/// The account to be billed for this coretime upon exchange.
+	pub benefactor: AccountId,
+	/// The amount of coretime for which this voucher can be exchanged.
+	pub amount: Balance,
+	/// The timeslice at which this voucher expires.
+	pub expiry: Timeslice,
+	/// The owner of the voucher, `None` if the Voucher has not yet been awarded.
+	pub owner: Option<AccountId>,
+}
+pub type VoucherOf<T> = Voucher<<T as SConfig>::AccountId, BalanceOf<T>>;
