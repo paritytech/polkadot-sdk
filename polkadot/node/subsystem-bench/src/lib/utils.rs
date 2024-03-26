@@ -16,7 +16,7 @@
 
 use std::{fs::File, io::Write};
 
-fn workspace_dir() -> String {
+fn workspace_dir() -> Path {
 	let output = std::process::Command::new(env!("CARGO"))
 		.arg("locate-project")
 		.arg("--workspace")
@@ -24,20 +24,16 @@ fn workspace_dir() -> String {
 		.output()
 		.unwrap()
 		.stdout;
-	let cargo_path = std::path::Path::new(std::str::from_utf8(&output).unwrap().trim());
-	format!("{}", cargo_path.parent().unwrap().display())
+	std::path::Path::new(std::str::from_utf8(&output).unwrap().trim())
 }
 
 // Saves a given string to a file
 pub fn save_to_file(path: &str, value: String) -> color_eyre::eyre::Result<()> {
-	let mut path: Vec<&str> = path.split('/').collect();
-	let filename = path.pop().expect("Should contain a file name");
-	let dir = format!("{}/{}", workspace_dir(), path.join("/"));
-
-	if !path.is_empty() {
-		std::fs::create_dir_all(&dir)?;
+	let path = workspace_dir().join(path);
+	if let Some(dir) = path.parent() {
+		std::fs::create_dir_all(dir)?;
 	}
-	let mut file = File::create(format!("{}/{}", dir, filename))?;
+	let mut file = File::create(path)?;
 	file.write_all(value.as_bytes())?;
 
 	Ok(())
