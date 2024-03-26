@@ -31,7 +31,7 @@ pub mod pallet {
 	#[pallet::config]
 	// The only valid syntax here is the following or
 	// ```
-	// pub trait Config: frame::deps::frame_system::Config {}
+	// pub trait Config: polkadot_sdk_frame::deps::frame_system::Config {}
 	// ```
 	pub trait Config: frame_system::Config {}
 

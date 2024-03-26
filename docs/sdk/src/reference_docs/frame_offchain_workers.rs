@@ -54,14 +54,14 @@
 //! ## FRAME's API
 //!
 //! [`frame`] provides a simple API through which pallets can define offchain worker functions. This
-//! is part of [`frame::traits::Hooks`], which is implemented as a part of
-//! [`frame::pallet_macros::hooks`].
+//! is part of [`polkadot_sdk_frame::traits::Hooks`], which is implemented as a part of
+//! [`polkadot_sdk_frame::pallet_macros::hooks`].
 //!
 //! ```
 //! 
-//! #[frame::pallet]
+//! #[polkadot_sdk_frame::pallet]
 //! pub mod pallet {
-//! 	use frame::prelude::*;
+//! 	use polkadot_sdk_frame::prelude::*;
 //!
 //! 	#[pallet::config]
 //! 	pub trait Config: frame_system::Config {}
@@ -96,7 +96,7 @@
 //! API into the WASM blob are:
 //!
 //! * Accessing the state is easier within the `offchain_worker` function, as it is already a part
-//!   of the runtime, and [`frame::pallet_macros::storage`] provides all the tools needed to read
+//!   of the runtime, and [`polkadot_sdk_frame::pallet_macros::storage`] provides all the tools needed to read
 //!   the state. Other client libraries might provide varying degrees of capability here.
 //! * It will be updated in synchrony with the runtime. A Substrate's offchain application is part
 //!   of the same WASM blob, and is therefore guaranteed to be up to date.
