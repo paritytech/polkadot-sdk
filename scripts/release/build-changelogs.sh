@@ -6,7 +6,7 @@ export VERSION=${VERSION:-1.5.0}
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 echo $PROJECT_ROOT
 
-TMP=$(mktemp -d)
+TMP=${TMP:-$(mktemp -d)}
 TEMPLATE_AUDIENCE="${PROJECT_ROOT}/scripts/release/templates/audience.md.tera"
 TEMPLATE_CHANGELOG="${PROJECT_ROOT}/scripts/release/templates/changelog.md.tera"
 
