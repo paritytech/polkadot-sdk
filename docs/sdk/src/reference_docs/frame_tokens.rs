@@ -51,11 +51,13 @@
 //! trait implementations.
 //!
 //! **Traits** define common interfaces that types of tokens should implement. For example, the
-//! [`frame_support::traits::fungible::Inspect`] trait specifies an interface for *inspecting*
-//! token state such as the total issuance of the token, the balance of individual accounts, etc.
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`) trait specifies an interface
+//! for *inspecting* token state such as the total issuance of the token, the balance of individual
+//! accounts, etc.
 //!
 //! **Trait implementations** are concrete implementations of these traits. For example, one of the
-//! many traits [`pallet_balances`] implements is [`frame_support::traits::fungible::Inspect`]*.
+//! many traits [`pallet_balances`] implements is
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)*.
 //!
 //! The distinction between traits and trait implementations is helpful because it allows pallets
 //! and other logic to be generic over their dependencies, avoiding tight coupling.
@@ -69,45 +71,45 @@
 //! [`pallet_balances`], [`pallet_assets`], and every other token-handling pallet a user
 //! could possibly specify, [`pallet_preimage`] does not specify a concrete pallet as a dependency
 //! but instead accepts any dependency which implements the
-//! [`frame_support::traits::tokens::currency::ReservableCurrency`] trait. This allows
-//! [`pallet_preimage`] to support any arbitrary pallet implementing this trait, without needing any
-//! knowledge of what those pallets may be or requiring changes to support new pallets which may be
-//! written in the future.
+//! [`currency::ReservableCurrency`](`frame_support::traits::tokens::currency::ReservableCurrency`)
+//! trait. This allows [`pallet_preimage`] to support any arbitrary pallet implementing this trait,
+//! without needing any knowledge of what those pallets may be or requiring changes to support new
+//! pallets which may be written in the future.
 //!
 //! Read more about coupling, and the benefits to loose coupling
 //! [here](crate::reference_docs::frame_pallet_coupling).
 //!
 //! ##### *Rust Advanced Tip
 //!
-//! The knowledge that [`pallet_balances`] implements [`frame_support::traits::fungible::Inspect`]
-//! is not some arcane knowledge that you have to know by heart or memorize. One can
-//! simply look at the list of the implementors of any trait in the Rust Doc to find all
-//! implementors (e.g.
+//! The knowledge that [`pallet_balances`] implements
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`) is not some arcane knowledge
+//! that you have to know by heart or memorize. One can simply look at the list of the implementors
+//! of any trait in the Rust Doc to find all implementors (e.g.
 //! <https://paritytech.github.io/polkadot-sdk/master/frame/traits/tokens/fungible/trait.Mutate.html#implementors>),
 //! or use the `rust-analyzer` `Implementations` action.
 //!
 //! ## Fungible Token Traits in FRAME
 //!
-//! The [`frame_support::traits::fungible`] crate contains the latest set of FRAME
+//! The [`fungible`](`frame_support::traits::fungible`) crate contains the latest set of FRAME
 //! fungible token traits, and is recommended to use for all new logic requiring a fungible token.
 //! See the crate documentation for more info about these fungible traits.
 //!
-//! [`frame_support::traits::fungibles`] provides very similar functionality to
-//! [`frame_support::traits::fungible`], except it supports managing multiple tokens.
+//! [`fungibles`](`frame_support::traits::fungibles`) provides very similar functionality to
+//! [`fungible`](`frame_support::traits::fungible`), except it supports managing multiple tokens.
 //!
-//! You may notice the trait [`frame_support::traits::Currency`] with similar functionality is also
-//! used in the codebase, however this trait is deprecated and existing logic is in the process of
-//! being migrated to [`frame_support::traits::fungible`] ([tracking issue](https://github.com/paritytech/polkadot-sdk/issues/226)).
+//! You may notice the trait [`Currency`](`frame_support::traits::Currency`) with similar
+//! functionality is also used in the codebase, however this trait is deprecated and existing logic
+//! is in the process of being migrated to [`fungible`](`frame_support::traits::fungible`) ([tracking issue](https://github.com/paritytech/polkadot-sdk/issues/226)).
 //!
 //! ## Fungible Token Trait Implementations in FRAME
 //!
-//! [`pallet_balances`] implements [`frame_support::traits::fungible`], and is the most commonly
-//! used fungible implementation in FRAME. Most of the time, it's used for managing the native
-//! token of the blockchain network it's used in.
+//! [`pallet_balances`] implements [`fungible`](`frame_support::traits::fungible`), and is the most
+//! commonly used fungible implementation in FRAME. Most of the time, it's used for managing the
+//! native token of the blockchain network it's used in.
 //!
-//! [`pallet_assets`] implements [`frame_support::traits::fungibles`], and is another popular
-//! fungible token implementation. It supports the creation and management of multiple assets in a
-//! single crate, making it a good choice when a network requires more assets in
+//! [`pallet_assets`] implements [`fungibles`](`frame_support::traits::fungibles`), and is another
+//! popular fungible token implementation. It supports the creation and management of multiple
+//! assets in a single crate, making it a good choice when a network requires more assets in
 //! addition to its native token.
 //!
 //! ## Non-Fungible Tokens in FRAME
@@ -120,7 +122,7 @@
 //! # What Next?
 //!
 //! - If you are interested in implementing a single fungible token, continue reading the
-//!   [`frame_support::traits::fungible`] and [`pallet_balances`] docs.
+//!   [`fungible`](`frame_support::traits::fungible`) and [`pallet_balances`] docs.
 //! - If you are interested in implementing a set of fungible tokens, continue reading the
-//!   [`frame_support::traits::fungibles`] trait and [`pallet_assets`] docs.
+//!   [`fungibles`](`frame_support::traits::fungibles`) trait and [`pallet_assets`] docs.
 //! - If you are interested in implementing an NFT, continue reading the [`pallet_uniques`] docs.
