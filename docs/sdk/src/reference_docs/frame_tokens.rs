@@ -43,7 +43,7 @@
 //!
 //! To achieve
 //! [loose coupling](crate::reference_docs::frame_pallet_coupling#loosely--coupling-pallets),
-//! we seperate token logic into traits and trait implementations.
+//! we separate token logic into traits and trait implementations.
 //!
 //! ## Traits and Trait Implementations
 //!
