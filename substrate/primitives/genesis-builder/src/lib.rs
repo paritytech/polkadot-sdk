@@ -19,14 +19,21 @@
 
 //! Substrate genesis config builder
 //!
-//! This module provides means to interact with `RuntimeGenesisConfig`. Runtime provides a default
-//! `RuntimeGenesisConfig` structure in a form of the JSON blob.
+//! For FRAME based runtimes, this runtime interface provides means to interact with
+//! `RuntimeGenesisConfig`. Runtime provides a default `RuntimeGenesisConfig` structure in a form of
+//! the JSON blob.
 //!
-//! Additionally the runtime may provide a number of partial predefined `RuntimeGenesisConfig`
-//! configurations in the form of patches which shall be applied on top of the default
-//! `RuntimeGenesisConfig`. The patch is a JSON blob, which essentially comprises the list of
-//! key-value pairs that are to be customized in the default runtime genesis config.
-//! These predefined configurations are referred to as presets.
+//! For non-FRAME runtimes this interface is intended to build genesis state of the runtime basing
+//! on some input arbitrary bytes array. This documentation uses term `RuntimeGenesisConfig`, which
+//! for non-FRAME runtimes may be understood as the runtime-side entity representing initial runtime
+//! configuration. The representation of the preset is an arbitrary `Vec<u8>` and does not
+//! necessarily have to represent a JSON blob.
+//!
+//! The runtime may provide a number of partial predefined `RuntimeGenesisConfig` configurations in
+//! the form of patches which shall be applied on top of the default `RuntimeGenesisConfig`. The
+//! patch is a JSON blob, which essentially comprises the list of key-value pairs that are to be
+//! customized in the default runtime genesis config. These predefined configurations are referred
+//! to as presets.
 //!
 //! This allows the runtime to provide a number of predefined configs (e.g. for different
 //! testnets or development) without neccessity to leak the runtime types outside the itself (e.g.
