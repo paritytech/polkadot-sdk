@@ -43,14 +43,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
 
+      - name: Prepare tooling
+        run: |
+          URL=https://github.com/chevdor/tera-cli/releases/download/v0.2.4/tera-cli_linux_amd64.deb
+          wget $URL -O tera.deb
+          sudo dpkg -i tera.deb
+          tera --version
+
       - name: Compile release notes
         env:
           VERSION: ${{ inputs.version }}
         run: |
           VERSION=$(echo "$VERSION" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
           TMP=$(mktemp -d)
-          pwd
-          chmod a+x scripts/release/build-changelogs.sh
+          alias prdoc='docker run --rm -it -v $PWD:/repo paritytech/prdoc'
           ./scripts/release/build-changelogs.sh
 
           ls -al $TMP
