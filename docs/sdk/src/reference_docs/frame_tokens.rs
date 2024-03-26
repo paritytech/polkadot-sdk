@@ -72,9 +72,10 @@
 //! could possibly specify, [`pallet_preimage`] does not specify a concrete pallet as a dependency
 //! but instead accepts any dependency which implements the
 //! [`currency::ReservableCurrency`](`frame_support::traits::tokens::currency::ReservableCurrency`)
-//! trait. This allows [`pallet_preimage`] to support any arbitrary pallet implementing this trait,
-//! without needing any knowledge of what those pallets may be or requiring changes to support new
-//! pallets which may be written in the future.
+//! trait, namely via its [`Config::Currency`](`pallet_preimage::pallet::Config::Currency`)
+//! associated type. This allows [`pallet_preimage`] to support any arbitrary pallet implementing
+//! this trait, without needing any knowledge of what those pallets may be or requiring changes to
+//! support new pallets which may be written in the future.
 //!
 //! Read more about coupling, and the benefits to loose coupling
 //! [here](crate::reference_docs::frame_pallet_coupling).

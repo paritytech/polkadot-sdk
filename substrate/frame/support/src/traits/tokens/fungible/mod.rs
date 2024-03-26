@@ -47,7 +47,9 @@
 //!
 //! - **Total Balance**: The sum of an account's free and held balances.
 //!
-//! - **Free Balance**: A portion of an account's total balance that is not held.
+//! - **Free Balance**: A portion of an account's total balance that is not held. Note this is
+//!   distinct from the Spendable Balance, which represents how much Balance the user can actually
+//!   transfer.
 //!
 //! - **Held Balance**: Held balance still belongs to the account holder, but is suspended. It can
 //!   be slashed, but only after all the free balance has been slashed.
@@ -76,7 +78,8 @@
 //! - **Untouchable Balance**: The part of a user's free balance they cannot spend, due to ED or
 //!   Freeze(s).
 //!
-//! - **Spendable Balance**: The part of a user's free balance they can spend.
+//! - **Spendable Balance**: The part of a user's free balance they can actually transfer, after
+//!   accounting for Holds and Freezes.
 //!
 //! - **Imbalance**: A condition when some funds were credited or debited without equal and opposite
 //!   accounting (i.e. a difference between total issuance and account balances). Functions that
