@@ -189,6 +189,7 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-elections-phragmen/std",
+	"pallet-example-mbm/std",
 	"pallet-example-tasks/std",
 	"pallet-fast-unstake/std",
 	"pallet-glutton/std",
@@ -268,7 +269,6 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"pallet-example-mbm/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-pallet-pov/runtime-benchmarks",
@@ -296,6 +296,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
+	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-glutton/runtime-benchmarks",
@@ -344,7 +345,6 @@ runtime-benchmarks = [
 	"pallet-whitelist/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-example-mbm/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-benchmarking-pallet-pov/try-runtime",
