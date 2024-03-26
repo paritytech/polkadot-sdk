@@ -17,6 +17,7 @@
 
 //! Miscellaneous types.
 
+use crate::traits::Contains;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
@@ -297,6 +298,33 @@ where
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: AssetId) {}
+}
+
+/// Implements [`ConversionFromAssetBalance`], allowing for a 1:1 balance conversion of the asset
+/// when it meets the conditions specified by `C`. If the conditions are not met, the conversion is
+/// delegated to `O`.
+pub struct UnityOrOuterConversion<C, O>(core::marker::PhantomData<(C, O)>);
+impl<AssetBalance, AssetId, OutBalance, C, O>
+	ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance> for UnityOrOuterConversion<C, O>
+where
+	C: Contains<AssetId>,
+	O: ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance>,
+	AssetBalance: Into<OutBalance>,
+{
+	type Error = O::Error;
+	fn from_asset_balance(
+		balance: AssetBalance,
+		asset_id: AssetId,
+	) -> Result<OutBalance, Self::Error> {
+		if C::contains(&asset_id) {
+			return Ok(balance.into());
+		}
+		O::from_asset_balance(balance, asset_id)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(asset_id: AssetId) {
+		O::ensure_successful(asset_id)
+	}
 }
 
 /// Trait to handle NFT locking mechanism to ensure interactions with the asset can be implemented

@@ -322,6 +322,29 @@ impl<ParaId: IsSystem + From<u32>> Contains<Location> for IsChildSystemParachain
 	}
 }
 
+/// Matches if the given location is a system-level sibling parachain.
+pub struct IsSiblingSystemParachain<ParaId, SelfParaId>(PhantomData<(ParaId, SelfParaId)>);
+impl<ParaId: IsSystem + From<u32> + Eq, SelfParaId: Get<ParaId>> Contains<Location>
+	for IsSiblingSystemParachain<ParaId, SelfParaId>
+{
+	fn contains(l: &Location) -> bool {
+		matches!(
+			l.unpack(),
+			(1, [Junction::Parachain(id)])
+				if SelfParaId::get() != ParaId::from(*id) && ParaId::from(*id).is_system(),
+		)
+	}
+}
+
+/// Matches if the given location contains only the specified amount of parents and no interior
+/// junctions.
+pub struct IsParentsOnly<Count>(PhantomData<Count>);
+impl<Count: Get<u8>> Contains<Location> for IsParentsOnly<Count> {
+	fn contains(t: &Location) -> bool {
+		t.contains_parents_only(Count::get())
+	}
+}
+
 /// Allows only messages if the generic `ResponseHandler` expects them via `expecting_response`.
 pub struct AllowKnownQueryResponses<ResponseHandler>(PhantomData<ResponseHandler>);
 impl<ResponseHandler: OnResponse> ShouldExecute for AllowKnownQueryResponses<ResponseHandler> {
