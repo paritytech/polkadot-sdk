@@ -3,7 +3,7 @@
 //! This reference document explains how FRAME pallets can be combined to interact together.
 //!
 //! It is suggested to re-read [`crate::polkadot_sdk::frame_runtime`], notably the information
-//! around [`frame::pallet_macros::config`]. Recall that:
+//! around [`polkadot_sdk_frame::pallet_macros::config`]. Recall that:
 //!
 //! > Configuration trait of a pallet: It allows a pallet to receive types at a later
 //! > point from the runtime that wishes to contain it. It allows the pallet to be parameterized
@@ -123,8 +123,8 @@
 //! With the above information in context, we can conclude that **`frame_system` is a special pallet
 //! that is tightly coupled with every other pallet**. This is because it provides the fundamental
 //! system functionality that every pallet needs, such as some types like
-//! [`frame::prelude::frame_system::Config::AccountId`],
-//! [`frame::prelude::frame_system::Config::Hash`], and some functionality such as block number,
+//! [`polkadot_sdk_frame::prelude::frame_system::Config::AccountId`],
+//! [`polkadot_sdk_frame::prelude::frame_system::Config::Hash`], and some functionality such as block number,
 //! etc.
 //!
 //! ## Recap
@@ -155,10 +155,10 @@
 
 #![allow(unused)]
 
-use frame::prelude::*;
+use polkadot_sdk_frame::prelude::*;
 
 #[docify::export]
-#[frame::pallet]
+#[polkadot_sdk_frame::pallet]
 pub mod pallet_foo {
 	use super::*;
 
@@ -176,7 +176,7 @@ pub mod pallet_foo {
 }
 
 #[docify::export]
-#[frame::pallet]
+#[polkadot_sdk_frame::pallet]
 pub mod pallet_author {
 	use super::*;
 
@@ -193,7 +193,7 @@ pub mod pallet_author {
 	}
 }
 
-#[frame::pallet]
+#[polkadot_sdk_frame::pallet]
 pub mod pallet_foo_tight {
 	use super::*;
 
@@ -221,7 +221,7 @@ pub trait AuthorProvider<AccountId> {
 	fn author() -> AccountId;
 }
 
-#[frame::pallet]
+#[polkadot_sdk_frame::pallet]
 pub mod pallet_foo_loose {
 	use super::*;
 
@@ -270,7 +270,7 @@ impl<AccountId> AuthorProvider<AccountId> for () {
 pub mod runtime {
 	use super::*;
 	use cumulus_pallet_aura_ext::pallet;
-	use frame::{runtime::prelude::*, testing_prelude::*};
+	use polkadot_sdk_frame::{runtime::prelude::*, testing_prelude::*};
 
 	construct_runtime!(
 		pub struct Runtime {

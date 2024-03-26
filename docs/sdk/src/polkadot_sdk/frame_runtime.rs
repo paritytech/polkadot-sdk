@@ -34,23 +34,23 @@
 //! about its own responsibilities and make as few assumptions about the general runtime as
 //! possible. A pallet is analogous to a _module_ in the runtime.
 //!
-//! A pallet is defined as a `mod pallet` wrapped by the [`frame::pallet`] macro. Within this macro,
+//! A pallet is defined as a `mod pallet` wrapped by the [`polkadot_sdk_frame::pallet`] macro. Within this macro,
 //! pallet components/parts can be defined. Most notable of these parts are:
 //!
-//! - [Config](frame::pallet_macros::config), allowing a pallet to make itself configurable and
+//! - [Config](polkadot_sdk_frame::pallet_macros::config), allowing a pallet to make itself configurable and
 //!   generic over types, values and such.
-//! - [Storage](frame::pallet_macros::storage), allowing a pallet to define onchain storage.
-//! - [Dispatchable function](frame::pallet_macros::call), allowing a pallet to define extrinsics
+//! - [Storage](polkadot_sdk_frame::pallet_macros::storage), allowing a pallet to define onchain storage.
+//! - [Dispatchable function](polkadot_sdk_frame::pallet_macros::call), allowing a pallet to define extrinsics
 //!   that are callable by end users, from the outer world.
-//! - [Events](frame::pallet_macros::event), allowing a pallet to emit events.
-//! - [Errors](frame::pallet_macros::error), allowing a pallet to emit well-formed errors.
+//! - [Events](polkadot_sdk_frame::pallet_macros::event), allowing a pallet to emit events.
+//! - [Errors](polkadot_sdk_frame::pallet_macros::error), allowing a pallet to emit well-formed errors.
 //!
 //! Some of these pallet components resemble the building blocks of a smart contract. While both
 //! models are programming state transition functions of blockchains, there are crucial differences
 //! between the two. See [`crate::reference_docs::runtime_vs_smart_contract`] for more.
 //!
 //! Most of these components are defined using macros, the full list of which can be found in
-//! [`frame::pallet_macros`].
+//! [`polkadot_sdk_frame::pallet_macros`].
 //!
 //! ### Example
 //!
@@ -60,16 +60,16 @@
 //!
 //! A runtime is a collection of pallets that are amalgamated together. Each pallet typically has
 //! some configurations (exposed as a `trait Config`) that needs to be *specified* in the runtime.
-//! This is done with [`frame::runtime::prelude::construct_runtime`].
+//! This is done with [`polkadot_sdk_frame::runtime::prelude::construct_runtime`].
 //!
 //! A (real) runtime that actually wishes to compile to WASM needs to also implement a set of
 //! runtime-apis. These implementation can be specified using the
-//! [`frame::runtime::prelude::impl_runtime_apis`] macro.
+//! [`polkadot_sdk_frame::runtime::prelude::impl_runtime_apis`] macro.
 //!
 //! ### Example
 //!
 //! The following example shows a (test) runtime that is composing the pallet demonstrated above,
-//! next to the [`frame::prelude::frame_system`] pallet, into a runtime.
+//! next to the [`polkadot_sdk_frame::prelude::frame_system`] pallet, into a runtime.
 #![doc = docify::embed!("src/polkadot_sdk/frame_runtime.rs", runtime)]
 //!
 //! ## More Examples
@@ -87,14 +87,14 @@
 //! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
 //! * writing a runtime in AssemblyScript,as explored in [this project](https://github.com/LimeChain/subsembly).
 
-use frame::prelude::*;
+use polkadot_sdk_frame::prelude::*;
 
 /// A FRAME based pallet. This `mod` is the entry point for everything else. All
 /// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
 /// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
 /// more.
 #[docify::export]
-#[frame::pallet(dev_mode)]
+#[polkadot_sdk_frame::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
 
@@ -116,7 +116,7 @@ pub mod pallet {
 	}
 
 	/// A mandatory struct in each pallet. All functions callable by external users (aka.
-	/// transactions) must be attached to this type (see [`frame::pallet_macros::call`]). For
+	/// transactions) must be attached to this type (see [`polkadot_sdk_frame::pallet_macros::call`]). For
 	/// convenience, internal (private) functions can also be attached to this type.
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
@@ -151,7 +151,7 @@ pub mod pallet {
 #[docify::export]
 pub mod runtime {
 	use super::pallet as pallet_example;
-	use frame::{prelude::*, testing_prelude::*};
+	use polkadot_sdk_frame::{prelude::*, testing_prelude::*};
 
 	// The major macro that amalgamates pallets into `enum Runtime`
 	construct_runtime!(
