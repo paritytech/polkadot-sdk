@@ -107,7 +107,7 @@ impl<C: Chain> Environment<C> for Client<C> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 	use super::*;
 	use crate::test_chain::TestChain;
 	use futures::{
@@ -117,10 +117,10 @@ mod tests {
 		SinkExt,
 	};
 
-	struct TestEnvironment {
-		runtime_version_rx: UnboundedReceiver<RuntimeVersion>,
-		slept_tx: UnboundedSender<()>,
-		aborted_tx: UnboundedSender<()>,
+	pub struct TestEnvironment {
+		pub runtime_version_rx: UnboundedReceiver<RuntimeVersion>,
+		pub slept_tx: UnboundedSender<()>,
+		pub aborted_tx: UnboundedSender<()>,
 	}
 
 	#[async_trait]
