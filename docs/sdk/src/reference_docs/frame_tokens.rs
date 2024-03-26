@@ -30,7 +30,7 @@
 //!
 //! ## Getting Started
 //!
-//! The most ubiquitous way to add a token to a FRAME runtime with [`pallet_balances`]. Read
+//! The most ubiquitous way to add a token to a FRAME runtime is [`pallet_balances`]. Read
 //! more about pallets [here](crate::polkadot_sdk::frame_runtime#pallets).
 //!
 //! You may then write custom pallets that interact with [`pallet_balances`]. The fastest way to
