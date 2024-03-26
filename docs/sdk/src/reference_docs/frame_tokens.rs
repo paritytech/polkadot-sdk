@@ -127,4 +127,4 @@
 //!   [`fungible`](`frame_support::traits::fungible`) and [`pallet_balances`] docs.
 //! - If you are interested in implementing a set of fungible tokens, continue reading the
 //!   [`fungibles`](`frame_support::traits::fungibles`) trait and [`pallet_assets`] docs.
-//! - If you are interested in implementing an NFT, continue reading the [`pallet_uniques`] docs.
+//! - If you are interested in implementing an NFT, continue reading the [`pallet_nfts`] docs.
