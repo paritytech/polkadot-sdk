@@ -854,7 +854,7 @@ pub mod pallet {
 
 			let (max_message_size, max_capacity) = T::DefaultChannelSizeAndCapacityToSystem::get();
 
-			// create bidirectional channell
+			// create bidirectional channel
 			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
 			Self::accept_open_channel(recipient, sender)?;
 
