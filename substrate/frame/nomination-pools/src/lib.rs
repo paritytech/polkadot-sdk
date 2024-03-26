@@ -351,6 +351,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use adapter::StakeStrategy;
 use codec::Codec;
 use frame_support::{
 	defensive, defensive_assert, ensure,
@@ -397,6 +398,7 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 
+pub mod adapter;
 pub mod migration;
 pub mod weights;
 
@@ -425,7 +427,7 @@ pub enum ConfigOp<T: Codec + Debug> {
 }
 
 /// The type of bonding that can happen to a pool.
-enum BondType {
+pub enum BondType {
 	/// Someone is bonding into the pool upon creation.
 	Create,
 	/// Someone is adding more funds later to this pool.
@@ -545,9 +547,14 @@ impl<T: Config> PoolMember<T> {
 
 	/// Total balance of the member, both active and unbonding.
 	/// Doesn't mutate state.
-	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 	fn total_balance(&self) -> BalanceOf<T> {
-		let pool = BondedPool::<T>::get(self.pool_id).unwrap();
+		let maybe_pool = BondedPool::<T>::get(self.pool_id);
+		if maybe_pool.is_none() {
+			defensive!("pool should exist; qed");
+			return Zero::zero();
+		}
+		let pool = maybe_pool.expect("checked pool is not none; qed");
+
 		let active_balance = pool.points_to_balance(self.active_points());
 
 		let sub_pools = match SubPoolsStorage::<T>::get(self.pool_id) {
@@ -991,8 +998,7 @@ impl<T: Config> BondedPool<T> {
 	///
 	/// This is often used for bonding and issuing new funds into the pool.
 	fn balance_to_point(&self, new_funds: BalanceOf<T>) -> BalanceOf<T> {
-		let bonded_balance =
-			T::Staking::active_stake(&self.bonded_account()).unwrap_or(Zero::zero());
+		let bonded_balance = T::StakeAdapter::active_stake(self.id);
 		Pallet::<T>::balance_to_point(bonded_balance, self.points, new_funds)
 	}
 
@@ -1000,8 +1006,7 @@ impl<T: Config> BondedPool<T> {
 	///
 	/// This is often used for unbonding.
 	fn points_to_balance(&self, points: BalanceOf<T>) -> BalanceOf<T> {
-		let bonded_balance =
-			T::Staking::active_stake(&self.bonded_account()).unwrap_or(Zero::zero());
+		let bonded_balance = T::StakeAdapter::active_stake(self.id);
 		Pallet::<T>::point_to_balance(bonded_balance, self.points, points)
 	}
 
@@ -1046,18 +1051,6 @@ impl<T: Config> BondedPool<T> {
 	fn dec_members(mut self) -> Self {
 		self.member_counter = self.member_counter.defensive_saturating_sub(1);
 		self
-	}
-
-	/// The pools balance that is transferable provided it is expendable by staking pallet.
-	fn transferable_balance(&self) -> BalanceOf<T> {
-		let account = self.bonded_account();
-		// Note on why we can't use `Currency::reducible_balance`: Since pooled account has a
-		// provider (staking pallet), the account can not be set expendable by
-		// `pallet-nomination-pool`. This means reducible balance always returns balance preserving
-		// ED in the account. What we want though is transferable balance given the account can be
-		// dusted.
-		T::Currency::balance(&account)
-			.saturating_sub(T::Staking::active_stake(&account).unwrap_or_default())
 	}
 
 	fn is_root(&self, who: &T::AccountId) -> bool {
@@ -1123,8 +1116,7 @@ impl<T: Config> BondedPool<T> {
 	fn ok_to_be_open(&self) -> Result<(), DispatchError> {
 		ensure!(!self.is_destroying(), Error::<T>::CanNotChangeState);
 
-		let bonded_balance =
-			T::Staking::active_stake(&self.bonded_account()).unwrap_or(Zero::zero());
+		let bonded_balance = T::StakeAdapter::active_stake(self.id);
 		ensure!(!bonded_balance.is_zero(), Error::<T>::OverflowRisk);
 
 		let points_to_balance_ratio_floor = self
@@ -1253,28 +1245,14 @@ impl<T: Config> BondedPool<T> {
 		amount: BalanceOf<T>,
 		ty: BondType,
 	) -> Result<BalanceOf<T>, DispatchError> {
-		// Cache the value
-		let bonded_account = self.bonded_account();
-		T::Currency::transfer(
-			who,
-			&bonded_account,
-			amount,
-			match ty {
-				BondType::Create => Preservation::Expendable,
-				BondType::Later => Preservation::Preserve,
-			},
-		)?;
 		// We must calculate the points issued *before* we bond who's funds, else points:balance
 		// ratio will be wrong.
 		let points_issued = self.issue(amount);
 
-		match ty {
-			BondType::Create => T::Staking::bond(&bonded_account, amount, &self.reward_account())?,
-			// The pool should always be created in such a way its in a state to bond extra, but if
-			// the active balance is slashed below the minimum bonded or the account cannot be
-			// found, we exit early.
-			BondType::Later => T::Staking::bond_extra(&bonded_account, amount)?,
-		}
+		// The pool should always be created in such a way it is in a state to bond extra, but if
+		// the active balance is slashed below the minimum bonded or the account cannot be
+		// found, we exit early.
+		T::StakeAdapter::bond(who, self.id, amount, ty)?;
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);
 		});
@@ -1292,6 +1270,10 @@ impl<T: Config> BondedPool<T> {
 				new_state: state,
 			});
 		};
+	}
+
+	fn has_pending_slash(&self) -> bool {
+		T::StakeAdapter::has_pending_slash(self.id)
 	}
 }
 
@@ -1564,8 +1546,8 @@ impl<T: Config> Get<u32> for TotalUnbondingPools<T> {
 	fn get() -> u32 {
 		// NOTE: this may be dangerous in the scenario bonding_duration gets decreased because
 		// we would no longer be able to decode `BoundedBTreeMap::<EraIndex, UnbondPool<T>,
-		// TotalUnbondingPools<T>>`, which uses `TotalUnbondingPools` as the bound
-		T::Staking::bonding_duration() + T::PostUnbondingPoolsWindow::get()
+		// TotalUnbondingPools<T>>`, werh uses `TotalUnbondingPools` as the bound
+		T::StakeAdapter::bonding_duration() + T::PostUnbondingPoolsWindow::get()
 	}
 }
 
@@ -1641,9 +1623,6 @@ pub mod pallet {
 		/// Infallible method for converting `U256` to `Currency::Balance`.
 		type U256ToBalance: Convert<U256, BalanceOf<Self>>;
 
-		/// The interface for nominating.
-		type Staking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
-
 		/// The amount of eras a `SubPools::with_era` pool can exist before it gets merged into the
 		/// `SubPools::no_era` pool. In other words, this is the amount of eras a member will be
 		/// able to withdraw from an unbonding pool which is guaranteed to have the correct ratio of
@@ -1653,6 +1632,12 @@ pub mod pallet {
 
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
+
+		/// Staking adapter to support different staking strategies.
+		type StakeAdapter: adapter::StakeStrategy<
+			AccountId = Self::AccountId,
+			Balance = BalanceOf<Self>,
+		>;
 	}
 
 	/// The sum of funds across all pools.
@@ -1789,7 +1774,7 @@ pub mod pallet {
 
 	/// Events of this pallet.
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	#[pallet::generate_deposit(pub (crate) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A pool has been created.
 		Created { depositor: T::AccountId, pool_id: PoolId },
@@ -1943,6 +1928,8 @@ pub mod pallet {
 		BondExtraRestricted,
 		/// No imbalance in the ED deposit for the pool.
 		NothingToAdjust,
+		/// No slash pending that can be applied to the member.
+		NothingToSlash,
 	}
 
 	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
@@ -1958,6 +1945,8 @@ pub mod pallet {
 		/// The bonded account should only be killed by the staking system when the depositor is
 		/// withdrawing
 		BondedStashKilledPrematurely,
+		/// Using stake strategy that does not support delegation
+		DelegationUnsupported,
 	}
 
 	impl<T> From<DefensiveError> for Error<T> {
@@ -2051,9 +2040,9 @@ pub mod pallet {
 		// of just once, in the spirit reusing code.
 		#[pallet::call_index(1)]
 		#[pallet::weight(
-			T::WeightInfo::bond_extra_transfer()
-			.max(T::WeightInfo::bond_extra_other())
-		)]
+        T::WeightInfo::bond_extra_transfer()
+        .max(T::WeightInfo::bond_extra_other())
+        )]
 		pub fn bond_extra(origin: OriginFor<T>, extra: BondExtra<BalanceOf<T>>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_bond_extra(who.clone(), who, extra)
@@ -2134,12 +2123,12 @@ pub mod pallet {
 				&mut reward_pool,
 			)?;
 
-			let current_era = T::Staking::current_era();
-			let unbond_era = T::Staking::bonding_duration().saturating_add(current_era);
+			let current_era = T::StakeAdapter::current_era();
+			let unbond_era = T::StakeAdapter::bonding_duration().saturating_add(current_era);
 
 			// Unbond in the actual underlying nominator.
 			let unbonding_balance = bonded_pool.dissolve(unbonding_points);
-			T::Staking::unbond(&bonded_pool.bonded_account(), unbonding_balance)?;
+			T::StakeAdapter::unbond(bonded_pool.id, unbonding_balance)?;
 
 			// Note that we lazily create the unbonding pools here if they don't already exist
 			let mut sub_pools = SubPoolsStorage::<T>::get(member.pool_id)
@@ -2190,7 +2179,7 @@ pub mod pallet {
 		/// would probably see an error like `NoMoreChunks` emitted from the staking system when
 		/// they attempt to unbond.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::pool_withdraw_unbonded(*num_slashing_spans))]
+		#[pallet::weight(T::WeightInfo::pool_withdraw_unbonded(* num_slashing_spans))]
 		pub fn pool_withdraw_unbonded(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
@@ -2202,7 +2191,7 @@ pub mod pallet {
 			// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
 			// is destroying then `withdraw_unbonded` can be used.
 			ensure!(pool.state != PoolState::Destroying, Error::<T>::NotDestroying);
-			T::Staking::withdraw_unbonded(pool.bonded_account(), num_slashing_spans)?;
+			T::StakeAdapter::withdraw_unbonded(pool_id, num_slashing_spans)?;
 
 			Ok(())
 		}
@@ -2228,8 +2217,8 @@ pub mod pallet {
 		/// If the target is the depositor, the pool will be destroyed.
 		#[pallet::call_index(5)]
 		#[pallet::weight(
-			T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)
-		)]
+        T::WeightInfo::withdraw_unbonded_kill(* num_slashing_spans)
+        )]
 		pub fn withdraw_unbonded(
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,
@@ -2239,12 +2228,17 @@ pub mod pallet {
 			let member_account = T::Lookup::lookup(member_account)?;
 			let mut member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
-			let current_era = T::Staking::current_era();
+			let current_era = T::StakeAdapter::current_era();
 
 			let bonded_pool = BondedPool::<T>::get(member.pool_id)
 				.defensive_ok_or::<Error<T>>(DefensiveError::PoolNotFound.into())?;
 			let mut sub_pools =
 				SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::SubPoolsNotFound)?;
+
+			if bonded_pool.has_pending_slash() {
+				// apply slash if any before withdraw.
+				let _ = Self::do_apply_slash(&member_account, None);
+			}
 
 			bonded_pool.ok_to_withdraw_unbonded_with(&caller, &member_account)?;
 
@@ -2255,7 +2249,7 @@ pub mod pallet {
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
 			// `transferrable_balance` is correct.
 			let stash_killed =
-				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)?;
+				T::StakeAdapter::withdraw_unbonded(bonded_pool.id, num_slashing_spans)?;
 
 			// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
@@ -2288,15 +2282,10 @@ pub mod pallet {
 				// don't exist. This check is also defensive in cases where the unbond pool does not
 				// update its balance (e.g. a bug in the slashing hook.) We gracefully proceed in
 				// order to ensure members can leave the pool and it can be destroyed.
-				.min(bonded_pool.transferable_balance());
+				.min(T::StakeAdapter::transferable_balance(bonded_pool.id));
 
-			T::Currency::transfer(
-				&bonded_pool.bonded_account(),
-				&member_account,
-				balance_to_unbond,
-				Preservation::Expendable,
-			)
-			.defensive()?;
+			T::StakeAdapter::member_withdraw(&member_account, bonded_pool.id, balance_to_unbond)
+				.defensive()?;
 
 			Self::deposit_event(Event::<T>::Withdrawn {
 				member: member_account.clone(),
@@ -2426,7 +2415,7 @@ pub mod pallet {
 				Error::<T>::MinimumBondNotMet
 			);
 
-			T::Staking::nominate(&bonded_pool.bonded_account(), validators)
+			T::StakeAdapter::nominate(bonded_pool.id, validators)
 		}
 
 		/// Set a new state for the pool.
@@ -2614,12 +2603,12 @@ pub mod pallet {
 				.active_points();
 
 			if bonded_pool.points_to_balance(depositor_points) >=
-				T::Staking::minimum_nominator_bond()
+				T::StakeAdapter::minimum_nominator_bond()
 			{
 				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
 			}
 
-			T::Staking::chill(&bonded_pool.bonded_account())
+			T::StakeAdapter::chill(bonded_pool.id)
 		}
 
 		/// `origin` bonds funds from `extra` for some pool member `member` into their respective
@@ -2633,9 +2622,9 @@ pub mod pallet {
 		/// `PermissionlessAll` or `PermissionlessCompound`.
 		#[pallet::call_index(14)]
 		#[pallet::weight(
-			T::WeightInfo::bond_extra_transfer()
-			.max(T::WeightInfo::bond_extra_other())
-		)]
+        T::WeightInfo::bond_extra_transfer()
+        .max(T::WeightInfo::bond_extra_other())
+        )]
 		pub fn bond_extra_other(
 			origin: OriginFor<T>,
 			member: AccountIdLookupOf<T>,
@@ -2819,6 +2808,19 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Apply a pending slash on a member.
+		#[pallet::call_index(23)]
+		// FIXME(ank4n): fix weight info.
+		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
+		pub fn apply_slash(
+			origin: OriginFor<T>,
+			member_account: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let member_account = T::Lookup::lookup(member_account)?;
+			Self::do_apply_slash(&member_account, Some(who))
+		}
 	}
 
 	#[pallet::hooks]
@@ -2834,7 +2836,7 @@ pub mod pallet {
 				"Minimum points to balance ratio must be greater than 0"
 			);
 			assert!(
-				T::Staking::bonding_duration() < TotalUnbondingPools::<T>::get(),
+				T::StakeAdapter::bonding_duration() < TotalUnbondingPools::<T>::get(),
 				"There must be more unbonding pools then the bonding duration /
 				so a slash can be applied to relevant unbonding pools. (We assume /
 				the bonding duration > slash deffer duration.",
@@ -2852,7 +2854,7 @@ impl<T: Config> Pallet<T> {
 	/// It is essentially `max { MinNominatorBond, MinCreateBond, MinJoinBond }`, where the former
 	/// is coming from the staking pallet and the latter two are configured in this pallet.
 	pub fn depositor_min_bond() -> BalanceOf<T> {
-		T::Staking::minimum_nominator_bond()
+		T::StakeAdapter::minimum_nominator_bond()
 			.max(MinCreateBond::<T>::get())
 			.max(MinJoinBond::<T>::get())
 			.max(T::Currency::minimum_balance())
@@ -2888,7 +2890,7 @@ impl<T: Config> Pallet<T> {
 			"bonded account of dissolving pool should have no consumers"
 		);
 		defensive_assert!(
-			T::Staking::total_stake(&bonded_account).unwrap_or_default() == Zero::zero(),
+			T::StakeAdapter::total_stake(bonded_pool.id) == Zero::zero(),
 			"dissolving pool should not have any stake in the staking pallet"
 		);
 
@@ -2911,11 +2913,12 @@ impl<T: Config> Pallet<T> {
 			"could not transfer all amount to depositor while dissolving pool"
 		);
 		defensive_assert!(
-			T::Currency::total_balance(&bonded_pool.bonded_account()) == Zero::zero(),
+			T::StakeAdapter::total_balance(bonded_pool.id) == Zero::zero(),
 			"dissolving pool should not have any balance"
 		);
 		// NOTE: Defensively force set balance to zero.
 		T::Currency::set_balance(&reward_account, Zero::zero());
+		// fixme(ank4n): Can't do this with delegated?
 		T::Currency::set_balance(&bonded_pool.bonded_account(), Zero::zero());
 
 		Self::deposit_event(Event::<T>::Destroyed { pool_id: bonded_pool.id });
@@ -3298,6 +3301,33 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	fn do_apply_slash(
+		member_account: &T::AccountId,
+		reporter: Option<T::AccountId>,
+	) -> DispatchResult {
+		// calculate points to be slashed.
+		let member =
+			PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
+		ensure!(T::StakeAdapter::has_pending_slash(member.pool_id), Error::<T>::NothingToSlash);
+
+		let delegated_balance = T::StakeAdapter::member_delegation_balance(&member_account);
+		let current_balance = member.total_balance();
+		defensive_assert!(
+			delegated_balance >= current_balance,
+			"delegated balance should always be greater or equal to current balance"
+		);
+
+		// if nothing to slash, return error.
+		ensure!(delegated_balance > current_balance, Error::<T>::NothingToSlash);
+
+		T::StakeAdapter::member_slash(
+			&member_account,
+			member.pool_id,
+			delegated_balance.defensive_saturating_sub(current_balance),
+			reporter,
+		)
+	}
+
 	/// Apply freeze on reward account to restrict it from going below ED.
 	pub(crate) fn freeze_pool_deposit(reward_acc: &T::AccountId) -> DispatchResult {
 		T::Currency::set_freeze(
@@ -3461,8 +3491,7 @@ impl<T: Config> Pallet<T> {
 				pool is being destroyed and the depositor is the last member",
 			);
 
-			expected_tvl +=
-				T::Staking::total_stake(&bonded_pool.bonded_account()).unwrap_or_default();
+			expected_tvl += T::StakeAdapter::total_stake(bonded_pool.id);
 
 			Ok(())
 		})?;
@@ -3487,22 +3516,21 @@ impl<T: Config> Pallet<T> {
 		}
 
 		for (pool_id, _pool) in BondedPools::<T>::iter() {
-			let pool_account = Pallet::<T>::create_bonded_account(pool_id);
 			let subs = SubPoolsStorage::<T>::get(pool_id).unwrap_or_default();
 
 			let sum_unbonding_balance = subs.sum_unbonding_balance();
-			let bonded_balance = T::Staking::active_stake(&pool_account).unwrap_or_default();
-			let total_balance = T::Currency::total_balance(&pool_account);
+			let bonded_balance = T::StakeAdapter::active_stake(pool_id);
+			let total_balance = T::StakeAdapter::total_balance(pool_id);
 
 			assert!(
-				total_balance >= bonded_balance + sum_unbonding_balance,
-				"faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
-				pool_id,
-				_pool,
-				total_balance,
-				bonded_balance,
-				sum_unbonding_balance
-			);
+                total_balance >= bonded_balance + sum_unbonding_balance,
+                "faulty pool: {:?} / {:?}, total_balance {:?} >= bonded_balance {:?} + sum_unbonding_balance {:?}",
+                pool_id,
+                _pool,
+                total_balance,
+                bonded_balance,
+                sum_unbonding_balance
+            );
 		}
 
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
@@ -3525,21 +3553,21 @@ impl<T: Config> Pallet<T> {
 	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
 		let mut failed: u32 = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
-			let reward_acc = Self::create_reward_account(id);
-			let frozen_balance =
-				T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), &reward_acc);
+            let reward_acc = Self::create_reward_account(id);
+            let frozen_balance =
+                T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), &reward_acc);
 
-			let expected_frozen_balance = T::Currency::minimum_balance();
-			if frozen_balance != expected_frozen_balance {
-				failed += 1;
-				log::warn!(
+            let expected_frozen_balance = T::Currency::minimum_balance();
+            if frozen_balance != expected_frozen_balance {
+                failed += 1;
+                log::warn!(
 					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}",
 					id,
 					expected_frozen_balance,
 					frozen_balance,
 				);
-			}
-		});
+            }
+        });
 
 		ensure!(failed == 0, "Some pools do not have correct ED frozen");
 		Ok(())
@@ -3572,7 +3600,7 @@ impl<T: Config> Pallet<T> {
 				let (current_reward_counter, _) = reward_pool
 					.current_reward_counter(pool_member.pool_id, bonded_pool.points, commission)
 					.ok()?;
-				return pool_member.pending_rewards(current_reward_counter).ok()
+				return pool_member.pending_rewards(current_reward_counter).ok();
 			}
 		}
 
@@ -3595,8 +3623,7 @@ impl<T: Config> Pallet<T> {
 	/// If the pool ID does not exist, returns 0 ratio balance to points. Used by runtime API.
 	pub fn api_balance_to_points(pool_id: PoolId, new_funds: BalanceOf<T>) -> BalanceOf<T> {
 		if let Some(pool) = BondedPool::<T>::get(pool_id) {
-			let bonded_balance =
-				T::Staking::active_stake(&pool.bonded_account()).unwrap_or(Zero::zero());
+			let bonded_balance = T::StakeAdapter::active_stake(pool.id);
 			Pallet::<T>::balance_to_point(bonded_balance, pool.points, new_funds)
 		} else {
 			Zero::zero()

@@ -31,15 +31,12 @@
 //! performed through the methods exposed by the [`StakingLedger`] implementation in order to ensure
 //! state consistency.
 
-use frame_support::{
-	defensive, ensure,
-	traits::{Defensive, LockableCurrency, WithdrawReasons},
-};
-use sp_staking::StakingAccount;
+use frame_support::{defensive, ensure, traits::Defensive};
+use sp_staking::{StakingAccount, StakingInterface};
 use sp_std::prelude::*;
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
+	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -59,12 +56,6 @@ impl<T: Config> StakingLedger<T> {
 	}
 
 	/// Returns a new instance of a staking ledger.
-	///
-	/// The [`Ledger`] storage is not mutated. In order to store, `StakingLedger::update` must be
-	/// called on the returned staking ledger.
-	///
-	/// Note: as the controller accounts are being deprecated, the stash account is the same as the
-	/// controller account.
 	pub fn new(stash: T::AccountId, stake: BalanceOf<T>) -> Self {
 		Self {
 			stash: stash.clone(),
@@ -187,7 +178,8 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
+		Pallet::<T>::update_hold(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
+
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
 				defensive!("update called on a ledger that is not bonded.");
@@ -204,22 +196,30 @@ impl<T: Config> StakingLedger<T> {
 	/// It sets the reward preferences for the bonded stash.
 	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::AlreadyBonded)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			<Bonded<T>>::insert(&self.stash, &self.stash);
-			self.update()
+			return Err(Error::<T>::AlreadyBonded);
 		}
+
+		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
+			return Err(Error::<T>::RewardDestinationRestricted);
+		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		<Bonded<T>>::insert(&self.stash, &self.stash);
+		self.update()
 	}
 
 	/// Sets the ledger Payee.
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::NotStash)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			Ok(())
+			return Err(Error::<T>::NotStash);
 		}
+
+		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
+			return Err(Error::<T>::RewardDestinationRestricted);
+		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		Ok(())
 	}
 
 	/// Sets the ledger controller to its stash.
@@ -252,7 +252,7 @@ impl<T: Config> StakingLedger<T> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			T::Currency::remove_lock(STAKING_ID, &ledger.stash);
+			Pallet::<T>::unsafe_release_all(&ledger.stash);
 			Ledger::<T>::remove(controller);
 
 			<Bonded<T>>::remove(&stash);

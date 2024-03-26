@@ -29,12 +29,13 @@ use core::ops::Sub;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, RuntimeDebug, Saturating,
+	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 
 pub mod offence;
 
 pub mod currency_to_vote;
+pub mod delegation;
 
 /// Simple index type with which we can count sessions.
 pub type SessionIndex = u32;
@@ -172,6 +173,7 @@ pub trait StakingInterface {
 		+ MaxEncodedLen
 		+ FullCodec
 		+ TypeInfo
+		+ Zero
 		+ Saturating;
 
 	/// AccountId type used by the staking system.
@@ -274,7 +276,7 @@ pub trait StakingInterface {
 	/// Checks whether an account `staker` has been exposed in an era.
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool;
 
-	/// Return the status of the given staker, `None` if not staked at all.
+	/// Return the status of the given staker, `Err` if not staked at all.
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError>;
 
 	/// Checks whether or not this is a validator account.
@@ -289,6 +291,14 @@ pub trait StakingInterface {
 			_ => None,
 		}
 	}
+
+	/// Returns the fraction of the slash to be rewarded to reporter.
+	fn slash_reward_fraction() -> Perbill;
+
+	/// Release all funds bonded for stake.
+	///
+	/// Unsafe, only used for migration of `delegatee` accounts.
+	fn unsafe_release_all(who: &Self::AccountId);
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> Page;

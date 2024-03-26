@@ -220,6 +220,14 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn max_exposure_page_size() -> sp_staking::Page {
 		unimplemented!("method currently not used in testing")
 	}
+
+	fn slash_reward_fraction() -> Perbill {
+		unimplemented!("method currently not used in testing")
+	}
+
+	fn unsafe_release_all(_who: &Self::AccountId) {
+		unimplemented!("method currently not used in testing")
+	}
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -297,12 +305,12 @@ impl pools::Config for Runtime {
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = StakingMock;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = MaxMetadataLen;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
+	type StakeAdapter = adapter::TransferStake<Self, StakingMock>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

@@ -64,7 +64,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug,
 };
-use sp_staking::{offence::DisableStrategy, EraIndex};
+use sp_staking::{delegation::DelegateeSupport, offence::DisableStrategy, EraIndex};
 use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
@@ -608,9 +608,18 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
+	let lazy_slash = T::DelegateeSupport::is_delegatee(stash);
 	let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
 
-	if !value.is_zero() {
+	if value.is_zero() {
+		// nothing to do
+		return
+	}
+
+	if lazy_slash {
+		// If delegated staking, report slash and move on.
+		T::DelegateeSupport::report_slash(stash, value);
+	} else {
 		let (imbalance, missing) = T::Currency::slash(stash, value);
 		slashed_imbalance.subsume(imbalance);
 
@@ -618,17 +627,14 @@ pub fn do_slash<T: Config>(
 			// deduct overslash from the reward payout
 			*reward_payout = reward_payout.saturating_sub(missing);
 		}
-
-		let _ = ledger
-			.update()
-			.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
-
-		// trigger the event
-		<Pallet<T>>::deposit_event(super::Event::<T>::Slashed {
-			staker: stash.clone(),
-			amount: value,
-		});
 	}
+
+	let _ = ledger
+		.update()
+		.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
+
+	// trigger the event
+	<Pallet<T>>::deposit_event(super::Event::<T>::Slashed { staker: stash.clone(), amount: value });
 }
 
 /// Apply a previously-unapplied slash.

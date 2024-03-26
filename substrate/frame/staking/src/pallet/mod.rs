@@ -37,6 +37,7 @@ use sp_runtime::{
 };
 
 use sp_staking::{
+	delegation::DelegateeSupport,
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 };
@@ -103,6 +104,13 @@ pub mod pallet {
 			+ From<u64>
 			+ TypeInfo
 			+ MaxEncodedLen;
+
+		/// Something that provides delegation support to staking pallet.
+		type DelegateeSupport: DelegateeSupport<
+			Balance = Self::CurrencyBalance,
+			AccountId = Self::AccountId,
+		>;
+
 		/// Time used for computing era duration.
 		///
 		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
@@ -709,7 +717,7 @@ pub mod pallet {
 					status
 				);
 				assert!(
-					T::Currency::free_balance(stash) >= balance,
+					Pallet::<T>::stakeable_balance(stash) >= balance,
 					"Stash does not have enough balance to bond."
 				);
 				frame_support::assert_ok!(<Pallet<T>>::bond(
@@ -855,6 +863,10 @@ pub mod pallet {
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
+		/// Provided reward destination is not allowed.
+		RewardDestinationRestricted,
+		/// Not enough funds available to withdraw
+		NotEnoughFunds,
 	}
 
 	#[pallet::hooks]
@@ -948,8 +960,7 @@ pub mod pallet {
 			}
 
 			frame_system::Pallet::<T>::inc_consumers(&stash).map_err(|_| Error::<T>::BadState)?;
-
-			let stash_balance = T::Currency::free_balance(&stash);
+			let stash_balance = Self::stakeable_balance(&stash);
 			let value = value.min(stash_balance);
 			Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: value });
 			let ledger = StakingLedger::<T>::new(stash.clone(), value);
@@ -984,7 +995,7 @@ pub mod pallet {
 			let stash = ensure_signed(origin)?;
 			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
-			let stash_balance = T::Currency::free_balance(&stash);
+			let stash_balance = Self::stakeable_balance(&stash);
 			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
 				let extra = extra.min(max_additional);
 				ledger.total += extra;
@@ -1044,7 +1055,11 @@ pub mod pallet {
 				if unlocking == T::MaxUnlockingChunks::get() as usize {
 					let real_num_slashing_spans =
 						Self::slashing_spans(&controller).map_or(0, |s| s.iter().count());
-					Some(Self::do_withdraw_unbonded(&controller, real_num_slashing_spans as u32)?)
+					Some(Self::do_withdraw_unbonded(
+						&controller,
+						real_num_slashing_spans as u32,
+						None,
+					)?)
 				} else {
 					None
 				}
@@ -1055,7 +1070,6 @@ pub mod pallet {
 			let mut ledger = Self::ledger(Controller(controller))?;
 			let mut value = value.min(ledger.active);
 			let stash = ledger.stash.clone();
-
 			ensure!(
 				ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
 				Error::<T>::NoMoreChunks,
@@ -1148,7 +1162,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
 
-			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans)?;
+			let actual_weight = Self::do_withdraw_unbonded(&controller, num_slashing_spans, None)?;
 			Ok(Some(actual_weight).into())
 		}
 
@@ -1312,9 +1326,7 @@ pub mod pallet {
 				Error::<T>::ControllerDeprecated
 			);
 
-			let _ = ledger
-				.set_payee(payee)
-				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
+			ledger.set_payee(payee)?;
 
 			Ok(())
 		}
