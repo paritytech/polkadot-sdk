@@ -142,8 +142,8 @@ polkadot-node-core-pvf-checker = { path = "../core/pvf-checker", optional = true
 polkadot-node-core-runtime-api = { path = "../core/runtime-api", optional = true }
 polkadot-statement-distribution = { path = "../network/statement-distribution", optional = true }
 
-xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../xcm" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder" }
 xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api" }
 
 [dev-dependencies]
