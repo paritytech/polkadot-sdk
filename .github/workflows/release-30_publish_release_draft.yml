@@ -50,8 +50,8 @@ jobs:
           VERSION=$(echo "$VERSION" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
           TMP=$(mktemp -d)
           pwd
-          chmod a+x scripts/release/build-changelog.sh
-          ./scripts/release/build-changelog.sh
+          chmod a+x scripts/release/build-changelogs.sh
+          ./scripts/release/build-changelogs.sh
 
           ls -al $TMP
           mv $TMP/elnote_combined.md CHANGELOG.md
