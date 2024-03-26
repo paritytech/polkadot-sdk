@@ -1225,3 +1225,65 @@ impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
 }
+
+/// Controls validator disabling
+pub trait DisablingStrategy<T: Config> {
+	/// Make a decision if an offender should be disabled or not. The result is a `Vec` of validator
+	/// indices that should be disabled
+	fn decision(
+		offender_stash: &T::AccountId,
+		slash_era: EraIndex,
+		currently_disabled: &Vec<u32>,
+	) -> Option<u32>;
+}
+
+/// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
+/// threshold. `DISABLING_LIMIT_FACTOR` is the factor of the maximum disabled validators in the
+/// active set. E.g. setting this value to `3` means no more than 1/3 of the validators in the
+/// active set can be disabled in an era.
+/// By default a factor of 3 is used which is the byzantine threshold.
+pub struct UpToThresholdDisablingStrategy<const DISABLING_LIMIT_FACTOR: usize = 3>;
+
+impl<const DISABLING_LIMIT_FACTOR: usize> UpToThresholdDisablingStrategy<DISABLING_LIMIT_FACTOR> {
+	/// Disabling limit calculated from the total number of validators in the active set. When
+	/// reached no more validators will be disabled.
+	pub fn disable_threshold(validators_len: usize) -> usize {
+		validators_len
+			.saturating_sub(1)
+			.checked_div(DISABLING_LIMIT_FACTOR)
+			.unwrap_or_else(|| {
+				defensive!("DISABLING_LIMIT_FACTOR should not be 0");
+				0
+			})
+	}
+}
+
+impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
+	for UpToThresholdDisablingStrategy<DISABLING_LIMIT_FACTOR>
+{
+	fn decision(
+		offender_stash: &T::AccountId,
+		slash_era: EraIndex,
+		currently_disabled: &Vec<u32>,
+	) -> Option<u32> {
+		let active_set = T::SessionInterface::validators();
+		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
+			idx as u32
+		} else {
+			// offender not found in the active set, do nothing
+			return None
+		};
+
+		// We don't disable more than the threshold
+		if currently_disabled.len() >= Self::disable_threshold(active_set.len()) {
+			return None
+		}
+
+		// We don't disable for offences in previous eras
+		if Pallet::<T>::current_era().unwrap_or(1) > slash_era {
+			return None
+		}
+
+		Some(offender_idx)
+	}
+}
