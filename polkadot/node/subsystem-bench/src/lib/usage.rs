@@ -83,7 +83,9 @@ impl BenchmarkUsage {
 		}
 	}
 
-	pub fn to_json(&self) -> color_eyre::eyre::Result<String> {
+	// Prepares a json string for a graph representation
+	// See: https://github.com/benchmark-action/github-action-benchmark?tab=readme-ov-file#examples
+	pub fn to_chart_json(&self) -> color_eyre::eyre::Result<String> {
 		let chart = self
 			.network_usage
 			.iter()
