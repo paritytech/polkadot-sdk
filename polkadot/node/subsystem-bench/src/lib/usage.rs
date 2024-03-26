@@ -82,6 +82,27 @@ impl BenchmarkUsage {
 			_ => None,
 		}
 	}
+
+	// Prepares a json string for a graph representation
+	// See: https://github.com/benchmark-action/github-action-benchmark?tab=readme-ov-file#examples
+	pub fn to_chart_json(&self) -> color_eyre::eyre::Result<String> {
+		let chart = self
+			.network_usage
+			.iter()
+			.map(|v| ChartItem {
+				name: v.resource_name.clone(),
+				unit: "KiB".to_string(),
+				value: v.per_block,
+			})
+			.chain(self.cpu_usage.iter().map(|v| ChartItem {
+				name: v.resource_name.clone(),
+				unit: "seconds".to_string(),
+				value: v.per_block,
+			}))
+			.collect::<Vec<_>>();
+
+		Ok(serde_json::to_string(&chart)?)
+	}
 }
 
 fn check_usage(
@@ -151,3 +172,10 @@ impl ResourceUsage {
 }
 
 type ResourceUsageCheck<'a> = (&'a str, f64, f64);
+
+#[derive(Debug, Serialize)]
+pub struct ChartItem {
+	pub name: String,
+	pub unit: String,
+	pub value: f64,
+}
