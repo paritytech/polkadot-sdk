@@ -2666,6 +2666,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2519" id="2519">2519</a>
 <a href="#2520" id="2520">2520</a>
 <a href="#2521" id="2521">2521</a>
+<a href="#2522" id="2522">2522</a>
+<a href="#2523" id="2523">2523</a>
+<a href="#2524" id="2524">2524</a>
+<a href="#2525" id="2525">2525</a>
+<a href="#2526" id="2526">2526</a>
+<a href="#2527" id="2527">2527</a>
+<a href="#2528" id="2528">2528</a>
+<a href="#2529" id="2529">2529</a>
+<a href="#2530" id="2530">2530</a>
+<a href="#2531" id="2531">2531</a>
+<a href="#2532" id="2532">2532</a>
+<a href="#2533" id="2533">2533</a>
+<a href="#2534" id="2534">2534</a>
+<a href="#2535" id="2535">2535</a>
+<a href="#2536" id="2536">2536</a>
+<a href="#2537" id="2537">2537</a>
+<a href="#2538" id="2538">2538</a>
+<a href="#2539" id="2539">2539</a>
+<a href="#2540" id="2540">2540</a>
+<a href="#2541" id="2541">2541</a>
+<a href="#2542" id="2542">2542</a>
+<a href="#2543" id="2543">2543</a>
+<a href="#2544" id="2544">2544</a>
+<a href="#2545" id="2545">2545</a>
+<a href="#2546" id="2546">2546</a>
+<a href="#2547" id="2547">2547</a>
+<a href="#2548" id="2548">2548</a>
+<a href="#2549" id="2549">2549</a>
+<a href="#2550" id="2550">2550</a>
+<a href="#2551" id="2551">2551</a>
+<a href="#2552" id="2552">2552</a>
+<a href="#2553" id="2553">2553</a>
+<a href="#2554" id="2554">2554</a>
+<a href="#2555" id="2555">2555</a>
+<a href="#2556" id="2556">2556</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2743,7 +2778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
 		ProcessMessageError, StorageMapShim, WithdrawReasons,
 	},
-	weights::{ConstantMultiplier, WeightMeter},
+	weights::{ConstantMultiplier, WeightMeter, WeightToFee <span class="kw">as _</span>},
 	PalletId,
 };
 <span class="kw">use </span>frame_system::{EnsureRoot, EnsureSigned};
@@ -2766,7 +2801,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
-<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedLocation};
+<span class="kw">use </span>xcm::{
+	latest::prelude::<span class="kw-2">*</span>, IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation,
+	VersionedXcm,
+};
 <span class="kw">use </span>xcm_builder::PayOverXcm;
 
 <span class="kw">pub use </span>frame_system::Call <span class="kw">as </span>SystemCall;
@@ -2791,6 +2829,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	pallet_custom_origins, AuctionAdmin, Fellows, GeneralAdmin, LeaseAdmin, Treasurer,
 	TreasurySpender,
 };
+<span class="kw">use </span>xcm_fee_payment_runtime_api::Error <span class="kw">as </span>XcmPaymentApiError;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -2884,7 +2923,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>PrivilegeCmp&lt;OriginCaller&gt; <span class="kw">for </span>OriginPrivilegeCmp {
 	<span class="kw">fn </span>cmp_privilege(left: <span class="kw-2">&amp;</span>OriginCaller, right: <span class="kw-2">&amp;</span>OriginCaller) -&gt; <span class="prelude-ty">Option</span>&lt;Ordering&gt; {
 		<span class="kw">if </span>left == right {
-			<span class="kw">return </span><span class="prelude-val">Some</span>(Ordering::Equal)
+			<span class="kw">return </span><span class="prelude-val">Some</span>(Ordering::Equal);
 		}
 
 		<span class="kw">match </span>(left, right) {
@@ -4161,12 +4200,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>now = frame_system::Pallet::&lt;Runtime&gt;::block_number();
 			<span class="kw">let </span>lease = slots::Pallet::&lt;Runtime&gt;::lease(para);
 			<span class="kw">if </span>lease.is_empty() {
-				<span class="kw">return </span><span class="prelude-val">None
-			</span>}
+				<span class="kw">return </span><span class="prelude-val">None</span>;
+			}
 			<span class="comment">// Lease not yet started, ignore:
 			</span><span class="kw">if </span>lease.iter().any(Option::is_none) {
-				<span class="kw">return </span><span class="prelude-val">None
-			</span>}
+				<span class="kw">return </span><span class="prelude-val">None</span>;
+			}
 			<span class="kw">let </span>(index, <span class="kw">_</span>) =
 				&lt;slots::Pallet&lt;Runtime&gt; <span class="kw">as </span>Leaser&lt;BlockNumber&gt;&gt;::lease_period_index(now)<span class="question-mark">?</span>;
 			<span class="prelude-val">Some</span>(index.saturating_add(lease.len() <span class="kw">as </span>u32).saturating_mul(LeasePeriod::get()))
@@ -4227,7 +4266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;sp_std::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 			<span class="kw">if </span>System::last_runtime_upgrade_spec_version() &gt; UPGRADE_SESSION_KEYS_FROM_SPEC {
 				<span class="macro">log::warn!</span>(target: <span class="string">&quot;runtime::session_keys&quot;</span>, <span class="string">&quot;Skipping session keys migration pre-upgrade check due to spec version (already applied?)&quot;</span>);
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new())
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new());
 			}
 
 			<span class="macro">log::info!</span>(target: <span class="string">&quot;runtime::session_keys&quot;</span>, <span class="string">&quot;Collecting pre-upgrade session keys state&quot;</span>);
@@ -4256,7 +4295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">if </span>System::last_runtime_upgrade_spec_version() &gt; UPGRADE_SESSION_KEYS_FROM_SPEC {
 				<span class="macro">log::info!</span>(<span class="string">&quot;Skipping session keys upgrade: already applied&quot;</span>);
-				<span class="kw">return </span>&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads(<span class="number">1</span>)
+				<span class="kw">return </span>&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads(<span class="number">1</span>);
 			}
 			<span class="macro">log::trace!</span>(<span class="string">&quot;Upgrading session keys&quot;</span>);
 			Session::upgrade_keys::&lt;OldSessionKeys, <span class="kw">_</span>&gt;(transform_session_keys);
@@ -4269,7 +4308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 			<span class="kw">if </span>System::last_runtime_upgrade_spec_version() &gt; UPGRADE_SESSION_KEYS_FROM_SPEC {
 				<span class="macro">log::warn!</span>(target: <span class="string">&quot;runtime::session_keys&quot;</span>, <span class="string">&quot;Skipping session keys migration post-upgrade check due to spec version (already applied?)&quot;</span>);
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 			}
 
 			<span class="kw">let </span>key_ids = SessionKeys::key_ids();
@@ -4450,6 +4489,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
+		}
+	}
+
+	<span class="kw">impl </span>xcm_fee_payment_runtime_api::XcmPaymentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>query_acceptable_payment_assets(xcm_version: xcm::Version) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;VersionedAssetId&gt;, XcmPaymentApiError&gt; {
+			<span class="kw">if </span>!<span class="macro">matches!</span>(xcm_version, <span class="number">3 </span>| <span class="number">4</span>) {
+				<span class="kw">return </span><span class="prelude-val">Err</span>(XcmPaymentApiError::UnhandledXcmVersion);
+			}
+			<span class="prelude-val">Ok</span>([VersionedAssetId::V4(xcm_config::TokenLocation::get().into())]
+				.into_iter()
+				.filter_map(|asset| asset.into_version(xcm_version).ok())
+				.collect())
+		}
+
+		<span class="kw">fn </span>query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -&gt; <span class="prelude-ty">Result</span>&lt;u128, XcmPaymentApiError&gt; {
+			<span class="kw">let </span>local_asset = VersionedAssetId::V4(xcm_config::TokenLocation::get().into());
+			<span class="kw">let </span>asset = asset
+				.into_version(<span class="number">4</span>)
+				.map_err(|<span class="kw">_</span>| XcmPaymentApiError::VersionedConversionFailed)<span class="question-mark">?</span>;
+
+			<span class="kw">if  </span>asset != local_asset { <span class="kw">return </span><span class="prelude-val">Err</span>(XcmPaymentApiError::AssetNotFound); }
+
+			<span class="prelude-val">Ok</span>(WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight))
+		}
+
+		<span class="kw">fn </span>query_xcm_weight(message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, XcmPaymentApiError&gt; {
+			XcmPallet::query_xcm_weight(message)
+		}
+
+		<span class="kw">fn </span>query_delivery_fees(destination: VersionedLocation, message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedAssets, XcmPaymentApiError&gt; {
+			XcmPallet::query_delivery_fees(destination, message)
 		}
 	}
 
@@ -5161,8 +5231,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>run_migrations() {
 		<span class="kw">if </span>var(<span class="string">&quot;RUN_MIGRATION_TESTS&quot;</span>).is_err() {
-			<span class="kw">return
-		</span>}
+			<span class="kw">return</span>;
+		}
 
 		sp_tracing::try_init_simple();
 		<span class="kw">let </span>transport: Transport =

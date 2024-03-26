@@ -507,6 +507,7 @@ var srcIndex = JSON.parse('{\
 "westend_system_emulated_network":["",[],["lib.rs"]],\
 "xcm_emulator":["",[],["lib.rs"]],\
 "xcm_executor_integration_tests":["",[],["lib.rs"]],\
+"xcm_fee_payment_runtime_api":["",[],["lib.rs"]],\
 "xcm_fuzzer":["",[],["fuzz.rs","parachain.rs","relay_chain.rs"]],\
 "xcm_procedural":["",[],["builder_pattern.rs","lib.rs","v2.rs","v3.rs","v4.rs","weight_info.rs"]],\
 "xcm_simulator":["",[],["lib.rs"]],\

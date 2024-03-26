@@ -3294,6 +3294,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3147" id="3147">3147</a>
 <a href="#3148" id="3148">3148</a>
 <a href="#3149" id="3149">3149</a>
+<a href="#3150" id="3150">3150</a>
+<a href="#3151" id="3151">3151</a>
+<a href="#3152" id="3152">3152</a>
+<a href="#3153" id="3153">3153</a>
+<a href="#3154" id="3154">3154</a>
+<a href="#3155" id="3155">3155</a>
+<a href="#3156" id="3156">3156</a>
+<a href="#3157" id="3157">3157</a>
+<a href="#3158" id="3158">3158</a>
+<a href="#3159" id="3159">3159</a>
+<a href="#3160" id="3160">3160</a>
+<a href="#3161" id="3161">3161</a>
+<a href="#3162" id="3162">3162</a>
+<a href="#3163" id="3163">3163</a>
+<a href="#3164" id="3164">3164</a>
+<a href="#3165" id="3165">3165</a>
+<a href="#3166" id="3166">3166</a>
+<a href="#3167" id="3167">3167</a>
+<a href="#3168" id="3168">3168</a>
+<a href="#3169" id="3169">3169</a>
+<a href="#3170" id="3170">3170</a>
+<a href="#3171" id="3171">3171</a>
+<a href="#3172" id="3172">3172</a>
+<a href="#3173" id="3173">3173</a>
+<a href="#3174" id="3174">3174</a>
+<a href="#3175" id="3175">3175</a>
+<a href="#3176" id="3176">3176</a>
+<a href="#3177" id="3177">3177</a>
+<a href="#3178" id="3178">3178</a>
+<a href="#3179" id="3179">3179</a>
+<a href="#3180" id="3180">3180</a>
+<a href="#3181" id="3181">3181</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3357,6 +3389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	AssetsInHolding,
 };
+<span class="kw">use </span>xcm_fee_payment_runtime_api::Error <span class="kw">as </span>FeePaymentError;
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
@@ -5657,6 +5690,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>check_account() -&gt; T::AccountId {
 		<span class="kw">const </span>ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/xcmch&quot;</span>);
 		AccountIdConversion::&lt;T::AccountId&gt;::into_account_truncating(<span class="kw-2">&amp;</span>ID)
+	}
+
+	<span class="kw">pub fn </span>query_xcm_weight(message: VersionedXcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, FeePaymentError&gt; {
+		<span class="kw">let </span>message =
+			Xcm::&lt;()&gt;::try_from(message).map_err(|<span class="kw">_</span>| FeePaymentError::VersionedConversionFailed)<span class="question-mark">?</span>;
+
+		T::Weigher::weight(<span class="kw-2">&amp;mut </span>message.into()).map_err(|()| {
+			<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::query_xcm_weight&quot;</span>, <span class="string">&quot;Error when querying XCM weight&quot;</span>);
+			FeePaymentError::WeightNotComputable
+		})
+	}
+
+	<span class="kw">pub fn </span>query_delivery_fees(
+		destination: VersionedLocation,
+		message: VersionedXcm&lt;()&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;VersionedAssets, FeePaymentError&gt; {
+		<span class="kw">let </span>result_version = destination.identify_version().max(message.identify_version());
+
+		<span class="kw">let </span>destination =
+			destination.try_into().map_err(|<span class="kw">_</span>| FeePaymentError::VersionedConversionFailed)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>message = message.try_into().map_err(|<span class="kw">_</span>| FeePaymentError::VersionedConversionFailed)<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>(<span class="kw">_</span>, fees) = validate_send::&lt;T::XcmRouter&gt;(destination, message).map_err(|error| {
+			<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::query_delivery_fees&quot;</span>, <span class="string">&quot;Error when querying delivery fees: {:?}&quot;</span>, error);
+			FeePaymentError::Unroutable
+		})<span class="question-mark">?</span>;
+
+		VersionedAssets::from(fees)
+			.into_version(result_version)
+			.map_err(|<span class="kw">_</span>| FeePaymentError::VersionedConversionFailed)
 	}
 
 	<span class="doccomment">/// Create a new expectation of a query response with the querier being here.
