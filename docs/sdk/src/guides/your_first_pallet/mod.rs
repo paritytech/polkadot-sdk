@@ -92,9 +92,10 @@
 //! Which is more or less a normal Rust `Result`, with a custom
 //! [`polkadot_sdk_frame::prelude::DispatchError`] as the `Err` variant. We won't cover this error
 //! in detail here, but importantly you should know that there is an `impl From<&'static string> for
-//! DispatchError` provided (see [here](`polkadot_sdk_frame::prelude::DispatchError#impl-From<%26'
-//! static+str>-for-DispatchError`)). Therefore, we can use basic string literals as our error type
-//! and `.into()` them into `DispatchError`.
+//! DispatchError` provided (see [here](
+//! `polkadot_sdk_frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`
+//! ). Therefore, we can use basic string literals as our error type and `.into()` them into
+//! `DispatchError`.
 //!
 //! - Why are all `get` and `mutate` functions returning an `Option`? This is the default behavior
 //!   of FRAME storage APIs. You can learn more about how to override this by looking into
