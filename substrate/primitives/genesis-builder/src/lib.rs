@@ -54,13 +54,21 @@ use scale_info::TypeInfo;
 /// The result type alias, used in build methods. `Err` contains formatted error message.
 pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
 
-/// Wrapper representing preset id.
+/// Wrapper type representing preset ID.
+///
+/// Preset ID length is limited to 64 bytes. For user convenience, it is recommended that the ID be
+/// `utf8` string, as some tooling may not support arbitrary bytes array.
 #[derive(Decode, Encode, Debug, TypeInfo, PartialEq)]
-pub struct PresetId(Vec<u8>);
+pub struct PresetId(sp_runtime::BoundedVec<u8, sp_runtime::traits::ConstU32<64>>);
 
 impl From<&str> for PresetId {
 	fn from(v: &str) -> Self {
-		Self(v.as_bytes().to_vec())
+		Self(
+			v.as_bytes()
+				.to_vec()
+				.try_into()
+				.expect("Preset name length shall be less than 64. qed."),
+		)
 	}
 }
 
