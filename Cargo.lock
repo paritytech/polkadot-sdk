@@ -5337,35 +5337,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
-name = "frame"
-version = "0.1.0"
-dependencies = [
- "docify 0.2.7",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "log",
- "pallet-examples",
- "parity-scale-codec",
- "scale-info",
- "sp-api",
- "sp-arithmetic",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-inherents",
- "sp-io",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-std",
- "sp-transaction-pool",
- "sp-version",
-]
-
-[[package]]
 name = "frame-benchmarking"
 version = "31.0.0"
 dependencies = [
@@ -5702,8 +5673,8 @@ dependencies = [
 name = "frame-support-test-stg-frame-crate"
 version = "0.1.0"
 dependencies = [
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -8008,11 +7979,11 @@ name = "minimal-template-node"
 version = "0.1.0"
 dependencies = [
  "clap 4.5.1",
- "frame",
  "futures",
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
+ "polkadot-sdk-frame",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
@@ -8042,7 +8013,6 @@ dependencies = [
 name = "minimal-template-runtime"
 version = "0.1.0"
 dependencies = [
- "frame",
  "pallet-balances",
  "pallet-minimal-template",
  "pallet-sudo",
@@ -8050,6 +8020,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
  "sp-genesis-builder",
  "substrate-wasm-builder",
@@ -9033,7 +9004,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-authority-discovery"
-version = "31.0.0"
+version = "31.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9719,8 +9690,8 @@ dependencies = [
 name = "pallet-example-frame-crate"
 version = "0.1.0"
 dependencies = [
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -10053,8 +10024,8 @@ dependencies = [
 name = "pallet-minimal-template"
 version = "0.1.0"
 dependencies = [
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -13230,7 +13201,6 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "docify 0.2.7",
- "frame",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -13252,6 +13222,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-utility",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "sc-cli",
  "sc-client-db",
  "sc-consensus-aura",
@@ -13278,6 +13249,35 @@ dependencies = [
  "staging-xcm",
  "subkey",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "polkadot-sdk-frame"
+version = "0.1.0"
+dependencies = [
+ "docify 0.2.7",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "pallet-examples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std",
+ "sp-transaction-pool",
+ "sp-version",
 ]
 
 [[package]]
