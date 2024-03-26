@@ -52,7 +52,7 @@ sp-version = { git = "https://github.com/paritytech/polkadot-sdk", branch = "mas
 
 # Polkadot Dependencies
 
-xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 [features]
 default = []
