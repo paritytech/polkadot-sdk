@@ -453,7 +453,7 @@ enum AccountType {
 /// The permission a pool member can set for other accounts to claim rewards on their behalf.
 #[derive(Encode, Decode, MaxEncodedLen, Clone, Copy, Debug, PartialEq, Eq, TypeInfo)]
 pub enum ClaimPermission {
-	/// Only the pool member themself can claim their rewards.
+	/// Only the pool member themselves can claim their rewards.
 	Permissioned,
 	/// Anyone can compound rewards on a pool member's behalf.
 	PermissionlessCompound,
@@ -2055,7 +2055,7 @@ pub mod pallet {
 		/// The member will earn rewards pro rata based on the members stake vs the sum of the
 		/// members in the pools stake. Rewards do not "expire".
 		///
-		/// See `claim_payout_other` to caim rewards on bahalf of some `other` pool member.
+		/// See `claim_payout_other` to claim rewards on behalf of some `other` pool member.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		pub fn claim_payout(origin: OriginFor<T>) -> DispatchResult {
@@ -2786,7 +2786,7 @@ pub mod pallet {
 		/// Set or remove a pool's commission claim permission.
 		///
 		/// Determines who can claim the pool's pending commission. Only the `Root` role of the pool
-		/// is able to conifigure commission claim permissions.
+		/// is able to configure commission claim permissions.
 		#[pallet::call_index(22)]
 		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
 		pub fn set_commission_claim_permission(
@@ -2838,7 +2838,7 @@ pub mod pallet {
 			assert!(
 				T::StakeAdapter::bonding_duration() < TotalUnbondingPools::<T>::get(),
 				"There must be more unbonding pools then the bonding duration /
-				so a slash can be applied to relevant unboding pools. (We assume /
+				so a slash can be applied to relevant unbonding pools. (We assume /
 				the bonding duration > slash deffer duration.",
 			);
 		}

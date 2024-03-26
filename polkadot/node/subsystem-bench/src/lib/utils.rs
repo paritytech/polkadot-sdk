@@ -20,7 +20,7 @@ use crate::usage::BenchmarkUsage;
 use std::io::{stdout, Write};
 
 pub struct WarmUpOptions<'a> {
-	/// The maximum number of runs considered for marming up.
+	/// The maximum number of runs considered for warming up.
 	pub warm_up: usize,
 	/// The number of runs considered for benchmarking.
 	pub bench: usize,
