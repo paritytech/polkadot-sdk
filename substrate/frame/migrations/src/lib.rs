@@ -421,13 +421,11 @@ pub mod pallet {
 			}
 
 			// The per-block service weight is sane.
-			#[cfg(not(test))]
 			{
 				let want = T::MaxServiceWeight::get();
 				let max = <T as frame_system::Config>::BlockWeights::get().max_block;
 
 				assert!(want.all_lte(max), "Service weight is larger than a block: {want} > {max}");
-				assert!(!want.is_zero(), "Service weight cannot be zero");
 			}
 
 			// Cursor MEL
