@@ -106,8 +106,8 @@
 //! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
 //! explained in the documentation of [`polkadot_sdk_frame::prelude::DispatchResult`].
 //! * Why is `"SomeStaticString"` a valid error? Because there is implementation for it that you can
-//!   see [here](polkadot_sdk_frame::prelude::DispatchError#impl-From<%26'
-//!   static+str>-for-DispatchError).
+//!   see [here](
+//!   `polkadot_sdk_frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`).
 //!
 //!
 //! All of these are examples of underlying information that a contributor should:
