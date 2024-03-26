@@ -1202,20 +1202,46 @@ mod tests {
 			&[kademlia_protocol_name(supported_genesis_hash, None)],
 			remote_addr.clone(),
 		);
+		{
+			let kademlia = discovery.kademlia.as_mut().unwrap();
+			assert!(
+				!kademlia
+					.kbucket(remote_peer_id)
+					.expect("Remote peer id not to be equal to local peer id.")
+					.is_empty(),
+				"Expect peer with supported protocol to be added."
+			);
+		}
+
+		let unsupported_peer_id = predictable_peer_id(b"00000000000000000000000000000002");
+		let unsupported_peer_addr: Multiaddr = "/memory/2".parse().unwrap();
+
+		// Check the unsupported peer is not present before and after the call.
+		{
+			let kademlia = discovery.kademlia.as_mut().unwrap();
+			assert!(
+				kademlia
+					.kbucket(unsupported_peer_id)
+					.expect("Remote peer id not to be equal to local peer id.")
+					.is_empty(),
+				"Expect unsupported peer not to be added."
+			);
+		}
 		// Note: legacy protocol is not supported without genesis hash and fork ID,
 		// if the legacy is the only protocol supported, then the peer will not be added.
 		discovery.add_self_reported_address(
-			&another_peer_id,
+			&unsupported_peer_id,
 			&[legacy_kademlia_protocol_name(&supported_protocol_id)],
-			another_addr.clone(),
+			unsupported_peer_addr.clone(),
 		);
-
 		{
 			let kademlia = discovery.kademlia.as_mut().unwrap();
-			assert_eq!(
-				1,
-				kademlia.kbuckets().fold(0, |acc, bucket| acc + bucket.num_entries()),
-				"Expect peers with supported protocol to be added."
+			assert!(
+				kademlia
+					.kbucket(unsupported_peer_id)
+					.expect("Remote peer id not to be equal to local peer id.")
+					.is_empty(),
+				"Expect unsupported peer not to be added."
 			);
 		}
 
@@ -1235,6 +1261,13 @@ mod tests {
 				2,
 				kademlia.kbuckets().fold(0, |acc, bucket| acc + bucket.num_entries()),
 				"Expect peers with supported protocol to be added."
+			);
+			assert!(
+				!kademlia
+					.kbucket(another_peer_id)
+					.expect("Remote peer id not to be equal to local peer id.")
+					.is_empty(),
+				"Expect peer with supported protocol to be added."
 			);
 		}
 	}
