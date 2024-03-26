@@ -57,7 +57,8 @@
 //!
 //! **Trait implementations** are concrete implementations of these traits. For example, one of the
 //! many traits [`pallet_balances`] implements is
-//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)*.
+//! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`)*. It provides the concrete way of inspecting the total issuance, balance of accounts, etc.
+//! There can be many implementations of the same traits.
 //!
 //! The distinction between traits and trait implementations is helpful because it allows pallets
 //! and other logic to be generic over their dependencies, avoiding tight coupling.
