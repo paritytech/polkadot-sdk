@@ -1104,7 +1104,7 @@ pub mod pallet {
 		/// A more detailed error can be found on the node console if debug messages are enabled
 		/// by supplying `-lruntime::contracts=debug`.
 		CodeRejected,
-		/// An indetermistic code was used in a context where this is not permitted.
+		/// An indeterministic code was used in a context where this is not permitted.
 		Indeterministic,
 		/// A pending migration needs to complete before the extrinsic can be called.
 		MigrationInProgress,

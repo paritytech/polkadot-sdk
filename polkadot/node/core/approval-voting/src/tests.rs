@@ -3154,7 +3154,7 @@ where
 // starting configuration. The relevant ticks (all scheduled wakeups) are printed after no further
 // ticks are scheduled. To create a valid test, a prefix of the relevant ticks should be included
 // in the final test configuration, ending at the tick with the desired inputs to
-// should_trigger_assignemnt.
+// should_trigger_assignment.
 async fn step_until_done(clock: &MockClock) {
 	let mut relevant_ticks = Vec::new();
 	loop {
@@ -3837,7 +3837,7 @@ fn test_approval_is_sent_on_max_approval_coalesce_count() {
 
 async fn handle_approval_on_max_coalesce_count(
 	virtual_overseer: &mut VirtualOverseer,
-	candidate_indicies: Vec<CandidateIndex>,
+	candidate_indices: Vec<CandidateIndex>,
 ) {
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
@@ -3845,16 +3845,16 @@ async fn handle_approval_on_max_coalesce_count(
 			_,
 			c_indices,
 		)) => {
-			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indicies.clone()).unwrap(), c_indices);
+			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indices.clone()).unwrap(), c_indices);
 		}
 	);
 
-	for _ in &candidate_indicies {
+	for _ in &candidate_indices {
 		recover_available_data(virtual_overseer).await;
 		fetch_validation_code(virtual_overseer).await;
 	}
 
-	for _ in &candidate_indicies {
+	for _ in &candidate_indices {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive{exec_kind, response_sender, ..}) if exec_kind == PvfExecKind::Approval => {
@@ -3885,7 +3885,7 @@ async fn handle_approval_on_max_coalesce_count(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(vote)) => {
-			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indicies).unwrap(), vote.candidate_indices);
+			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indices).unwrap(), vote.candidate_indices);
 		}
 	);
 
@@ -3895,7 +3895,7 @@ async fn handle_approval_on_max_coalesce_count(
 
 async fn handle_approval_on_max_wait_time(
 	virtual_overseer: &mut VirtualOverseer,
-	candidate_indicies: Vec<CandidateIndex>,
+	candidate_indices: Vec<CandidateIndex>,
 	clock: Box<MockClock>,
 ) {
 	const TICK_NOW_BEGIN: u64 = 1;
@@ -3909,16 +3909,16 @@ async fn handle_approval_on_max_wait_time(
 			_,
 			c_indices,
 		)) => {
-			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indicies.clone()).unwrap(), c_indices);
+			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indices.clone()).unwrap(), c_indices);
 		}
 	);
 
-	for _ in &candidate_indicies {
+	for _ in &candidate_indices {
 		recover_available_data(virtual_overseer).await;
 		fetch_validation_code(virtual_overseer).await;
 	}
 
-	for _ in &candidate_indicies {
+	for _ in &candidate_indices {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive{exec_kind, response_sender, ..}) if exec_kind == PvfExecKind::Approval => {
@@ -3978,7 +3978,7 @@ async fn handle_approval_on_max_wait_time(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(vote)) => {
-			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indicies).unwrap(), vote.candidate_indices);
+			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indices).unwrap(), vote.candidate_indices);
 		}
 	);
 
@@ -4319,7 +4319,7 @@ fn subsystem_relaunches_approval_work_on_restart() {
 		virtual_overseer
 	});
 
-	// Restart a new approval voting subsystem with the same database and major syncing true untill
+	// Restart a new approval voting subsystem with the same database and major syncing true until
 	// the last leaf.
 	let config = HarnessConfigBuilder::default().backend(store_clone).major_syncing(true).build();
 
