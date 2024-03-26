@@ -25,7 +25,7 @@ pallet-message-queue = { path = "../../../../../../../substrate/frame/message-qu
 polkadot-runtime-common = { version = "8.0.1", path = "../../../../../../../polkadot/runtime/common" }
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
-pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.3" }
+pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.4" }
 westend-runtime = { version = "8.0.0", path = "../../../../../../../polkadot/runtime/westend" }
 parachains-common = { version = "8.0.0", path = "../../../../../common" }
 testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["westend"], version = "1.0.0" }

@@ -26,7 +26,7 @@ sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", defau
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
-pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.3" }
+pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "8.0.4" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 
 # Bridges
@@ -42,9 +42,9 @@ rococo-system-emulated-network = { version = "0.1.0", path = "../../../networks/
 asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo", default-features = false, version = "0.12.0" }
 
 # Snowbridge
-snowbridge-core = { path = "../../../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false, version = "0.1.0" }
+snowbridge-core = { path = "../../../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false, version = "0.1.1" }
 snowbridge-router-primitives = { path = "../../../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false, version = "0.1.0" }
-snowbridge-pallet-system = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false, version = "0.1.0" }
-snowbridge-pallet-outbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false, version = "0.1.0" }
-snowbridge-pallet-inbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false, version = "0.1.0" }
+snowbridge-pallet-system = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false, version = "0.1.1" }
+snowbridge-pallet-outbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false, version = "0.1.1" }
+snowbridge-pallet-inbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false, version = "0.1.1" }
 snowbridge-pallet-inbound-queue-fixtures = { version = "0.9.0", path = "../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue/fixtures" }

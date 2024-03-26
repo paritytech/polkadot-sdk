@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-outbound-queue-runtime-api"
 description = "Snowbridge Outbound Queue Runtime API"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -22,7 +22,7 @@ sp-api = { path = "../../../../../../substrate/primitives/api", default-features
 frame-support = { path = "../../../../../../substrate/frame/support", default-features = false, version = "29.0.0" }
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
 snowbridge-outbound-queue-merkle-tree = { path = "../merkle-tree", default-features = false, version = "0.2.0" }
-snowbridge-core = { path = "../../../primitives/core", default-features = false, version = "0.1.0" }
+snowbridge-core = { path = "../../../primitives/core", default-features = false, version = "0.1.1" }
 
 [features]
 default = ["std"]

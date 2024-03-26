@@ -22,7 +22,7 @@ sp-core = { path = "../../../../../../substrate/primitives/core", default-featur
 sp-std = { path = "../../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-api = { path = "../../../../../../substrate/primitives/api", default-features = false, version = "27.0.0" }
 xcm = { package = "staging-xcm", path = "../../../../../../polkadot/xcm", default-features = false, version = "8.0.1" }
-snowbridge-core = { path = "../../../primitives/core", default-features = false, version = "0.1.0" }
+snowbridge-core = { path = "../../../primitives/core", default-features = false, version = "0.1.1" }
 
 [features]
 default = ["std"]

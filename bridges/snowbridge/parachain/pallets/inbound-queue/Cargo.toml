@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-inbound-queue"
 description = "Snowbridge Inbound Queue Pallet"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -38,7 +38,7 @@ xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-f
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.1" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.1" }
 
-snowbridge-core = { path = "../../primitives/core", default-features = false, version = "0.1.0" }
+snowbridge-core = { path = "../../primitives/core", default-features = false, version = "0.1.1" }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false, version = "0.2.0" }
 snowbridge-router-primitives = { path = "../../primitives/router", default-features = false, version = "0.1.0" }
 snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false, version = "0.1.0" }
