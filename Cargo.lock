@@ -9106,7 +9106,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-authority-discovery"
-version = "30.0.0"
+version = "30.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10705,7 +10705,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "30.0.0"
+version = "30.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -11528,7 +11528,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -19264,7 +19264,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "9.0.0"
+version = "9.0.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
