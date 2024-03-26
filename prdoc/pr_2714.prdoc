@@ -16,5 +16,5 @@ doc:
 
 crates:
   - name: sp-genesis-builder
-  - name: chain-spec-builder
+  - name: staging-chain-spec-builder
   - name: sc-chain-spec
