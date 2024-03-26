@@ -68,6 +68,9 @@ use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::boxed::Box;
 
+/// The type of the unique id for each pool.
+pub type PoolId = u32;
+
 /// A pool staker.
 #[derive(Decode, Encode, MaxEncodedLen, TypeInfo)]
 pub struct PoolStakerInfo<Balance> {
@@ -78,7 +81,7 @@ pub struct PoolStakerInfo<Balance> {
 
 /// A staking pool.
 #[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
-pub struct PoolInfo<AssetId, Balance, BlockNumber> {
+pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	/// The asset that is staked in this pool.
 	staking_asset_id: AssetId,
 	/// The asset that is distributed as rewards in this pool.
@@ -91,16 +94,14 @@ pub struct PoolInfo<AssetId, Balance, BlockNumber> {
 	accumulated_rewards_per_share: Balance,
 	/// Last block number the pool was updated. Used when calculating payouts.
 	last_rewarded_block: BlockNumber,
+	/// Permissioned account that can manage this pool.
+	admin: AccountId,
 }
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
-	use codec::FullCodec;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{tokens::AssetId, Incrementable},
-	};
+	use frame_support::{pallet_prelude::*, traits::tokens::AssetId};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::AccountIdConversion;
 
@@ -122,25 +123,15 @@ pub mod pallet {
 		/// The type in which the assets are measured.
 		type Balance: Balance + TypeInfo;
 
-		/// The origin with permission to create and manage pools.
-		type PoolAdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// The origin with permission to create pools. This will be removed in a later release of
+		/// this pallet, which will allow permissionless pool creation.
+		type PermissionedPoolCreator: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Registry of assets that can be configured to either stake for rewards, or be offered as
 		/// rewards for staking.
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetId, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>;
-
-		/// The type of the unique id for each pool.
-		type PoolId: PartialOrd
-			+ Incrementable
-			+ From<u32>
-			+ FullCodec
-			+ Clone
-			+ Eq
-			+ PartialEq
-			+ sp_std::fmt::Debug
-			+ scale_info::TypeInfo;
 	}
 
 	/// State of pool stakers.
@@ -148,7 +139,7 @@ pub mod pallet {
 	pub type PoolStakers<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		T::PoolId,
+		PoolId,
 		Blake2_128Concat,
 		T::AccountId,
 		PoolStakerInfo<T::Balance>,
@@ -159,15 +150,15 @@ pub mod pallet {
 	pub type Pools<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
-		T::PoolId,
-		PoolInfo<T::AssetId, T::Balance, BlockNumberFor<T>>,
+		PoolId,
+		PoolInfo<T::AccountId, T::AssetId, T::Balance, BlockNumberFor<T>>,
 	>;
 
 	/// Stores the [`PoolId`] to use for the next pool.
 	///
 	/// Incremented when a new pool is created.
 	#[pallet::storage]
-	pub type NextPoolId<T: Config> = StorageValue<_, T::PoolId>;
+	pub type NextPoolId<T: Config> = StorageValue<_, PoolId>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -177,7 +168,7 @@ pub mod pallet {
 			/// The account that staked assets.
 			staker: T::AccountId,
 			/// The pool.
-			pool_id: T::PoolId,
+			pool_id: PoolId,
 			/// The staked asset amount.
 			amount: T::Balance,
 		},
@@ -186,7 +177,7 @@ pub mod pallet {
 			/// The account that unstaked assets.
 			staker: T::AccountId,
 			/// The pool.
-			pool_id: T::PoolId,
+			pool_id: PoolId,
 			/// The unstaked asset amount.
 			amount: T::Balance,
 		},
@@ -195,14 +186,14 @@ pub mod pallet {
 			/// The staker whos rewards were harvested.
 			staker: T::AccountId,
 			/// The pool.
-			pool_id: T::PoolId,
+			pool_id: PoolId,
 			/// The amount of harvested tokens.
 			amount: T::Balance,
 		},
 		/// A new reward pool was created.
 		PoolCreated {
 			/// Unique ID for the new pool.
-			pool_id: T::PoolId,
+			pool_id: PoolId,
 			/// The staking asset.
 			staking_asset_id: T::AssetId,
 			/// The reward asset.
@@ -213,19 +204,19 @@ pub mod pallet {
 		/// A reward pool was deleted.
 		PoolDeleted {
 			/// The deleted pool id.
-			pool_id: T::PoolId,
+			pool_id: PoolId,
 		},
 		/// A pool was modified.
 		PoolModifed {
 			/// The modified pool.
-			pool_id: T::PoolId,
+			pool_id: PoolId,
 			/// The new reward rate.
 			new_reward_rate_per_block: T::Balance,
 		},
 		/// Reward assets were withdrawn from a pool.
 		RewardPoolWithdrawal {
 			/// The affected pool.
-			pool_id: T::PoolId,
+			pool_id: PoolId,
 			/// The acount of reward asset withdrawn.
 			amount: T::Balance,
 		},
@@ -245,6 +236,9 @@ pub mod pallet {
 	}
 
 	/// Pallet's callable functions.
+	///
+	/// Allows optionally specifying an admin account for the pool. By default, the origin is made
+	/// admin.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Create a new reward pool.
@@ -252,6 +246,7 @@ pub mod pallet {
 			_origin: OriginFor<T>,
 			_staked_asset_id: Box<T::AssetId>,
 			_reward_asset_id: Box<T::AssetId>,
+			_admin: Option<T::AccountId>,
 		) -> DispatchResult {
 			todo!()
 		}
@@ -259,14 +254,14 @@ pub mod pallet {
 		/// Removes an existing reward pool.
 		///
 		/// TODO decide how to manage clean up of stakers from a removed pool.
-		pub fn remove_pool(_origin: OriginFor<T>, _pool_id: T::PoolId) -> DispatchResult {
+		pub fn remove_pool(_origin: OriginFor<T>, _pool_id: PoolId) -> DispatchResult {
 			todo!()
 		}
 
 		/// Stake tokens in a pool.
 		pub fn stake(
 			_origin: OriginFor<T>,
-			_pool_id: T::PoolId,
+			_pool_id: PoolId,
 			_amount: T::Balance,
 		) -> DispatchResult {
 			todo!()
@@ -275,7 +270,7 @@ pub mod pallet {
 		/// Unstake tokens from a pool.
 		pub fn unstake(
 			_origin: OriginFor<T>,
-			_pool_id: T::PoolId,
+			_pool_id: PoolId,
 			_amount: T::Balance,
 		) -> DispatchResult {
 			todo!()
@@ -285,7 +280,7 @@ pub mod pallet {
 		pub fn harvest_rewards(
 			_origin: OriginFor<T>,
 			_staker: T::AccountId,
-			_pool_id: T::PoolId,
+			_pool_id: PoolId,
 		) -> DispatchResult {
 			todo!()
 		}
@@ -293,7 +288,7 @@ pub mod pallet {
 		/// Modify the reward rate of a pool.
 		pub fn modify_pool(
 			_origin: OriginFor<T>,
-			_pool_id: T::PoolId,
+			_pool_id: PoolId,
 			_new_reward_rate: T::Balance,
 		) -> DispatchResult {
 			todo!()
@@ -306,7 +301,7 @@ pub mod pallet {
 		/// account id is not required.
 		pub fn deposit_reward_tokens(
 			_origin: OriginFor<T>,
-			_pool_id: T::PoolId,
+			_pool_id: PoolId,
 			_amount: T::Balance,
 		) -> DispatchResult {
 			todo!()
@@ -315,7 +310,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Derive a pool account ID from the pallet's ID.
-		fn pool_account_id(id: &T::PoolId) -> Result<T::AccountId, DispatchError> {
+		fn pool_account_id(id: &PoolId) -> Result<T::AccountId, DispatchError> {
 			if Pools::<T>::contains_key(id) {
 				Ok(T::PalletId::get().into_sub_account_truncating(id))
 			} else {
