@@ -61,7 +61,7 @@
 //! and other logic to be generic over their dependencies, avoiding tight coupling.
 //!
 //! To illustrate this with an example let's consider [`pallet_preimage`]. This pallet takes a
-//! deposit in exchange for storing some preimage for use later. A naive implementation of the
+//! deposit in exchange for storing a preimage for later use. A naive implementation of the
 //! pallet may use [`pallet_balances`] in a tightly coupled manner, directly calling methods
 //! on the pallet to reserve and unreserve deposits. This approach works well,
 //! until someone has a use case requiring that an asset from a different pallet such as
