@@ -18,7 +18,7 @@
 // ! A basic pallet to test it compiles along with a runtime using it when `frame_system` and
 // `frame_support` are reexported by a `frame` crate.
 
-use polkadot_sdk_frame::deps::frame_support;
+use polkadot_sdk_frame::deps::{frame_support, frame_system};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -29,7 +29,11 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: polkadot_sdk_frame::deps::frame_system::Config {}
+	// The only valid syntax here is the following or
+	// ```
+	// pub trait Config: polkadot_sdk_frame::deps::frame_system::Config {}
+	// ```
+	pub trait Config: frame_system::Config {}
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -49,9 +53,8 @@ pub mod pallet {
 mod tests {
 	use super::{
 		frame_support::{construct_runtime, derive_impl},
-		pallet,
+		frame_system, pallet,
 	};
-	use polkadot_sdk_frame::deps::frame_system;
 
 	type Block = frame_system::mocking::MockBlock<Runtime>;
 

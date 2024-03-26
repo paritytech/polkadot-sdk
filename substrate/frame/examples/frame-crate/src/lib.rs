@@ -22,9 +22,8 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: polkadot_sdk_frame::deps::frame_system::Config {
-		type RuntimeEvent: IsType<<Self as polkadot_sdk_frame::deps::frame_system::Config>::RuntimeEvent>
-			+ From<Event<Self>>;
+	pub trait Config: frame_system::Config {
+		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 	}
 
 	#[pallet::pallet]
