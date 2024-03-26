@@ -30,7 +30,6 @@ frame-system = { path = "../system", default-features = false }
 pallet-session = { path = "../session", default-features = false, features = [
 	"historical",
 ] }
-pallet-balances = { path = "../balances" }
 pallet-authorship = { path = "../authorship", default-features = false }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, features = ["serde"] }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false }
@@ -41,6 +40,7 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
+pallet-balances = { path = "../balances" }
 sp-tracing = { path = "../../primitives/tracing" }
 sp-core = { path = "../../primitives/core" }
 sp-npos-elections = { path = "../../primitives/npos-elections" }
