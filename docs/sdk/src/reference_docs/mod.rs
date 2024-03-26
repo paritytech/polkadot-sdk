@@ -101,9 +101,9 @@ pub mod frame_runtime_upgrades_and_migrations;
 pub mod light_nodes;
 
 /// Learn about the offchain workers, how they function, and how to use them, as provided by the
-/// [`frame`] APIs.
+/// [`polkadot_sdk_frame`] APIs.
 pub mod frame_offchain_workers;
 
-/// Learn about the different ways through which multiple [`frame`] pallets can be combined to work
-/// together.
+/// Learn about the different ways through which multiple [`polkadot_sdk_frame`] pallets can be
+/// combined to work together.
 pub mod frame_pallet_coupling;
