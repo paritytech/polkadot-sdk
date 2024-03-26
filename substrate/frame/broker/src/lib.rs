@@ -36,6 +36,8 @@ mod tick_impls;
 mod types;
 mod utility_impls;
 
+pub mod runtime_api;
+
 pub mod weights;
 pub use weights::WeightInfo;
 
@@ -132,7 +134,7 @@ pub mod pallet {
 	pub type AllowedRenewals<T> =
 		StorageMap<_, Twox64Concat, AllowedRenewalId, AllowedRenewalRecordOf<T>, OptionQuery>;
 
-	/// The current (unassigned) Regions.
+	/// The current (unassigned or provisionally assigend) Regions.
 	#[pallet::storage]
 	pub type Regions<T> = StorageMap<_, Blake2_128Concat, RegionId, RegionRecordOf<T>, OptionQuery>;
 
