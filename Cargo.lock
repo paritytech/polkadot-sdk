@@ -15575,6 +15575,7 @@ dependencies = [
  "futures-timer",
  "ip_network",
  "libp2p",
+ "linked_hash_set",
  "log",
  "multihash 0.18.1",
  "multihash-codetable",
