@@ -32,10 +32,10 @@
 //!
 //!
 //! Finally, a separate macro, similar to
-//! [`impl_runtime_api`](polkadot_sdk_frame::runtime::prelude::impl_runtime_apis), which creates the default set
-//! of runtime APIs, will generate the parachain runtime's validation runtime API, also known as
-//! parachain validation function (PVF). Without this API, the relay chain is unable to validate
-//! blocks produced by our parachain.
+//! [`impl_runtime_api`](polkadot_sdk_frame::runtime::prelude::impl_runtime_apis), which creates the
+//! default set of runtime APIs, will generate the parachain runtime's validation runtime API, also
+//! known as parachain validation function (PVF). Without this API, the relay chain is unable to
+//! validate blocks produced by our parachain.
 #![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", validate_block)]
 //!
 //! ---
@@ -95,7 +95,8 @@ mod tests {
 					1,
 				>;
 				type WeightInfo = ();
-				type DmpQueue = polkadot_sdk_frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
+				type DmpQueue =
+					polkadot_sdk_frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 			}
 
 			impl parachain_info::Config for Runtime {}

@@ -93,14 +93,16 @@
 //! Then, within the pallet, we can simply use this "unknown" origin check type:
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", external_origin_usage)]
 //!
-//! Finally, at the runtime, any implementation of [`polkadot_sdk_frame::traits::EnsureOrigin`] can be passed.
+//! Finally, at the runtime, any implementation of [`polkadot_sdk_frame::traits::EnsureOrigin`] can
+//! be passed.
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", external_origin_provide)]
 //!
-//! Indeed, some of these implementations of [`polkadot_sdk_frame::traits::EnsureOrigin`] are similar to the ones
-//! that we know about: [`polkadot_sdk_frame::runtime::prelude::EnsureSigned`],
-//! [`polkadot_sdk_frame::runtime::prelude::EnsureSignedBy`], [`polkadot_sdk_frame::runtime::prelude::EnsureRoot`],
-//! [`polkadot_sdk_frame::runtime::prelude::EnsureNone`], etc. But, there are also many more that are not known
-//! to us, and are defined in other pallets.
+//! Indeed, some of these implementations of [`polkadot_sdk_frame::traits::EnsureOrigin`] are
+//! similar to the ones that we know about: [`polkadot_sdk_frame::runtime::prelude::EnsureSigned`],
+//! [`polkadot_sdk_frame::runtime::prelude::EnsureSignedBy`],
+//! [`polkadot_sdk_frame::runtime::prelude::EnsureRoot`],
+//! [`polkadot_sdk_frame::runtime::prelude::EnsureNone`], etc. But, there are also many more that
+//! are not known to us, and are defined in other pallets.
 //!
 //! For example, [`pallet_collective`] defines [`pallet_collective::EnsureMember`] and
 //! [`pallet_collective::EnsureProportionMoreThan`] and many more, which is exactly what we alluded

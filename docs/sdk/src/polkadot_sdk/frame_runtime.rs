@@ -34,16 +34,18 @@
 //! about its own responsibilities and make as few assumptions about the general runtime as
 //! possible. A pallet is analogous to a _module_ in the runtime.
 //!
-//! A pallet is defined as a `mod pallet` wrapped by the [`polkadot_sdk_frame::pallet`] macro. Within this macro,
-//! pallet components/parts can be defined. Most notable of these parts are:
+//! A pallet is defined as a `mod pallet` wrapped by the [`polkadot_sdk_frame::pallet`] macro.
+//! Within this macro, pallet components/parts can be defined. Most notable of these parts are:
 //!
-//! - [Config](polkadot_sdk_frame::pallet_macros::config), allowing a pallet to make itself configurable and
-//!   generic over types, values and such.
-//! - [Storage](polkadot_sdk_frame::pallet_macros::storage), allowing a pallet to define onchain storage.
-//! - [Dispatchable function](polkadot_sdk_frame::pallet_macros::call), allowing a pallet to define extrinsics
-//!   that are callable by end users, from the outer world.
+//! - [Config](polkadot_sdk_frame::pallet_macros::config), allowing a pallet to make itself
+//!   configurable and generic over types, values and such.
+//! - [Storage](polkadot_sdk_frame::pallet_macros::storage), allowing a pallet to define onchain
+//!   storage.
+//! - [Dispatchable function](polkadot_sdk_frame::pallet_macros::call), allowing a pallet to define
+//!   extrinsics that are callable by end users, from the outer world.
 //! - [Events](polkadot_sdk_frame::pallet_macros::event), allowing a pallet to emit events.
-//! - [Errors](polkadot_sdk_frame::pallet_macros::error), allowing a pallet to emit well-formed errors.
+//! - [Errors](polkadot_sdk_frame::pallet_macros::error), allowing a pallet to emit well-formed
+//!   errors.
 //!
 //! Some of these pallet components resemble the building blocks of a smart contract. While both
 //! models are programming state transition functions of blockchains, there are crucial differences
@@ -116,8 +118,9 @@ pub mod pallet {
 	}
 
 	/// A mandatory struct in each pallet. All functions callable by external users (aka.
-	/// transactions) must be attached to this type (see [`polkadot_sdk_frame::pallet_macros::call`]). For
-	/// convenience, internal (private) functions can also be attached to this type.
+	/// transactions) must be attached to this type (see
+	/// [`polkadot_sdk_frame::pallet_macros::call`]). For convenience, internal (private) functions
+	/// can also be attached to this type.
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 
