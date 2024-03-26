@@ -483,7 +483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>msg: protocol_v3::ApprovalDistributionMessage,
 	<span class="doccomment">/// The list of peers that would sends this message in a real topology.
 	/// It includes both the peers that would send the message because of the topology
-	/// or because of randomly chosing so.
+	/// or because of randomly choosing so.
 	</span><span class="kw">pub </span>sent_by: Vec&lt;ValidatorIndex&gt;,
 	<span class="doccomment">/// The tranche at which this message should be sent.
 	</span><span class="kw">pub </span>tranche: u32,
@@ -542,7 +542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Tells if the bundle is needed for sending.
 	/// We either send it because we need more assignments and approvals to approve the candidates
-	/// or because we configured the test to send messages untill a given tranche.
+	/// or because we configured the test to send messages until a given tranche.
 	</span><span class="kw">pub fn </span>should_send(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		candidates_test_data: <span class="kw-2">&amp;</span>HashMap&lt;(Hash, CandidateIndex), CandidateTestData&gt;,
@@ -626,24 +626,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Returns a list of candidates indicies in this message
+	<span class="doccomment">/// Returns a list of candidates indices in this message
 	</span><span class="kw">pub fn </span>candidate_indices(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashSet&lt;usize&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>unique_candidate_indicies = HashSet::new();
+		<span class="kw">let </span><span class="kw-2">mut </span>unique_candidate_indices = HashSet::new();
 		<span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.msg {
 			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) =&gt;
 				<span class="kw">for </span>(_assignment, candidate_indices) <span class="kw">in </span>assignments {
 					<span class="kw">for </span>candidate_index <span class="kw">in </span>candidate_indices.iter_ones() {
-						unique_candidate_indicies.insert(candidate_index);
+						unique_candidate_indices.insert(candidate_index);
 					}
 				},
 			protocol_v3::ApprovalDistributionMessage::Approvals(approvals) =&gt;
 				<span class="kw">for </span>approval <span class="kw">in </span>approvals {
 					<span class="kw">for </span>candidate_index <span class="kw">in </span>approval.candidate_indices.iter_ones() {
-						unique_candidate_indicies.insert(candidate_index);
+						unique_candidate_indices.insert(candidate_index);
 					}
 				},
 		}
-		unique_candidate_indicies
+		unique_candidate_indices
 	}
 
 	<span class="doccomment">/// Marks this message as no-shows if the number of configured no-shows is above the registered

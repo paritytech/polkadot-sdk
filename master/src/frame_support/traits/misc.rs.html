@@ -3066,7 +3066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(&lt;WrapperOpaque&lt;[u8; <span class="number">2usize</span>.pow(<span class="number">14</span>)]&gt;&gt;::max_encoded_len(), <span class="number">2usize</span>.pow(<span class="number">14</span>) + <span class="number">4</span>);
 
 		<span class="kw">let </span>data = <span class="number">4u64</span>;
-		<span class="comment">// Ensure that we check that the `Vec&lt;u8&gt;` is consumed completly on decode.
+		<span class="comment">// Ensure that we check that the `Vec&lt;u8&gt;` is consumed completely on decode.
 		</span><span class="macro">assert!</span>(WrapperOpaque::&lt;u32&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>data.encode().encode()[..]).is_err());
 	}
 

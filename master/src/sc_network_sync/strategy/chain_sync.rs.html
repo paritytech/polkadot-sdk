@@ -2524,7 +2524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Reputation change for peers which send us a block with bad justifications.
 	</span><span class="kw">pub const </span>BAD_JUSTIFICATION: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">16</span>), <span class="string">&quot;Bad justification&quot;</span>);
 
-	<span class="doccomment">/// Reputation change when a peer sent us invlid ancestry result.
+	<span class="doccomment">/// Reputation change when a peer sent us invalid ancestry result.
 	</span><span class="kw">pub const </span>UNKNOWN_ANCESTOR: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">16</span>), <span class="string">&quot;DB Error&quot;</span>);
 
 	<span class="doccomment">/// Peer response data does not have requested bits.
@@ -3741,7 +3741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				PeerSyncState::DownloadingJustification(<span class="kw">_</span>) =&gt; {
 					<span class="comment">// Peers that were downloading justifications
 					// should be kept in that state.
-					// We make sure our commmon number is at least something we have.
+					// We make sure our common number is at least something we have.
 					</span><span class="macro">trace!</span>(
 						target: LOG_TARGET,
 						<span class="string">&quot;Keeping peer {} after restart, updating common number from={} =&gt; to={} (our best).&quot;</span>,

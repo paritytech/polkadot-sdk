@@ -291,7 +291,7 @@ it wants.</p>
 this call results in a complete removal of all the data related to the stash account.
 In this case, the <code>num_slashing_spans</code> must be larger or equal to the number of
 slashing spans associated with the stash account in the <a href="type.SlashingSpans.html" title="type pallet_staking::SlashingSpans"><code>SlashingSpans</code></a> storage type,
-otherwise the call will fail. The call weight is directly propotional to
+otherwise the call will fail. The call weight is directly proportional to
 <code>num_slashing_spans</code>.</li>
 </ul>
 <h6 id="complexity-2"><a href="#complexity-2">Complexity</a></h6>
@@ -355,7 +355,7 @@ to the stash, if it is not already.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.increase_validator_count" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#61">source</a><h4 class="code-header">pub fn <a href="#method.increase_validator_count" class="fn">increase_validator_count</a>(
     origin: OriginFor&lt;T&gt;,
     additional: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>
-) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Increments the ideal number of validators upto maximum of
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Increments the ideal number of validators up to maximum of
 <code>ElectionProviderBase::MaxWinners</code>.</p>
 <p>The dispatch origin must be Root.</p>
 <h6 id="complexity-8"><a href="#complexity-8">Complexity</a></h6>
@@ -363,7 +363,7 @@ to the stash, if it is not already.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.scale_validator_count" class="method"><a class="src rightside" href="../src/pallet_staking/pallet/mod.rs.html#61">source</a><h4 class="code-header">pub fn <a href="#method.scale_validator_count" class="fn">scale_validator_count</a>(
     origin: OriginFor&lt;T&gt;,
     factor: <a class="struct" href="../sp_arithmetic/per_things/struct.Percent.html" title="struct sp_arithmetic::per_things::Percent">Percent</a>
-) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Scale up the ideal number of validators by a factor upto maximum of
+) -&gt; DispatchResult</h4></section></summary><div class="docblock"><p>Scale up the ideal number of validators by a factor up to maximum of
 <code>ElectionProviderBase::MaxWinners</code>.</p>
 <p>The dispatch origin must be Root.</p>
 <h6 id="complexity-9"><a href="#complexity-9">Complexity</a></h6>

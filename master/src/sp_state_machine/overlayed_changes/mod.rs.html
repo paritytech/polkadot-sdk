@@ -1780,7 +1780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Call this before transfering control to the runtime.
+	<span class="doccomment">/// Call this before transferring control to the runtime.
 	///
 	/// This protects all existing transactions from being removed by the runtime.
 	/// Calling this while already inside the runtime will return an error.
@@ -1875,10 +1875,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">use </span>core::mem::take;
-		<span class="kw">let </span>main_storage_changes = take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.top).drain_commited();
+		<span class="kw">let </span>main_storage_changes = take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.top).drain_committed();
 		<span class="kw">let </span>child_storage_changes = take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.children)
 			.into_iter()
-			.map(|(key, (val, info))| (key, (val.drain_commited(), info)));
+			.map(|(key, (val, info))| (key, (val.drain_committed(), info)));
 
 		<span class="kw">let </span>offchain_storage_changes = <span class="self">self</span>.offchain_drain_committed().collect();
 
@@ -2109,7 +2109,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; OverlayedExtensions&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="doccomment">/// Create a new instance of overalyed extensions from the given extensions.
+	<span class="doccomment">/// Create a new instance of overlaid extensions from the given extensions.
 	</span><span class="kw">pub fn </span>new(extensions: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Extensions) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			extensions: extensions

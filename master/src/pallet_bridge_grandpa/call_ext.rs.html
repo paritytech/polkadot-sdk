@@ -778,7 +778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// as an extra weight.
 	</span><span class="kw">let </span>votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
 	<span class="kw">let </span>extra_weight =
-		<span class="kw">if </span>votes_ancestries_len &gt; T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY {
+		<span class="kw">if </span>votes_ancestries_len &gt; T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY {
 			T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
 		} <span class="kw">else </span>{
 			Weight::zero()
@@ -969,11 +969,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>finality_target = test_header(<span class="number">1</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>justification_params = JustificationGeneratorParams {
 			header: finality_target.clone(),
-			ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY,
+			ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY,
 			..Default::default()
 		};
 
-		<span class="comment">// when there are `REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY` headers =&gt; no refund
+		<span class="comment">// when there are `REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY` headers =&gt; no refund
 		</span><span class="kw">let </span>justification = make_justification_for_header(justification_params.clone());
 		<span class="kw">let </span>call = RuntimeCall::Grandpa(<span class="kw">crate</span>::Call::submit_finality_proof_ex {
 			finality_target: Box::new(finality_target.clone()),
@@ -982,7 +982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 		<span class="macro">assert_eq!</span>(call.submit_finality_proof_info().unwrap().extra_weight, Weight::zero());
 
-		<span class="comment">// when there are `REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY + 1` headers =&gt; full refund
+		<span class="comment">// when there are `REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY + 1` headers =&gt; full refund
 		</span>justification_params.ancestors += <span class="number">1</span>;
 		<span class="kw">let </span>justification = make_justification_for_header(justification_params);
 		<span class="kw">let </span>call_weight = &lt;TestRuntime <span class="kw">as </span>Config&gt;::WeightInfo::submit_finality_proof(

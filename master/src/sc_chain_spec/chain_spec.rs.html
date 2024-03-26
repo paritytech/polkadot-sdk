@@ -1462,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	File(PathBuf),
 	Binary(Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;),
 	<span class="doccomment">/// factory function + code
-	</span><span class="comment">//Factory and G type parameter shall be removed togheter with `ChainSpec::from_genesis`
+	</span><span class="comment">//Factory and G type parameter shall be removed together with `ChainSpec::from_genesis`
 	</span>Factory(Arc&lt;<span class="kw">dyn </span>Fn() -&gt; G + Send + Sync&gt;, Vec&lt;u8&gt;),
 	Storage(Storage),
 	<span class="doccomment">/// build action + code
@@ -1674,7 +1674,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">enum </span>Genesis&lt;G&gt; {
 	<span class="doccomment">/// (Deprecated) Contains the JSON representation of G (the native type representing the
 	/// runtime&#39;s  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
-	/// without the runtime code. It is required to deserialize the legacy chainspecs genereted
+	/// without the runtime code. It is required to deserialize the legacy chainspecs generated
 	/// with `ChainsSpec::from_genesis` method.
 	</span>Runtime(G),
 	<span class="doccomment">/// (Deprecated) Contains the JSON representation of G (the native type representing the
@@ -1686,13 +1686,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Raw(RawGenesis),
 	<span class="doccomment">/// State root hash of the genesis storage.
 	</span>StateRootHash(StorageData),
-	<span class="doccomment">/// Represents the runtime genesis config in JSON format toghether with runtime code.
+	<span class="doccomment">/// Represents the runtime genesis config in JSON format together with runtime code.
 	</span>RuntimeGenesis(RuntimeGenesisInner),
 }
 
 <span class="doccomment">/// A configuration of a client. Does not include runtime storage initialization.
 /// Note: `genesis` field is ignored due to way how the chain specification is serialized into
-/// JSON file. Refer to [`ChainSpecJsonContainer`], which flattens [`ClientSpec`] and denies uknown
+/// JSON file. Refer to [`ChainSpecJsonContainer`], which flattens [`ClientSpec`] and denies unknown
 /// fields.
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
@@ -1918,7 +1918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.client_spec.fork_id.as_deref()
 	}
 
-	<span class="doccomment">/// Additional loosly-typed properties of the chain.
+	<span class="doccomment">/// Additional loosely-typed properties of the chain.
 	///
 	/// Returns an empty JSON object if &#39;properties&#39; not defined in config
 	</span><span class="kw">pub fn </span>properties(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Properties {

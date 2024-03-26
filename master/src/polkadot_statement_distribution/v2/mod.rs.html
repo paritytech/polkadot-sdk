@@ -3641,7 +3641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">const </span>COST_DISABLED_VALIDATOR: Rep = Rep::CostMinor(<span class="string">&quot;Sent a statement from a disabled validator&quot;</span>);
 
 <span class="kw">const </span>COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Manifest, missing knowlege for relay parent&quot;</span>);
+	Rep::CostMinor(<span class="string">&quot;Unexpected Manifest, missing knowledge for relay parent&quot;</span>);
 <span class="kw">const </span>COST_UNEXPECTED_MANIFEST_DISALLOWED: Rep =
 	Rep::CostMinor(<span class="string">&quot;Unexpected Manifest, Peer Disallowed&quot;</span>);
 <span class="kw">const </span>COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN: Rep =
@@ -4157,8 +4157,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).<span class="kw">await</span><span class="question-mark">?</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>per_session_state =
 				PerSessionState::new(session_info, <span class="kw-2">&amp;</span>state.keystore, minimum_backing_votes);
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(toplogy) = state.unused_topologies.remove(<span class="kw-2">&amp;</span>session_index) {
-				per_session_state.supply_topology(<span class="kw-2">&amp;</span>toplogy.topology, toplogy.local_index);
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(topology) = state.unused_topologies.remove(<span class="kw-2">&amp;</span>session_index) {
+				per_session_state.supply_topology(<span class="kw-2">&amp;</span>topology.topology, topology.local_index);
 			}
 			state.per_session.insert(session_index, per_session_state);
 		}

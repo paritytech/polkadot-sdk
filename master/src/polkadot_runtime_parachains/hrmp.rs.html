@@ -2201,12 +2201,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			),
 			TotalSizeExceeded { idx, total_size, limit } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;sending the HRMP message at index {} would exceed the neogitiated channel total size  ({} &gt; {})&quot;</span>,
+				<span class="string">&quot;sending the HRMP message at index {} would exceed the negotiated channel total size  ({} &gt; {})&quot;</span>,
 				idx, total_size, limit,
 			),
 			CapacityExceeded { idx, count, limit } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;sending the HRMP message at index {} would exceed the neogitiated channel capacity  ({} &gt; {})&quot;</span>,
+				<span class="string">&quot;sending the HRMP message at index {} would exceed the negotiated channel capacity  ({} &gt; {})&quot;</span>,
 				idx, count, limit,
 			),
 		}
@@ -2762,7 +2762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							.ok_or(ArithmeticError::Underflow)<span class="question-mark">?</span>;
 						T::Currency::unreserve(
 							<span class="kw-2">&amp;</span>channel_id.sender.into_account_truncating(),
-							<span class="comment">// The difference should always be convertable into `Balance`, but be
+							<span class="comment">// The difference should always be convertible into `Balance`, but be
 							// paranoid and do nothing in case.
 							</span>amount.try_into().unwrap_or(Zero::zero()),
 						);

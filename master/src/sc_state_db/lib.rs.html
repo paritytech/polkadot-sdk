@@ -1968,7 +1968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>check_stored_and_requested_mode_compatibility(
 		mode_when_created: <span class="prelude-ty">Option</span>&lt;PruningMode&gt;,
 		mode_when_reopened: <span class="prelude-ty">Option</span>&lt;PruningMode&gt;,
-		expected_effective_mode_when_reopenned: <span class="prelude-ty">Result</span>&lt;PruningMode, ()&gt;,
+		expected_effective_mode_when_reopened: <span class="prelude-ty">Result</span>&lt;PruningMode, ()&gt;,
 	) {
 		<span class="kw">let </span><span class="kw-2">mut </span>db = make_db(<span class="kw-2">&amp;</span>[]);
 		<span class="kw">let </span>(state_db_init, state_db) =
@@ -1979,7 +1979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>state_db_reopen_result =
 			StateDb::&lt;H256, H256, TestDb&gt;::open(db.clone(), mode_when_reopened, <span class="bool-val">false</span>, <span class="bool-val">false</span>);
-		<span class="kw">if let </span><span class="prelude-val">Ok</span>(expected_mode) = expected_effective_mode_when_reopenned {
+		<span class="kw">if let </span><span class="prelude-val">Ok</span>(expected_mode) = expected_effective_mode_when_reopened {
 			<span class="kw">let </span>(state_db_init, state_db_reopened) = state_db_reopen_result.unwrap();
 			db.commit(<span class="kw-2">&amp;</span>state_db_init);
 			<span class="macro">assert_eq!</span>(state_db_reopened.pruning_mode(), expected_mode,)

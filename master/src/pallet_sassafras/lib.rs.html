@@ -1462,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Epoch X first N-th ticket has key (X mod 2, N)
 	///
 	/// Note that the ticket&#39;s index doesn&#39;t directly correspond to the slot index within the epoch.
-	/// The assigment is computed dynamically using an *outside-in* strategy.
+	/// The assignment is computed dynamically using an *outside-in* strategy.
 	///
 	/// Be aware that entries within this map are never removed, only overwritten.
 	/// Last element index should be fetched from the [`TicketsMeta`] value.
@@ -1693,7 +1693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Plan an epoch configuration change.
 		///
-		/// The epoch configuration change is recorded and will be announced at the begining
+		/// The epoch configuration change is recorded and will be announced at the beginning
 		/// of the next epoch together with next epoch authorities information.
 		/// In other words, the configuration will be enacted one epoch later.
 		///
@@ -1986,11 +1986,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>randomness = hashing::blake2_256(buf.as_slice());
 		RandomnessAccumulator::&lt;T&gt;::put(randomness);
 
-		<span class="kw">let </span>next_randoness = <span class="self">Self</span>::update_epoch_randomness(<span class="number">1</span>);
+		<span class="kw">let </span>next_randomness = <span class="self">Self</span>::update_epoch_randomness(<span class="number">1</span>);
 
 		<span class="comment">// Deposit a log as this is the first block in first epoch.
 		</span><span class="kw">let </span>next_epoch = NextEpochDescriptor {
-			randomness: next_randoness,
+			randomness: next_randomness,
 			authorities: <span class="self">Self</span>::next_authorities().into_inner(),
 			config: <span class="prelude-val">None</span>,
 		};

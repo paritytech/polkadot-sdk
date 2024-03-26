@@ -1370,7 +1370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>MessageFromNode(AuthorityDiscoveryId, VersionedValidationProtocol),
 	<span class="doccomment">/// A request originating from our node
 	</span>RequestFromNode(AuthorityDiscoveryId, Requests),
-	<span class="doccomment">/// A request originating from an emultated peer
+	<span class="doccomment">/// A request originating from an emulated peer
 	</span>RequestFromPeer(IncomingRequest),
 }
 
@@ -2006,9 +2006,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>connected_count = config.connected_count();
 
-	<span class="kw">let </span><span class="kw-2">mut </span>peers_indicies = (<span class="number">0</span>..n_peers).collect_vec();
+	<span class="kw">let </span><span class="kw-2">mut </span>peers_indices = (<span class="number">0</span>..n_peers).collect_vec();
 	<span class="kw">let </span>(_connected, to_disconnect) =
-		peers_indicies.partial_shuffle(<span class="kw-2">&amp;mut </span>thread_rng(), connected_count);
+		peers_indices.partial_shuffle(<span class="kw-2">&amp;mut </span>thread_rng(), connected_count);
 
 	<span class="comment">// Node under test is always mark as disconnected.
 	</span>peers[NODE_UNDER_TEST <span class="kw">as </span>usize].disconnect();
@@ -2174,7 +2174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.inc_by(bytes <span class="kw">as </span>u64);
 	}
 
-	<span class="doccomment">/// Increment total receioved for a peer.
+	<span class="doccomment">/// Increment total received for a peer.
 	</span><span class="kw">pub fn </span>on_peer_received(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_index: usize, bytes: usize) {
 		<span class="self">self</span>.peer_total_received
 			.with_label_values(<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">&quot;node{}&quot;</span>, peer_index).as_str()].as_slice())
@@ -2257,7 +2257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>test_expected_rate() {
 		<span class="kw">let </span>tick_rate = <span class="number">200</span>;
 		<span class="kw">let </span>budget = <span class="number">1_000_000</span>;
-		<span class="comment">// rate must not exceeed 100 credits per second
+		<span class="comment">// rate must not exceed 100 credits per second
 		</span><span class="kw">let </span><span class="kw-2">mut </span>rate_limiter = RateLimit::new(tick_rate, budget);
 		<span class="kw">let </span><span class="kw-2">mut </span>total_sent = <span class="number">0usize</span>;
 		<span class="kw">let </span>start = Instant::now();

@@ -1881,7 +1881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// because we don&#39;t want the `HttpApi` to have to drive the reading.
 		/// Instead, reading an item from the channel will notify the worker task, which will push
 		/// the next item.
-		/// Can also be used to send an error, in case an error happend on the HTTP socket. After
+		/// Can also be used to send an error, in case an error happened on the HTTP socket. After
 		/// an error is sent, the channel will close.
 		</span>body: mpsc::Receiver&lt;<span class="prelude-ty">Result</span>&lt;hyper::body::Bytes, hyper::Error&gt;&gt;,
 	},

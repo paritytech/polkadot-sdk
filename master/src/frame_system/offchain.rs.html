@@ -965,7 +965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! This module provides transaction related helpers to:
 //! - Submit a raw unsigned transaction
 //! - Submit an unsigned transaction with a signed payload
-//! - Submit a signed transction.
+//! - Submit a signed transaction.
 //!
 //! ## Usage
 //!
@@ -1327,7 +1327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// // runtime-specific public key
 /// type Public = MultiSigner: From&lt;sr25519::Public&gt;;
-/// type Signature = MulitSignature: From&lt;sr25519::Signature&gt;;
+/// type Signature = MultiSignature: From&lt;sr25519::Signature&gt;;
 /// ```
 </span><span class="comment">// TODO [#5662] Potentially use `IsWrappedBy` types, or find some other way to make it easy to
 // obtain unwrapped crypto (and wrap it back).
@@ -1387,7 +1387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A public key that is capable of identifying `AccountId`s.
 	///
 	/// Usually that&#39;s either a raw crypto public key (e.g. `sr25519::Public`) or
-	/// an aggregate type for multiple crypto public keys, like `MulitSigner`.
+	/// an aggregate type for multiple crypto public keys, like `MultiSigner`.
 	</span><span class="kw">type </span>Public: Clone
 		+ PartialEq
 		+ IdentifyAccount&lt;AccountId = <span class="self">Self</span>::AccountId&gt;

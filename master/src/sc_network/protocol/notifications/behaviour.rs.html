@@ -7915,7 +7915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// there is not straight-forward way of adding backoff to `PeerState::Disabled`
 		// so manually adjust the value in order to progress on to the next stage.
-		// This modification together with `ConnectionClosed` will conver the peer
+		// This modification together with `ConnectionClosed` will convert the peer
 		// state into `PeerState::Backoff`.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(PeerState::Disabled { <span class="kw-2">ref mut </span>backoff_until, .. }) =
 			notif.peers.get_mut(<span class="kw-2">&amp;</span>(peer, set_id))

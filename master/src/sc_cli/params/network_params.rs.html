@@ -775,7 +775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>sync_ingores_case() {
+	</span><span class="kw">fn </span>sync_ignores_case() {
 		<span class="kw">let </span>params = Cli::try_parse_from([<span class="string">&quot;&quot;</span>, <span class="string">&quot;--sync&quot;</span>, <span class="string">&quot;wArP&quot;</span>]).expect(<span class="string">&quot;Parses network params&quot;</span>);
 
 		<span class="macro">assert_eq!</span>(SyncMode::Warp, params.network_params.sync);

@@ -1223,7 +1223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Scenario:
 	/// The relay-chain transfers an NFT into a parachain&#39;s sovereign account, who then mints a
-	/// trustless-backed-derivated locally.
+	/// trustless-backed-derived locally.
 	///
 	/// Asserts that the parachain accounts are updated as expected.
 	</span><span class="attr">#[test]
@@ -1278,7 +1278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_ok!</span>(ParachainPalletXcm::send_xcm(alice, Parent, message));
 		});
 		ParaA::execute_with(|| {
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;xcm-exceutor&quot;</span>, <span class="string">&quot;Hello&quot;</span>);
+			<span class="macro">log::debug!</span>(target: <span class="string">&quot;xcm-executor&quot;</span>, <span class="string">&quot;Hello&quot;</span>);
 			<span class="macro">assert_eq!</span>(
 				parachain::ForeignUniques::owner((Parent, GeneralIndex(<span class="number">2</span>)).into(), <span class="number">69u32</span>.into()),
 				<span class="prelude-val">Some</span>(ALICE),

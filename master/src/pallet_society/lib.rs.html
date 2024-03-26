@@ -3691,7 +3691,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// the Founder.
 		</span><span class="kw">if </span>MemberCount::&lt;T, I&gt;::get() &gt; <span class="number">2 </span>{
 			<span class="kw">let </span>defender = next_defender
-				.or_else(|| <span class="self">Self</span>::pick_defendent(rng))
+				.or_else(|| <span class="self">Self</span>::pick_defendant(rng))
 				.expect(<span class="string">&quot;exited if members empty; qed&quot;</span>);
 			<span class="kw">let </span>skeptic =
 				<span class="self">Self</span>::pick_member_except(rng, <span class="kw-2">&amp;</span>defender).expect(<span class="string">&quot;exited if members empty; qed&quot;</span>);
@@ -4053,7 +4053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// If only the Founder and Head members exist (or the state is inconsistent), then `None`
 	/// may be returned.
-	</span><span class="kw">fn </span>pick_defendent(rng: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>RngCore) -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; {
+	</span><span class="kw">fn </span>pick_defendant(rng: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>RngCore) -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; {
 		<span class="kw">let </span>member_count = MemberCount::&lt;T, I&gt;::get();
 		<span class="kw">if </span>member_count &lt;= <span class="number">2 </span>{
 			<span class="kw">return </span><span class="prelude-val">None
@@ -4158,7 +4158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Transfer some `amount` from the main account into the payouts account and reduce the Pot
 	/// by this amount.
 	</span><span class="kw">fn </span>reserve_payout(amount: BalanceOf&lt;T, I&gt;) {
-		<span class="comment">// Tramsfer payout from the Pot into the payouts account.
+		<span class="comment">// Transfer payout from the Pot into the payouts account.
 		</span>Pot::&lt;T, I&gt;::mutate(|pot| pot.saturating_reduce(amount));
 
 		<span class="comment">// this should never fail since we ensure we can afford the payouts in a previous
@@ -4170,7 +4170,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Transfer some `amount` from the main account into the payouts account and increase the Pot
 	/// by this amount.
 	</span><span class="kw">fn </span>unreserve_payout(amount: BalanceOf&lt;T, I&gt;) {
-		<span class="comment">// Tramsfer payout from the Pot into the payouts account.
+		<span class="comment">// Transfer payout from the Pot into the payouts account.
 		</span>Pot::&lt;T, I&gt;::mutate(|pot| pot.saturating_accrue(amount));
 
 		<span class="comment">// this should never fail since we ensure we can afford the payouts in a previous

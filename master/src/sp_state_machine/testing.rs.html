@@ -1080,7 +1080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			original_ext.backend.clone().into_storage(),
 		);
 
-		<span class="comment">// Ensure all have the correct ref counrt
+		<span class="comment">// Ensure all have the correct ref count
 		</span><span class="macro">assert!</span>(original_ext.backend.backend_storage().keys().values().all(|r| <span class="kw-2">*</span>r == <span class="number">2</span>));
 
 		<span class="comment">// Drain the raw storage and root.

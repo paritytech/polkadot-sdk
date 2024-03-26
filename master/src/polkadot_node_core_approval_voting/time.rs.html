@@ -538,13 +538,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// no additional timer is started.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>maybe_arm_timer(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		wait_untill: Tick,
+		wait_until: Tick,
 		clock: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Clock,
 		block_hash: Hash,
 		validator_index: ValidatorIndex,
 	) {
 		<span class="kw">if </span><span class="self">self</span>.blocks.insert(block_hash) {
-			<span class="kw">let </span>clock_wait = clock.wait(wait_untill);
+			<span class="kw">let </span>clock_wait = clock.wait(wait_until);
 			<span class="self">self</span>.timers.push(Box::pin(<span class="kw">async move </span>{
 				clock_wait.<span class="kw">await</span>;
 				(block_hash, validator_index)

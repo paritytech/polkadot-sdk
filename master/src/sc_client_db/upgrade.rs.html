@@ -482,7 +482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">write!</span>(f, <span class="string">&quot;Database version comes from future version of the client: {}&quot;</span>, version)
 			},
 			UpgradeError::DecodingJustificationBlock =&gt; {
-				<span class="macro">write!</span>(f, <span class="string">&quot;Decodoning justification block failed&quot;</span>)
+				<span class="macro">write!</span>(f, <span class="string">&quot;Decoding justification block failed&quot;</span>)
 			},
 			UpgradeError::Io(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Io error: {}&quot;</span>, err),
 		}

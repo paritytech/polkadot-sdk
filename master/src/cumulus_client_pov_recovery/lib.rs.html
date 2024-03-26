@@ -827,7 +827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! A parachain needs to build PoVs that are send to the relay chain to progress. These PoVs are
 //! erasure encoded and one piece of it is stored by each relay chain validator. As the relay chain
-//! decides on which PoV per parachain to include and thus, to progess the parachain it can happen
+//! decides on which PoV per parachain to include and thus, to progress the parachain it can happen
 //! that the block corresponding to this PoV isn&#39;t propagated in the parachain network. This can
 //! have several reasons, either a malicious collator that managed to include its own PoV and
 //! doesn&#39;t want to share it with the rest of the network or maybe a collator went down before it
@@ -1147,8 +1147,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>blocks_to_delete = <span class="macro">vec!</span>[hash];
 
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(delete) = blocks_to_delete.pop() {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(childs) = <span class="self">self</span>.waiting_for_parent.remove(<span class="kw-2">&amp;</span>delete) {
-				blocks_to_delete.extend(childs.iter().map(BlockT::hash));
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(children) = <span class="self">self</span>.waiting_for_parent.remove(<span class="kw-2">&amp;</span>delete) {
+				blocks_to_delete.extend(children.iter().map(BlockT::hash));
 			}
 		}
 		<span class="self">self</span>.clear_waiting_recovery(<span class="kw-2">&amp;</span>hash);
@@ -1257,7 +1257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Import the given `block`.
 	///
-	/// This will also recursivley drain `waiting_for_parent` and import them as well.
+	/// This will also recursively drain `waiting_for_parent` and import them as well.
 	</span><span class="kw">fn </span>import_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: Block) {
 		<span class="kw">let </span><span class="kw-2">mut </span>blocks = VecDeque::new();
 
@@ -1304,7 +1304,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">tracing::debug!</span>(
 						target: LOG_TARGET,
 						block_hash = <span class="question-mark">?</span>hash,
-						<span class="string">&quot;Cound not recover. Block was never announced as candidate&quot;
+						<span class="string">&quot;Could not recover. Block was never announced as candidate&quot;
 					</span>);
 					<span class="kw">return
 				</span>},

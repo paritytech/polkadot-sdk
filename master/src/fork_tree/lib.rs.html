@@ -2439,7 +2439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			node.data
 		});
 
-		<span class="comment">// Retain only roots that are descendents of the finalized block (this
+		<span class="comment">// Retain only roots that are descendants of the finalized block (this
 		// happens if the node has been properly finalized) or that are
 		// ancestors (or equal) to the finalized block (in this case the node
 		// wasn&#39;t finalized earlier presumably because the predicate didn&#39;t
@@ -2924,7 +2924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="bool-val">false</span>)),
 		);
 
-		<span class="comment">// finalizing &quot;E&quot; is not allowed since there are not finalized anchestors.
+		<span class="comment">// finalizing &quot;E&quot; is not allowed since there are not finalized ancestors.
 		</span><span class="macro">assert_eq!</span>(
 			tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;E&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective ==
 				<span class="number">10</span>),
@@ -3065,7 +3065,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>map_works() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>tree, <span class="kw">_</span>) = test_fork_tree();
 
-		<span class="comment">// Extend the single root fork-tree to also excercise the roots order during map.
+		<span class="comment">// Extend the single root fork-tree to also exercise the roots order during map.
 		</span><span class="kw">let </span>is_descendent_of = |<span class="kw">_</span>: &amp;&amp;str, <span class="kw">_</span>: &amp;&amp;str| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; { <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) };
 		<span class="kw">let </span>is_root = tree.import(<span class="string">&quot;A1&quot;</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 		<span class="macro">assert!</span>(is_root);

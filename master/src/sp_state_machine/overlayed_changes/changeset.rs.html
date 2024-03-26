@@ -1047,7 +1047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[cfg_attr(test, derive(PartialEq))]
 </span><span class="kw">pub struct </span>AlreadyInRuntime;
 
-<span class="doccomment">/// Error when calling `exit_runtime` when not being in runtime exection mdde.
+<span class="doccomment">/// Error when calling `exit_runtime` when not being in runtime execution mode.
 </span><span class="attr">#[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 </span><span class="kw">pub struct </span>NotInRuntime;
@@ -1269,7 +1269,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Panics:
 	/// Panics if there are open transactions: `transaction_depth() &gt; 0`
-	</span><span class="kw">pub fn </span>drain_commited(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (K, V)&gt; {
+	</span><span class="kw">pub fn </span>drain_committed(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (K, V)&gt; {
 		<span class="macro">assert!</span>(<span class="self">self</span>.transaction_depth() == <span class="number">0</span>, <span class="string">&quot;Drain is not allowed with open transactions.&quot;</span>);
 		<span class="self">self</span>.changes.into_iter().map(|(k, <span class="kw-2">mut </span>v)| (k, v.pop_transaction().value))
 	}
@@ -1281,7 +1281,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.dirty_keys.len()
 	}
 
-	<span class="doccomment">/// Call this before transfering control to the runtime.
+	<span class="doccomment">/// Call this before transferring control to the runtime.
 	///
 	/// This protects all existing transactions from being removed by the runtime.
 	/// Calling this while already inside the runtime will return an error.
@@ -1471,7 +1471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>assert_drained_changes(is: OverlayedChangeSet, expected: Changes) {
-		<span class="kw">let </span>is = is.drain_commited().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>is = is.drain_committed().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>expected = expected
 			.iter()
 			.map(|(k, v)| (k.to_vec(), v.<span class="number">0</span>.map(From::from)))
@@ -1480,7 +1480,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>assert_drained(is: OverlayedChangeSet, expected: Drained) {
-		<span class="kw">let </span>is = is.drain_commited().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>is = is.drain_committed().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>expected = expected
 			.iter()
 			.map(|(k, v)| (k.to_vec(), v.map(From::from)))
@@ -1526,7 +1526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0-rolled&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1000</span>));
 		changeset.set(<span class="string">b&quot;key5&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val5-rolled&quot;</span>.to_vec()), <span class="prelude-val">None</span>);
 
-		<span class="comment">// changes contain all changes not only the commmited ones.
+		<span class="comment">// changes contain all changes not only the committed ones.
 		</span><span class="kw">let </span>all_changes: Changes = <span class="macro">vec!</span>[
 			(<span class="string">b&quot;key0&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val0-rolled&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">10</span>, <span class="number">1000</span>])),
 			(<span class="string">b&quot;key1&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
@@ -1807,7 +1807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>drain_with_open_transaction_panics() {
 		<span class="kw">let </span><span class="kw-2">mut </span>changeset = OverlayedChangeSet::default();
 		changeset.start_transaction();
-		<span class="kw">let _ </span>= changeset.drain_commited();
+		<span class="kw">let _ </span>= changeset.drain_committed();
 	}
 
 	<span class="attr">#[test]

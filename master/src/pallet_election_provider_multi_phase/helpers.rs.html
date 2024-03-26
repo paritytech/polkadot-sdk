@@ -526,7 +526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Create a function that can map a voter index ([`SolutionVoterIndexOf`]) to the actual voter
-/// account using a linearly indexible snapshot.
+/// account using a linearly indexable snapshot.
 </span><span class="kw">pub fn </span>voter_at_fn&lt;T: MinerConfig&gt;(
 	snapshot: <span class="kw-2">&amp;</span>Vec&lt;MinerVoterOf&lt;T&gt;&gt;,
 ) -&gt; <span class="kw">impl </span>Fn(SolutionVoterIndexOf&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; + <span class="lifetime">&#39;_ </span>{
@@ -538,7 +538,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Create a function that can map a target index ([`SolutionTargetIndexOf`]) to the actual target
-/// account using a linearly indexible snapshot.
+/// account using a linearly indexable snapshot.
 </span><span class="kw">pub fn </span>target_at_fn&lt;T: MinerConfig&gt;(
 	snapshot: <span class="kw-2">&amp;</span>Vec&lt;T::AccountId&gt;,
 ) -&gt; <span class="kw">impl </span>Fn(SolutionTargetIndexOf&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; + <span class="lifetime">&#39;_ </span>{

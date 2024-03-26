@@ -724,7 +724,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	DeliveredMessages, InboundLaneData, LaneId, MessageKey, MessageNonce, OutboundLaneData,
-	ReceivalResult, UnrewardedRelayer,
+	ReceptionResult, UnrewardedRelayer,
 };
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 <span class="kw">use </span>frame_support::traits::Get;
@@ -873,21 +873,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relayer_at_bridged_chain: <span class="kw-2">&amp;</span>S::Relayer,
 		nonce: MessageNonce,
 		message_data: DispatchMessageData&lt;Dispatch::DispatchPayload&gt;,
-	) -&gt; ReceivalResult&lt;Dispatch::DispatchLevelResult&gt; {
+	) -&gt; ReceptionResult&lt;Dispatch::DispatchLevelResult&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="self">self</span>.storage.get_or_init_data();
 		<span class="kw">if </span><span class="prelude-val">Some</span>(nonce) != data.last_delivered_nonce().checked_add(<span class="number">1</span>) {
-			<span class="kw">return </span>ReceivalResult::InvalidNonce
+			<span class="kw">return </span>ReceptionResult::InvalidNonce
 		}
 
 		<span class="comment">// if there are more unrewarded relayer entries than we may accept, reject this message
 		</span><span class="kw">if </span>data.relayers.len() <span class="kw">as </span>MessageNonce &gt;= <span class="self">self</span>.storage.max_unrewarded_relayer_entries() {
-			<span class="kw">return </span>ReceivalResult::TooManyUnrewardedRelayers
+			<span class="kw">return </span>ReceptionResult::TooManyUnrewardedRelayers
 		}
 
 		<span class="comment">// if there are more unconfirmed messages than we may accept, reject this message
 		</span><span class="kw">let </span>unconfirmed_messages_count = nonce.saturating_sub(data.last_confirmed_nonce);
 		<span class="kw">if </span>unconfirmed_messages_count &gt; <span class="self">self</span>.storage.max_unconfirmed_messages() {
-			<span class="kw">return </span>ReceivalResult::TooManyUnconfirmedMessages
+			<span class="kw">return </span>ReceptionResult::TooManyUnconfirmedMessages
 		}
 
 		<span class="comment">// then, dispatch message
@@ -910,7 +910,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 		<span class="self">self</span>.storage.set_data(data);
 
-		ReceivalResult::Dispatched(dispatch_result)
+		ReceptionResult::Dispatched(dispatch_result)
 	}
 }
 
@@ -938,7 +938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				nonce,
 				inbound_message_data(REGULAR_PAYLOAD)
 			),
-			ReceivalResult::Dispatched(dispatch_result(<span class="number">0</span>))
+			ReceptionResult::Dispatched(dispatch_result(<span class="number">0</span>))
 		);
 	}
 
@@ -1065,7 +1065,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="number">10</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::InvalidNonce
+				ReceptionResult::InvalidNonce
 			);
 			<span class="macro">assert_eq!</span>(lane.storage.get_or_init_data().last_delivered_nonce(), <span class="number">0</span>);
 		});
@@ -1084,7 +1084,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						current_nonce,
 						inbound_message_data(REGULAR_PAYLOAD)
 					),
-					ReceivalResult::Dispatched(dispatch_result(<span class="number">0</span>))
+					ReceptionResult::Dispatched(dispatch_result(<span class="number">0</span>))
 				);
 			}
 			<span class="comment">// Fails to dispatch new message from different than latest relayer.
@@ -1094,7 +1094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					max_nonce + <span class="number">1</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::TooManyUnrewardedRelayers,
+				ReceptionResult::TooManyUnrewardedRelayers,
 			);
 			<span class="comment">// Fails to dispatch new messages from latest relayer. Prevents griefing attacks.
 			</span><span class="macro">assert_eq!</span>(
@@ -1103,7 +1103,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					max_nonce + <span class="number">1</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::TooManyUnrewardedRelayers,
+				ReceptionResult::TooManyUnrewardedRelayers,
 			);
 		});
 	}
@@ -1120,7 +1120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						current_nonce,
 						inbound_message_data(REGULAR_PAYLOAD)
 					),
-					ReceivalResult::Dispatched(dispatch_result(<span class="number">0</span>))
+					ReceptionResult::Dispatched(dispatch_result(<span class="number">0</span>))
 				);
 			}
 			<span class="comment">// Fails to dispatch new message from different than latest relayer.
@@ -1130,7 +1130,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					max_nonce + <span class="number">1</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::TooManyUnconfirmedMessages,
+				ReceptionResult::TooManyUnconfirmedMessages,
 			);
 			<span class="comment">// Fails to dispatch new messages from latest relayer.
 			</span><span class="macro">assert_eq!</span>(
@@ -1139,7 +1139,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					max_nonce + <span class="number">1</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::TooManyUnconfirmedMessages,
+				ReceptionResult::TooManyUnconfirmedMessages,
 			);
 		});
 	}
@@ -1154,7 +1154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="number">1</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::Dispatched(dispatch_result(<span class="number">0</span>))
+				ReceptionResult::Dispatched(dispatch_result(<span class="number">0</span>))
 			);
 			<span class="macro">assert_eq!</span>(
 				lane.receive_message::&lt;TestMessageDispatch&gt;(
@@ -1162,7 +1162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="number">2</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::Dispatched(dispatch_result(<span class="number">0</span>))
+				ReceptionResult::Dispatched(dispatch_result(<span class="number">0</span>))
 			);
 			<span class="macro">assert_eq!</span>(
 				lane.receive_message::&lt;TestMessageDispatch&gt;(
@@ -1170,7 +1170,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="number">3</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::Dispatched(dispatch_result(<span class="number">0</span>))
+				ReceptionResult::Dispatched(dispatch_result(<span class="number">0</span>))
 			);
 			<span class="macro">assert_eq!</span>(
 				lane.storage.get_or_init_data().relayers,
@@ -1193,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="number">1</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::Dispatched(dispatch_result(<span class="number">0</span>))
+				ReceptionResult::Dispatched(dispatch_result(<span class="number">0</span>))
 			);
 			<span class="macro">assert_eq!</span>(
 				lane.receive_message::&lt;TestMessageDispatch&gt;(
@@ -1201,7 +1201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="number">1</span>,
 					inbound_message_data(REGULAR_PAYLOAD)
 				),
-				ReceivalResult::InvalidNonce,
+				ReceptionResult::InvalidNonce,
 			);
 		});
 	}
@@ -1227,7 +1227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="number">1</span>,
 					inbound_message_data(payload)
 				),
-				ReceivalResult::Dispatched(dispatch_result(<span class="number">1</span>))
+				ReceptionResult::Dispatched(dispatch_result(<span class="number">1</span>))
 			);
 		});
 	}

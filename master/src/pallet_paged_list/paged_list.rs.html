@@ -916,7 +916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>values = sp_io::storage::get(<span class="kw-2">&amp;</span>key)
 			.and_then(|raw| sp_std::vec::Vec::&lt;V&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>raw[..]).ok())<span class="question-mark">?</span>;
 		<span class="kw">if </span>values.is_empty() {
-			<span class="comment">// Dont create empty pages.
+			<span class="comment">// Don&#39;t create empty pages.
 			</span><span class="kw">return </span><span class="prelude-val">None
 		</span>}
 		<span class="kw">let </span>values = values.into_iter().skip(value_index <span class="kw">as </span>usize);

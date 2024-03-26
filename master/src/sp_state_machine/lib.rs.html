@@ -3562,7 +3562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">enum </span>Item {
 			InitializationItem,
 			DiscardedItem,
-			CommitedItem,
+			CommittedItem,
 		}
 
 		<span class="kw">let </span>key = <span class="string">b&quot;events&quot;</span>.to_vec();
@@ -3599,21 +3599,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_eq!</span>(ext.storage(key.as_slice()), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[Item::InitializationItem].encode()));
 
-			ext.storage_append(key.clone(), Item::CommitedItem.encode());
+			ext.storage_append(key.clone(), Item::CommittedItem.encode());
 
 			<span class="macro">assert_eq!</span>(
 				ext.storage(key.as_slice()),
-				<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[Item::InitializationItem, Item::CommitedItem].encode()),
+				<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[Item::InitializationItem, Item::CommittedItem].encode()),
 			);
 		}
 		overlay.start_transaction();
 
-		<span class="comment">// Then only initlaization item and second (committed) item should persist.
+		<span class="comment">// Then only initialization item and second (committed) item should persist.
 		</span>{
 			<span class="kw">let </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, backend, <span class="prelude-val">None</span>);
 			<span class="macro">assert_eq!</span>(
 				ext.storage(key.as_slice()),
-				<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[Item::InitializationItem, Item::CommitedItem].encode()),
+				<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[Item::InitializationItem, Item::CommittedItem].encode()),
 			);
 		}
 	}
@@ -3977,7 +3977,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// a inner hashable node
 						</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;k&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>long_vec[..])),
 						<span class="comment">// need to ensure this is not an inline node
-						// otherwhise we do not know what is accessed when
+						// otherwise we do not know what is accessed when
 						// storing proof.
 						</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;key1&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">32</span>][..])),
 						(<span class="kw-2">&amp;</span><span class="string">b&quot;key2&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val3&quot;</span>[..])),

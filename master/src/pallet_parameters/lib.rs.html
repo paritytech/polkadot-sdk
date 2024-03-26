@@ -539,7 +539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>frame_support::traits::{
-	dynamic_params::{AggregratedKeyValue, IntoKey, Key, RuntimeParameterStore, TryIntoKey},
+	dynamic_params::{AggregatedKeyValue, IntoKey, Key, RuntimeParameterStore, TryIntoKey},
 	EnsureOriginWithArg,
 };
 
@@ -552,10 +552,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="doccomment">/// The key type of a parameter.
-</span><span class="kw">type </span>KeyOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeParameters <span class="kw">as </span>AggregratedKeyValue&gt;::Key;
+</span><span class="kw">type </span>KeyOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeParameters <span class="kw">as </span>AggregatedKeyValue&gt;::Key;
 
 <span class="doccomment">/// The value type of a parameter.
-</span><span class="kw">type </span>ValueOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeParameters <span class="kw">as </span>AggregratedKeyValue&gt;::Value;
+</span><span class="kw">type </span>ValueOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeParameters <span class="kw">as </span>AggregatedKeyValue&gt;::Value;
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
@@ -571,7 +571,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// Usually created by [`frame_support::dynamic_params`] or equivalent.
 		</span><span class="attr">#[pallet::no_default_bounds]
-		</span><span class="kw">type </span>RuntimeParameters: AggregratedKeyValue;
+		</span><span class="kw">type </span>RuntimeParameters: AggregatedKeyValue;
 
 		<span class="doccomment">/// The origin which may update a parameter.
 		///
@@ -592,11 +592,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Is also emitted when the value was not changed.
 		</span>Updated {
 			<span class="doccomment">/// The key that was updated.
-			</span>key: &lt;T::RuntimeParameters <span class="kw">as </span>AggregratedKeyValue&gt;::Key,
+			</span>key: &lt;T::RuntimeParameters <span class="kw">as </span>AggregatedKeyValue&gt;::Key,
 			<span class="doccomment">/// The old value before this call.
-			</span>old_value: <span class="prelude-ty">Option</span>&lt;&lt;T::RuntimeParameters <span class="kw">as </span>AggregratedKeyValue&gt;::Value&gt;,
+			</span>old_value: <span class="prelude-ty">Option</span>&lt;&lt;T::RuntimeParameters <span class="kw">as </span>AggregatedKeyValue&gt;::Value&gt;,
 			<span class="doccomment">/// The new value after this call.
-			</span>new_value: <span class="prelude-ty">Option</span>&lt;&lt;T::RuntimeParameters <span class="kw">as </span>AggregratedKeyValue&gt;::Value&gt;,
+			</span>new_value: <span class="prelude-ty">Option</span>&lt;&lt;T::RuntimeParameters <span class="kw">as </span>AggregatedKeyValue&gt;::Value&gt;,
 		},
 	}
 
@@ -662,23 +662,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; RuntimeParameterStore <span class="kw">for </span>Pallet&lt;T&gt; {
-	<span class="kw">type </span>AggregratedKeyValue = T::RuntimeParameters;
+	<span class="kw">type </span>AggregatedKeyValue = T::RuntimeParameters;
 
 	<span class="kw">fn </span>get&lt;KV, K&gt;(key: K) -&gt; <span class="prelude-ty">Option</span>&lt;K::Value&gt;
 	<span class="kw">where
-		</span>KV: AggregratedKeyValue,
-		K: Key + Into&lt;&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Key&gt;,
-		&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Key: IntoKey&lt;
-			&lt;&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeParameterStore&gt;::AggregratedKeyValue <span class="kw">as </span>AggregratedKeyValue&gt;::Key,
+		</span>KV: AggregatedKeyValue,
+		K: Key + Into&lt;&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Key&gt;,
+		&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Key: IntoKey&lt;
+			&lt;&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeParameterStore&gt;::AggregatedKeyValue <span class="kw">as </span>AggregatedKeyValue&gt;::Key,
 		&gt;,
-		&lt;&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeParameterStore&gt;::AggregratedKeyValue <span class="kw">as </span>AggregratedKeyValue&gt;::Value:
-			TryIntoKey&lt;&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Value&gt;,
-		&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Value: TryInto&lt;K::WrappedValue&gt;,
+		&lt;&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeParameterStore&gt;::AggregatedKeyValue <span class="kw">as </span>AggregatedKeyValue&gt;::Value:
+			TryIntoKey&lt;&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Value&gt;,
+		&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Value: TryInto&lt;K::WrappedValue&gt;,
 	{
-		<span class="kw">let </span>key: &lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Key = key.into();
+		<span class="kw">let </span>key: &lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Key = key.into();
 		<span class="kw">let </span>val = Parameters::&lt;T&gt;::get(key.into_key());
 		val.and_then(|v| {
-			<span class="kw">let </span>val: &lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Value = v.try_into_key().ok()<span class="question-mark">?</span>;
+			<span class="kw">let </span>val: &lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Value = v.try_into_key().ok()<span class="question-mark">?</span>;
 			<span class="kw">let </span>val: K::WrappedValue = val.try_into().ok()<span class="question-mark">?</span>;
 			<span class="kw">let </span>val = val.into();
 			<span class="prelude-val">Some</span>(val)

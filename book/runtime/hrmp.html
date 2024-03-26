@@ -208,7 +208,7 @@ struct HrmpChannel {
 HrmpOpenChannelRequests: map HrmpChannelId =&gt; Option&lt;HrmpOpenChannelRequest&gt;;
 HrmpOpenChannelRequestsList: Vec&lt;HrmpChannelId&gt;;
 
-/// This mapping tracks how many open channel requests are inititated by a given sender para.
+/// This mapping tracks how many open channel requests are initiated by a given sender para.
 /// Invariant: `HrmpOpenChannelRequests` should contain the same number of items that has `(X, _)`
 /// as the number of `HrmpOpenChannelRequestCount` for `X`.
 HrmpOpenChannelRequestCount: map ParaId =&gt; u32;
@@ -430,7 +430,7 @@ than zero.</li>
 <li>The DM is sent using <code>queue_downward_message</code>.</li>
 <li>The DM is represented by the <code>HrmpChannelClosing</code> XCM message with:
 <ul>
-<li><code>initator</code> is set to <code>origin</code>,</li>
+<li><code>initiator</code> is set to <code>origin</code>,</li>
 <li><code>sender</code> is set to <code>ch.sender</code>,</li>
 <li><code>recipient</code> is set to <code>ch.recipient</code>.</li>
 </ul>
@@ -501,7 +501,7 @@ found in the configuration <code>config.hrmp_recipient_deposit</code>.</li>
 <li>Remove <code>recipient</code> from the set <code>HrmpEgressChannelsIndex</code> for <code>sender</code>.</li>
 <li>Remove <code>sender</code> from the set <code>HrmpIngressChannelsIndex</code> for <code>recipient</code>.</li>
 </ol>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

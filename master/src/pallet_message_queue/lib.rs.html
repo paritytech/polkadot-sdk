@@ -3250,7 +3250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Run a closure that errors on re-entrance. Meant to be used by anything that services queues.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>with_service_mutex&lt;F: FnOnce() -&gt; R, R&gt;(f: F) -&gt; <span class="prelude-ty">Result</span>&lt;R, ()&gt; {
-	<span class="comment">// Holds the singelton token instance.
+	<span class="comment">// Holds the singleton token instance.
 	</span><span class="macro">environmental::environmental!</span>(token: <span class="prelude-ty">Option</span>&lt;()&gt;);
 
 	token::using_once(<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(()), || {

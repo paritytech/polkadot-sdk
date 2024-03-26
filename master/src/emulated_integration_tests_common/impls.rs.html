@@ -1180,7 +1180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.expect(<span class="string">&quot;Bridge message does not exist&quot;</span>)
 					.into();
 				<span class="kw">let </span>payload = Vec::&lt;u8&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded_payload[..])
-					.expect(<span class="string">&quot;Decodign XCM message failed&quot;</span>);
+					.expect(<span class="string">&quot;Decoding XCM message failed&quot;</span>);
 				<span class="kw">let </span>id: u32 = LaneIdWrapper(<span class="kw-2">*</span>lane).into();
 				<span class="kw">let </span>message = BridgeMessage { id, nonce, payload };
 
@@ -1331,7 +1331,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
 						<span class="macro-nonterminal">Self</span>,
 						<span class="macro">vec!</span>[
-							<span class="comment">// XCM is successfully received and proccessed
+							<span class="comment">// XCM is successfully received and processed
 							</span>[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::MessageQueue(<span class="macro-nonterminal">$crate::impls::pallet_message_queue::Event::Processed </span>{
 								origin: <span class="macro-nonterminal">$crate::impls::AggregateMessageOrigin::Ump</span>(<span class="macro-nonterminal">$crate::impls::UmpQueueId::Para</span>(id)),
 								weight_used,
@@ -1409,7 +1409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							&lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::Runtime,
 						&gt;::contains_key(<span class="kw-2">&amp;</span>channel_id);
 
-						<span class="comment">// Check the HRMP channel has been successfully registrered
+						<span class="comment">// Check the HRMP channel has been successfully registered
 						</span><span class="macro">assert!</span>(hrmp_channel_exist)
 					});
 				}

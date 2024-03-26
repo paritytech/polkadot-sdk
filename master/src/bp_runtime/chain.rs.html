@@ -665,7 +665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">const </span>ID: ChainId;
 
 	<span class="doccomment">/// A type that fulfills the abstract idea of what a Substrate block number is.
-	</span><span class="comment">// Constraits come from the associated Number type of `sp_runtime::traits::Header`
+	</span><span class="comment">// Constraints come from the associated Number type of `sp_runtime::traits::Header`
 	// See here for more info:
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Number
 	//
@@ -686,7 +686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ MaxEncodedLen;
 
 	<span class="doccomment">/// A type that fulfills the abstract idea of what a Substrate hash is.
-	</span><span class="comment">// Constraits come from the associated Hash type of `sp_runtime::traits::Header`
+	</span><span class="comment">// Constraints come from the associated Hash type of `sp_runtime::traits::Header`
 	// See here for more info:
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Hash
 	</span><span class="kw">type </span>Hash: Parameter
@@ -704,7 +704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// A type that fulfills the abstract idea of what a Substrate hasher (a type
 	/// that produces hashes) is.
-	</span><span class="comment">// Constraits come from the associated Hashing type of `sp_runtime::traits::Header`
+	</span><span class="comment">// Constraints come from the associated Hashing type of `sp_runtime::traits::Header`
 	// See here for more info:
 	// https://crates.parity.io/sp_runtime/traits/trait.Header.html#associatedtype.Hashing
 	</span><span class="kw">type </span>Hasher: HashT&lt;Output = <span class="self">Self</span>::Hash&gt;;

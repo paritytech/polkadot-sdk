@@ -574,7 +574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="doccomment">/// Valid candidate votes.
 ///
-/// Prefere backing votes over other votes.
+/// Prefer backing votes over other votes.
 </span><span class="kw">pub struct </span>ValidCandidateVotes {
 	votes: BTreeMap&lt;ValidatorIndex, (ValidDisputeStatementKind, ValidatorSignature)&gt;,
 }
@@ -623,7 +623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.votes.retain(f)
 	}
 
-	<span class="doccomment">/// Get all the validator indeces we have votes for.
+	<span class="doccomment">/// Get all the validator indices we have votes for.
 	</span><span class="kw">pub fn </span>keys(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 	) -&gt; Bkeys&lt;<span class="lifetime">&#39;_</span>, ValidatorIndex, (ValidDisputeStatementKind, ValidatorSignature)&gt; {

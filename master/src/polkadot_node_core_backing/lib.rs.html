@@ -2723,7 +2723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Cache the per-session Validator-&gt;Group mapping.
 	</span>validator_to_group_cache:
 		LruMap&lt;SessionIndex, Arc&lt;IndexedVec&lt;ValidatorIndex, <span class="prelude-ty">Option</span>&lt;GroupIndex&gt;&gt;&gt;&gt;,
-	<span class="doccomment">/// A cloneable sender which is dispatched to background candidate validation tasks to inform
+	<span class="doccomment">/// A clonable sender which is dispatched to background candidate validation tasks to inform
 	/// the main task of the result.
 	</span>background_validation_tx: mpsc::Sender&lt;(Hash, ValidatedCandidateCommand)&gt;,
 	<span class="doccomment">/// The handle to the keystore used for signing.

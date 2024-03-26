@@ -742,7 +742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub fn </span>from_original&lt;T: Config&lt;I&gt;, I: Instance + <span class="lifetime">&#39;static</span>&gt;(
 	past_payouts: <span class="kw-2">&amp;mut </span>[(&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;)],
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-	<span class="comment">// Migrate Bids from old::Bids (just a trunctation).
+	<span class="comment">// Migrate Bids from old::Bids (just a truncation).
 	</span>Bids::&lt;T, I&gt;::put(BoundedVec::&lt;<span class="kw">_</span>, T::MaxBids&gt;::truncate_from(v0::Bids::&lt;T, I&gt;::take()));
 
 	<span class="comment">// Initialise round counter.
@@ -789,13 +789,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.defensive_ok_or(<span class="string">&quot;member_count &gt; 0, we must have at least 1 member&quot;</span>)<span class="question-mark">?</span>;
 			<span class="comment">// Swap the founder with the first member in MemberByIndex.
 			</span>MemberByIndex::&lt;T, I&gt;::swap(<span class="number">0</span>, member_count);
-			<span class="comment">// Update the indicies of the swapped member MemberRecords.
+			<span class="comment">// Update the indices of the swapped member MemberRecords.
 			</span>Members::&lt;T, I&gt;::mutate(<span class="kw-2">&amp;</span>member, |m| {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(member) = m {
 					member.index = <span class="number">0</span>;
 				} <span class="kw">else </span>{
 					<span class="macro">frame_support::defensive!</span>(
-						<span class="string">&quot;Member somehow disapeared from storage after it was inserted&quot;
+						<span class="string">&quot;Member somehow disappeared from storage after it was inserted&quot;
 					</span>);
 				}
 			});
@@ -804,7 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					member.index = member_count;
 				} <span class="kw">else </span>{
 					<span class="macro">frame_support::defensive!</span>(
-						<span class="string">&quot;Member somehow disapeared from storage after it was queried&quot;
+						<span class="string">&quot;Member somehow disappeared from storage after it was queried&quot;
 					</span>);
 				}
 			});

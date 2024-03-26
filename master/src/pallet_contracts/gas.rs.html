@@ -873,7 +873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(gas_meter.charge(SimpleToken(<span class="number">1</span>)).is_err());
 	}
 
-	<span class="comment">// Make sure that the gas meter does not charge in case of overcharger
+	<span class="comment">// Make sure that the gas meter does not charge in case of overcharge
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>overcharge_does_not_charge() {
 		<span class="kw">let </span><span class="kw-2">mut </span>gas_meter = GasMeter::&lt;Test&gt;::new(Weight::from_parts(<span class="number">200</span>, <span class="number">0</span>));

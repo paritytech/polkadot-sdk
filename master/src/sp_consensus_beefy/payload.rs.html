@@ -295,7 +295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>Payload(Vec&lt;(BeefyPayloadId, Vec&lt;u8&gt;)&gt;);
 
 <span class="kw">impl </span>Payload {
-	<span class="doccomment">/// Construct a new payload given an initial vallue
+	<span class="doccomment">/// Construct a new payload given an initial value
 	</span><span class="kw">pub fn </span>from_single_entry(id: BeefyPayloadId, value: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(<span class="macro">vec!</span>[(id, value)])
 	}

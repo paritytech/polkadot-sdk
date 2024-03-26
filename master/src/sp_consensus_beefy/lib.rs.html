@@ -906,7 +906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, signature: <span class="kw-2">&amp;</span>&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeAppPublic&gt;::Signature, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
 			<span class="comment">// We can not simply call
 			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
-			// because that invokes ECDSA default verification which perfoms Blake2b hash
+			// because that invokes ECDSA default verification which performs Blake2b hash
 			// which we don&#39;t want. This is because ECDSA signatures are meant to be verified
 			// on Ethereum network where Keccak hasher is significantly cheaper than Blake2b.
 			// See Figure 3 of [OnSc21](https://www.scitepress.org/Papers/2021/106066/106066.pdf)

@@ -722,7 +722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ProtocolId::from(protocol_id_full)
 	}
 
-	<span class="doccomment">/// Returns true if the genesis state writting will be skipped while initializing the genesis
+	<span class="doccomment">/// Returns true if the genesis state writing will be skipped while initializing the genesis
 	/// block.
 	</span><span class="kw">pub fn </span>no_genesis(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="macro">matches!</span>(<span class="self">self</span>.network.sync_mode, SyncMode::LightState { .. } | SyncMode::Warp { .. })

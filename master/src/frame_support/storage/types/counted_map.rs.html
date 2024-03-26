@@ -1693,7 +1693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	</span><span class="kw">pub fn </span>decode_len&lt;KeyArg: EncodeLike&lt;Key&gt;&gt;(key: KeyArg) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;
 	<span class="kw">where
@@ -2158,13 +2158,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(A::try_get(<span class="number">1</span>), <span class="prelude-val">Err</span>(()));
 			<span class="macro">assert_eq!</span>(A::count(), <span class="number">3</span>);
 
-			<span class="comment">// Take exsisting.
+			<span class="comment">// Take existing.
 			</span><span class="macro">assert_eq!</span>(A::take(<span class="number">4</span>), <span class="number">10</span>);
 
 			<span class="macro">assert_eq!</span>(A::try_get(<span class="number">4</span>), <span class="prelude-val">Err</span>(()));
 			<span class="macro">assert_eq!</span>(A::count(), <span class="number">2</span>);
 
-			<span class="comment">// Take non-exsisting.
+			<span class="comment">// Take non-existing.
 			</span><span class="macro">assert_eq!</span>(A::take(<span class="number">4</span>), ADefault::get());
 
 			<span class="macro">assert_eq!</span>(A::try_get(<span class="number">4</span>), <span class="prelude-val">Err</span>(()));
@@ -2405,13 +2405,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(B::try_get(<span class="number">1</span>), <span class="prelude-val">Err</span>(()));
 			<span class="macro">assert_eq!</span>(B::count(), <span class="number">3</span>);
 
-			<span class="comment">// Take exsisting.
+			<span class="comment">// Take existing.
 			</span><span class="macro">assert_eq!</span>(B::take(<span class="number">4</span>), <span class="prelude-val">Some</span>(<span class="number">10</span>));
 
 			<span class="macro">assert_eq!</span>(B::try_get(<span class="number">4</span>), <span class="prelude-val">Err</span>(()));
 			<span class="macro">assert_eq!</span>(B::count(), <span class="number">2</span>);
 
-			<span class="comment">// Take non-exsisting.
+			<span class="comment">// Take non-existing.
 			</span><span class="macro">assert_eq!</span>(B::take(<span class="number">4</span>), <span class="prelude-val">None</span>);
 
 			<span class="macro">assert_eq!</span>(B::try_get(<span class="number">4</span>), <span class="prelude-val">Err</span>(()));

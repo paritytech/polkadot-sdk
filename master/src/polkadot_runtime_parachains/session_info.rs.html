@@ -535,7 +535,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>idx <span class="kw">in </span>old_earliest_stored_session..new_earliest_stored_session {
 				Sessions::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>idx);
 				<span class="comment">// Idx will be missing for a few sessions after the runtime upgrade.
-				// But it shouldn&#39;be be a problem.
+				// But it shouldn&#39;t be a problem.
 				</span>AccountKeys::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>idx);
 				SessionExecutorParams::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>idx);
 			}

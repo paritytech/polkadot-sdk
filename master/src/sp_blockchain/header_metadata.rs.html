@@ -625,7 +625,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Block: BlockT&gt; TreeRoute&lt;Block&gt; {
 	<span class="doccomment">/// Creates a new `TreeRoute`.
 	///
-	/// To preserve the structure safety invariats it is required that `pivot &lt; route.len()`.
+	/// To preserve the structure safety invariants it is required that `pivot &lt; route.len()`.
 	</span><span class="kw">pub fn </span>new(route: Vec&lt;HashAndNumber&lt;Block&gt;&gt;, pivot: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
 		<span class="kw">if </span>pivot &lt; route.len() {
 			<span class="prelude-val">Ok</span>(TreeRoute { route, pivot })
@@ -659,7 +659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	}
 
-	<span class="doccomment">/// Get a slice of enacted blocks (descendents of the common ancestor)
+	<span class="doccomment">/// Get a slice of enacted blocks (descendants of the common ancestor)
 	</span><span class="kw">pub fn </span>enacted(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[HashAndNumber&lt;Block&gt;] {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.route[<span class="self">self</span>.pivot + <span class="number">1</span>..]
 	}

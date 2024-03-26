@@ -461,7 +461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// enable `std` feature even for `no_std` wasm runtime builds.
 ///
 /// One difference from the original definition is the `apis` field. Since we don&#39;t actually parse
-/// `apis` from this macro it will always be emitteed as empty. An empty vector can be encoded as
+/// `apis` from this macro it will always be emitted as empty. An empty vector can be encoded as
 /// a zero-byte, thus `u8` is sufficient here.
 </span><span class="attr">#[derive(Encode)]
 </span><span class="kw">struct </span>RuntimeVersion {

@@ -3190,7 +3190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Register a `ecdsa` signature for batch verification.
 	///
 	/// Batch verification must be enabled by calling [`start_batch_verify`].
-	/// If batch verification is not enabled, the signature will be verified immediatley.
+	/// If batch verification is not enabled, the signature will be verified immediately.
 	/// To get the result of the batch verification, [`finish_batch_verify`]
 	/// needs to be called.
 	///
@@ -3805,9 +3805,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The PassingTracingSubscriber implements `tracing_core::Subscriber`
 	/// and pushes the information across the runtime interface to the host
-	</span><span class="kw">struct </span>PassingTracingSubsciber;
+	</span><span class="kw">struct </span>PassingTracingSubscriber;
 
-	<span class="kw">impl </span>tracing_core::Subscriber <span class="kw">for </span>PassingTracingSubsciber {
+	<span class="kw">impl </span>tracing_core::Subscriber <span class="kw">for </span>PassingTracingSubscriber {
 		<span class="kw">fn </span>enabled(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span>Metadata&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; bool {
 			wasm_tracing::enabled(Crossing(metadata.into()))
 		}
@@ -3840,7 +3840,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// set the global bridging subscriber once.
 	</span><span class="kw">pub fn </span>init_tracing() {
 		<span class="kw">if </span>TRACING_SET.load(Ordering::Relaxed) == <span class="bool-val">false </span>{
-			set_global_default(Dispatch::new(PassingTracingSubsciber {}))
+			set_global_default(Dispatch::new(PassingTracingSubscriber {}))
 				.expect(<span class="string">&quot;We only ever call this once&quot;</span>);
 			TRACING_SET.store(<span class="bool-val">true</span>, Ordering::Relaxed);
 		}

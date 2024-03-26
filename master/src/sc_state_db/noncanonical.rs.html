@@ -1324,26 +1324,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg_attr(test, derive(PartialEq, Debug))]
 </span><span class="kw">struct </span>OverlayLevel&lt;BlockHash: Hash, Key: Hash&gt; {
 	blocks: Vec&lt;BlockOverlay&lt;BlockHash, Key&gt;&gt;,
-	used_indicies: u64, <span class="comment">// Bitmask of available journal indicies.
+	used_indices: u64, <span class="comment">// Bitmask of available journal indices.
 </span>}
 
 <span class="kw">impl</span>&lt;BlockHash: Hash, Key: Hash&gt; OverlayLevel&lt;BlockHash, Key&gt; {
 	<span class="kw">fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, overlay: BlockOverlay&lt;BlockHash, Key&gt;) {
-		<span class="self">self</span>.used_indicies |= <span class="number">1 </span>&lt;&lt; overlay.journal_index;
+		<span class="self">self</span>.used_indices |= <span class="number">1 </span>&lt;&lt; overlay.journal_index;
 		<span class="self">self</span>.blocks.push(overlay)
 	}
 
 	<span class="kw">fn </span>available_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-		<span class="self">self</span>.used_indicies.trailing_ones() <span class="kw">as </span>u64
+		<span class="self">self</span>.used_indices.trailing_ones() <span class="kw">as </span>u64
 	}
 
 	<span class="kw">fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index: usize) -&gt; BlockOverlay&lt;BlockHash, Key&gt; {
-		<span class="self">self</span>.used_indicies &amp;= !(<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.blocks[index].journal_index);
+		<span class="self">self</span>.used_indices &amp;= !(<span class="number">1 </span>&lt;&lt; <span class="self">self</span>.blocks[index].journal_index);
 		<span class="self">self</span>.blocks.remove(index)
 	}
 
 	<span class="kw">fn </span>new() -&gt; OverlayLevel&lt;BlockHash, Key&gt; {
-		OverlayLevel { blocks: Vec::new(), used_indicies: <span class="number">0 </span>}
+		OverlayLevel { blocks: Vec::new(), used_indices: <span class="number">0 </span>}
 	}
 }
 

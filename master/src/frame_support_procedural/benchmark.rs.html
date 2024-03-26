@@ -1598,7 +1598,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Represents a parsed `#[benchmark]` or `#[instance_banchmark]` item.
+<span class="doccomment">/// Represents a parsed `#[benchmark]` or `#[instance_benchmark]` item.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">struct </span>BenchmarkDef {
 	params: Vec&lt;ParamDef&gt;,
@@ -1815,7 +1815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>mod_vis = module.vis;
 	<span class="kw">let </span>mod_name = module.ident;
 
-	<span class="comment">// consume #[benchmarks] attribute by exclusing it from mod_attrs
+	<span class="comment">// consume #[benchmarks] attribute by excluding it from mod_attrs
 	</span><span class="kw">let </span>mod_attrs: Vec&lt;<span class="kw-2">&amp;</span>Attribute&gt; = module
 		.attrs
 		.iter()

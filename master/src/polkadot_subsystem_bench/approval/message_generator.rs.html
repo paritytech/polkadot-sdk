@@ -897,8 +897,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>validator_index: ValidatorIndex,
 	<span class="doccomment">/// An array of pre-generated random samplings, that is used to determine, which nodes would
 	/// send a given assignment, to the node under test because of the random samplings.
-	/// As an optimization we generate this sampling at the begining of the test and just pick
-	/// one randomly, because always taking the samples would be too expensive for benchamrk.
+	/// As an optimization we generate this sampling at the beginning of the test and just pick
+	/// one randomly, because always taking the samples would be too expensive for benchmark.
 	</span><span class="kw">pub </span>random_samplings: Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;,
 	<span class="doccomment">/// Channel for sending the generated messages to the aggregator
 	</span><span class="kw">pub </span>tx_messages: futures::channel::mpsc::UnboundedSender&lt;(Hash, Vec&lt;MessagesBundle&gt;)&gt;,
@@ -1057,7 +1057,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>all_messages = all_messages
 			.into_iter()
 			.flat_map(|(<span class="kw">_</span>, <span class="kw-2">mut </span>messages)| {
-				<span class="comment">// Shuffle the messages inside the same tick, so that we don&#39;t priorites messages
+				<span class="comment">// Shuffle the messages inside the same tick, so that we don&#39;t priorities messages
 				// for older nodes. we try to simulate the same behaviour as in real world.
 				</span>messages.shuffle(<span class="kw-2">&amp;mut </span>rand_chacha);
 				messages
@@ -1383,12 +1383,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>candidate_index: CandidateIndex,
 	<span class="doccomment">/// The validator sending the assignments
 	</span>validator_index: ValidatorIndex,
-	<span class="doccomment">/// The assignments convering this candidate
+	<span class="doccomment">/// The assignments covering this candidate
 	</span>assignment: TestMessageInfo,
 }
 
 <span class="kw">impl </span>TestSignInfo {
-	<span class="doccomment">/// Helper function to create a signture for all candidates in `to_sign` parameter.
+	<span class="doccomment">/// Helper function to create a signature for all candidates in `to_sign` parameter.
 	/// Returns a TestMessage
 	</span><span class="kw">fn </span>sign_candidates(
 		to_sign: <span class="kw-2">&amp;mut </span>Vec&lt;TestSignInfo&gt;,

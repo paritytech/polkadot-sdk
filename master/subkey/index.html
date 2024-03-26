@@ -192,9 +192,9 @@ docker run -it --pull=always docker.io/parity/subkey:latest &lt;command to subke
 <p>The output above shows a <strong>secret phrase</strong> (also called <strong>mnemonic phrase</strong>) and the <strong>secret
 seed</strong> (also called <strong>Private Key</strong>). Those 2 secrets are the pieces of information you MUST
 keep safe and secret. All the other information below can be derived from those secrets.</p>
-<p>The output above also show the <strong>public key</strong> and the <strong>Account ID</strong>. Those are the independant
+<p>The output above also show the <strong>public key</strong> and the <strong>Account ID</strong>. Those are the independent
 from the network where you will use the key.</p>
-<p>The <strong>SS58 address</strong> (or <strong>Public Address</strong>) of a new account is a reprensentation of the public
+<p>The <strong>SS58 address</strong> (or <strong>Public Address</strong>) of a new account is a representation of the public
 keys of an account for a given network (for instance Kusama or Polkadot).</p>
 <p>You can read more about the <a href="https://docs.substrate.io/reference/address-formats/">SS58 format in the Substrate Docs</a> and see the list of reserved prefixes in the <a href="https://github.com/paritytech/ss58-registry">SS58 Registry</a>.</p>
 <p>For instance, considering the previous seed
@@ -204,7 +204,7 @@ keys of an account for a given network (for instance Kusama or Polkadot).</p>
 <li>Kusama: <code>JLNozAv8QeLSbLFwe2UvWeKKE4yvmDbfGxTuiYkF2BUMx4M</code></li>
 </ul>
 <h4 id="json-output"><a href="#json-output">Json output</a></h4>
-<p><code>subkey</code> can calso generate the output as <em>json</em>. This is useful for automation.</p>
+<p><code>subkey</code> can also generate the output as <em>json</em>. This is useful for automation.</p>
 <p>command:</p>
 <div class="example-wrap"><pre class="language-bash"><code>subkey generate --output-type json
 </code></pre></div>
@@ -235,7 +235,7 @@ the following example:</p>
   Account ID:       0xf6a233c3e1de1a2ae0486100b460b3ce3d7231ddfe9dadabbd35ab968c70905d
   SS58 Address:     5He5pZpc7AJ8evPuab37vJF6KkFDqq9uDq2WXh877Qw6iaVC
 </code></pre></div>
-<p>Using the <code>inspect</code> command (see more details below), we see that knowning only the <strong>secret
+<p>Using the <code>inspect</code> command (see more details below), we see that knowing only the <strong>secret
 seed</strong> is no longer sufficient to recover the account:</p>
 <div class="example-wrap"><pre class="language-bash"><code>subkey inspect &quot;soup lyrics media market way crouch elevator put moon useful question wide&quot;
 </code></pre></div>
@@ -248,7 +248,7 @@ below:</p>
 </code></pre></div>
 <p>This time, we properly recovered <code>5He5pZpc7AJ8evPuab37vJF6KkFDqq9uDq2WXh877Qw6iaVC</code>.</p>
 <h4 id="inspecting-a-key"><a href="#inspecting-a-key">Inspecting a key</a></h4>
-<p>If you have <em>some data</em> about a key, <code>subkey inpsect</code> will help you discover more information
+<p>If you have <em>some data</em> about a key, <code>subkey inspect</code> will help you discover more information
 about it.</p>
 <p>If you have <strong>secrets</strong> that you would like to verify for instance, you can use:</p>
 <div class="example-wrap"><pre class="language-bash"><code>subkey inspect &lt; mnemonic | seed &gt;

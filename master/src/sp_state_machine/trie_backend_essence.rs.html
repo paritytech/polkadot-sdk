@@ -1123,8 +1123,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::storage::{ChildInfo, ChildType, StateVersion};
 <span class="kw">use </span>sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
-	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
-	read_trie_first_descedant_value, read_trie_value,
+	read_child_trie_first_descendant_value, read_child_trie_hash, read_child_trie_value,
+	read_trie_first_descendant_value, read_trie_value,
 	trie_types::{TrieDBBuilder, TrieError},
 	DBValue, KeySpacedDB, MerkleValue, NodeCodec, PrefixedMemoryDB, Trie, TrieCache,
 	TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
@@ -1643,7 +1643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>map_e = |e| <span class="macro">format!</span>(<span class="string">&quot;Trie lookup error: {}&quot;</span>, e);
 
 		<span class="self">self</span>.with_recorder_and_cache(<span class="prelude-val">None</span>, |recorder, cache| {
-			read_trie_first_descedant_value::&lt;Layout&lt;H&gt;, <span class="kw">_</span>&gt;(<span class="self">self</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.root, key, recorder, cache)
+			read_trie_first_descendant_value::&lt;Layout&lt;H&gt;, <span class="kw">_</span>&gt;(<span class="self">self</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.root, key, recorder, cache)
 				.map_err(map_e)
 		})
 	}
@@ -1659,7 +1659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>map_e = |e| <span class="macro">format!</span>(<span class="string">&quot;Trie lookup error: {}&quot;</span>, e);
 
 		<span class="self">self</span>.with_recorder_and_cache(<span class="prelude-val">Some</span>(child_root), |recorder, cache| {
-			read_child_trie_first_descedant_value::&lt;Layout&lt;H&gt;, <span class="kw">_</span>&gt;(
+			read_child_trie_first_descendant_value::&lt;Layout&lt;H&gt;, <span class="kw">_</span>&gt;(
 				child_info.keyspace(),
 				<span class="self">self</span>,
 				<span class="kw-2">&amp;</span>child_root,

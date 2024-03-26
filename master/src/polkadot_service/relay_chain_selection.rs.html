@@ -1207,7 +1207,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>lag = initial_leaf_number.saturating_sub(subchain_number);
 		<span class="self">self</span>.metrics.note_approval_checking_finality_lag(lag);
 
-		<span class="comment">// Messages sent to `approval-distrbution` are known to have high `ToF`, we need to spawn a
+		<span class="comment">// Messages sent to `approval-distribution` are known to have high `ToF`, we need to spawn a
 		// task for sending the message to not block here and delay finality.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(spawn_handle) = <span class="kw-2">&amp;</span><span class="self">self</span>.spawn_handle {
 			<span class="kw">let </span><span class="kw-2">mut </span>overseer_handle = <span class="self">self</span>.overseer.clone();
@@ -1259,7 +1259,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// and not push it up the stack to cause additional issues in GRANDPA/BABE.
 			</span><span class="kw">let </span>(lag, subchain_head) =
 				<span class="kw">match </span>rx.<span class="kw">await</span>.map_err(Error::DetermineUndisputedChainCanceled) {
-					<span class="comment">// If request succeded we will receive (block number, block hash).
+					<span class="comment">// If request succeeded we will receive (block number, block hash).
 					</span><span class="prelude-val">Ok</span>((subchain_number, subchain_head)) =&gt; {
 						<span class="comment">// The total lag accounting for disputes.
 						</span><span class="kw">let </span>lag_disputes = initial_leaf_number.saturating_sub(subchain_number);

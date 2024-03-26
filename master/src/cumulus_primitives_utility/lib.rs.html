@@ -966,6 +966,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#819" id="819">819</a>
 <a href="#820" id="820">820</a>
 <a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1109,7 +1110,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_executor::AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}, context: {:?}&quot;</span>, weight, payment, context);
 
-		<span class="comment">// Make sure we dont enter twice
+		<span class="comment">// Make sure we don&#39;t enter twice
 		</span><span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.is_some() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::NotWithdrawable)
 		}
@@ -1144,7 +1145,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Convert to the same kind of asset, with the required fungible balance
 		</span><span class="kw">let </span>required = first.id.clone().into_asset(asset_balance.into());
 
-		<span class="comment">// Substract payment
+		<span class="comment">// Subtract payment
 		</span><span class="kw">let </span>unused = payment.checked_sub(required.clone()).map_err(|<span class="kw">_</span>| XcmError::TooExpensive)<span class="question-mark">?</span>;
 
 		<span class="comment">// record weight and asset
@@ -1171,7 +1172,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Calculate asset_balance
 			// This read should have already be cached in buy_weight
-			</span><span class="kw">let </span>(asset_balance, outstanding_minus_substracted) =
+			</span><span class="kw">let </span>(asset_balance, outstanding_minus_subtracted) =
 				FeeCharger::charge_weight_in_fungibles(local_asset_id, weight).ok().map(
 					|asset_balance| {
 						<span class="comment">// Require at least a drop of minimum_balance
@@ -1189,16 +1190,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)<span class="question-mark">?</span>;
 
 			<span class="comment">// Convert balances into u128
-			</span><span class="kw">let </span>outstanding_minus_substracted: u128 =
-				outstanding_minus_substracted.saturated_into();
+			</span><span class="kw">let </span>outstanding_minus_subtracted: u128 = outstanding_minus_subtracted.saturated_into();
 			<span class="kw">let </span>asset_balance: u128 = asset_balance.saturated_into();
 
-			<span class="comment">// Construct outstanding_concrete_asset with the same location id and substracted
+			<span class="comment">// Construct outstanding_concrete_asset with the same location id and subtracted
 			// balance
 			</span><span class="kw">let </span>outstanding_concrete_asset: Asset =
-				(id.clone(), outstanding_minus_substracted).into();
+				(id.clone(), outstanding_minus_subtracted).into();
 
-			<span class="comment">// Substract from existing weight and balance
+			<span class="comment">// Subtract from existing weight and balance
 			</span>weight_outstanding = weight_outstanding.saturating_sub(weight);
 
 			<span class="comment">// Override AssetTraderRefunder
@@ -1231,9 +1231,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// XCM fee depositor to which we implement the TakeRevenue trait
-/// It receives a Transact implemented argument, a 32 byte convertible acocuntId, and the fee
-/// receiver account FungiblesMutateAdapter should be identical to that implemented by WithdrawAsset
+<span class="doccomment">/// XCM fee depositor to which we implement the `TakeRevenue` trait.
+/// It receives a `Transact` implemented argument and a 32 byte convertible `AccountId`, and the fee
+/// receiver account&#39;s `FungiblesMutateAdapter` should be identical to that implemented by
+/// `WithdrawAsset`.
 </span><span class="kw">pub struct </span>XcmFeesTo32ByteAccount&lt;FungiblesMutateAdapter, AccountId, ReceiverAccount&gt;(
 	PhantomData&lt;(FungiblesMutateAdapter, AccountId, ReceiverAccount)&gt;,
 );
@@ -1731,7 +1732,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
 /// parent relay chain. Deposits existential deposit for origin (if needed).
 /// Deposits estimated fee to the origin account (if needed).
-/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
+/// Allows triggering of additional logic for a specific `ParaId` (e.g. to open an HRMP channel) if
+/// needed.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">pub struct </span>ToParentDeliveryHelper&lt;XcmConfig, ExistentialDeposit, PriceForDelivery&gt;(
 	sp_std::marker::PhantomData&lt;(XcmConfig, ExistentialDeposit, PriceForDelivery)&gt;,

@@ -975,7 +975,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// class, based on the allowance.
 	///
 	/// This is to make sure that extrinsics don&#39;t stay forever in the pool,
-	/// because they could seamingly fit the block (since they are below `max_block`),
+	/// because they could seemingly fit the block (since they are below `max_block`),
 	/// but the cost of calling `on_initialize` always prevents them from being included.
 	</span><span class="kw">pub fn </span>avg_block_initialization(<span class="kw-2">mut </span><span class="self">self</span>, init_cost: Perbill) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.init_cost = <span class="prelude-val">Some</span>(init_cost);

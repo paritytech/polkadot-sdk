@@ -1250,7 +1250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>migrated = BondedPools::&lt;T&gt;::count();
 
-			<span class="comment">// recalcuate the `TotalValueLocked` to compare with the current on-chain TVL which may
+			<span class="comment">// recalculate the `TotalValueLocked` to compare with the current on-chain TVL which may
 			// be out of sync.
 			</span><span class="kw">let </span>tvl: BalanceOf&lt;T&gt; = helpers::calculate_tvl_by_total_stake::&lt;T&gt;();
 			<span class="kw">let </span>onchain_tvl = TotalValueLocked::&lt;T&gt;::get();

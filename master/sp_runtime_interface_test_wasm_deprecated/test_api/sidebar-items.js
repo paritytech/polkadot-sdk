@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["test_versionning"],"struct":["HostFunctions"]};
+window.SIDEBAR_ITEMS = {"fn":["test_versioning"],"struct":["HostFunctions"]};

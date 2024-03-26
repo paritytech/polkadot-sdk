@@ -1771,10 +1771,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			proposal: Box&lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Proposal&gt;,
 			<span class="attr">#[pallet::compact] </span>length_bound: u32,
 		) -&gt; DispatchResult {
-			<span class="kw">let </span>proposor = ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(<span class="self">Self</span>::has_voting_rights(<span class="kw-2">&amp;</span>proposor), Error::&lt;T, I&gt;::NoVotingRights);
+			<span class="kw">let </span>proposer = ensure_signed(origin)<span class="question-mark">?</span>;
+			<span class="macro">ensure!</span>(<span class="self">Self</span>::has_voting_rights(<span class="kw-2">&amp;</span>proposer), Error::&lt;T, I&gt;::NoVotingRights);
 
-			T::ProposalProvider::propose_proposal(proposor, threshold, proposal, length_bound)<span class="question-mark">?</span>;
+			T::ProposalProvider::propose_proposal(proposer, threshold, proposal, length_bound)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 

@@ -2714,7 +2714,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Weight of calling `account_reentrance_count`
 	</span>AccountEntranceCount,
 	<span class="doccomment">/// Weight of calling `instantiation_nonce`
-	</span>InstantationNonce,
+	</span>InstantiationNonce,
 	<span class="doccomment">/// Weight of calling `lock_delegate_dependency`
 	</span>LockDelegateDependency,
 	<span class="doccomment">/// Weight of calling `unlock_delegate_dependency`
@@ -2806,7 +2806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			EcdsaToEthAddress =&gt; s.ecdsa_to_eth_address,
 			ReentrantCount =&gt; s.reentrance_count,
 			AccountEntranceCount =&gt; s.account_reentrance_count,
-			InstantationNonce =&gt; s.instantiation_nonce,
+			InstantiationNonce =&gt; s.instantiation_nonce,
 			LockDelegateDependency =&gt; s.lock_delegate_dependency,
 			UnlockDelegateDependency =&gt; s.unlock_delegate_dependency,
 		}
@@ -4767,7 +4767,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns a nonce that is unique per contract instantiation.
 	/// See [`pallet_contracts_uapi::HostFn::instantiation_nonce`].
 	</span><span class="kw">fn </span>instantiation_nonce(ctx: <span class="kw">_</span>, _memory: <span class="kw">_</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u64, TrapReason&gt; {
-		ctx.charge_gas(RuntimeCosts::InstantationNonce)<span class="question-mark">?</span>;
+		ctx.charge_gas(RuntimeCosts::InstantiationNonce)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(ctx.ext.nonce())
 	}
 

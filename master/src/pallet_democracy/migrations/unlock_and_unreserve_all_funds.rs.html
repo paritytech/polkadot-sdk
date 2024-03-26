@@ -898,40 +898,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>unreserve_works_for_depositer() {
-		<span class="kw">let </span>depositer_0 = <span class="number">10</span>;
-		<span class="kw">let </span>depositer_1 = <span class="number">11</span>;
+	</span><span class="kw">fn </span>unreserve_works_for_depositor() {
+		<span class="kw">let </span>depositor_0 = <span class="number">10</span>;
+		<span class="kw">let </span>depositor_1 = <span class="number">11</span>;
 		<span class="kw">let </span>deposit = <span class="number">25</span>;
-		<span class="kw">let </span>depositer_0_initial_reserved = <span class="number">0</span>;
-		<span class="kw">let </span>depositer_1_initial_reserved = <span class="number">15</span>;
+		<span class="kw">let </span>depositor_0_initial_reserved = <span class="number">0</span>;
+		<span class="kw">let </span>depositor_1_initial_reserved = <span class="number">15</span>;
 		<span class="kw">let </span>initial_balance = <span class="number">100_000</span>;
 		new_test_ext().execute_with(|| {
 			<span class="comment">// Set up initial state.
-			</span>&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>depositer_0, initial_balance);
-			&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>depositer_1, initial_balance);
+			</span>&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>depositor_0, initial_balance);
+			&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>depositor_1, initial_balance);
 			<span class="macro">assert_ok!</span>(&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserve(
-				<span class="kw-2">&amp;</span>depositer_0,
-				depositer_0_initial_reserved + deposit
+				<span class="kw-2">&amp;</span>depositor_0,
+				depositor_0_initial_reserved + deposit
 			));
 			<span class="macro">assert_ok!</span>(&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserve(
-				<span class="kw-2">&amp;</span>depositer_1,
-				depositer_1_initial_reserved + deposit
+				<span class="kw-2">&amp;</span>depositor_1,
+				depositor_1_initial_reserved + deposit
 			));
 			<span class="kw">let </span>depositors =
 				BoundedVec::&lt;<span class="kw">_</span>, &lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::MaxDeposits&gt;::truncate_from(<span class="macro">vec!</span>[
-					depositer_0,
-					depositer_1,
+					depositor_0,
+					depositor_1,
 				]);
 			DepositOf::&lt;Test&gt;::insert(<span class="number">0</span>, (depositors, deposit));
 
 			<span class="comment">// Sanity check: ensure initial reserved balance was set correctly.
 			</span><span class="macro">assert_eq!</span>(
-				&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserved_balance(<span class="kw-2">&amp;</span>depositer_0),
-				depositer_0_initial_reserved + deposit
+				&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserved_balance(<span class="kw-2">&amp;</span>depositor_0),
+				depositor_0_initial_reserved + deposit
 			);
 			<span class="macro">assert_eq!</span>(
-				&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserved_balance(<span class="kw-2">&amp;</span>depositer_1),
-				depositer_1_initial_reserved + deposit
+				&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserved_balance(<span class="kw-2">&amp;</span>depositor_1),
+				depositor_1_initial_reserved + deposit
 			);
 
 			<span class="comment">// Run the migration.
@@ -942,12 +942,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Assert the reserved balance was reduced by the expected amount.
 			</span><span class="macro">assert_eq!</span>(
-				&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserved_balance(<span class="kw-2">&amp;</span>depositer_0),
-				depositer_0_initial_reserved
+				&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserved_balance(<span class="kw-2">&amp;</span>depositor_0),
+				depositor_0_initial_reserved
 			);
 			<span class="macro">assert_eq!</span>(
-				&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserved_balance(<span class="kw-2">&amp;</span>depositer_1),
-				depositer_1_initial_reserved
+				&lt;Test <span class="kw">as </span><span class="kw">crate</span>::Config&gt;::Currency::reserved_balance(<span class="kw-2">&amp;</span>depositor_1),
+				depositor_1_initial_reserved
 			);
 		});
 	}

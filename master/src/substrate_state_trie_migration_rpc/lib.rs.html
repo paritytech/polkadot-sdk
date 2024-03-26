@@ -456,7 +456,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Check current migration state.
 	///
 	/// This call is performed locally without submitting any transactions. Thus executing this
-	/// won&#39;t change any state. Nonetheless it is a VERY costy call that should be
+	/// won&#39;t change any state. Nonetheless it is a VERY costly call that should be
 	/// only exposed to trusted peers.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_trieMigrationStatus&quot;</span>)]
 	</span><span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>, at: <span class="prelude-ty">Option</span>&lt;BlockHash&gt;) -&gt; RpcResult&lt;MigrationStatusResult&gt;;

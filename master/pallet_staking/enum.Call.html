@@ -288,7 +288,7 @@ it wants.</p>
 this call results in a complete removal of all the data related to the stash account.
 In this case, the <code>num_slashing_spans</code> must be larger or equal to the number of
 slashing spans associated with the stash account in the <a href="type.SlashingSpans.html" title="type pallet_staking::SlashingSpans"><code>SlashingSpans</code></a> storage type,
-otherwise the call will fail. The call weight is directly propotional to
+otherwise the call will fail. The call weight is directly proportional to
 <code>num_slashing_spans</code>.</li>
 </ul>
 <h5 id="complexity-2"><a href="#complexity-2">Complexity</a></h5>
@@ -343,12 +343,12 @@ to the stash, if it is not already.</p>
 <p>The dispatch origin must be Root.</p>
 <h5 id="complexity-7"><a href="#complexity-7">Complexity</a></h5>
 <p>O(1)</p>
-</div><section id="variant.increase_validator_count" class="variant"><a href="#variant.increase_validator_count" class="anchor">§</a><h3 class="code-header">increase_validator_count</h3></section><div class="sub-variant" id="variant.increase_validator_count.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.increase_validator_count.field.additional" class="small-section-header"><a href="#variant.increase_validator_count.field.additional" class="anchor field">§</a><code>additional: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a></code></span></div></div><div class="docblock"><p>Increments the ideal number of validators upto maximum of
+</div><section id="variant.increase_validator_count" class="variant"><a href="#variant.increase_validator_count" class="anchor">§</a><h3 class="code-header">increase_validator_count</h3></section><div class="sub-variant" id="variant.increase_validator_count.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.increase_validator_count.field.additional" class="small-section-header"><a href="#variant.increase_validator_count.field.additional" class="anchor field">§</a><code>additional: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a></code></span></div></div><div class="docblock"><p>Increments the ideal number of validators up to maximum of
 <code>ElectionProviderBase::MaxWinners</code>.</p>
 <p>The dispatch origin must be Root.</p>
 <h5 id="complexity-8"><a href="#complexity-8">Complexity</a></h5>
 <p>Same as <a href="enum.Call.html#variant.set_validator_count" title="variant pallet_staking::Call::set_validator_count"><code>Self::set_validator_count</code></a>.</p>
-</div><section id="variant.scale_validator_count" class="variant"><a href="#variant.scale_validator_count" class="anchor">§</a><h3 class="code-header">scale_validator_count</h3></section><div class="sub-variant" id="variant.scale_validator_count.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.scale_validator_count.field.factor" class="small-section-header"><a href="#variant.scale_validator_count.field.factor" class="anchor field">§</a><code>factor: <a class="struct" href="../sp_arithmetic/per_things/struct.Percent.html" title="struct sp_arithmetic::per_things::Percent">Percent</a></code></span></div></div><div class="docblock"><p>Scale up the ideal number of validators by a factor upto maximum of
+</div><section id="variant.scale_validator_count" class="variant"><a href="#variant.scale_validator_count" class="anchor">§</a><h3 class="code-header">scale_validator_count</h3></section><div class="sub-variant" id="variant.scale_validator_count.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.scale_validator_count.field.factor" class="small-section-header"><a href="#variant.scale_validator_count.field.factor" class="anchor field">§</a><code>factor: <a class="struct" href="../sp_arithmetic/per_things/struct.Percent.html" title="struct sp_arithmetic::per_things::Percent">Percent</a></code></span></div></div><div class="docblock"><p>Scale up the ideal number of validators by a factor up to maximum of
 <code>ElectionProviderBase::MaxWinners</code>.</p>
 <p>The dispatch origin must be Root.</p>
 <h5 id="complexity-9"><a href="#complexity-9">Complexity</a></h5>

@@ -1736,7 +1736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Err</span>(e) =&gt; {
 			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, err=<span class="question-mark">?</span>e, <span class="string">&quot;Invalid candidate (validation code)&quot;</span>);
 
-			<span class="comment">// Code already passed pre-checking, if decompression fails now this most likley means
+			<span class="comment">// Code already passed pre-checking, if decompression fails now this most likely means
 			// some local corruption happened.
 			</span><span class="kw">return </span><span class="prelude-val">Err</span>(ValidationFailed(<span class="string">&quot;Code decompression failed&quot;</span>.to_string()))
 		},

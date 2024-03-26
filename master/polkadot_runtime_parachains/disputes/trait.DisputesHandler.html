@@ -215,7 +215,7 @@ returns <code>Some</code>, then we have a local dispute for the given <code>cand
 </div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.deduplicate_and_sort_dispute_data" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/disputes.rs.html#190-208">source</a><h4 class="code-header">fn <a href="#method.deduplicate_and_sort_dispute_data" class="fn">deduplicate_and_sort_dispute_data</a>(
     statement_sets: &amp;mut MultiDisputeStatementSet
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Remove dispute statement duplicates and sort the non-duplicates based on
-local (lower indicies) vs remotes (higher indices) and age (older with lower indices).</p>
+local (lower indices) vs remotes (higher indices) and age (older with lower indices).</p>
 <p>Returns <code>Ok(())</code> if no duplicates were present, <code>Err(())</code> otherwise.</p>
 <p>Unsorted data does not change the return value, while the node side
 is generally expected to pass them in sorted.</p>

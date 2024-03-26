@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ParameterStoreAdapter"],"trait":["AggregratedKeyValue","FromKey","IntoKey","Key","ParameterStore","RuntimeParameterStore","TryFromKey","TryIntoKey"]};
+window.SIDEBAR_ITEMS = {"struct":["ParameterStoreAdapter"],"trait":["AggregatedKeyValue","FromKey","IntoKey","Key","ParameterStore","RuntimeParameterStore","TryFromKey","TryIntoKey"]};

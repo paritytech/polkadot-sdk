@@ -941,7 +941,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// If a block isn&#39;t approved in 120 seconds, nodes will abandon it
 // and begin building on another chain.
 </span><span class="kw">const </span>STAGNANT_TIMEOUT: Timestamp = <span class="number">120</span>;
-<span class="comment">// Delay prunning of the stagnant keys in prune only mode by 25 hours to avoid interception with the
+<span class="comment">// Delay pruning of the stagnant keys in prune only mode by 25 hours to avoid interception with the
 // finality
 </span><span class="kw">const </span>STAGNANT_PRUNE_DELAY: Timestamp = <span class="number">25 </span>* <span class="number">60 </span>* <span class="number">60</span>;
 <span class="comment">// Maximum number of stagnant entries cleaned during one `STAGNANT_TIMEOUT` iteration
@@ -1127,7 +1127,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// The exact time that a block becomes stagnant in the local node is always expected
 		// to differ from other nodes due to network asynchrony and delays in block propagation.
-		// Non-monotonicity exarcerbates that somewhat, but not meaningfully.
+		// Non-monotonicity exacerbates that somewhat, but not meaningfully.
 
 		</span><span class="kw">match </span>SystemTime::now().duration_since(UNIX_EPOCH) {
 			<span class="prelude-val">Ok</span>(d) =&gt; d.as_secs(),

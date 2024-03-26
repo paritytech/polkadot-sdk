@@ -632,7 +632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! # Node authorization pallet
 //!
 //! This pallet manages a configurable set of nodes for a permissioned network.
-//! Each node is dentified by a PeerId (i.e. `Vec&lt;u8&gt;`). It provides two ways to
+//! Each node is identified by a PeerId (i.e. `Vec&lt;u8&gt;`). It provides two ways to
 //! authorize a node,
 //!
 //! - a set of well known nodes across different organizations in which the
@@ -716,7 +716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::getter(<span class="kw">fn </span>owners)]
 	</span><span class="kw">pub type </span>Owners&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, PeerId, T::AccountId&gt;;
 
-	<span class="doccomment">/// The additional adapative connections of each node.
+	<span class="doccomment">/// The additional adaptive connections of each node.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>additional_connection)]
 	</span><span class="kw">pub type </span>AdditionalConnections&lt;T&gt; =
@@ -775,7 +775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>NotClaimed,
 		<span class="doccomment">/// You are not the owner of the node.
 		</span>NotOwner,
-		<span class="doccomment">/// No permisson to perform specific operation.
+		<span class="doccomment">/// No permission to perform specific operation.
 		</span>PermissionDenied,
 	}
 
@@ -991,7 +991,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Add additional connections to a given node.
 		///
 		/// - `node`: identifier of the node.
-		/// - `connections`: additonal nodes from which the connections are allowed.
+		/// - `connections`: additional nodes from which the connections are allowed.
 		</span><span class="attr">#[pallet::call_index(<span class="number">7</span>)]
 		#[pallet::weight(T::WeightInfo::add_connections())]
 		</span><span class="kw">pub fn </span>add_connections(
@@ -1026,7 +1026,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Remove additional connections of a given node.
 		///
 		/// - `node`: identifier of the node.
-		/// - `connections`: additonal nodes from which the connections are not allowed anymore.
+		/// - `connections`: additional nodes from which the connections are not allowed anymore.
 		</span><span class="attr">#[pallet::call_index(<span class="number">8</span>)]
 		#[pallet::weight(T::WeightInfo::remove_connections())]
 		</span><span class="kw">pub fn </span>remove_connections(

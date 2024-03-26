@@ -614,7 +614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Value is the hash that was used for the query.
 	</span>active_sessions: HashMap&lt;SessionIndex, Hash&gt;,
 
-	<span class="doccomment">/// All ongoing dispute sendings this subsystem is aware of.
+	<span class="doccomment">/// All ongoing dispute sending this subsystem is aware of.
 	///
 	/// Using an `IndexMap` so items can be iterated in the order of insertion.
 	</span>disputes: IndexMap&lt;CandidateHash, SendTask&lt;M&gt;&gt;,
@@ -643,7 +643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[overseer::contextbounds(DisputeDistribution, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">impl</span>&lt;M: <span class="lifetime">&#39;static </span>+ Send + Sync&gt; DisputeSender&lt;M&gt; {
-	<span class="doccomment">/// Create a new `DisputeSender` which can be used to start dispute sendings.
+	<span class="doccomment">/// Create a new `DisputeSender` which can be used to start dispute sending.
 	</span><span class="kw">pub fn </span>new(tx: NestingSender&lt;M, DisputeSenderMessage&gt;, metrics: Metrics) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			active_heads: Vec::new(),
@@ -900,7 +900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	runtime: <span class="kw-2">&amp;mut </span>RuntimeInfo,
 	active_heads: <span class="kw-2">&amp;</span>Vec&lt;Hash&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;SessionIndex, Hash&gt;&gt; {
-	<span class="kw">let </span><span class="kw-2">mut </span>indeces = HashMap::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>indices = HashMap::new();
 	<span class="comment">// Iterate all heads we track as active and fetch the child&#39; session indices.
 	</span><span class="kw">for </span>head <span class="kw">in </span>active_heads {
 		<span class="kw">let </span>session_index = runtime.get_session_index_for_child(ctx.sender(), <span class="kw-2">*</span>head).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -910,9 +910,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>{
 			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="question-mark">?</span>session_index, <span class="string">&quot;Can&#39;t cache SessionInfo&quot;</span>);
 		}
-		indeces.insert(session_index, <span class="kw-2">*</span>head);
+		indices.insert(session_index, <span class="kw-2">*</span>head);
 	}
-	<span class="prelude-val">Ok</span>(indeces)
+	<span class="prelude-val">Ok</span>(indices)
 }
 
 <span class="doccomment">/// Retrieve Set of active disputes from the dispute coordinator.

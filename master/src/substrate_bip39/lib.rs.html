@@ -422,7 +422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Any other length will return an error.
 ///
-/// `password` is analog to BIP39 seed generation itself, with an empty string being defalt.
+/// `password` is analog to BIP39 seed generation itself, with an empty string being default.
 </span><span class="kw">pub fn </span>mini_secret_from_entropy(entropy: <span class="kw-2">&amp;</span>[u8], password: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;MiniSecretKey, Error&gt; {
 	<span class="kw">let </span>seed = seed_from_entropy(entropy, password)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(MiniSecretKey::from_bytes(<span class="kw-2">&amp;</span>seed[..<span class="number">32</span>]).expect(<span class="string">&quot;Length is always correct; qed&quot;</span>))

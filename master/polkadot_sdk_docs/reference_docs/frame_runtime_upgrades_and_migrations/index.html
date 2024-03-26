@@ -160,12 +160,12 @@ operators to download new software and restart their nodes in a process called
 <p>Substrate-based blockchains do not require forking, and instead upgrade runtimes
 in a process called “Runtime Upgrades”.</p>
 <p>Forkless runtime upgrades are a defining feature of the Substrate framework. Updating the
-runtime logic without forking the code base enables your blockchain to seemlessly evolve
+runtime logic without forking the code base enables your blockchain to seamlessly evolve
 over time in a deterministic, rules-based manner. It also removes ambiguity for node operators
 and other participants in the network about what is the canonical runtime.</p>
 <p>This capability is possible due to the runtime of a blockchain existing in on-chain storage.</p>
 <h3 id="performing-a-runtime-upgrade"><a href="#performing-a-runtime-upgrade">Performing a Runtime Upgrade</a></h3>
-<p>To upgrade a runtime, an <a href="../../../frame_support/dispatch/enum.RawOrigin.html" title="enum frame_support::dispatch::RawOrigin"><code>Origin</code></a> with the necesarry permissions
+<p>To upgrade a runtime, an <a href="../../../frame_support/dispatch/enum.RawOrigin.html" title="enum frame_support::dispatch::RawOrigin"><code>Origin</code></a> with the necessary permissions
 (usually via governance) changes the <code>:code</code> storage. Usually, this is performed via a call to
 <a href="../../../frame_system/pallet/enum.Call.html#variant.set_code" title="variant frame_system::pallet::Call::set_code"><code>set_code</code></a> (or <a href="../../../frame_system/pallet/enum.Call.html#variant.set_code_without_checks" title="variant frame_system::pallet::Call::set_code_without_checks"><code>set_code_without_checks</code></a>) with the desired new runtime blob, scheduled
 using <a href="../../../pallet_scheduler/index.html" title="mod pallet_scheduler"><code>pallet_scheduler</code></a>.</p>
@@ -177,7 +177,7 @@ using <a href="../../../pallet_scheduler/index.html" title="mod pallet_scheduler
 <p>Self-contained pieces of logic that execute after a runtime upgrade are called “Migrations”.</p>
 <p>The typical use case of a migration is to ‘migrate’ pallet storage from one layout to another,
 for example when the encoding of a storage item is changed. However, they can also execute
-arbitary logic such as:</p>
+arbitrary logic such as:</p>
 <ul>
 <li>Calling arbitrary pallet methods</li>
 <li>Mutating arbitrary on-chain state</li>
@@ -217,7 +217,7 @@ for the complexities of a real runtime or real on-chain state.</p>
 <p>Prior to deploying migrations, it is critical to perform additional checks to ensure that when
 run in our real runtime they will not brick the chain due to:</p>
 <ul>
-<li>Panicing</li>
+<li>Panicking</li>
 <li>Touching too many storage keys and resulting in an excessively large PoV</li>
 <li>Taking too long to execute</li>
 </ul>

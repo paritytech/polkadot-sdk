@@ -361,7 +361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Generate the grandpa warp sync protocol name from the genesi hash and fork id.
+<span class="doccomment">/// Generate the grandpa warp sync protocol name from the genesis hash and fork id.
 </span><span class="kw">fn </span>generate_protocol_name&lt;Hash: AsRef&lt;[u8]&gt;&gt;(genesis_hash: Hash, fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; String {
 	<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {

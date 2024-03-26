@@ -324,14 +324,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>metrics = MetricsInner {
 			sent_own_availability_bitfields: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_parachain_sent_own_availabilty_bitfields_total&quot;</span>,
+					<span class="string">&quot;polkadot_parachain_sent_own_availability_bitfields_total&quot;</span>,
 					<span class="string">&quot;Number of own availability bitfields sent to other peers.&quot;</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			received_availability_bitfields: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_parachain_received_availabilty_bitfields_total&quot;</span>,
+					<span class="string">&quot;polkadot_parachain_received_availability_bitfields_total&quot;</span>,
 					<span class="string">&quot;Number of valid availability bitfields received from other peers.&quot;</span>,
 				)<span class="question-mark">?</span>,
 				registry,

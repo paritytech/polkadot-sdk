@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>One of a number of consequences of withdrawing a fungible from an account.</p>
 </div></details><h2 id="variants" class="variants small-section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.BelowMinimum" class="variant"><a href="#variant.BelowMinimum" class="anchor">§</a><h3 class="code-header">BelowMinimum</h3></section><div class="docblock"><p>Deposit couldn’t happen due to the amount being too low. This is usually because the
 account doesn’t yet exist and the deposit wouldn’t bring it to at least the minimum needed
-for existance.</p>
+for existence.</p>
 </div><section id="variant.CannotCreate" class="variant"><a href="#variant.CannotCreate" class="anchor">§</a><h3 class="code-header">CannotCreate</h3></section><div class="docblock"><p>Deposit cannot happen since the account cannot be created (usually because it’s a consumer
 and there exists no provider reference).</p>
 </div><section id="variant.UnknownAsset" class="variant"><a href="#variant.UnknownAsset" class="anchor">§</a><h3 class="code-header">UnknownAsset</h3></section><div class="docblock"><p>The asset is unknown. Usually because an <code>AssetId</code> has been presented which doesn’t exist

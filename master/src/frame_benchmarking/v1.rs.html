@@ -3011,7 +3011,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="macro-nonterminal">$crate::BenchmarkError::Override</span>(<span class="kw">_</span>) =&gt; {
 									<span class="comment">// This is still considered a success condition.
 									</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-										<span class="string">&quot;WARNING: benchmark error overrided - {}&quot;</span>,
+										<span class="string">&quot;WARNING: benchmark error overridden - {}&quot;</span>,
 										<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>),
 									);
 								},
@@ -3841,7 +3841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="macro-nonterminal">$crate::BenchmarkError::Override</span>(<span class="kw">_</span>) =&gt; {
 										<span class="comment">// This is still considered a success condition.
 										</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-											<span class="string">&quot;WARNING: benchmark error overrided - {}&quot;</span>,
+											<span class="string">&quot;WARNING: benchmark error overridden - {}&quot;</span>,
 												<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark_name)
 													.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>),
 											);
@@ -3988,7 +3988,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(<span class="macro-nonterminal">$crate::BenchmarkError::Override</span>(<span class="kw-2">mut </span>result)) =&gt; {
 					<span class="comment">// Insert override warning as the first storage key.
 					</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-						<span class="string">&quot;WARNING: benchmark error overrided - {}&quot;</span>,
+						<span class="string">&quot;WARNING: benchmark error overridden - {}&quot;</span>,
 						<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark)
 							.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>)
 					);

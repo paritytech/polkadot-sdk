@@ -2486,7 +2486,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>sp = Spinner::with_timer(Spinners::Dots, <span class="string">&quot;Inserting keys into DB...&quot;</span>.into());
 		<span class="kw">let </span>start = Instant::now();
 		pending_ext.batch_insert(key_values.clone().into_iter().filter_map(|(k, v)| {
-			<span class="comment">// Don&#39;t insert the child keys here, they need to be inserted seperately with all their
+			<span class="comment">// Don&#39;t insert the child keys here, they need to be inserted separately with all their
 			// data in the load_child_remote function.
 			</span><span class="kw">match </span>is_default_child_storage_key(<span class="kw-2">&amp;</span>k.<span class="number">0</span>) {
 				<span class="bool-val">true </span>=&gt; <span class="prelude-val">None</span>,

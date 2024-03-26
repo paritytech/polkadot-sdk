@@ -844,7 +844,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///         /// `key` holds the pointer and the length to the `data` slice.
 ///         pub fn call(data: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
 ///             extern &quot;C&quot; { pub fn ext_call_version_2(key: u64); }
-///             // Should call into extenal `ext_call_version_2(&lt;[u8] as IntoFFIValue&gt;::into_ffi_value(key))`
+///             // Should call into external `ext_call_version_2(&lt;[u8] as IntoFFIValue&gt;::into_ffi_value(key))`
 ///             // But this is too much to replicate in a doc test so here we just return a dummy vector.
 ///             // Note that we jump into the latest version not marked as `register_only` (i.e. version 2).
 ///             Vec::new()

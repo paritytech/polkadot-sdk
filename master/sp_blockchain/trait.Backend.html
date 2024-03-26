@@ -200,7 +200,7 @@ that are indexed by the runtime with <code>storage_index_transaction</code>.</p>
 ) -&gt; <a class="type" href="type.Result.html" title="type sp_blockchain::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Block::Hash&gt;&gt;</h4></section></summary><div class="docblock"><p>Get the most recent block hash of the longest chain that contains
 a block with the given <code>base_hash</code>.</p>
 <p>The search space is always limited to blocks which are in the finalized
-chain or descendents of it.</p>
+chain or descendants of it.</p>
 <p>Returns <code>Ok(None)</code> if <code>base_hash</code> is not found in search space.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.has_indexed_transaction" class="method"><a class="src rightside" href="../src/sp_blockchain/backend.rs.html#253-255">source</a><h4 class="code-header">fn <a href="#method.has_indexed_transaction" class="fn">has_indexed_transaction</a>(&amp;self, hash: Block::Hash) -&gt; <a class="type" href="type.Result.html" title="type sp_blockchain::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>&gt;</h4></section></summary><div class="docblock"><p>Check if indexed transaction exists.</p>
 </div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sp_blockchain/backend/trait.Backend.js" async></script></section></div></main></body></html>

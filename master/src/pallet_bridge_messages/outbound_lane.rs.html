@@ -624,7 +624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Result of messages receival confirmation.
 </span><span class="attr">#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
-</span><span class="kw">pub enum </span>ReceivalConfirmationError {
+</span><span class="kw">pub enum </span>ReceptionConfirmationError {
 	<span class="doccomment">/// Bridged chain is trying to confirm more messages than we have generated. May be a result
 	/// of invalid bridged chain storage.
 	</span>FailedToConfirmFutureMessages,
@@ -674,7 +674,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		max_allowed_messages: MessageNonce,
 		latest_delivered_nonce: MessageNonce,
 		relayers: <span class="kw-2">&amp;</span>VecDeque&lt;UnrewardedRelayer&lt;RelayerId&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;DeliveredMessages&gt;, ReceivalConfirmationError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;DeliveredMessages&gt;, ReceptionConfirmationError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="self">self</span>.storage.data();
 		<span class="kw">let </span>confirmed_messages = DeliveredMessages {
 			begin: data.latest_received_nonce.saturating_add(<span class="number">1</span>),
@@ -684,7 +684,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 		}
 		<span class="kw">if </span>confirmed_messages.end &gt; data.latest_generated_nonce {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceivalConfirmationError::FailedToConfirmFutureMessages)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceptionConfirmationError::FailedToConfirmFutureMessages)
 		}
 		<span class="kw">if </span>confirmed_messages.total_messages() &gt; max_allowed_messages {
 			<span class="comment">// that the relayer has declared correct number of messages that the proof contains (it
@@ -698,7 +698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				confirmed_messages.total_messages(),
 				max_allowed_messages,
 			);
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceivalConfirmationError::TryingToConfirmMoreMessagesThanExpected)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected)
 		}
 
 		ensure_unrewarded_relayers_are_correct(confirmed_messages.end, relayers)<span class="question-mark">?</span>;
@@ -747,24 +747,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>ensure_unrewarded_relayers_are_correct&lt;RelayerId&gt;(
 	latest_received_nonce: MessageNonce,
 	relayers: <span class="kw-2">&amp;</span>VecDeque&lt;UnrewardedRelayer&lt;RelayerId&gt;&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReceivalConfirmationError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReceptionConfirmationError&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>expected_entry_begin = relayers.front().map(|entry| entry.messages.begin);
 	<span class="kw">for </span>entry <span class="kw">in </span>relayers {
 		<span class="comment">// unrewarded relayer entry must have at least 1 unconfirmed message
 		// (guaranteed by the `InboundLane::receive_message()`)
 		</span><span class="kw">if </span>entry.messages.end &lt; entry.messages.begin {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceivalConfirmationError::EmptyUnrewardedRelayerEntry)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry)
 		}
 		<span class="comment">// every entry must confirm range of messages that follows previous entry range
 		// (guaranteed by the `InboundLane::receive_message()`)
 		</span><span class="kw">if </span>expected_entry_begin != <span class="prelude-val">Some</span>(entry.messages.begin) {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceivalConfirmationError::NonConsecutiveUnrewardedRelayerEntries)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries)
 		}
 		expected_entry_begin = entry.messages.end.checked_add(<span class="number">1</span>);
 		<span class="comment">// entry can&#39;t confirm messages larger than `inbound_lane_data.latest_received_nonce()`
 		// (guaranteed by the `InboundLane::receive_message()`)
 		</span><span class="kw">if </span>entry.messages.end &gt; latest_received_nonce {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceivalConfirmationError::FailedToConfirmFutureMessages)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ReceptionConfirmationError::FailedToConfirmFutureMessages)
 		}
 	}
 
@@ -799,7 +799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>assert_3_messages_confirmation_fails(
 		latest_received_nonce: MessageNonce,
 		relayers: <span class="kw-2">&amp;</span>VecDeque&lt;UnrewardedRelayer&lt;TestRelayer&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;DeliveredMessages&gt;, ReceivalConfirmationError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;DeliveredMessages&gt;, ReceptionConfirmationError&gt; {
 		run_test(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
@@ -870,7 +870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>confirm_delivery_rejects_nonce_larger_than_last_generated() {
 		<span class="macro">assert_eq!</span>(
 			assert_3_messages_confirmation_fails(<span class="number">10</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">1</span>..=<span class="number">10</span>),),
-			<span class="prelude-val">Err</span>(ReceivalConfirmationError::FailedToConfirmFutureMessages),
+			<span class="prelude-val">Err</span>(ReceptionConfirmationError::FailedToConfirmFutureMessages),
 		);
 	}
 
@@ -885,7 +885,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.chain(unrewarded_relayers(<span class="number">3</span>..=<span class="number">3</span>).into_iter())
 					.collect(),
 			),
-			<span class="prelude-val">Err</span>(ReceivalConfirmationError::FailedToConfirmFutureMessages),
+			<span class="prelude-val">Err</span>(ReceptionConfirmationError::FailedToConfirmFutureMessages),
 		);
 	}
 
@@ -901,7 +901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.chain(unrewarded_relayers(<span class="number">2</span>..=<span class="number">3</span>).into_iter())
 					.collect(),
 			),
-			<span class="prelude-val">Err</span>(ReceivalConfirmationError::EmptyUnrewardedRelayerEntry),
+			<span class="prelude-val">Err</span>(ReceptionConfirmationError::EmptyUnrewardedRelayerEntry),
 		);
 	}
 
@@ -916,7 +916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.chain(unrewarded_relayers(<span class="number">2</span>..=<span class="number">2</span>).into_iter())
 					.collect(),
 			),
-			<span class="prelude-val">Err</span>(ReceivalConfirmationError::NonConsecutiveUnrewardedRelayerEntries),
+			<span class="prelude-val">Err</span>(ReceptionConfirmationError::NonConsecutiveUnrewardedRelayerEntries),
 		);
 	}
 
@@ -980,11 +980,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			<span class="macro">assert_eq!</span>(
 				lane.confirm_delivery(<span class="number">0</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">1</span>..=<span class="number">3</span>)),
-				<span class="prelude-val">Err</span>(ReceivalConfirmationError::TryingToConfirmMoreMessagesThanExpected),
+				<span class="prelude-val">Err</span>(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected),
 			);
 			<span class="macro">assert_eq!</span>(
 				lane.confirm_delivery(<span class="number">2</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">1</span>..=<span class="number">3</span>)),
-				<span class="prelude-val">Err</span>(ReceivalConfirmationError::TryingToConfirmMoreMessagesThanExpected),
+				<span class="prelude-val">Err</span>(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected),
 			);
 			<span class="macro">assert_eq!</span>(
 				lane.confirm_delivery(<span class="number">3</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">1</span>..=<span class="number">3</span>)),

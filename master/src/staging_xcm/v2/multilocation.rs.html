@@ -1428,7 +1428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Consumes `self` and returns a `MultiLocation` suffixed with `new`, or an `Err` with
-	/// theoriginal value of `self` in case of overflow.
+	/// the original value of `self` in case of overflow.
 	</span><span class="kw">pub fn </span>pushed_with_interior(<span class="self">self</span>, new: Junction) -&gt; result::Result&lt;<span class="self">Self</span>, (<span class="self">Self</span>, Junction)&gt; {
 		<span class="kw">match </span><span class="self">self</span>.interior.pushed_with(new) {
 			<span class="prelude-val">Ok</span>(i) =&gt; <span class="prelude-val">Ok</span>(MultiLocation { interior: i, parents: <span class="self">self</span>.parents }),

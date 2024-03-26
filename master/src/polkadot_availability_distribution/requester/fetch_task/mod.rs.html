@@ -997,7 +997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>do_request(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		validator: <span class="kw-2">&amp;</span>AuthorityDiscoveryId,
-		nerwork_error_freq: <span class="kw-2">&amp;mut </span>gum::Freq,
+		network_error_freq: <span class="kw-2">&amp;mut </span>gum::Freq,
 		canceled_freq: <span class="kw-2">&amp;mut </span>gum::Freq,
 	) -&gt; std::result::Result&lt;ChunkFetchingResponse, TaskError&gt; {
 		<span class="macro">gum::trace!</span>(
@@ -1044,7 +1044,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			<span class="prelude-val">Err</span>(RequestError::NetworkError(err)) =&gt; {
 				<span class="macro">gum::warn_if_frequent!</span>(
-					freq: nerwork_error_freq,
+					freq: network_error_freq,
 					max_rate: gum::Times::PerHour(<span class="number">100</span>),
 					target: LOG_TARGET,
 					origin = <span class="question-mark">?</span>validator,

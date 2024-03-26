@@ -833,7 +833,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="doccomment">/// Types for wasm based tracing. Loosly inspired by `tracing-core` but
+<span class="doccomment">/// Types for wasm based tracing. Loosely inspired by `tracing-core` but
 /// optimised for the specific use case.
 </span><span class="kw">use </span>core::{fmt::Debug, format_args};
 
@@ -870,7 +870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// A paramter value provided to the span/event
+<span class="doccomment">/// A parameter value provided to the span/event
 </span><span class="attr">#[derive(Encode, Decode, Clone)]
 </span><span class="kw">pub enum </span>WasmValue {
 	U8(u8),
@@ -996,9 +996,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// The name of a field provided as the argument name when contstructing an
+<span class="doccomment">/// The name of a field provided as the argument name when constructing an
 /// `event!` or `span!`.
-/// Generally generated automaticaly via `stringify` from an `&#39;static &amp;str`.
+/// Generally generated automatically via `stringify` from an `&#39;static &amp;str`.
 /// Likely print-able.
 </span><span class="attr">#[derive(Encode, Decode, Clone)]
 </span><span class="kw">pub struct </span>WasmFieldName(Vec&lt;u8&gt;);
@@ -1136,7 +1136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.<span class="number">0</span>.push((field.name().into(), <span class="prelude-val">Some</span>(WasmValue::from(value))))
 	}
 }
-<span class="doccomment">/// Metadata provides generic information about the specifc location of the
+<span class="doccomment">/// Metadata provides generic information about the specific location of the
 /// `span!` or `event!` call on the wasm-side.
 </span><span class="attr">#[derive(Encode, Decode, Clone)]
 </span><span class="kw">pub struct </span>WasmMetadata {

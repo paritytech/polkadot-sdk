@@ -344,7 +344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>submit(<span class="kw-2">&amp;</span><span class="self">self</span>, encoded: Bytes) -&gt; RpcResult&lt;()&gt; {
 		<span class="kw">let </span>statement = Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>encoded)
-			.map_err(|e| Error::StatementStore(<span class="macro">format!</span>(<span class="string">&quot;Eror decoding statement: {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+			.map_err(|e| Error::StatementStore(<span class="macro">format!</span>(<span class="string">&quot;Error decoding statement: {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
 		<span class="kw">match </span><span class="self">self</span>.store.submit(statement, StatementSource::Local) {
 			SubmitResult::New(<span class="kw">_</span>) | SubmitResult::Known =&gt; <span class="prelude-val">Ok</span>(()),
 			<span class="comment">// `KnownExpired` should not happen. Expired statements submitted with

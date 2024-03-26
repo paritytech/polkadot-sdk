@@ -1319,7 +1319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">fn </span>load_spec(id: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
 	<span class="kw">let </span>(id, <span class="kw">_</span>, para_id) = extract_parachain_id(id);
 	<span class="prelude-val">Ok</span>(<span class="kw">match </span>id {
-		<span class="comment">// - Defaul-like
+		<span class="comment">// - Default-like
 		</span><span class="string">&quot;staging&quot; </span>=&gt;
 			Box::new(chain_spec::rococo_parachain::staging_rococo_parachain_local_config()),
 		<span class="string">&quot;tick&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(

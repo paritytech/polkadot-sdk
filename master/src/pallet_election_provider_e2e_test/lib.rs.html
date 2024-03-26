@@ -882,8 +882,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// active validators. Thus, slashing a percentage of the current validators that is lower than
 /// `OffendingValidatorsThreshold` will never force a new era. However, as the slashes progress, if
 /// the subsequent elections do not meet the minimum election untrusted score, the election will
-/// fail and enter in emenergency mode.
-</span><span class="kw">fn </span>continous_slashes_below_offending_threshold() {
+/// fail and enter in emergency mode.
+</span><span class="kw">fn </span>continuous_slashes_below_offending_threshold() {
 	<span class="kw">let </span>staking_builder = StakingExtBuilder::default().validator_count(<span class="number">10</span>);
 	<span class="kw">let </span>epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
 
@@ -997,7 +997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[test]
-</span><span class="doccomment">/// Active ledger balance may fall below ED if account chills before unbounding.
+</span><span class="doccomment">/// Active ledger balance may fall below ED if account chills before unbonding.
 ///
 /// Unbonding call fails if the remaining ledger&#39;s stash balance falls below the existential
 /// deposit. However, if the stash is chilled before unbonding, the ledger&#39;s active balance may
@@ -1024,7 +1024,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// however, chilling works as expected.
 		</span><span class="macro">assert_ok!</span>(Staking::chill(RuntimeOrigin::signed(<span class="number">11</span>)));
 
-		<span class="comment">// now unbonding the full active balance works, since remainer of the active balance is
+		<span class="comment">// now unbonding the full active balance works, since remainder of the active balance is
 		// not enforced to be below `MinNominatorBond` if the stash has been chilled.
 		</span><span class="macro">assert_ok!</span>(Staking::unbond(RuntimeOrigin::signed(<span class="number">11</span>), <span class="number">1000</span>));
 
@@ -1153,7 +1153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			staking_events(),
 			[
 				<span class="comment">// auto-withdraw happened as expected to release 2&#39;s unbonding funds, but the funds
-				// were not transfered to 2 and stay in the pool&#39;s tranferrable balance instead.
+				// were not transferred to 2 and stay in the pool&#39;s transferrable balance instead.
 				</span>pallet_staking::Event::Withdrawn { stash: <span class="number">7939698191839293293</span>, amount: <span class="number">10 </span>},
 				pallet_staking::Event::Unbonded { stash: <span class="number">7939698191839293293</span>, amount: <span class="number">10 </span>}
 			]

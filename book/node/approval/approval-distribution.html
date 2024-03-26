@@ -242,7 +242,7 @@ struct State {
 }
 
 enum MessageFingerprint {
-  Assigment(Hash, u32, ValidatorIndex),
+  Assignment(Hash, u32, ValidatorIndex),
   Approval(Hash, u32, ValidatorIndex),
 }
 
@@ -325,7 +325,7 @@ return.</p>
 <li>Compute <code>view_intersection</code> as the intersection of the peer's view blocks with the hashes of the new blocks.</li>
 <li>Invoke <code>unify_with_peer(peer, view_intersection)</code>.</li>
 </ul>
-<h4 id="approvaldistributionmessagedistributeasignment"><a class="header" href="#approvaldistributionmessagedistributeasignment"><code>ApprovalDistributionMessage::DistributeAsignment</code></a></h4>
+<h4 id="approvaldistributionmessagedistributeassignment"><a class="header" href="#approvaldistributionmessagedistributeassignment"><code>ApprovalDistributionMessage::DistributeAssignment</code></a></h4>
 <p>Call <code>import_and_circulate_assignment</code> with <code>MessageSource::Local</code>.</p>
 <h4 id="approvaldistributionmessagedistributeapproval"><a class="header" href="#approvaldistributionmessagedistributeapproval"><code>ApprovalDistributionMessage::DistributeApproval</code></a></h4>
 <p>Call <code>import_and_circulate_approval</code> with <code>MessageSource::Local</code>.</p>
@@ -464,7 +464,7 @@ finalized number go to step 6.</p>
 peer.</p>
 </li>
 </ol>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

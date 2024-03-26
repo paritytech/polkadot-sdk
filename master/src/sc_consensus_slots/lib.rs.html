@@ -1945,7 +1945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>(inner.clamp(<span class="number">0.0</span>, <span class="number">1.0</span>))
 	}
 
-	<span class="doccomment">/// Returns the inner that is guaranted to be in the range `[0,1]`.
+	<span class="doccomment">/// Returns the inner that is guaranteed to be in the range `[0,1]`.
 	</span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; f32 {
 		<span class="self">self</span>.<span class="number">0
 	</span>}
@@ -2038,7 +2038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Calculate a slot duration lenience based on the number of missed slots from current
-/// to parent. If the number of skipped slots is greated than 0 this method will apply
+/// to parent. If the number of skipped slots is greater than 0 this method will apply
 /// an exponential backoff of at most `2^7 * slot_duration`, if no slots were skipped
 /// this method will return `None.`
 </span><span class="kw">pub fn </span>slot_lenience_exponential&lt;Block: BlockT&gt;(
@@ -2070,7 +2070,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Calculate a slot duration lenience based on the number of missed slots from current
-/// to parent. If the number of skipped slots is greated than 0 this method will apply
+/// to parent. If the number of skipped slots is greater than 0 this method will apply
 /// a linear backoff of at most `20 * slot_duration`, if no slots were skipped
 /// this method will return `None.`
 </span><span class="kw">pub fn </span>slot_lenience_linear&lt;Block: BlockT&gt;(

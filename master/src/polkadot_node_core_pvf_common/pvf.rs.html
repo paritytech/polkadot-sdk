@@ -362,9 +362,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Creates a structure for tests.
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;test-utils&quot;</span>)]
 	</span><span class="kw">pub fn </span>from_discriminator_and_timeout(num: u32, timeout: Duration) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>descriminator_buf = num.to_le_bytes().to_vec();
+		<span class="kw">let </span>discriminator_buf = num.to_le_bytes().to_vec();
 		<span class="self">Self</span>::from_code(
-			descriminator_buf,
+			discriminator_buf,
 			ExecutorParams::default(),
 			timeout,
 			PrepareJobKind::Compilation,

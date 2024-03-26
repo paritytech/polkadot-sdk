@@ -512,7 +512,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="comment">// just an estimation of extra transaction bytes that are added to every transaction
 		// (including signature, signed extensions extra and etc + in our case it includes
-		// all call arguments extept the proof itself)
+		// all call arguments except the proof itself)
 		</span><span class="kw">let </span>base_tx_size = <span class="number">512</span>;
 		<span class="comment">// let&#39;s say we are relaying similar small messages and for every message we add more trie
 		// nodes to the proof (x0.5 because we expect some nodes to be reused)

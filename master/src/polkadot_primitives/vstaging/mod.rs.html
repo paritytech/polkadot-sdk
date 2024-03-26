@@ -401,7 +401,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>on_demand_fee_variability: Perbill,
 	<span class="doccomment">/// The minimum amount needed to claim a slot in the spot pricing queue.
 	</span><span class="kw">pub </span>on_demand_base_fee: Balance,
-	<span class="doccomment">/// The number of blocks a claim stays in the scheduler&#39;s claimqueue before getting cleared.
+	<span class="doccomment">/// The number of blocks a claim stays in the scheduler&#39;s claim queue before getting cleared.
 	/// This number should go reasonably higher than the number of blocks in the async backing
 	/// lookahead.
 	</span><span class="kw">pub </span>ttl: BlockNumber,
@@ -432,7 +432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
 </span><span class="kw">pub mod </span>node_features {
-	<span class="doccomment">/// A feature index used to indentify a bit into the node_features array stored
+	<span class="doccomment">/// A feature index used to identify a bit into the node_features array stored
 	/// in the HostConfiguration.
 	</span><span class="attr">#[repr(u8)]
 	</span><span class="kw">pub enum </span>FeatureIndex {

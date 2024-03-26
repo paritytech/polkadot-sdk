@@ -974,6 +974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1253,7 +1254,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	</span><span class="kw">pub fn </span>decode_len&lt;KeyArg: EncodeLike&lt;Key&gt;&gt;(key: KeyArg) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;
 	<span class="kw">where
@@ -1271,7 +1272,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Warning
 	///
-	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	///  - `None` does not mean that `get()` does not return a value. The default value is
+	///    completely
 	/// ignored by this function.
 	///
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This

@@ -669,7 +669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>DataAvailabilityReadOptions {
 	<span class="attr">#[clap(short, long, default_value_t = <span class="bool-val">false</span>)]
 	</span><span class="doccomment">/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as
-	/// we don&#39;t need to re-construct from chunks. Tipically this is only faster if nodes have
+	/// we don&#39;t need to re-construct from chunks. Typically this is only faster if nodes have
 	/// enough bandwidth.
 	</span><span class="kw">pub </span>fetch_from_backers: bool,
 }
@@ -1004,7 +1004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>network = env.network().clone();
 		<span class="kw">let </span>authorities = env.authorities().clone();
 
-		<span class="comment">// Spawn a task that will generate `n_validator` - 1 signed bitfiends and
+		<span class="comment">// Spawn a task that will generate `n_validator` - 1 signed bitfields and
 		// send them from the emulated peers to the subsystem.
 		// TODO: Implement topology.
 		</span><span class="kw">let </span>messages = state.signed_bitfields.get(<span class="kw-2">&amp;</span>relay_block_hash).expect(<span class="string">&quot;pregenerated&quot;</span>).clone();
@@ -1025,7 +1025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Wait for all bitfields to be processed.
 		</span>env.wait_until_metric(
-			<span class="string">&quot;polkadot_parachain_received_availabilty_bitfields_total&quot;</span>,
+			<span class="string">&quot;polkadot_parachain_received_availability_bitfields_total&quot;</span>,
 			<span class="prelude-val">None</span>,
 			|value| value == (config.connected_count() * block_num) <span class="kw">as </span>f64,
 		)

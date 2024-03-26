@@ -1175,7 +1175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>lower_bound = (new_earliest_session, CandidateHash(Hash::repeat_byte(<span class="number">0x00</span>)));
 
 				<span class="kw">let </span>new_recent_disputes = recent_disputes.split_off(<span class="kw-2">&amp;</span>lower_bound);
-				<span class="comment">// Any remanining disputes are considered ancient and must be pruned.
+				<span class="comment">// Any remaining disputes are considered ancient and must be pruned.
 				</span><span class="kw">let </span>pruned_disputes = recent_disputes;
 
 				<span class="kw">if </span>pruned_disputes.len() != <span class="number">0 </span>{

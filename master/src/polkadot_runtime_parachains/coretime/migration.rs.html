@@ -676,7 +676,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">return </span><span class="prelude-val">None
 				</span>},
 			};
-			<span class="comment">// We assume the coretime chain set this parameter to the recommened value in RFC-1:
+			<span class="comment">// We assume the coretime chain set this parameter to the recommended value in RFC-1:
 			</span><span class="kw">const </span>TIME_SLICE_PERIOD: u32 = <span class="number">80</span>;
 			<span class="kw">let </span>round_up = <span class="kw">if </span>valid_until % TIME_SLICE_PERIOD &gt; <span class="number">0 </span>{ <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
 			<span class="kw">let </span>time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;

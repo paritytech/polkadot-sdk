@@ -368,7 +368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">let </span>hash = <span class="self">self
 								</span>.state
 								.get_header_by_number(requested_number)
-								.expect(<span class="string">&quot;Unknow block number&quot;</span>)
+								.expect(<span class="string">&quot;Unknown block number&quot;</span>)
 								.hash();
 							sender.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(hash))).unwrap();
 						},

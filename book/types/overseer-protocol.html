@@ -167,7 +167,7 @@ transmitted using these.</p>
 are currently two proposals for how to handle that with unified communication channels:</p>
 <ol>
 <li>Retaining the <code>OverseerSignal</code> definition above, add <code>enum FromOrchestra&lt;T&gt; {Signal(OverseerSignal), Message(T)}</code>.</li>
-<li>Add a generic varint to <code>OverseerSignal</code>: <code>Message(T)</code>.</li>
+<li>Add a generic variant to <code>OverseerSignal</code>: <code>Message(T)</code>.</li>
 </ol>
 <p>Either way, there will be some top-level type encapsulating messages from the overseer to each subsystem.</p>
 <h2 id="active-leaves-update"><a class="header" href="#active-leaves-update">Active Leaves Update</a></h2>
@@ -1077,7 +1077,7 @@ pub enum CandidateValidationMessage {
 pub enum PvfCheckerMessage { }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2024-03-25, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/c6f7ccf51a">c6f7ccf51a</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

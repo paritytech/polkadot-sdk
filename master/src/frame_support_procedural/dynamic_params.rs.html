@@ -857,8 +857,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Used to inject arguments into the inner `#[dynamic_pallet_params(..)]` attribute.
 ///
-/// This allows the outer `#[dynamic_params(..)]` attribute to specify some arguments that dont need
-/// to be repeated every time.
+/// This allows the outer `#[dynamic_params(..)]` attribute to specify some arguments that don&#39;t
+/// need to be repeated every time.
 </span><span class="kw">struct </span>MacroInjectArgs {
 	runtime_params: syn::Ident,
 	params_pallet: syn::Type,
@@ -1021,7 +1021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)*
 				}
 
-				<span class="kw">impl </span>#scrate::traits::dynamic_params::AggregratedKeyValue <span class="kw">for </span>Parameters {
+				<span class="kw">impl </span>#scrate::traits::dynamic_params::AggregatedKeyValue <span class="kw">for </span>Parameters {
 					<span class="kw">type </span>Key = #key_ident;
 					<span class="kw">type </span>Value = #value_ident;
 
@@ -1207,7 +1207,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>#vis <span class="kw">enum </span>#params_key_ident {
 				#(
 					#(#attributes)*
-					#param_names(&lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregratedKeyValue&gt;::Key),
+					#param_names(&lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregatedKeyValue&gt;::Key),
 				)*
 			}
 
@@ -1225,11 +1225,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>#vis <span class="kw">enum </span>#params_value_ident {
 				#(
 					#(#attributes)*
-					#param_names(&lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregratedKeyValue&gt;::Value),
+					#param_names(&lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregatedKeyValue&gt;::Value),
 				)*
 			}
 
-			<span class="kw">impl </span>#scrate::traits::dynamic_params::AggregratedKeyValue <span class="kw">for </span>#name {
+			<span class="kw">impl </span>#scrate::traits::dynamic_params::AggregatedKeyValue <span class="kw">for </span>#name {
 				<span class="kw">type </span>Key = #params_key_ident;
 				<span class="kw">type </span>Value = #params_value_ident;
 
@@ -1246,13 +1246,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			#(
-				<span class="kw">impl </span>::core::convert::From&lt;&lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregratedKeyValue&gt;::Key&gt; <span class="kw">for </span>#params_key_ident {
-					<span class="kw">fn </span>from(key: &lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregratedKeyValue&gt;::Key) -&gt; <span class="self">Self </span>{
+				<span class="kw">impl </span>::core::convert::From&lt;&lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregatedKeyValue&gt;::Key&gt; <span class="kw">for </span>#params_key_ident {
+					<span class="kw">fn </span>from(key: &lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregatedKeyValue&gt;::Key) -&gt; <span class="self">Self </span>{
 						#params_key_ident::#param_names(key)
 					}
 				}
 
-				<span class="kw">impl </span>::core::convert::TryFrom&lt;#params_value_ident&gt; <span class="kw">for </span>&lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregratedKeyValue&gt;::Value {
+				<span class="kw">impl </span>::core::convert::TryFrom&lt;#params_value_ident&gt; <span class="kw">for </span>&lt;#param_types <span class="kw">as </span>#scrate::traits::dynamic_params::AggregatedKeyValue&gt;::Value {
 					<span class="kw">type </span>Error = ();
 
 					<span class="kw">fn </span>try_from(value: #params_value_ident) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {

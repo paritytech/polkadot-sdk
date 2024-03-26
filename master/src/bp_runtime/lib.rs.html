@@ -748,7 +748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>storage_proof;
 <span class="kw">mod </span>storage_types;
 
-<span class="comment">// Re-export macro to aviod include paste dependency everywhere
+<span class="comment">// Re-export macro to avoid include paste dependency everywhere
 </span><span class="kw">pub use </span>sp_runtime::paste;
 
 <span class="doccomment">/// Use this when something must be shared among all instances.
@@ -1153,7 +1153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 }
 
-<span class="doccomment">/// Error message that is only dispayable in `std` environment.
+<span class="doccomment">/// Error message that is only displayable in `std` environment.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>StrippableError&lt;T&gt; {

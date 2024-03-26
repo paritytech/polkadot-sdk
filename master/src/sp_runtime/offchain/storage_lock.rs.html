@@ -1282,7 +1282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>res = lock.try_lock();
 			<span class="macro">assert_eq!</span>(res.is_ok(), <span class="bool-val">false</span>);
 
-			<span class="comment">// sleep again untill sleep_until &gt; deadline
+			<span class="comment">// sleep again until sleep_until &gt; deadline
 			</span>offchain::sleep_until(offchain::timestamp().add(Duration::from_millis(<span class="number">200</span>)));
 
 			<span class="comment">// the lock has expired, failed to extend it

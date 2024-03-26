@@ -1231,7 +1231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.unwrap();
 			<span class="macro">assert_eq!</span>(pre, <span class="prelude-val">Some</span>(<span class="number">100</span>));
 
-			<span class="comment">// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
+			<span class="comment">// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
 			<span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
@@ -1266,7 +1266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.unwrap();
 			<span class="macro">assert_eq!</span>(pre, <span class="prelude-val">Some</span>(<span class="number">100</span>));
 
-			<span class="comment">// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
+			<span class="comment">// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
 			<span class="macro">assert_ok!</span>(StorageWeightReclaim::&lt;Test&gt;::post_dispatch(
@@ -1310,7 +1310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
 			));
 			<span class="comment">// `CheckWeight` gets called after `StorageWeightReclaim` this time.
-			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
+			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
 
@@ -1346,7 +1346,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())
 			));
 			<span class="comment">// `CheckWeight` gets called after `StorageWeightReclaim` this time.
-			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
+			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			</span><span class="macro">assert_ok!</span>(CheckWeight::&lt;Test&gt;::post_dispatch(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>info, <span class="kw-2">&amp;</span>post_info, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="prelude-val">Ok</span>(())));
 

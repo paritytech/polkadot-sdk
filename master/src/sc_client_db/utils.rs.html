@@ -1312,7 +1312,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	db_config.memory_budget = memory_budget;
 
 	<span class="kw">let </span>db = kvdb_rocksdb::Database::open(<span class="kw-2">&amp;</span>db_config, path)<span class="question-mark">?</span>;
-	<span class="comment">// write database version only after the database is succesfully opened
+	<span class="comment">// write database version only after the database is successfully opened
 	</span><span class="kw">crate</span>::upgrade::update_version(path)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(sp_database::as_database(db))
 }

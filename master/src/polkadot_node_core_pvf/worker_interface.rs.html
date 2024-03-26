@@ -710,11 +710,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>make_tmppath(prefix: <span class="kw-2">&amp;</span>str, dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
 			<span class="kw">use </span>rand::distributions::Alphanumeric;
 
-			<span class="kw">const </span>DESCRIMINATOR_LEN: usize = <span class="number">10</span>;
+			<span class="kw">const </span>DISCRIMINATOR_LEN: usize = <span class="number">10</span>;
 
-			<span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::with_capacity(prefix.len() + DESCRIMINATOR_LEN);
+			<span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::with_capacity(prefix.len() + DISCRIMINATOR_LEN);
 			buf.extend(prefix.as_bytes());
-			buf.extend(rand::thread_rng().sample_iter(<span class="kw-2">&amp;</span>Alphanumeric).take(DESCRIMINATOR_LEN));
+			buf.extend(rand::thread_rng().sample_iter(<span class="kw-2">&amp;</span>Alphanumeric).take(DISCRIMINATOR_LEN));
 
 			<span class="kw">let </span>s = std::str::from_utf8(<span class="kw-2">&amp;</span>buf)
 				.expect(<span class="string">&quot;the string is collected from a valid utf-8 sequence; qed&quot;</span>);

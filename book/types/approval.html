@@ -182,7 +182,7 @@ enum AssignmentCertKindV2 {
         /// The core index chosen in this cert.
         core_index: CoreIndex,
     },
-    /// Deprectated assignment. Soon to be removed.
+    /// Deprecated assignment. Soon to be removed.
     ///  
     /// An assignment story based on the VRF that authorized the relay-chain block where the
     /// candidate was included combined with a sample number.
@@ -255,7 +255,7 @@ the actual <code>SignedApprovalVote</code> payload.</p>
 </span></code></pre></pre>
 <h2 id="checkedassignmentcert"><a class="header" href="#checkedassignmentcert"><code>CheckedAssignmentCert</code></a></h2>
 <p>An assignment cert which has checked both the VRF and the validity of the implied assignment according to the selection
-criteria rules of the protocol. This type should be declared in such a way as to be instantiatable only when the checks
+criteria rules of the protocol. This type should be declared in such a way as to be instantiable only when the checks
 have actually been done. Fields should be accessible via getters, not direct struct access.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -274,7 +274,7 @@ have actually been done. Fields should be accessible via getters, not direct str
 </span>type DelayTranche = u32;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0570b6fa9e">0570b6fa9e</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

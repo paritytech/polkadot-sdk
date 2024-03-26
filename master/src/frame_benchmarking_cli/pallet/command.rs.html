@@ -1367,7 +1367,7 @@ not created by a node that was compiled with the flag&quot;</span>;
 					.map_err(|e| {
 						<span class="macro">format!</span>(<span class="string">&quot;Error executing and verifying runtime benchmark: {}&quot;</span>, e)
 					})<span class="question-mark">?</span>;
-					<span class="comment">// Dont use these results since verification code will add overhead.
+					<span class="comment">// Don&#39;t use these results since verification code will add overhead.
 					</span><span class="kw">let </span>_batch =
 						&lt;std::result::Result&lt;Vec&lt;BenchmarkBatch&gt;, String&gt; <span class="kw">as </span>Decode&gt;::decode(
 							<span class="kw-2">&amp;mut &amp;</span>result[..],
@@ -1389,7 +1389,7 @@ not created by a node that was compiled with the flag&quot;</span>;
 							<span class="kw-2">&amp;</span>pallet.clone(),
 							<span class="kw-2">&amp;</span>extrinsic.clone(),
 							<span class="kw-2">&amp;</span>selected_components.clone(),
-							<span class="bool-val">false</span>, <span class="comment">// dont run verification code for final values
+							<span class="bool-val">false</span>, <span class="comment">// don&#39;t run verification code for final values
 							</span><span class="self">self</span>.repeat,
 						)
 							.encode(),
@@ -1421,7 +1421,7 @@ not created by a node that was compiled with the flag&quot;</span>;
 							<span class="kw-2">&amp;</span>pallet.clone(),
 							<span class="kw-2">&amp;</span>extrinsic.clone(),
 							<span class="kw-2">&amp;</span>selected_components.clone(),
-							<span class="bool-val">false</span>, <span class="comment">// dont run verification code for final values
+							<span class="bool-val">false</span>, <span class="comment">// don&#39;t run verification code for final values
 							</span><span class="self">self</span>.repeat,
 						)
 							.encode(),

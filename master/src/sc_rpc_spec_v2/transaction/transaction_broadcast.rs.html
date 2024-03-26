@@ -442,7 +442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>pool: Arc&lt;Pool&gt;,
 	<span class="doccomment">/// Executor to spawn subscriptions.
 	</span>executor: SubscriptionTaskExecutor,
-	<span class="doccomment">/// The brodcast operation IDs.
+	<span class="doccomment">/// The broadcast operation IDs.
 	</span>broadcast_ids: Arc&lt;RwLock&lt;HashMap&lt;String, BroadcastState&gt;&gt;&gt;,
 }
 
@@ -598,7 +598,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Returns the last element of the providided stream, or `None` if the stream is closed.
+<span class="doccomment">/// Returns the last element of the provided stream, or `None` if the stream is closed.
 </span><span class="kw">async fn </span>last_stream_element&lt;S&gt;(stream: <span class="kw-2">&amp;mut </span>S) -&gt; <span class="prelude-ty">Option</span>&lt;S::Item&gt;
 <span class="kw">where
 	</span>S: Stream + Unpin,

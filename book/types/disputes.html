@@ -227,7 +227,7 @@ enum InvalidDisputeStatementKind {
 struct ScrapedOnChainVotes {
     /// The session index at which the block was included.
     session: SessionIndex,
-    /// The backing and seconding validity attestations for all candidates, provigind the full candidate receipt.
+    /// The backing and seconding validity attestations for all candidates, providing the full candidate receipt.
     backing_validators_per_candidate: Vec&lt;(CandidateReceipt&lt;H&gt;, Vec&lt;(ValidatorIndex, ValidityAttestation)&gt;)&gt;
     /// Set of concluded disputes that were recorded
     /// on chain within the inherent.
@@ -235,7 +235,7 @@ struct ScrapedOnChainVotes {
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

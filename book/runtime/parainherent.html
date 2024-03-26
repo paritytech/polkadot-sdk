@@ -224,11 +224,11 @@ to <code>sanitize_bitfields</code> function for implementation details.</p>
 <p>Backed candidates sanitization removes malformed ones, candidates which have got concluded invalid disputes against them
 or candidates produced by unassigned cores. Furthermore any backing votes from disabled validators for a candidate are
 dropped. This is part of the validator disabling strategy. After filtering the statements from disabled validators a
-backed candidate may end up with votes count less than <code>minimum_backing_votes</code> (a parameter from <code>HostConfiguiration</code>).
+backed candidate may end up with votes count less than <code>minimum_backing_votes</code> (a parameter from <code>HostConfiguration</code>).
 In this case the whole candidate is dropped otherwise it will be rejected by <code>process_candidates</code> from pallet inclusion.
 All checks related to backed candidates are implemented in <code>sanitize_backed_candidates</code> and
 <code>filter_backed_statements_from_disabled_validators</code>.</p>
-<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

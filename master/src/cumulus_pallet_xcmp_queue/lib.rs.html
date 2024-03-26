@@ -1591,7 +1591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Max message size refers to aggregates, or pages. Not to individual fragments.
 		</span><span class="kw">let </span>max_message_size = channel_info.max_message_size <span class="kw">as </span>usize;
 		<span class="kw">let </span>format_size = format.encoded_size();
-		<span class="comment">// We check the encoded fragment length plus the format size agains the max message size
+		<span class="comment">// We check the encoded fragment length plus the format size against the max message size
 		// because the format is concatenated if a new page is needed.
 		</span><span class="kw">let </span>size_to_check = encoded_fragment
 			.len()

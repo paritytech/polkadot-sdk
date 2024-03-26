@@ -149,7 +149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
             <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_example_single_block_migrations</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_example_single_block_migrations/lib.rs.html#18-213">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="single-block-migration-example-pallet"><a href="#single-block-migration-example-pallet">Single Block Migration Example Pallet</a></h2>
 <p>An example pallet demonstrating best-practices for writing single-block migrations in the
 context of upgrading pallet storage.</p>
-<h3 id="forwarning"><a href="#forwarning">Forwarning</a></h3>
+<h3 id="forewarning"><a href="#forewarning">Forewarning</a></h3>
 <p>Single block migrations <strong>MUST</strong> execute in a single block, therefore when executed on a
 parachain are only appropriate when guaranteed to not exceed block weight limits. If a
 parachain submits a block that exceeds the block weight limit it will <strong>brick the chain</strong>!</p>
@@ -203,7 +203,7 @@ V0 it is a <code>u32</code>) and the current storage for <a href="pallet/type.Va
 <p>The on-chain storage for <a href="pallet/type.Value.html" title="type pallet_example_single_block_migrations::pallet::Value"><code>Value</code></a> would be a <code>u32</code> but the runtime would try to read it as a
 <a href="struct.CurrentAndPreviousValue.html" title="struct pallet_example_single_block_migrations::CurrentAndPreviousValue"><code>CurrentAndPreviousValue</code></a>. This would result in unacceptable undefined behavior.</p>
 <h3 id="adding-a-migration-module"><a href="#adding-a-migration-module">Adding a migration module</a></h3>
-<p>Writing a pallets migrations in a seperate module is strongly recommended.</p>
+<p>Writing a pallets migrations in a separate module is strongly recommended.</p>
 <p>Here’s how the migration module is defined for this pallet:</p>
 <div class="example-wrap"><pre class="language-text"><code>substrate/frame/examples/single-block-migrations/src/
 ├── lib.rs       &lt;-- pallet definition

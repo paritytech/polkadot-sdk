@@ -284,8 +284,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub const </span>ED: Balance = penpal_runtime::EXISTENTIAL_DEPOSIT;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>PenpalSudoAcccount: AccountId = get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>);
-	<span class="kw">pub </span>PenpalAssetOwner: AccountId = PenpalSudoAcccount::get();
+	<span class="kw">pub </span>PenpalSudoAccount: AccountId = get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>);
+	<span class="kw">pub </span>PenpalAssetOwner: AccountId = PenpalSudoAccount::get();
 }
 
 <span class="kw">pub fn </span>genesis(para_id: u32) -&gt; Storage {
@@ -319,7 +319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			..Default::default()
 		},
-		sudo: penpal_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(PenpalSudoAcccount::get()) },
+		sudo: penpal_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(PenpalSudoAccount::get()) },
 		assets: penpal_runtime::AssetsConfig {
 			assets: <span class="macro">vec!</span>[(
 				penpal_runtime::xcm_config::TELEPORTABLE_ASSET_ID,

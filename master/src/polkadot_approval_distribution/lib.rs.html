@@ -3117,7 +3117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="comment">// Get the assignment certiticate and claimed candidates.
+	<span class="comment">// Get the assignment certificate and claimed candidates.
 	</span><span class="kw">pub fn </span>assignment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (IndirectAssignmentCertV2, CandidateBitfield) {
 		(<span class="self">self</span>.assignment.clone(), <span class="self">self</span>.assignment_claimed_candidates.clone())
 	}
@@ -3291,7 +3291,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		};
 
-		<span class="comment">// In case of succesful insertion of multiple candidate assignments create additional
+		<span class="comment">// In case of successful insertion of multiple candidate assignments create additional
 		// entries for each assigned candidate. This fakes knowledge of individual assignments, but
 		// we need to share the same `MessageSubject` with the followup approval candidate index.
 		</span><span class="kw">if </span>kind == MessageKind::Assignment &amp;&amp; success &amp;&amp; message.<span class="number">1</span>.count_ones() &gt; <span class="number">1 </span>{
@@ -4784,10 +4784,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">_ </span>=&gt; <span class="kw">break</span>,
 				};
 
-				<span class="comment">// Any peer which is in the `known_by` see and we know its peer_id authorithy id
+				<span class="comment">// Any peer which is in the `known_by` see and we know its peer_id authority id
 				// mapping has already been sent all messages it&#39;s meant to get for that block and
 				// all in-scope prior blocks. In case, we just learnt about its peer_id
-				// authorithy-id mapping we have to retry sending the messages that should be sent
+				// authority-id mapping we have to retry sending the messages that should be sent
 				// to it for all un-finalized blocks.
 				</span><span class="kw">if </span>entry.known_by.contains_key(<span class="kw-2">&amp;</span>peer_id) &amp;&amp; !retry_known_blocks {
 					<span class="kw">break
@@ -5086,7 +5086,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sanitized_assignments
 	}
 
-	<span class="comment">// Filter out obviously invalid candidate indicies.
+	<span class="comment">// Filter out obviously invalid candidate indices.
 	</span><span class="kw">async fn </span>sanitize_v1_approvals(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		peer_id: PeerId,
@@ -5113,7 +5113,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sanitized_approvals
 	}
 
-	<span class="comment">// Filter out obviously invalid candidate indicies.
+	<span class="comment">// Filter out obviously invalid candidate indices.
 	</span><span class="kw">async fn </span>sanitize_v2_approvals(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		peer_id: PeerId,
@@ -5147,7 +5147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // The modifier accepts as inputs the current required-routing state, whether
 // the message is locally originating, and the validator index of the message issuer.
 //
-// Then, if the topology is known, this progates messages to all peers in the required
+// Then, if the topology is known, this propagates messages to all peers in the required
 // routing set which are aware of the block. Peers which are unaware of the block
 // will have the message sent when it enters their view in `unify_with_peer`.
 //
@@ -5327,7 +5327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;active leaves signal (ignored)&quot;</span>);
 							<span class="comment">// the relay chain blocks relevant to the approval subsystems
 							// are those that are available, but not finalized yet
-							// actived and deactivated heads hence are irrelevant to this subsystem, other than
+							// activated and deactivated heads hence are irrelevant to this subsystem, other than
 							// for tracing purposes.
 							</span><span class="kw">if let </span><span class="prelude-val">Some</span>(activated) = update.activated {
 								<span class="kw">let </span>head = activated.hash;

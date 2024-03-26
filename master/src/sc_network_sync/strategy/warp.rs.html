@@ -2558,7 +2558,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		warp_sync.on_warp_proof_response(<span class="kw-2">&amp;</span>request_peer_id, EncodedProof(Vec::new()));
 
-		<span class="comment">// We only interested in alredy generated actions, not new requests.
+		<span class="comment">// We only interested in already generated actions, not new requests.
 		</span><span class="kw">let </span>actions = std::mem::take(<span class="kw-2">&amp;mut </span>warp_sync.actions);
 		<span class="macro">assert_eq!</span>(actions.len(), <span class="number">1</span>);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(

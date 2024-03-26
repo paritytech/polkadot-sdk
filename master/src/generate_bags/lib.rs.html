@@ -592,7 +592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	total_issuance: u128,
 	minimum_balance: u128,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
-	<span class="comment">// ensure the file is accessable
+	<span class="comment">// ensure the file is accessible
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = output.parent() {
 		<span class="kw">if </span>!parent.exists() {
 			std::fs::create_dir_all(parent)<span class="question-mark">?</span>;

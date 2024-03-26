@@ -251,7 +251,7 @@ validator indices and a <code>None</code> requesting value.</li>
 <li>Initialize <code>received_chunks</code> to an empty set, as well as <code>requesting_chunks</code>.</li>
 </ol>
 <p>Launch the source as a background task running <code>run(recovery_task)</code>.</p>
-<h4 id="runrecovery_task---resultavailabledata-recoeryerror"><a class="header" href="#runrecovery_task---resultavailabledata-recoeryerror"><code>run(recovery_task) -&gt; Result&lt;AvailableData, RecoeryError&gt;</code></a></h4>
+<h4 id="runrecovery_task---resultavailabledata-recoveryerror"><a class="header" href="#runrecovery_task---resultavailabledata-recoveryerror"><code>run(recovery_task) -&gt; Result&lt;AvailableData, RecoveryError&gt;</code></a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// How many parallel requests to have going at once.
@@ -323,7 +323,7 @@ fails due to network issues, insert into the front of <code>shuffling</code> to 
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

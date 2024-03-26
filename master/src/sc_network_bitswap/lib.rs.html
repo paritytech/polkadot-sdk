@@ -979,7 +979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>substrate_test_runtime_client::{<span class="self">self</span>, prelude::<span class="kw-2">*</span>, TestClientBuilder};
 
 	<span class="attr">#[tokio::test]
-	</span><span class="kw">async fn </span>undecodeable_message() {
+	</span><span class="kw">async fn </span>undecodable_message() {
 		<span class="kw">let </span>client = substrate_test_runtime_client::new();
 		<span class="kw">let </span>(bitswap, config) = BitswapRequestHandler::new(Arc::new(client));
 

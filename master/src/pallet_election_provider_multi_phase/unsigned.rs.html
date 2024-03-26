@@ -3605,7 +3605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)
 				.unwrap();
 				<span class="kw">let </span>solution = RawSolution { solution: raw, score, round: MultiPhase::round() };
-				<span class="comment">// 12 is not better than 12. We need score of atleast 13 to be accepted.
+				<span class="comment">// 12 is not better than 12. We need score of at least 13 to be accepted.
 				</span><span class="macro">assert_eq!</span>(solution.score.minimal_stake, <span class="number">12</span>);
 				<span class="comment">// submitting this will panic.
 				</span><span class="macro">assert_noop!</span>(
@@ -3643,7 +3643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				));
 
 				<span class="comment">// trial 4: a solution who&#39;s minimal stake is 17, i.e. 4 better than the last
-				// soluton.
+				// solution.
 				</span><span class="kw">let </span>result = ElectionResult {
 					winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">12</span>)],
 					assignments: <span class="macro">vec!</span>[

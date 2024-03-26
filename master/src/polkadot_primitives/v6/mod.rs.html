@@ -3728,7 +3728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[codec(index = <span class="number">3</span>)]
 	</span>ApprovalChecking,
 	<span class="doccomment">/// An approval vote from the new version.
-	/// We can&#39;t create this version untill all nodes
+	/// We can&#39;t create this version until all nodes
 	/// have been updated to support it and max_approval_coalesce_count
 	/// is set to more than 1.
 	</span><span class="attr">#[codec(index = <span class="number">4</span>)]
@@ -3875,7 +3875,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>to_compact_statement(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate_hash: CandidateHash) -&gt; CompactStatement {
 		<span class="comment">// Explicit and implicit map directly from
 		// `ValidityVote::Valid` and `ValidityVote::Issued`, and hence there is a
-		// `1:1` relationshow which enables the conversion.
+		// `1:1` relationship which enables the conversion.
 		</span><span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			ValidityAttestation::Implicit(<span class="kw">_</span>) =&gt; CompactStatement::Seconded(candidate_hash),
 			ValidityAttestation::Explicit(<span class="kw">_</span>) =&gt; CompactStatement::Valid(candidate_hash),

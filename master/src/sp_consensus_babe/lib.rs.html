@@ -849,7 +849,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Verifies the equivocation proof by making sure that: both headers have
-/// different hashes, are targetting the same slot, and have valid signatures by
+/// different hashes, are targeting the same slot, and have valid signatures by
 /// the same authority.
 </span><span class="kw">pub fn </span>check_equivocation_proof&lt;H&gt;(proof: EquivocationProof&lt;H&gt;) -&gt; bool
 <span class="kw">where
@@ -881,7 +881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>first_pre_digest = find_pre_digest(<span class="kw-2">&amp;</span>proof.first_header)<span class="question-mark">?</span>;
 		<span class="kw">let </span>second_pre_digest = find_pre_digest(<span class="kw-2">&amp;</span>proof.second_header)<span class="question-mark">?</span>;
 
-		<span class="comment">// both headers must be targetting the same slot and it must
+		<span class="comment">// both headers must be targeting the same slot and it must
 		// be the same as the one in the proof.
 		</span><span class="kw">if </span>proof.slot != first_pre_digest.slot() ||
 			first_pre_digest.slot() != second_pre_digest.slot()

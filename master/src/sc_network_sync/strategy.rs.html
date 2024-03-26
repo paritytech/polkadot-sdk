@@ -993,7 +993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Sync
 		+ <span class="lifetime">&#39;static</span>,
 {
-	<span class="doccomment">/// Initialize a new syncing startegy.
+	<span class="doccomment">/// Initialize a new syncing strategy.
 	</span><span class="kw">pub fn </span>new(
 		config: SyncingConfig,
 		client: Arc&lt;Client&gt;,
@@ -1226,7 +1226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.state.is_some() ||
 			<span class="kw">match </span><span class="self">self</span>.chain_sync {
 				<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>s) =&gt; s.status().state.is_major_syncing(),
-				<span class="prelude-val">None </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;At least one syncing startegy is active; qed&quot;</span>),
+				<span class="prelude-val">None </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;At least one syncing strategy is active; qed&quot;</span>),
 			}
 	}
 
@@ -1237,7 +1237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns the current sync status.
 	</span><span class="kw">pub fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SyncStatus&lt;B&gt; {
-		<span class="comment">// This function presumes that startegies are executed serially and must be refactored
+		<span class="comment">// This function presumes that strategies are executed serially and must be refactored
 		// once we have parallel strategies.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>warp) = <span class="self">self</span>.warp {
 			warp.status()
@@ -1246,7 +1246,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>chain_sync) = <span class="self">self</span>.chain_sync {
 			chain_sync.status()
 		} <span class="kw">else </span>{
-			<span class="macro">unreachable!</span>(<span class="string">&quot;At least one syncing startegy is always active; qed&quot;</span>)
+			<span class="macro">unreachable!</span>(<span class="string">&quot;At least one syncing strategy is always active; qed&quot;</span>)
 		}
 	}
 
@@ -1326,7 +1326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Proceed with the next strategy if the active one finished.
 	</span><span class="kw">pub fn </span>proceed_to_next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ClientError&gt; {
-		<span class="comment">// The strategies are switched as `WarpSync` -&gt; `StateStartegy` -&gt; `ChainSync`.
+		<span class="comment">// The strategies are switched as `WarpSync` -&gt; `StateStrategy` -&gt; `ChainSync`.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>warp) = <span class="self">self</span>.warp {
 			<span class="kw">match </span>warp.take_result() {
 				<span class="prelude-val">Some</span>(res) =&gt; {
@@ -1377,7 +1377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 			}
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(state) = <span class="kw-2">&amp;</span><span class="self">self</span>.state {
-			<span class="kw">if </span>state.is_succeded() {
+			<span class="kw">if </span>state.is_succeeded() {
 				<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;State sync is complete, continuing with block sync.&quot;</span>);
 			} <span class="kw">else </span>{
 				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;State sync failed. Falling back to full sync.&quot;</span>);

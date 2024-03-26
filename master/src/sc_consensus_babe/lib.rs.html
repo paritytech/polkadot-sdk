@@ -3501,7 +3501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Skip babe logic if block already in chain or importing blocks during initial sync,
 		// otherwise the check for epoch changes will error because trying to re-import an
-		// epoch change or because of missing epoch data in the tree, respectivelly.
+		// epoch change or because of missing epoch data in the tree, respectively.
 		</span><span class="kw">if </span>info.block_gap.map_or(<span class="bool-val">false</span>, |(s, e)| s &lt;= number &amp;&amp; number &lt;= e) ||
 			block_status == BlockStatus::InChain
 		{

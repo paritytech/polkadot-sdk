@@ -828,7 +828,7 @@ Furthermore, disputes on-chain will stay open for some fixed amount of time even
 <p>The set of validators eligible to vote consists of the validators that had duty at the time of backing, plus backing
 votes by the backing validators.</p>
 <p>If a validator receives an initial dispute message (a set of votes where there are at least two opposing votes
-contained), and the PoV or Code are hence not reconstructable from local storage, that validator must request the
+contained), and the PoV or Code are hence not reconstructible from local storage, that validator must request the
 required data from its peers.</p>
 <p>The dispute availability message must contain code, persisted validation data, and the proof of validity.</p>
 <p>Only peers that already voted shall be queried for the dispute availability data.</p>
@@ -866,7 +866,7 @@ voting).</p>
 <p>If a dispute is not resolved within due time, governance mode shall be entered for manual resolution.</p>
 <p>If a validator unexpectedly restarts, the dispute shall be continued with the state based on votes being cast and being
 present in persistent storage.</p>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-selection"><a class="header" href="#chain-selection">Chain Selection</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="chain-selection"><a class="header" href="#chain-selection">Chain Selection</a></h1>
 <p>Chain selection processes in blockchains are used for the purpose of selecting blocks to build on and finalize. It is
 important for these processes to be consistent among nodes and resilient to a maximum proportion of malicious nodes
 which do not obey the chain selection process.</p>
@@ -1208,7 +1208,7 @@ notification. This means that a session change notification should consist of th
  prev_config: HostConfiguration,
  // The configuration after handling the session change.
  new_config: HostConfiguration,
- // A secure randomn seed for the session, gathered from BABE.
+ // A secure random seed for the session, gathered from BABE.
  random_seed: [u8; 32],
  // The session index of the beginning session.
  session_index: SessionIndex,
@@ -2426,11 +2426,11 @@ to <code>sanitize_bitfields</code> function for implementation details.</p>
 <p>Backed candidates sanitization removes malformed ones, candidates which have got concluded invalid disputes against them
 or candidates produced by unassigned cores. Furthermore any backing votes from disabled validators for a candidate are
 dropped. This is part of the validator disabling strategy. After filtering the statements from disabled validators a
-backed candidate may end up with votes count less than <code>minimum_backing_votes</code> (a parameter from <code>HostConfiguiration</code>).
+backed candidate may end up with votes count less than <code>minimum_backing_votes</code> (a parameter from <code>HostConfiguration</code>).
 In this case the whole candidate is dropped otherwise it will be rejected by <code>process_candidates</code> from pallet inclusion.
 All checks related to backed candidates are implemented in <code>sanitize_backed_candidates</code> and
 <code>filter_backed_statements_from_disabled_validators</code>.</p>
-<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dmp-pallet"><a class="header" href="#dmp-pallet">DMP Pallet</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dmp-pallet"><a class="header" href="#dmp-pallet">DMP Pallet</a></h1>
 <p>A module responsible for Downward Message Processing (DMP). See <a href="runtime/../messaging.html">Messaging Overview</a> for more details.</p>
 <h2 id="storage-8"><a class="header" href="#storage-8">Storage</a></h2>
 <p>Storage layout required for implementation of DMP.</p>
@@ -2546,7 +2546,7 @@ struct HrmpChannel {
 HrmpOpenChannelRequests: map HrmpChannelId =&gt; Option&lt;HrmpOpenChannelRequest&gt;;
 HrmpOpenChannelRequestsList: Vec&lt;HrmpChannelId&gt;;
 
-/// This mapping tracks how many open channel requests are inititated by a given sender para.
+/// This mapping tracks how many open channel requests are initiated by a given sender para.
 /// Invariant: `HrmpOpenChannelRequests` should contain the same number of items that has `(X, _)`
 /// as the number of `HrmpOpenChannelRequestCount` for `X`.
 HrmpOpenChannelRequestCount: map ParaId =&gt; u32;
@@ -2768,7 +2768,7 @@ than zero.</li>
 <li>The DM is sent using <code>queue_downward_message</code>.</li>
 <li>The DM is represented by the <code>HrmpChannelClosing</code> XCM message with:
 <ul>
-<li><code>initator</code> is set to <code>origin</code>,</li>
+<li><code>initiator</code> is set to <code>origin</code>,</li>
 <li><code>sender</code> is set to <code>ch.sender</code>,</li>
 <li><code>recipient</code> is set to <code>ch.recipient</code>.</li>
 </ul>
@@ -2839,7 +2839,7 @@ found in the configuration <code>config.hrmp_recipient_deposit</code>.</li>
 <li>Remove <code>recipient</code> from the set <code>HrmpEgressChannelsIndex</code> for <code>sender</code>.</li>
 <li>Remove <code>sender</code> from the set <code>HrmpIngressChannelsIndex</code> for <code>recipient</code>.</li>
 </ol>
-<footer id="last-change">Last change: 2023-11-07, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4caa3d8d8e">4caa3d8d8e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="session-info"><a class="header" href="#session-info">Session Info</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="session-info"><a class="header" href="#session-info">Session Info</a></h1>
 <p>For disputes and approvals, we need access to information about validator sets from prior sessions. We also often want
 easy access to the same information about the current session's validator set. This module aggregates and stores this
 information in a rolling window while providing easy APIs for access.</p>
@@ -3700,11 +3700,11 @@ way that the receiving subsystem can further address the communication to one of
 <p>This communication prevents a certain class of race conditions. When the Overseer determines that it is time for
 subsystems to begin working on top of a particular relay-parent, it will dispatch a <code>ActiveLeavesUpdate</code> message to all
 subsystems to do so, and those messages will be handled asynchronously by those subsystems. Some subsystems will receive
-those messsages before others, and it is important that a message sent by subsystem A after receiving
+those messages before others, and it is important that a message sent by subsystem A after receiving
 <code>ActiveLeavesUpdate</code> message will arrive at subsystem B after its <code>ActiveLeavesUpdate</code> message. If subsystem A
 maintained an independent channel with subsystem B to communicate, it would be possible for subsystem B to handle the
 side message before the <code>ActiveLeavesUpdate</code> message, but it wouldn't have any logical course of action to take with the
-side message - leading to it being discarded or improperly handled. Well-architectured state machines should have a
+side message - leading to it being discarded or improperly handled. Well-architected state machines should have a
 single source of inputs, so that is what we do here.</p>
 <p>One exception is reasonable to make for responses to requests. A request should be made via the overseer in order to
 ensure that it arrives after any relevant <code>ActiveLeavesUpdate</code> message. A subsystem issuing a request as a result of a
@@ -3732,7 +3732,7 @@ prevent subsystems from accessing aspects of each other that are beyond the scop
 <h2 id="on-shutdown"><a class="header" href="#on-shutdown">On shutdown</a></h2>
 <p>Send an <code>OverseerSignal::Conclude</code> message to each subsystem and wait some time for them to conclude before
 hard-exiting.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="grandpa-voting-rule"><a class="header" href="#grandpa-voting-rule">GRANDPA Voting Rule</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="grandpa-voting-rule"><a class="header" href="#grandpa-voting-rule">GRANDPA Voting Rule</a></h1>
 <p>Specifics on the motivation and types of constraints we apply to the GRANDPA voting logic as well as the definitions of
 <strong>viable</strong> and <strong>finalizable</strong> blocks can be found in the <a href="node/../protocol-chain-selection.html">Chain Selection Protocol</a>
 section. The subsystem which provides us with viable leaves is the <a href="node/utility/chain-selection.html">Chain Selection
@@ -5179,7 +5179,7 @@ validator indices and a <code>None</code> requesting value.</li>
 <li>Initialize <code>received_chunks</code> to an empty set, as well as <code>requesting_chunks</code>.</li>
 </ol>
 <p>Launch the source as a background task running <code>run(recovery_task)</code>.</p>
-<h4 id="runrecovery_task---resultavailabledata-recoeryerror"><a class="header" href="#runrecovery_task---resultavailabledata-recoeryerror"><code>run(recovery_task) -&gt; Result&lt;AvailableData, RecoeryError&gt;</code></a></h4>
+<h4 id="runrecovery_task---resultavailabledata-recoveryerror"><a class="header" href="#runrecovery_task---resultavailabledata-recoveryerror"><code>run(recovery_task) -&gt; Result&lt;AvailableData, RecoveryError&gt;</code></a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// How many parallel requests to have going at once.
@@ -5251,7 +5251,7 @@ fails due to network issues, insert into the front of <code>shuffling</code> to 
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="bitfield-distribution"><a class="header" href="#bitfield-distribution">Bitfield Distribution</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="bitfield-distribution"><a class="header" href="#bitfield-distribution">Bitfield Distribution</a></h1>
 <p>Validators vote on the availability of a backed candidate by issuing signed bitfields, where each bit corresponds to a
 single candidate. These bitfields can be used to compactly determine which backed candidates are available or not based
 on a 2/3+ quorum.</p>
@@ -6009,7 +6009,7 @@ struct State {
 }
 
 enum MessageFingerprint {
-  Assigment(Hash, u32, ValidatorIndex),
+  Assignment(Hash, u32, ValidatorIndex),
   Approval(Hash, u32, ValidatorIndex),
 }
 
@@ -6092,7 +6092,7 @@ return.</p>
 <li>Compute <code>view_intersection</code> as the intersection of the peer's view blocks with the hashes of the new blocks.</li>
 <li>Invoke <code>unify_with_peer(peer, view_intersection)</code>.</li>
 </ul>
-<h4 id="approvaldistributionmessagedistributeasignment"><a class="header" href="#approvaldistributionmessagedistributeasignment"><code>ApprovalDistributionMessage::DistributeAsignment</code></a></h4>
+<h4 id="approvaldistributionmessagedistributeassignment"><a class="header" href="#approvaldistributionmessagedistributeassignment"><code>ApprovalDistributionMessage::DistributeAssignment</code></a></h4>
 <p>Call <code>import_and_circulate_assignment</code> with <code>MessageSource::Local</code>.</p>
 <h4 id="approvaldistributionmessagedistributeapproval"><a class="header" href="#approvaldistributionmessagedistributeapproval"><code>ApprovalDistributionMessage::DistributeApproval</code></a></h4>
 <p>Call <code>import_and_circulate_approval</code> with <code>MessageSource::Local</code>.</p>
@@ -6231,7 +6231,7 @@ finalized number go to step 6.</p>
 peer.</p>
 </li>
 </ol>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-subsystems"><a class="header" href="#disputes-subsystems">Disputes Subsystems</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-subsystems"><a class="header" href="#disputes-subsystems">Disputes Subsystems</a></h1>
 <p>If approval voting finds an invalid candidate, a dispute is raised. The disputes
 subsystems are concerned with the following:</p>
 <ol>
@@ -6312,7 +6312,7 @@ existing approval-vote). What nodes can do though, is participating in approval-
 dispute is raised reconsider their vote and send an explicit invalid vote. If they managed to only have that one
 recorded, then they could avoid a slash.</p>
 <p>This is not a problem for our basic security assumptions: The backers are the ones to be supposed to have skin in the
-game, so we are not too woried about colluding approval voters getting away slash free as the gambler's ruin property is
+game, so we are not too worried about colluding approval voters getting away slash free as the gambler's ruin property is
 maintained anyway. There is however a separate problem, from colluding approval-voters, that is &quot;lazy&quot; approval voters.
 If it were easy and reliable for approval-voters to reconsider their vote, in case of an actual dispute, then they don't
 have a direct incentive (apart from playing a part in securing the network) to properly run the validation function at
@@ -6526,13 +6526,13 @@ off-chain. The reason for this is a dispute can be raised for a candidate in a p
 validator that is going to be slashed for it might not even be in the current active set. That means it can't be
 disabled on-chain. We need a way to prevent someone from disputing all valid candidates in the previous era. We do this
 by keeping track of the validators who lost a dispute in the past few sessions and use that list in addition to the
-on-chain disabled validators state. In addition to past session misbehavior, this also heps in case a slash is delayed.</p>
+on-chain disabled validators state. In addition to past session misbehavior, this also helps in case a slash is delayed.</p>
 <p>When we receive a dispute statements set, we do the following:</p>
 <ol>
 <li>Take the on-chain state of disabled validators at the relay parent block.</li>
 <li>Take a list of those who lost a dispute in that session in the order that prioritizes the biggest and newest offence.</li>
 <li>Combine the two lists and take the first byzantine threshold validators from it.</li>
-<li>If the dispute is unconfimed, check if all votes against the candidate are from disabled validators.
+<li>If the dispute is unconfirmed, check if all votes against the candidate are from disabled validators.
 If so, we don't participate in the dispute, but record the votes.</li>
 </ol>
 <h3 id="backing-votes"><a class="header" href="#backing-votes">Backing Votes</a></h3>
@@ -6747,7 +6747,7 @@ messages from Overseer. The behaviour on each message is described in the follow
 <li>Scrapes on chain votes.</li>
 </ul>
 <h3 id="on-muxedmessageparticipation"><a class="header" href="#on-muxedmessageparticipation">On <code>MuxedMessage::Participation</code></a></h3>
-<p>This message is sent from <code>Participatuion</code> module and indicates a processed dispute participation. It's the result of
+<p>This message is sent from <code>Participation</code> module and indicates a processed dispute participation. It's the result of
 the processing job initiated with <code>OverseerSignal::ActiveLeaves</code>. The subsystem issues a <code>DisputeMessage</code> with the
 result.</p>
 <h3 id="on-overseersignalconclude"><a class="header" href="#on-overseersignalconclude">On <code>OverseerSignal::Conclude</code></a></h3>
@@ -6799,7 +6799,7 @@ writing, this is not a use-case we support as other subsystems do not invariably
 channel, unless <code>i</code> is 0, in which case <code>None</code> should be sent. The <code>block_hash</code> is determined by inspecting
 <code>block_descriptions[i]</code>.</li>
 </ul>
-<footer id="last-change">Last change: 2024-01-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0ff3f4d3af">0ff3f4d3af</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dispute-distribution"><a class="header" href="#dispute-distribution">Dispute Distribution</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="dispute-distribution"><a class="header" href="#dispute-distribution">Dispute Distribution</a></h1>
 <p>Dispute distribution is responsible for ensuring all concerned validators will
 be aware of a dispute and have the relevant votes.</p>
 <h2 id="design-goals-1"><a class="header" href="#design-goals-1">Design Goals</a></h2>
@@ -8149,7 +8149,7 @@ pre-checking. Head over to <a href="node/utility/../../pvf-prechecking.html">ove
 <h2 id="protocol-22"><a class="header" href="#protocol-22">Protocol</a></h2>
 <p>There is no dedicated input mechanism for PVF pre-checker. Instead, PVF pre-checker looks on the <code>ActiveLeavesUpdate</code>
 event stream for work.</p>
-<p>This subsytem does not produce any output messages either. The subsystem will, however, send messages to the
+<p>This subsystem does not produce any output messages either. The subsystem will, however, send messages to the
 <a href="node/utility/runtime-api.html">Runtime API</a> subsystem to query for the pending PVFs and to submit votes. In addition to that, it will also
 communicate with <a href="node/utility/candidate-validation.html">Candidate Validation</a> Subsystem to request PVF pre-check.</p>
 <h2 id="functionality-17"><a class="header" href="#functionality-17">Functionality</a></h2>
@@ -8191,7 +8191,7 @@ for execution can be assumed to be a local problem on the current node.</p>
 <p>For this reason, even deterministic preparation errors should not trigger disputes. And since we do not dispute as a
 result of the pre-checking phase, as stated above, it should be impossible for preparation in general to result in
 disputes.</p>
-<footer id="last-change">Last change: 2023-12-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/707dbcc638">707dbcc638</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="type-definitions"><a class="header" href="#type-definitions">Type Definitions</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="type-definitions"><a class="header" href="#type-definitions">Type Definitions</a></h1>
 <p>This section of the guide provides type definitions of various categories.</p>
 <h2 id="v1-overview"><a class="header" href="#v1-overview">V1 Overview</a></h2>
 <p>Diagrams are rendered in high resolution; open them in a separate tab to see full scale.</p>
@@ -8573,7 +8573,7 @@ transmitted using these.</p>
 are currently two proposals for how to handle that with unified communication channels:</p>
 <ol>
 <li>Retaining the <code>OverseerSignal</code> definition above, add <code>enum FromOrchestra&lt;T&gt; {Signal(OverseerSignal), Message(T)}</code>.</li>
-<li>Add a generic varint to <code>OverseerSignal</code>: <code>Message(T)</code>.</li>
+<li>Add a generic variant to <code>OverseerSignal</code>: <code>Message(T)</code>.</li>
 </ol>
 <p>Either way, there will be some top-level type encapsulating messages from the overseer to each subsystem.</p>
 <h2 id="active-leaves-update"><a class="header" href="#active-leaves-update">Active Leaves Update</a></h2>
@@ -9483,7 +9483,7 @@ pub enum CandidateValidationMessage {
 pub enum PvfCheckerMessage { }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2024-03-25, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/c6f7ccf51a">c6f7ccf51a</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime"><a class="header" href="#runtime">Runtime</a></h1>
 <p>Types used within the runtime exclusively and pervasively.</p>
 <h2 id="host-configuration"><a class="header" href="#host-configuration">Host Configuration</a></h2>
 <p>The internal-to-runtime configuration of the parachain host is kept in <code>struct HostConfiguration</code>. This is expected to
@@ -9805,7 +9805,7 @@ enum AssignmentCertKindV2 {
         /// The core index chosen in this cert.
         core_index: CoreIndex,
     },
-    /// Deprectated assignment. Soon to be removed.
+    /// Deprecated assignment. Soon to be removed.
     ///  
     /// An assignment story based on the VRF that authorized the relay-chain block where the
     /// candidate was included combined with a sample number.
@@ -9878,7 +9878,7 @@ the actual <code>SignedApprovalVote</code> payload.</p>
 </span></code></pre></pre>
 <h2 id="checkedassignmentcert"><a class="header" href="#checkedassignmentcert"><code>CheckedAssignmentCert</code></a></h2>
 <p>An assignment cert which has checked both the VRF and the validity of the implied assignment according to the selection
-criteria rules of the protocol. This type should be declared in such a way as to be instantiatable only when the checks
+criteria rules of the protocol. This type should be declared in such a way as to be instantiable only when the checks
 have actually been done. Fields should be accessible via getters, not direct struct access.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -9897,7 +9897,7 @@ have actually been done. Fields should be accessible via getters, not direct str
 </span>type DelayTranche = u32;
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-11-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0570b6fa9e">0570b6fa9e</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-2"><a class="header" href="#disputes-2">Disputes</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="disputes-2"><a class="header" href="#disputes-2">Disputes</a></h1>
 <h2 id="disputestatementset"><a class="header" href="#disputestatementset"><code>DisputeStatementSet</code></a></h2>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -9978,7 +9978,7 @@ enum InvalidDisputeStatementKind {
 struct ScrapedOnChainVotes {
     /// The session index at which the block was included.
     session: SessionIndex,
-    /// The backing and seconding validity attestations for all candidates, provigind the full candidate receipt.
+    /// The backing and seconding validity attestations for all candidates, providing the full candidate receipt.
     backing_validators_per_candidate: Vec&lt;(CandidateReceipt&lt;H&gt;, Vec&lt;(ValidatorIndex, ValidityAttestation)&gt;)&gt;
     /// Set of concluded disputes that were recorded
     /// on chain within the inherent.
@@ -9986,7 +9986,7 @@ struct ScrapedOnChainVotes {
 }
 <span class="boring">}
 </span></code></pre></pre>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checking-types"><a class="header" href="#pvf-pre-checking-types">PVF Pre-checking types</a></h1>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pvf-pre-checking-types"><a class="header" href="#pvf-pre-checking-types">PVF Pre-checking types</a></h1>
 <h2 id="pvfcheckstatement"><a class="header" href="#pvfcheckstatement"><code>PvfCheckStatement</code></a></h2>
 <blockquote>
 <p>⚠️ This type was added in v2.</p>

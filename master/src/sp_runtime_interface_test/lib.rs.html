@@ -614,18 +614,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[test]
-</span><span class="kw">fn </span>test_versionining_with_new_host_works() {
+</span><span class="kw">fn </span>test_versioning_with_new_host_works() {
 	<span class="comment">// We call to the new wasm binary with new host function.
-	</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_versionning_works&quot;</span>);
+	</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_versioning_works&quot;</span>);
 
 	<span class="comment">// we call to the old wasm binary with a new host functions
 	// old versions of host functions should be called and test should be ok!
-	</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_deprecated_unwrap(), <span class="string">&quot;test_versionning_works&quot;</span>);
+	</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_deprecated_unwrap(), <span class="string">&quot;test_versioning_works&quot;</span>);
 }
 
 <span class="attr">#[test]
-</span><span class="kw">fn </span>test_versionining_register_only() {
-	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_versionning_register_only_works&quot;</span>);
+</span><span class="kw">fn </span>test_versioning_register_only() {
+	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_versioning_register_only_works&quot;</span>);
 }
 
 <span class="kw">fn </span>run_test_in_another_process(

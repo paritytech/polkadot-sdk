@@ -203,7 +203,7 @@ provided. We provide support for the following module parts in a pallet:</p>
 <li><code>Call</code> - If the pallet has callable functions</li>
 <li><code>Storage</code> - If the pallet uses storage</li>
 <li><code>Event</code> or <code>Event&lt;T&gt;</code> (if the event is generic) - If the pallet emits events</li>
-<li><code>Origin</code> or <code>Origin&lt;T&gt;</code> (if the origin is generic) - If the pallet has instanciable origins</li>
+<li><code>Origin</code> or <code>Origin&lt;T&gt;</code> (if the origin is generic) - If the pallet has instantiable origins</li>
 <li><code>Config</code> or <code>Config&lt;T&gt;</code> (if the config is generic) - If the pallet builds the genesis
 storage with <code>GenesisConfig</code></li>
 <li><code>Inherent</code> - If the pallet provides/can check inherents.</li>
@@ -232,7 +232,7 @@ pallet calls available.</p>
 <p><code>= $n</code> optional: number to define at which index the pallet variants in <code>OriginCaller</code>, <code>Call</code>
 and <code>Event</code> are encoded, and to define the ModuleToIndex value.</p>
 <p>if <code>= $n</code> is not given, then index is resolved in the same way as fieldless enum in Rust
-(i.e. incrementedly from previous index):</p>
+(i.e. incrementally from previous index):</p>
 <div class="example-wrap"><pre class="language-nocompile"><code>pallet1 .. = 2,
 pallet2 .., // Here pallet2 is given index 3
 pallet3 .. = 0,

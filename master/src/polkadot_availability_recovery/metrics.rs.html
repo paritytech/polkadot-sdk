@@ -421,7 +421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>chunk_requests_issued: Counter&lt;U64&gt;,
 	<span class="doccomment">/// Total number of bytes recovered
 	///
-	/// Gets incremented on each succesful recovery
+	/// Gets incremented on each successful recovery
 	</span>recovered_bytes_total: Counter&lt;U64&gt;,
 	<span class="doccomment">/// A counter for finished chunk requests.
 	///
@@ -622,7 +622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)<span class="question-mark">?</span>,
 			full_recoveries_started: prometheus::register(
 				Counter::new(
-					<span class="string">&quot;polkadot_parachain_availability_recovery_recovieries_started&quot;</span>,
+					<span class="string">&quot;polkadot_parachain_availability_recovery_recoveries_started&quot;</span>,
 					<span class="string">&quot;Total number of started recoveries.&quot;</span>,
 				)<span class="question-mark">?</span>,
 				registry,

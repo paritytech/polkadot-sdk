@@ -2976,7 +2976,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Implementation of `TryMorph` which attmepts to convert between types using `TryInto`.
+<span class="doccomment">/// Implementation of `TryMorph` which attempts to convert between types using `TryInto`.
 </span><span class="kw">pub struct </span>TryMorphInto&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T, A: TryInto&lt;T&gt;&gt; TryMorph&lt;A&gt; <span class="kw">for </span>TryMorphInto&lt;T&gt; {
 	<span class="kw">type </span>Outcome = T;
@@ -4095,7 +4095,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// to represent the dispatch class and weight.
 	</span><span class="kw">type </span>Info;
 	<span class="doccomment">/// Additional information that is returned by `dispatch`. Can be used to supply the caller
-	/// with information about a `Dispatchable` that is ownly known post dispatch.
+	/// with information about a `Dispatchable` that is only known post dispatch.
 	</span><span class="kw">type </span>PostInfo: Eq + PartialEq + Clone + Copy + Encode + Decode + Printable;
 	<span class="doccomment">/// Actually dispatch this call and return the result of it.
 	</span><span class="kw">fn </span>dispatch(<span class="self">self</span>, origin: <span class="self">Self</span>::RuntimeOrigin)

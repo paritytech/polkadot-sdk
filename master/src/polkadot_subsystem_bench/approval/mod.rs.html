@@ -1334,7 +1334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[clap(short, long, default_value_t = <span class="number">1.0</span>)]
 	</span><span class="doccomment">/// Max candidate to be signed in a single approval.
 	</span><span class="kw">pub </span>coalesce_std_dev: f32,
-	<span class="doccomment">/// The maximum tranche diff between approvals coalesced toghther.
+	<span class="doccomment">/// The maximum tranche diff between approvals coalesced together.
 	</span><span class="kw">pub </span>coalesce_tranche_diff: u32,
 	<span class="attr">#[clap(short, long, default_value_t = <span class="bool-val">false</span>)]
 	</span><span class="doccomment">/// Enable assignments v2.
@@ -1389,7 +1389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>total_candidates_before: u64,
 	<span class="doccomment">/// The votes we sent.
 	/// votes[validator_index][candidate_index] tells if validator sent vote for candidate.
-	/// We use this to mark the test as succesfull if GetApprovalSignatures returns all the votes
+	/// We use this to mark the test as successful if GetApprovalSignatures returns all the votes
 	/// from here.
 	</span>votes: Arc&lt;Vec&lt;Vec&lt;AtomicBool&gt;&gt;&gt;,
 }
@@ -1456,7 +1456,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Approval test state used by all mock subsystems to be able to answer messages emitted
-/// by the approval-voting and approval-distribution-subystems.
+/// by the approval-voting and approval-distribution-subsystems.
 ///
 /// This gets cloned across all mock subsystems, so if there is any information that gets
 /// updated between subsystems, they would have to be wrapped in Arc&#39;s.
@@ -1717,7 +1717,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>PeerMessageProducer {
 	<span class="doccomment">/// Generates messages by spawning a blocking task in the background which begins creating
-	/// the assignments/approvals and peer view changes at the begining of each block.
+	/// the assignments/approvals and peer view changes at the beginning of each block.
 	</span><span class="kw">fn </span>produce_messages(
 		<span class="kw-2">mut </span><span class="self">self</span>,
 		env: <span class="kw-2">&amp;</span>TestEnvironment,
@@ -1959,7 +1959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="comment">// Initializes the candidates test data. This is used for bookeeping if more assignments and
+	<span class="comment">// Initializes the candidates test data. This is used for bookkeeping if more assignments and
 	// approvals would be needed.
 	</span><span class="kw">fn </span>initialize_candidates_test_data(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1986,7 +1986,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Helper function to build an overseer with the real implementation for `ApprovalDistribution` and
-/// `ApprovalVoting` subystems and mock subsytems for all others.
+/// `ApprovalVoting` subsystems and mock subsystems for all others.
 </span><span class="kw">fn </span>build_overseer(
 	state: <span class="kw-2">&amp;</span>ApprovalTestState,
 	network: <span class="kw-2">&amp;</span>NetworkEmulatorHandle,
@@ -2155,7 +2155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>block_num <span class="kw">in </span><span class="number">0</span>..env.config().num_blocks {
 		<span class="kw">let </span><span class="kw-2">mut </span>current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 
-		<span class="comment">// Wait untill the time arrieves at the first slot under test.
+		<span class="comment">// Wait until the time arrives at the first slot under test.
 		</span><span class="kw">while </span>current_slot &lt; state.generated_state.initial_slot {
 			sleep(Duration::from_millis(<span class="number">5</span>)).<span class="kw">await</span>;
 			current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
@@ -2180,7 +2180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// Wait for all blocks to be approved before exiting.
-	// This is an invariant of the benchmark, if this does not happen something went teribbly wrong.
+	// This is an invariant of the benchmark, if this does not happen something went terribly wrong.
 	</span><span class="kw">while </span>state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst) &lt;
 		env.config().num_blocks <span class="kw">as </span>u32
 	{

@@ -1019,7 +1019,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="prelude-val">Some</span>(CURRENT_VERSION) =&gt; CURRENT_VERSION,
 			<span class="comment">// This is an arbitrary future version, we don&#39;t handle it.
 			</span><span class="prelude-val">Some</span>(v) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::FutureVersion { current: CURRENT_VERSION, got: v }),
-			<span class="comment">// No version file. For `RocksDB` we dont need to do anything.
+			<span class="comment">// No version file. For `RocksDB` we don&#39;t need to do anything.
 			</span><span class="prelude-val">None </span><span class="kw">if </span>db_kind == DatabaseKind::RocksDB =&gt; CURRENT_VERSION,
 			<span class="comment">// No version file. `ParityDB` did not previously have a version defined.
 			// We handle this as a `0 -&gt; 1` migration.
@@ -1087,7 +1087,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	})
 }
 
-<span class="comment">// Migrade approval voting database.
+<span class="comment">// Migrate approval voting database.
 // In 4  `OurAssignment` has been changed to support the v2 assignments.
 // In 5, `BlockEntry` has been changed to store the number of delayed approvals.
 // As these are backwards compatible, we&#39;ll convert the old entries in the new format.

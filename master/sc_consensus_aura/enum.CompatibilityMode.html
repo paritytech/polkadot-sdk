@@ -163,7 +163,7 @@ At <code>until</code> block there will be a hard fork when the authority set cha
 old nodes (running with <code>initialize_block</code>, i.e. without the compatibility mode
 configuration) and the new nodes.</p>
 </div></div></div><div class="docblock"><p>Call <code>initialize_block</code> before doing any runtime calls.</p>
-<p>Previously the node would execute <code>initialize_block</code> before fetchting the authorities
+<p>Previously the node would execute <code>initialize_block</code> before fetching the authorities
 from the runtime. This behaviour changed in: <a href="https://github.com/paritytech/substrate/pull/9132">https://github.com/paritytech/substrate/pull/9132</a></p>
 <p>By calling <code>initialize_block</code> before fetching the authorities, on a block that
 would enact a new validator set, the block would already be build/sealed by an

@@ -372,7 +372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Make sure the underlying task is scheduled for wake-up.
 		//
-		// Note: In case poll_unpin is called after the resetted delay fires again, this
+		// Note: In case poll_unpin is called after the reset delay fires again, this
 		// will drop one tick. Deemed as very unlikely and also not critical.
 		</span><span class="kw">while </span>this.delay.poll_unpin(cx).is_ready() {}
 

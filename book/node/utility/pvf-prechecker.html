@@ -152,7 +152,7 @@ pre-checking. Head over to <a href="../../pvf-prechecking.html">overview</a> for
 <h2 id="protocol"><a class="header" href="#protocol">Protocol</a></h2>
 <p>There is no dedicated input mechanism for PVF pre-checker. Instead, PVF pre-checker looks on the <code>ActiveLeavesUpdate</code>
 event stream for work.</p>
-<p>This subsytem does not produce any output messages either. The subsystem will, however, send messages to the
+<p>This subsystem does not produce any output messages either. The subsystem will, however, send messages to the
 <a href="runtime-api.html">Runtime API</a> subsystem to query for the pending PVFs and to submit votes. In addition to that, it will also
 communicate with <a href="candidate-validation.html">Candidate Validation</a> Subsystem to request PVF pre-check.</p>
 <h2 id="functionality"><a class="header" href="#functionality">Functionality</a></h2>
@@ -194,7 +194,7 @@ for execution can be assumed to be a local problem on the current node.</p>
 <p>For this reason, even deterministic preparation errors should not trigger disputes. And since we do not dispute as a
 result of the pre-checking phase, as stated above, it should be impossible for preparation in general to result in
 disputes.</p>
-<footer id="last-change">Last change: 2023-12-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/707dbcc638">707dbcc638</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

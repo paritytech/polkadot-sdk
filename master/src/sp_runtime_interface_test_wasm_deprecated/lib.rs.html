@@ -255,20 +255,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[runtime_interface]
 </span><span class="kw">pub trait </span>TestApi {
-	<span class="kw">fn </span>test_versionning(<span class="kw-2">&amp;</span><span class="self">self</span>, _data: u32) -&gt; bool {
+	<span class="kw">fn </span>test_versioning(<span class="kw-2">&amp;</span><span class="self">self</span>, _data: u32) -&gt; bool {
 		<span class="comment">// should not be called
 		</span><span class="macro">unimplemented!</span>()
 	}
 }
 
 <span class="macro">wasm_export_functions! </span>{
-	<span class="kw">fn </span>test_versionning_works() {
+	<span class="kw">fn </span>test_versioning_works() {
 		<span class="comment">// old api allows only 42 and 50
-		</span><span class="macro">assert!</span>(test_api::test_versionning(<span class="number">42</span>));
-		<span class="macro">assert!</span>(test_api::test_versionning(<span class="number">50</span>));
+		</span><span class="macro">assert!</span>(test_api::test_versioning(<span class="number">42</span>));
+		<span class="macro">assert!</span>(test_api::test_versioning(<span class="number">50</span>));
 
-		<span class="macro">assert!</span>(!test_api::test_versionning(<span class="number">142</span>));
-		<span class="macro">assert!</span>(!test_api::test_versionning(<span class="number">0</span>));
+		<span class="macro">assert!</span>(!test_api::test_versioning(<span class="number">142</span>));
+		<span class="macro">assert!</span>(!test_api::test_versioning(<span class="number">0</span>));
 	}
 }
 </code></pre></div></section></main></body></html>

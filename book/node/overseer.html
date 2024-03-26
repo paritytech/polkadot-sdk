@@ -243,11 +243,11 @@ way that the receiving subsystem can further address the communication to one of
 <p>This communication prevents a certain class of race conditions. When the Overseer determines that it is time for
 subsystems to begin working on top of a particular relay-parent, it will dispatch a <code>ActiveLeavesUpdate</code> message to all
 subsystems to do so, and those messages will be handled asynchronously by those subsystems. Some subsystems will receive
-those messsages before others, and it is important that a message sent by subsystem A after receiving
+those messages before others, and it is important that a message sent by subsystem A after receiving
 <code>ActiveLeavesUpdate</code> message will arrive at subsystem B after its <code>ActiveLeavesUpdate</code> message. If subsystem A
 maintained an independent channel with subsystem B to communicate, it would be possible for subsystem B to handle the
 side message before the <code>ActiveLeavesUpdate</code> message, but it wouldn't have any logical course of action to take with the
-side message - leading to it being discarded or improperly handled. Well-architectured state machines should have a
+side message - leading to it being discarded or improperly handled. Well-architected state machines should have a
 single source of inputs, so that is what we do here.</p>
 <p>One exception is reasonable to make for responses to requests. A request should be made via the overseer in order to
 ensure that it arrives after any relevant <code>ActiveLeavesUpdate</code> message. A subsystem issuing a request as a result of a
@@ -275,7 +275,7 @@ prevent subsystems from accessing aspects of each other that are beyond the scop
 <h2 id="on-shutdown"><a class="header" href="#on-shutdown">On shutdown</a></h2>
 <p>Send an <code>OverseerSignal::Conclude</code> message to each subsystem and wait some time for them to conclude before
 hard-exiting.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

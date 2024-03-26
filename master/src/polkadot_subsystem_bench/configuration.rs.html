@@ -530,10 +530,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Randomly sampled pov_sizes
 	</span><span class="attr">#[serde(skip)]
 	</span><span class="kw">pub </span>pov_sizes: Vec&lt;usize&gt;,
-	<span class="doccomment">/// The amount of bandiwdth remote validators have.
+	<span class="doccomment">/// The amount of bandwidth remote validators have.
 	</span><span class="attr">#[serde(default = <span class="string">&quot;default_bandwidth&quot;</span>)]
 	</span><span class="kw">pub </span>peer_bandwidth: usize,
-	<span class="doccomment">/// The amount of bandiwdth our node has.
+	<span class="doccomment">/// The amount of bandwidth our node has.
 	</span><span class="attr">#[serde(default = <span class="string">&quot;default_bandwidth&quot;</span>)]
 	</span><span class="kw">pub </span>bandwidth: usize,
 	<span class="doccomment">/// Optional peer emulation latency (round trip time) wrt node under test
@@ -613,7 +613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>peer_id_to_authority = peer_ids
 			.iter()
 			.zip(validator_authority_id.iter())
-			.map(|(peer_id, authorithy_id)| (<span class="kw-2">*</span>peer_id, authorithy_id.clone()))
+			.map(|(peer_id, authority_id)| (<span class="kw-2">*</span>peer_id, authority_id.clone()))
 			.collect();
 
 		TestAuthorities {

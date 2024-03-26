@@ -2375,7 +2375,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// are preferred. And for disputes, local and older disputes are preferred (see
 /// `limit_and_sanitize_disputes`). for backed candidates, since with a increasing number of
 /// parachains their chances of inclusion become slim. All backed candidates  are checked
-/// beforehands in `fn create_inherent_inner` which guarantees sanity.
+/// beforehand in `fn create_inherent_inner` which guarantees sanity.
 ///
 /// Assumes disputes are already filtered by the time this is called.
 ///
@@ -2712,7 +2712,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Above max consumable weight: {}/{}&quot;</span>, disputes_weight, max_consumable_weight);
 		<span class="kw">let </span><span class="kw-2">mut </span>checked_acc = Vec::&lt;CheckedDisputeStatementSet&gt;::with_capacity(disputes.len());
 
-		<span class="comment">// Accumualated weight of all disputes picked, that passed the checks.
+		<span class="comment">// Accumulated weight of all disputes picked, that passed the checks.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>weight_acc = Weight::zero();
 
 		<span class="comment">// Select disputes in-order until the remaining weight is attained

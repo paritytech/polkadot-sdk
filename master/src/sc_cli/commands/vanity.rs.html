@@ -438,7 +438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>VanityCmd {
 	<span class="doccomment">/// Run the command
 	</span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; error::Result&lt;()&gt; {
-		<span class="kw">let </span>formated_seed = <span class="macro">with_crypto_scheme!</span>(
+		<span class="kw">let </span>formatted_seed = <span class="macro">with_crypto_scheme!</span>(
 			<span class="self">self</span>.crypto_scheme.scheme,
 			generate_key(
 				<span class="kw-2">&amp;</span><span class="self">self</span>.pattern,
@@ -449,7 +449,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">with_crypto_scheme!</span>(
 			<span class="self">self</span>.crypto_scheme.scheme,
 			print_from_uri(
-				<span class="kw-2">&amp;</span>formated_seed,
+				<span class="kw-2">&amp;</span>formatted_seed,
 				<span class="prelude-val">None</span>,
 				<span class="self">self</span>.network_scheme.network,
 				<span class="self">self</span>.output_scheme.output_type,

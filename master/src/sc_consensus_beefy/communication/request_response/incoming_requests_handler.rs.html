@@ -539,7 +539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.flatten()
 			.and_then(|hash| <span class="self">self</span>.client.justifications(hash).ok().flatten())
 			.and_then(|justifs| justifs.get(BEEFY_ENGINE_ID).cloned())
-			.ok_or_else(|| reputation_changes.push(cost::UNKOWN_PROOF_REQUEST));
+			.ok_or_else(|| reputation_changes.push(cost::UNKNOWN_PROOF_REQUEST));
 		request
 			.pending_response
 			.send(netconfig::OutgoingResponse {

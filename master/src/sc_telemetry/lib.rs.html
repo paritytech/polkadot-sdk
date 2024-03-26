@@ -1132,7 +1132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|<span class="kw">_</span>| Error::TelemetryWorkerDropped)
 	}
 
-	<span class="doccomment">/// Make a new cloneable handle to this [`Telemetry`]. This is used for reporting telemetries.
+	<span class="doccomment">/// Make a new clonable handle to this [`Telemetry`]. This is used for reporting telemetries.
 	</span><span class="kw">pub fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TelemetryHandle {
 		TelemetryHandle {
 			message_sender: Arc::new(Mutex::new(<span class="self">self</span>.message_sender.clone())),

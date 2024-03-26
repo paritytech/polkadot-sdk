@@ -607,6 +607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#460" id="460">460</a>
 <a href="#461" id="461">461</a>
 <a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -902,7 +903,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///   listeners. If an error occurs during sending, the receiver has been closed and we remove
 	///   the sender from the list.
 	/// - Find a new valid RPC server to connect to in case the websocket connection is terminated.
-	///   If the worker is not able to connec to an RPC server from the list, the worker shuts down.
+	///   If the worker is not able to connect to an RPC server from the list, the worker shuts
+	///   down.
 	</span><span class="kw">pub async fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>) {
 		<span class="kw">let </span><span class="kw-2">mut </span>pending_requests = FuturesUnordered::new();
 

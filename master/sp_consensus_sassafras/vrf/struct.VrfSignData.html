@@ -152,7 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <p>The object contains a transcript and a sequence of <a href="struct.VrfInput.html" title="struct sp_consensus_sassafras::vrf::VrfInput"><code>VrfInput</code></a>s ready to be signed.</p>
 <p>The <code>transcript</code> summarizes a set of messages which are defining a particular
 protocol by automating the Fiat-Shamir transform for challenge generation.
-A good explaination of the topic can be found in Merlin <a href="https://merlin.cool/">docs</a></p>
+A good explanation of the topic can be found in Merlin <a href="https://merlin.cool/">docs</a></p>
 <p>The <code>inputs</code> is a sequence of <a href="struct.VrfInput.html" title="struct sp_consensus_sassafras::vrf::VrfInput"><code>VrfInput</code></a>s which, during the signing procedure, are
 first transformed to <a href="struct.VrfPreOutput.html" title="struct sp_consensus_sassafras::vrf::VrfPreOutput"><code>VrfPreOutput</code></a>s. Both inputs and pre-outputs are then appended to
 the transcript before signing the Fiat-Shamir transform result (the challenge).</p>

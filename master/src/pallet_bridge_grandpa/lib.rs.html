@@ -2609,7 +2609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>succesfully_imports_header_with_valid_finality() {
+	</span><span class="kw">fn </span>successfully_imports_header_with_valid_finality() {
 		run_test(|| {
 			initialize_substrate_bridge();
 
@@ -2866,7 +2866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			header.digest = change_log(<span class="number">0</span>);
 			<span class="kw">let </span>justification = make_justification_for_header(JustificationGeneratorParams {
 				header: header.clone(),
-				ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY + <span class="number">1</span>,
+				ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY + <span class="number">1</span>,
 				..Default::default()
 			});
 

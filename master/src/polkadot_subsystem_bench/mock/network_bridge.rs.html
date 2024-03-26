@@ -399,8 +399,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>network: NetworkEmulatorHandle,
 	<span class="doccomment">/// A channel to the network interface,
 	</span>to_network_interface: UnboundedSender&lt;NetworkMessage&gt;,
-	<span class="doccomment">/// Test authorithies
-	</span>test_authorithies: TestAuthorities,
+	<span class="doccomment">/// Test authorities
+	</span>test_authorities: TestAuthorities,
 }
 
 <span class="doccomment">/// A mock of the network bridge tx subsystem.
@@ -415,9 +415,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>new(
 		network: NetworkEmulatorHandle,
 		to_network_interface: UnboundedSender&lt;NetworkMessage&gt;,
-		test_authorithies: TestAuthorities,
+		test_authorities: TestAuthorities,
 	) -&gt; MockNetworkBridgeTx {
-		<span class="self">Self </span>{ network, to_network_interface, test_authorithies }
+		<span class="self">Self </span>{ network, to_network_interface, test_authorities }
 	}
 }
 
@@ -482,13 +482,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}
 					},
 					NetworkBridgeTxMessage::ReportPeer(<span class="kw">_</span>) =&gt; {
-						<span class="comment">// ingore rep changes
+						<span class="comment">// ignore rep changes
 					</span>},
 					NetworkBridgeTxMessage::SendValidationMessage(peers, message) =&gt; {
 						<span class="kw">for </span>peer <span class="kw">in </span>peers {
 							<span class="self">self</span>.to_network_interface
 								.unbounded_send(NetworkMessage::MessageFromNode(
-									<span class="self">self</span>.test_authorithies
+									<span class="self">self</span>.test_authorities
 										.peer_id_to_authority
 										.get(<span class="kw-2">&amp;</span>peer)
 										.unwrap()

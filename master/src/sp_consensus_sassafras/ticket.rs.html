@@ -388,7 +388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>threshold = ticket_id_threshold(redundancy, slots, attempts, validators);
 		<span class="kw">let </span>threshold = threshold <span class="kw">as </span>f64 / TicketId::MAX <span class="kw">as </span>f64;
 
-		<span class="comment">// We expect that the total number of tickets allowed to be submited
+		<span class="comment">// We expect that the total number of tickets allowed to be submitted
 		// is slots*redundancy
 		</span><span class="kw">let </span>avt = ((attempts * validators) <span class="kw">as </span>f64 * threshold) <span class="kw">as </span>u32;
 		<span class="macro">assert_eq!</span>(avt, slots * redundancy);

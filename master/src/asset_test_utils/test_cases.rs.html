@@ -2868,7 +2868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AssetId: Clone,
 	AssetIdConverter: MaybeEquivalence&lt;Location, AssetId&gt;,
 {
-	<span class="comment">// foreign parachain with the same consenus currency as asset
+	<span class="comment">// foreign parachain with the same consensus currency as asset
 	</span><span class="kw">let </span>foreign_asset_id_location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">2222</span>), GeneralIndex(<span class="number">1234567</span>)]);
 	<span class="kw">let </span>asset_id = AssetIdConverter::convert(<span class="kw-2">&amp;</span>foreign_asset_id_location).unwrap();
 

@@ -522,7 +522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 	<span class="macro">assert_eq!</span>(T::balance(<span class="kw-2">&amp;</span>account_0), account_0_initial_balance - amount);
 
-	<span class="comment">// Decreasing the balance below funds avalibale should fail when Precision::Exact
+	<span class="comment">// Decreasing the balance below funds available should fail when Precision::Exact
 	</span><span class="kw">let </span>balance_before = T::balance(<span class="kw-2">&amp;</span>account_0);
 	<span class="macro">assert_eq!</span>(
 		T::decrease_balance(

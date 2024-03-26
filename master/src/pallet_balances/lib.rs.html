@@ -1998,7 +1998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// This will waive the transaction fee if at least all but 10% of the accounts needed to
 		/// be upgraded. (We let some not have to be upgraded just in order to allow for the
-		/// possibililty of churn).
+		/// possibility of churn).
 		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
 		#[pallet::weight(T::WeightInfo::upgrade_accounts(who.len() <span class="kw">as </span>u32))]
 		</span><span class="kw">pub fn </span>upgrade_accounts(
@@ -2226,14 +2226,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::try_mutate_account(who, |a, <span class="kw">_</span>| -&gt; <span class="prelude-ty">Result</span>&lt;R, DispatchError&gt; { <span class="prelude-val">Ok</span>(f(a)) })
 		}
 
-		<span class="doccomment">/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disnabled.
+		<span class="doccomment">/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
 		/// Returns `false` otherwise.
 		</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;insecure_zero_ed&quot;</span>))]
 		</span><span class="kw">fn </span>have_providers_or_no_zero_ed(<span class="kw">_</span>: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 			<span class="bool-val">true
 		</span>}
 
-		<span class="doccomment">/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disnabled.
+		<span class="doccomment">/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
 		/// Returns `false` otherwise.
 		</span><span class="attr">#[cfg(feature = <span class="string">&quot;insecure_zero_ed&quot;</span>)]
 		</span><span class="kw">fn </span>have_providers_or_no_zero_ed(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {

@@ -1003,27 +1003,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Id of the lane which is receiving messages.
 	</span><span class="kw">pub </span>lane: LaneId,
 	<span class="doccomment">/// Result of messages which we tried to dispatch
-	</span><span class="kw">pub </span>receive_results: Vec&lt;(MessageNonce, ReceivalResult&lt;DispatchLevelResult&gt;)&gt;,
+	</span><span class="kw">pub </span>receive_results: Vec&lt;(MessageNonce, ReceptionResult&lt;DispatchLevelResult&gt;)&gt;,
 }
 
 <span class="kw">impl</span>&lt;DispatchLevelResult&gt; ReceivedMessages&lt;DispatchLevelResult&gt; {
 	<span class="doccomment">/// Creates new `ReceivedMessages` structure from given results.
 	</span><span class="kw">pub fn </span>new(
 		lane: LaneId,
-		receive_results: Vec&lt;(MessageNonce, ReceivalResult&lt;DispatchLevelResult&gt;)&gt;,
+		receive_results: Vec&lt;(MessageNonce, ReceptionResult&lt;DispatchLevelResult&gt;)&gt;,
 	) -&gt; <span class="self">Self </span>{
 		ReceivedMessages { lane, receive_results }
 	}
 
 	<span class="doccomment">/// Push `result` of the `message` delivery onto `receive_results` vector.
-	</span><span class="kw">pub fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, message: MessageNonce, result: ReceivalResult&lt;DispatchLevelResult&gt;) {
+	</span><span class="kw">pub fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, message: MessageNonce, result: ReceptionResult&lt;DispatchLevelResult&gt;) {
 		<span class="self">self</span>.receive_results.push((message, result));
 	}
 }
 
 <span class="doccomment">/// Result of single message receival.
 </span><span class="attr">#[derive(RuntimeDebug, Encode, Decode, PartialEq, Eq, Clone, TypeInfo)]
-</span><span class="kw">pub enum </span>ReceivalResult&lt;DispatchLevelResult&gt; {
+</span><span class="kw">pub enum </span>ReceptionResult&lt;DispatchLevelResult&gt; {
 	<span class="doccomment">/// Message has been received and dispatched. Note that we don&#39;t care whether dispatch has
 	/// been successful or not - in both case message falls into this category.
 	///

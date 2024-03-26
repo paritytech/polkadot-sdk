@@ -1142,7 +1142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		run_test(|| {
 			Bridge::&lt;TestRuntime, ()&gt;::put(uncongested_bridge(FixedU128::from_rational(<span class="number">125</span>, <span class="number">100</span>)));
 
-			<span class="comment">// it shold eventually decreased to one
+			<span class="comment">// it should eventually decreased to one
 			</span><span class="kw">while </span>XcmBridgeHubRouter::bridge().delivery_fee_factor &gt; MINIMAL_DELIVERY_FEE_FACTOR {
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}

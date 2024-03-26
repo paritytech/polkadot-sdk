@@ -547,7 +547,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;B: BlockT, C&gt; BabeVerifier&lt;B, C&gt; {
-	<span class="doccomment">/// create a nrew verifier
+	<span class="doccomment">/// create a new verifier
 	</span><span class="kw">pub fn </span>new(epoch_changes: SharedEpochChanges&lt;B, Epoch&gt;, client: Arc&lt;C&gt;) -&gt; BabeVerifier&lt;B, C&gt; {
 		BabeVerifier { epoch_changes, client }
 	}

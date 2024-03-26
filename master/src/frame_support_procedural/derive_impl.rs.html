@@ -729,7 +729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[test]
-</span><span class="kw">fn </span>test_disambugation_path() {
+</span><span class="kw">fn </span>test_disambiguation_path() {
 	<span class="kw">let </span>foreign_impl: ItemImpl = <span class="macro">parse_quote!</span>(<span class="kw">impl </span>SomeTrait <span class="kw">for </span>SomeType {});
 	<span class="kw">let </span>default_impl_path: Path = <span class="macro">parse_quote!</span>(SomeScope::SomeType);
 

@@ -975,7 +975,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state_sync: Box&lt;<span class="kw">dyn </span>StateSyncProvider&lt;B&gt;&gt;,
 	peers: HashMap&lt;PeerId, Peer&lt;B&gt;&gt;,
 	actions: Vec&lt;StateStrategyAction&lt;B&gt;&gt;,
-	succeded: bool,
+	succeeded: bool,
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; StateStrategy&lt;B&gt; {
@@ -1006,7 +1006,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)),
 			peers,
 			actions: Vec::new(),
-			succeded: <span class="bool-val">false</span>,
+			succeeded: <span class="bool-val">false</span>,
 		}
 	}
 
@@ -1025,7 +1025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect(),
 			actions: Vec::new(),
-			succeded: <span class="bool-val">false</span>,
+			succeeded: <span class="bool-val">false</span>,
 		}
 	}
 
@@ -1156,7 +1156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">&quot;Failed to import target block with state: {e:?}.&quot;
 				</span>);
 			});
-			<span class="self">self</span>.succeded |= results.into_iter().any(|result| result.is_ok());
+			<span class="self">self</span>.succeeded |= results.into_iter().any(|result| result.is_ok());
 			<span class="self">self</span>.actions.push(StateStrategyAction::Finished);
 		}
 	}
@@ -1238,10 +1238,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.actions).into_iter()
 	}
 
-	<span class="doccomment">/// Check if state sync has succeded.
+	<span class="doccomment">/// Check if state sync has succeeded.
 	</span><span class="attr">#[must_use]
-	</span><span class="kw">pub fn </span>is_succeded(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.succeded
+	</span><span class="kw">pub fn </span>is_succeeded(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="self">self</span>.succeeded
 	}
 }
 
@@ -1565,7 +1565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>succesfully_importing_target_block_finishes_strategy() {
+	</span><span class="kw">fn </span>successfully_importing_target_block_finishes_strategy() {
 		<span class="kw">let </span>target_hash = Hash::random();
 		<span class="kw">let </span><span class="kw-2">mut </span>state_sync_provider = MockStateSync::&lt;Block&gt;::new();
 		state_sync_provider.expect_target_hash().return_const(target_hash);

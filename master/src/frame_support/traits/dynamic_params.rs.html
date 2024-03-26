@@ -325,30 +325,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A dynamic parameter store across an aggregated KV type.
 </span><span class="kw">pub trait </span>RuntimeParameterStore {
-	<span class="kw">type </span>AggregratedKeyValue: AggregratedKeyValue;
+	<span class="kw">type </span>AggregatedKeyValue: AggregatedKeyValue;
 
 	<span class="doccomment">/// Get the value of a parametrized key.
 	///
 	/// Should return `None` if no explicit value was set instead of a default.
 	</span><span class="kw">fn </span>get&lt;KV, K&gt;(key: K) -&gt; <span class="prelude-ty">Option</span>&lt;K::Value&gt;
 	<span class="kw">where
-		</span>KV: AggregratedKeyValue,
-		K: Key + Into&lt;&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Key&gt;,
-		&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Key: IntoKey&lt;
-			&lt;&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeParameterStore&gt;::AggregratedKeyValue <span class="kw">as </span>AggregratedKeyValue&gt;::Key,
+		</span>KV: AggregatedKeyValue,
+		K: Key + Into&lt;&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Key&gt;,
+		&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Key: IntoKey&lt;
+			&lt;&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeParameterStore&gt;::AggregatedKeyValue <span class="kw">as </span>AggregatedKeyValue&gt;::Key,
 		&gt;,
-		&lt;&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeParameterStore&gt;::AggregratedKeyValue <span class="kw">as </span>AggregratedKeyValue&gt;::Value:
-			TryIntoKey&lt;&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Value&gt;,
-		&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Value: TryInto&lt;K::WrappedValue&gt;;
+		&lt;&lt;<span class="self">Self </span><span class="kw">as </span>RuntimeParameterStore&gt;::AggregatedKeyValue <span class="kw">as </span>AggregatedKeyValue&gt;::Value:
+			TryIntoKey&lt;&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Value&gt;,
+		&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Value: TryInto&lt;K::WrappedValue&gt;;
 }
 
 <span class="doccomment">/// A dynamic parameter store across a concrete KV type.
-</span><span class="kw">pub trait </span>ParameterStore&lt;KV: AggregratedKeyValue&gt; {
+</span><span class="kw">pub trait </span>ParameterStore&lt;KV: AggregatedKeyValue&gt; {
 	<span class="doccomment">/// Get the value of a parametrized key.
 	</span><span class="kw">fn </span>get&lt;K&gt;(key: K) -&gt; <span class="prelude-ty">Option</span>&lt;K::Value&gt;
 	<span class="kw">where
-		</span>K: Key + Into&lt;&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Key&gt;,
-		&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Value: TryInto&lt;K::WrappedValue&gt;;
+		</span>K: Key + Into&lt;&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Key&gt;,
+		&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Value: TryInto&lt;K::WrappedValue&gt;;
 }
 
 <span class="doccomment">/// Key of a dynamic parameter.
@@ -361,7 +361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// The aggregated key-value type of a dynamic parameter store.
-</span><span class="kw">pub trait </span>AggregratedKeyValue: Parameter {
+</span><span class="kw">pub trait </span>AggregatedKeyValue: Parameter {
 	<span class="doccomment">/// The aggregated key type.
 	</span><span class="kw">type </span>Key: Parameter + MaxEncodedLen;
 
@@ -372,7 +372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>into_parts(<span class="self">self</span>) -&gt; (<span class="self">Self</span>::Key, <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Value&gt;);
 }
 
-<span class="kw">impl </span>AggregratedKeyValue <span class="kw">for </span>() {
+<span class="kw">impl </span>AggregatedKeyValue <span class="kw">for </span>() {
 	<span class="kw">type </span>Key = ();
 	<span class="kw">type </span>Value = ();
 
@@ -390,17 +390,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;PS, KV&gt; ParameterStore&lt;KV&gt; <span class="kw">for </span>ParameterStoreAdapter&lt;PS, KV&gt;
 <span class="kw">where
 	</span>PS: RuntimeParameterStore,
-	KV: AggregratedKeyValue,
-	&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Key:
-		IntoKey&lt;&lt;&lt;PS <span class="kw">as </span>RuntimeParameterStore&gt;::AggregratedKeyValue <span class="kw">as </span>AggregratedKeyValue&gt;::Key&gt;,
-	&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Value: TryFromKey&lt;
-		&lt;&lt;PS <span class="kw">as </span>RuntimeParameterStore&gt;::AggregratedKeyValue <span class="kw">as </span>AggregratedKeyValue&gt;::Value,
+	KV: AggregatedKeyValue,
+	&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Key:
+		IntoKey&lt;&lt;&lt;PS <span class="kw">as </span>RuntimeParameterStore&gt;::AggregatedKeyValue <span class="kw">as </span>AggregatedKeyValue&gt;::Key&gt;,
+	&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Value: TryFromKey&lt;
+		&lt;&lt;PS <span class="kw">as </span>RuntimeParameterStore&gt;::AggregatedKeyValue <span class="kw">as </span>AggregatedKeyValue&gt;::Value,
 	&gt;,
 {
 	<span class="kw">fn </span>get&lt;K&gt;(key: K) -&gt; <span class="prelude-ty">Option</span>&lt;K::Value&gt;
 	<span class="kw">where
-		</span>K: Key + Into&lt;&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Key&gt;,
-		&lt;KV <span class="kw">as </span>AggregratedKeyValue&gt;::Value: TryInto&lt;K::WrappedValue&gt;,
+		</span>K: Key + Into&lt;&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Key&gt;,
+		&lt;KV <span class="kw">as </span>AggregatedKeyValue&gt;::Value: TryInto&lt;K::WrappedValue&gt;,
 	{
 		PS::get::&lt;KV, K&gt;(key)
 	}

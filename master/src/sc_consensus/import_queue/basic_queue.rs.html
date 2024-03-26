@@ -1022,7 +1022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Start asynchronous runner for import queue.
 	///
 	/// Takes an object implementing [`Link`] which allows the import queue to
-	/// influece the synchronization process.
+	/// influence the synchronization process.
 	</span><span class="kw">async fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>, <span class="kw-2">mut </span>link: Box&lt;<span class="kw">dyn </span>Link&lt;B&gt;&gt;) {
 		<span class="kw">loop </span>{
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = <span class="self">self</span>.result_port.next_action(<span class="kw-2">&amp;mut *</span>link).<span class="kw">await </span>{
@@ -1033,7 +1033,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Messages destinated to the background worker.
+<span class="doccomment">/// Messages designated to the background worker.
 </span><span class="kw">mod </span>worker_messages {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 

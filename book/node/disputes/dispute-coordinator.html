@@ -210,7 +210,7 @@ existing approval-vote). What nodes can do though, is participating in approval-
 dispute is raised reconsider their vote and send an explicit invalid vote. If they managed to only have that one
 recorded, then they could avoid a slash.</p>
 <p>This is not a problem for our basic security assumptions: The backers are the ones to be supposed to have skin in the
-game, so we are not too woried about colluding approval voters getting away slash free as the gambler's ruin property is
+game, so we are not too worried about colluding approval voters getting away slash free as the gambler's ruin property is
 maintained anyway. There is however a separate problem, from colluding approval-voters, that is &quot;lazy&quot; approval voters.
 If it were easy and reliable for approval-voters to reconsider their vote, in case of an actual dispute, then they don't
 have a direct incentive (apart from playing a part in securing the network) to properly run the validation function at
@@ -424,13 +424,13 @@ off-chain. The reason for this is a dispute can be raised for a candidate in a p
 validator that is going to be slashed for it might not even be in the current active set. That means it can't be
 disabled on-chain. We need a way to prevent someone from disputing all valid candidates in the previous era. We do this
 by keeping track of the validators who lost a dispute in the past few sessions and use that list in addition to the
-on-chain disabled validators state. In addition to past session misbehavior, this also heps in case a slash is delayed.</p>
+on-chain disabled validators state. In addition to past session misbehavior, this also helps in case a slash is delayed.</p>
 <p>When we receive a dispute statements set, we do the following:</p>
 <ol>
 <li>Take the on-chain state of disabled validators at the relay parent block.</li>
 <li>Take a list of those who lost a dispute in that session in the order that prioritizes the biggest and newest offence.</li>
 <li>Combine the two lists and take the first byzantine threshold validators from it.</li>
-<li>If the dispute is unconfimed, check if all votes against the candidate are from disabled validators.
+<li>If the dispute is unconfirmed, check if all votes against the candidate are from disabled validators.
 If so, we don't participate in the dispute, but record the votes.</li>
 </ol>
 <h3 id="backing-votes"><a class="header" href="#backing-votes">Backing Votes</a></h3>
@@ -645,7 +645,7 @@ messages from Overseer. The behaviour on each message is described in the follow
 <li>Scrapes on chain votes.</li>
 </ul>
 <h3 id="on-muxedmessageparticipation"><a class="header" href="#on-muxedmessageparticipation">On <code>MuxedMessage::Participation</code></a></h3>
-<p>This message is sent from <code>Participatuion</code> module and indicates a processed dispute participation. It's the result of
+<p>This message is sent from <code>Participation</code> module and indicates a processed dispute participation. It's the result of
 the processing job initiated with <code>OverseerSignal::ActiveLeaves</code>. The subsystem issues a <code>DisputeMessage</code> with the
 result.</p>
 <h3 id="on-overseersignalconclude"><a class="header" href="#on-overseersignalconclude">On <code>OverseerSignal::Conclude</code></a></h3>
@@ -697,7 +697,7 @@ writing, this is not a use-case we support as other subsystems do not invariably
 channel, unless <code>i</code> is 0, in which case <code>None</code> should be sent. The <code>block_hash</code> is determined by inspecting
 <code>block_descriptions[i]</code>.</li>
 </ul>
-<footer id="last-change">Last change: 2024-01-09, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/0ff3f4d3af">0ff3f4d3af</a></footer>
+<footer id="last-change">Last change: 2024-03-26, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/002d9260f9">002d9260f9</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

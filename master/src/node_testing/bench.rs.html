@@ -904,7 +904,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Drop system cache.
 ///
-/// Will panic if cache drop is impossbile.
+/// Will panic if cache drop is impossible.
 </span><span class="kw">pub fn </span>drop_system_cache() {
 	<span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
 	</span>{
@@ -993,7 +993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// We clear system cache after db clone but before any warmups.
 		// This populates system cache with some data unrelated to actual
-		// data we will be quering further under benchmark (like what
+		// data we will be querying further under benchmark (like what
 		// would have happened in real system that queries random entries
 		// from database).
 		</span>drop_system_cache();
@@ -1263,7 +1263,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		BlockContentIterator::new(content, <span class="kw-2">&amp;</span><span class="self">self</span>.keyring, client)
 	}
 
-	<span class="doccomment">/// Get cliet for this database operations.
+	<span class="doccomment">/// Get client for this database operations.
 	</span><span class="kw">pub fn </span>client(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Client {
 		<span class="kw">let </span>(client, _backend, _task_executor) =
 			<span class="self">Self</span>::bench_client(<span class="self">self</span>.database_type, <span class="self">self</span>.directory_guard.path(), <span class="kw-2">&amp;</span><span class="self">self</span>.keyring);
