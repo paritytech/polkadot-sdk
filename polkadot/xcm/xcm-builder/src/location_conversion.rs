@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::universal_exports::ensure_is_remote;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::Get;

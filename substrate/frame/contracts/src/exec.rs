@@ -24,6 +24,7 @@ use crate::{
 	DebugBufferVec, Determinism, Error, Event, Nonce, Origin, Pallet as Contracts, Schedule,
 	LOG_TARGET,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData, mem};
 use frame_support::{

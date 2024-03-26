@@ -16,7 +16,7 @@
 
 //! Various implementations for `SendXcm`.
 
-use core::{marker::PhantomData, result::Result};
+use core::{marker::PhantomData};
 use frame_system::unique;
 use parity_scale_codec::Encode;
 use xcm::prelude::*;

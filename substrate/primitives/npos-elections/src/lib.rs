@@ -76,7 +76,9 @@
 
 extern crate alloc;
 
-use alloc::{collections::btree_map::BTreeMap, rc::Rc, vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap, rc::Rc};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{cell::RefCell, cmp::Ordering};
 use scale_info::TypeInfo;

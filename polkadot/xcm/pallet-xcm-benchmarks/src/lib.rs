@@ -20,6 +20,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::Encode;
 use frame_benchmarking::{account, BenchmarkError};

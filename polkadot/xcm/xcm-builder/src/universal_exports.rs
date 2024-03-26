@@ -16,8 +16,9 @@
 
 //! Traits and utilities to help with origin mutation and bridging.
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
-use core::{convert::TryInto, marker::PhantomData};
+use core::{marker::PhantomData};
 use frame_support::{ensure, traits::Get};
 use parity_scale_codec::{Decode, Encode};
 use xcm::prelude::*;

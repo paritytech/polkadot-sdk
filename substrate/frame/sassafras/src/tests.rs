@@ -20,8 +20,6 @@
 use crate::*;
 use mock::*;
 
-use sp_consensus_sassafras::Slot;
-
 fn h2b<const N: usize>(hex: &str) -> [u8; N] {
 	array_bytes::hex2array_unchecked(hex)
 }

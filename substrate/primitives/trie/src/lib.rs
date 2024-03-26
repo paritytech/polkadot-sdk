@@ -35,9 +35,8 @@ mod trie_stream;
 #[cfg(feature = "std")]
 pub mod proof_size_extension;
 
-use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use core::{borrow::Borrow, marker::PhantomData};
 /// Our `NodeCodec`-specific error.
 pub use error::Error;

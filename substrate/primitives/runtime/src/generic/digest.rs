@@ -30,6 +30,7 @@ use crate::{
 	},
 	ConsensusEngineId,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use sp_core::RuntimeDebug;
 

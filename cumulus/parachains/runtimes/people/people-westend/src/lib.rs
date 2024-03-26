@@ -27,6 +27,7 @@ pub mod xcm_config;
 
 #[cfg(feature = "runtime-benchmarks")]
 use alloc::vec;
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};

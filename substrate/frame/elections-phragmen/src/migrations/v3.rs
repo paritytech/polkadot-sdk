@@ -19,6 +19,7 @@
 
 use super::super::LOG_TARGET;
 use crate::{Config, Pallet};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{

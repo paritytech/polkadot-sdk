@@ -16,6 +16,7 @@
 
 // Shared test utilities and implementations for the XCM Builder.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use frame_support::{
 	parameter_types,

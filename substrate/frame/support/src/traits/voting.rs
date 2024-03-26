@@ -19,6 +19,7 @@
 //! votes.
 
 use crate::dispatch::Parameter;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{HasCompact, MaxEncodedLen};
 use sp_arithmetic::Perbill;

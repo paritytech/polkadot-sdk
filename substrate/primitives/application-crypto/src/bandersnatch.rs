@@ -18,6 +18,7 @@
 //! Bandersnatch VRF application crypto types.
 
 use crate::{KeyTypeId, RuntimePublic};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 pub use sp_core::bandersnatch::*;
 

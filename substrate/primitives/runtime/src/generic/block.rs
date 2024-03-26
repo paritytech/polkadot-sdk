@@ -31,6 +31,7 @@ use crate::{
 	},
 	Justifications,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use sp_core::RuntimeDebug;
 

@@ -56,7 +56,9 @@
 
 #![warn(missing_docs)]
 
-use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet};
 use codec::Encode;
 use sp_runtime::{
 	app_crypto::RuntimeAppPublic,

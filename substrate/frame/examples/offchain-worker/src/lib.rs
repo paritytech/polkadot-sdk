@@ -47,6 +47,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::traits::Get;

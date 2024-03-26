@@ -16,6 +16,7 @@
 
 //! Relay chain state proof provides means for accessing part of relay chain storage for reads.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{

@@ -27,6 +27,7 @@
 //! See [`balance`] for more information.
 
 use crate::{BalancingConfig, Edge, ExtendedBalance, IdentifierT, Voter};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use sp_arithmetic::traits::Zero;
 

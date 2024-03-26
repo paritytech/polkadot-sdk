@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use alloc::vec::Vec;
+
 use frame_support::{
 	pallet_prelude::{DispatchResult, *},
 	traits::nonfungible::{Inspect, Mutate, Transfer},

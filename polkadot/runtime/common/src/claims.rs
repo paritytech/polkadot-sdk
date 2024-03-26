@@ -30,7 +30,7 @@ pub use pallet::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::ValidityError;
 use scale_info::TypeInfo;
-use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_io::{crypto::secp256k1_ecdsa_recover, hashing::keccak_256};
 use sp_runtime::{
 	traits::{CheckedSub, DispatchInfoOf, SignedExtension, Zero},

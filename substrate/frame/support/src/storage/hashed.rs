@@ -18,6 +18,7 @@
 //! Operation on runtime storage using hashed keys.
 
 use super::unhashed;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 

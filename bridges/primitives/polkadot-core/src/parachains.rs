@@ -22,6 +22,7 @@
 //! parachains. Having pallets that are referencing polkadot, would mean that there may
 //! be two versions of polkadot crates included in the runtime. Which is bad.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use bp_runtime::{RawStorageProof, Size};
 use codec::{CompactAs, Decode, Encode, MaxEncodedLen};

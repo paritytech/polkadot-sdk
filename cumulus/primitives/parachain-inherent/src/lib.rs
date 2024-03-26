@@ -34,7 +34,9 @@ use cumulus_primitives_core::{
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };
 
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap};
 use scale_info::TypeInfo;
 use sp_inherents::InherentIdentifier;
 

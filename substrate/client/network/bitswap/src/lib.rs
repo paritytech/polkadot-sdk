@@ -20,7 +20,7 @@
 //! Only supports bitswap 1.2.0.
 //! CID is expected to reference 256-bit Blake2b transaction hash.
 
-use cid::{self, Version};
+use cid::{Version};
 use futures::StreamExt;
 use libp2p_identity::PeerId;
 use log::{debug, error, trace};

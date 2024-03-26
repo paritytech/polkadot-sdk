@@ -29,6 +29,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod weights;
 pub mod xcm_config;
 
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec, vec::Vec};
 use assets_common::{
 	foreign_creators::ForeignCreators,

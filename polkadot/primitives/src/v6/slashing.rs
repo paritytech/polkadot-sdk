@@ -17,7 +17,9 @@
 //! Primitives types used for dispute slashing.
 
 use crate::{CandidateHash, SessionIndex, ValidatorId, ValidatorIndex};
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 

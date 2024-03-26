@@ -16,7 +16,8 @@
 // limitations under the License.
 
 //! Interfaces, types and utils for benchmarking a FRAME runtime.
-use alloc::{boxed::Box, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, traits::StorageInfo};
 use scale_info::TypeInfo;

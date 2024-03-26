@@ -22,7 +22,9 @@ mod offchain;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
-use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use hash_db::Hasher;
 pub use offchain::OffchainOverlayedChanges;
@@ -42,7 +44,6 @@ use std::collections::{hash_map::Entry as MapEntry, HashMap as Map};
 #[cfg(feature = "std")]
 use std::{
 	any::{Any, TypeId},
-	boxed::Box,
 };
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};

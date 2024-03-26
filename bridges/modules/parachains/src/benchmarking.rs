@@ -20,6 +20,7 @@ use crate::{
 	weights_ext::DEFAULT_PARACHAIN_HEAD_SIZE, Call, RelayBlockHash, RelayBlockHasher,
 	RelayBlockNumber,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::StorageProofSize;

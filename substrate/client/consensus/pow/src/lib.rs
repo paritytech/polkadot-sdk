@@ -48,7 +48,7 @@ use codec::{Decode, Encode};
 use futures::{Future, StreamExt};
 use log::*;
 use prometheus_endpoint::Registry;
-use sc_client_api::{self, backend::AuxStore, BlockOf, BlockchainEvents};
+use sc_client_api::{backend::AuxStore, BlockOf, BlockchainEvents};
 use sc_consensus::{
 	BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxBlockImport,
 	BoxJustificationImport, ForkChoiceStrategy, ImportResult, Verifier,

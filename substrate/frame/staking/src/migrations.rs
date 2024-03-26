@@ -331,6 +331,7 @@ pub mod v10 {
 pub mod v9 {
 	use super::*;
 	#[cfg(feature = "try-runtime")]
+	#[cfg(not(feature = "std"))]
 	use alloc::vec::Vec;
 	#[cfg(feature = "try-runtime")]
 	use codec::{Decode, Encode};

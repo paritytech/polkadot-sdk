@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{benchmarks, whitelisted_caller};
 use frame_support::traits::{Get, OnFinalize, OnInitialize};

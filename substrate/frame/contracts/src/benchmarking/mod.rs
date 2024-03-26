@@ -35,11 +35,11 @@ use crate::{
 	},
 	Pallet as Contracts, *,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
 use frame_support::{
-	self,
 	pallet_prelude::StorageVersion,
 	traits::{fungible::InspectHold, Currency},
 	weights::Weight,

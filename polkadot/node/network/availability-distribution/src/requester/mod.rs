@@ -22,7 +22,6 @@ use std::{
 		hash_map::{Entry, HashMap},
 		hash_set::HashSet,
 	},
-	iter::IntoIterator,
 	pin::Pin,
 };
 

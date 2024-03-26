@@ -33,6 +33,7 @@ macro_rules! map {
 	);
 }
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 #[doc(hidden)]
 pub use codec::{Decode, Encode, MaxEncodedLen};

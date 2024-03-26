@@ -47,7 +47,6 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	self,
 	database::Database,
 	metrics::{self, prometheus},
 	runtime::{Config as RuntimeInfoConfig, ExtendedSessionInfo, RuntimeInfo},

@@ -43,10 +43,10 @@
 //! offender and submit it to the runtime to produce an offence.
 
 use crate::{disputes, initializer::ValidatorSetCount, session_info::IdentificationTuple};
+#[cfg(not(feature = "std"))]
+use alloc::{ boxed::Box, vec::Vec};
 use alloc::{
-	boxed::Box,
 	collections::{btree_map::Entry, btree_set::BTreeSet},
-	vec::Vec,
 };
 use frame_support::{
 	dispatch::Pays,

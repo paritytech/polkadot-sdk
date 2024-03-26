@@ -19,6 +19,7 @@
 
 use crate::{KeyTypeId, RuntimePublic};
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 pub use sp_core::ed25519::*;

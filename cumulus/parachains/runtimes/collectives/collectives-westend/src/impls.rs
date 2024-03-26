@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::OriginCaller;
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::{cmp::Ordering, marker::PhantomData};
 use frame_support::{

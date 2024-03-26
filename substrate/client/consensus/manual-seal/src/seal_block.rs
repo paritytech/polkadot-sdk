@@ -24,7 +24,7 @@ use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportRes
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_consensus::{self, BlockOrigin, Environment, Proposer, SelectChain};
+use sp_consensus::{BlockOrigin, Environment, Proposer, SelectChain};
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::{sync::Arc, time::Duration};

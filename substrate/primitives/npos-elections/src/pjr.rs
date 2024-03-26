@@ -26,7 +26,9 @@ use crate::{
 	Candidate, CandidatePtr, Edge, ExtendedBalance, IdentifierT, Support, SupportMap, Supports,
 	VoteWeight, Voter,
 };
-use alloc::{collections::btree_map::BTreeMap, rc::Rc, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap, rc::Rc};
 use sp_arithmetic::{traits::Zero, Perbill};
 /// The type used as the threshold.
 ///

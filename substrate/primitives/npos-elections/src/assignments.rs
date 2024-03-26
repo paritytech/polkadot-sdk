@@ -18,6 +18,7 @@
 //! Structs and helpers for distributing a voter's stake among various winners.
 
 use crate::{ExtendedBalance, IdentifierT, PerThing128};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 #[cfg(feature = "serde")]
 use codec::{Decode, Encode};

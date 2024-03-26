@@ -42,6 +42,7 @@
 
 use crate::*;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use bp_header_chain::justification::required_justification_precommits;
 use bp_runtime::BasicOperatingMode;

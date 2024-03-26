@@ -17,7 +17,9 @@
 
 //! Traits for encoding data related to pallet's storage items.
 
-use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet};
 use codec::{Encode, FullCodec, MaxEncodedLen};
 use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;

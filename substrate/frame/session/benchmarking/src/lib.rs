@@ -25,6 +25,7 @@ extern crate alloc;
 
 mod mock;
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 

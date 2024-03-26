@@ -17,7 +17,9 @@
 //! Utilities that don't belong to any particular module but may draw
 //! on all modules.
 
-use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::{collections::btree_set::BTreeSet};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{Id as ParaId, PersistedValidationData, ValidatorIndex};
 

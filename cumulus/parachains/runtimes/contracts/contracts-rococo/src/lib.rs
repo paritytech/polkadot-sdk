@@ -48,6 +48,7 @@ use sp_version::RuntimeVersion;
 
 #[cfg(feature = "runtime-benchmarks")]
 use alloc::vec;
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 use frame_support::{
 	construct_runtime, derive_impl,

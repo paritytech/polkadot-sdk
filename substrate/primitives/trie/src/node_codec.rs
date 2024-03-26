@@ -19,6 +19,7 @@
 
 use super::node_header::{NodeHeader, NodeKind};
 use crate::{error::Error, trie_constants};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Compact, Decode, Encode, Input};
 use core::{borrow::Borrow, marker::PhantomData, ops::Range};

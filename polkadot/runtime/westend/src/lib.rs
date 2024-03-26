@@ -22,7 +22,9 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{ collections::btree_map::BTreeMap, };
 use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
 use beefy_primitives::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
@@ -2597,8 +2599,6 @@ mod remote_tests {
 
 mod clean_state_migration {
 	use super::Runtime;
-	#[cfg(feature = "try-runtime")]
-	use alloc::vec::Vec;
 	use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 	use pallet_state_trie_migration::MigrationLimits;
 

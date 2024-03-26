@@ -20,7 +20,7 @@
 // Each function will be used based on which fuzzer binary is being used.
 #![allow(dead_code)]
 
-use rand::{self, seq::SliceRandom, Rng, RngCore};
+use rand::{ seq::SliceRandom, Rng, RngCore};
 use sp_npos_elections::{phragmms, seq_phragmen, BalancingConfig, ElectionResult, VoteWeight};
 use sp_runtime::Perbill;
 use std::collections::{BTreeMap, HashSet};

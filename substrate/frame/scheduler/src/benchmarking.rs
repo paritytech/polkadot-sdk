@@ -18,6 +18,7 @@
 //! Scheduler pallet benchmarking.
 
 use super::*;
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v1::{account, benchmarks, BenchmarkError};
 use frame_support::{

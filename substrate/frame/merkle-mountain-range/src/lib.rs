@@ -58,6 +58,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};

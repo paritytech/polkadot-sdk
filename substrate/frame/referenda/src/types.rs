@@ -19,7 +19,6 @@
 
 use super::*;
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
 	Parameter,

@@ -24,7 +24,6 @@ use crate::traits::{
 	misc::{SameOrOther, TryDrop},
 	tokens::{AssetId, Balance},
 };
-use core::marker::PhantomData;
 use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use sp_runtime::traits::Zero;
 

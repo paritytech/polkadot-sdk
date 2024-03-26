@@ -16,6 +16,9 @@
 
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+};
+#[cfg(not(feature = "std"))]
+use alloc::{
 	vec::Vec,
 };
 use core::mem;

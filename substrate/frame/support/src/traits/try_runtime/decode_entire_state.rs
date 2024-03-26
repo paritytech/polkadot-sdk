@@ -26,6 +26,7 @@ use crate::{
 	traits::{PartialStorageInfoTrait, StorageInfo},
 	StorageHasher,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeAll, FullCodec};
 use impl_trait_for_tuples::impl_for_tuples;

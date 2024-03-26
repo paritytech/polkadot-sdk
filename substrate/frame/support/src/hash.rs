@@ -17,6 +17,7 @@
 
 //! Hash utilities.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Codec, MaxEncodedLen};
 use sp_io::hashing::{blake2_128, blake2_256, twox_128, twox_256, twox_64};

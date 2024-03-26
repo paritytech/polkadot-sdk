@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;

@@ -21,10 +21,10 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use bp_messages::MessageNonce;
 use bp_runtime::{
-	self,
 	extensions::{
 		ChargeTransactionPayment, CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce,
 		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericSignedExtension,

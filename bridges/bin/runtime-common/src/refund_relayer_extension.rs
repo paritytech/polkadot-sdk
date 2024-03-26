@@ -22,6 +22,7 @@
 use crate::messages_call_ext::{
 	CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo, MessagesCallSubType,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use bp_messages::{LaneId, MessageNonce};
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};

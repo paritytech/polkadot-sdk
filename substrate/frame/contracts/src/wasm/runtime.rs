@@ -23,7 +23,9 @@ use crate::{
 	primitives::ExecReturnValue,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
-use alloc::{boxed::Box, fmt, vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::fmt;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchInfo,

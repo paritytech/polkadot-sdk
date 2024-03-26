@@ -18,6 +18,7 @@
 //! Common traits and types that are useful for describing offences for usage in environments
 //! that use staking.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_core::Get;

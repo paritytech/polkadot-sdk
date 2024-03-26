@@ -19,11 +19,12 @@
 use crate::{
 	LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData, VerificationError,
 };
-
-use alloc::{collections::btree_map::BTreeMap, fmt::Debug, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap};
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode, Error as CodecError};
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{weights::Weight, Parameter};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;

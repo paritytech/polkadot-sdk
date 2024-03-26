@@ -550,7 +550,6 @@ pub trait OriginTrait: Sized {
 mod tests {
 	use super::*;
 	use crate::traits::{ConstBool, ConstU8, TypedGet};
-	use std::marker::PhantomData;
 
 	struct EnsureSuccess<V>(PhantomData<V>);
 	struct EnsureFail<T>(PhantomData<T>);

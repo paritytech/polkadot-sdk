@@ -21,6 +21,7 @@
 
 use super::*;
 use crate::Pallet as Proxy;
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};

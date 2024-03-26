@@ -17,8 +17,9 @@
 
 //! A migration that unreserves all deposit and unlocks all stake held in the context of this
 //! pallet.
-
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap};
 use core::iter::Sum;
 use frame_support::{
 	pallet_prelude::ValueQuery,

@@ -19,12 +19,14 @@ extern crate alloc;
 
 #[cfg(feature = "runtime-benchmarks")]
 use {
-	alloc::{vec, vec::Vec},
 	frame_benchmarking::{benchmarks, whitelisted_caller},
 	frame_system::RawOrigin,
 	pallet_session::*,
 	parity_scale_codec::Decode,
 };
+
+#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
+use alloc::{vec, vec::Vec};
 
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
 pub trait Config: pallet_session::Config {}

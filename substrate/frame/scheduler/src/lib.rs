@@ -87,6 +87,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{borrow::Borrow, cmp::Ordering, marker::PhantomData};

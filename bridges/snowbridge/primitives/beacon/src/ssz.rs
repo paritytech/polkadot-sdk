@@ -6,6 +6,7 @@ use crate::{
 		BeaconHeader, ExecutionPayloadHeader, ForkData, SigningData, SyncAggregate, SyncCommittee,
 	},
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use byte_slice_cast::AsByteSlice;
 use sp_core::H256;
@@ -199,6 +200,7 @@ pub mod deneb {
 		ssz::hash_tree_root,
 		types::deneb::ExecutionPayloadHeader,
 	};
+	#[cfg(not(feature = "std"))]
 	use alloc::{vec, vec::Vec};
 	use byte_slice_cast::AsByteSlice;
 	use sp_core::H256;

@@ -23,6 +23,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::cmp::Ordering;

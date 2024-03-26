@@ -21,7 +21,7 @@ mod common;
 
 use common::*;
 use honggfuzz::fuzz;
-use rand::{self, SeedableRng};
+use rand::{ SeedableRng};
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, seq_phragmen, to_supports, BalancingConfig,
 	ElectionResult, EvaluateSupport, VoteWeight,

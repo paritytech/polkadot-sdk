@@ -6,6 +6,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{

@@ -18,6 +18,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 use alloc::vec;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::Get;

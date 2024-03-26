@@ -26,6 +26,7 @@ use crate::{
 	},
 	DispatchResult,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use core::fmt::Debug;
@@ -42,7 +43,7 @@ pub use sp_arithmetic::traits::{
 	EnsureOp, EnsureOpAssign, EnsureSub, EnsureSubAssign, IntegerSquareRoot, One,
 	SaturatedConversion, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
 };
-use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
+use sp_core::{storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
 #[doc(hidden)]
 pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,

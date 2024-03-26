@@ -40,6 +40,7 @@ use crate::{
 		WildAsset as NewWildMultiAsset, WildFungibility as NewWildFungibility,
 	},
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
 use core::cmp::Ordering;

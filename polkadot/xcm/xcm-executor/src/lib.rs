@@ -18,6 +18,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{

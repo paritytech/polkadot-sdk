@@ -26,8 +26,9 @@ use sp_core::{
 };
 use sp_runtime::AccountId32;
 
-extern crate alloc;
-use alloc::{format, string::String, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec::Vec, string::String};
+use alloc::{format, };
 
 /// Set of test accounts.
 #[derive(

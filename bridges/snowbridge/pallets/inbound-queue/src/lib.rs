@@ -41,9 +41,9 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec;
 use codec::{Decode, DecodeAll, Encode};
-use core::convert::TryFrom;
 use envelope::Envelope;
 use frame_support::{
 	traits::{

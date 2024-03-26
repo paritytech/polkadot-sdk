@@ -16,7 +16,8 @@
 // limitations under the License.
 
 use super::*;
-use alloc::{vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, iter::once, ops::Add};
 use frame_support::{

@@ -17,6 +17,7 @@
 //! Primitive types which are strictly necessary from a parachain-execution point
 //! of view.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use bounded_collections::{BoundedVec, ConstU32};

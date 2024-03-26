@@ -17,6 +17,7 @@
 //! Various implementations of `ContainsPair<Asset, Location>` or
 //! `Contains<(Location, Vec<Asset>)>`.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::{Contains, ContainsPair, Get};

@@ -29,6 +29,7 @@ use crate::{
 	dispatch::{DispatchResult, Parameter},
 	traits::Get,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::TokenError;

@@ -48,6 +48,7 @@ pub use ambassador::pallet_ambassador_origins;
 
 #[cfg(feature = "runtime-benchmarks")]
 use alloc::vec;
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use fellowship::{pallet_fellowship_origins, Fellows};

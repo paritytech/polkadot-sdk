@@ -22,7 +22,9 @@
 //! done in `polkadot-node-core-pvf`.
 
 use crate::{BlakeTwo256, HashT as _, PvfExecKind, PvfPrepKind};
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap};
 use core::{ops::Deref, time::Duration};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_core_primitives::Hash;

@@ -19,7 +19,6 @@
 
 use crate::types::Delegations;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::result::Result;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Bounded, CheckedDiv, CheckedMul, Zero},

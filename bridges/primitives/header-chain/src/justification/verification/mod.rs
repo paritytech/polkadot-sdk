@@ -22,6 +22,8 @@ pub mod strict;
 
 use crate::{justification::GrandpaJustification, AuthoritySet};
 
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use alloc::{
 	collections::{
 		btree_map::{
@@ -30,8 +32,6 @@ use alloc::{
 		},
 		btree_set::BTreeSet,
 	},
-	vec,
-	vec::Vec,
 };
 use bp_runtime::HeaderId;
 use finality_grandpa::voter_set::VoterSet;

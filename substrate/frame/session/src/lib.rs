@@ -117,6 +117,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, MaxEncodedLen};
 use core::{

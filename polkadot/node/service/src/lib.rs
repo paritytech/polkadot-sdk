@@ -43,7 +43,7 @@ mod tests;
 
 #[cfg(feature = "full-node")]
 use {
-	grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider},
+	grandpa::{FinalityProofProvider as GrandpaFinalityProofProvider},
 	gum::info,
 	polkadot_node_core_approval_voting::{
 		self as approval_voting_subsystem, Config as ApprovalVotingConfig,

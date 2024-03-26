@@ -5,6 +5,7 @@
 #[cfg(test)]
 mod tests;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::{iter::Peekable, marker::PhantomData, slice::Iter};

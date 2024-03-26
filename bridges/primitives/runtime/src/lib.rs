@@ -21,9 +21,10 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
-use core::{convert::TryFrom, fmt::Debug, ops::RangeInclusive};
+use core::{fmt::Debug, ops::RangeInclusive};
 use frame_support::{
 	pallet_prelude::DispatchResult, weights::Weight, PalletError, StorageHasher, StorageValue,
 };

@@ -32,6 +32,7 @@ pub mod offchain;
 pub mod onchain;
 mod shared;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::{

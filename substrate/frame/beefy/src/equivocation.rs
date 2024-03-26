@@ -34,8 +34,9 @@
 //! that the `ValidateUnsigned` for the BEEFY pallet is used in the runtime
 //! definition.
 
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec, vec::Vec};
-use codec::{self as codec, Decode, Encode};
+use codec::{Decode, Encode};
 use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::BlockNumberFor;
 use log::{error, info};

@@ -55,7 +55,9 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},

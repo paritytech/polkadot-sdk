@@ -17,6 +17,7 @@
 
 //! Mixnet types used by both host and runtime.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;

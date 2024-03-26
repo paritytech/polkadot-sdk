@@ -21,6 +21,8 @@
 
 #![recursion_limit = "128"]
 
+extern crate alloc;
+
 use codec::MaxEncodedLen;
 use frame_support::{
 	derive_impl, parameter_types, traits::PalletInfo as _, weights::RuntimeDbWeight,

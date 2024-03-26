@@ -24,6 +24,7 @@ use crate::{
 	},
 	weights::{RuntimeDbWeight, Weight, WeightMeter},
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;

@@ -18,6 +18,7 @@
 
 use crate::messages::{AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, ThisChain};
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use bp_messages::{
 	storage_keys, InboundLaneData, LaneId, MessageKey, MessageNonce, MessagePayload,

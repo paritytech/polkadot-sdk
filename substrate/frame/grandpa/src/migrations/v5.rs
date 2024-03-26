@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{BoundedAuthorityList, Pallet};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;

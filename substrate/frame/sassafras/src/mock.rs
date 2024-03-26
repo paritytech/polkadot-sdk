@@ -17,7 +17,7 @@
 
 //! Test utilities for Sassafras pallet.
 
-use crate::{self as pallet_sassafras, EpochChangeInternalTrigger, *};
+use crate::{self as pallet_sassafras, EpochChangeInternalTrigger, RingContext, TicketsData, BoundedVec, TicketsMeta};
 
 use frame_support::{
 	derive_impl,
@@ -25,7 +25,7 @@ use frame_support::{
 };
 use sp_consensus_sassafras::{
 	digests::SlotClaim,
-	vrf::{RingProver, VrfSignature},
+	vrf::{self, RingProver, VrfSignature},
 	AuthorityIndex, AuthorityPair, EpochConfiguration, Slot, TicketBody, TicketEnvelope, TicketId,
 };
 use sp_core::{

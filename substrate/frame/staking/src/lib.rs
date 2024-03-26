@@ -307,7 +307,7 @@ pub mod weights;
 
 mod pallet;
 
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,

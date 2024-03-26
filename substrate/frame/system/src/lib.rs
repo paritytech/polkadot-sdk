@@ -99,8 +99,9 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, fmt::Debug, vec::Vec};
-use core::marker::PhantomData;
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec::Vec};
+use core::{marker::PhantomData, fmt::Debug};
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
 use serde::Serialize;

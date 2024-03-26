@@ -19,10 +19,8 @@
 
 use codec::Error as CodecError;
 use sp_api::ApiError;
-use sp_consensus;
 use sp_runtime::transaction_validity::TransactionValidityError;
-use sp_state_machine;
-use std::{self, result};
+use std::{result};
 
 /// Client Result type alias
 pub type Result<T> = result::Result<T, Error>;

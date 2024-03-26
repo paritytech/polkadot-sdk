@@ -16,6 +16,7 @@
 
 //! Helpers for implementing various message-related runtime API mthods.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use bp_messages::{
 	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,

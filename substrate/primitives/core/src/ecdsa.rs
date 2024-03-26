@@ -569,7 +569,6 @@ mod test {
 		set_default_ss58_version, PublicError, Ss58AddressFormat, Ss58AddressFormatRegistry,
 		DEV_PHRASE,
 	};
-	use serde_json;
 
 	#[test]
 	fn default_phrase_should_be_used() {

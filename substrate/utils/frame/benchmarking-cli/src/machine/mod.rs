@@ -20,7 +20,7 @@
 
 pub mod hardware;
 
-use std::{boxed::Box, fs, path::Path};
+use std::{fs, path::Path};
 
 use clap::Parser;
 use comfy_table::{Row, Table};

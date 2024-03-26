@@ -20,7 +20,7 @@
 
 use alloc::{vec, vec::IntoIter};
 use codec::FullCodec;
-use core::{fmt::Debug, iter::Iterator};
+use core::{fmt::Debug};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 use sp_weights::Weight;

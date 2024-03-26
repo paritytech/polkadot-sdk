@@ -27,11 +27,8 @@ use std::{
 use clap::Parser;
 use flate2::{write::GzEncoder, Compression};
 use fs_extra::dir::{self, CopyOptions};
-use glob;
 use itertools::Itertools;
-use tar;
-use tempfile;
-use toml_edit::{self, value, Array, Item, Table};
+use toml_edit::{value, Array, Item, Table};
 
 const SUBSTRATE_GIT_URL: &str = "https://github.com/paritytech/polkadot-sdk.git";
 

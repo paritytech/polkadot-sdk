@@ -846,6 +846,7 @@ impl<T: Config> crate::traits::OnSwap for Pallet<T> {
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod crypto {
+	#[cfg(not(feature = "std"))]
 	use alloc::vec::Vec;
 	use sp_core::ed25519;
 	use sp_io::crypto::{ed25519_generate, ed25519_sign};

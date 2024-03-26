@@ -33,6 +33,7 @@ use crate::v3::{
 	MultiAssets as NewMultiAssets, WildFungibility as NewWildFungibility,
 	WildMultiAsset as NewWildMultiAsset,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::cmp::Ordering;
 use parity_scale_codec::{self as codec, Decode, Encode};

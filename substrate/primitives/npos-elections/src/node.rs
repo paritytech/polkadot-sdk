@@ -17,7 +17,9 @@
 
 //! (very) Basic implementation of a graph node used in the reduce algorithm.
 
-use alloc::{rc::Rc, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::rc::Rc;
 use core::{cell::RefCell, fmt};
 
 /// The role that a node can accept.

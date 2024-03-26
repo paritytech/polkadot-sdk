@@ -27,6 +27,7 @@
 //! or are completely standalone, but heavily inspired by Polkadot.
 
 use crate::{ecdsa_crypto::AuthorityId, ConsensusLog, MmrRootHash, BEEFY_ENGINE_ID};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;

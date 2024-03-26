@@ -149,6 +149,8 @@
 // allow non-camel-case names for storage version V0 value
 #![allow(non_camel_case_types)]
 
+extern crate alloc;
+
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 

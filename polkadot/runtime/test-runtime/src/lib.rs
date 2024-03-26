@@ -22,7 +22,9 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box,  vec::Vec};
+use alloc::{collections::btree_map::BTreeMap};
 use pallet_transaction_payment::CurrencyAdapter;
 use parity_scale_codec::Encode;
 

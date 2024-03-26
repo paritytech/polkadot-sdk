@@ -21,6 +21,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use bp_header_chain::justification::{required_justification_precommits, GrandpaJustification};
 use bp_parachains::parachain_head_storage_key_at_source;

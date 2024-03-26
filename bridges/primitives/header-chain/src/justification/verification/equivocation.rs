@@ -28,10 +28,10 @@ use crate::{
 	ChainWithGrandpa, FindEquivocations,
 };
 
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec,
-	vec::Vec,
 };
 use bp_runtime::{BlockNumberOf, HashOf, HeaderOf};
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, EquivocationProof, Precommit};

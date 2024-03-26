@@ -21,7 +21,9 @@ use crate::{
 	scheduler::{self, common::AssignmentProvider, CoreOccupied, ParasEntry},
 	session_info, shared,
 };
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+use alloc::{collections::{btree_map::BTreeMap, vec_deque::VecDeque}};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;

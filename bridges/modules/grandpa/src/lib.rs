@@ -39,6 +39,7 @@ extern crate alloc;
 
 pub use storage_types::StoredAuthoritySet;
 
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 use bp_header_chain::{
 	justification::GrandpaJustification, AuthoritySet, ChainWithGrandpa, GrandpaConsensusLogReader,

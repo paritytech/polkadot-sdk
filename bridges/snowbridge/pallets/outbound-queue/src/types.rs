@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use ethabi::Token;

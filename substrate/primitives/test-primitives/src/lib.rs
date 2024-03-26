@@ -26,6 +26,7 @@ use codec::{Decode, Encode};
 pub use sp_application_crypto;
 use sp_application_crypto::sr25519;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 pub use sp_core::{hash::H256, RuntimeDebug};
 use sp_runtime::traits::{BlakeTwo256, Extrinsic as ExtrinsicT, Verify};

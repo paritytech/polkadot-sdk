@@ -23,7 +23,7 @@
 //! [`LightClientRequestHandler`](handler::LightClientRequestHandler).
 
 use crate::schema;
-use codec::{self, Decode, Encode};
+use codec::{Decode, Encode};
 use futures::prelude::*;
 use libp2p_identity::PeerId;
 use log::{debug, trace};

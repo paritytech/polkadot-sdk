@@ -17,6 +17,7 @@
 
 //! MultiAddress type is a wrapper for multiple downstream account formats.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 

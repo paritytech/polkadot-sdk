@@ -20,7 +20,6 @@
 
 use std::{
 	collections::{HashMap, VecDeque},
-	iter::Iterator,
 	num::NonZeroUsize,
 	pin::Pin,
 };

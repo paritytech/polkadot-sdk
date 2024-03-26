@@ -22,6 +22,7 @@
 
 const TRACING_TARGET: &'static str = "metrics";
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use parity_scale_codec::Encode;
 use primitives::{

@@ -17,6 +17,7 @@
 
 //! Operation on unhashed runtime storage.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 

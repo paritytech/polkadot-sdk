@@ -17,6 +17,7 @@
 
 //! Traits for dealing with the idea of membership.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;

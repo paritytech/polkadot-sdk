@@ -49,6 +49,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 pub mod weights;
 pub mod xcm_config;
 
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use sp_api::impl_runtime_apis;

@@ -153,6 +153,7 @@ mod tests;
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Codec, Encode};
 use core::marker::PhantomData;

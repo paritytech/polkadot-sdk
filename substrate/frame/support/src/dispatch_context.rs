@@ -81,8 +81,9 @@
 //! In your pallet you will only have to use [`with_context`], because as described above
 //! [`run_in_context`] will be handled by FRAME for you.
 
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
 use alloc::{
-	boxed::Box,
 	collections::btree_map::{BTreeMap, Entry},
 };
 use core::any::{Any, TypeId};

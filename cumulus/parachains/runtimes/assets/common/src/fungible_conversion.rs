@@ -16,6 +16,7 @@
 //! Runtime API definition for assets.
 
 use crate::runtime_api::FungiblesAccessError;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 use frame_support::traits::Contains;

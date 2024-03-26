@@ -25,6 +25,7 @@ use crate::{
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;

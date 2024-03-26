@@ -32,7 +32,7 @@ use bp_messages::{
 };
 use bp_runtime::{Chain, RawStorageProof, Size, StorageProofChecker};
 use codec::{Decode, Encode};
-use core::{convert::TryFrom, marker::PhantomData};
+use core::{marker::PhantomData};
 use frame_support::{traits::Get, weights::Weight};
 use hash_db::Hasher;
 use scale_info::TypeInfo;

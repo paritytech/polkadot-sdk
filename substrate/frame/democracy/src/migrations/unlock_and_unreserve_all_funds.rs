@@ -19,7 +19,9 @@
 //! pallet.
 
 use crate::{PropIndex, Voting, DEMOCRACY_ID};
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap};
 use core::iter::Sum;
 use frame_support::{
 	pallet_prelude::ValueQuery,

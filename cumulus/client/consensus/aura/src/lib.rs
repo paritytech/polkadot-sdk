@@ -43,7 +43,6 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, NumberFor};
 use std::{
-	convert::TryFrom,
 	marker::PhantomData,
 	sync::{
 		atomic::{AtomicU64, Ordering},

@@ -30,6 +30,7 @@ pub use verification::{
 	PrecommitError,
 };
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use bp_runtime::{BlockNumberOf, Chain, HashOf, HeaderId};
 use codec::{Decode, Encode, MaxEncodedLen};

@@ -15,6 +15,8 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::*;
+#[cfg(not(feature = "std"))]
+use alloc::vec;
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
 use cumulus_primitives_core::relay_chain;

@@ -23,6 +23,7 @@ use crate::{
 	primitives::{self, Error, NodeIndex},
 	Config, HashOf, HashingOf,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use sp_mmr_primitives::{mmr_lib, utils::NodesUtils};
 

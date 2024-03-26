@@ -17,6 +17,7 @@
 
 //! An MMR storage implementation.
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::Encode;
 use core::iter::Peekable;

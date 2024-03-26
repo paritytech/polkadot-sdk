@@ -17,6 +17,7 @@
 //! Put implementations of functions from staging APIs here.
 
 use crate::{configuration, initializer, shared};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},

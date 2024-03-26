@@ -24,6 +24,7 @@ extern crate alloc;
 
 mod mock;
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 
 use frame_benchmarking::v1::{account, benchmarks};

@@ -19,6 +19,7 @@
 
 #![allow(missing_docs)]
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{

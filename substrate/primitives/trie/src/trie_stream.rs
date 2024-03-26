@@ -25,7 +25,6 @@ use crate::{
 use alloc::vec::Vec;
 use codec::{Compact, Encode};
 use hash_db::Hasher;
-use trie_root;
 
 /// Codec-flavored TrieStream.
 #[derive(Default, Clone)]

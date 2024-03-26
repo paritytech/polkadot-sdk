@@ -25,6 +25,7 @@ extern crate alloc;
 #[cfg(test)]
 mod mock;
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{account, whitelist_account};
 use frame_election_provider_support::SortedListProvider;

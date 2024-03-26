@@ -40,6 +40,7 @@ use crate::{
 	},
 	Never,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 

@@ -18,6 +18,7 @@
 //! Traits for the election operations.
 
 use crate::{Assignment, IdentifierT, IndexAssignmentOf, PerThing128, VoteWeight};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::Encode;
 use core::fmt::Debug;

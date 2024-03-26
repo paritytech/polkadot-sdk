@@ -18,6 +18,7 @@
 //! Controller traits defined in this module are high-level traits that will rely on other traits
 //! from `xcm-executor` to perform their tasks.
 
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},

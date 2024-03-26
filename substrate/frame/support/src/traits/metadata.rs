@@ -17,6 +17,7 @@
 
 //! Traits for managing information attached to pallets and their constituents.
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::ops::Add;

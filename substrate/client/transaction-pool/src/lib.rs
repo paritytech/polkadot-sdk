@@ -36,7 +36,7 @@ use async_trait::async_trait;
 use enactment_state::{EnactmentAction, EnactmentState};
 use futures::{
 	channel::oneshot,
-	future::{self, ready},
+	future::{ready},
 	prelude::*,
 };
 pub use graph::{

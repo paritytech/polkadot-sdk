@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::macros::*;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::EncodeLike;
 use enumflags2::{bitflags, BitFlags};

@@ -16,6 +16,7 @@
 
 use super::*;
 use crate::{account_and_location, new_executor, AssetTransactorOf, EnsureDelivery, XcmCallOf};
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError, BenchmarkResult};
 use frame_support::{

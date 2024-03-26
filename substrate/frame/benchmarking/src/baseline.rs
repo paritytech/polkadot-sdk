@@ -21,6 +21,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::benchmarks;
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use frame_system::Pallet as System;
 use sp_runtime::{

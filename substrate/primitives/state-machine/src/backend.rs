@@ -23,6 +23,7 @@ use crate::{
 	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, StorageCollection,
 	StorageKey, StorageValue, UsageInfo,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::Encode;
 use core::marker::PhantomData;

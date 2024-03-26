@@ -23,6 +23,7 @@ extern crate alloc;
 
 pub use bp_header_chain::StoredHeaderData;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use bp_polkadot_core::{
 	parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId},

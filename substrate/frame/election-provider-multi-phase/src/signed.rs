@@ -24,9 +24,10 @@ use crate::{
 	ReadySolution, SignedSubmissionIndices, SignedSubmissionNextIndex, SignedSubmissionsMap,
 	SolutionOf, SolutionOrSnapshotSize, Weight, WeightInfo,
 };
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec::Vec,
 };
 use codec::{Decode, Encode, HasCompact};
 use core::cmp::Ordering;

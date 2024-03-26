@@ -19,7 +19,9 @@
 
 use super::*;
 
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap};
 use assert_matches::assert_matches;
 use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelist_account};
 use frame_support::{

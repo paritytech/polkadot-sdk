@@ -25,6 +25,7 @@ extern crate alloc;
 use crate::justification::{
 	GrandpaJustification, JustificationVerificationContext, JustificationVerificationError,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 use bp_runtime::{
 	BasicOperatingMode, Chain, HashOf, HasherOf, HeaderOf, RawStorageProof, StorageProofChecker,

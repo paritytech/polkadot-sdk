@@ -17,7 +17,9 @@
 //! Logic for checking Substrate storage proofs.
 
 use crate::StrippableError;
-use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet};
 use codec::{Decode, Encode};
 use frame_support::PalletError;
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};

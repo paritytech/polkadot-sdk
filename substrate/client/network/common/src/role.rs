@@ -20,7 +20,7 @@
 // TODO: can be dropped after an update to bitflags 2.4
 #![allow(clippy::bad_bit_mask)]
 
-use codec::{self, Encode, EncodeLike, Input, Output};
+use codec::{Encode, EncodeLike, Input, Output};
 
 /// Role that the peer sent to us during the handshake, with the addition of what our local node
 /// knows about that peer.

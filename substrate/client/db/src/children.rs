@@ -20,7 +20,6 @@
 
 use crate::DbHash;
 use codec::{Decode, Encode};
-use sp_blockchain;
 use sp_database::{Database, Transaction};
 use std::hash::Hash;
 

@@ -23,7 +23,9 @@
 extern crate alloc;
 
 use crate::currency_to_vote::CurrencyToVote;
-use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap};
 use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use core::ops::Sub;
 use scale_info::TypeInfo;

@@ -144,6 +144,7 @@ pub type ValidatorSignature = validator_app::Signature;
 /// A declarations of storage keys where an external observer can find some interesting data.
 pub mod well_known_keys {
 	use super::{HrmpChannelId, Id, WellKnownKey};
+	#[cfg(not(feature = "std"))]
 	use alloc::vec::Vec;
 	use hex_literal::hex;
 	use parity_scale_codec::Encode as _;

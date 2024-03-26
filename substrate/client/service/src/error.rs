@@ -18,10 +18,6 @@
 
 //! Errors that can occur during the service operation.
 
-use sc_keystore;
-use sp_blockchain;
-use sp_consensus;
-
 /// Service Result typedef.
 pub type Result<T> = std::result::Result<T, Error>;
 

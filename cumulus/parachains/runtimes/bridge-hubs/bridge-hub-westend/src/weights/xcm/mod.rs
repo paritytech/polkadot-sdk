@@ -18,6 +18,7 @@ mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
 use crate::{xcm_config::MaxAssetsIntoHolding, Runtime};
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::Encode;
 use frame_support::weights::Weight;

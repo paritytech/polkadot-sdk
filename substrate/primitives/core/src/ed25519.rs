@@ -460,7 +460,6 @@ impl CryptoType for Pair {
 mod test {
 	use super::*;
 	use crate::crypto::DEV_PHRASE;
-	use serde_json;
 
 	#[test]
 	fn default_phrase_should_be_used() {

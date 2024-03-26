@@ -32,6 +32,7 @@ use crate::v3::{
 	MultiAsset as OldAsset, MultiAssetFilter as OldAssetFilter, MultiAssets as OldAssets,
 	WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use bounded_collections::{BoundedVec, ConstU32};
 use core::cmp::Ordering;

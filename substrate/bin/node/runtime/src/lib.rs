@@ -24,6 +24,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_election_provider_support::{

@@ -18,7 +18,9 @@
 //! Functions for the Assets pallet.
 
 use super::*;
-use alloc::{vec, vec::Vec};
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec};
 use frame_support::{defensive, traits::Get, BoundedVec};
 
 #[must_use]

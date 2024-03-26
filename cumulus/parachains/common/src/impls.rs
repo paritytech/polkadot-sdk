@@ -16,6 +16,7 @@
 //! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::marker::PhantomData;
 use frame_support::traits::{

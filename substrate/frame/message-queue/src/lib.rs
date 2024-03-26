@@ -205,7 +205,6 @@ pub mod mock_helpers;
 mod tests;
 pub mod weights;
 
-use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, ops::Deref};
 use frame_support::{

@@ -3,7 +3,7 @@
 use super::*;
 
 use snowbridge_core::inbound::{
-	VerificationError::{self, *},
+	VerificationError::*,
 	*,
 };
 use snowbridge_ethereum::Receipt;

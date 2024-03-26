@@ -28,6 +28,7 @@ use frame_support::ensure;
 use sp_runtime::TryRuntimeError;
 
 #[cfg(feature = "try-runtime")]
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 /// A struct that does not migration, but only checks that the counter prefix exists and is correct.

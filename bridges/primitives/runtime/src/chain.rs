@@ -15,9 +15,11 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{ChainId, HeaderIdProvider};
-use alloc::{str::FromStr, vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+use alloc::{str::FromStr};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use core::{convert::TryFrom, fmt::Debug, hash::Hash};
+use core::{fmt::Debug, hash::Hash};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{

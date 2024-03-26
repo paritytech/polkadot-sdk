@@ -74,6 +74,7 @@ use crate::{
 	wasm::{Runtime, RuntimeCosts},
 	Error,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, MaxEncodedLen};
 use core::marker::PhantomData;

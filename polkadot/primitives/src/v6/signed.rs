@@ -17,6 +17,7 @@
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use application_crypto::AppCrypto;

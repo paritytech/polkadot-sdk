@@ -22,6 +22,7 @@ use crate::{
 	Inspect, Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{

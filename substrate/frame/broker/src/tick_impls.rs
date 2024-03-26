@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use alloc::{vec, vec::Vec};
+
 use frame_support::{pallet_prelude::*, weights::WeightMeter};
 use sp_arithmetic::{
 	traits::{One, SaturatedConversion, Saturating, Zero},

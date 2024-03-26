@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::AssetsInHolding;
-use core::result::Result;
 use xcm::latest::{Asset, Error as XcmError, Location, Result as XcmResult, XcmContext};
 
 /// Facility for asset transacting.

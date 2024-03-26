@@ -24,6 +24,7 @@ extern crate alloc;
 #[cfg(feature = "serde")]
 use serde::Serialize;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;

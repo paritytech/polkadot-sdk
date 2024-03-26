@@ -24,7 +24,9 @@ use crate::justification::{
 use crate::justification::verification::{
 	IterationFlow, JustificationVerificationContext, SignedPrecommit,
 };
-use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet};
 use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::Header as HeaderT;
 

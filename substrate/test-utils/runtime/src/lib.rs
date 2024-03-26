@@ -45,9 +45,8 @@ use frame_system::{
 };
 use scale_info::TypeInfo;
 
-use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 use sp_core::{OpaqueMetadata, RuntimeDebug};

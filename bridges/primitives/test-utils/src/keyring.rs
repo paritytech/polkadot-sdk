@@ -16,6 +16,7 @@
 
 //! Utilities for working with test accounts.
 
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use bp_header_chain::{justification::JustificationVerificationContext, AuthoritySet};
 use codec::Encode;

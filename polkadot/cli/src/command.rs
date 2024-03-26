@@ -20,7 +20,6 @@ use futures::future::TryFutureExt;
 use log::info;
 use sc_cli::SubstrateCli;
 use service::{
-	self,
 	benchmarking::{benchmark_inherent_data, RemarkBuilder, TransferKeepAliveBuilder},
 	HeaderBackend, IdentifyVariant,
 };

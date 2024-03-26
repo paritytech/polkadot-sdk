@@ -211,7 +211,7 @@ impl<T> FusedStream for TracingUnboundedReceiver<T> {
 #[cfg(test)]
 mod tests {
 	use super::tracing_unbounded;
-	use async_channel::{self, RecvError, TryRecvError};
+	use async_channel::{RecvError, TryRecvError};
 
 	#[test]
 	fn test_tracing_unbounded_receiver_drop() {

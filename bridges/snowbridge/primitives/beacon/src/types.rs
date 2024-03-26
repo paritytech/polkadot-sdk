@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::iter::repeat;
@@ -584,6 +585,8 @@ pub mod deneb {
 	#[cfg(feature = "std")]
 	use serde::{Deserialize, Serialize};
 	use sp_core::{H160, H256, U256};
+	#[cfg(not(feature = "std"))]
+	use alloc::vec::Vec;
 
 	/// ExecutionPayloadHeader
 	/// <https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#executionpayloadheader>

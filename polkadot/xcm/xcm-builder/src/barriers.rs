@@ -17,7 +17,7 @@
 //! Various implementations for `ShouldExecute`.
 
 use crate::{CreateMatcher, MatchXcm};
-use core::{cell::Cell, marker::PhantomData, ops::ControlFlow, result::Result};
+use core::{cell::Cell, marker::PhantomData, ops::ControlFlow};
 use frame_support::{
 	ensure,
 	traits::{Contains, Get, ProcessMessageError},

@@ -4,6 +4,7 @@ use crate::{
 	decompress_sync_committee_bits, Config, CurrentSyncCommittee, Pallet as EthereumBeaconClient,
 	Update, ValidatorsRoot,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use primitives::PublicKeyPrepared;
 use sp_core::H256;

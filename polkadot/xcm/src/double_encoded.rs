@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::MAX_XCM_DECODE_DEPTH;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use parity_scale_codec::{Decode, DecodeLimit, Encode};
 

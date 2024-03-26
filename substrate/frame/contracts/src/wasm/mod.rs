@@ -45,6 +45,7 @@ use crate::{
 	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
 	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
 };
+#[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{

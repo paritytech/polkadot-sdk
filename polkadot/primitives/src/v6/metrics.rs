@@ -16,6 +16,7 @@
 
 //! Runtime metric primitives.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use parity_scale_codec::{Decode, Encode};
 

@@ -19,7 +19,7 @@
 
 use std::{fmt::Display, sync::Arc};
 
-use codec::{self, Codec, Decode, Encode};
+use codec::{Codec, Decode, Encode};
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,

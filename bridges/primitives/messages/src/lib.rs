@@ -21,6 +21,7 @@
 
 extern crate alloc;
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use bp_header_chain::HeaderChainError;
 use bp_runtime::{

@@ -179,14 +179,14 @@ pub mod bounds;
 pub mod onchain;
 pub mod traits;
 
-use alloc::vec::Vec;
 use core::fmt::Debug;
 use sp_runtime::{
 	traits::{Bounded, Saturating, Zero},
 	RuntimeDebug,
 };
 
-use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec::Vec};
 pub use bounds::DataProviderBounds;
 pub use codec::{Decode, Encode};
 /// Re-export the solution generation macro.

@@ -27,7 +27,10 @@ use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_weights::WeightMeter;
 
 #[cfg(feature = "try-runtime")]
-use {alloc::vec::Vec, sp_runtime::TryRuntimeError};
+use sp_runtime::TryRuntimeError;
+
+#[cfg(all(not(feature = "std"), feature = "try-runtime"))]
+use alloc::vec::Vec;
 
 /// Provides a callback to execute logic before the all inherents.
 pub trait PreInherents {

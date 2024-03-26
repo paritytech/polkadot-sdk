@@ -31,6 +31,7 @@ impl<T: Into<QueuedMessage>> From<T> for VersionedQueuedMessage {
 
 mod v1 {
 	use crate::{pricing::UD60x18, ChannelId};
+	#[cfg(not(feature = "std"))]
 	use alloc::{borrow::ToOwned, vec, vec::Vec};
 	use codec::{Decode, Encode};
 	use ethabi::Token;

@@ -26,7 +26,6 @@ use core::{marker::PhantomData, mem, result};
 #[cfg(not(feature = "std"))]
 use {
 	alloc::{vec, vec::Vec},
-	core::iter::Iterator,
 };
 
 #[cfg(not(all(feature = "std", feature = "wasmtime")))]

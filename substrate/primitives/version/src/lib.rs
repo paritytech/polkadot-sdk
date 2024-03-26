@@ -409,6 +409,7 @@ impl<T: GetNativeVersion> GetNativeVersion for std::sync::Arc<T> {
 #[cfg(feature = "serde")]
 mod apis_serialize {
 	use super::*;
+	#[cfg(not(feature = "std"))]
 	use alloc::vec::Vec;
 	use impl_serde::serialize as bytes;
 	use serde::{de, ser::SerializeTuple, Serializer};

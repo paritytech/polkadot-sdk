@@ -16,7 +16,9 @@
 
 //! Common try-runtime only tests for runtimes.
 
-use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+use alloc::{collections::btree_set::BTreeSet};
 use frame_support::{
 	dispatch::RawOrigin,
 	traits::{Get, Hooks},

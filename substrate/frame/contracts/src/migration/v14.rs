@@ -27,7 +27,9 @@ use crate::{
 	BalanceOf, CodeHash, Config, Determinism, HoldReason, Pallet, Weight, LOG_TARGET,
 };
 #[cfg(feature = "try-runtime")]
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap};
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 #[cfg(feature = "try-runtime")]
 use frame_support::traits::fungible::{Inspect, InspectHold};

@@ -53,9 +53,10 @@ use crate::{
 };
 use alloc::{
 	collections::btree_map::{BTreeMap, Entry::*},
-	vec,
-	vec::Vec,
 };
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+
 use sp_arithmetic::traits::{Bounded, Zero};
 
 /// Map type used for reduce_4. Can be easily swapped with HashMap.

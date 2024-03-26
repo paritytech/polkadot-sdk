@@ -32,6 +32,7 @@ use sp_core::storage::{
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
 use crate::{log_error, trace, warn};
+#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec, vec::Vec};
 use core::{
 	any::{Any, TypeId},

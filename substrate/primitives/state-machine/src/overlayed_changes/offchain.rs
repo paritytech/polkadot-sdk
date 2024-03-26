@@ -18,6 +18,7 @@
 //! Overlayed changes for offchain indexing.
 
 use super::changeset::OverlayedMap;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use sp_core::offchain::OffchainOverlayedChange;
 

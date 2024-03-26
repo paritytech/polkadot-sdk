@@ -25,6 +25,7 @@
 //! compiles it down into a `WasmModule` that can be used as a contract's code.
 
 use crate::Config;
+#[cfg(not(feature = "std"))]
 use alloc::{borrow::ToOwned, vec, vec::Vec};
 use frame_support::traits::Get;
 use sp_runtime::{traits::Hash, Saturating};

@@ -15,7 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::AssetsInHolding;
-use core::result::Result;
 use xcm::latest::{prelude::*, Weight};
 
 /// Determine the weight of an XCM message.

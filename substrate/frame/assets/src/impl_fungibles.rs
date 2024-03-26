@@ -17,7 +17,6 @@
 
 //! Implementations for fungibles trait.
 
-use alloc::vec::Vec;
 use frame_support::{
 	defensive,
 	traits::tokens::{

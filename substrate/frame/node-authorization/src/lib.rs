@@ -47,7 +47,6 @@ mod tests;
 pub mod weights;
 
 use alloc::collections::btree_set::BTreeSet;
-use core::iter::FromIterator;
 pub use pallet::*;
 use sp_core::OpaquePeerId as PeerId;
 use sp_runtime::traits::StaticLookup;
