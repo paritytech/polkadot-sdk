@@ -55,7 +55,7 @@
 //!   be slashed, but only after all the free balance has been slashed.
 //!
 //!   Multiple holds stack rather than overlay. This means that if an account has
-//!   3 locks for 100 units, the account can spend its funds for any reason down to 300 units, at
+//!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
 //!   which point the holds will start to come into play.
 //!
 //! - **Frozen Balance**: A freeze on a specified amount of an account's free balance until a
@@ -68,8 +68,8 @@
 //!
 //! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
 //!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
-//!   the free plus the held balance (i.e. the total balance) fall below this, then the account is
-//!   said to be dead; and it loses its functionality as well as any prior history and all
+//!   the free plus the held balance (i.e. the total balance) falls below this, then the account is
+//!   said to be dead. It loses its functionality as well as any prior history and all
 //!   information on it is removed from the chain's state. No account should ever have a total
 //!   balance that is strictly between 0 and the existential deposit (exclusive). If this ever
 //!   happens, it indicates either a bug in the implementation of this trait or an erroneous raw
