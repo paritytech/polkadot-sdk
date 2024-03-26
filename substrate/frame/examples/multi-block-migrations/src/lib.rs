@@ -20,25 +20,26 @@
 //! # Multi-Block Migrations Example Pallet
 //!
 //! This pallet serves as a minimal example of a pallet that uses the [Multi-Block Migrations
-//! Framework](frame_support::migrations).
+//! Framework](frame_support::migrations). You can observe how to configure it in a runtime in the
+//! `kitchensink-runtime` crate.
 //!
 //! ## Introduction and Purpose
 //!
 //! The primary purpose of this pallet is to demonstrate the concept of Multi-Block Migrations in
 //! Substrate. It showcases the migration of values from in the
-//! [`StoredValue`](`pallet::StoredValue`) storage map a `u32` to a `u64` data type using the
+//! [`MyMap`](`pallet::MyMap`) storage map a `u32` to a `u64` data type using the
 //! [`SteppedMigration`](`frame_support::migrations::SteppedMigration`) implementation from the
 //! [`migrations::v1`] module.
 //!
-//! The [`StoredValue`](`pallet::StoredValue`) storage item is defined in this `pallet`, and is
-//! aliased to [`old::StoredValue`](`migrations::v1::old::StoredValue`) in the [`migrations::v1`]
+//! The [`MyMap`](`pallet::MyMap`) storage item is defined in this `pallet`, and is
+//! aliased to [`old::MyMap`](`migrations::v1::old::MyMap`) in the [`migrations::v1`]
 //! module.
 //!
 //! ## How to Read the Documentation
 //!
 //! To access and navigate this documentation in your browser, use the following command:
 //!
-//! - `cargo doc --package pallet-examples-pallet-mbm --open`
+//! - `cargo doc --package pallet-example-mbm --open`
 //!
 //! This documentation is organized to help you understand the pallet's components, features, and
 //! migration process.

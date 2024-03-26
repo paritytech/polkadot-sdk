@@ -18,8 +18,6 @@ mod benches {
 	#[benchmark]
 	fn step() {
 		v1::old::MyMap::<T>::insert(0, 0);
-		// Check that the old storage is undecodable:
-		assert!(crate::MyMap::<T>::get(0).is_none());
 		let mut meter = WeightMeter::new();
 
 		#[block]

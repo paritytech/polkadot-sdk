@@ -426,7 +426,8 @@ pub mod pallet {
 				let want = T::MaxServiceWeight::get();
 				let max = <T as frame_system::Config>::BlockWeights::get().max_block;
 
-				assert!(want.all_lte(max), "Service weight is larger than a block: {want} > {max}",);
+				assert!(want.all_lte(max), "Service weight is larger than a block: {want} > {max}");
+				assert!(!want.is_zero(), "Service weight cannot be zero");
 			}
 
 			// Cursor MEL
@@ -726,7 +727,8 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	fn exec_migration_max_weight() -> Weight {
+	/// The maximal weight of calling [`exec_migration`].
+	pub fn exec_migration_max_weight() -> Weight {
 		T::WeightInfo::exec_migration_complete()
 			.max(T::WeightInfo::exec_migration_completed())
 			.max(T::WeightInfo::exec_migration_skipped_historic())

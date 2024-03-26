@@ -12,16 +12,11 @@
 // v1
 // benchmark
 // pallet
-// --runtime
-// target/release/wbuild/kitchensink-runtime/kitchensink_runtime.compact.compressed.wasm
-// --pallet
-// pallet_example_mbm
-// --extrinsic
-// 
-// --template
-// substrate/.maintain/frame-weight-template.hbs
-// --output
-// substrate/frame/examples/multi-block-migrations/src/migrations/weights.rs
+// --runtime=target/release/wbuild/kitchensink-runtime/kitchensink_runtime.compact.compressed.wasm
+// --pallet=pallet_example_mbm
+// --extrinsic=
+// --template=substrate/.maintain/frame-weight-template.hbs
+// --output=substrate/frame/examples/multi-block-migrations/src/migrations/weights.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -45,8 +40,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `28`
 		//  Estimated: `5996`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(8_000_000, 5996)
+		// Minimum execution time: 13_000_000 picoseconds.
+		Weight::from_parts(14_000_000, 5996)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -60,8 +55,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `28`
 		//  Estimated: `5996`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(8_000_000, 5996)
+		// Minimum execution time: 13_000_000 picoseconds.
+		Weight::from_parts(14_000_000, 5996)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

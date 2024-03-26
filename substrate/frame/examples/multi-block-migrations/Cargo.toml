@@ -1,5 +1,5 @@
 [package]
-name = "pallet-example-pallet-mbm"
+name = "pallet-example-mbm"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true

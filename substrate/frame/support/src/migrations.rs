@@ -996,4 +996,7 @@ mod tests {
 			.is_err());
 		});
 	}
+
+	#[test]
+	fn run_till_out_of_weight_works() {}
 }

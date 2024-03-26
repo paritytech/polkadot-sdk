@@ -7077,7 +7077,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
- "pallet-example-pallet-mbm",
+ "pallet-example-mbm",
  "pallet-example-tasks",
  "pallet-fast-unstake",
  "pallet-glutton",
@@ -9862,6 +9862,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-mbm"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-migrations",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+]
+
+[[package]]
 name = "pallet-example-offchain-worker"
 version = "28.0.0"
 dependencies = [
@@ -9876,20 +9890,6 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std 14.0.0",
-]
-
-[[package]]
-name = "pallet-example-pallet-mbm"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-migrations",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
 ]
 
 [[package]]
