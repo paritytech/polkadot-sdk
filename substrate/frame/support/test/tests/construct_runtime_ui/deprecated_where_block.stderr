@@ -477,7 +477,7 @@ note: required because it appears within the type `RuntimeCall`
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `frame_support::sp_runtime::traits::Dispatchable::Config`
-  --> $WORKSPACE/substrate/primitives/runtime/src/traits.rs
+  --> $WORKSPACE/substrate/primitives/runtime/src/traits/mod.rs
    |
    |     type Config;
    |     ^^^^^^^^^^^^ required by this bound in `Dispatchable::Config`
@@ -510,7 +510,7 @@ note: required because it appears within the type `RuntimeCall`
    | ||_- in this macro invocation
 ...  |
 note: required by a bound in `frame_support::pallet_prelude::ValidateUnsigned::Call`
-  --> $WORKSPACE/substrate/primitives/runtime/src/traits.rs
+  --> $WORKSPACE/substrate/primitives/runtime/src/traits/mod.rs
    |
    |     type Call;
    |     ^^^^^^^^^^ required by this bound in `ValidateUnsigned::Call`

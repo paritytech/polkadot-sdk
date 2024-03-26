@@ -62,7 +62,7 @@ pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
 
 type Block = frame_system::mocking::MockBlockU32<Runtime>;
-type Extrinsic = testing::TestXt<RuntimeCall, ()>;
+type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 
 frame_support::construct_runtime!(
 	pub enum Runtime {
@@ -699,7 +699,7 @@ pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solu
 			for encoded in &pool.read().transactions {
 				let extrinsic = Extrinsic::decode(&mut &encoded[..]).unwrap();
 
-				let _ = match extrinsic.call {
+				let _ = match extrinsic.function {
 					RuntimeCall::ElectionProviderMultiPhase(
 						call @ Call::submit_unsigned { .. },
 					) => {

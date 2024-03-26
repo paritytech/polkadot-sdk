@@ -27,7 +27,7 @@ use frame_support::{
 use pallet_session::historical as pallet_session_historical;
 use sp_core::H256;
 use sp_runtime::{
-	testing::{TestXt, UintAuthorityId},
+	testing::UintAuthorityId,
 	traits::{BlakeTwo256, ConvertInto, IdentityLookup},
 	BuildStorage, Permill,
 };
@@ -78,7 +78,7 @@ impl pallet_session::historical::SessionManager<u64, u64> for TestSessionManager
 }
 
 /// An extrinsic type used for tests.
-pub type Extrinsic = TestXt<RuntimeCall, ()>;
+pub type Extrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 type IdentificationTuple = (u64, u64);
 type Offence = crate::UnresponsivenessOffence<IdentificationTuple>;
 

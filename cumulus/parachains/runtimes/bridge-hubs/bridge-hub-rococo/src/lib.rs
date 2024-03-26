@@ -117,8 +117,8 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
+/// The TransactionExtension to the basic transaction logic.
+pub type TxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -136,7 +136,7 @@ pub type SignedExtra = (
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
@@ -207,7 +207,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_version: 1_009_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 4,
+	transaction_version: 5,
 	state_version: 1,
 };
 
@@ -264,6 +264,8 @@ impl frame_system::Config for Runtime {
 	type DbWeight = RocksDbWeight;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	/// Weight information for the extensions of this pallet.
+	type ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
@@ -323,6 +325,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
+	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -758,12 +761,14 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
+		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
+		[pallet_transaction_payment, TransactionPayment]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
@@ -1064,6 +1069,7 @@ impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 
@@ -1094,6 +1100,7 @@ impl_runtime_apis! {
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
@@ -1477,16 +1484,16 @@ mod tests {
 	use codec::Encode;
 	use sp_runtime::{
 		generic::Era,
-		traits::{SignedExtension, Zero},
+		traits::{TransactionExtensionBase, Zero},
 	};
 
 	#[test]
 	fn ensure_signed_extension_definition_is_compatible_with_relay() {
-		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
+		use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
 			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
-			let payload: SignedExtra = (
+			let payload: TxExtension = (
 				frame_system::CheckNonZeroSender::new(),
 				frame_system::CheckSpecVersion::new(),
 				frame_system::CheckTxVersion::new(),
@@ -1500,11 +1507,11 @@ mod tests {
 					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 				)
-			);
+			).into();
 
 			// for BridgeHubRococo
 			{
-				let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
+				let bhr_indirect_payload = bp_bridge_hub_rococo::TransactionExtension::from_params(
 					VERSION.spec_version,
 					VERSION.transaction_version,
 					bp_runtime::TransactionEra::Immortal,
@@ -1515,8 +1522,8 @@ mod tests {
 				);
 				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
 				assert_eq!(
-					payload.additional_signed().unwrap().encode(),
-					bhr_indirect_payload.additional_signed().unwrap().encode()
+					payload.implicit().unwrap().encode(),
+					bhr_indirect_payload.implicit().unwrap().encode()
 				)
 			}
 		});

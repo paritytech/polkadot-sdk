@@ -20,8 +20,8 @@
 use super::types::{
 	ExtrinsicMetadataIR, MetadataIR, PalletCallMetadataIR, PalletConstantMetadataIR,
 	PalletErrorMetadataIR, PalletEventMetadataIR, PalletMetadataIR, PalletStorageMetadataIR,
-	SignedExtensionMetadataIR, StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR,
-	StorageHasherIR,
+	StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR,
+	TransactionExtensionMetadataIR,
 };
 
 use frame_metadata::v14::{
@@ -137,12 +137,12 @@ impl From<PalletErrorMetadataIR> for PalletErrorMetadata {
 	}
 }
 
-impl From<SignedExtensionMetadataIR> for SignedExtensionMetadata {
-	fn from(ir: SignedExtensionMetadataIR) -> Self {
+impl From<TransactionExtensionMetadataIR> for SignedExtensionMetadata {
+	fn from(ir: TransactionExtensionMetadataIR) -> Self {
 		SignedExtensionMetadata {
 			identifier: ir.identifier,
 			ty: ir.ty,
-			additional_signed: ir.additional_signed,
+			additional_signed: ir.implicit,
 		}
 	}
 }
@@ -152,7 +152,7 @@ impl From<ExtrinsicMetadataIR> for ExtrinsicMetadata {
 		ExtrinsicMetadata {
 			ty: ir.ty,
 			version: ir.version,
-			signed_extensions: ir.signed_extensions.into_iter().map(Into::into).collect(),
+			signed_extensions: ir.extensions.into_iter().map(Into::into).collect(),
 		}
 	}
 }

@@ -22,7 +22,11 @@ use core::marker::PhantomData;
 
 /// Weight functions for `{{pallet}}`.
 pub struct WeightInfo<T>(PhantomData<T>);
+{{#if (eq pallet "frame_system_extensions")}}
+impl<T: frame_system::Config> frame_system::ExtensionsWeightInfo for WeightInfo<T> {
+{{else}}
 impl<T: frame_system::Config> {{pallet}}::WeightInfo for WeightInfo<T> {
+{{/if}}
 	{{#each benchmarks as |benchmark|}}
 	{{#each benchmark.comments as |comment|}}
 	/// {{comment}}

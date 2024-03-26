@@ -105,43 +105,48 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 	($call:ty, $account_id:ty, $($filter_call:ty),*) => {
 		#[derive(Clone, codec::Decode, Default, codec::Encode, Eq, PartialEq, sp_runtime::RuntimeDebug, scale_info::TypeInfo)]
 		pub struct BridgeRejectObsoleteHeadersAndMessages;
-		impl sp_runtime::traits::SignedExtension for BridgeRejectObsoleteHeadersAndMessages {
+		impl sp_runtime::traits::TransactionExtensionBase for BridgeRejectObsoleteHeadersAndMessages {
 			const IDENTIFIER: &'static str = "BridgeRejectObsoleteHeadersAndMessages";
-			type AccountId = $account_id;
-			type Call = $call;
-			type AdditionalSigned = ();
+			type Implicit = ();
+		}
+		impl<Context> sp_runtime::traits::TransactionExtension<$call, Context> for BridgeRejectObsoleteHeadersAndMessages {
 			type Pre = ();
-
-			fn additional_signed(&self) -> sp_std::result::Result<
-				(),
-				sp_runtime::transaction_validity::TransactionValidityError,
-			> {
-				Ok(())
-			}
+			type Val = ();
 
 			fn validate(
 				&self,
-				_who: &Self::AccountId,
-				call: &Self::Call,
-				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+				origin: <$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				call: &$call,
+				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
 				_len: usize,
-			) -> sp_runtime::transaction_validity::TransactionValidity {
-				let valid = sp_runtime::transaction_validity::ValidTransaction::default();
+				_context: &mut Context,
+				_self_implicit: Self::Implicit,
+				_inherited_implication: &impl codec::Encode,
+			) -> Result<
+				(
+					sp_runtime::transaction_validity::ValidTransaction,
+					Self::Val,
+					<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				), sp_runtime::transaction_validity::TransactionValidityError
+			> {
+				let tx_validity = sp_runtime::transaction_validity::ValidTransaction::default();
 				$(
-					let valid = valid
-						.combine_with(<$filter_call as $crate::BridgeRuntimeFilterCall<$call>>::validate(call)?);
+					let call_filter_validity = <$filter_call as $crate::BridgeRuntimeFilterCall<$call>>::validate(call)?;
+					let tx_validity = tx_validity.combine_with(call_filter_validity);
 				)*
-				Ok(valid)
+				Ok((tx_validity, (), origin))
 			}
 
-			fn pre_dispatch(
+			fn prepare(
 				self,
-				who: &Self::AccountId,
-				call: &Self::Call,
-				info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-				len: usize,
+				_val: Self::Val,
+				_origin: &<$call as sp_runtime::traits::Dispatchable>::RuntimeOrigin,
+				_call: &$call,
+				_info: &sp_runtime::traits::DispatchInfoOf<$call>,
+				_len: usize,
+				_context: &Context,
 			) -> Result<Self::Pre, sp_runtime::transaction_validity::TransactionValidityError> {
-				self.validate(who, call, info, len).map(drop)
+				Ok(())
 			}
 		}
 	};
@@ -150,12 +155,14 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 #[cfg(test)]
 mod tests {
 	use crate::BridgeRuntimeFilterCall;
-	use frame_support::{assert_err, assert_ok};
+	use codec::Encode;
+	use frame_support::assert_err;
 	use sp_runtime::{
-		traits::SignedExtension,
+		traits::DispatchTransaction,
 		transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	};
 
+	#[derive(Encode)]
 	pub struct MockCall {
 		data: u32,
 	}
@@ -206,17 +213,20 @@ mod tests {
 		);
 
 		assert_err!(
-			BridgeRejectObsoleteHeadersAndMessages.validate(&(), &MockCall { data: 1 }, &(), 0),
+			BridgeRejectObsoleteHeadersAndMessages.validate_only((), &MockCall { data: 1 }, &(), 0),
 			InvalidTransaction::Custom(1)
 		);
 
 		assert_err!(
-			BridgeRejectObsoleteHeadersAndMessages.validate(&(), &MockCall { data: 2 }, &(), 0),
+			BridgeRejectObsoleteHeadersAndMessages.validate_only((), &MockCall { data: 2 }, &(), 0),
 			InvalidTransaction::Custom(2)
 		);
 
-		assert_ok!(
-			BridgeRejectObsoleteHeadersAndMessages.validate(&(), &MockCall { data: 3 }, &(), 0),
+		assert_eq!(
+			BridgeRejectObsoleteHeadersAndMessages
+				.validate_only((), &MockCall { data: 3 }, &(), 0)
+				.unwrap()
+				.0,
 			ValidTransaction { priority: 3, ..Default::default() }
 		)
 	}
