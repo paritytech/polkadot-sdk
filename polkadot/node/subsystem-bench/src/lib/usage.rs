@@ -17,10 +17,11 @@
 //! Test usage implementation
 
 use colored::Colorize;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BenchmarkUsage {
 	pub benchmark_name: String,
 	pub network_usage: Vec<ResourceUsage>,
@@ -37,10 +38,16 @@ impl std::fmt::Display for BenchmarkUsage {
 			self.network_usage
 				.iter()
 				.map(|v| v.to_string())
+				.sorted()
 				.collect::<Vec<String>>()
 				.join("\n"),
 			format!("{:<32}{:>12}{:>12}", "CPU usage, seconds", "total", "per block").blue(),
-			self.cpu_usage.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n")
+			self.cpu_usage
+				.iter()
+				.map(|v| v.to_string())
+				.sorted()
+				.collect::<Vec<String>>()
+				.join("\n")
 		)
 	}
 }
@@ -101,8 +108,8 @@ fn check_resource_usage(
 			None
 		} else {
 			Some(format!(
-				"The resource `{}` is expected to be equal to {} with a precision {}, but the current value is {}",
-				resource_name, base, precision, usage.per_block
+				"The resource `{}` is expected to be equal to {} with a precision {}, but the current value is {} ({})",
+				resource_name, base, precision, usage.per_block, diff
 			))
 		}
 	} else {
@@ -110,7 +117,7 @@ fn check_resource_usage(
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ResourceUsage {
 	pub resource_name: String,
 	pub total: f64,
@@ -119,7 +126,7 @@ pub struct ResourceUsage {
 
 impl std::fmt::Display for ResourceUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{:<32}{:>12.3}{:>12.3}", self.resource_name.cyan(), self.total, self.per_block)
+		write!(f, "{:<32}{:>12.4}{:>12.4}", self.resource_name.cyan(), self.total, self.per_block)
 	}
 }
 

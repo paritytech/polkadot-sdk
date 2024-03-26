@@ -152,7 +152,6 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
@@ -189,5 +188,3 @@ try-runtime = [
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]

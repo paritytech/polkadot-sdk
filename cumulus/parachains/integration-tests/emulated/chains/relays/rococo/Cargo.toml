@@ -25,5 +25,5 @@ rococo-runtime-constants = { path = "../../../../../../../polkadot/runtime/rococ
 rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
 
 # Cumulus
-parachains-common = { path = "../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../common" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }

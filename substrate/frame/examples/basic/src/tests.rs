@@ -27,7 +27,7 @@ use sp_core::H256;
 // The testing primitives are very useful for avoiding having to work with signatures
 // or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use sp_runtime::{
-	traits::{BlakeTwo256, DispatchTransaction, IdentityLookup},
+	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
 // Reexport crate as its pallet name for construct_runtime.
@@ -45,7 +45,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -158,16 +158,13 @@ fn signed_ext_watch_dummy_works() {
 
 		assert_eq!(
 			WatchDummy::<Test>(PhantomData)
-				.validate_only(Some(1).into(), &call, &info, 150)
+				.validate(&1, &call, &info, 150)
 				.unwrap()
-				.0
 				.priority,
 			u64::MAX,
 		);
 		assert_eq!(
-			WatchDummy::<Test>(PhantomData)
-				.validate_only(Some(1).into(), &call, &info, 250)
-				.unwrap_err(),
+			WatchDummy::<Test>(PhantomData).validate(&1, &call, &info, 250),
 			InvalidTransaction::ExhaustsResources.into(),
 		);
 	})

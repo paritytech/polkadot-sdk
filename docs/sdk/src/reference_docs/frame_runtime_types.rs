@@ -130,7 +130,7 @@
 //! * [`crate::reference_docs::frame_origin`] explores further details about the usage of
 //!   `RuntimeOrigin`.
 //! * [`RuntimeCall`] is a particularly interesting composite enum as it dictates the encoding of an
-//!   extrinsic. See [`crate::reference_docs::transaction_extensions`] for more information.
+//!   extrinsic. See [`crate::reference_docs::signed_extensions`] for more information.
 //! * See the documentation of [`construct_runtime`].
 //! * See the corresponding lecture in the [pba-book](https://polkadot-blockchain-academy.github.io/pba-book/frame/outer-enum/page.html).
 //!
@@ -228,7 +228,7 @@ pub mod runtime {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = MockBlock<Self>;
 	}
@@ -293,7 +293,7 @@ pub mod runtime_with_specific_runtime_call {
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type Block = MockBlock<Self>;
 	}
