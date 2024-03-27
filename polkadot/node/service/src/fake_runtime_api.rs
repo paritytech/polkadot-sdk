@@ -232,7 +232,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
+	impl beefy_primitives::BeefyApi<Block, BeefyId, Hash> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			unimplemented!()
 		}
@@ -241,13 +241,20 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
-			_: beefy_primitives::EquivocationProof<
+		fn submit_report_vote_equivocation_unsigned_extrinsic(
+			_: beefy_primitives::VoteEquivocationProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
 			>,
 			_: beefy_primitives::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			unimplemented!()
+		}
+
+		fn submit_report_fork_equivocation_unsigned_extrinsic(
+			_: beefy_primitives::ForkEquivocationProof<BeefyId, <Block as BlockT>::Header, Hash>,
+			_: Vec<beefy_primitives::OpaqueKeyOwnershipProof>,
 		) -> Option<()> {
 			unimplemented!()
 		}
@@ -272,11 +279,11 @@ sp_api::impl_runtime_apis! {
 		fn generate_proof(
 			_: Vec<BlockNumber>,
 			_: Option<BlockNumber>,
-		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::Proof<Hash>), sp_mmr_primitives::Error> {
+		) -> Result<(Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, sp_mmr_primitives::LeafProof<Hash>), sp_mmr_primitives::Error> {
 			unimplemented!()
 		}
 
-		fn verify_proof(_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, _: sp_mmr_primitives::Proof<Hash>)
+		fn verify_proof(_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>, _: sp_mmr_primitives::LeafProof<Hash>)
 			-> Result<(), sp_mmr_primitives::Error>
 		{
 			unimplemented!()
@@ -285,7 +292,19 @@ sp_api::impl_runtime_apis! {
 		fn verify_proof_stateless(
 			_: Hash,
 			_: Vec<sp_mmr_primitives::EncodableOpaqueLeaf>,
-			_: sp_mmr_primitives::Proof<Hash>
+			_: sp_mmr_primitives::LeafProof<Hash>
+		) -> Result<(), sp_mmr_primitives::Error> {
+			unimplemented!()
+		}
+
+		fn generate_ancestry_proof(
+			_: u32,
+			_: Option<BlockNumber>,
+		) -> Result<sp_mmr_primitives::AncestryProof<Hash>, sp_mmr_primitives::Error> {
+			unimplemented!()
+		}
+		fn verify_ancestry_proof(
+			_: sp_mmr_primitives::AncestryProof<Hash>,
 		) -> Result<(), sp_mmr_primitives::Error> {
 			unimplemented!()
 		}

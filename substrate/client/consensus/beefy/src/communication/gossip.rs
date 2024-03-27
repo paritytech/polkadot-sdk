@@ -25,12 +25,15 @@ use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 use codec::{Decode, DecodeAll, Encode};
 use log::{debug, trace};
 use parking_lot::{Mutex, RwLock};
+use sc_client_api::Backend;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sp_api::ProvideRuntimeApi;
 use wasm_timer::Instant;
 
 use crate::{
 	communication::{
 		benefit, cost,
+		fisherman::Fisherman,
 		peers::{KnownPeers, PeerReport},
 	},
 	justification::{
@@ -41,8 +44,9 @@ use crate::{
 };
 use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
-	ValidatorSet, ValidatorSetId, VoteMessage,
+	BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet, ValidatorSetId, VoteMessage,
 };
+use sp_mmr_primitives::MmrApi;
 
 // Timeout for rebroadcasting messages.
 #[cfg(not(test))]
@@ -222,26 +226,32 @@ impl<B: Block> Filter<B> {
 /// Allows messages for 'rounds >= last concluded' to flow, everything else gets
 /// rejected/expired.
 ///
+/// Messages for active and expired rounds are validated for expected payloads and attempts
+/// to create forks before head of GRANDPA are reported.
+///
 ///All messaging is handled in a single BEEFY global topic.
-pub(crate) struct GossipValidator<B>
-where
-	B: Block,
-{
+pub(crate) struct GossipValidator<B: Block, BE, P, R> {
 	votes_topic: B::Hash,
 	justifs_topic: B::Hash,
 	gossip_filter: RwLock<Filter<B>>,
 	next_rebroadcast: Mutex<Instant>,
 	known_peers: Arc<Mutex<KnownPeers<B>>>,
 	report_sender: TracingUnboundedSender<PeerReport>,
+	pub(crate) fisherman: Fisherman<B, BE, P, R>,
 }
 
-impl<B> GossipValidator<B>
+impl<B, BE, P, R> GossipValidator<B, BE, P, R>
 where
 	B: Block,
+	BE: Backend<B> + Send + Sync,
+	P: PayloadProvider<B> + Send + Sync,
+	R: ProvideRuntimeApi<B>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	pub(crate) fn new(
 		known_peers: Arc<Mutex<KnownPeers<B>>>,
-	) -> (GossipValidator<B>, TracingUnboundedReceiver<PeerReport>) {
+		fisherman: Fisherman<B, BE, P, R>,
+	) -> (GossipValidator<B, BE, P, R>, TracingUnboundedReceiver<PeerReport>) {
 		let (tx, rx) = tracing_unbounded("mpsc_beefy_gossip_validator", 100_000);
 		let val = GossipValidator {
 			votes_topic: votes_topic::<B>(),
@@ -250,6 +260,7 @@ where
 			next_rebroadcast: Mutex::new(Instant::now() + REBROADCAST_AFTER),
 			known_peers,
 			report_sender: tx,
+			fisherman,
 		};
 		(val, rx)
 	}
@@ -272,21 +283,27 @@ where
 
 	fn validate_vote(
 		&self,
-		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
+		vote: &VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 		sender: &PeerId,
 	) -> Action<B::Hash> {
 		let round = vote.commitment.block_number;
 		let set_id = vote.commitment.validator_set_id;
 		self.known_peers.lock().note_vote_for(*sender, round);
 
-		// Verify general usefulness of the message.
+		// Verify general utility of the message. A vote is only useful if for an active round.
 		// We are going to discard old votes right away (without verification).
 		{
 			let filter = self.gossip_filter.read();
 
 			match filter.consider_vote(round, set_id) {
-				Consider::RejectPast => return Action::Discard(cost::OUTDATED_MESSAGE),
 				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
+				Consider::RejectPast => {
+					// TODO: maybe raise cost reputation when seeing votes that are intentional
+					// spam: votes that trigger fisherman reports, but don't go through either
+					// because signer is/was not authority or similar reasons.
+					// The idea is to more quickly disconnect neighbors which are attempting DoS.
+					return Action::Discard(cost::OUTDATED_MESSAGE)
+				},
 				// When we can't evaluate, it's our fault (e.g. filter not initialized yet), we
 				// discard the vote without punishing or rewarding the sending peer.
 				Consider::CannotEvaluate => return Action::DiscardNoReport,
@@ -317,18 +334,27 @@ where
 
 	fn validate_finality_proof(
 		&self,
-		proof: BeefyVersionedFinalityProof<B>,
+		proof: &BeefyVersionedFinalityProof<B>,
 		sender: &PeerId,
 	) -> Action<B::Hash> {
-		let (round, set_id) = proof_block_num_and_set_id::<B>(&proof);
+		let (round, set_id) = proof_block_num_and_set_id::<B>(proof);
 		self.known_peers.lock().note_vote_for(*sender, round);
 
 		let action = {
 			let guard = self.gossip_filter.read();
 
-			// Verify general usefulness of the justification.
+			// Verify general utility of the justification.
+			// The justification is only useful if it is for an active round: voters should
+			// broadcast finality proofs once they have seen sufficient affirming votes to build a
+			// valid one.
 			match guard.consider_finality_proof(round, set_id) {
-				Consider::RejectPast => return Action::Discard(cost::OUTDATED_MESSAGE),
+				Consider::RejectPast => {
+					// TODO: maybe raise cost reputation when seeing votes that are intentional
+					// spam: votes that trigger fisherman reports, but don't go through either
+					// because signer is/was not authority or similar reasons.
+					// The idea is to more quickly disconnect neighbors which are attempting DoS.
+					return Action::Discard(cost::OUTDATED_MESSAGE)
+				},
 				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
 				// When we can't evaluate, it's our fault (e.g. filter not initialized yet), we
 				// discard the proof without punishing or rewarding the sending peer.
@@ -345,7 +371,7 @@ where
 				.validator_set()
 				.map(|validator_set| {
 					if let Err((_, signatures_checked)) =
-						verify_with_validator_set::<B>(round, validator_set, &proof)
+						verify_with_validator_set::<B>(round, validator_set, proof)
 					{
 						debug!(
 							target: LOG_TARGET,
@@ -370,9 +396,13 @@ where
 	}
 }
 
-impl<B> Validator<B> for GossipValidator<B>
+impl<B, BE, P, R> Validator<B> for GossipValidator<B, BE, P, R>
 where
 	B: Block,
+	BE: Backend<B> + Send + Sync,
+	P: PayloadProvider<B> + Send + Sync,
+	R: ProvideRuntimeApi<B> + Send + Sync,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	fn peer_disconnected(&self, _context: &mut dyn ValidatorContext<B>, who: &PeerId) {
 		self.known_peers.lock().remove(who);
@@ -385,9 +415,28 @@ where
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
 		let raw = data;
+		// Have fisherman check the vote or proof for fork equivocations regardless of
+		// the action on it:
+		// 1. We check votes/proofs on past rounds and active rounds since they might equivocate
+		//    against grandpa-finalized state.
+		// 2. We check votes/proofs on future non-active rounds since these should not have been
+		//    voted on yet (from the client's perspective). In case the block is not even in the
+		//    client's history, but is in fact already finalized, the resulting equivocation report
+		//    will be ineffectual.
+		// The check is best-effort and ignores errors such as state pruned. Accepted votes are also
+		// checked against vote equivocations in
+		// `sc_consensus_beefy::worker::BeefyWorker::handle_vote`
 		let action = match GossipMessage::<B>::decode_all(&mut data) {
-			Ok(GossipMessage::Vote(msg)) => self.validate_vote(msg, sender),
-			Ok(GossipMessage::FinalityProof(proof)) => self.validate_finality_proof(proof, sender),
+			Ok(GossipMessage::Vote(msg)) => {
+				let action = self.validate_vote(&msg, sender);
+				let _ = self.fisherman.check_vote(msg);
+				action
+			},
+			Ok(GossipMessage::FinalityProof(proof)) => {
+				let action = self.validate_finality_proof(&proof, sender);
+				let _ = self.fisherman.check_proof(proof);
+				action
+			},
 			Err(e) => {
 				debug!(target: LOG_TARGET, "Error decoding message: {}", e);
 				let bytes = raw.len().min(i32::MAX as usize) as i32;
@@ -486,8 +535,11 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::keystore::BeefyKeystore;
-	use sc_network_test::Block;
+	use crate::{
+		keystore::BeefyKeystore,
+		tests::{create_fisherman, BeefyTestNet, TestApi},
+	};
+	use sc_network_test::{Block, TestNetFactory};
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
 		ecdsa_crypto::Signature, known_payloads, test_utils::Keyring, Commitment, MmrRootHash,
@@ -558,10 +610,17 @@ pub(crate) mod tests {
 
 	#[test]
 	fn should_validate_messages() {
-		let keys = vec![Keyring::<AuthorityId>::Alice.public()];
+		let keyring = Keyring::<AuthorityId>::Alice;
+		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
+
+		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
+		let mut net = BeefyTestNet::new(1);
+		let backend = net.peer(0).client().as_backend();
+		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
+
 		let (gv, mut report_stream) =
-			GossipValidator::<Block>::new(Arc::new(Mutex::new(KnownPeers::new())));
+			GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
 		let sender = PeerId::random();
 		let mut context = TestContext;
 
@@ -672,9 +731,16 @@ pub(crate) mod tests {
 
 	#[test]
 	fn messages_allowed_and_expired() {
-		let keys = vec![Keyring::Alice.public()];
+		let keyring = Keyring::Alice;
+		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
-		let (gv, _) = GossipValidator::<Block>::new(Arc::new(Mutex::new(KnownPeers::new())));
+
+		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
+		let mut net = BeefyTestNet::new(1);
+		let backend = net.peer(0).client().as_backend();
+		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
+
+		let (gv, _) = GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		let sender = sc_network::PeerId::random();
 		let topic = Default::default();
@@ -749,9 +815,16 @@ pub(crate) mod tests {
 
 	#[test]
 	fn messages_rebroadcast() {
-		let keys = vec![Keyring::Alice.public()];
+		let keyring = Keyring::Alice;
+		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
-		let (gv, _) = GossipValidator::<Block>::new(Arc::new(Mutex::new(KnownPeers::new())));
+
+		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
+		let mut net = BeefyTestNet::new(1);
+		let backend = net.peer(0).client().as_backend();
+		let fisherman = create_fisherman(&keyring, Arc::new(api.clone()), backend.clone());
+
+		let (gv, _) = GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		let sender = sc_network::PeerId::random();
 		let topic = Default::default();

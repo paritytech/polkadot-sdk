@@ -22,9 +22,54 @@ use mmr_lib::helper;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use core::fmt::Debug;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Header, One};
 
-use crate::{Error, LeafIndex, NodeIndex};
+use crate::{AncestryProof, Error, LeafIndex, NodeIndex};
+
+/// Merging & Hashing behavior specific to ancestry proofs.
+pub struct AncestryHasher<H>(sp_std::marker::PhantomData<H>);
+
+impl<H: sp_runtime::traits::Hash> mmr_lib::Merge for AncestryHasher<H> {
+	type Item = H::Output;
+
+	fn merge(left: &Self::Item, right: &Self::Item) -> mmr_lib::Result<Self::Item> {
+		let mut concat = left.as_ref().to_vec();
+		concat.extend_from_slice(right.as_ref());
+
+		Ok(<H as sp_runtime::traits::Hash>::hash(&concat))
+	}
+}
+
+/// Stateless verification of the ancestry proof of `root` against a prev_root implicit in the
+/// ancestry proof.
+pub fn verify_ancestry_proof<H, M>(
+	root: H,
+	mmr_size: NodeIndex,
+	ancestry_proof: AncestryProof<H>,
+) -> Result<bool, Error>
+where
+	H: Clone + Debug + PartialEq + Encode,
+	M: mmr_lib::Merge<Item = H>,
+{
+	let p: mmr_lib::NodeMerkleProof<H, _> = mmr_lib::NodeMerkleProof::<H, M>::new(
+		mmr_size,
+		ancestry_proof.proof.items.into_iter().collect(),
+	);
+
+	let ancestry_proof = mmr_lib::AncestryProof::<H, _> {
+		prev_peaks: ancestry_proof.prev_peaks,
+		prev_size: ancestry_proof.prev_size,
+		proof: p,
+	};
+
+	let prev_root =
+		mmr_lib::ancestry_proof::bagging_peaks_hashes::<H, M>(ancestry_proof.prev_peaks.clone())
+			.map_err(|e| Error::Verify.log_debug(e))?;
+	ancestry_proof
+		.verify_ancestor(root, prev_root)
+		.map_err(|e| Error::Verify.log_debug(e))
+}
 
 /// Get the first block with MMR.
 pub fn first_mmr_block_num<H: Header>(

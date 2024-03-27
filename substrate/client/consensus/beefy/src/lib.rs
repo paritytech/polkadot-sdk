@@ -18,6 +18,7 @@
 
 use crate::{
 	communication::{
+		fisherman::Fisherman,
 		notification::{
 			BeefyBestBlockSender, BeefyBestBlockStream, BeefyVersionedFinalityProofSender,
 			BeefyVersionedFinalityProofStream,
@@ -29,6 +30,7 @@ use crate::{
 	},
 	error::Error,
 	import::BeefyBlockImport,
+	keystore::BeefyKeystore,
 	metrics::register_metrics,
 };
 use futures::{stream::Fuse, FutureExt, StreamExt};
@@ -40,7 +42,9 @@ use sc_consensus::BlockImport;
 use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_api::ProvideRuntimeApi;
-use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
+use sp_blockchain::{
+	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
+};
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
 	ecdsa_crypto::AuthorityId, BeefyApi, ConsensusLog, MmrRootHash, PayloadProvider, ValidatorSet,
@@ -70,7 +74,6 @@ pub mod justification;
 use crate::{
 	communication::{gossip::GossipValidator, peers::PeerReport},
 	justification::BeefyVersionedFinalityProof,
-	keystore::BeefyKeystore,
 	metrics::VoterMetrics,
 	round::Rounds,
 	worker::{BeefyWorker, PersistedState},
@@ -151,7 +154,7 @@ where
 	BE: Backend<B>,
 	I: BlockImport<B, Error = ConsensusError> + Send + Sync,
 	RuntimeApi: ProvideRuntimeApi<B> + Send + Sync,
-	RuntimeApi::Api: BeefyApi<B, AuthorityId>,
+	RuntimeApi::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
 {
 	// Voter -> RPC links
 	let (to_rpc_justif_sender, from_voter_justif_stream) =
@@ -226,9 +229,9 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S> {
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-pub(crate) struct BeefyComms<B: Block> {
+pub(crate) struct BeefyComms<B: Block, BE, P, R> {
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B>>,
+	pub gossip_validator: Arc<GossipValidator<B, BE, P, R>>,
 	pub gossip_report_stream: TracingUnboundedReceiver<PeerReport>,
 	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
 }
@@ -243,7 +246,7 @@ pub(crate) struct BeefyWorkerBuilder<B: Block, BE, RuntimeApi> {
 	// utilities
 	backend: Arc<BE>,
 	runtime: Arc<RuntimeApi>,
-	key_store: BeefyKeystore<AuthorityId>,
+	key_store: Arc<BeefyKeystore<AuthorityId>>,
 	// voter metrics
 	metrics: Option<VoterMetrics>,
 	persisted_state: PersistedState<B>,
@@ -254,7 +257,7 @@ where
 	B: Block + codec::Codec,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	/// This will wait for the chain to enable BEEFY (if not yet enabled) and also wait for the
 	/// backend to sync all headers required by the voter to build a contiguous chain of mandatory
@@ -262,13 +265,13 @@ where
 	/// persisted state in AUX DB and latest chain information/progress.
 	///
 	/// Returns a sane `BeefyWorkerBuilder` that can build the `BeefyWorker`.
-	pub async fn async_initialize(
+	pub async fn async_initialize<P: PayloadProvider<B> + Send + Sync>(
 		backend: Arc<BE>,
 		runtime: Arc<R>,
-		key_store: BeefyKeystore<AuthorityId>,
+		key_store: Arc<BeefyKeystore<AuthorityId>>,
 		metrics: Option<VoterMetrics>,
 		min_block_delta: u32,
-		gossip_validator: Arc<GossipValidator<B>>,
+		gossip_validator: Arc<GossipValidator<B, BE, P, R>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
 	) -> Result<Self, Error> {
 		// Wait for BEEFY pallet to be active before starting voter.
@@ -298,7 +301,7 @@ where
 		self,
 		payload_provider: P,
 		sync: Arc<S>,
-		comms: BeefyComms<B>,
+		comms: BeefyComms<B, BE, P, R>,
 		links: BeefyVoterLinks<B>,
 		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
 	) -> BeefyWorker<B, BE, P, R, S> {
@@ -472,11 +475,11 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	beefy_params: BeefyParams<B, BE, C, N, P, R, S>,
 ) where
 	B: Block,
-	BE: Backend<B>,
+	BE: Backend<B> + 'static,
 	C: Client<B, BE> + BlockBackend<B>,
 	P: PayloadProvider<B> + Clone,
-	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId> + MmrApi<B, MmrRootHash, NumberFor<B>>,
+	R: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 	N: GossipNetwork<B> + NetworkRequest + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
 {
@@ -492,6 +495,8 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		links,
 		mut on_demand_justifications_handler,
 	} = beefy_params;
+
+	let key_store: Arc<BeefyKeystore<AuthorityId>> = Arc::new(key_store.into());
 
 	let BeefyNetworkParams {
 		network,
@@ -510,10 +515,17 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let mut block_import_justif = links.from_block_import_justif_stream.subscribe(100_000).fuse();
 
 	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
+	let fisherman = Fisherman {
+		backend: backend.clone(),
+		key_store: key_store.clone(),
+		runtime: runtime.clone(),
+		payload_provider: payload_provider.clone(),
+		_phantom: PhantomData,
+	};
 	// Default votes filter is to discard everything.
 	// Validator is updated later with correct starting round and set id.
 	let (gossip_validator, gossip_report_stream) =
-		communication::gossip::GossipValidator::new(known_peers.clone());
+		communication::gossip::GossipValidator::new(known_peers.clone(), fisherman);
 	let gossip_validator = Arc::new(gossip_validator);
 	let gossip_engine = GossipEngine::new(
 		network.clone(),
@@ -548,7 +560,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 				builder_init_result = BeefyWorkerBuilder::async_initialize(
 					backend.clone(),
 					runtime.clone(),
-					key_store.clone().into(),
+					key_store.clone(),
 					metrics.clone(),
 					min_block_delta,
 					beefy_comms.gossip_validator.clone(),
@@ -652,7 +664,7 @@ async fn wait_for_runtime_pallet<B, R>(
 where
 	B: Block,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
 {
 	info!(target: LOG_TARGET, "🥩 BEEFY gadget waiting for BEEFY pallet to become available...");
 	loop {
@@ -690,7 +702,7 @@ where
 	B: Block,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
 {
 	let blockchain = backend.blockchain();
 	// Walk up the chain looking for the validator set active at 'at_header'. Process both state and
@@ -715,6 +727,49 @@ where
 					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY)
 						.await
 						.map_err(|e| Error::Backend(e.to_string()))?,
+			}
+		}
+	}
+}
+
+/// Provides validator set active `at_header`. It tries to get it from state, otherwise falls
+/// back to walk up the chain looking the validator set enactment in header digests.
+///
+/// Note: unlike `expect_validator_set` this function is non-blocking, but will therefore error if
+/// a requested header is not available (yet).
+fn expect_validator_set_nonblocking<B, BE, R>(
+	runtime: &R,
+	backend: &BE,
+	at_header: &B::Header,
+) -> ClientResult<ValidatorSet<AuthorityId>>
+where
+	B: Block,
+	BE: Backend<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
+{
+	let blockchain = backend.blockchain();
+
+	// Walk up the chain looking for the validator set active at 'at_header'. Process both state and
+	// header digests.
+	debug!(target: LOG_TARGET, "🥩 Trying to find validator set active at header: {:?}", at_header);
+	let mut header = at_header.clone();
+	loop {
+		debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
+		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
+			return Ok(active)
+		} else {
+			match crate::find_authorities_change::<B>(&header) {
+				Some(active) => return Ok(active),
+				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
+				// there.
+				None => match blockchain.header(*header.parent_hash())? {
+					Some(parent) => header = parent,
+					None => {
+						warn!(target: LOG_TARGET, "header {} not found", header.parent_hash());
+						return Err(ClientError::MissingHeader(header.parent_hash().to_string()))
+					},
+				},
 			}
 		}
 	}

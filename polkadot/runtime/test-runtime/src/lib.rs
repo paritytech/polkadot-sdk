@@ -958,7 +958,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl beefy_primitives::BeefyApi<Block, BeefyId> for Runtime {
+	impl beefy_primitives::BeefyApi<Block, BeefyId, Hash> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			// dummy implementation due to lack of BEEFY pallet.
 			None
@@ -969,13 +969,20 @@ sp_api::impl_runtime_apis! {
 			None
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
-			_equivocation_proof: beefy_primitives::EquivocationProof<
+		fn submit_report_vote_equivocation_unsigned_extrinsic(
+			_vote_equivocation_proof: beefy_primitives::VoteEquivocationProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
 			>,
 			_key_owner_proof: beefy_primitives::OpaqueKeyOwnershipProof,
+		) -> Option<()> {
+			None
+		}
+
+		fn submit_report_fork_equivocation_unsigned_extrinsic(
+			_fork_equivocation_proof: beefy_primitives::ForkEquivocationProof<BeefyId, Header, Hash>,
+			_key_owner_proofs: Vec<beefy_primitives::OpaqueKeyOwnershipProof>,
 		) -> Option<()> {
 			None
 		}
@@ -1000,11 +1007,11 @@ sp_api::impl_runtime_apis! {
 		fn generate_proof(
 			_block_numbers: Vec<BlockNumber>,
 			_best_known_block_number: Option<BlockNumber>,
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<Hash>), mmr::Error> {
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<Hash>), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}
 
-		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::Proof<Hash>)
+		fn verify_proof(_leaves: Vec<mmr::EncodableOpaqueLeaf>, _proof: mmr::LeafProof<Hash>)
 			-> Result<(), mmr::Error>
 		{
 			Err(mmr::Error::PalletNotIncluded)
@@ -1013,7 +1020,20 @@ sp_api::impl_runtime_apis! {
 		fn verify_proof_stateless(
 			_root: Hash,
 			_leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			_proof: mmr::Proof<Hash>
+			_proof: mmr::LeafProof<Hash>
+		) -> Result<(), mmr::Error> {
+			Err(mmr::Error::PalletNotIncluded)
+		}
+
+		fn generate_ancestry_proof(
+			_prev_best_block: BlockNumber,
+			_best_known_block_number: Option<BlockNumber>
+		) -> Result<mmr::AncestryProof<Hash>, mmr::Error> {
+			Err(mmr::Error::PalletNotIncluded)
+		}
+
+		fn verify_ancestry_proof(
+			_ancestry_proof: mmr::AncestryProof<Hash>,
 		) -> Result<(), mmr::Error> {
 			Err(mmr::Error::PalletNotIncluded)
 		}

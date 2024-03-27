@@ -2577,11 +2577,11 @@ dependencies = [
 
 [[package]]
 name = "ckb-merkle-mountain-range"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56ccb671c5921be8a84686e6212ca184cb1d7c51cadcdbfcbd1cc3f042f5dfb8"
+version = "0.6.0"
+source = "git+https://github.com/paritytech/merkle-mountain-range.git?branch=leaf-node-proof-split#7749d1ff5263f9bf1f56ea9193c0a357881695e6"
 dependencies = [
  "cfg-if",
+ "itertools 0.10.5",
 ]
 
 [[package]]
@@ -9289,6 +9289,7 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-balances",
+ "pallet-mmr",
  "pallet-offences",
  "pallet-session",
  "pallet-staking",
@@ -9300,6 +9301,7 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-core",
  "sp-io",
+ "sp-mmr-primitives",
  "sp-runtime",
  "sp-session",
  "sp-staking",
@@ -9323,9 +9325,11 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-api",
+ "sp-application-crypto",
  "sp-consensus-beefy",
  "sp-core",
  "sp-io",
+ "sp-mmr-primitives",
  "sp-runtime",
  "sp-staking",
  "sp-state-machine",
@@ -18897,6 +18901,7 @@ dependencies = [
  "sp-core",
  "sp-debug-derive 14.0.0",
  "sp-runtime",
+ "sp-std 14.0.0",
  "thiserror",
 ]
 

@@ -40,11 +40,12 @@ use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
-	check_equivocation_proof,
+	check_vote_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, BeefySignatureHasher, Commitment, EquivocationProof, PayloadProvider, ValidatorSet,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	BeefyApi, BeefySignatureHasher, Commitment, MmrRootHash, PayloadProvider, ValidatorSet,
+	VersionedFinalityProof, VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
 };
+use sp_mmr_primitives::MmrApi;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header, NumberFor, Zero},
@@ -372,12 +373,12 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	// utilities
 	pub backend: Arc<BE>,
 	pub runtime: Arc<RuntimeApi>,
-	pub key_store: BeefyKeystore<AuthorityId>,
+	pub key_store: Arc<BeefyKeystore<AuthorityId>>,
 	pub payload_provider: P,
 	pub sync: Arc<S>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
-	pub comms: BeefyComms<B>,
+	pub comms: BeefyComms<B, BE, P, RuntimeApi>,
 
 	// channels
 	/// Links between the block importer, the background voter and the RPC layer.
@@ -399,7 +400,7 @@ where
 	P: PayloadProvider<B>,
 	S: SyncOracle,
 	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
 	fn best_grandpa_block(&self) -> NumberFor<B> {
 		*self.persisted_state.voting_oracle.best_grandpa_block_header.number()
@@ -563,7 +564,7 @@ where
 					target: LOG_TARGET,
 					"🥩 Round #{} concluded, finality_proof: {:?}.", block_number, finality_proof
 				);
-				// We created the `finality_proof` and know to be valid.
+				// We created the `finality_proof` and know it to be valid.
 				// New state is persisted after finalization.
 				self.finalize(finality_proof.clone())?;
 				metric_inc!(self.metrics, beefy_good_votes_processed);
@@ -584,7 +585,7 @@ where
 			},
 			VoteImportResult::Equivocation(proof) => {
 				metric_inc!(self.metrics, beefy_equivocation_votes);
-				self.report_equivocation(proof)?;
+				self.report_vote_equivocation(proof)?;
 			},
 			VoteImportResult::Invalid => metric_inc!(self.metrics, beefy_invalid_votes),
 			VoteImportResult::Stale => metric_inc!(self.metrics, beefy_stale_votes),
@@ -818,7 +819,7 @@ where
 		mut self,
 		block_import_justif: &mut Fuse<NotificationReceiver<BeefyVersionedFinalityProof<B>>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
-	) -> (Error, BeefyComms<B>) {
+	) -> (Error, BeefyComms<B, BE, P, R>) {
 		info!(
 			target: LOG_TARGET,
 			"🥩 run BEEFY worker, best grandpa: #{:?}.",
@@ -948,15 +949,15 @@ where
 	/// extrinsic to report the equivocation. In particular, the session membership
 	/// proof must be generated at the block at which the given set was active which
 	/// isn't necessarily the best block if there are pending authority set changes.
-	pub(crate) fn report_equivocation(
+	pub(crate) fn report_vote_equivocation(
 		&self,
-		proof: EquivocationProof<NumberFor<B>, AuthorityId, Signature>,
+		proof: VoteEquivocationProof<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<(), Error> {
 		let rounds = self.persisted_state.voting_oracle.active_rounds()?;
 		let (validators, validator_set_id) = (rounds.validators(), rounds.validator_set_id());
 		let offender_id = proof.offender_id().clone();
 
-		if !check_equivocation_proof::<_, _, BeefySignatureHasher>(&proof) {
+		if !check_vote_equivocation_proof::<_, _, BeefySignatureHasher>(&proof) {
 			debug!(target: LOG_TARGET, "🥩 Skip report for bad equivocation {:?}", proof);
 			return Ok(())
 		} else if let Some(local_id) = self.key_store.authority_id(validators) {
@@ -997,7 +998,11 @@ where
 		// submit equivocation report at **best** block
 		let best_block_hash = self.backend.blockchain().info().best_hash;
 		runtime_api
-			.submit_report_equivocation_unsigned_extrinsic(best_block_hash, proof, key_owner_proof)
+			.submit_report_vote_equivocation_unsigned_extrinsic(
+				best_block_hash,
+				proof,
+				key_owner_proof,
+			)
 			.map_err(Error::RuntimeApi)?;
 
 		Ok(())
@@ -1072,6 +1077,7 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::{
 		communication::{
+			fisherman::Fisherman,
 			gossip::GossipValidator,
 			notification::{BeefyBestBlockStream, BeefyVersionedFinalityProofStream},
 			request_response::outgoing_requests_engine::OnDemandJustificationsEngine,
@@ -1093,10 +1099,14 @@ pub(crate) mod tests {
 		known_payloads,
 		known_payloads::MMR_ROOT_ID,
 		mmr::MmrRootProvider,
-		test_utils::{generate_equivocation_proof, Keyring},
-		ConsensusLog, Payload, SignedCommitment,
+		test_utils::{
+			generate_fork_equivocation_proof_sc, generate_fork_equivocation_proof_vote,
+			generate_vote_equivocation_proof, Keyring,
+		},
+		ConsensusLog, ForkEquivocationProof, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
+	use std::marker::PhantomData;
 	use substrate_test_runtime_client::{
 		runtime::{Block, Digest, DigestItem, Header},
 		Backend,
@@ -1123,6 +1133,7 @@ pub(crate) mod tests {
 		key: &Keyring<AuthorityId>,
 		min_block_delta: u32,
 		genesis_validator_set: ValidatorSet<AuthorityId>,
+		runtime_api: Option<Arc<TestApi>>,
 	) -> BeefyWorker<
 		Block,
 		Backend,
@@ -1130,7 +1141,8 @@ pub(crate) mod tests {
 		TestApi,
 		Arc<SyncingService<Block>>,
 	> {
-		let keystore = create_beefy_keystore(key);
+		let key_store: Arc<BeefyKeystore<AuthorityId>> =
+			Arc::new(Some(create_beefy_keystore(key)).into());
 
 		let (to_rpc_justif_sender, from_voter_justif_stream) =
 			BeefyVersionedFinalityProofStream::<Block>::channel();
@@ -1151,14 +1163,24 @@ pub(crate) mod tests {
 
 		let backend = peer.client().as_backend();
 		let beefy_genesis = 1;
-		let api = Arc::new(TestApi::with_validator_set(&genesis_validator_set));
+		let api = runtime_api
+			.unwrap_or_else(|| Arc::new(TestApi::with_validator_set(&genesis_validator_set)));
 		let network = peer.network_service().clone();
 		let sync = peer.sync_service().clone();
+		let payload_provider = MmrRootProvider::new(api.clone());
+		let fisherman = Fisherman {
+			backend: backend.clone(),
+			runtime: api.clone(),
+			key_store: key_store.clone(),
+			payload_provider: payload_provider.clone(),
+			_phantom: PhantomData,
+		};
 		let notification_service = peer
 			.take_notification_service(&crate::tests::beefy_gossip_proto_name())
 			.unwrap();
 		let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-		let (gossip_validator, gossip_report_stream) = GossipValidator::new(known_peers.clone());
+		let (gossip_validator, gossip_report_stream) =
+			GossipValidator::new(known_peers.clone(), fisherman);
 		let gossip_validator = Arc::new(gossip_validator);
 		let gossip_engine = GossipEngine::new(
 			network.clone(),
@@ -1175,9 +1197,11 @@ pub(crate) mod tests {
 			known_peers,
 			None,
 		);
-		// Push 1 block - will start first session.
-		let hashes = peer.push_blocks(1, false);
-		backend.finalize_block(hashes[0], None).unwrap();
+		// If chain's still at genesis, push 1 block to start first session.
+		if backend.blockchain().info().best_hash == backend.blockchain().info().genesis_hash {
+			let hashes = peer.push_blocks(1, false);
+			backend.finalize_block(hashes[0], None).unwrap();
+		}
 		let first_header = backend
 			.blockchain()
 			.expect_header(backend.blockchain().info().best_hash)
@@ -1190,7 +1214,6 @@ pub(crate) mod tests {
 			beefy_genesis,
 		)
 		.unwrap();
-		let payload_provider = MmrRootProvider::new(api.clone());
 		let comms = BeefyComms {
 			gossip_engine,
 			gossip_validator,
@@ -1200,7 +1223,7 @@ pub(crate) mod tests {
 		BeefyWorker {
 			backend,
 			runtime: api,
-			key_store: Some(keystore).into(),
+			key_store: key_store.into(),
 			metrics,
 			payload_provider,
 			sync: Arc::new(sync),
@@ -1476,7 +1499,7 @@ pub(crate) mod tests {
 		let keys = &[Keyring::Alice];
 		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
 		let mut net = BeefyTestNet::new(1);
-		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
+		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone(), None);
 
 		// keystore doesn't contain other keys than validators'
 		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), Ok(()));
@@ -1489,7 +1512,7 @@ pub(crate) mod tests {
 		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), expected);
 
 		// worker has no keystore
-		worker.key_store = None.into();
+		worker.key_store = Arc::new(None.into());
 		let expected_err = Err(Error::Keystore("no Keystore".into()));
 		assert_eq!(
 			verify_validator_set::<Block>(&1, &validator_set, &worker.key_store),
@@ -1503,7 +1526,7 @@ pub(crate) mod tests {
 		let validator_set = ValidatorSet::new(make_beefy_ids(&keys), 0).unwrap();
 		let mut net = BeefyTestNet::new(1);
 		let backend = net.peer(0).client().as_backend();
-		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
+		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone(), None);
 		// remove default session, will manually add custom one.
 		worker.persisted_state.voting_oracle.sessions.clear();
 
@@ -1607,7 +1630,7 @@ pub(crate) mod tests {
 		let keys = &[Keyring::Alice, Keyring::Bob];
 		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
 		let mut net = BeefyTestNet::new(1);
-		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
+		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone(), None);
 
 		let worker_rounds = worker.active_rounds().unwrap();
 		assert_eq!(worker_rounds.session_start(), 1);
@@ -1634,7 +1657,7 @@ pub(crate) mod tests {
 	}
 
 	#[tokio::test]
-	async fn should_not_report_bad_old_or_self_equivocations() {
+	async fn should_not_report_bad_old_or_self_vote_equivocations() {
 		let block_num = 1;
 		let set_id = 1;
 		let keys = [Keyring::Alice];
@@ -1645,7 +1668,7 @@ pub(crate) mod tests {
 		let api_alice = Arc::new(api_alice);
 
 		let mut net = BeefyTestNet::new(1);
-		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
+		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone(), None);
 		worker.runtime = api_alice.clone();
 
 		// let there be a block with num = 1:
@@ -1655,45 +1678,218 @@ pub(crate) mod tests {
 		let payload2 = Payload::from_single_entry(MMR_ROOT_ID, vec![128]);
 
 		// generate an equivocation proof, with Bob as perpetrator
-		let good_proof = generate_equivocation_proof(
+		let good_proof = generate_vote_equivocation_proof(
 			(block_num, payload1.clone(), set_id, &Keyring::Bob),
 			(block_num, payload2.clone(), set_id, &Keyring::Bob),
 		);
 		{
 			// expect voter (Alice) to successfully report it
-			assert_eq!(worker.report_equivocation(good_proof.clone()), Ok(()));
+			assert_eq!(worker.report_vote_equivocation(good_proof.clone()), Ok(()));
 			// verify Alice reports Bob equivocation to runtime
-			let reported = api_alice.reported_equivocations.as_ref().unwrap().lock();
+			let reported = api_alice.reported_vote_equivocations.as_ref().unwrap().lock();
 			assert_eq!(reported.len(), 1);
 			assert_eq!(*reported.get(0).unwrap(), good_proof);
 		}
-		api_alice.reported_equivocations.as_ref().unwrap().lock().clear();
+		api_alice.reported_vote_equivocations.as_ref().unwrap().lock().clear();
 
 		// now let's try with a bad proof
 		let mut bad_proof = good_proof.clone();
 		bad_proof.first.id = Keyring::Charlie.public();
 		// bad proofs are simply ignored
-		assert_eq!(worker.report_equivocation(bad_proof), Ok(()));
+		assert_eq!(worker.report_vote_equivocation(bad_proof), Ok(()));
 		// verify nothing reported to runtime
-		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
+		assert!(api_alice.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
 
 		// now let's try with old set it
 		let mut old_proof = good_proof.clone();
 		old_proof.first.commitment.validator_set_id = 0;
 		old_proof.second.commitment.validator_set_id = 0;
 		// old proofs are simply ignored
-		assert_eq!(worker.report_equivocation(old_proof), Ok(()));
+		assert_eq!(worker.report_vote_equivocation(old_proof), Ok(()));
 		// verify nothing reported to runtime
-		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
+		assert!(api_alice.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
 
 		// now let's try reporting a self-equivocation
-		let self_proof = generate_equivocation_proof(
+		let self_proof = generate_vote_equivocation_proof(
 			(block_num, payload1.clone(), set_id, &Keyring::Alice),
 			(block_num, payload2.clone(), set_id, &Keyring::Alice),
 		);
 		// equivocations done by 'self' are simply ignored (not reported)
-		assert_eq!(worker.report_equivocation(self_proof), Ok(()));
+		assert_eq!(worker.report_vote_equivocation(self_proof), Ok(()));
 		// verify nothing reported to runtime
-		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
+		assert!(api_alice.reported_vote_equivocations.as_ref().unwrap().lock().is_empty());
+	}
+
+	#[tokio::test]
+	async fn beefy_reports_fork_equivocations() {
+		let peers = [Keyring::Alice, Keyring::Bob, Keyring::Charlie];
+		let validator_set = ValidatorSet::new(make_beefy_ids(&peers), 0).unwrap();
+		let mut api_alice = TestApi::with_validator_set(&validator_set);
+		api_alice.allow_equivocations();
+		let api_alice = Arc::new(api_alice);
+
+		// instantiate network with Alice and Bob running full voters.
+		let mut net = BeefyTestNet::new(3);
+
+		let session_len = 10;
+		let hashes = net.generate_blocks_and_sync(50, session_len, &validator_set, true).await;
+		let alice_worker =
+			create_beefy_worker(net.peer(0), &peers[0], 1, validator_set.clone(), Some(api_alice));
+
+		let block_number = 1;
+		let header = net
+			.peer(1)
+			.client()
+			.as_backend()
+			.blockchain()
+			.header(hashes[block_number as usize])
+			.unwrap()
+			.unwrap();
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, "amievil".encode());
+		let votes: Vec<_> = peers
+			.iter()
+			.map(|k| {
+				// signed_vote(block_number as u64, payload.clone(), validator_set.id(), k)
+				(block_number as u64, payload.clone(), validator_set.id(), k)
+			})
+			.collect();
+
+		// verify: Alice reports Bob
+		let ancestry_proof = alice_worker
+			.runtime
+			.runtime_api()
+			.generate_ancestry_proof(*hashes.last().unwrap(), block_number, None)
+			.unwrap()
+			.unwrap();
+		let proof = generate_fork_equivocation_proof_vote(
+			votes[1].clone(),
+			Some(header.clone()),
+			Some(ancestry_proof.clone()),
+		);
+
+		{
+			// expect fisher (Alice) to successfully process it
+			assert_eq!(
+				alice_worker
+					.comms
+					.gossip_validator
+					.fisherman
+					.report_fork_equivocation(proof.clone()),
+				Ok(true)
+			);
+			// verify Alice reports Bob's equivocation to runtime
+			let reported =
+				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+			assert_eq!(reported.len(), 1);
+			assert_eq!(*reported.get(0).unwrap(), proof);
+		}
+
+		// verify: Alice does not self-report
+		let proof = generate_fork_equivocation_proof_vote(
+			votes[0].clone(),
+			Some(header.clone()),
+			Some(ancestry_proof.clone()),
+		);
+		{
+			// expect fisher (Alice) to successfully process it
+			assert_eq!(
+				alice_worker
+					.comms
+					.gossip_validator
+					.fisherman
+					.report_fork_equivocation(proof.clone()),
+				Ok(false)
+			);
+			// verify Alice does *not* report her own equivocation to runtime
+			let reported =
+				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+			assert_eq!(reported.len(), 1);
+			assert!(*reported.get(0).unwrap() != proof);
+		}
+
+		// verify: Alice reports VersionedFinalityProof equivocation
+		let commitment = Commitment {
+			payload: payload.clone(),
+			block_number: block_number as u64,
+			validator_set_id: validator_set.id(),
+		};
+
+		// only Bob and Charlie sign
+		let signatories = &[Keyring::Bob, Keyring::Charlie]
+			.into_iter()
+			.map(|k| (k.public(), k.sign(&commitment.encode())))
+			.collect::<Vec<_>>();
+
+		// test over all permutations of header and ancestry proof being submitted (proof should
+		// be valid as long as at least one is submitted)
+		for (canonical_header, ancestry_proof) in [
+			(Some(header.clone()), Some(ancestry_proof.clone())),
+			(Some(header), None),
+			(None, Some(ancestry_proof)),
+		] {
+			let proof = ForkEquivocationProof {
+				commitment: commitment.clone(),
+				signatories: signatories.clone(),
+				canonical_header,
+				ancestry_proof,
+			};
+			// expect fisher (Alice) to successfully process it
+			assert_eq!(
+				alice_worker
+					.comms
+					.gossip_validator
+					.fisherman
+					.report_fork_equivocation(proof.clone()),
+				Ok(true)
+			);
+			let mut reported =
+				alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+			// verify Alice report Bob's and Charlie's equivocation to runtime
+			assert_eq!(reported.len(), 2);
+			assert_eq!(reported.pop(), Some(proof));
+		}
+
+		// test that Alice does not submit invalid proof
+		let proofless_proof = ForkEquivocationProof {
+			commitment: commitment.clone(),
+			signatories: signatories.clone(),
+			canonical_header: None,
+			ancestry_proof: None,
+		};
+
+		assert_eq!(
+			alice_worker
+				.comms
+				.gossip_validator
+				.fisherman
+				.report_fork_equivocation(proofless_proof.clone()),
+			Ok(false)
+		);
+
+		let future_commitment = Commitment {
+			payload: commitment.payload,
+			block_number: net.peer(1).client().info().best_number + 10,
+			validator_set_id: commitment.validator_set_id,
+		};
+
+		let future_proof = generate_fork_equivocation_proof_sc(
+			future_commitment,
+			vec![Keyring::Bob, Keyring::Charlie],
+			None,
+			None,
+		);
+
+		assert_eq!(
+			alice_worker
+				.comms
+				.gossip_validator
+				.fisherman
+				.report_fork_equivocation(future_proof.clone()),
+			Ok(true)
+		);
+		let mut reported =
+			alice_worker.runtime.reported_fork_equivocations.as_ref().unwrap().lock();
+		assert_eq!(reported.len(), 2);
+		assert_eq!(reported.pop(), Some(future_proof));
 	}
 }

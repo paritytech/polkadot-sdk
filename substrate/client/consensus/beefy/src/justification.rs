@@ -37,7 +37,7 @@ pub(crate) fn proof_block_num_and_set_id<Block: BlockT>(
 	}
 }
 
-/// Decode and verify a Beefy FinalityProof.
+/// Decode and verify a BEEFY FinalityProof.
 pub(crate) fn decode_and_verify_finality_proof<Block: BlockT>(
 	encoded: &[u8],
 	target_number: NumberFor<Block>,
@@ -48,7 +48,7 @@ pub(crate) fn decode_and_verify_finality_proof<Block: BlockT>(
 	verify_with_validator_set::<Block>(target_number, validator_set, &proof).map(|_| proof)
 }
 
-/// Verify the Beefy finality proof against the validator set at the block it was generated.
+/// Verify the BEEFY finality proof against the validator set at the block it was generated.
 pub(crate) fn verify_with_validator_set<Block: BlockT>(
 	target_number: NumberFor<Block>,
 	validator_set: &ValidatorSet<AuthorityId>,
