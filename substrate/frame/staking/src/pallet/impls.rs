@@ -1906,7 +1906,7 @@ impl<T: Config> Pallet<T> {
 	/// Invariants:
 	/// * A bonded ledger should always have an assigned `Payee`.
 	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
-	/// * The stash account in the ledger must match that of the bonded acount.
+	/// * The stash account in the ledger must match that of the bonded account.
 	fn check_payees() -> Result<(), TryRuntimeError> {
 		for (stash, _) in Bonded::<T>::iter() {
 			ensure!(Payee::<T>::get(&stash).is_some(), "bonded ledger does not have payee set");
@@ -1947,7 +1947,7 @@ impl<T: Config> Pallet<T> {
 	/// Invariants:
 	/// * `ledger.controller` is not stored in the storage (but populated at retrieval).
 	/// * Stake consistency: ledger.total == ledger.active + sum(ledger.unlocking).
-	/// * The controller keyeing the ledger and the ledger stash matches the state of the `Bonded`
+	/// * The controller keying the ledger and the ledger stash matches the state of the `Bonded`
 	/// storage.
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
