@@ -56,9 +56,9 @@ env_logger = "0.9.0"
 
 polkadot-subsystem-bench = { path = "../../subsystem-bench" }
 
-[[test]]
+[[bench]]
 name = "approval-voting-regression-bench"
-path = "tests/approval-voting-regression-bench.rs"
+path = "benches/approval-voting-regression-bench.rs"
 harness = false
 required-features = ["subsystem-benchmarks"]
 
