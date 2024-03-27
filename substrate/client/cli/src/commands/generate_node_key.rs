@@ -50,8 +50,8 @@ pub struct GenerateNodeKeyCmd {
 	#[arg(long, conflicts_with_all = ["file", "default_base_path"])]
 	base_path: Option<PathBuf>,
 
-	/// Save the key in the default directory, if a key already
-	/// exists in the directory it won't be overwritten
+	/// Save the key in the default directory. If a key already
+	/// exists in the directory, it won't be overwritten.
 	#[arg(long, conflicts_with_all = ["base_path", "file"])]
 	default_base_path: bool,
 }
