@@ -40,6 +40,7 @@ pub enum TestObjective {
 	DataAvailabilityWrite,
 	/// Benchmark the approval-voting and approval-distribution subsystems.
 	ApprovalVoting(approval::ApprovalsOptions),
+	StatementDistribution,
 }
 
 impl std::fmt::Display for TestObjective {
@@ -51,6 +52,7 @@ impl std::fmt::Display for TestObjective {
 				Self::DataAvailabilityRead(_) => "DataAvailabilityRead",
 				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
 				Self::ApprovalVoting(_) => "ApprovalVoting",
+				Self::StatementDistribution => "StatementDistribution",
 			}
 		)
 	}
@@ -169,6 +171,9 @@ impl BenchCli {
 						&mut env,
 						state,
 					))
+				},
+				TestObjective::StatementDistribution => {
+					todo!();
 				},
 			};
 			println!("{}", usage);
