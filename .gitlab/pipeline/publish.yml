@@ -66,11 +66,6 @@ publish-subsystem-benchmarks:
   stage: publish
   variables:
     CI_IMAGE: "paritytech/tools:latest"
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "pipeline"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_REF_NAME == "master"
-    - if: $CI_COMMIT_REF_NAME == "master"
   extends:
     - .kubernetes-env
     - .publish-gh-pages-refs
