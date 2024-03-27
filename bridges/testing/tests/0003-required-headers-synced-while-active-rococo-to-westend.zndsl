@@ -1,0 +1,26 @@
+Description: While relayer is active, we only sync mandatory and required Rococo (and Rococo BH) headers to Westend BH.
+Network: ../environments/rococo-westend/bridge_hub_westend_local_network.toml
+Creds: config
+
+# step 1: initialize Westend AH
+asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-westend-local" within 60 seconds
+
+# step 2: initialize Westend bridge hub
+bridge-hub-westend-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-westend-local" within 60 seconds
+
+# step 3: ensure that initialization has completed
+asset-hub-westend-collator1: js-script ../js-helpers/wait-hrmp-channel-opened.js with "1002" within 600 seconds
+
+# step 4: send message from Westend to Rococo
+asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-westend-local" within 60 seconds
+
+# step 5: start relayer
+# (we are starting it after sending the message to be sure that relayer won't relay messages before our js script
+# will be started at step 6)
+# (it is started by sibling 0003-required-headers-synced-while-active-westend-to-rococo.zndsl)
+
+# step 6: ensure that relayer won't sync any extra headers while delivering messages and confirmations
+bridge-hub-westend-collator1: js-script ../js-helpers/only-required-headers-synced-when-active.js with "500,rococo-at-westend" within 600 seconds
+
+# wait until other network test has completed OR exit with an error too
+asset-hub-westend-collator1: run ../scripts/sync-exit.sh within 600 seconds

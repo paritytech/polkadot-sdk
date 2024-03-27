@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width">
+		<title>Parachains Finality Relay</title>
+	</head>
+	<body>
+		<h1>Parachains Finality Relay</h1>
+		<p>
+			Source Relay Chain is running GRANDPA Finality Gadget. Source Parachain is a parachain of the Source
+			Relay Chain. Bridge GRANDPA finality pallet is deployed at Target Chain runtime and is "connected"
+			to the Source Relay Chain. Bridge Parachains finality pallet is deployed at Target Chain and is
+			configured to track the Source Parachain. GRANDPA Relayer is configured to relay Source Relay Chain
+			finality to Target Chain. Parachains Relayer is configured to relay Source Parachain headers finality
+			to Target Chain.
+		</p>
+		<div class="mermaid">
+			sequenceDiagram
+			participant Source Parachain
+			participant Source Relay Chain
+			participant GRANDPA Relayer
+			participant Parachains Relayer
+			participant Target Chain
+
+			Note left of Source Parachain: Best: 125
+			Note left of Source Relay Chain: Finalized: 500, Best Parachain at Finalized: 120
+			Note right of Target Chain: Best Relay: 480, Best Parachain: 110
+
+			Source Parachain ->> Source Parachain: Import Block 126
+			Source Parachain ->> Source Relay Chain: Receives the Parachain block 126
+
+			Source Relay Chain ->> Source Relay Chain: Import block 501
+			Source Relay Chain ->> Source Relay Chain: Finalize block 501
+			Note left of Source Relay Chain: Finalized: 501, Best Parachain at Finalized: 126
+
+			Source Relay Chain ->> Parachains Relayer: notes new Source Parachain Block 126
+			Note left of Parachains Relayer: can't relay Source Parachain Block 126, because it requires at least Source Relay Block 501 at Target Chain
+
+			Source Relay Chain ->> Source Relay Chain: Import block 502
+			Source Relay Chain ->> Source Relay Chain: Finalize block 502
+
+			Source Relay Chain ->> GRANDPA Relayer: read GRANDPA Finality Proof of Block 502
+			GRANDPA Relayer ->> Target Chain: submit GRANDPA Finality Proof of Block 502
+			Note right of Target Chain: Best Relay: 502, Best Parachain: 110
+
+			Target Chain ->> Parachains Relayer: notes finalized Source Relay Block 502 at Target Chain
+			Source Relay Chain ->> Parachains Relayer: read Parachain Finality Proof at Relay Block 502
+			Parachains Relayer ->> Target Chain: submit Parachain Finality Proof at Relay Block 502
+			Note right of Target Chain: Best Relay: 502, Best Parachain: 126
+		</div>
+		<script src="https://cdn.jsdelivr.net/npm/mermaid@8.8.4/dist/mermaid.min.js"></script>
+		<script>mermaid.initialize({startOnLoad: true})</script>
+	</body>
+</html>

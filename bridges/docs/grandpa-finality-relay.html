@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width">
+		<title>GRANDPA Finality Relay</title>
+	</head>
+	<body>
+		<h1>GRANDPA Finality Relay</h1>
+		<p>
+			Source Chain is running GRANDPA Finality Gadget. Bridge GRANDPA finality pallet is deployed at
+			Target Chain runtime. Relayer is configured to relay Source Chain finality to Target Chain.
+		</p>
+		<div class="mermaid">
+			sequenceDiagram
+			participant Source Chain
+			participant Relayer
+			participant Target Chain
+			Note left of Source Chain: Best: 500, Finalized: 480, Authorities Set Index: 42
+			Note right of Target Chain: Uninitialized
+
+			Source Chain ->> Relayer: Read Initialization Data
+			Relayer ->> Target Chain: Initialize Bridge GRANDPA Finality Pallet
+			Note right of Target Chain: Finalized: 480, Authorities Set Index: 42
+
+			Source Chain ->> Source Chain: Import Block 501
+			Source Chain ->> Source Chain: Import Block 502
+			Source Chain ->> Source Chain: Finalize Block 495
+			Source Chain ->> Relayer: Read Finality Proof of Block 495
+			Relayer ->> Target Chain: Finality Proof of Block 495
+			Note right of Target Chain: Finalized: 495, Authorities Set Index: 42
+
+			Source Chain ->> Source Chain: Import Block 503 that changes Authorities Set to 43
+			Source Chain ->> Source Chain: Finalize Block 500
+			Note left of Relayer: Relayer Misses Finality Notification for Block 500
+
+			Source Chain ->> Source Chain: Import Block 504
+			Source Chain ->> Source Chain: Finalize Mandatory Block 503
+			Source Chain ->> Source Chain: Finalize Block 504
+			Source Chain ->> Relayer: Read Finality Proof of Mandatory Block 503
+			Relayer ->> Target Chain: Finality Proof of Block 503
+			Note right of Target Chain: Finalized: 503, Authorities Set Index: 43
+		</div>
+		<script src="https://cdn.jsdelivr.net/npm/mermaid@8.8.4/dist/mermaid.min.js"></script>
+		<script>mermaid.initialize({startOnLoad: true})</script>
+	</body>
+</html>

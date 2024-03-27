@@ -1,0 +1,12 @@
+Description: User is able to transfer WND from Westend Asset Hub to Rococo Asset Hub and back
+Network: {{ENV_PATH}}/bridge_hub_rococo_local_network.toml
+Creds: config
+
+# send 5 WND to //Alice from Westend AH to Rococo AH
+asset-hub-rococo-collator1: run {{ENV_PATH}}/helper.sh with "reserve-transfer-assets-from-asset-hub-westend-local 5000000000000" within 120 seconds
+
+# check that //Alice received at least 4.8 WND on Rococo AH
+asset-hub-rococo-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/wrapped-assets-balance.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,4800000000000,Westend" within 600 seconds
+
+# check that the relayer //Charlie is rewarded by Rococo AH
+bridge-hub-rococo-collator1: js-script {{FRAMEWORK_PATH}}/js-helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000002,0x62687764,ThisChain,0" within 30 seconds
