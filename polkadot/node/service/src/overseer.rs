@@ -77,7 +77,7 @@ pub struct OverseerGenArgs<'a, Spawner, RuntimeClient>
 where
 	Spawner: 'static + SpawnNamed + Clone + Unpin,
 {
-	/// Runtime client generic, providing the `ProvieRuntimeApi` trait besides others.
+	/// Runtime client generic, providing the `ProvideRuntimeApi` trait besides others.
 	pub runtime_client: Arc<RuntimeClient>,
 	/// Underlying network service implementation.
 	pub network_service: Arc<sc_network::NetworkService<Block, Hash>>,

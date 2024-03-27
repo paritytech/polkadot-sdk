@@ -21,7 +21,6 @@ use std::collections::HashSet;
 use crate::*;
 use frame_support::traits::WhitelistedStorageKeys;
 use sp_core::hexdisplay::HexDisplay;
-use xcm::latest::prelude::*;
 
 #[test]
 fn remove_keys_weight_is_sensible() {

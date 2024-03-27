@@ -209,7 +209,7 @@ fn reserve_transfer_assets_with_paid_router_works() {
 pub(crate) fn set_up_foreign_asset(
 	reserve_para_id: u32,
 	inner_junction: Option<Junction>,
-	benficiary: AccountId,
+	beneficiary: AccountId,
 	initial_amount: u128,
 	is_sufficient: bool,
 ) -> (Location, AccountId, Location) {
@@ -237,7 +237,7 @@ pub(crate) fn set_up_foreign_asset(
 	assert_ok!(AssetsPallet::mint(
 		RuntimeOrigin::signed(BOB),
 		foreign_asset_id_location.clone(),
-		benficiary,
+		beneficiary,
 		initial_amount
 	));
 
