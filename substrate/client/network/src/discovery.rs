@@ -221,7 +221,6 @@ impl DiscoveryConfig {
 			// auto-insertion and instead add peers manually.
 			config.set_kbucket_inserts(KademliaBucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
-
 			let store = MemoryStore::new(local_peer_id);
 			let mut kad = Kademlia::with_config(local_peer_id, store, config);
 
@@ -785,16 +784,23 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							Ok(GetRecordOk::FoundRecord(r)) => {
 								debug!(
 									target: "sub-libp2p",
-									"Libp2p => Found record ({:?}) with value: {:?}",
+									"Libp2p => Found record ({:?}) with value: {:?} id {:?} stats {:?}",
 									r.record.key,
 									r.record.value,
+									id,
+									stats,
 								);
 
 								// Let's directly finish the query, as we are only interested in a
 								// quorum of 1.
 								if let Some(kad) = self.kademlia.as_mut() {
-									if let Some(mut query) = kad.query_mut(&id) {
-										query.finish();
+									if let Some(_query) = kad.query_mut(&id) {
+										// Let the query continue, to increase the chances we
+										// discover all possible addresses, for the cases where more
+										// addresses might exist in DHT, for example when the node
+										// changes its PeerId.
+
+										// query.finish();
 									}
 								}
 
@@ -810,6 +816,13 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 							Ok(GetRecordOk::FinishedWithNoAdditionalRecord {
 								cache_candidates,
 							}) => {
+								debug!(
+									target: "sub-libp2p",
+									"Libp2p => Finished with no-additional-record {:?} stats {:?} took {:?} ms",
+									id,
+									stats,
+									stats.duration().map(|val| val.as_millis())
+								);
 								// We always need to remove the record to not leak any data!
 								if let Some(record) = self.records_to_publish.remove(&id) {
 									if cache_candidates.is_empty() {

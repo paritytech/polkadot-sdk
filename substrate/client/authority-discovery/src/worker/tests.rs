@@ -533,7 +533,7 @@ impl DhtValueFoundTester {
 		&mut self,
 		strict_record_validation: bool,
 		values: Vec<(KademliaKey, Vec<u8>)>,
-	) -> Option<&HashSet<Multiaddr>> {
+	) -> Option<HashSet<Multiaddr>> {
 		let (_dht_event_tx, dht_event_rx) = channel(1);
 		let local_test_api =
 			Arc::new(TestApi { authorities: vec![self.remote_authority_public.into()] });
@@ -597,7 +597,7 @@ fn strict_accept_address_with_peer_signature() {
 	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
 
 	assert_eq!(
-		Some(&HashSet::from([addr])),
+		Some(HashSet::from([addr])),
 		cached_remote_addresses,
 		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
 	);
@@ -675,7 +675,7 @@ fn do_not_cache_addresses_without_peer_id() {
 	let cached_remote_addresses = tester.process_value_found(false, kv_pairs);
 
 	assert_eq!(
-		Some(&HashSet::from([multiaddr_with_peer_id])),
+		Some(HashSet::from([multiaddr_with_peer_id])),
 		cached_remote_addresses,
 		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
 	);
