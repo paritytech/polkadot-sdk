@@ -253,6 +253,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -317,6 +323,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Remove an existing lock.
 	</span><span class="kw">fn </span>remove_lock(id: LockIdentifier, who: <span class="kw-2">&amp;</span>AccountId);
+}
+
+<span class="doccomment">/// A inspect interface for a currency whose accounts can have liquidity restrictions.
+</span><span class="kw">pub trait </span>InspectLockableCurrency&lt;AccountId&gt;: LockableCurrency&lt;AccountId&gt; {
+	<span class="doccomment">/// Amount of funds locked for `who` associated with `id`.
+	</span><span class="kw">fn </span>balance_locked(id: LockIdentifier, who: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="self">Self</span>::Balance;
 }
 
 <span class="doccomment">/// A vesting schedule over a currency. This allows a particular currency to have vesting limits

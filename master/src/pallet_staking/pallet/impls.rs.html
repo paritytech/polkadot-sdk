@@ -2277,6 +2277,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2130" id="2130">2130</a>
 <a href="#2131" id="2131">2131</a>
 <a href="#2132" id="2132">2132</a>
+<a href="#2133" id="2133">2133</a>
+<a href="#2134" id="2134">2134</a>
+<a href="#2135" id="2135">2135</a>
+<a href="#2136" id="2136">2136</a>
+<a href="#2137" id="2137">2137</a>
+<a href="#2138" id="2138">2138</a>
+<a href="#2139" id="2139">2139</a>
+<a href="#2140" id="2140">2140</a>
+<a href="#2141" id="2141">2141</a>
+<a href="#2142" id="2142">2142</a>
+<a href="#2143" id="2143">2143</a>
+<a href="#2144" id="2144">2144</a>
+<a href="#2145" id="2145">2145</a>
+<a href="#2146" id="2146">2146</a>
+<a href="#2147" id="2147">2147</a>
+<a href="#2148" id="2148">2148</a>
+<a href="#2149" id="2149">2149</a>
+<a href="#2150" id="2150">2150</a>
+<a href="#2151" id="2151">2151</a>
+<a href="#2152" id="2152">2152</a>
+<a href="#2153" id="2153">2153</a>
+<a href="#2154" id="2154">2154</a>
+<a href="#2155" id="2155">2155</a>
+<a href="#2156" id="2156">2156</a>
+<a href="#2157" id="2157">2157</a>
+<a href="#2158" id="2158">2158</a>
+<a href="#2159" id="2159">2159</a>
+<a href="#2160" id="2160">2160</a>
+<a href="#2161" id="2161">2161</a>
+<a href="#2162" id="2162">2162</a>
+<a href="#2163" id="2163">2163</a>
+<a href="#2164" id="2164">2164</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2306,8 +2338,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{
-		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len,
-		OnUnbalanced, TryCollect, UnixTime,
+		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
+		InspectLockableCurrency, Len, OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -2329,8 +2361,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::pallet::<span class="kw-2">*</span>;
@@ -2361,6 +2393,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Fetches the controller bonded to a stash account, if any.
 	</span><span class="kw">pub fn </span>bonded(stash: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; {
 		StakingLedger::&lt;T&gt;::paired_account(Stash(stash.clone()))
+	}
+
+	<span class="doccomment">/// Inspects and returns the corruption state of a ledger and bond, if any.
+	///
+	/// Note: all operations in this method access directly the `Bonded` and `Ledger` storage maps
+	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>inspect_bond_state(
+		stash: <span class="kw-2">&amp;</span>T::AccountId,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;LedgerIntegrityState, Error&lt;T&gt;&gt; {
+		<span class="kw">let </span>lock = T::Currency::balance_locked(<span class="kw">crate</span>::STAKING_ID, <span class="kw-2">&amp;</span>stash);
+
+		<span class="kw">let </span>controller = &lt;Bonded&lt;T&gt;&gt;::get(stash).ok_or_else(|| {
+			<span class="kw">if </span>lock == Zero::zero() {
+				Error::&lt;T&gt;::NotStash
+			} <span class="kw">else </span>{
+				Error::&lt;T&gt;::BadState
+			}
+		})<span class="question-mark">?</span>;
+
+		<span class="kw">match </span>Ledger::&lt;T&gt;::get(controller) {
+			<span class="prelude-val">Some</span>(ledger) =&gt;
+				<span class="kw">if </span>ledger.stash != <span class="kw-2">*</span>stash {
+					<span class="prelude-val">Ok</span>(LedgerIntegrityState::Corrupted)
+				} <span class="kw">else </span>{
+					<span class="kw">if </span>lock != ledger.total {
+						<span class="prelude-val">Ok</span>(LedgerIntegrityState::LockCorrupted)
+					} <span class="kw">else </span>{
+						<span class="prelude-val">Ok</span>(LedgerIntegrityState::Ok)
+					}
+				},
+			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(LedgerIntegrityState::CorruptedKilled),
+		}
 	}
 
 	<span class="doccomment">/// The total balance that can be slashed from a stash account as of right now.
@@ -4116,12 +4180,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="string">&quot;VoterList contains non-staker&quot;
 		</span>);
 
+		<span class="self">Self</span>::check_ledgers()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_bonded_consistency()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_payees()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_nominators()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_exposures()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_paged_exposures()<span class="question-mark">?</span>;
-		<span class="self">Self</span>::check_ledgers()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_count()
 	}
 
@@ -4130,6 +4194,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * A bonded (stash, controller) pair should have only one associated ledger. I.e. if the
 	///   ledger is bonded by stash, the controller account must not bond a different ledger.
 	/// * A bonded (stash, controller) pair must have an associated ledger.
+	///
 	/// NOTE: these checks result in warnings only. Once
 	/// &lt;https://github.com/paritytech/polkadot-sdk/issues/3245&gt; is resolved, turn warns into check
 	/// failures.
@@ -4224,19 +4289,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Invariants:
-	/// * `ledger.controller` is not stored in the storage (but populated at retrieval).
 	/// * Stake consistency: ledger.total == ledger.active + sum(ledger.unlocking).
-	/// * The controller keying the ledger and the ledger stash matches the state of the `Bonded`
-	/// storage.
+	/// * The ledger&#39;s controller and stash matches the associated `Bonded` tuple.
+	/// * Staking locked funds for every bonded stash should be the same as its ledger&#39;s total.
+	/// * Staking ledger and bond are not corrupted.
 	</span><span class="kw">fn </span>check_ledgers() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		Bonded::&lt;T&gt;::iter()
 			.map(|(stash, ctrl)| {
-				<span class="comment">// `ledger.controller` is never stored in raw storage.
-				</span><span class="kw">let </span>raw = Ledger::&lt;T&gt;::get(stash).unwrap_or_else(|| {
-					Ledger::&lt;T&gt;::get(ctrl.clone())
-						.expect(<span class="string">&quot;try_check: bonded stash/ctrl does not have an associated ledger&quot;</span>)
-				});
-				<span class="macro">ensure!</span>(raw.controller.is_none(), <span class="string">&quot;raw storage controller should be None&quot;</span>);
+				<span class="comment">// ensure locks consistency.
+				</span><span class="macro">ensure!</span>(
+					<span class="self">Self</span>::inspect_bond_state(<span class="kw-2">&amp;</span>stash) == <span class="prelude-val">Ok</span>(LedgerIntegrityState::Ok),
+					<span class="string">&quot;bond, ledger and/or staking lock inconsistent for a bonded stash.&quot;
+				</span>);
 
 				<span class="comment">// ensure ledger consistency.
 				</span><span class="self">Self</span>::ensure_ledger_consistent(ctrl)
