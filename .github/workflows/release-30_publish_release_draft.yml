@@ -57,7 +57,7 @@ jobs:
           VERSION=$(echo "$VERSION" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
           TMP=$(mktemp -d)
           echo "TMP: $TMP"
-          docker images
+          docker run --rm -it -v $PWD:/repo paritytech/prdoc
           alias prdoc='docker run --rm -it -v $PWD:/repo paritytech/prdoc'
           alias
           prdoc --version
