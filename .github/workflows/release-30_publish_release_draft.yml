@@ -60,8 +60,6 @@ jobs:
           docker run -v $PWD:/repo paritytech/prdoc
           alias prdoc='docker run --rm -it -v $PWD:/repo paritytech/prdoc'
           alias
-          prdoc --version
-
           ./scripts/release/build-changelogs.sh
 
           echo "TMP: $TMP"
