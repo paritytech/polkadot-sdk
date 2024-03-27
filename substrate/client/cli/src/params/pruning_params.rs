@@ -54,6 +54,10 @@ pub struct PruningParams {
 		default_value = "archive-canonical"
 	)]
 	pub blocks_pruning: DatabasePruningMode,
+
+	/// Enables the block header pruning.
+	#[arg(long, value_name = "PRUNING_MODE", default_value = "false")]
+	pub prune_block_headers: bool,
 }
 
 impl PruningParams {
@@ -64,7 +68,15 @@ impl PruningParams {
 
 	/// Get the block pruning value from the parameters
 	pub fn blocks_pruning(&self) -> error::Result<BlocksPruning> {
-		Ok(self.blocks_pruning.into())
+		let result = match self.blocks_pruning {
+			DatabasePruningMode::Archive => BlocksPruning::KeepAll,
+			DatabasePruningMode::ArchiveCanonical =>
+				BlocksPruning::KeepFinalized { prune_headers: self.prune_block_headers },
+			DatabasePruningMode::Custom(n) =>
+				BlocksPruning::Some { blocks: n, prune_headers: self.prune_block_headers },
+		};
+
+		Ok(result)
 	}
 }
 
@@ -104,16 +116,6 @@ impl Into<PruningMode> for DatabasePruningMode {
 			DatabasePruningMode::Archive => PruningMode::ArchiveAll,
 			DatabasePruningMode::ArchiveCanonical => PruningMode::ArchiveCanonical,
 			DatabasePruningMode::Custom(n) => PruningMode::blocks_pruning(n),
-		}
-	}
-}
-
-impl Into<BlocksPruning> for DatabasePruningMode {
-	fn into(self) -> BlocksPruning {
-		match self {
-			DatabasePruningMode::Archive => BlocksPruning::KeepAll,
-			DatabasePruningMode::ArchiveCanonical => BlocksPruning::KeepFinalized,
-			DatabasePruningMode::Custom(n) => BlocksPruning::Some(n),
 		}
 	}
 }

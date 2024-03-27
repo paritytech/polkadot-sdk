@@ -465,6 +465,17 @@ pub fn read_header<Block: BlockT>(
 	}
 }
 
+/// Drop a header from the database.
+pub fn remove_header<Block: BlockT>(
+	transaction: &mut Transaction<DbHash>,
+	db: &dyn Database<DbHash>,
+	col_index: u32,
+	col: u32,
+	id: BlockId<Block>,
+) -> sp_blockchain::Result<()> {
+	remove_from_db(transaction, db, col_index, col, id)
+}
+
 /// Read meta from the database.
 pub fn read_meta<Block>(
 	db: &dyn Database<DbHash>,
