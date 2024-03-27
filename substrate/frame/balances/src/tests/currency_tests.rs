@@ -1405,17 +1405,29 @@ fn self_transfer_noop() {
 }
 
 #[test]
-fn self_transfer_noop_2() {
+fn transfer_to_self_with_insufficient_balance_should_fail() {
+	// Setup phase: creating a test environment with a default existential deposit and an account
+	// for Alice
 	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
 		let alice = 1;
-		let amount = 100;
+		let initial_deposit = 100;
 
-		let _ = Balances::deposit_creating(&alice, amount);
-		assert_eq!(Balances::free_balance(alice), amount);
+		// Initial deposit to Alice's account
+		let _ = Balances::deposit_creating(&alice, initial_deposit);
 
+		// Verify Alice's initial balance matches the deposit
+		assert_eq!(Balances::free_balance(alice), initial_deposit);
+
+		// Action and Assert phase: Attempting to transfer more than available from Alice to Alice
+		// should fail
 		assert_err!(
-			Balances::transfer(&alice, &alice, amount + 100, ExistenceRequirement::AllowDeath),
-			ArithmeticError::Underflow,
+			Balances::transfer(
+				&alice,
+				&alice,
+				initial_deposit + 100, // Amount greater than balance
+				ExistenceRequirement::AllowDeath
+			),
+			ArithmeticError::Underflow, // Expected error due to insufficient balance
 		);
 	});
 }
