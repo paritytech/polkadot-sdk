@@ -96,6 +96,10 @@ impl RpcConnections {
 
 		let entry = data.entry(connection_id).or_insert_with(ConnectionData::default);
 		entry.num_identifiers = entry.num_identifiers.saturating_sub(1);
+
+		if entry.num_identifiers == 0 {
+			data.remove(&connection_id);
+		}
 	}
 
 	/// Register an identifier for the given connection.
