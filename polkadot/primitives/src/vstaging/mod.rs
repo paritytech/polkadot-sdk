@@ -102,7 +102,7 @@ pub struct SchedulerParams<BlockNumber> {
 	pub on_demand_fee_variability: Perbill,
 	/// The minimum amount needed to claim a slot in the spot pricing queue.
 	pub on_demand_base_fee: Balance,
-	/// The number of blocks a claim stays in the scheduler's claimqueue before getting cleared.
+	/// The number of blocks a claim stays in the scheduler's claim queue before getting cleared.
 	/// This number should go reasonably higher than the number of blocks in the async backing
 	/// lookahead.
 	pub ttl: BlockNumber,
@@ -133,7 +133,7 @@ pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
 
 /// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
 pub mod node_features {
-	/// A feature index used to indentify a bit into the node_features array stored
+	/// A feature index used to identify a bit into the node_features array stored
 	/// in the HostConfiguration.
 	#[repr(u8)]
 	pub enum FeatureIndex {

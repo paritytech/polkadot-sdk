@@ -54,7 +54,7 @@ use crate::{
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
-// [`Call::unbond`], as the post dipatch weight may depend on the number of slashing span on the
+// [`Call::unbond`], as the post dispatch weight may depend on the number of slashing span on the
 // account which is not provided as an input. The value set should be conservative but sensible.
 pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
@@ -1134,7 +1134,7 @@ pub mod pallet {
 		/// this call results in a complete removal of all the data related to the stash account.
 		/// In this case, the `num_slashing_spans` must be larger or equal to the number of
 		/// slashing spans associated with the stash account in the [`SlashingSpans`] storage type,
-		/// otherwise the call will fail. The call weight is directly propotional to
+		/// otherwise the call will fail. The call weight is directly proportional to
 		/// `num_slashing_spans`.
 		///
 		/// ## Complexity
@@ -1376,7 +1376,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Increments the ideal number of validators upto maximum of
+		/// Increments the ideal number of validators up to maximum of
 		/// `ElectionProviderBase::MaxWinners`.
 		///
 		/// The dispatch origin must be Root.
@@ -1401,7 +1401,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Scale up the ideal number of validators by a factor upto maximum of
+		/// Scale up the ideal number of validators by a factor up to maximum of
 		/// `ElectionProviderBase::MaxWinners`.
 		///
 		/// The dispatch origin must be Root.
