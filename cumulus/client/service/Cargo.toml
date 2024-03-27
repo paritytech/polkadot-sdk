@@ -30,6 +30,7 @@ sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-transaction-pool = { path = "../../../substrate/primitives/transaction-pool" }
+sp-io = { path = "../../../substrate/primitives/io" }
 
 # Polkadot
 polkadot-primitives = { path = "../../../polkadot/primitives" }
