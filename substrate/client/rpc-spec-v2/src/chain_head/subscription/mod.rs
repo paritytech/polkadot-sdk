@@ -23,6 +23,7 @@ use std::{sync::Arc, time::Duration};
 
 mod error;
 mod inner;
+mod suspend;
 
 use self::inner::SubscriptionsInner;
 
@@ -43,6 +44,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 		global_max_pinned_blocks: usize,
 		local_max_pin_duration: Duration,
 		max_ongoing_operations: usize,
+		suspend_duration: Duration,
 		backend: Arc<BE>,
 	) -> Self {
 		SubscriptionManagement {
@@ -50,6 +52,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 				global_max_pinned_blocks,
 				local_max_pin_duration,
 				max_ongoing_operations,
+				suspend_duration,
 				backend,
 			)),
 		}
@@ -73,6 +76,17 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 	pub fn remove_subscription(&self, sub_id: &str) {
 		let mut inner = self.inner.write();
 		inner.remove_subscription(sub_id)
+	}
+
+	/// Suspends all subscriptions for the given duration.
+	///
+	/// For all active subscriptions, the internal data is discarded, blocks are unpinned and the
+	/// `Stop` event will be generated.
+	///
+	/// For incoming subscriptions, only the `Stop` event is delivered.
+	pub fn suspend_subscriptions(&self) {
+		let mut inner = self.inner.write();
+		inner.suspend_subscriptions()
 	}
 
 	/// The block is pinned in the backend only once when the block's hash is first encountered.
