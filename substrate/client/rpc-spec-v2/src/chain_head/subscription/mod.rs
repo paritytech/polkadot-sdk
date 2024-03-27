@@ -83,7 +83,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionManagement<Block, BE> {
 	/// # Note
 	///
 	/// Used for testing.
-	#[doc(hidden)]
+	#[cfg(test)]
 	pub(crate) fn _from_inner(
 		inner: Arc<RwLock<SubscriptionsInner<Block, BE>>>,
 		rpc_connections: RpcConnections,
