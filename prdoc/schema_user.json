@@ -3,9 +3,8 @@
     "$id": "https://raw.githubusercontent.com/paritytech/prdoc/master/prdoc_schema_user.json",
     "version": {
       "major": 1,
-      "minor": 0,
-      "patch": 0,
-      "timestamp": 20230817152351
+      "minor": 1,
+      "patch": 0
     },
     "title": "Polkadot SDK PRDoc Schema",
     "description": "JSON Schema definition for the Polkadot SDK PR documentation",
@@ -125,10 +124,16 @@
           "name": {
             "type": "string"
           },
+          "bump": {
+            "$ref": "#/$defs/semver_bump"
+          },
           "note": {
             "type": "string"
           }
-        }
+        },
+        "required": [
+          "name"
+        ]
       },
       "migration_db": {
         "type": "object",
@@ -163,6 +168,26 @@
         "additionalProperties": false,
         "required": [
           "description"
+        ]
+      },
+      "semver_bump": {
+        "description": "The type of bump to apply to the crate version according to Cargo SemVer: https://doc.rust-lang.org/cargo/reference/semver.html. Please check docs/RELEASE.md for more information.",
+        "oneOf": [
+          {
+            "const": "major",
+            "title": "Major",
+            "description": "A bump to the leftmost non-zero digit of the version number."
+          },
+          {
+            "const": "minor",
+            "title": "Minor",
+            "description": "A bump to the second leftmost non-zero digit of the version number."
+          },
+          {
+            "const": "patch",
+            "title": "Patch",
+            "description": "A bump to the third leftmost non-zero digit of the version number."
+          }
         ]
       },
       "doc": {

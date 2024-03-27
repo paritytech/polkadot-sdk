@@ -170,7 +170,7 @@ impl<
 	}
 
 	fn can_check_out(_dest: &Location, what: &Asset, _context: &XcmContext) -> Result {
-		log::trace!(target: "xcm::currency_adapter", "check_out dest: {:?}, what: {:?}", _dest, what);
+		log::trace!(target: "xcm::currency_adapter", "can_check_out dest: {:?}, what: {:?}", _dest, what);
 		let amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)?;
 		match CheckedAccount::get() {
 			Some((checked_account, MintLocation::Local)) =>

@@ -90,7 +90,7 @@ fn queue_priority_retains() {
 		MessageQueue::enqueue_message(msg("d"), Everywhere(2));
 		assert_ring(&[Everywhere(1), Everywhere(2), Everywhere(3)]);
 		// service head is 1, it will process a, leaving service head at 2. it also processes b but
-		// doees not empty queue 2, so service head will end at 2.
+		// does not empty queue 2, so service head will end at 2.
 		assert_eq!(MessageQueue::service_queues(2.into_weight()), 2.into_weight());
 		assert_eq!(
 			MessagesProcessed::take(),
@@ -1064,13 +1064,13 @@ fn footprint_num_pages_works() {
 		MessageQueue::enqueue_message(msg("weight=2"), Here);
 		MessageQueue::enqueue_message(msg("weight=3"), Here);
 
-		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 2, 16));
 
 		// Mark the messages as overweight.
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 0.into_weight());
 		assert_eq!(System::events().len(), 2);
-		// Overweight does not change the footprint.
-		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+		// `ready_pages` decreases but `page` count does not.
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 0, 2, 16));
 
 		// Now execute the second message.
 		assert_eq!(
@@ -1078,7 +1078,7 @@ fn footprint_num_pages_works() {
 				.unwrap(),
 			3.into_weight()
 		);
-		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 8));
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 0, 1, 8));
 		// And the first one:
 		assert_eq!(
 			<MessageQueue as ServiceQueues>::execute_overweight(2.into_weight(), (Here, 0, 0))
@@ -1086,6 +1086,11 @@ fn footprint_num_pages_works() {
 			2.into_weight()
 		);
 		assert_eq!(MessageQueue::footprint(Here), Default::default());
+		assert_eq!(MessageQueue::footprint(Here), fp(0, 0, 0, 0));
+
+		// `ready_pages` and normal `pages` increases again:
+		MessageQueue::enqueue_message(msg("weight=3"), Here);
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 1, 8));
 	})
 }
 

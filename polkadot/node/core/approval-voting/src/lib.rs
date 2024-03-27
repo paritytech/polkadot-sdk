@@ -55,9 +55,9 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	vstaging::{ApprovalVoteMultipleCandidates, ApprovalVotingParams},
-	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, DisputeStatement, ExecutorParams,
-	GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, CoreIndex, DisputeStatement,
+	ExecutorParams, GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -1253,13 +1253,20 @@ async fn handle_actions<Context>(
 			Action::BecomeActive => {
 				*mode = Mode::Active;
 
-				let messages = distribution_messages_for_activation(
+				let (messages, next_actions) = distribution_messages_for_activation(
+					ctx,
 					overlayed_db,
 					state,
 					delayed_approvals_timers,
-				)?;
+					session_info_provider,
+				)
+				.await?;
 
 				ctx.send_messages(messages.into_iter()).await;
+				let next_actions: Vec<Action> =
+					next_actions.into_iter().map(|v| v.clone()).chain(actions_iter).collect();
+
+				actions_iter = next_actions.into_iter();
 			},
 			Action::Conclude => {
 				conclude = true;
@@ -1290,6 +1297,21 @@ fn cores_to_candidate_indices(
 	CandidateBitfield::try_from(candidate_indices)
 }
 
+// Returns the claimed core bitfield from the assignment cert and the core index
+// from the block entry.
+fn get_core_indices_on_startup(
+	assignment: &AssignmentCertKindV2,
+	block_entry_core_index: CoreIndex,
+) -> CoreBitfield {
+	match &assignment {
+		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => core_bitfield.clone(),
+		AssignmentCertKindV2::RelayVRFModulo { sample: _ } =>
+			CoreBitfield::try_from(vec![block_entry_core_index]).expect("Not an empty vec; qed"),
+		AssignmentCertKindV2::RelayVRFDelay { core_index } =>
+			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed"),
+	}
+}
+
 // Returns the claimed core bitfield from the assignment cert, the candidate hash and a
 // `BlockEntry`. Can fail only for VRF Delay assignments for which we cannot find the candidate hash
 // in the block entry which indicates a bug or corrupted storage.
@@ -1313,15 +1335,19 @@ fn get_assignment_core_indices(
 	}
 }
 
-fn distribution_messages_for_activation(
+#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
+async fn distribution_messages_for_activation<Context>(
+	ctx: &mut Context,
 	db: &OverlayedBackend<'_, impl Backend>,
 	state: &State,
 	delayed_approvals_timers: &mut DelayedApprovalTimer,
-) -> SubsystemResult<Vec<ApprovalDistributionMessage>> {
+	session_info_provider: &mut RuntimeInfo,
+) -> SubsystemResult<(Vec<ApprovalDistributionMessage>, Vec<Action>)> {
 	let all_blocks: Vec<Hash> = db.load_all_blocks()?;
 
 	let mut approval_meta = Vec::with_capacity(all_blocks.len());
 	let mut messages = Vec::new();
+	let mut actions = Vec::new();
 
 	messages.push(ApprovalDistributionMessage::NewBlocks(Vec::new())); // dummy value.
 
@@ -1356,7 +1382,7 @@ fn distribution_messages_for_activation(
 			session: block_entry.session(),
 		});
 		let mut signatures_queued = HashSet::new();
-		for (_, candidate_hash) in block_entry.candidates() {
+		for (core_index, candidate_hash) in block_entry.candidates() {
 			let _candidate_span =
 				distribution_message_span.child("candidate").with_candidate(*candidate_hash);
 			let candidate_entry = match db.load_candidate_entry(&candidate_hash)? {
@@ -1378,108 +1404,121 @@ fn distribution_messages_for_activation(
 					match approval_entry.local_statements() {
 						(None, None) | (None, Some(_)) => {}, // second is impossible case.
 						(Some(assignment), None) => {
-							if let Some(claimed_core_indices) = get_assignment_core_indices(
-								&assignment.cert().kind,
-								&candidate_hash,
-								&block_entry,
-							) {
-								if block_entry.has_candidates_pending_signature() {
-									delayed_approvals_timers.maybe_arm_timer(
-										state.clock.tick_now(),
-										state.clock.as_ref(),
-										block_entry.block_hash(),
-										assignment.validator_index(),
-									)
-								}
+							let claimed_core_indices =
+								get_core_indices_on_startup(&assignment.cert().kind, *core_index);
 
-								match cores_to_candidate_indices(
-									&claimed_core_indices,
-									&block_entry,
-								) {
-									Ok(bitfield) => messages.push(
+							if block_entry.has_candidates_pending_signature() {
+								delayed_approvals_timers.maybe_arm_timer(
+									state.clock.tick_now(),
+									state.clock.as_ref(),
+									block_entry.block_hash(),
+									assignment.validator_index(),
+								)
+							}
+
+							match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
+								Ok(bitfield) => {
+									gum::debug!(
+										target: LOG_TARGET,
+										candidate_hash = ?candidate_entry.candidate_receipt().hash(),
+										?block_hash,
+										"Discovered, triggered assignment, not approved yet",
+									);
+
+									let indirect_cert = IndirectAssignmentCertV2 {
+										block_hash,
+										validator: assignment.validator_index(),
+										cert: assignment.cert().clone(),
+									};
+									messages.push(
 										ApprovalDistributionMessage::DistributeAssignment(
-											IndirectAssignmentCertV2 {
-												block_hash,
-												validator: assignment.validator_index(),
-												cert: assignment.cert().clone(),
-											},
-											bitfield,
+											indirect_cert.clone(),
+											bitfield.clone(),
 										),
-									),
-									Err(err) => {
-										// Should never happen. If we fail here it means the
-										// assignment is null (no cores claimed).
-										gum::warn!(
-											target: LOG_TARGET,
-											?block_hash,
-											?candidate_hash,
-											?err,
-											"Failed to create assignment bitfield",
-										);
-									},
-								}
-							} else {
-								gum::warn!(
-									target: LOG_TARGET,
-									?block_hash,
-									?candidate_hash,
-									"Cannot get assignment claimed core indices",
-								);
+									);
+
+									if !block_entry.candidate_is_pending_signature(*candidate_hash)
+									{
+										let ExtendedSessionInfo { ref executor_params, .. } =
+											match get_extended_session_info(
+												session_info_provider,
+												ctx.sender(),
+												block_entry.block_hash(),
+												block_entry.session(),
+											)
+											.await
+											{
+												Some(i) => i,
+												None => continue,
+											};
+
+										actions.push(Action::LaunchApproval {
+											claimed_candidate_indices: bitfield,
+											candidate_hash: candidate_entry
+												.candidate_receipt()
+												.hash(),
+											indirect_cert,
+											assignment_tranche: assignment.tranche(),
+											relay_block_hash: block_hash,
+											session: block_entry.session(),
+											executor_params: executor_params.clone(),
+											candidate: candidate_entry.candidate_receipt().clone(),
+											backing_group: approval_entry.backing_group(),
+											distribute_assignment: false,
+										});
+									}
+								},
+								Err(err) => {
+									// Should never happen. If we fail here it means the
+									// assignment is null (no cores claimed).
+									gum::warn!(
+										target: LOG_TARGET,
+										?block_hash,
+										?candidate_hash,
+										?err,
+										"Failed to create assignment bitfield",
+									);
+								},
 							}
 						},
 						(Some(assignment), Some(approval_sig)) => {
-							if let Some(claimed_core_indices) = get_assignment_core_indices(
-								&assignment.cert().kind,
-								&candidate_hash,
-								&block_entry,
-							) {
-								match cores_to_candidate_indices(
-									&claimed_core_indices,
-									&block_entry,
-								) {
-									Ok(bitfield) => messages.push(
-										ApprovalDistributionMessage::DistributeAssignment(
-											IndirectAssignmentCertV2 {
-												block_hash,
-												validator: assignment.validator_index(),
-												cert: assignment.cert().clone(),
-											},
-											bitfield,
-										),
-									),
-									Err(err) => {
-										gum::warn!(
-											target: LOG_TARGET,
-											?block_hash,
-											?candidate_hash,
-											?err,
-											"Failed to create assignment bitfield",
-										);
-										// If we didn't send assignment, we don't send approval.
-										continue
-									},
-								}
-								if signatures_queued
-									.insert(approval_sig.signed_candidates_indices.clone())
-								{
-									messages.push(ApprovalDistributionMessage::DistributeApproval(
-										IndirectSignedApprovalVoteV2 {
+							let claimed_core_indices =
+								get_core_indices_on_startup(&assignment.cert().kind, *core_index);
+							match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
+								Ok(bitfield) => messages.push(
+									ApprovalDistributionMessage::DistributeAssignment(
+										IndirectAssignmentCertV2 {
 											block_hash,
-											candidate_indices: approval_sig
-												.signed_candidates_indices,
 											validator: assignment.validator_index(),
-											signature: approval_sig.signature,
+											cert: assignment.cert().clone(),
 										},
-									))
-								};
-							} else {
-								gum::warn!(
-									target: LOG_TARGET,
-									?block_hash,
-									?candidate_hash,
-									"Cannot get assignment claimed core indices",
-								);
+										bitfield,
+									),
+								),
+								Err(err) => {
+									gum::warn!(
+										target: LOG_TARGET,
+										?block_hash,
+										?candidate_hash,
+										?err,
+										"Failed to create assignment bitfield",
+									);
+									// If we didn't send assignment, we don't send approval.
+									continue
+								},
 							}
+							if signatures_queued
+								.insert(approval_sig.signed_candidates_indices.clone())
+							{
+								messages.push(ApprovalDistributionMessage::DistributeApproval(
+									IndirectSignedApprovalVoteV2 {
+										block_hash,
+										candidate_indices: approval_sig.signed_candidates_indices,
+										validator: assignment.validator_index(),
+										signature: approval_sig.signature,
+									},
+								))
+							};
 						},
 					}
 				},
@@ -1496,7 +1535,7 @@ fn distribution_messages_for_activation(
 	}
 
 	messages[0] = ApprovalDistributionMessage::NewBlocks(approval_meta);
-	Ok(messages)
+	Ok((messages, actions))
 }
 
 // Handle an incoming signal from the overseer. Returns true if execution should conclude.
@@ -1811,7 +1850,7 @@ async fn get_approval_signatures_for_candidate<Context>(
 	gum::trace!(
 		target: LOG_TARGET,
 		?candidate_hash,
-		"Spawning task for fetching sinatures from approval-distribution"
+		"Spawning task for fetching signatures from approval-distribution"
 	);
 	ctx.spawn("get-approval-signatures", Box::pin(get_approvals))
 }

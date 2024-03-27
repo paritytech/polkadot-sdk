@@ -37,7 +37,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 }
@@ -355,8 +355,8 @@ pub fn num_overweight_enqueued_events() -> u32 {
 		.count() as u32
 }
 
-pub fn fp(pages: u32, count: u64, size: u64) -> QueueFootprint {
-	QueueFootprint { storage: Footprint { count, size }, pages }
+pub fn fp(pages: u32, ready_pages: u32, count: u64, size: u64) -> QueueFootprint {
+	QueueFootprint { storage: Footprint { count, size }, pages, ready_pages }
 }
 
 /// A random seed that can be overwritten with `MQ_SEED`.
