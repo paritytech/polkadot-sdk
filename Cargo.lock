@@ -9501,10 +9501,12 @@ dependencies = [
 name = "pallet-collective"
 version = "28.0.0"
 dependencies = [
+ "docify 0.2.7",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "sp-core",

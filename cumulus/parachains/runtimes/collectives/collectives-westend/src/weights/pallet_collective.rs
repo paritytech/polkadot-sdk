@@ -301,4 +301,57 @@ impl<T: frame_system::Config> pallet_collective::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(Weight::from_parts(0, 32).saturating_mul(p.into()))
 	}
+	/// Storage: `Council::DepositOf` (r:1 w:1)
+	/// Proof: `Council::DepositOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(175), added: 2650, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Council::Proposals` (r:1 w:1)
+	/// Proof: `Council::Proposals` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Council::Voting` (r:0 w:1)
+	/// Proof: `Council::Voting` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Council::ProposalOf` (r:0 w:1)
+	/// Proof: `Council::ProposalOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `d` is `[0, 1]`.
+	/// The range of component `p` is `[1, 100]`.
+	fn kill(d: u32, p: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `628 + d * (212 ±0) + p * (36 ±0)`
+		//  Estimated: `3833 + d * (1820 ±73) + p * (39 ±0)`
+		// Minimum execution time: 141_000_000 picoseconds.
+		Weight::from_parts(12_681_542, 3833)
+			// Standard Error: 29_292_197
+			.saturating_add(Weight::from_parts(293_163_636, 0).saturating_mul(d.into()))
+			// Standard Error: 396_965
+			.saturating_add(Weight::from_parts(3_391_184, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(d.into())))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(d.into())))
+			.saturating_add(Weight::from_parts(0, 1820).saturating_mul(d.into()))
+			.saturating_add(Weight::from_parts(0, 39).saturating_mul(p.into()))
+	}
+	/// Storage: `Council::ProposalOf` (r:1 w:0)
+	/// Proof: `Council::ProposalOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Council::DepositOf` (r:1 w:1)
+	/// Proof: `Council::DepositOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(175), added: 2650, mode: `MaxEncodedLen`)
+	/// The range of component `d` is `[0, 1]`.
+	fn release_proposal_deposit(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1748 + d * (212 ±0)`
+		//  Estimated: `5213 + d * (212 ±0)`
+		// Minimum execution time: 121_000_000 picoseconds.
+		Weight::from_parts(124_000_000, 5213)
+			// Standard Error: 1_897_366
+			.saturating_add(Weight::from_parts(398_000_000, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(d.into())))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(d.into())))
+			.saturating_add(Weight::from_parts(0, 212).saturating_mul(d.into()))
+	}
 }

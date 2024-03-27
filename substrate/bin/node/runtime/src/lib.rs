@@ -1104,11 +1104,14 @@ parameter_types! {
 	pub const CouncilMotionDuration: BlockNumber = 5 * DAYS;
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
+	pub const ProposalDepositOffset: Balance = ExistentialDeposit::get() + ExistentialDeposit::get();
 }
 
 type CouncilCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = CouncilMotionDuration;
@@ -1118,6 +1121,13 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type ProposalDeposit = pallet_collective::deposit::Delayed<
+		ConstU32<2>,
+		pallet_collective::deposit::Linear<ConstU32<2>, ProposalDepositOffset>,
+	>;
+	type Slash = ();
 }
 
 parameter_types! {
@@ -1170,6 +1180,8 @@ parameter_types! {
 type TechnicalCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = TechnicalMotionDuration;
@@ -1179,6 +1191,13 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type ProposalDeposit = pallet_collective::deposit::Delayed<
+		ConstU32<2>,
+		pallet_collective::deposit::Linear<ConstU32<2>, ProposalDepositOffset>,
+	>;
+	type Slash = ();
 }
 
 type EnsureRootOrHalfCouncil = EitherOfDiverse<
@@ -1933,6 +1952,8 @@ parameter_types! {
 type AllianceCollective = pallet_collective::Instance3;
 impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = AllianceMotionDuration;
@@ -1942,6 +1963,13 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
+	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
+	type KillOrigin = EnsureRoot<Self::AccountId>;
+	type ProposalDeposit = pallet_collective::deposit::Delayed<
+		ConstU32<2>,
+		pallet_collective::deposit::Linear<ConstU32<2>, ProposalDepositOffset>,
+	>;
+	type Slash = ();
 }
 
 parameter_types! {
