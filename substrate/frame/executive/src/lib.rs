@@ -148,8 +148,8 @@
 /// ```
 pub mod block_flowchart {}
 
-#[cfg(test)]
-mod tests;
+#[cfg(feature = "std")]
+pub mod tests;
 
 use codec::{Codec, Encode};
 use frame_support::{
