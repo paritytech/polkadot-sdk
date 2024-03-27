@@ -526,8 +526,7 @@ fn on_demand_headers_relay_name<SourceChain: Chain, TargetChain: Chain>() -> Str
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	type TestChain = relay_rococo_client::Rococo;
+	use relay_substrate_client::test_chain::TestChain;
 
 	const AT_SOURCE: Option<bp_rococo::BlockNumber> = Some(10);
 	const AT_TARGET: Option<bp_rococo::BlockNumber> = Some(1);
