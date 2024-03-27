@@ -25,7 +25,7 @@ polkadot-overseer = { path = "../../overseer" }
 parking_lot = "0.12.1"
 bytes = "1"
 fatality = "0.0.6"
-thiserror = "1"
+thiserror = { workspace = true }
 
 [dev-dependencies]
 assert_matches = "1.4.0"

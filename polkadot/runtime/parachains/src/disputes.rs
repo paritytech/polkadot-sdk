@@ -181,7 +181,7 @@ pub trait DisputesHandler<BlockNumber: Ord> {
 	fn is_frozen() -> bool;
 
 	/// Remove dispute statement duplicates and sort the non-duplicates based on
-	/// local (lower indicies) vs remotes (higher indices) and age (older with lower indices).
+	/// local (lower indices) vs remotes (higher indices) and age (older with lower indices).
 	///
 	/// Returns `Ok(())` if no duplicates were present, `Err(())` otherwise.
 	///
@@ -379,7 +379,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]

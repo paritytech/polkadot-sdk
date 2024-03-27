@@ -1,8 +1,0 @@
-Description: User is able to transfer WND from Westend Asset Hub to Rococo Asset Hub and back
-Network: ../../../../cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
-Creds: config
-
-# ensure that initialization has completed
-asset-hub-rococo-collator1: js-script ../../helpers/wait-hrmp-channel-opened.js with "1013" within 300 seconds
-
-

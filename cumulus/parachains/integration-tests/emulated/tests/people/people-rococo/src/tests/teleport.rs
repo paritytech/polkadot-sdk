@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::*;
+use crate::imports::*;
 use people_rococo_runtime::xcm_config::XcmConfig as PeopleRococoXcmConfig;
 use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
@@ -25,12 +25,12 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 		Rococo,
 		vec![
 			// Amount to teleport is withdrawn from Sender
-			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
 			},
 			// Amount to teleport is deposited in Relay's `CheckAccount`
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount }) => {
 				who: *who == <Rococo as RococoPallet>::XcmPallet::check_account(),
 				amount:  *amount == t.args.amount,
 			},
@@ -51,12 +51,12 @@ fn relay_dest_assertions(t: SystemParaToRelayTest) {
 		Rococo,
 		vec![
 			// Amount is withdrawn from Relay Chain's `CheckAccount`
-			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 				who: *who == <Rococo as RococoPallet>::XcmPallet::check_account(),
 				amount: *amount == t.args.amount,
 			},
 			// Amount minus fees are deposited in Receiver's account
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 		]
@@ -85,7 +85,7 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 		PeopleRococo,
 		vec![
 			// Amount is withdrawn from Sender's account
-			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
 			},
@@ -102,7 +102,7 @@ fn para_dest_assertions(t: RelayToSystemParaTest) {
 		PeopleRococo,
 		vec![
 			// Amount minus fees are deposited in Receiver's account
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 		]
@@ -155,7 +155,7 @@ fn limited_teleport_native_assets_from_relay_to_system_para_works() {
 	test.assert();
 
 	let delivery_fees = Rococo::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
+		xcm_helpers::teleport_assets_delivery_fees::<
 			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
@@ -204,7 +204,7 @@ fn limited_teleport_native_assets_back_from_system_para_to_relay_works() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = PeopleRococo::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
+		xcm_helpers::teleport_assets_delivery_fees::<
 			<PeopleRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
@@ -248,7 +248,7 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 	let receiver_balance_after = test.receiver.balance;
 
 	let delivery_fees = PeopleRococo::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
+		xcm_helpers::teleport_assets_delivery_fees::<
 			<PeopleRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});

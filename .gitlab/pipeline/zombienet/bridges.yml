@@ -7,10 +7,11 @@
     - .kubernetes-env
     - .zombienet-refs
   rules:
-    - !reference [.build-refs, rules]
+    # Docker images have different tag in merge queues
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/
       variables:
         DOCKER_IMAGES_VERSION: ${CI_COMMIT_SHORT_SHA}
+    - !reference [.build-refs, rules]
   before_script:
     - echo "Zombienet Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
@@ -28,8 +29,8 @@
   variables:
     BRIDGES_ZOMBIENET_TESTS_IMAGE_TAG: ${DOCKER_IMAGES_VERSION}
     BRIDGES_ZOMBIENET_TESTS_IMAGE: "docker.io/paritypr/bridges-zombienet-tests"
-    GH_DIR: "https://github.com/paritytech/polkadot-sdk/tree/${CI_COMMIT_SHA}/bridges/zombienet"
-    LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/bridges/zombienet"
+    GH_DIR: "https://github.com/paritytech/polkadot-sdk/tree/${CI_COMMIT_SHA}/bridges/testing"
+    LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/bridges/testing"
     FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
     RUN_IN_CONTAINER: "1"
   artifacts:
@@ -51,5 +52,12 @@ zombienet-bridges-0001-asset-transfer-works:
   extends:
     - .zombienet-bridges-common
   script:
-    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-new-test.sh 0001-asset-transfer --docker
+    - /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-new-test.sh 0001-asset-transfer --docker
+    - echo "Done"
+
+zombienet-bridges-0002-mandatory-headers-synced-while-idle:
+  extends:
+    - .zombienet-bridges-common
+  script:
+    - /home/nonroot/bridges-polkadot-sdk/bridges/testing/run-new-test.sh 0002-mandatory-headers-synced-while-idle --docker
     - echo "Done"

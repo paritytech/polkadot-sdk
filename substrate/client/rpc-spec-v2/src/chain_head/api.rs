@@ -26,7 +26,7 @@ use crate::{
 	},
 	common::events::StorageQuery,
 };
-use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::{proc_macros::rpc, server::ResponsePayload};
 use sp_rpc::list::ListOrValue;
 
 #[rpc(client, server)]
@@ -59,7 +59,7 @@ pub trait ChainHeadApi<Hash> {
 		&self,
 		follow_subscription: String,
 		hash: Hash,
-	) -> Result<MethodResponse, Error>;
+	) -> ResponsePayload<'static, MethodResponse>;
 
 	/// Retrieves the header of a pinned block.
 	///
@@ -92,7 +92,7 @@ pub trait ChainHeadApi<Hash> {
 		hash: Hash,
 		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
-	) -> Result<MethodResponse, Error>;
+	) -> ResponsePayload<'static, MethodResponse>;
 
 	/// Call into the Runtime API at a specified block's state.
 	///
@@ -106,7 +106,7 @@ pub trait ChainHeadApi<Hash> {
 		hash: Hash,
 		function: String,
 		call_parameters: String,
-	) -> Result<MethodResponse, Error>;
+	) -> ResponsePayload<'static, MethodResponse>;
 
 	/// Unpin a block or multiple blocks reported by the `follow` method.
 	///

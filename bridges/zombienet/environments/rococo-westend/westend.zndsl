@@ -1,6 +1,0 @@
-Description: User is able to transfer ROC from Rococo Asset Hub to Westend Asset Hub and back
-Network: ../../../../cumulus/zombienet/bridge-hubs/bridge_hub_westend_local_network.toml
-Creds: config
-
-# relay is already started - let's wait until with-Rococo GRANPDA pallet is initialized at Westend
-bridge-hub-westend-collator1: js-script ../../helpers/best-finalized-header-at-bridged-chain.js with "Rococo,0" within 400 seconds

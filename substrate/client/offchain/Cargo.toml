@@ -26,7 +26,7 @@ hyper = { version = "0.14.16", features = ["http2", "stream"] }
 hyper-rustls = { version = "0.24.0", features = ["http2"] }
 libp2p = "0.51.4"
 num_cpus = "1.13"
-once_cell = "1.8"
+once_cell = "1.19"
 parking_lot = "0.12.1"
 rand = "0.8.5"
 threadpool = "1.7"
