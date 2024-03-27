@@ -87,7 +87,7 @@ pub enum Error {
 		\n Because of it your node might suffer from not being properly connected to other nodes for validation purposes.
 		\n If it is the first time running your node you could use one of the following methods.
 		\n 1. Pass --unsafe-force-node-key-generation and make sure you remove it for subsequent node restarts
-		\n 2. Separetly generate the key with: polkadot key generate-node-key --file <YOUR_PATH_TO_NODE_KEY>"
+		\n 2. Separately generate the key with: polkadot key generate-node-key --file <YOUR_PATH_TO_NODE_KEY>"
 	)]
 	NetworkKeyNotFound(PathBuf),
 }
