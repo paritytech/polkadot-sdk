@@ -1,12 +1,14 @@
 [package]
 name = "zombienet-sdk-tests"
 version = "0.1.0"
-authors.workspace = true
-edition.workspace = true
-license.workspace = true
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "GPL-3.0-only"
+
+[workspace]
 
 [dependencies]
-serde_json = { workspace = true }
+serde_json = { version = "1.0.114", default-features = false }
 subxt = { version = "0.33.0", default-features = false, features = ["native"] }
 subxt-signer = { version = "0.33.0" }
 tokio = "1.35.0"
