@@ -1739,6 +1739,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1592" id="1592">1592</a>
 <a href="#1593" id="1593">1593</a>
 <a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
+<a href="#1605" id="1605">1605</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3007,6 +3018,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					task: (when, agenda_index),
 					id: task.maybe_id,
 				});
+
+				<span class="comment">// It was not available when we needed it, so we don&#39;t need to have requested it
+				// anymore.
+				</span>T::Preimages::drop(<span class="kw-2">&amp;</span>task.call);
+
+				<span class="comment">// We don&#39;t know why `peek` failed, thus we most account here for the &quot;full weight&quot;.
+				</span><span class="kw">let _ </span>= weight.try_consume(T::WeightInfo::service_task(
+					task.call.lookup_len().map(|x| x <span class="kw">as </span>usize),
+					task.maybe_id.is_some(),
+					task.maybe_periodic.is_some(),
+				));
 
 				<span class="kw">return </span><span class="prelude-val">Err</span>((Unavailable, <span class="prelude-val">Some</span>(task)))
 			},
