@@ -746,7 +746,7 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: NonFungible(Index(raw_region_id)),
-							id: AssetId(Location::new(0, [PalletInstance(50)]))
+							id: AssetId(xcm_config::BrokerPalletLocation::get())
 						},
 						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
