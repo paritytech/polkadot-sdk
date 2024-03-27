@@ -10,7 +10,6 @@ use sc_cli::{
 	NetworkParams, Result, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
-use sp_runtime::traits::AccountIdConversion;
 
 use crate::{
 	chain_spec,
@@ -241,17 +240,11 @@ pub fn run() -> Result<()> {
 
 				let id = ParaId::from(para_id);
 
-				let parachain_account =
-					AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
-						&id,
-					);
-
 				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
-				info!("Parachain Account: {parachain_account}");
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				crate::service::start_parachain_node(
