@@ -7,7 +7,7 @@ doc:
   - audience: Runtime Dev
     description: |
         Add the option to use remaining weight on idle for processing enqueued messages.
-        This will increase the changes of the messages enqueued during inherent extrinsics to be processed in the same block. 
+        This will increase the chances of the messages enqueued during inherent extrinsics to be processed in the same block. 
         New config types is added on the message-queue `Config` trait:
         - `IdleMaxServiceWeight`
 
