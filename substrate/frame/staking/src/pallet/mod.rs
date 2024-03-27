@@ -2013,12 +2013,13 @@ pub mod pallet {
 				Ok(LedgerIntegrityState::Corrupted) => {
 					let new_controller = maybe_controller.unwrap_or(stash.clone());
 
-					let new_total = if let Some(new_total) = maybe_total {
+					let new_total = if let Some(total) = maybe_total {
+						let new_total = total.min(stash_balance);
 						// enforce lock == ledger.amount.
 						T::Currency::set_lock(
 							crate::STAKING_ID,
 							&stash,
-							new_total.min(stash_balance),
+							new_total,
 							WithdrawReasons::all(),
 						);
 						new_total
@@ -2045,11 +2046,12 @@ pub mod pallet {
 				Ok(LedgerIntegrityState::LockCorrupted) => {
 					// ledger is not corrupted but its locks are out of sync. In this case, we need
 					// to enforce a new ledger.total and staking lock for this stash.
-					let new_total = maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?;
+					let new_total =
+						maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?.min(stash_balance);
 					T::Currency::set_lock(
 						crate::STAKING_ID,
 						&stash,
-						new_total.min(stash_balance),
+						new_total,
 						WithdrawReasons::all(),
 					);
 
