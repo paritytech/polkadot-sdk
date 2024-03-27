@@ -1,0 +1,3 @@
+TestConfiguration:
+- objective: StatementDistribution
+  num_blocks: 3
