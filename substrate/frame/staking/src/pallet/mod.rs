@@ -2100,26 +2100,14 @@ pub mod pallet {
 			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
 			let existing_controller = Bonded::<T>::get(&stash);
 
-			if existing_controller == None {
-				// it is a dangling lock. Clear the locks.
-				T::Currency::remove_lock(crate::STAKING_ID, &stash);
+			if existing_controller == None || current_lock == Zero::zero() {
+				// Dangling storage. Just clean everything and exit.
+				Self::clear_stash(&stash, num_slashing_spans);
 				return Ok(());
 			}
 
 			let existing_controller = existing_controller.expect("checked above not none; qed");
-			if current_lock == Zero::zero() {
-				// no lock but bonded exists. Just clean storage and exit.
-				// FIXME: Make kill stash do best effort instead of failing? Or another call that clears storage.
-				Bonded::<T>::remove(&stash);
-				Payee::<T>::remove(&stash);
-				Self::do_remove_validator(&stash);
-				Self::do_remove_nominator(&stash);
-				frame_system::Pallet::<T>::dec_consumers(&stash);
-				return Ok(());
-			}
-
 			ensure!(existing_controller == controller, Error::<T>::CannotRestoreLedger);
-
 			let existing_ledger = Ledger::<T>::get(&existing_controller);
 
 			// verify imbalances and restoration conditions.

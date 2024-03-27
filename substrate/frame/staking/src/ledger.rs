@@ -77,7 +77,11 @@ impl<T: Config> StakingLedger<T> {
 		}
 	}
 
-	pub fn force_new_with_controller(stash: T::AccountId, stake: BalanceOf<T>, controller: T::AccountId) -> Self {
+	pub fn force_new_with_controller(
+		stash: T::AccountId,
+		stake: BalanceOf<T>,
+		controller: T::AccountId,
+	) -> Self {
 		Self {
 			stash: stash.clone(),
 			active: stake,
@@ -272,6 +276,22 @@ impl<T: Config> StakingLedger<T> {
 
 			Ok(())
 		})?
+	}
+
+	/// Same as `kill` but infallible and does the best effort clear.
+	pub(crate) fn clear(stash: &T::AccountId) {
+		if let Some(controller) = <Bonded<T>>::get(stash) {
+			<Ledger<T>>::get(&controller).map(|ledger| {
+				// only kill if ledger stash matches passed stash.
+				if &ledger.stash == stash {
+					Ledger::<T>::remove(controller);
+				}
+			});
+		}
+
+		T::Currency::remove_lock(STAKING_ID, &stash);
+		<Bonded<T>>::remove(&stash);
+		<Payee<T>>::remove(&stash);
 	}
 }
 

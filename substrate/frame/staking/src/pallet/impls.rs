@@ -765,6 +765,20 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Similar to `kill_stash`, but infallible.
+	pub(crate) fn clear_stash(stash: &T::AccountId, num_slashing_spans: u32) {
+		let _ = slashing::clear_stash_metadata::<T>(&stash, num_slashing_spans);
+
+		// removes controller from `Bonded` and staking ledger from `Ledger`, as well as reward
+		// setting of the stash in `Payee`.
+		StakingLedger::<T>::clear(&stash);
+
+		Self::do_remove_validator(&stash);
+		Self::do_remove_nominator(&stash);
+
+		frame_system::Pallet::<T>::dec_consumers(&stash);
+	}
+
 	/// Clear all era information for given era.
 	pub(crate) fn clear_era_information(era_index: EraIndex) {
 		// FIXME: We can possibly set a reasonable limit since we do this only once per era and
