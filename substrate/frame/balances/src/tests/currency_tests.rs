@@ -1403,3 +1403,19 @@ fn self_transfer_noop() {
 		}
 	});
 }
+
+#[test]
+fn self_transfer_noop_2() {
+	ExtBuilder::default().existential_deposit(100).build_and_execute_with(|| {
+		let alice = 1;
+		let amount = 100;
+
+		let _ = Balances::deposit_creating(&alice, amount);
+		assert_eq!(Balances::free_balance(alice), amount);
+
+		assert_err!(
+			Balances::transfer(&alice, &alice, amount + 100, ExistenceRequirement::AllowDeath),
+			ArithmeticError::Underflow,
+		);
+	});
+}
