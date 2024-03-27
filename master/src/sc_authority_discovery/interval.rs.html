@@ -205,6 +205,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -235,6 +251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Doubles interval duration on each tick until the configured maximum is reached.
 </span><span class="kw">pub struct </span>ExpIncInterval {
+	start: Duration,
 	max: Duration,
 	next: Duration,
 	delay: Delay,
@@ -244,13 +261,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Create a new [`ExpIncInterval`].
 	</span><span class="kw">pub fn </span>new(start: Duration, max: Duration) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>delay = Delay::new(start);
-		<span class="self">Self </span>{ max, next: start * <span class="number">2</span>, delay }
+		<span class="self">Self </span>{ start, max, next: start * <span class="number">2</span>, delay }
 	}
 
-	<span class="doccomment">/// Fast forward the exponentially increasing interval to the configured maximum.
+	<span class="doccomment">/// Fast forward the exponentially increasing interval to the configured maximum, if not already
+	/// set.
 	</span><span class="kw">pub fn </span>set_to_max(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		<span class="kw">if </span><span class="self">self</span>.next == <span class="self">self</span>.max {
+			<span class="kw">return</span>;
+		}
+
 		<span class="self">self</span>.next = <span class="self">self</span>.max;
 		<span class="self">self</span>.delay = Delay::new(<span class="self">self</span>.next);
+	}
+
+	<span class="doccomment">/// Rewind the exponentially increasing interval to the configured start, if not already set.
+	</span><span class="kw">pub fn </span>set_to_start(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		<span class="kw">if </span><span class="self">self</span>.next == <span class="self">self</span>.start * <span class="number">2 </span>{
+			<span class="kw">return</span>;
+		}
+
+		<span class="self">self</span>.next = <span class="self">self</span>.start * <span class="number">2</span>;
+		<span class="self">self</span>.delay = Delay::new(<span class="self">self</span>.start);
 	}
 }
 

@@ -973,6 +973,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#826" id="826">826</a>
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1104,6 +1128,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// List of keys onto which addresses have been published at the latest publication.
 	/// Used to check whether they have changed.
 	</span>latest_published_keys: HashSet&lt;AuthorityId&gt;,
+	<span class="doccomment">/// List of the kademlia keys that have been published at the latest publication.
+	/// Used to associate DHT events with our published records.
+	</span>latest_published_kad_keys: HashSet&lt;KademliaKey&gt;,
 
 	<span class="doccomment">/// Same value as in the configuration.
 	</span>publish_non_global_ips: bool,
@@ -1240,6 +1267,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			publish_interval,
 			publish_if_changed_interval,
 			latest_published_keys: HashSet::new(),
+			latest_published_kad_keys: HashSet::new(),
 			publish_non_global_ips: config.publish_non_global_ips,
 			public_addresses,
 			strict_record_validation: config.strict_record_validation,
@@ -1372,8 +1400,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.client.as_ref(),
 		).<span class="kw">await</span><span class="question-mark">?</span>.into_iter().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
 
-		<span class="kw">if </span>only_if_changed &amp;&amp; keys == <span class="self">self</span>.latest_published_keys {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		<span class="kw">if </span>only_if_changed {
+			<span class="comment">// If the authority keys did not change and the `publish_if_changed_interval` was
+			// triggered then do nothing.
+			</span><span class="kw">if </span>keys == <span class="self">self</span>.latest_published_keys {
+				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+			}
+
+			<span class="comment">// We have detected a change in the authority keys, reset the timers to
+			// publish and gather data faster.
+			</span><span class="self">self</span>.publish_interval.set_to_start();
+			<span class="self">self</span>.query_interval.set_to_start();
 		}
 
 		<span class="kw">let </span>addresses = serialize_addresses(<span class="self">self</span>.addresses_to_publish());
@@ -1396,6 +1433,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			key_store.as_ref(),
 			keys_vec,
 		)<span class="question-mark">?</span>;
+
+		<span class="self">self</span>.latest_published_kad_keys = kv_pairs.iter().map(|(k, <span class="kw">_</span>)| k.clone()).collect();
 
 		<span class="kw">for </span>(key, value) <span class="kw">in </span>kv_pairs.into_iter() {
 			<span class="self">self</span>.network.put_value(key, value);
@@ -1498,6 +1537,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			},
 			DhtEvent::ValuePut(hash) =&gt; {
+				<span class="kw">if </span>!<span class="self">self</span>.latest_published_kad_keys.contains(<span class="kw-2">&amp;</span>hash) {
+					<span class="kw">return</span>;
+				}
+
 				<span class="comment">// Fast forward the exponentially increasing interval to the configured maximum. In
 				// case this was the first successful address publishing there is no need for a
 				// timely retry.
@@ -1510,6 +1553,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Successfully put hash &#39;{:?}&#39; on Dht.&quot;</span>, hash)
 			},
 			DhtEvent::ValuePutFailed(hash) =&gt; {
+				<span class="kw">if </span>!<span class="self">self</span>.latest_published_kad_keys.contains(<span class="kw-2">&amp;</span>hash) {
+					<span class="comment">// Not a value we have published or received multiple times.
+					</span><span class="kw">return</span>;
+				}
+
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;value_put_failed&quot;</span>]).inc();
 				}
