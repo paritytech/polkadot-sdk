@@ -3388,7 +3388,7 @@ async fn chain_head_single_connection_context() {
 		_ => panic!("Unexpected subscription ID"),
 	};
 
-	// Cannot make a call from a different connection context.
+	// Trying to unpin from a different connection will have no effect.
 	let _response = ChainHeadApiClient::<String>::chain_head_unstable_unpin(
 		&second_client,
 		first_sub_id.clone(),
