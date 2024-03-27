@@ -26,8 +26,9 @@ frame = { path = "../../../../substrate/frame", default-features = false, featur
 	"experimental",
 	"runtime",
 ] }
+log = { version = "0.4.14", default-features = false }
 
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame/std", "scale-info/std"]
+std = ["codec/std", "frame/std", "scale-info/std", "log/std"]

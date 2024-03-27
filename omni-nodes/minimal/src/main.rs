@@ -1,4 +1,4 @@
-// This file is part of Polkadot Sdk.
+// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
@@ -15,7 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod chain_spec;
-pub(crate) mod cli;
-pub mod rpc;
-pub mod service;
+//! A minimal omni-node capable of running any substrate-based runtime so long as it adheres
+//! [`standards`].
+//!
+//! See this module for more information about the assumptions of this node.
+
+#![warn(missing_docs)]
+
+mod cli;
+mod command;
+mod rpc;
+mod service;
+mod standards;
+
+fn main() -> sc_cli::Result<()> {
+	command::run()
+}

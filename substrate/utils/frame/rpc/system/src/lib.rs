@@ -34,7 +34,8 @@ use sp_blockchain::HeaderBackend;
 use sp_core::{hexdisplay::HexDisplay, Bytes};
 use sp_runtime::{legacy, traits};
 
-pub use frame_system_rpc_runtime_api::AccountNonceApi;
+// TODO: same annoying reason as per https://github.com/paritytech/polkadot-sdk/blob/fd5f9292f500652e1d4792b09fb8ac60e1268ce4/substrate/frame/src/lib.rs#L191, needs an issue and fixing.
+pub use frame_system_rpc_runtime_api::{AccountNonceApi, *};
 
 /// System RPC methods.
 #[rpc(client, server)]
