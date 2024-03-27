@@ -368,11 +368,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Returns a `DepositFrom` of an account only if balance is zero.
+	/// Refunds the `DepositFrom` of an account only if its balance is zero.
+	///
+	/// If the `maybe_check_caller` parameter is specified, it must match the account that provided
+	/// the deposit or must be the admin of the asset.
 	pub(super) fn do_refund_other(
 		id: T::AssetId,
 		who: &T::AccountId,
-		caller: &T::AccountId,
+		maybe_check_caller: Option<T::AccountId>,
 	) -> DispatchResult {
 		let mut account = Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?;
 		let (depositor, deposit) =
@@ -380,7 +383,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
 		ensure!(!account.status.is_frozen(), Error::<T, I>::Frozen);
-		ensure!(caller == &depositor || caller == &details.admin, Error::<T, I>::NoPermission);
+		if let Some(caller) = maybe_check_caller {
+			ensure!(caller == depositor || caller == details.admin, Error::<T, I>::NoPermission);
+		}
 		ensure!(account.balance.is_zero(), Error::<T, I>::WouldBurn);
 
 		T::Currency::unreserve(&depositor, deposit);
