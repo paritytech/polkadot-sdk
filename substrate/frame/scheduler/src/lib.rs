@@ -1267,6 +1267,10 @@ impl<T: Config> Pallet<T> {
 					id: task.maybe_id,
 				});
 
+				// It was not available when we needed it, so we don't need to have requested it
+				// anymore.
+				T::Preimages::drop(&task.call);
+
 				return Err((Unavailable, Some(task)))
 			},
 		};
