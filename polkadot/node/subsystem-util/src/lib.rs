@@ -383,7 +383,7 @@ pub fn signing_key_and_index<'a>(
 
 /// Sign the given data with the given validator ID.
 ///
-/// Returns `Ok(None)` if the private key that correponds to that validator ID is not found in the
+/// Returns `Ok(None)` if the private key that corresponds to that validator ID is not found in the
 /// given keystore. Returns an error if the key could not be used for signing.
 pub fn sign(
 	keystore: &KeystorePtr,
