@@ -3008,6 +3008,8 @@ fn unavailable_call_is_detected() {
 
 		// Ensure the preimage isn't available
 		assert!(!Preimage::have(&bound));
+		// But we have requested it
+		assert!(Preimage::is_requested(&hash));
 
 		// Executes in block 4.
 		run_to_block(4);
@@ -3016,5 +3018,7 @@ fn unavailable_call_is_detected() {
 			System::events().last().unwrap().event,
 			crate::Event::CallUnavailable { task: (4, 0), id: Some(name) }.into()
 		);
+		// It should not be requested anymore.
+		assert!(!Preimage::is_requested(&hash));
 	});
 }
