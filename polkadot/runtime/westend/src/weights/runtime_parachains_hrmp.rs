@@ -324,4 +324,14 @@ impl<T: frame_system::Config> runtime_parachains::hrmp::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn establish_channel_with_system() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `417`
+		//  Estimated: `6357`
+		// Minimum execution time: 629_674_000 picoseconds.
+		Weight::from_parts(640_174_000, 0)
+			.saturating_add(Weight::from_parts(0, 6357))
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(8))
+	}
 }

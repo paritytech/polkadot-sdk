@@ -65,6 +65,7 @@ pub trait WeightInfo {
 	fn force_open_hrmp_channel(c: u32) -> Weight;
 	fn establish_system_channel() -> Weight;
 	fn poke_channel_deposits() -> Weight;
+	fn establish_channel_with_system() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -102,6 +103,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn poke_channel_deposits() -> Weight {
+		Weight::MAX
+	}
+	fn establish_channel_with_system() -> Weight {
 		Weight::MAX
 	}
 }
@@ -841,9 +845,15 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// TODO write docs
+		/// Establish a bidirectional HRMP channel between a parachain and a system chain.
+		///
+		/// Arguments:
+		///
+		/// - `target_system_chain`: A system chain, `ParaId`.
+		///
+		/// The origin needs to be the parachain origin.
 		#[pallet::call_index(10)]
-		#[pallet::weight(<T as Config>::WeightInfo::establish_system_channel())] // TODO benchmarks
+		#[pallet::weight(<T as Config>::WeightInfo::establish_channel_with_system())]
 		pub fn establish_channel_with_system(
 			origin: OriginFor<T>,
 			target_system_chain: ParaId,

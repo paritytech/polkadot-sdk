@@ -513,6 +513,21 @@ mod benchmarks {
 		);
 	}
 
+	#[benchmark]
+	fn establish_channel_with_system() {
+		let sender_id = 1u32;
+		let recipient_id: ParaId = 2u32.into();
+
+		let sender_origin: crate::Origin = sender_id.into();
+
+		// make sure para is registered, and has zero balance.
+		register_parachain_with_balance::<T>(sender_id.into(), Zero::zero());
+		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
+
+		#[extrinsic_call]
+		_(sender_origin, recipient_id);
+	}
+
 	impl_benchmark_test_suite!(
 		Hrmp,
 		crate::mock::new_test_ext(crate::hrmp::tests::GenesisConfigBuilder::default().build()),
