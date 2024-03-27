@@ -17,6 +17,8 @@
 
 //! Types to combine some `fungible::*` and `fungibles::*` implementations into one union
 //! `fungibles::*` implementation.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::{

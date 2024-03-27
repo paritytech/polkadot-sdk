@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Traits for creating and destroying assets.
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use sp_runtime::{DispatchError, DispatchResult};
 
