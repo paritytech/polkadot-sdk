@@ -1538,7 +1538,7 @@ mod tests {
 	}
 
 	#[test]
-	fn validate_boosts_priority_of_message_delivery_transactons() {
+	fn validate_boosts_priority_of_message_delivery_transactions() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 
@@ -1568,7 +1568,7 @@ mod tests {
 	}
 
 	#[test]
-	fn validate_does_not_boost_priority_of_message_delivery_transactons_with_too_many_messages() {
+	fn validate_does_not_boost_priority_of_message_delivery_transactions_with_too_many_messages() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 

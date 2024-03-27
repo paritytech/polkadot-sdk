@@ -43,7 +43,7 @@ use sp_runtime::{traits::DispatchInfoOf, transaction_validity::TransactionValidi
 pub use bp_polkadot_core::{
 	AccountAddress, AccountId, Balance, Block, BlockNumber, Hash, Hasher, Header, Nonce, Signature,
 	SignedBlock, UncheckedExtrinsic, AVERAGE_HEADER_SIZE, EXTRA_STORAGE_PROOF_SIZE,
-	MAX_MANDATORY_HEADER_SIZE, REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY,
+	MAX_MANDATORY_HEADER_SIZE, REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY,
 };
 
 /// Maximal number of GRANDPA authorities at Polkadot Bulletin chain.
@@ -62,7 +62,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(90);
 
 // Re following constants - we are using the same values at Cumulus parachains. They are limited
 // by the maximal transaction weight/size. Since block limits at Bulletin Chain are larger than
-// at the Cumulus Bridgeg Hubs, we could reuse the same values.
+// at the Cumulus Bridge Hubs, we could reuse the same values.
 
 /// Maximal number of unrewarded relayer entries at inbound lane for Cumulus-based parachains.
 pub const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 1024;
@@ -207,8 +207,8 @@ impl Chain for PolkadotBulletin {
 impl ChainWithGrandpa for PolkadotBulletin {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = WITH_POLKADOT_BULLETIN_GRANDPA_PALLET_NAME;
 	const MAX_AUTHORITIES_COUNT: u32 = MAX_AUTHORITIES_COUNT;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
-		REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 =
+		REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
 	const MAX_MANDATORY_HEADER_SIZE: u32 = MAX_MANDATORY_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE: u32 = AVERAGE_HEADER_SIZE;
 }
