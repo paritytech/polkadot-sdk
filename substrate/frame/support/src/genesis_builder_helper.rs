@@ -19,26 +19,37 @@
 //!
 //! Provides common logic. For more info refer to [`sp_genesis_builder::GenesisBuilder`].
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::traits::BuildGenesisConfig;
-use sp_genesis_builder::Result as BuildResult;
+use sp_genesis_builder::{PresetId, Result as BuildResult};
 use sp_runtime::format_runtime_string;
 
-/// Get the default `GenesisConfig` as a JSON blob. For more info refer to
-/// [`sp_genesis_builder::GenesisBuilder::create_default_config`]
-pub fn create_default_config<GC>() -> sp_std::vec::Vec<u8>
-where
-	GC: BuildGenesisConfig + Default,
-{
-	serde_json::to_string(&GC::default())
-		.expect("serialization to json is expected to work. qed.")
-		.into_bytes()
-}
-
 /// Build `GenesisConfig` from a JSON blob not using any defaults and store it in the storage. For
-/// more info refer to [`sp_genesis_builder::GenesisBuilder::build_config`].
-pub fn build_config<GC: BuildGenesisConfig>(json: sp_std::vec::Vec<u8>) -> BuildResult {
+/// more info refer to [`sp_genesis_builder::GenesisBuilder::build_state`].
+pub fn build_state<GC: BuildGenesisConfig>(json: Vec<u8>) -> BuildResult {
 	let gc = serde_json::from_slice::<GC>(&json)
 		.map_err(|e| format_runtime_string!("Invalid JSON blob: {}", e))?;
 	<GC as BuildGenesisConfig>::build(&gc);
 	Ok(())
+}
+
+/// Get the default `GenesisConfig` as a JSON blob if `id` is None.
+///
+/// No named presets are supported. For more info refer to
+/// [`sp_genesis_builder::GenesisBuilder::get_preset`].
+pub fn get_preset<GC>(id: &Option<PresetId>) -> Option<Vec<u8>>
+where
+	GC: BuildGenesisConfig + Default,
+{
+	if id.is_none() {
+		Some(
+			serde_json::to_string(&GC::default())
+				.expect("serialization to json is expected to work. qed.")
+				.into_bytes(),
+		)
+	} else {
+		None
+	}
 }

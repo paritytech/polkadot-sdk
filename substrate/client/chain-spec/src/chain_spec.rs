@@ -40,15 +40,26 @@ use std::{
 	sync::Arc,
 };
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-enum GenesisBuildAction {
+enum GenesisBuildAction<EHF> {
 	Patch(json::Value),
 	Full(json::Value),
+	NamedPreset(String, PhantomData<EHF>),
+}
+
+impl<EHF> Clone for GenesisBuildAction<EHF> {
+	fn clone(&self) -> Self {
+		match self {
+			Self::Patch(ref p) => Self::Patch(p.clone()),
+			Self::Full(ref f) => Self::Full(f.clone()),
+			Self::NamedPreset(ref p, _) => Self::NamedPreset(p.clone(), Default::default()),
+		}
+	}
 }
 
 #[allow(deprecated)]
-enum GenesisSource<G> {
+enum GenesisSource<G, EHF> {
 	File(PathBuf),
 	Binary(Cow<'static, [u8]>),
 	/// factory function + code
@@ -56,10 +67,10 @@ enum GenesisSource<G> {
 	Factory(Arc<dyn Fn() -> G + Send + Sync>, Vec<u8>),
 	Storage(Storage),
 	/// build action + code
-	GenesisBuilderApi(GenesisBuildAction, Vec<u8>),
+	GenesisBuilderApi(GenesisBuildAction<EHF>, Vec<u8>),
 }
 
-impl<G> Clone for GenesisSource<G> {
+impl<G, EHF> Clone for GenesisSource<G, EHF> {
 	fn clone(&self) -> Self {
 		match *self {
 			Self::File(ref path) => Self::File(path.clone()),
@@ -71,7 +82,7 @@ impl<G> Clone for GenesisSource<G> {
 	}
 }
 
-impl<G: RuntimeGenesis> GenesisSource<G> {
+impl<G: RuntimeGenesis, EHF: HostFunctions> GenesisSource<G, EHF> {
 	fn resolve(&self) -> Result<Genesis<G>, String> {
 		/// helper container for deserializing genesis from the JSON file (ChainSpec JSON file is
 		/// also supported here)
@@ -118,6 +129,13 @@ impl<G: RuntimeGenesis> GenesisSource<G> {
 					json_blob: RuntimeGenesisConfigJson::Patch(patch.clone()),
 					code: code.clone(),
 				})),
+			Self::GenesisBuilderApi(GenesisBuildAction::NamedPreset(name, _), code) => {
+				let patch = RuntimeCaller::<EHF>::new(&code[..]).get_named_preset(Some(name))?;
+				Ok(Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Patch(patch),
+					code: code.clone(),
+				}))
+			},
 		}
 	}
 }
@@ -331,13 +349,13 @@ pub struct ChainSpecBuilder<G, E = NoExtension, EHF = ()> {
 	name: String,
 	id: String,
 	chain_type: ChainType,
-	genesis_build_action: GenesisBuildAction,
+	genesis_build_action: GenesisBuildAction<EHF>,
 	boot_nodes: Option<Vec<MultiaddrWithPeerId>>,
 	telemetry_endpoints: Option<TelemetryEndpoints>,
 	protocol_id: Option<String>,
 	fork_id: Option<String>,
 	properties: Option<Properties>,
-	_genesis: PhantomData<(G, EHF)>,
+	_genesis: PhantomData<G>,
 }
 
 impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
@@ -425,6 +443,13 @@ impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
 		self
 	}
 
+	/// Sets the name of runtime-provided JSON patch for runtime's GenesisConfig.
+	pub fn with_genesis_config_preset_name(mut self, name: &str) -> Self {
+		self.genesis_build_action =
+			GenesisBuildAction::NamedPreset(name.to_string(), Default::default());
+		self
+	}
+
 	/// Sets the full runtime's GenesisConfig JSON.
 	pub fn with_genesis_config(mut self, config: json::Value) -> Self {
 		self.genesis_build_action = GenesisBuildAction::Full(config);
@@ -463,7 +488,7 @@ impl<G, E, EHF> ChainSpecBuilder<G, E, EHF> {
 /// runtime is using the non-standard host function during genesis state creation.
 pub struct ChainSpec<G, E = NoExtension, EHF = ()> {
 	client_spec: ClientSpec<E>,
-	genesis: GenesisSource<G>,
+	genesis: GenesisSource<G, EHF>,
 	_host_functions: PhantomData<EHF>,
 }
 
@@ -1009,7 +1034,30 @@ mod tests {
 		assert!(raw_chain_spec.is_ok());
 	}
 
-	#[docify::export]
+	#[test]
+	fn generate_chain_spec_with_named_preset_works() {
+		sp_tracing::try_init_simple();
+		let output: ChainSpec<()> = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name("TestName")
+		.with_id("test_id")
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_preset_name("staging")
+		.build();
+
+		let actual = output.as_json(false).unwrap();
+		let expected =
+			from_str::<Value>(include_str!("../res/substrate_test_runtime_from_named_preset.json"))
+				.unwrap();
+
+		//wasm blob may change overtime so let's zero it. Also ensure it is there:
+		let actual = zeroize_code_key_in_json(false, actual.as_str());
+
+		assert_eq!(actual, expected);
+	}
+
 	#[test]
 	fn generate_chain_spec_with_patch_works() {
 		let output = ChainSpec::<()>::builder(
@@ -1089,6 +1137,8 @@ mod tests {
 
 	#[test]
 	fn chain_spec_as_json_fails_with_invalid_config() {
+		let expected_error_message =
+			include_str!("../res/chain_spec_as_json_fails_with_invalid_config.err");
 		let j =
 			include_str!("../../../test-utils/runtime/res/default_genesis_config_invalid_2.json");
 		let output = ChainSpec::<()>::builder(
@@ -1101,10 +1151,9 @@ mod tests {
 		.with_genesis_config(from_str(j).unwrap())
 		.build();
 
-		assert_eq!(
-			output.as_json(true),
-			Err("Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 1 column 8".to_string())
-		);
+		let result = output.as_json(true);
+
+		assert_eq!(result.err().unwrap(), expected_error_message);
 	}
 
 	#[test]
