@@ -49,7 +49,7 @@ where
 	Req: IsRequest + Decode + Encode,
 	Req::Response: Encode,
 {
-	/// Create configuration for `NetworkConfiguration::request_response_porotocols` and a
+	/// Create configuration for `NetworkConfiguration::request_response_protocols` and a
 	/// corresponding typed receiver.
 	///
 	/// This Register that config with substrate networking and receive incoming requests via the

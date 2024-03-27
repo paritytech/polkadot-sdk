@@ -60,7 +60,7 @@ pub fn generate_request_response_config<
 	)
 }
 
-/// Generate the grandpa warp sync protocol name from the genesi hash and fork id.
+/// Generate the grandpa warp sync protocol name from the genesis hash and fork id.
 fn generate_protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str>) -> String {
 	let genesis_hash = genesis_hash.as_ref();
 	if let Some(fork_id) = fork_id {

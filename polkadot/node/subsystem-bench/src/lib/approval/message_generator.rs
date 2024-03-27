@@ -74,8 +74,8 @@ pub struct PeerMessagesGenerator {
 	pub validator_index: ValidatorIndex,
 	/// An array of pre-generated random samplings, that is used to determine, which nodes would
 	/// send a given assignment, to the node under test because of the random samplings.
-	/// As an optimization we generate this sampling at the begining of the test and just pick
-	/// one randomly, because always taking the samples would be too expensive for benchamrk.
+	/// As an optimization we generate this sampling at the beginning of the test and just pick
+	/// one randomly, because always taking the samples would be too expensive for benchmark.
 	pub random_samplings: Vec<Vec<ValidatorIndex>>,
 	/// Channel for sending the generated messages to the aggregator
 	pub tx_messages: futures::channel::mpsc::UnboundedSender<(Hash, Vec<MessagesBundle>)>,
@@ -234,7 +234,7 @@ impl PeerMessagesGenerator {
 		let all_messages = all_messages
 			.into_iter()
 			.flat_map(|(_, mut messages)| {
-				// Shuffle the messages inside the same tick, so that we don't priorites messages
+				// Shuffle the messages inside the same tick, so that we don't priorities messages
 				// for older nodes. we try to simulate the same behaviour as in real world.
 				messages.shuffle(&mut rand_chacha);
 				messages
@@ -560,12 +560,12 @@ struct TestSignInfo {
 	candidate_index: CandidateIndex,
 	/// The validator sending the assignments
 	validator_index: ValidatorIndex,
-	/// The assignments convering this candidate
+	/// The assignments covering this candidate
 	assignment: TestMessageInfo,
 }
 
 impl TestSignInfo {
-	/// Helper function to create a signture for all candidates in `to_sign` parameter.
+	/// Helper function to create a signature for all candidates in `to_sign` parameter.
 	/// Returns a TestMessage
 	fn sign_candidates(
 		to_sign: &mut Vec<TestSignInfo>,

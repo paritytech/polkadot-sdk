@@ -968,7 +968,7 @@ mod test {
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		// We only interested in alredy generated actions, not new requests.
+		// We only interested in already generated actions, not new requests.
 		let actions = std::mem::take(&mut warp_sync.actions);
 		assert_eq!(actions.len(), 1);
 		assert!(matches!(
