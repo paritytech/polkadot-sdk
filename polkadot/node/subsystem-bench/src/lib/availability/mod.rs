@@ -51,11 +51,7 @@ use polkadot_node_subsystem_types::{
 	Span,
 };
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
-use polkadot_primitives::{
-	AvailabilityBitfield, Block, BlockNumber, CandidateHash, CandidateReceipt, GroupIndex, Hash,
-	HeadData, Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
-};
-use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+use polkadot_primitives::{Block, GroupIndex, Hash};
 use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
 use sc_network_types::PeerId;
 
