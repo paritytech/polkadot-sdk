@@ -47,7 +47,7 @@ impl KeySubcommand {
 	/// run the key subcommands
 	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<(), Error> {
 		match self {
-			KeySubcommand::GenerateNodeKey(cmd) => cmd.run(),
+			KeySubcommand::GenerateNodeKey(cmd) => cmd.run(cli),
 			KeySubcommand::Generate(cmd) => cmd.run(),
 			KeySubcommand::Inspect(cmd) => cmd.run(),
 			KeySubcommand::Insert(cmd) => cmd.run(cli),

@@ -27,7 +27,7 @@ use crate::{arg_enums::NodeKeyType, error, Error};
 /// The file name of the node's Ed25519 secret key inside the chain-specific
 /// network config directory, if neither `--node-key` nor `--node-key-file`
 /// is specified in combination with `--node-key-type=ed25519`.
-const NODE_KEY_ED25519_FILE: &str = "secret_ed25519";
+pub(crate) const NODE_KEY_ED25519_FILE: &str = "secret_ed25519";
 
 /// Parameters used to create the `NodeKeyConfig`, which determines the keypair
 /// used for libp2p networking.
