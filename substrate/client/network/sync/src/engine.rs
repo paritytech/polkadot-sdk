@@ -110,7 +110,7 @@ const INACTIVITY_EVICT_THRESHOLD: Duration = Duration::from_secs(30);
 /// Parachain collator may incorrectly get evicted because it's waiting to receive a number of
 /// relaychain blocks before it can start creating parachain blocks. During this wait,
 /// `SyncingEngine` still counts it as active and as the peer is not sending blocks, it may get
-/// evicted if a block is not received within the first 30 secons since the peer connected.
+/// evicted if a block is not received within the first 30 seconds since the peer connected.
 ///
 /// To prevent this from happening, define a threshold for how long `SyncingEngine` should wait
 /// before it starts evicting peers.
@@ -424,7 +424,7 @@ where
 				.expect("Genesis block exists; qed"),
 		);
 
-		// Split warp sync params into warp sync config and a channel to retreive target block
+		// Split warp sync params into warp sync config and a channel to retrieve target block
 		// header.
 		let (warp_sync_config, warp_sync_target_block_header_rx) =
 			warp_sync_params.map_or((None, None), |params| {
@@ -1057,7 +1057,7 @@ where
 	// still be under validation. If the peer has different genesis than the
 	// local node the validation fails but the peer cannot be reported in
 	// `validate_connection()` as that is also called by
-	// `ValiateInboundSubstream` which means that the peer is still being
+	// `ValidateInboundSubstream` which means that the peer is still being
 	// validated and banning the peer when handling that event would
 	// result in peer getting dropped twice.
 	//

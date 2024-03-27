@@ -16,7 +16,7 @@
 //! in a process called "Runtime Upgrades".
 //!
 //! Forkless runtime upgrades are a defining feature of the Substrate framework. Updating the
-//! runtime logic without forking the code base enables your blockchain to seemlessly evolve
+//! runtime logic without forking the code base enables your blockchain to seamlessly evolve
 //! over time in a deterministic, rules-based manner. It also removes ambiguity for node operators
 //! and other participants in the network about what is the canonical runtime.
 //!
@@ -24,7 +24,7 @@
 //!
 //! ## Performing a Runtime Upgrade
 //!
-//! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necesarry permissions
+//! To upgrade a runtime, an [`Origin`](frame_system::RawOrigin) with the necessary permissions
 //! (usually via governance) changes the `:code` storage. Usually, this is performed via a call to
 //! [`set_code`] (or [`set_code_without_checks`]) with the desired new runtime blob, scheduled
 //! using [`pallet_scheduler`].
@@ -41,7 +41,7 @@
 //!
 //! The typical use case of a migration is to 'migrate' pallet storage from one layout to another,
 //! for example when the encoding of a storage item is changed. However, they can also execute
-//! arbitary logic such as:
+//! arbitrary logic such as:
 //!
 //! - Calling arbitrary pallet methods
 //! - Mutating arbitrary on-chain state
@@ -88,7 +88,7 @@
 //!
 //! Prior to deploying migrations, it is critical to perform additional checks to ensure that when
 //! run in our real runtime they will not brick the chain due to:
-//! - Panicing
+//! - Panicking
 //! - Touching too many storage keys and resulting in an excessively large PoV
 //! - Taking too long to execute
 //!

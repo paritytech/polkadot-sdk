@@ -248,7 +248,7 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 		sender_and_lane: &SenderAndLane,
 		enqueued_messages: MessageNonce,
 	) {
-		// skip if we dont want to handle congestion
+		// skip if we don't want to handle congestion
 		if !H::supports_congestion_detection() {
 			return
 		}
