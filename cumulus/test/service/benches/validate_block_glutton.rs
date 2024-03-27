@@ -88,7 +88,8 @@ fn benchmark_block_validation(c: &mut Criterion) {
 			parent_head: parent_header.encode().into(),
 			..Default::default()
 		};
-		let block_builder = client.init_block_builder(Some(validation_data), Default::default());
+		let (block_builder, ..) =
+			client.init_block_builder(Some(validation_data), Default::default());
 		let parachain_block = block_builder.build_parachain_block(*parent_header.state_root());
 
 		let proof_size_in_kb = parachain_block.storage_proof().encode().len() as f64 / 1024f64;
@@ -197,7 +198,8 @@ fn set_glutton_parameters(
 	);
 	extrinsics.push(set_storage);
 
-	let mut block_builder = client.init_block_builder(Some(validation_data), Default::default());
+	let (mut block_builder, ..) =
+		client.init_block_builder(Some(validation_data), Default::default());
 
 	for extrinsic in extrinsics {
 		block_builder.push(extrinsic).unwrap();
