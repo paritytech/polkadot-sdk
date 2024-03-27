@@ -960,6 +960,9 @@ pub mod pallet {
 					frame_system::Pallet::<T>::inc_consumers(who)?;
 				}
 				if does_consume && frame_system::Pallet::<T>::consumers(who) == 0 {
+					// NOTE: This is a failsafe and should not happen for normal accounts. A normal
+					// account should have gotten a consumer ref in `!did_consume && does_consume`
+					// at some point.
 					log::error!(target: LOG_TARGET, "Defensively bumping a consumer ref.");
 					frame_system::Pallet::<T>::inc_consumers(who)?;
 				}
