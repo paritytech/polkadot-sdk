@@ -1805,7 +1805,7 @@ async fn grandpa_environment_checks_if_best_block_is_descendent_of_finality_targ
 	);
 
 	// best block is higher than finality target and it's on the same fork,
-	// the best block passed to the voting rule should not be overriden
+	// the best block passed to the voting rule should not be overridden
 	select_chain.set_best_chain(client.expect_header(hashof10_a).unwrap());
 	select_chain.set_finality_target(client.expect_header(hashof5_a).unwrap().hash());
 	voting_rule.set_expected_best_block(hashof10_a);
@@ -1940,7 +1940,7 @@ async fn justification_with_equivocation() {
 			precommits.push(precommit);
 		}
 
-		// we create an equivocation for the 67th validator targetting blocks #1 and #2.
+		// we create an equivocation for the 67th validator targeting blocks #1 and #2.
 		// this should be accounted as "voting for all blocks" and therefore block #3 will
 		// have 67/100 votes, reaching finality threshold.
 		{

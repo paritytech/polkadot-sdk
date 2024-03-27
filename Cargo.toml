@@ -10,24 +10,24 @@ resolver = "2"
 
 members = [
 	"bridges/bin/runtime-common",
+	"bridges/chains/chain-asset-hub-rococo",
+	"bridges/chains/chain-asset-hub-westend",
+	"bridges/chains/chain-bridge-hub-cumulus",
+	"bridges/chains/chain-bridge-hub-kusama",
+	"bridges/chains/chain-bridge-hub-polkadot",
+	"bridges/chains/chain-bridge-hub-rococo",
+	"bridges/chains/chain-bridge-hub-westend",
+	"bridges/chains/chain-kusama",
+	"bridges/chains/chain-polkadot",
+	"bridges/chains/chain-polkadot-bulletin",
+	"bridges/chains/chain-rococo",
+	"bridges/chains/chain-westend",
 	"bridges/modules/grandpa",
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
 	"bridges/modules/relayers",
 	"bridges/modules/xcm-bridge-hub",
 	"bridges/modules/xcm-bridge-hub-router",
-	"bridges/primitives/chain-asset-hub-rococo",
-	"bridges/primitives/chain-asset-hub-westend",
-	"bridges/primitives/chain-bridge-hub-cumulus",
-	"bridges/primitives/chain-bridge-hub-kusama",
-	"bridges/primitives/chain-bridge-hub-polkadot",
-	"bridges/primitives/chain-bridge-hub-rococo",
-	"bridges/primitives/chain-bridge-hub-westend",
-	"bridges/primitives/chain-kusama",
-	"bridges/primitives/chain-polkadot",
-	"bridges/primitives/chain-polkadot-bulletin",
-	"bridges/primitives/chain-rococo",
-	"bridges/primitives/chain-westend",
 	"bridges/primitives/header-chain",
 	"bridges/primitives/messages",
 	"bridges/primitives/parachains",
@@ -214,6 +214,7 @@ members = [
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
 	"polkadot/xcm/xcm-executor/integration-tests",
+	"polkadot/xcm/xcm-fee-payment-runtime-api",
 	"polkadot/xcm/xcm-simulator",
 	"polkadot/xcm/xcm-simulator/example",
 	"polkadot/xcm/xcm-simulator/fuzzer",
@@ -554,7 +555,7 @@ serde-big-array = { version = "0.3.2" }
 serde_derive = { version = "1.0.117" }
 serde_json = { version = "1.0.114", default-features = false }
 serde_yaml = { version = "0.9" }
-syn = { version = "2.0.52" }
+syn = { version = "2.0.53" }
 thiserror = { version = "1.0.48" }
 tracing-subscriber = { version = "0.2.25", default-features = false }
 
