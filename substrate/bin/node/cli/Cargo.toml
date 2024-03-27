@@ -47,6 +47,7 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
 futures = "0.3.21"
 log = { workspace = true, default-features = true }
+tracing-subscriber = { workspace = true, default-features = true, features = ["json"] }
 rand = "0.8"
 
 # primitives

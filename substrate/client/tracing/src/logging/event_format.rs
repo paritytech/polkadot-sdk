@@ -69,7 +69,8 @@ where
 
 		if self.display_level {
 			let fmt_level = { FmtLevel::new(meta.level(), self.enable_color) };
-			write!(writer, "{} ", fmt_level)?;
+			// write!(writer, "{} ", fmt_level)?;
+			write!(writer, "\"log.level\":\"{}\",", fmt_level)?;
 		}
 
 		if self.display_thread_name {

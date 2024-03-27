@@ -19528,6 +19528,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util",
+ "tracing-subscriber 0.2.25",
  "try-runtime-cli",
  "wait-timeout",
  "wat",
