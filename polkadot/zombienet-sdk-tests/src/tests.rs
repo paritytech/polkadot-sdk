@@ -42,7 +42,6 @@ async fn test_backing_disabling() -> Result<(), Error> {
 	log::debug!("role {}", role);
 	assert_eq!(role as u64, 4);
 
-
 	let collator_client = get_client(&network, "collator").await?;
 
 	wait_for_block(1, collator_client).await?;
@@ -85,7 +84,8 @@ async fn test_backing_disabling() -> Result<(), Error> {
 async fn test_disputes_offchain_disabling() -> Result<(), Error> {
 	tracing_subscriber::fmt::init();
 
-	let network = spawn_network_dispute_valid(Some(get_images_from_env()), get_provider_from_env()).await?;
+	let network =
+		spawn_network_dispute_valid(Some(get_images_from_env()), get_provider_from_env()).await?;
 
 	println!("🚀🚀🚀 network deployed");
 

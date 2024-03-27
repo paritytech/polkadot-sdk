@@ -1,4 +1,5 @@
 use serde_json::json;
+use std::time::Duration;
 use subxt::{OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
 use zombienet_sdk::{
@@ -260,7 +261,7 @@ pub async fn wait_for_metric(node: &NetworkNode, metric: &str, value: u64) -> Re
 			return Ok(());
 		}
 		// sleep at least one second
-		tokio::sleep(Duration::from_secs(1));
+		tokio::time::sleep(Duration::from_secs(1)).await;
 	}
 }
 

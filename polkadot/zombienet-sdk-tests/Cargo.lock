@@ -7376,7 +7376,7 @@ dependencies = [
 [[package]]
 name = "zombienet-configuration"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=c70e180#c70e180ace01be222793d56e41388d94b48f0d56"
 dependencies = [
  "anyhow",
  "lazy_static",
@@ -7392,7 +7392,7 @@ dependencies = [
 [[package]]
 name = "zombienet-orchestrator"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=c70e180#c70e180ace01be222793d56e41388d94b48f0d56"
 dependencies = [
  "anyhow",
  "futures",
@@ -7420,7 +7420,7 @@ dependencies = [
 [[package]]
 name = "zombienet-prom-metrics-parser"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=c70e180#c70e180ace01be222793d56e41388d94b48f0d56"
 dependencies = [
  "pest",
  "pest_derive",
@@ -7430,7 +7430,7 @@ dependencies = [
 [[package]]
 name = "zombienet-provider"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=c70e180#c70e180ace01be222793d56e41388d94b48f0d56"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7460,7 +7460,7 @@ dependencies = [
 [[package]]
 name = "zombienet-sdk"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=c70e180#c70e180ace01be222793d56e41388d94b48f0d56"
 dependencies = [
  "async-trait",
  "futures",
@@ -7477,6 +7477,7 @@ dependencies = [
 name = "zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
+ "log",
  "serde_json",
  "subxt",
  "subxt-signer",
@@ -7488,7 +7489,7 @@ dependencies = [
 [[package]]
 name = "zombienet-support"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/paritytech/zombienet-sdk?rev=1b124e5#1b124e5909c843c00b4a90283ba775f20b737a52"
+source = "git+https://github.com/paritytech/zombienet-sdk?rev=c70e180#c70e180ace01be222793d56e41388d94b48f0d56"
 dependencies = [
  "anyhow",
  "async-trait",
