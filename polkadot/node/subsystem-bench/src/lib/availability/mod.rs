@@ -146,14 +146,6 @@ pub fn prepare_test(
 	mode: TestDataAvailability,
 	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
-	let (collation_req_receiver, collation_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let (pov_req_receiver, pov_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let req_cfgs = vec![collation_req_cfg, pov_req_cfg];
-
 	let dependencies = TestEnvironmentDependencies::default();
 	let availability_state = NetworkAvailabilityState {
 		candidate_hashes: state.candidate_hashes.clone(),
