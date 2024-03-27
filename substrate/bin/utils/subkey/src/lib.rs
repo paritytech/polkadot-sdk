@@ -310,8 +310,8 @@
 
 use clap::Parser;
 use sc_cli::{
-	Error, GenerateCmd, GenerateNodeKeyCmd, InspectKeyCmd, InspectNodeKeyCmd, SignCmd, VanityCmd,
-	VerifyCmd,
+	Error, GenerateCmd, GenerateNodeKeyCmd, InspectKeyCmd, InspectNodeKeyCmd, SignCmd,
+	SubstrateCli, VanityCmd, VerifyCmd,
 };
 
 #[derive(Debug, Parser)]
@@ -344,11 +344,42 @@ pub enum Subkey {
 	/// Verify a signature for a message, provided on STDIN, with a given (public or secret) key.
 	Verify(VerifyCmd),
 }
+struct SubkeyCli;
+// Implemented because GenerateNodeKeyCmd requires an implementation of SubstrateCli
+impl SubstrateCli for SubkeyCli {
+	fn impl_name() -> String {
+		"subkey".into()
+	}
+
+	fn impl_version() -> String {
+		"1.0".into()
+	}
+
+	fn description() -> String {
+		"Utility for generating and restoring with Substrate keys".into()
+	}
+
+	fn author() -> String {
+		"Parity Team <admin@parity.io>".into()
+	}
+
+	fn support_url() -> String {
+		"https://github.com/paritytech/polkadot-sdk/issues/new".into()
+	}
+
+	fn copyright_start_year() -> i32 {
+		2024
+	}
+
+	fn load_spec(&self, _id: &str) -> std::result::Result<Box<dyn sc_cli::ChainSpec>, String> {
+		Err("Unsupported".into())
+	}
+}
 
 /// Run the subkey command, given the appropriate runtime.
 pub fn run() -> Result<(), Error> {
 	match Subkey::parse() {
-		Subkey::GenerateNodeKey(cmd) => cmd.run(),
+		Subkey::GenerateNodeKey(cmd) => cmd.run(&SubkeyCli),
 		Subkey::Generate(cmd) => cmd.run(),
 		Subkey::Inspect(cmd) => cmd.run(),
 		Subkey::InspectNodeKey(cmd) => cmd.run(),
