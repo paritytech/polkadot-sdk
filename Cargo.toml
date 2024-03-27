@@ -498,6 +498,7 @@ members = [
 	"substrate/utils/wasm-builder",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]
+exclude = ["polkadot/zombienet-sdk-tests"]
 
 [workspace.lints.rust]
 suspicious_double_ref_op = { level = "allow", priority = 2 }

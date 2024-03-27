@@ -26,7 +26,7 @@ fn get_provider_from_env() -> Provider {
 	}
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_backing_disabling() -> Result<(), Error> {
 	tracing_subscriber::fmt::init();
 
@@ -35,9 +35,13 @@ async fn test_backing_disabling() -> Result<(), Error> {
 
 	println!("🚀🚀🚀 network deployed");
 
+	sleep(Duration::from_secs(5)).await;
+
 	let honest = network.get_node("honest-0")?;
 	let role = honest.reports("node_roles").await?;
+	log::debug!("role {}", role);
 	assert_eq!(role as u64, 4);
+
 
 	let collator_client = get_client(&network, "collator").await?;
 
@@ -51,6 +55,7 @@ async fn test_backing_disabling() -> Result<(), Error> {
 	loop {
 		let call = polkadot::apis().parachain_host().disabled_validators();
 		let disabled = honest_client.runtime_api().at_latest().await?.call(call).await?;
+		log::debug!("disabled: {:?}", disabled);
 		if disabled.len() == 1 {
 			break;
 		}
@@ -61,7 +66,6 @@ async fn test_backing_disabling() -> Result<(), Error> {
 	// after the validator got disabled, but disputes are still ongoing
 	// wait for a couple of blocks to avoid it
 	sleep(Duration::from_secs(12)).await;
-
 	// get the current disputes metric
 	let total_disputes = honest.reports(DISPUTES_TOTAL_METRIC).await? as u64;
 
@@ -71,17 +75,17 @@ async fn test_backing_disabling() -> Result<(), Error> {
 	let new_total_disputes = honest.reports(DISPUTES_TOTAL_METRIC).await? as u64;
 
 	// ensure that no new disputes were created after validator got disabled
+	log::debug!("total_disputes: {total_disputes}, new_total_disputes: {new_total_disputes}");
 	assert_eq!(total_disputes, new_total_disputes);
 
 	Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_disputes_offchain_disabling() -> Result<(), Error> {
 	tracing_subscriber::fmt::init();
 
-	let images = get_images_from_env();
-	let network = spawn_network_dispute_valid(Some(images), get_provider_from_env()).await?;
+	let network = spawn_network_dispute_valid(Some(get_images_from_env()), get_provider_from_env()).await?;
 
 	println!("🚀🚀🚀 network deployed");
 
@@ -119,7 +123,7 @@ async fn test_disputes_offchain_disabling() -> Result<(), Error> {
 // The test expects pre-disabling binaries to be in system PATH before running it.
 // The test mimics what is likely to happen in the real deployment - old nodes get updated first and
 // then a runtime upgrade is performed.
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_runtime_upgrade() -> Result<(), Error> {
 	tracing_subscriber::fmt::init();
 
@@ -183,7 +187,7 @@ async fn test_runtime_upgrade() -> Result<(), Error> {
 // All prereqs for `test_runtime_upgrade` are valid here too.
 // The test performs runtime upgrade with old client nodes. They should work fine with the new
 // runtime.
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_runtime_upgrade_with_old_client() -> Result<(), Error> {
 	tracing_subscriber::fmt::init();
 

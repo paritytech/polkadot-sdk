@@ -259,6 +259,8 @@ pub async fn wait_for_metric(node: &NetworkNode, metric: &str, value: u64) -> Re
 		if current >= value {
 			return Ok(());
 		}
+		// sleep at least one second
+		tokio::sleep(Duration::from_secs(1));
 	}
 }
 

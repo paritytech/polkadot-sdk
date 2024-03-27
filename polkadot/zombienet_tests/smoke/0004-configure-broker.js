@@ -6,6 +6,7 @@ async function run(nodeName, networkInfo, _jsArgs) {
 
   await zombie.util.cryptoWaitReady();
 
+	console.log(1);
   // account to submit tx
   const keyring = new zombie.Keyring({ type: "sr25519" });
   const alice = keyring.addFromUri("//Alice");
@@ -38,31 +39,46 @@ async function run(nodeName, networkInfo, _jsArgs) {
     // as we have fixed leases only anyway.
     api.tx.broker.startSales(1, 0),
   ];
+
+	console.log(2);
   const sudo_batch = api.tx.sudo.sudo(api.tx.utility.batch(calls));
 
+	console.log(3);
+try {
   await new Promise(async (resolve, reject) => {
-    const unsub = await sudo_batch.signAndSend(alice, (result) => {
-      console.log(`Current status is ${result.status}`);
-      if (result.status.isInBlock) {
-        console.log(
-          `Transaction included at blockHash ${result.status.asInBlock}`
-        );
-      } else if (result.status.isFinalized) {
-        console.log(
-          `Transaction finalized at blockHash ${result.status.asFinalized}`
-        );
-        unsub();
-        return resolve();
-      } else if (result.isError) {
-        // Probably happens because of: https://github.com/paritytech/polkadot-sdk/issues/1202.
-        console.log(`Transaction error`);
-        // We ignore the error because it is very likely misleading, because of the issue mentioned above.
-        unsub();
-        return resolve();
-      }
-    });
+	  try {
+		  console.log("enter try 2");
+      const unsub = await sudo_batch.signAndSend(alice, (result) => {
+        console.log(`Current status is ${result.status}`);
+        if (result.status.isInBlock) {
+          console.log(
+            `Transaction included at blockHash ${result.status.asInBlock}`
+          );
+        } else if (result.status.isFinalized) {
+          console.log(
+            `Transaction finalized at blockHash ${result.status.asFinalized}`
+          );
+          unsub();
+          return resolve();
+        } else if (result.isError) {
+          // Probably happens because of: https://github.com/paritytech/polkadot-sdk/issues/1202.
+          console.log(`Transaction error`);
+          // We ignore the error because it is very likely misleading, because of the issue mentioned above.
+          unsub();
+          return resolve();
+        }
+      });
+    } catch(e) {
+      console.log("nested err");
+      console.log(e);
+    }
   });
+} catch(e) {
+	console.log(e)
+	console.log("errrrrrr");
+}
 
+	console.log(4);
   return 0;
 }
 
