@@ -1494,7 +1494,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 			Err(()) => {}
 		);
 
-		// And now the succeding request from peer_b:
+		// And now the succeeding request from peer_b:
 		let (pending_response, response_rx) = oneshot::channel();
 		let inner_req = StatementFetchingRequest {
 			relay_parent: metadata.relay_parent,
