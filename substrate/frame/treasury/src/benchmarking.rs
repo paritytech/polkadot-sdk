@@ -59,7 +59,7 @@ where
 
 const SEED: u32 = 0;
 
-// Create the pre-requisite information needed to create a treasury `propose_spend`.
+// Create the pre-requisite information needed to create a treasury `spend_local`.
 fn setup_proposal<T: Config<I>, I: 'static>(
 	u: u32,
 ) -> (T::AccountId, BalanceOf<T, I>, AccountIdLookupOf<T>) {

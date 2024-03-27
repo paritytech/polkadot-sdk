@@ -48,9 +48,6 @@ use core::marker::PhantomData;
 /// Weight functions needed for pallet_treasury.
 pub trait WeightInfo {
 	fn spend_local() -> Weight;
-	fn propose_spend() -> Weight;
-	fn reject_proposal() -> Weight;
-	fn approve_proposal(p: u32, ) -> Weight;
 	fn remove_approval() -> Weight;
 	fn on_initialize_proposals(p: u32, ) -> Weight;
 	fn spend() -> Weight;
@@ -76,48 +73,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(190_000_000, 1887)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
-	}
-	/// Storage: Treasury ProposalCount (r:1 w:1)
-	/// Proof: Treasury ProposalCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: Treasury Proposals (r:0 w:1)
-	/// Proof: Treasury Proposals (max_values: None, max_size: Some(108), added: 2583, mode: MaxEncodedLen)
-	fn propose_spend() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `177`
-		//  Estimated: `1489`
-		// Minimum execution time: 349_000_000 picoseconds.
-		Weight::from_parts(398_000_000, 1489)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
-	/// Storage: Treasury Proposals (r:1 w:1)
-	/// Proof: Treasury Proposals (max_values: None, max_size: Some(108), added: 2583, mode: MaxEncodedLen)
-	/// Storage: System Account (r:1 w:1)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-	fn reject_proposal() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `335`
-		//  Estimated: `3593`
-		// Minimum execution time: 367_000_000 picoseconds.
-		Weight::from_parts(388_000_000, 3593)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
-	/// Storage: Treasury Proposals (r:1 w:0)
-	/// Proof: Treasury Proposals (max_values: None, max_size: Some(108), added: 2583, mode: MaxEncodedLen)
-	/// Storage: Treasury Approvals (r:1 w:1)
-	/// Proof: Treasury Approvals (max_values: Some(1), max_size: Some(402), added: 897, mode: MaxEncodedLen)
-	/// The range of component `p` is `[0, 99]`.
-	fn approve_proposal(p: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `483 + p * (9 ±0)`
-		//  Estimated: `3573`
-		// Minimum execution time: 111_000_000 picoseconds.
-		Weight::from_parts(108_813_243, 3573)
-			// Standard Error: 147_887
-			.saturating_add(Weight::from_parts(683_216, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: Treasury Approvals (r:1 w:1)
 	/// Proof: Treasury Approvals (max_values: Some(1), max_size: Some(402), added: 897, mode: MaxEncodedLen)
@@ -227,48 +182,6 @@ impl WeightInfo for () {
 		Weight::from_parts(190_000_000, 1887)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
-	}
-	/// Storage: Treasury ProposalCount (r:1 w:1)
-	/// Proof: Treasury ProposalCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: Treasury Proposals (r:0 w:1)
-	/// Proof: Treasury Proposals (max_values: None, max_size: Some(108), added: 2583, mode: MaxEncodedLen)
-	fn propose_spend() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `177`
-		//  Estimated: `1489`
-		// Minimum execution time: 349_000_000 picoseconds.
-		Weight::from_parts(398_000_000, 1489)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
-	/// Storage: Treasury Proposals (r:1 w:1)
-	/// Proof: Treasury Proposals (max_values: None, max_size: Some(108), added: 2583, mode: MaxEncodedLen)
-	/// Storage: System Account (r:1 w:1)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-	fn reject_proposal() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `335`
-		//  Estimated: `3593`
-		// Minimum execution time: 367_000_000 picoseconds.
-		Weight::from_parts(388_000_000, 3593)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
-	/// Storage: Treasury Proposals (r:1 w:0)
-	/// Proof: Treasury Proposals (max_values: None, max_size: Some(108), added: 2583, mode: MaxEncodedLen)
-	/// Storage: Treasury Approvals (r:1 w:1)
-	/// Proof: Treasury Approvals (max_values: Some(1), max_size: Some(402), added: 897, mode: MaxEncodedLen)
-	/// The range of component `p` is `[0, 99]`.
-	fn approve_proposal(p: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `483 + p * (9 ±0)`
-		//  Estimated: `3573`
-		// Minimum execution time: 111_000_000 picoseconds.
-		Weight::from_parts(108_813_243, 3573)
-			// Standard Error: 147_887
-			.saturating_add(Weight::from_parts(683_216, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: Treasury Approvals (r:1 w:1)
 	/// Proof: Treasury Approvals (max_values: Some(1), max_size: Some(402), added: 897, mode: MaxEncodedLen)
