@@ -1271,6 +1271,13 @@ impl<T: Config> Pallet<T> {
 				// anymore.
 				T::Preimages::drop(&task.call);
 
+				// We don't know why `peek` failed, thus we most account here for the "full weight".
+				let _ = weight.try_consume(T::WeightInfo::service_task(
+					task.call.lookup_len().map(|x| x as usize),
+					task.maybe_id.is_some(),
+					task.maybe_periodic.is_some(),
+				));
+
 				return Err((Unavailable, Some(task)))
 			},
 		};
