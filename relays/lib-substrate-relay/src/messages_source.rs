@@ -554,9 +554,7 @@ fn split_msgs_to_refine<Source: Chain + ChainWithMessages, Target: Chain>(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use bp_runtime::Chain as ChainBase;
-	use relay_bridge_hub_rococo_client::BridgeHubRococo;
-	use relay_bridge_hub_westend_client::BridgeHubWestend;
+	use relay_substrate_client::test_chain::TestChain;
 
 	fn message_details_from_rpc(
 		nonces: RangeInclusive<MessageNonce>,
@@ -573,20 +571,14 @@ mod tests {
 
 	#[test]
 	fn validate_out_msgs_details_succeeds_if_no_messages_are_missing() {
-		assert!(validate_out_msgs_details::<BridgeHubRococo>(
-			&message_details_from_rpc(1..=3),
-			1..=3,
-		)
-		.is_ok());
+		assert!(validate_out_msgs_details::<TestChain>(&message_details_from_rpc(1..=3), 1..=3,)
+			.is_ok());
 	}
 
 	#[test]
 	fn validate_out_msgs_details_succeeds_if_head_messages_are_missing() {
-		assert!(validate_out_msgs_details::<BridgeHubRococo>(
-			&message_details_from_rpc(2..=3),
-			1..=3,
-		)
-		.is_ok())
+		assert!(validate_out_msgs_details::<TestChain>(&message_details_from_rpc(2..=3), 1..=3,)
+			.is_ok())
 	}
 
 	#[test]
@@ -594,7 +586,7 @@ mod tests {
 		let mut message_details_from_rpc = message_details_from_rpc(1..=3);
 		message_details_from_rpc.remove(1);
 		assert!(matches!(
-			validate_out_msgs_details::<BridgeHubRococo>(&message_details_from_rpc, 1..=3,),
+			validate_out_msgs_details::<TestChain>(&message_details_from_rpc, 1..=3,),
 			Err(SubstrateError::Custom(_))
 		));
 	}
@@ -602,7 +594,7 @@ mod tests {
 	#[test]
 	fn validate_out_msgs_details_map_fails_if_tail_messages_are_missing() {
 		assert!(matches!(
-			validate_out_msgs_details::<BridgeHubRococo>(&message_details_from_rpc(1..=2), 1..=3,),
+			validate_out_msgs_details::<TestChain>(&message_details_from_rpc(1..=2), 1..=3,),
 			Err(SubstrateError::Custom(_))
 		));
 	}
@@ -610,7 +602,7 @@ mod tests {
 	#[test]
 	fn validate_out_msgs_details_fails_if_all_messages_are_missing() {
 		assert!(matches!(
-			validate_out_msgs_details::<BridgeHubRococo>(&[], 1..=3),
+			validate_out_msgs_details::<TestChain>(&[], 1..=3),
 			Err(SubstrateError::Custom(_))
 		));
 	}
@@ -618,7 +610,7 @@ mod tests {
 	#[test]
 	fn validate_out_msgs_details_fails_if_more_messages_than_nonces() {
 		assert!(matches!(
-			validate_out_msgs_details::<BridgeHubRococo>(&message_details_from_rpc(1..=5), 2..=5,),
+			validate_out_msgs_details::<TestChain>(&message_details_from_rpc(1..=5), 2..=5,),
 			Err(SubstrateError::Custom(_))
 		));
 	}
@@ -644,10 +636,8 @@ mod tests {
 			msgs_to_refine.push((payload, out_msg_details));
 		}
 
-		let maybe_batches = split_msgs_to_refine::<BridgeHubRococo, BridgeHubWestend>(
-			Default::default(),
-			msgs_to_refine,
-		);
+		let maybe_batches =
+			split_msgs_to_refine::<TestChain, TestChain>(Default::default(), msgs_to_refine);
 		match expected_batches {
 			Ok(expected_batches) => {
 				let batches = maybe_batches.unwrap();
@@ -669,7 +659,7 @@ mod tests {
 
 	#[test]
 	fn test_split_msgs_to_refine() {
-		let max_extrinsic_size = BridgeHubRococo::max_extrinsic_size() as usize;
+		let max_extrinsic_size = 100000;
 
 		// Check that an error is returned when one of the messages is too big.
 		check_split_msgs_to_refine(vec![max_extrinsic_size], Err(()));
