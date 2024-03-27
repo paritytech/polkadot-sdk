@@ -56,6 +56,5 @@ sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", bra
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 
 [dev-dependencies]
-bp-rococo = { path = "../../chains/chain-rococo" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 relay-substrate-client = { path = "../client-substrate", features = ["test-helpers"] }

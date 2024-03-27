@@ -528,8 +528,8 @@ mod tests {
 	use super::*;
 	use relay_substrate_client::test_chain::TestChain;
 
-	const AT_SOURCE: Option<bp_rococo::BlockNumber> = Some(10);
-	const AT_TARGET: Option<bp_rococo::BlockNumber> = Some(1);
+	const AT_SOURCE: Option<BlockNumberOf<TestChain>> = Some(10);
+	const AT_TARGET: Option<BlockNumberOf<TestChain>> = Some(1);
 
 	#[async_std::test]
 	async fn mandatory_headers_scan_range_selects_range_if_some_headers_are_missing() {
