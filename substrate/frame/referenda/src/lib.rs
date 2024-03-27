@@ -424,6 +424,8 @@ pub mod pallet {
 		BadStatus,
 		/// The preimage does not exist.
 		PreimageNotExist,
+		/// The preimage is stored with a different length than the one provided.
+		PreimageStoredWithDifferentLength,
 	}
 
 	#[pallet::hooks]
@@ -461,6 +463,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			let proposal_origin = *proposal_origin;
 			let who = T::SubmitOrigin::ensure_origin(origin, &proposal_origin)?;
+
+			// If the pre-image is already stored, ensure that it has the same length as given in
+			// `proposal`.
+			if let Some(hash) = proposal.lookup_hash() {
+				if let Some((l, r)) =
+					T::Preimages::len(&hash).and_then(|l| proposal.lookup_len().map(|r| (l, r)))
+				{
+					if l != r {
+						return Err(Error::<T, I>::PreimageStoredWithDifferentLength.into())
+					}
+				}
+			}
 
 			let track =
 				T::Tracks::track_for(&proposal_origin).map_err(|_| Error::<T, I>::NoTrack)?;
