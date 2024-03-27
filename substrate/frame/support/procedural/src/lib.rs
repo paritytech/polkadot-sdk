@@ -31,6 +31,7 @@ mod match_and_insert;
 mod no_bound;
 mod pallet;
 mod pallet_error;
+mod runtime;
 mod storage_alias;
 mod transactional;
 mod tt_macro;
@@ -136,7 +137,7 @@ fn counter_prefix(prefix: &str) -> String {
 ///   - `Call` - If the pallet has callable functions
 ///   - `Storage` - If the pallet uses storage
 ///   - `Event` or `Event<T>` (if the event is generic) - If the pallet emits events
-///   - `Origin` or `Origin<T>` (if the origin is generic) - If the pallet has instanciable origins
+///   - `Origin` or `Origin<T>` (if the origin is generic) - If the pallet has instantiable origins
 ///   - `Config` or `Config<T>` (if the config is generic) - If the pallet builds the genesis
 ///     storage with `GenesisConfig`
 ///   - `Inherent` - If the pallet provides/can check inherents.
@@ -165,7 +166,7 @@ fn counter_prefix(prefix: &str) -> String {
 ///   and `Event` are encoded, and to define the ModuleToIndex value.
 ///
 ///   if `= $n` is not given, then index is resolved in the same way as fieldless enum in Rust
-///   (i.e. incrementedly from previous index):
+///   (i.e. incrementally from previous index):
 ///   ```nocompile
 ///   pallet1 .. = 2,
 ///   pallet2 .., // Here pallet2 is given index 3
@@ -459,7 +460,7 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 }
 
 /// This attribute can be used to derive a full implementation of a trait based on a local partial
-/// impl and an external impl containing defaults that can be overriden in the local impl.
+/// impl and an external impl containing defaults that can be overridden in the local impl.
 ///
 /// For a full end-to-end example, see [below](#use-case-auto-derive-test-pallet-config-traits).
 ///
@@ -862,16 +863,6 @@ pub fn disable_frame_system_supertrait_check(_: TokenStream, _: TokenStream) -> 
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::generate_store`.
-#[proc_macro_attribute]
-pub fn generate_store(_: TokenStream, _: TokenStream) -> TokenStream {
-	pallet_macro_stub()
-}
-
-///
-/// ---
-///
-/// Rust-Analyzer Users: Documentation for this macro can be found at
 /// `frame_support::pallet_macros::storage_version`.
 #[proc_macro_attribute]
 pub fn storage_version(_: TokenStream, _: TokenStream) -> TokenStream {
@@ -1228,6 +1219,73 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 		#internal_mod
 	}
 	.into()
+}
+
+/// Construct a runtime, with the given name and the given pallets.
+///
+/// # Example:
+///
+/// ```ignore
+/// #[frame_support::runtime]
+/// mod runtime {
+///   // The main runtime
+///   #[runtime::runtime]
+///   // Runtime Types to be generated
+///   #[runtime::derive(
+///       RuntimeCall,
+/// 	  RuntimeEvent,
+/// 	  RuntimeError,
+/// 	  RuntimeOrigin,
+/// 	  RuntimeFreezeReason,
+/// 	  RuntimeHoldReason,
+/// 	  RuntimeSlashReason,
+/// 	  RuntimeLockId,
+/// 	  RuntimeTask,
+///   )]
+///   pub struct Runtime;
+///
+///   #[runtime::pallet_index(0)]
+///   pub type System = frame_system;
+///
+///   #[runtime::pallet_index(1)]
+///   pub type Test = path::to::test;
+///
+///   // Pallet with instance.
+///   #[runtime::pallet_index(2)]
+///   pub type Test2_Instance1 = test2<Instance1>;
+///
+///   // Pallet with calls disabled.
+///   #[runtime::pallet_index(3)]
+///   #[runtime::disable_call]
+///   pub type Test3 = test3;
+///
+///   // Pallet with unsigned extrinsics disabled.
+///   #[runtime::pallet_index(4)]
+///   #[runtime::disable_unsigned]
+///   pub type Test4 = test4;
+/// }
+/// ```
+///
+/// # Legacy Ordering
+///
+/// An optional attribute can be defined as #[frame_support::runtime(legacy_ordering)] to
+/// ensure that the order of hooks is same as the order of pallets (and not based on the
+/// pallet_index). This is to support legacy runtimes and should be avoided for new ones.
+///
+/// # Note
+///
+/// The population of the genesis storage depends on the order of pallets. So, if one of your
+/// pallets depends on another pallet, the pallet that is depended upon needs to come before
+/// the pallet depending on it.
+///
+/// # Type definitions
+///
+/// * The macro generates a type alias for each pallet to their `Pallet`. E.g. `type System =
+///   frame_system::Pallet<Runtime>`
+#[cfg(feature = "experimental")]
+#[proc_macro_attribute]
+pub fn runtime(attr: TokenStream, item: TokenStream) -> TokenStream {
+	runtime::runtime(attr, item)
 }
 
 /// Mark a module that contains dynamic parameters.

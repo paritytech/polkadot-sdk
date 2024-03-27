@@ -323,7 +323,7 @@ type ValueAccessSet =
 ///
 /// This cache should be used per state instance created by the backend. One state instance is
 /// referring to the state of one block. It will cache all the accesses that are done to the state
-/// which could not be fullfilled by the [`SharedTrieCache`]. These locally cached items are merged
+/// which could not be fulfilled by the [`SharedTrieCache`]. These locally cached items are merged
 /// back to the shared trie cache when this instance is dropped.
 ///
 /// When using [`Self::as_trie_db_cache`] or [`Self::as_trie_db_mut_cache`], it will lock Mutexes.

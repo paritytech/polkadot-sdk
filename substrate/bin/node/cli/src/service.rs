@@ -53,7 +53,7 @@ pub type HostFunctions = (
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
-/// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
+/// A specialized `WasmExecutor` intended to use across substrate node. It provides all required
 /// HostFunctions.
 pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
 
@@ -107,21 +107,18 @@ pub fn create_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let tx_ext: kitchensink_runtime::TxExtension =
+	let extra: kitchensink_runtime::SignedExtra =
 		(
-			(
-				frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
-				frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
-					period,
-					best_block.saturated_into(),
-				)),
-				frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
-				frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
-			)
-				.into(),
+			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckGenesis::<kitchensink_runtime::Runtime>::new(),
+			frame_system::CheckEra::<kitchensink_runtime::Runtime>::from(generic::Era::mortal(
+				period,
+				best_block.saturated_into(),
+			)),
+			frame_system::CheckNonce::<kitchensink_runtime::Runtime>::from(nonce),
+			frame_system::CheckWeight::<kitchensink_runtime::Runtime>::new(),
 			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<
 					kitchensink_runtime::Runtime,
@@ -131,17 +128,15 @@ pub fn create_extrinsic(
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
-		tx_ext.clone(),
+		extra.clone(),
 		(
-			(
-				(),
-				kitchensink_runtime::VERSION.spec_version,
-				kitchensink_runtime::VERSION.transaction_version,
-				genesis_hash,
-				best_hash,
-				(),
-				(),
-			),
+			(),
+			kitchensink_runtime::VERSION.spec_version,
+			kitchensink_runtime::VERSION.transaction_version,
+			genesis_hash,
+			best_hash,
+			(),
+			(),
 			(),
 		),
 	);
@@ -151,7 +146,7 @@ pub fn create_extrinsic(
 		function,
 		sp_runtime::AccountId32::from(sender.public()).into(),
 		kitchensink_runtime::Signature::Sr25519(signature),
-		tx_ext,
+		extra,
 	)
 }
 
@@ -427,6 +422,7 @@ pub fn new_full_base(
 
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
+	let auth_disc_public_addresses = config.network.public_addresses.clone();
 	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 
@@ -615,6 +611,7 @@ pub fn new_full_base(
 			sc_authority_discovery::new_worker_and_service_with_config(
 				sc_authority_discovery::WorkerConfig {
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
+					public_addresses: auth_disc_public_addresses,
 					..Default::default()
 				},
 				client.clone(),
@@ -796,7 +793,7 @@ mod tests {
 	use codec::Encode;
 	use kitchensink_runtime::{
 		constants::{currency::CENTS, time::SLOT_DURATION},
-		Address, BalancesCall, RuntimeCall, TxExtension, UncheckedExtrinsic,
+		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
 	use sc_client_api::BlockBackend;
@@ -998,31 +995,25 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
-				let tx_ext: TxExtension = (
-					(
-						check_non_zero_sender,
-						check_spec_version,
-						check_tx_version,
-						check_genesis,
-						check_era,
-						check_nonce,
-						check_weight,
-					)
-						.into(),
+				let extra = (
+					check_non_zero_sender,
+					check_spec_version,
+					check_tx_version,
+					check_genesis,
+					check_era,
+					check_nonce,
+					check_weight,
 					tx_payment,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
-					tx_ext,
-					(
-						((), spec_version, transaction_version, genesis_hash, genesis_hash, (), ()),
-						(),
-					),
+					extra,
+					((), spec_version, transaction_version, genesis_hash, genesis_hash, (), (), ()),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
-				let (function, tx_ext, _) = raw_payload.deconstruct();
+				let (function, extra, _) = raw_payload.deconstruct();
 				index += 1;
-				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), tx_ext)
+				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), extra)
 					.into()
 			},
 		);
