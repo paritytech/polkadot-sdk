@@ -805,6 +805,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#658" id="658">658</a>
 <a href="#659" id="659">659</a>
 <a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -838,8 +840,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>polkadot_primitives::{
 	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, CollatorPair,
-	CommittedCandidateReceipt, CompactStatement, EncodeAs, Hash, HashT, HeadData, Id <span class="kw">as </span>ParaId,
-	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
+	CommittedCandidateReceipt, CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData,
+	Id <span class="kw">as </span>ParaId, PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
 	ValidationCodeHash, ValidatorIndex, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 <span class="kw">pub use </span>sp_consensus_babe::{
@@ -1331,6 +1333,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// okay to just drop it. However, if it is called, it should be called with the signed
 	/// statement of a parachain validator seconding the collation.
 	</span><span class="kw">pub </span>result_sender: <span class="prelude-ty">Option</span>&lt;futures::channel::oneshot::Sender&lt;CollationSecondedSignal&gt;&gt;,
+	<span class="doccomment">/// The core index on which the resulting candidate should be backed
+	</span><span class="kw">pub </span>core_index: CoreIndex,
 }
 
 <span class="doccomment">/// This is the data we keep available for each candidate included in the relay chain.

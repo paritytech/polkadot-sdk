@@ -516,6 +516,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
 <a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -563,14 +571,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_network_protocol::PeerId;
 <span class="kw">use </span>polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, GroupIndex, SessionIndex};
 
+<span class="doccomment">/// Elastic scaling: how many candidates per relay chain block the collator supports building.
+</span><span class="kw">pub const </span>MAX_CHAINED_CANDIDATES_PER_RCB: NonZeroUsize = <span class="kw">match </span>NonZeroUsize::new(<span class="number">3</span>) {
+	<span class="prelude-val">Some</span>(cap) =&gt; cap,
+	<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;max candidates per rcb cannot be zero&quot;</span>),
+};
+
 <span class="doccomment">/// The ring buffer stores at most this many unique validator groups.
 ///
 /// This value should be chosen in way that all groups assigned to our para
-/// in the view can fit into the buffer.
-</span><span class="kw">pub const </span>VALIDATORS_BUFFER_CAPACITY: NonZeroUsize = <span class="kw">match </span>NonZeroUsize::new(<span class="number">3</span>) {
-	<span class="prelude-val">Some</span>(cap) =&gt; cap,
-	<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;buffer capacity must be non-zero&quot;</span>),
-};
+/// in the view can fit into the buffer multiplied by amount of candidates we support per relay
+/// chain block in the case of elastic scaling.
+</span><span class="kw">pub const </span>VALIDATORS_BUFFER_CAPACITY: NonZeroUsize =
+	<span class="kw">match </span>NonZeroUsize::new(<span class="number">3 </span>* MAX_CHAINED_CANDIDATES_PER_RCB.get()) {
+		<span class="prelude-val">Some</span>(cap) =&gt; cap,
+		<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;buffer capacity must be non-zero&quot;</span>),
+	};
 
 <span class="doccomment">/// Unique identifier of a validators group.
 </span><span class="attr">#[derive(Debug)]

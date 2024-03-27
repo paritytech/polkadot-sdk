@@ -2701,6 +2701,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2554" id="2554">2554</a>
 <a href="#2555" id="2555">2555</a>
 <a href="#2556" id="2556">2556</a>
+<a href="#2557" id="2557">2557</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3690,6 +3691,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>HeapSize = MessageQueueHeapSize;
 	<span class="kw">type </span>MaxStale = MessageQueueMaxStale;
 	<span class="kw">type </span>ServiceWeight = MessageQueueServiceWeight;
+	<span class="kw">type </span>IdleMaxServiceWeight = MessageQueueServiceWeight;
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 	</span><span class="kw">type </span>MessageProcessor = MessageProcessor;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]

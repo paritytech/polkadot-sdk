@@ -1367,6 +1367,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1220" id="1220">1220</a>
 <a href="#1221" id="1221">1221</a>
 <a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1597,6 +1599,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The result sender should be informed when at least one parachain validator seconded the
 		/// collation. It is also completely okay to just drop the sender.
 		</span>result_sender: <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;CollationSecondedSignal&gt;&gt;,
+		<span class="doccomment">/// The core index where the candidate should be backed.
+		</span>core_index: CoreIndex,
 	},
 	<span class="doccomment">/// Report a collator as having provided an invalid collation. This should lead to disconnect
 	/// and blacklist of the collator.

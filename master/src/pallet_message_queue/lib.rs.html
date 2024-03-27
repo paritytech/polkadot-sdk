@@ -1788,6 +1788,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1641" id="1641">1641</a>
 <a href="#1642" id="1642">1642</a>
 <a href="#1643" id="1643">1643</a>
+<a href="#1644" id="1644">1644</a>
+<a href="#1645" id="1645">1645</a>
+<a href="#1646" id="1646">1646</a>
+<a href="#1647" id="1647">1647</a>
+<a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
+<a href="#1651" id="1651">1651</a>
+<a href="#1652" id="1652">1652</a>
+<a href="#1653" id="1653">1653</a>
+<a href="#1654" id="1654">1654</a>
+<a href="#1655" id="1655">1655</a>
+<a href="#1656" id="1656">1656</a>
+<a href="#1657" id="1657">1657</a>
+<a href="#1658" id="1658">1658</a>
+<a href="#1659" id="1659">1659</a>
+<a href="#1660" id="1660">1660</a>
+<a href="#1661" id="1661">1661</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2315,12 +2333,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>MaxStale: Get&lt;u32&gt;;
 
 		<span class="doccomment">/// The amount of weight (if any) which should be provided to the message queue for
-		/// servicing enqueued items.
+		/// servicing enqueued items `on_initialize`.
 		///
 		/// This may be legitimately `None` in the case that you will call
-		/// `ServiceQueues::service_queues` manually.
+		/// `ServiceQueues::service_queues` manually or set [`Self::IdleMaxServiceWeight`] to have
+		/// it run in `on_idle`.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>ServiceWeight: Get&lt;<span class="prelude-ty">Option</span>&lt;Weight&gt;&gt;;
+
+		<span class="doccomment">/// The maximum amount of weight (if any) to be used from remaining weight `on_idle` which
+		/// should be provided to the message queue for servicing enqueued items `on_idle`.
+		/// Useful for parachains to process messages at the same block they are received.
+		///
+		/// If `None`, it will not call `ServiceQueues::service_queues` in `on_idle`.
+		</span><span class="attr">#[pallet::constant]
+		</span><span class="kw">type </span>IdleMaxServiceWeight: Get&lt;<span class="prelude-ty">Option</span>&lt;Weight&gt;&gt;;
 	}
 
 	<span class="attr">#[pallet::event]
@@ -2428,6 +2455,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>on_initialize(_n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(weight_limit) = T::ServiceWeight::get() {
 				<span class="self">Self</span>::service_queues(weight_limit)
+			} <span class="kw">else </span>{
+				Weight::zero()
+			}
+		}
+
+		<span class="kw">fn </span>on_idle(_n: BlockNumberFor&lt;T&gt;, remaining_weight: Weight) -&gt; Weight {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(weight_limit) = T::IdleMaxServiceWeight::get() {
+				<span class="comment">// Make use of the remaining weight to process enqueued messages.
+				</span><span class="self">Self</span>::service_queues(weight_limit.min(remaining_weight))
 			} <span class="kw">else </span>{
 				Weight::zero()
 			}

@@ -801,6 +801,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -847,8 +882,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::{
 	has_required_runtime, request_async_backing_params, request_availability_cores,
-	request_claim_queue, request_persisted_validation_data, request_validation_code,
-	request_validation_code_hash, request_validators,
+	request_claim_queue, request_para_backing_state, request_persisted_validation_data,
+	request_validation_code, request_validation_code_hash, request_validators,
 };
 <span class="kw">use </span>polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
@@ -1015,6 +1050,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">if </span>config.collator.is_none() {
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
+	<span class="kw">let </span>para_id = config.para_id;
 
 	<span class="kw">let </span>_overall_timer = metrics.time_new_activations();
 
@@ -1028,25 +1064,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="kw">let </span>availability_cores = availability_cores<span class="question-mark">??</span>;
-		<span class="kw">let </span>n_validators = validators<span class="question-mark">??</span>.len();
 		<span class="kw">let </span>async_backing_params = async_backing_params<span class="question-mark">?</span>.ok();
+		<span class="kw">let </span>n_validators = validators<span class="question-mark">??</span>.len();
 		<span class="kw">let </span>maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent).<span class="kw">await</span><span class="question-mark">?</span>;
 
-		<span class="kw">for </span>(core_idx, core) <span class="kw">in </span>availability_cores.into_iter().enumerate() {
-			<span class="kw">let </span>_availability_core_timer = metrics.time_new_activations_availability_core();
+		<span class="comment">// The loop bellow will fill in cores that the para is allowed to build on.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>cores_to_build_on = Vec::new();
 
-			<span class="kw">let </span>(scheduled_core, assumption) = <span class="kw">match </span>core {
-				CoreState::Scheduled(scheduled_core) =&gt;
-					(scheduled_core, OccupiedCoreAssumption::Free),
+		<span class="kw">for </span>(core_idx, core) <span class="kw">in </span>availability_cores.into_iter().enumerate() {
+			<span class="kw">let </span>scheduled_core = <span class="kw">match </span>core {
+				CoreState::Scheduled(scheduled_core) =&gt; scheduled_core,
 				CoreState::Occupied(occupied_core) =&gt; <span class="kw">match </span>async_backing_params {
 					<span class="prelude-val">Some</span>(params) <span class="kw">if </span>params.max_candidate_depth &gt;= <span class="number">1 </span>=&gt; {
 						<span class="comment">// maximum candidate depth when building on top of a block
 						// pending availability is necessarily 1 - the depth of the
 						// pending block is 0 so the child has depth 1.
 
-						// TODO [now]: this assumes that next up == current.
-						// in practice we should only set `OccupiedCoreAssumption::Included`
-						// when the candidate occupying the core is also of the same para.
+						// Use claim queue if available, or fallback to `next_up_on_available`
 						</span><span class="kw">let </span>res = <span class="kw">match </span>maybe_claim_queue {
 							<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>claim_queue) =&gt; {
 								<span class="comment">// read what&#39;s in the claim queue for this core
@@ -1060,8 +1094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								// `next_up_on_available`
 								</span>occupied_core.next_up_on_available
 							},
-						}
-						.map(|scheduled| (scheduled, OccupiedCoreAssumption::Included));
+						};
 
 						<span class="kw">match </span>res {
 							<span class="prelude-val">Some</span>(res) =&gt; res,
@@ -1082,7 +1115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						core_idx = %core_idx,
-						<span class="string">&quot;core is free. Keep going.&quot;</span>,
+						<span class="string">&quot;core is not assigned to any para. Keep going.&quot;</span>,
 					);
 					<span class="kw">continue
 				</span>},
@@ -1097,64 +1130,90 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					their_para = %scheduled_core.para_id,
 					<span class="string">&quot;core is not assigned to our para. Keep going.&quot;</span>,
 				);
+			} <span class="kw">else </span>{
+				<span class="comment">// Accumulate cores for building collation(s) outside the loop.
+				</span>cores_to_build_on.push(CoreIndex(core_idx <span class="kw">as </span>u32));
+			}
+		}
+
+		<span class="comment">// Skip to next relay parent if there is no core assigned to us.
+		</span><span class="kw">if </span>cores_to_build_on.is_empty() {
+			<span class="kw">continue
+		</span>}
+
+		<span class="kw">let </span>para_backing_state =
+			request_para_backing_state(relay_parent, config.para_id, ctx.sender())
+				.<span class="kw">await
+				</span>.<span class="kw">await</span><span class="question-mark">??
+				</span>.ok_or(<span class="kw">crate</span>::error::Error::MissingParaBackingState)<span class="question-mark">?</span>;
+
+		<span class="comment">// We are being very optimistic here, but one of the cores could pend availability some more
+		// block, ore even time out.
+		// For timeout assumption the collator can&#39;t really know because it doesn&#39;t receive bitfield
+		// gossip.
+		</span><span class="kw">let </span>assumption = <span class="kw">if </span>para_backing_state.pending_availability.is_empty() {
+			OccupiedCoreAssumption::Free
+		} <span class="kw">else </span>{
+			OccupiedCoreAssumption::Included
+		};
+
+		<span class="macro">gum::debug!</span>(
+			target: LOG_TARGET,
+			relay_parent = <span class="question-mark">?</span>relay_parent,
+			our_para = %config.para_id,
+			<span class="question-mark">?</span>assumption,
+			<span class="string">&quot;Occupied core(s) assumption&quot;</span>,
+		);
+
+		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = <span class="kw">match </span>request_persisted_validation_data(
+			relay_parent,
+			config.para_id,
+			assumption,
+			ctx.sender(),
+		)
+		.<span class="kw">await
+		</span>.<span class="kw">await</span><span class="question-mark">??
+		</span>{
+			<span class="prelude-val">Some</span>(v) =&gt; v,
+			<span class="prelude-val">None </span>=&gt; {
+				<span class="macro">gum::debug!</span>(
+					target: LOG_TARGET,
+					relay_parent = <span class="question-mark">?</span>relay_parent,
+					our_para = %config.para_id,
+					<span class="string">&quot;validation data is not available&quot;</span>,
+				);
 				<span class="kw">continue
-			</span>}
+			</span>},
+		};
 
-			<span class="comment">// we get validation data and validation code synchronously for each core instead of
-			// within the subtask loop, because we have only a single mutable handle to the
-			// context, so the work can&#39;t really be distributed
+		<span class="kw">let </span>validation_code_hash = <span class="kw">match </span>obtain_validation_code_hash_with_assumption(
+			relay_parent,
+			config.para_id,
+			assumption,
+			ctx.sender(),
+		)
+		.<span class="kw">await</span><span class="question-mark">?
+		</span>{
+			<span class="prelude-val">Some</span>(v) =&gt; v,
+			<span class="prelude-val">None </span>=&gt; {
+				<span class="macro">gum::debug!</span>(
+					target: LOG_TARGET,
+					relay_parent = <span class="question-mark">?</span>relay_parent,
+					our_para = %config.para_id,
+					<span class="string">&quot;validation code hash is not found.&quot;</span>,
+				);
+				<span class="kw">continue
+			</span>},
+		};
 
-			</span><span class="kw">let </span>validation_data = <span class="kw">match </span>request_persisted_validation_data(
-				relay_parent,
-				scheduled_core.para_id,
-				assumption,
-				ctx.sender(),
-			)
-			.<span class="kw">await
-			</span>.<span class="kw">await</span><span class="question-mark">??
-			</span>{
-				<span class="prelude-val">Some</span>(v) =&gt; v,
-				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">gum::trace!</span>(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						relay_parent = <span class="question-mark">?</span>relay_parent,
-						our_para = %config.para_id,
-						their_para = %scheduled_core.para_id,
-						<span class="string">&quot;validation data is not available&quot;</span>,
-					);
-					<span class="kw">continue
-				</span>},
-			};
+		<span class="kw">let </span>task_config = config.clone();
+		<span class="kw">let </span>metrics = metrics.clone();
+		<span class="kw">let </span><span class="kw-2">mut </span>task_sender = ctx.sender().clone();
 
-			<span class="kw">let </span>validation_code_hash = <span class="kw">match </span>obtain_validation_code_hash_with_assumption(
-				relay_parent,
-				scheduled_core.para_id,
-				assumption,
-				ctx.sender(),
-			)
-			.<span class="kw">await</span><span class="question-mark">?
-			</span>{
-				<span class="prelude-val">Some</span>(v) =&gt; v,
-				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">gum::trace!</span>(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						relay_parent = <span class="question-mark">?</span>relay_parent,
-						our_para = %config.para_id,
-						their_para = %scheduled_core.para_id,
-						<span class="string">&quot;validation code hash is not found.&quot;</span>,
-					);
-					<span class="kw">continue
-				</span>},
-			};
-
-			<span class="kw">let </span>task_config = config.clone();
-			<span class="kw">let </span>metrics = metrics.clone();
-			<span class="kw">let </span><span class="kw-2">mut </span>task_sender = ctx.sender().clone();
-			ctx.spawn(
-				<span class="string">&quot;collation-builder&quot;</span>,
-				Box::pin(<span class="kw">async move </span>{
+		ctx.spawn(
+			<span class="string">&quot;chained-collation-builder&quot;</span>,
+			Box::pin(<span class="kw">async move </span>{
+				<span class="kw">for </span>core_index <span class="kw">in </span>cores_to_build_on {
 					<span class="kw">let </span>collator_fn = <span class="kw">match </span>task_config.collator.as_ref() {
 						<span class="prelude-val">Some</span>(x) =&gt; x,
 						<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
@@ -1166,21 +1225,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="prelude-val">None </span>=&gt; {
 								<span class="macro">gum::debug!</span>(
 									target: LOG_TARGET,
-									para_id = %scheduled_core.para_id,
+									<span class="question-mark">?</span>para_id,
 									<span class="string">&quot;collator returned no collation on collate&quot;</span>,
 								);
 								<span class="kw">return
 							</span>},
 						};
 
+					<span class="kw">let </span>parent_head = collation.head_data.clone();
 					construct_and_distribute_receipt(
 						PreparedCollation {
 							collation,
-							para_id: scheduled_core.para_id,
+							para_id,
 							relay_parent,
-							validation_data,
+							validation_data: validation_data.clone(),
 							validation_code_hash,
 							n_validators,
+							core_index,
 						},
 						task_config.key.clone(),
 						<span class="kw-2">&amp;mut </span>task_sender,
@@ -1188,9 +1249,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw-2">&amp;</span>metrics,
 					)
 					.<span class="kw">await</span>;
-				}),
-			)<span class="question-mark">?</span>;
-		}
+
+					<span class="comment">// Chain the collations. All else stays the same as we build the chained
+					// collation on same relay parent.
+					</span>validation_data.parent_head = parent_head;
+				}
+			}),
+		)<span class="question-mark">?</span>;
 	}
 
 	<span class="prelude-val">Ok</span>(())
@@ -1211,6 +1276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		parent_head,
 		validation_code_hash,
 		result_sender,
+		core_index,
 	} = params;
 
 	<span class="kw">let </span>validators = request_validators(relay_parent, ctx.sender()).<span class="kw">await</span>.<span class="kw">await</span><span class="question-mark">??</span>;
@@ -1247,6 +1313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_data,
 		validation_code_hash,
 		n_validators,
+		core_index,
 	};
 
 	construct_and_distribute_receipt(
@@ -1268,6 +1335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	validation_data: PersistedValidationData,
 	validation_code_hash: ValidationCodeHash,
 	n_validators: usize,
+	core_index: CoreIndex,
 }
 
 <span class="doccomment">/// Takes a prepared collation, along with its context, and produces a candidate receipt
@@ -1286,6 +1354,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_data,
 		validation_code_hash,
 		n_validators,
+		core_index,
 	} = collation;
 
 	<span class="kw">let </span>persisted_validation_data_hash = validation_data.hash();
@@ -1381,6 +1450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pov,
 			parent_head_data,
 			result_sender,
+			core_index,
 		})
 		.<span class="kw">await</span>;
 }

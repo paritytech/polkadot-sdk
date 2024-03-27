@@ -664,6 +664,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
 <a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -715,7 +732,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
 <span class="kw">use </span>polkadot_overseer::Handle <span class="kw">as </span>OverseerHandle;
-<span class="kw">use </span>polkadot_primitives::{CollatorPair, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption};
+<span class="kw">use </span>polkadot_primitives::{CollatorPair, CoreIndex, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption};
 
 <span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
@@ -850,7 +867,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(relay_parent_header) = import_notifications.next().<span class="kw">await </span>{
 			<span class="kw">let </span>relay_parent = relay_parent_header.hash();
 
-			<span class="kw">if </span>!is_para_scheduled(relay_parent, params.para_id, <span class="kw-2">&amp;mut </span>params.overseer_handle).<span class="kw">await </span>{
+			<span class="comment">// TODO: Currently we use just the first core here, but for elastic scaling
+			// we iterate and build on all of the cores returned.
+			</span><span class="kw">let </span>core_index = <span class="kw">if let </span><span class="prelude-val">Some</span>(core_index) =
+				cores_scheduled_for_para(relay_parent, params.para_id, <span class="kw-2">&amp;mut </span>params.overseer_handle)
+					.<span class="kw">await
+					</span>.get(<span class="number">0</span>)
+			{
+				<span class="kw-2">*</span>core_index
+			} <span class="kw">else </span>{
 				<span class="macro">tracing::trace!</span>(
 					target: <span class="kw">crate</span>::LOG_TARGET,
 					<span class="question-mark">?</span>relay_parent,
@@ -859,7 +884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 
 				<span class="kw">continue
-			</span>}
+			</span>};
 
 			<span class="kw">let </span>max_pov_size = <span class="kw">match </span>params
 				.relay_client
@@ -1062,6 +1087,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										parent_head: parent_header.encode().into(),
 										validation_code_hash,
 										result_sender: <span class="prelude-val">None</span>,
+										core_index,
 									},
 								),
 								<span class="string">&quot;SubmitCollation&quot;</span>,
@@ -1146,14 +1172,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="comment">// Checks if there exists a scheduled core for the para at the provided relay parent.
-//
-// Falls back to `false` in case of an error.
-</span><span class="kw">async fn </span>is_para_scheduled(
+<span class="comment">// Return all the cores assigned to the para at the provided relay parent.
+</span><span class="kw">async fn </span>cores_scheduled_for_para(
 	relay_parent: PHash,
 	para_id: ParaId,
 	overseer_handle: <span class="kw-2">&amp;mut </span>OverseerHandle,
-) -&gt; bool {
+) -&gt; Vec&lt;CoreIndex&gt; {
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 	<span class="kw">let </span>request = RuntimeApiRequest::AvailabilityCores(tx);
 	overseer_handle
@@ -1169,18 +1193,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>relay_parent,
 				<span class="string">&quot;Failed to query availability cores runtime API&quot;</span>,
 			);
-			<span class="kw">return </span><span class="bool-val">false
-		</span>},
+			<span class="kw">return </span>Vec::new()
+		},
 		<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; {
 			<span class="macro">tracing::error!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
 				<span class="string">&quot;Sender for availability cores runtime request dropped&quot;</span>,
 			);
-			<span class="kw">return </span><span class="bool-val">false
-		</span>},
+			<span class="kw">return </span>Vec::new()
+		},
 	};
 
-	cores.iter().any(|core| core.para_id() == <span class="prelude-val">Some</span>(para_id))
+	cores
+		.iter()
+		.enumerate()
+		.filter_map(|(index, core)| {
+			<span class="kw">if </span>core.para_id() == <span class="prelude-val">Some</span>(para_id) {
+				<span class="prelude-val">Some</span>(CoreIndex(index <span class="kw">as </span>u32))
+			} <span class="kw">else </span>{
+				<span class="prelude-val">None
+			</span>}
+		})
+		.collect()
 }
 </code></pre></div></section></main></body></html>
