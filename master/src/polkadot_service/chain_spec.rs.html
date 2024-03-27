@@ -1247,6 +1247,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1100" id="1100">1100</a>
 <a href="#1101" id="1101">1101</a>
 <a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1372,7 +1375,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; polkadot_runtime_parachains::configuration::HostConfiguration&lt;polkadot_primitives::BlockNumber&gt;
 {
 	<span class="kw">use </span>polkadot_primitives::{
-		vstaging::node_features::FeatureIndex, AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE,
+		vstaging::{node_features::FeatureIndex, ApprovalVotingParams},
+		AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE,
 	};
 
 	polkadot_runtime_parachains::configuration::HostConfiguration {
@@ -1407,7 +1411,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			allowed_ancestry_len: <span class="number">2</span>,
 		},
 		node_features: bitvec::vec::BitVec::from_element(
-			<span class="number">1u8 </span>&lt;&lt; (FeatureIndex::ElasticScalingMVP <span class="kw">as </span>usize),
+			<span class="number">1u8 </span>&lt;&lt; (FeatureIndex::ElasticScalingMVP <span class="kw">as </span>usize) |
+				<span class="number">1u8 </span>&lt;&lt; (FeatureIndex::EnableAssignmentsV2 <span class="kw">as </span>usize),
 		),
 		scheduler_params: SchedulerParams {
 			lookahead: <span class="number">2</span>,
@@ -1415,6 +1420,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			paras_availability_period: <span class="number">4</span>,
 			..Default::default()
 		},
+		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: <span class="number">5 </span>},
 		..Default::default()
 	}
 }
