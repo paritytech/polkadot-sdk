@@ -94,6 +94,10 @@ pub struct RunCmd {
 	#[arg(long)]
 	pub rpc_rate_limit: Option<NonZeroU32>,
 
+	/// Disable RPC rate limiting for certain hosts.
+	#[arg(long, num_args = 1..)]
+	pub rpc_rate_limit_whitelisted_hosts: Vec<String>,
+
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
 	pub rpc_max_request_size: u32,
@@ -437,6 +441,10 @@ impl CliConfiguration for RunCmd {
 
 	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
 		Ok(self.rpc_rate_limit)
+	}
+
+	fn rpc_rate_limit_whitelisted_hosts(&self) -> Result<Vec<String>> {
+		Ok(self.rpc_rate_limit_whitelisted_hosts.clone())
 	}
 
 	fn transaction_pool(&self, is_dev: bool) -> Result<TransactionPoolOptions> {

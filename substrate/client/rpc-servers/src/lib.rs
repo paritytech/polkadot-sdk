@@ -21,26 +21,29 @@
 #![warn(missing_docs)]
 
 pub mod middleware;
+pub mod utils;
 
 use std::{
 	convert::Infallible, error::Error as StdError, net::SocketAddr, num::NonZeroU32, time::Duration,
 };
 
-use http::header::HeaderValue;
 use hyper::{
 	server::conn::AddrStream,
 	service::{make_service_fn, service_fn},
 };
 use jsonrpsee::{
 	server::{
-		middleware::http::{HostFilterLayer, ProxyGetRequestLayer},
-		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
+		middleware::http::ProxyGetRequestLayer, stop_channel, ws, PingConfig, StopHandle,
+		TowerServiceBuilder,
 	},
 	Methods, RpcModule,
 };
 use tokio::net::TcpListener;
 use tower::Service;
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use utils::{
+	build_rpc_api, format_cors, host_filtering, hosts_to_ip_addrs, read_ip_from_proxy,
+	try_into_cors,
+};
 
 pub use jsonrpsee::{
 	core::{
@@ -85,6 +88,8 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub batch_config: BatchRequestConfig,
 	/// Rate limit calls per minute.
 	pub rate_limit: Option<NonZeroU32>,
+	/// Disable rate limit for hosts.
+	pub rate_limit_whitelisted_hosts: &'a [String],
 }
 
 #[derive(Debug, Clone)]
@@ -117,11 +122,13 @@ where
 		tokio_handle,
 		rpc_api,
 		rate_limit,
+		rate_limit_whitelisted_hosts,
 	} = config;
 
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
 	let local_addr = std_listener.local_addr().ok();
-	let host_filter = hosts_filtering(cors.is_some(), local_addr);
+	let host_filter = host_filtering(cors.is_some(), local_addr);
+	let rate_limit_whitelisted_ip_addrs = hosts_to_ip_addrs(rate_limit_whitelisted_hosts)?;
 
 	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
@@ -160,20 +167,33 @@ where
 		stop_handle: stop_handle.clone(),
 	};
 
-	let make_service = make_service_fn(move |_conn: &AddrStream| {
+	let make_service = make_service_fn(move |conn: &AddrStream| {
 		let cfg = cfg.clone();
+		let peer_ip = conn.remote_addr().ip();
+		let rate_limit_whitelisted_ip_addrs = rate_limit_whitelisted_ip_addrs.clone();
 
 		async move {
 			let cfg = cfg.clone();
+			let rate_limit_whitelisted_ip_addrs = rate_limit_whitelisted_ip_addrs.clone();
 
 			Ok::<_, Infallible>(service_fn(move |req| {
+				let ip =
+					if let Some(proxy_ip) = read_ip_from_proxy(&req) { proxy_ip } else { peer_ip };
+
+				let rate_limit_cfg = if rate_limit_whitelisted_ip_addrs.iter().any(|ip2| ip2 == &ip)
+				{
+					None
+				} else {
+					rate_limit
+				};
+
 				let PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
 					cfg.clone();
 
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label = if is_websocket { "ws" } else { "http" };
 
-				let middleware_layer = match (metrics, rate_limit) {
+				let middleware_layer = match (metrics, rate_limit_cfg) {
 					(None, None) => None,
 					(Some(metrics), None) => Some(
 						MiddlewareLayer::new().with_metrics(Metrics::new(metrics, transport_label)),
@@ -226,58 +246,4 @@ where
 	);
 
 	Ok(server_handle)
-}
-
-fn hosts_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<HostFilterLayer> {
-	// If the local_addr failed, fallback to wildcard.
-	let port = addr.map_or("*".to_string(), |p| p.port().to_string());
-
-	if enabled {
-		// NOTE: The listening addresses are whitelisted by default.
-		let hosts =
-			[format!("localhost:{port}"), format!("127.0.0.1:{port}"), format!("[::1]:{port}")];
-		Some(HostFilterLayer::new(hosts).expect("Valid hosts; qed"))
-	} else {
-		None
-	}
-}
-
-fn build_rpc_api<M: Send + Sync + 'static>(mut rpc_api: RpcModule<M>) -> RpcModule<M> {
-	let mut available_methods = rpc_api.method_names().collect::<Vec<_>>();
-	// The "rpc_methods" is defined below and we want it to be part of the reported methods.
-	available_methods.push("rpc_methods");
-	available_methods.sort();
-
-	rpc_api
-		.register_method("rpc_methods", move |_, _| {
-			serde_json::json!({
-				"methods": available_methods,
-			})
-		})
-		.expect("infallible all other methods have their own address space; qed");
-
-	rpc_api
-}
-
-fn try_into_cors(
-	maybe_cors: Option<&Vec<String>>,
-) -> Result<CorsLayer, Box<dyn StdError + Send + Sync>> {
-	if let Some(cors) = maybe_cors {
-		let mut list = Vec::new();
-		for origin in cors {
-			list.push(HeaderValue::from_str(origin)?);
-		}
-		Ok(CorsLayer::new().allow_origin(AllowOrigin::list(list)))
-	} else {
-		// allow all cors
-		Ok(CorsLayer::permissive())
-	}
-}
-
-fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
-	if let Some(cors) = maybe_cors {
-		format!("{:?}", cors)
-	} else {
-		format!("{:?}", ["*"])
-	}
 }
