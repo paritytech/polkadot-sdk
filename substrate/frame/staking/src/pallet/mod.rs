@@ -2098,9 +2098,8 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 
 			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
-			ensure!(current_lock > Zero::zero(), Error::<T>::CannotRestoreLedger);
-
 			let existing_controller = Bonded::<T>::get(&stash);
+
 			if existing_controller == None {
 				// it is a dangling lock. Clear the locks.
 				T::Currency::remove_lock(crate::STAKING_ID, &stash);
@@ -2108,6 +2107,17 @@ pub mod pallet {
 			}
 
 			let existing_controller = existing_controller.expect("checked above not none; qed");
+			if current_lock == Zero::zero() {
+				// no lock but bonded exists. Just clean storage and exit.
+				// FIXME: Make kill stash do best effort instead of failing? Or another call that clears storage.
+				Bonded::<T>::remove(&stash);
+				Payee::<T>::remove(&stash);
+				Self::do_remove_validator(&stash);
+				Self::do_remove_nominator(&stash);
+				frame_system::Pallet::<T>::dec_consumers(&stash);
+				return Ok(());
+			}
+
 			ensure!(existing_controller == controller, Error::<T>::CannotRestoreLedger);
 
 			let existing_ledger = Ledger::<T>::get(&existing_controller);
@@ -2117,8 +2127,8 @@ pub mod pallet {
 				Some(ledger) => {
 					// ensure stash mismatches otherwise nothing to restore.
 					ensure!(ledger.stash != stash, Error::<T>::CannotRestoreLedger);
-					let stake_to_dissolve = &ledger.total;
-					ensure!(total == current_lock.checked_add(stake_to_dissolve).ok_or(ArithmeticError::Overflow)?, Error::<T>::CannotRestoreLedger);
+					let stake_to_dissolve = T::Currency::balance_locked(crate::STAKING_ID, &ledger.stash);
+					ensure!(total == current_lock.checked_add(&stake_to_dissolve).ok_or(ArithmeticError::Overflow)?, Error::<T>::CannotRestoreLedger);
 					// kill this ledger
 					Self::kill_stash(&ledger.stash, num_slashing_spans)?;
 				},
