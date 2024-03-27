@@ -1191,3 +1191,92 @@ fn remove_vesting_schedule() {
 		);
 	});
 }
+
+#[test]
+fn force_vested_transfer_with_insufficient_funds_should_fail() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let sender_id = 100;
+		let receiver_id = 101;
+
+		// Ensure the sender's initial balance is 0 to simulate insufficient funds.
+		assert_eq!(Balances::free_balance(&sender_id), 0);
+
+		// Define the vesting schedule parameters.
+		let vesting_schedule = VestingInfo::new(
+			1000, // Total amount to be vested.
+			64,   // Vesting frequency.
+			10,   // Starting block.
+		);
+
+		// Attempt to initiate a forced vested transfer from sender to receiver.
+		assert_noop!(
+			Vesting::force_vested_transfer(
+				RawOrigin::Root.into(),
+				sender_id,
+				receiver_id,
+				vesting_schedule
+			),
+			TokenError::FundsUnavailable // Expected error due to insufficient funds.
+		);
+	});
+}
+
+#[test]
+fn force_vested_transfer_to_self_with_no_funds_should_fail() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let user_id = 100; // User acting as both sender and receiver.
+
+		// Ensure the user's initial balance is 0 to simulate insufficient funds.
+		assert_eq!(Balances::free_balance(&user_id), 0);
+
+		// Define the vesting schedule parameters.
+		let vesting_schedule = VestingInfo::new(
+			1000, // Total amount to be vested.
+			64,   // Vesting frequency.
+			10,   // Starting block.
+		);
+
+		// Attempt to initiate a forced vested transfer from the user to themselves.
+		assert_noop!(
+			Vesting::force_vested_transfer(
+				RawOrigin::Root.into(),
+				user_id,
+				user_id,
+				vesting_schedule
+			),
+			TokenError::FundsUnavailable // Expected error due to no initial funds.
+		);
+	});
+}
+
+#[test]
+fn force_vested_transfer_to_self_with_insufficient_funds_should_fail() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let user_id = 100; // User acting as both sender and receiver.
+		let initial_funds = 500; // Initial funds less than the vesting amount.
+
+		let _ = Balances::deposit_creating(&user_id, initial_funds);
+
+		// Check that the initial funds are as expected.
+		assert_eq!(Balances::free_balance(&user_id), initial_funds);
+
+		// Define the vesting schedule parameters.
+		let vesting_schedule = VestingInfo::new(
+			1000, // Total amount to be vested, more than the initial funds.
+			64,   // Vesting frequency.
+			10,   // Starting block.
+		);
+
+		// Attempt to initiate a forced vested transfer from the user to themselves.
+		assert_noop!(
+			Vesting::force_vested_transfer(
+				RawOrigin::Root.into(),
+				user_id,
+				user_id,
+				vesting_schedule
+			),
+			TokenError::FundsUnavailable /* Expected error due to insufficient initial funds for
+			                              * the total vesting amount. */
+		);
+	});
+}
