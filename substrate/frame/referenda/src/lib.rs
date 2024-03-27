@@ -466,13 +466,11 @@ pub mod pallet {
 
 			// If the pre-image is already stored, ensure that it has the same length as given in
 			// `proposal`.
-			if let Some(hash) = proposal.lookup_hash() {
-				if let Some((l, r)) =
-					T::Preimages::len(&hash).and_then(|l| proposal.lookup_len().map(|r| (l, r)))
-				{
-					if l != r {
-						return Err(Error::<T, I>::PreimageStoredWithDifferentLength.into())
-					}
+			if let (Some(preimage_len), Some(proposal_len)) =
+				(proposal.lookup_hash().and_then(|h| T::Preimages::len(&h)), proposal.lookup_len())
+			{
+				if preimage_len != proposal_len {
+					return Err(Error::<T, I>::PreimageStoredWithDifferentLength.into())
 				}
 			}
 
