@@ -748,13 +748,20 @@ async fn advertise_collation<Context>(
 			}
 		}
 
-		let should_advertise = per_relay_parent
-			.validator_group
-			.get(&core_index)
-			.map_or(ShouldAdvertiseTo::NotAuthority, |group| {
-				group.should_advertise_to(candidate_hash, peer_ids, &peer)
-			});
+		let validator_group =
+			if let Some(validator_group) = per_relay_parent.validator_group.get_mut(&core_index) {
+				validator_group
+			} else {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?core_index,
+					"Skipping advertising to validator, validator group for core not found",
+				);
+				return
+			};
 
+		let should_advertise = validator_group.should_advertise_to(candidate_hash, peer_ids, &peer);
 		match should_advertise {
 			ShouldAdvertiseTo::Yes => {},
 			ShouldAdvertiseTo::NotAuthority | ShouldAdvertiseTo::AlreadyAdvertised => {
@@ -802,11 +809,7 @@ async fn advertise_collation<Context>(
 		))
 		.await;
 
-		per_relay_parent
-			.validator_group
-			.get_mut(&core_index)
-			.expect("should_advertise returned `ShouldAdvertiseTo::Yes` above; qed")
-			.advertised_to_peer(candidate_hash, &peer_ids, peer);
+		validator_group.advertised_to_peer(candidate_hash, &peer_ids, peer);
 
 		advertisement_timeouts.push(ResetInterestTimeout::new(
 			*candidate_hash,

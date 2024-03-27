@@ -305,7 +305,8 @@ async fn handle_new_activations<Context>(
 
 		let para_backing_state =
 			request_para_backing_state(relay_parent, config.para_id, ctx.sender())
-				.await.await??
+				.await
+				.await??
 				.ok_or(crate::error::Error::MissingParaBackingState)?;
 
 		// We are being very optimistic here, but one of the cores could pend availability some more
