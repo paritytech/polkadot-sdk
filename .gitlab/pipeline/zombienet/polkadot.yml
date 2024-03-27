@@ -301,7 +301,7 @@ zombienet-polkadot-malus-0001-dispute-valid:
       --local-dir="${LOCAL_DIR}/integrationtests"
       --test="0001-dispute-valid-block.zndsl"
 
-zombienet-polkadot-disputes-offchain-disabling
+zombienet-polkadot-disputes-offchain-disabling:
   extends:
     - .zombienet-polkadot-common
   rules:
