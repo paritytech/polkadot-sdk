@@ -848,6 +848,9 @@ fn build_bloaty_blob(
 		if !cargo_cmd.supports_nightly_features() {
 			build_cmd.env("RUSTC_BOOTSTRAP", "1");
 		}
+
+		// Also tell the C deps.
+		build_cmd.env("CFLAGS", "-mcpu=mvp");
 	}
 
 	println!("{}", colorize_info_message("Information that should be included in a bug report."));
