@@ -48,7 +48,7 @@ itertools = { version = "0.10.3", optional = true }
 
 # full crypto
 array-bytes = { version = "6.1" }
-ed25519-zebra = { version = "3.1.0", default-features = false }
+ed25519-zebra = { version = "4.0.3", default-features = false }
 blake2 = { version = "0.10.4", default-features = false, optional = true }
 libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"] }
 schnorrkel = { version = "0.11.4", features = ["preaudit_deprecated"], default-features = false }
