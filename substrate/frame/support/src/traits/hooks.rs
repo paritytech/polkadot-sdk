@@ -167,7 +167,7 @@ pub trait OnGenesis {
 ///
 /// This hook is intended to be used internally in FRAME and not be exposed to FRAME developers.
 ///
-/// It is defined as a seperate trait from [`OnRuntimeUpgrade`] precisely to not pollute the public
+/// It is defined as a separate trait from [`OnRuntimeUpgrade`] precisely to not pollute the public
 /// API.
 pub trait BeforeAllRuntimeMigrations {
 	/// Something that should happen before runtime migrations are executed.

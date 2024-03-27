@@ -70,7 +70,7 @@ pub mod unversioned {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
 
-			// recalcuate the `TotalValueLocked` to compare with the current on-chain TVL which may
+			// recalculate the `TotalValueLocked` to compare with the current on-chain TVL which may
 			// be out of sync.
 			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
 			let onchain_tvl = TotalValueLocked::<T>::get();

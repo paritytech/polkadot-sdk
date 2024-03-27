@@ -240,7 +240,7 @@ pub fn assert_internal_consistency<T: Config<I>, I: Instance + 'static>() {
 pub fn from_original<T: Config<I>, I: Instance + 'static>(
 	past_payouts: &mut [(<T as frame_system::Config>::AccountId, BalanceOf<T, I>)],
 ) -> Result<Weight, &'static str> {
-	// Migrate Bids from old::Bids (just a trunctation).
+	// Migrate Bids from old::Bids (just a truncation).
 	Bids::<T, I>::put(BoundedVec::<_, T::MaxBids>::truncate_from(v0::Bids::<T, I>::take()));
 
 	// Initialise round counter.
@@ -287,13 +287,13 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 				.defensive_ok_or("member_count > 0, we must have at least 1 member")?;
 			// Swap the founder with the first member in MemberByIndex.
 			MemberByIndex::<T, I>::swap(0, member_count);
-			// Update the indicies of the swapped member MemberRecords.
+			// Update the indices of the swapped member MemberRecords.
 			Members::<T, I>::mutate(&member, |m| {
 				if let Some(member) = m {
 					member.index = 0;
 				} else {
 					frame_support::defensive!(
-						"Member somehow disapeared from storage after it was inserted"
+						"Member somehow disappeared from storage after it was inserted"
 					);
 				}
 			});
@@ -302,7 +302,7 @@ pub fn from_original<T: Config<I>, I: Instance + 'static>(
 					member.index = member_count;
 				} else {
 					frame_support::defensive!(
-						"Member somehow disapeared from storage after it was queried"
+						"Member somehow disappeared from storage after it was queried"
 					);
 				}
 			});
