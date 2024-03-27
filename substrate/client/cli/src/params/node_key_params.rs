@@ -148,7 +148,8 @@ mod tests {
 	use super::*;
 	use clap::ValueEnum;
 	use libp2p_identity::ed25519;
-	use std::fs;
+	use std::fs::{self, File};
+	use tempfile::TempDir;
 
 	#[test]
 	fn test_node_key_config_input() {
@@ -162,8 +163,9 @@ mod tests {
 					node_key_type,
 					node_key: Some(format!("{:x}", H256::from_slice(sk.as_ref()))),
 					node_key_file: None,
+					unsafe_force_node_key_generation: false,
 				};
-				params.node_key(net_config_dir).and_then(|c| match c {
+				params.node_key(net_config_dir, Role::Authority, false).and_then(|c| match c {
 					NodeKeyConfig::Ed25519(sc_network::config::Secret::Input(ref ski))
 						if node_key_type == NodeKeyType::Ed25519 && &sk[..] == ski.as_ref() =>
 						Ok(()),
@@ -182,10 +184,11 @@ mod tests {
 				node_key_type: NodeKeyType::Ed25519,
 				node_key: None,
 				node_key_file: Some(file),
+				unsafe_force_node_key_generation: false,
 			};
 
 			let node_key = params
-				.node_key(&PathBuf::from("not-used"))
+				.node_key(&PathBuf::from("not-used"), Role::Authority, false)
 				.expect("Creates node key config")
 				.into_keypair()
 				.expect("Creates node key pair");
@@ -212,29 +215,58 @@ mod tests {
 
 	#[test]
 	fn test_node_key_config_default() {
-		fn with_def_params<F>(f: F) -> error::Result<()>
+		fn with_def_params<F>(f: F, unsafe_force_node_key_generation: bool) -> error::Result<()>
 		where
 			F: Fn(NodeKeyParams) -> error::Result<()>,
 		{
 			NodeKeyType::value_variants().iter().try_for_each(|t| {
 				let node_key_type = *t;
-				f(NodeKeyParams { node_key_type, node_key: None, node_key_file: None })
-			})
-		}
-
-		fn some_config_dir(net_config_dir: &PathBuf) -> error::Result<()> {
-			with_def_params(|params| {
-				let dir = PathBuf::from(net_config_dir.clone());
-				let typ = params.node_key_type;
-				params.node_key(net_config_dir).and_then(move |c| match c {
-					NodeKeyConfig::Ed25519(sc_network::config::Secret::File(ref f))
-						if typ == NodeKeyType::Ed25519 && f == &dir.join(NODE_KEY_ED25519_FILE) =>
-						Ok(()),
-					_ => Err(error::Error::Input("Unexpected node key config".into())),
+				f(NodeKeyParams {
+					node_key_type,
+					node_key: None,
+					node_key_file: None,
+					unsafe_force_node_key_generation,
 				})
 			})
 		}
 
-		assert!(some_config_dir(&PathBuf::from_str("x").unwrap()).is_ok());
+		fn some_config_dir(
+			net_config_dir: &PathBuf,
+			unsafe_force_node_key_generation: bool,
+			role: Role,
+			is_dev: bool,
+		) -> error::Result<()> {
+			with_def_params(
+				|params| {
+					let dir = PathBuf::from(net_config_dir.clone());
+					let typ = params.node_key_type;
+					let role = role.clone();
+					params.node_key(net_config_dir, role, is_dev).and_then(move |c| match c {
+						NodeKeyConfig::Ed25519(sc_network::config::Secret::File(ref f))
+							if typ == NodeKeyType::Ed25519 &&
+								f == &dir.join(NODE_KEY_ED25519_FILE) =>
+							Ok(()),
+						_ => Err(error::Error::Input("Unexpected node key config".into())),
+					})
+				},
+				unsafe_force_node_key_generation,
+			)
+		}
+
+		assert!(some_config_dir(&PathBuf::from_str("x").unwrap(), false, Role::Full, false).is_ok());
+		assert!(
+			some_config_dir(&PathBuf::from_str("x").unwrap(), false, Role::Authority, true).is_ok()
+		);
+		assert!(
+			some_config_dir(&PathBuf::from_str("x").unwrap(), true, Role::Authority, false).is_ok()
+		);
+		assert!(matches!(
+			some_config_dir(&PathBuf::from_str("x").unwrap(), false, Role::Authority, false),
+			Err(Error::NetworkKeyNotFound(_))
+		));
+
+		let tempdir = TempDir::new().unwrap();
+		let _file = File::create(tempdir.path().join(NODE_KEY_ED25519_FILE)).unwrap();
+		assert!(some_config_dir(&tempdir.path().into(), false, Role::Authority, false).is_ok());
 	}
 }
