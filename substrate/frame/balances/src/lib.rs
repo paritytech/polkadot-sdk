@@ -959,6 +959,10 @@ pub mod pallet {
 				if !did_consume && does_consume {
 					frame_system::Pallet::<T>::inc_consumers(who)?;
 				}
+				if does_consume && frame_system::Pallet::<T>::consumers(who) == 0 {
+					log::error!(target: LOG_TARGET, "Defensively incrementing consumer ref on account that should have already had one.");
+					frame_system::Pallet::<T>::inc_consumers(who)?;
+				}
 				if did_provide && !does_provide {
 					// This could reap the account so must go last.
 					frame_system::Pallet::<T>::dec_providers(who).map_err(|r| {
