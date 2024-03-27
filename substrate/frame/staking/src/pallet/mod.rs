@@ -2029,20 +2029,19 @@ pub mod pallet {
 
 					Ok((new_controller, new_total))
 				},
-				Ok(LedgerIntegrityState::CorruptedKilled) => {
+				Ok(LedgerIntegrityState::CorruptedKilled) =>
 					if current_lock == Zero::zero() {
-						// this case needs to restore both lock and ledger, so the new total needs
-						// to be given by the called since there's no way to restore the total
-						// on-chain.
-						ensure!(maybe_total.is_some(), Error::<T>::CannotRestoreLedger);
-						Ok((
-							stash.clone(),
-							maybe_total.expect("total exists as per the check above; qed."),
-						))
+						// clear everthing.
+						Bonded::<T>::remove(&stash);
+						Payee::<T>::remove(&stash);
+						ensure!(
+							Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
+							Error::<T>::BadState
+						);
+						return Ok(())
 					} else {
 						Ok((stash.clone(), current_lock))
-					}
-				},
+					},
 				Ok(LedgerIntegrityState::LockCorrupted) => {
 					// ledger is not corrupted but its locks are out of sync. In this case, we need
 					// to enforce a new ledger.total and staking lock for this stash.
