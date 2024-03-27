@@ -1,7 +1,7 @@
 # Parachains Finality Relay
 
 The parachains finality relay works with two chains - source relay chain and target chain (which may be standalone
-chain, relay chain or a parachain). The source chain must have the 
+chain, relay chain or a parachain). The source chain must have the
 [`paras` pallet](https://github.com/paritytech/polkadot/tree/master/runtime/parachains/src/paras) deployed at its
 runtime. The target chain must have the [bridge parachains pallet](../../modules/parachains/) deployed at its runtime.
 
@@ -39,11 +39,12 @@ Rococo (source relay chain) to BridgeHubWestend (target chain) parachains finali
 change chain names. So the metrics are:
 
 - `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_source` - returns best known parachain block
-   number, registered in the `paras` pallet at the source relay chain (Rococo in our example);
+  number, registered in the `paras` pallet at the source relay chain (Rococo in our example);
 
 - `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_target` - returns best known parachain block
-   number, registered in the bridge parachains pallet at the target chain (BridgeHubWestend in our example).
+  number, registered in the bridge parachains pallet at the target chain (BridgeHubWestend in our example).
 
-If relay operates properly, you should see that the `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_target`
-tries to reach the `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_source`. And the latter one
-always increases.
+If relay operates properly, you should see that
+the `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_target` tries to reach
+the `Rococo_to_BridgeHubWestend_Parachains_best_parachain_block_number_at_source`.
+And the latter one always increases.
