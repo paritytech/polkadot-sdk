@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Traits for creating and destroying assets.
-
-use sp_runtime::{DispatchError, DispatchResult};
+//! Traits for creating, editing and destroying assets.
 
 use super::Inspect;
+use crate::traits::tokens::{AssetId, Balance};
+use sp_runtime::{DispatchError, DispatchResult};
 
 /// Trait for providing the ability to create new fungible assets.
 pub trait Create<AccountId>: Inspect<AccountId> {
@@ -30,6 +30,39 @@ pub trait Create<AccountId>: Inspect<AccountId> {
 		is_sufficient: bool,
 		min_balance: Self::Balance,
 	) -> DispatchResult;
+}
+
+/// Trait for resetting the team configuration of an existing fungible asset.
+pub trait ResetTeam<AccountId> {
+	/// Means of identifying one asset class from another.
+	type AssetId: AssetId;
+	/// Reset the team for the asset with the given `id`.
+	///
+	/// ### Parameters
+	/// - `id`: The identifier of the asset for which the team is being reset.
+	/// - `owner`: The new `owner` account for the asset.
+	/// - `admin`: The new `admin` account for the asset.
+	/// - `issuer`: The new `issuer` account for the asset.
+	/// - `freezer`: The new `freezer` account for the asset.
+	fn reset_team(
+		id: Self::AssetId,
+		owner: AccountId,
+		admin: AccountId,
+		issuer: AccountId,
+		freezer: AccountId,
+	) -> DispatchResult;
+}
+
+/// Trait for refunding the deposit of a target asset account.
+pub trait Refund<AccountId> {
+	/// Means of identifying one asset class from another.
+	type AssetId: AssetId;
+	/// Scalar type for representing balance of an account.
+	type Balance: Balance;
+	/// Returns the amount of account deposit and depositor address, if any.
+	fn deposit_held(id: Self::AssetId, who: AccountId) -> Option<(AccountId, Self::Balance)>;
+	/// Return the deposit (if any) of a target asset account.
+	fn refund(id: Self::AssetId, who: AccountId) -> DispatchResult;
 }
 
 /// Trait for providing the ability to destroy existing fungible assets.

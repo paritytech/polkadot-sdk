@@ -7,7 +7,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// 	http://www.apache.org/licenses/LICENSE-2.0
+//  http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,10 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Test environment for Asset Conversion pallet.
+//! Test environment for Asset Conversion Ops pallet.
 
 use super::*;
-use crate as pallet_asset_conversion;
+use crate as pallet_asset_conversion_ops;
 use core::default::Default;
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -29,36 +29,58 @@ use frame_support::{
 			fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
 			imbalance::ResolveAssetTo,
 		},
-		AsEnsureOriginWithArg, ConstU128, ConstU32,
+		AsEnsureOriginWithArg, ConstU128, ConstU32, ConstU64,
 	},
 	PalletId,
 };
 use frame_system::{EnsureSigned, EnsureSignedBy};
+use pallet_asset_conversion::{self, AccountIdConverter, AccountIdConverterNoSeed, Ascending};
 use sp_arithmetic::Permill;
+use sp_core::H256;
 use sp_runtime::{
-	traits::{AccountIdConversion, IdentityLookup},
+	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
-	pub enum Test
-	{
-		System: frame_system,
-		Balances: pallet_balances,
-		Assets: pallet_assets::<Instance1>,
-		PoolAssets: pallet_assets::<Instance2>,
-		AssetConversion: pallet_asset_conversion,
-	}
+  pub enum Test
+  {
+	System: frame_system,
+	Balances: pallet_balances,
+	Assets: pallet_assets::<Instance1>,
+	PoolAssets: pallet_assets::<Instance2>,
+	AssetConversion: pallet_asset_conversion,
+	AssetConversionOps: pallet_asset_conversion_ops,
+  }
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
+	type BaseCallFilter = frame_support::traits::Everything;
+	type BlockWeights = ();
+	type BlockLength = ();
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeCall = RuntimeCall;
+	type Nonce = u64;
+	type Hash = H256;
+	type Hashing = BlakeTwo256;
 	type AccountId = u128;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
+	type RuntimeEvent = RuntimeEvent;
+	type BlockHashCount = ConstU64<250>;
+	type DbWeight = ();
+	type Version = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
+	type SS58Prefix = ();
+	type OnSetCode = ();
+	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -97,7 +119,7 @@ impl pallet_assets::Config<Instance1> for Test {
 	type WeightInfo = ();
 	type CallbackHandle = ();
 	pallet_assets::runtime_benchmarks_enabled! {
-		type BenchmarkHelper = ();
+	  type BenchmarkHelper = ();
 	}
 }
 
@@ -122,48 +144,59 @@ impl pallet_assets::Config<Instance2> for Test {
 	type WeightInfo = ();
 	type CallbackHandle = ();
 	pallet_assets::runtime_benchmarks_enabled! {
-		type BenchmarkHelper = ();
+	  type BenchmarkHelper = ();
 	}
 }
 
 parameter_types! {
-	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
-	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
-	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+  pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+  pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
+  pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
 ord_parameter_types! {
-	pub const AssetConversionOrigin: u128 = AccountIdConversion::<u128>::into_account_truncating(&AssetConversionPalletId::get());
+  pub const AssetConversionOrigin: u128 = AccountIdConversion::<u128>::into_account_truncating(&AssetConversionPalletId::get());
 }
 
 pub type NativeAndAssets = UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, u128>;
 pub type PoolIdToAccountId =
 	AccountIdConverter<AssetConversionPalletId, (NativeOrWithId<u32>, NativeOrWithId<u32>)>;
 pub type AscendingLocator = Ascending<u128, NativeOrWithId<u32>, PoolIdToAccountId>;
-pub type WithFirstAssetLocator =
-	WithFirstAsset<Native, u128, NativeOrWithId<u32>, PoolIdToAccountId>;
 
-impl Config for Test {
+impl pallet_asset_conversion::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = <Self as pallet_balances::Config>::Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type AssetKind = NativeOrWithId<u32>;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
-	type PoolLocator = Chain<WithFirstAssetLocator, AscendingLocator>;
+	type PoolLocator = AscendingLocator;
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
-	type PoolSetupFee = ConstU128<100>; // should be more or equal to the existential deposit
+	type PoolSetupFee = ConstU128<100>;
 	type PoolSetupFeeAsset = Native;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
 	type WeightInfo = ();
-	type LPFee = ConstU32<3>; // means 0.3%
+	type LPFee = ConstU32<3>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type MaxSwapPathLength = ConstU32<4>;
-	type MintMinLiquidity = ConstU128<100>; // 100 is good enough when the main currency has 12 decimals.
+	type MintMinLiquidity = ConstU128<100>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+pub type OldPoolIdToAccountId =
+	AccountIdConverterNoSeed<(NativeOrWithId<u32>, NativeOrWithId<u32>)>;
+
+impl pallet_asset_conversion_ops::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type PriorAccountIdConverter = OldPoolIdToAccountId;
+	type AssetsRefund = NativeAndAssets;
+	type PoolAssetsRefund = PoolAssets;
+	type PoolAssetsTeam = PoolAssets;
+	type DepositAsset = Balances;
+	type WeightInfo = ();
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
