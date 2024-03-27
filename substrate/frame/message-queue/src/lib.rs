@@ -528,7 +528,8 @@ pub mod pallet {
 		/// servicing enqueued items `on_initialize`.
 		///
 		/// This may be legitimately `None` in the case that you will call
-		/// `ServiceQueues::service_queues` manually.
+		/// `ServiceQueues::service_queues` manually or set [`Self::IdleMaxServiceWeight`] to have
+		/// it run in `on_idle`.
 		#[pallet::constant]
 		type ServiceWeight: Get<Option<Weight>>;
 
@@ -536,8 +537,7 @@ pub mod pallet {
 		/// should be provided to the message queue for servicing enqueued items `on_idle`.
 		/// Useful for parachains to process messages at the same block they are received.
 		///
-		/// This may be legitimately `None` in the case that you will call
-		/// `ServiceQueues::service_queues` manually.
+		/// If `None`, it will not call `ServiceQueues::service_queues` in `on_idle`.
 		#[pallet::constant]
 		type IdleMaxServiceWeight: Get<Option<Weight>>;
 	}
