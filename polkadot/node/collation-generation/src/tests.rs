@@ -30,13 +30,16 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystemContextHandle};
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	AsyncBackingParams, CollatorPair, HeadData, Id as ParaId, Id, PersistedValidationData,
+	async_backing::{BackingState, CandidatePendingAvailability},
+	AsyncBackingParams, BlockNumber, CollatorPair, HeadData, PersistedValidationData,
 	ScheduledCore, ValidationCode,
 };
 use rstest::rstest;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use std::pin::Pin;
-use test_helpers::{dummy_candidate_descriptor, dummy_hash, dummy_head_data, dummy_validator};
+use test_helpers::{
+	dummy_candidate_descriptor, dummy_hash, dummy_head_data, dummy_validator, make_candidate,
+};
 
 type VirtualOverseer = TestSubsystemContextHandle<CollationGenerationMessage>;
 
@@ -105,9 +108,9 @@ impl Future for TestCollator {
 
 impl Unpin for TestCollator {}
 
-async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
-	const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(2000);
+const TIMEOUT: std::time::Duration = std::time::Duration::from_millis(2000);
 
+async fn overseer_recv(overseer: &mut VirtualOverseer) -> AllMessages {
 	overseer
 		.recv()
 		.timeout(TIMEOUT)
@@ -133,6 +136,41 @@ fn test_config_no_collator<Id: Into<ParaId>>(para_id: Id) -> CollationGeneration
 
 fn scheduled_core_for<Id: Into<ParaId>>(para_id: Id) -> ScheduledCore {
 	ScheduledCore { para_id: para_id.into(), collator: None }
+}
+
+fn dummy_candidate_pending_availability(
+	para_id: ParaId,
+	candidate_relay_parent: Hash,
+	relay_parent_number: BlockNumber,
+) -> CandidatePendingAvailability {
+	let (candidate, _pvd) = make_candidate(
+		candidate_relay_parent,
+		relay_parent_number,
+		para_id,
+		dummy_head_data(),
+		HeadData(vec![1]),
+		ValidationCode(vec![1, 2, 3]).hash(),
+	);
+	let candidate_hash = candidate.hash();
+
+	CandidatePendingAvailability {
+		candidate_hash,
+		descriptor: candidate.descriptor,
+		commitments: candidate.commitments,
+		relay_parent_number,
+		max_pov_size: 5 * 1024 * 1024,
+	}
+}
+
+fn dummy_backing_state(pending_availability: Vec<CandidatePendingAvailability>) -> BackingState {
+	let constraints = helpers::dummy_constraints(
+		0,
+		vec![0],
+		dummy_head_data(),
+		ValidationCodeHash::from(Hash::repeat_byte(42)),
+	);
+
+	BackingState { constraints, pending_availability }
 }
 
 #[rstest]
@@ -175,6 +213,12 @@ fn requests_availability_per_relay_parent(#[case] runtime_version: u32) {
 					RuntimeApiRequest::ClaimQueue(tx),
 				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
 					tx.send(Ok(BTreeMap::new())).unwrap();
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::ParaBackingState(_para_id, tx),
+				))) => {
+					tx.send(Ok(Some(dummy_backing_state(vec![])))).unwrap();
 				},
 				Some(msg) => panic!("didn't expect any other overseer requests given no availability cores; got {:?}", msg),
 			}
@@ -272,6 +316,12 @@ fn requests_validation_data_for_scheduled_matches(#[case] runtime_version: u32) 
 					RuntimeApiRequest::ClaimQueue(tx),
 				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
 					tx.send(Ok(BTreeMap::new())).unwrap();
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::ParaBackingState(_para_id, tx),
+				))) => {
+					tx.send(Ok(Some(dummy_backing_state(vec![])))).unwrap();
 				},
 				Some(msg) => {
 					panic!("didn't expect any other overseer requests; got {:?}", msg)
@@ -383,6 +433,12 @@ fn sends_distribute_collation_message(#[case] runtime_version: u32) {
 					RuntimeApiRequest::ClaimQueue(tx),
 				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
 					tx.send(Ok(BTreeMap::new())).unwrap();
+				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::ParaBackingState(_para_id, tx),
+				))) => {
+					tx.send(Ok(Some(dummy_backing_state(vec![])))).unwrap();
 				},
 				Some(msg @ AllMessages::CollatorProtocol(_)) => {
 					inner_to_collator_protocol.lock().await.push(msg);
@@ -564,6 +620,12 @@ fn fallback_when_no_validation_code_hash_api(#[case] runtime_version: u32) {
 					let res = BTreeMap::<CoreIndex, VecDeque<ParaId>>::new();
 					tx.send(Ok(res)).unwrap();
 				},
+				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_hash,
+					RuntimeApiRequest::ParaBackingState(_para_id, tx),
+				))) => {
+					tx.send(Ok(Some(dummy_backing_state(vec![])))).unwrap();
+				},
 				Some(msg) => {
 					panic!("didn't expect any other overseer requests; got {:?}", msg)
 				},
@@ -611,6 +673,7 @@ fn submit_collation_is_no_op_before_initialization() {
 					parent_head: vec![1, 2, 3].into(),
 					validation_code_hash: Hash::repeat_byte(1).into(),
 					result_sender: None,
+					core_index: CoreIndex(0),
 				}),
 			})
 			.await;
@@ -647,6 +710,7 @@ fn submit_collation_leads_to_distribution() {
 					parent_head: vec![1, 2, 3].into(),
 					validation_code_hash,
 					result_sender: None,
+					core_index: CoreIndex(0),
 				}),
 			})
 			.await;
@@ -721,6 +785,9 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 	test_harness(|mut virtual_overseer| async move {
 		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
 		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
+
+		let pending_availability =
+			vec![dummy_candidate_pending_availability(para_id, activated_hash, 1)];
 		helpers::handle_runtime_calls_on_new_head_activation(
 			&mut virtual_overseer,
 			activated_hash,
@@ -728,6 +795,7 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 			cores,
 			runtime_version,
 			claim_queue,
+			pending_availability,
 		)
 		.await;
 		helpers::handle_core_processing_for_a_leaf(
@@ -736,6 +804,131 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 			para_id,
 			// `CoreState` is `Occupied` => `OccupiedCoreAssumption` is `Included`
 			OccupiedCoreAssumption::Included,
+			1,
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+// There are variable number of cores of cores in `Occupied` state and async backing is enabled.
+// On new head activation `CollationGeneration` should produce and distribute a new collation
+// with proper assumption about the para candidate chain availability at next block.
+#[rstest]
+#[case(0)]
+#[case(1)]
+#[case(2)]
+fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elastic_scaling(
+	#[case] candidates_pending_avail: u32,
+) {
+	let activated_hash: Hash = [1; 32].into();
+	let para_id = ParaId::from(5);
+
+	let cores = (0..candidates_pending_avail)
+		.into_iter()
+		.map(|idx| {
+			CoreState::Occupied(polkadot_primitives::OccupiedCore {
+				next_up_on_available: Some(ScheduledCore { para_id, collator: None }),
+				occupied_since: 0,
+				time_out_at: 10,
+				next_up_on_time_out: Some(ScheduledCore { para_id, collator: None }),
+				availability: Default::default(), // doesn't matter
+				group_responsible: polkadot_primitives::GroupIndex(idx as u32),
+				candidate_hash: Default::default(),
+				candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
+			})
+		})
+		.collect::<Vec<_>>();
+
+	let pending_availability = (0..candidates_pending_avail)
+		.into_iter()
+		.map(|_idx| dummy_candidate_pending_availability(para_id, activated_hash, 0))
+		.collect::<Vec<_>>();
+
+	let claim_queue = cores
+		.iter()
+		.enumerate()
+		.map(|(idx, _core)| (CoreIndex::from(idx as u32), VecDeque::from([para_id])))
+		.collect::<BTreeMap<_, _>>();
+	let total_cores = cores.len();
+
+	test_harness(|mut virtual_overseer| async move {
+		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
+		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
+		helpers::handle_runtime_calls_on_new_head_activation(
+			&mut virtual_overseer,
+			activated_hash,
+			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
+			cores,
+			// Using latest runtime with the fancy claim queue exposed.
+			RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+			claim_queue,
+			pending_availability,
+		)
+		.await;
+
+		helpers::handle_core_processing_for_a_leaf(
+			&mut virtual_overseer,
+			activated_hash,
+			para_id,
+			// `CoreState` is `Occupied` => `OccupiedCoreAssumption` is `Included`
+			OccupiedCoreAssumption::Included,
+			total_cores,
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+// There are variable number of cores of cores in `Free` state and async backing is enabled.
+// On new head activation `CollationGeneration` should produce and distribute a new collation
+// with proper assumption about the para candidate chain availability at next block.
+#[rstest]
+#[case(0)]
+#[case(1)]
+#[case(2)]
+fn distribute_collation_for_free_cores_with_async_backing_enabled_and_elastic_scaling(
+	#[case] candidates_pending_avail: u32,
+) {
+	let activated_hash: Hash = [1; 32].into();
+	let para_id = ParaId::from(5);
+
+	let cores = (0..candidates_pending_avail)
+		.into_iter()
+		.map(|_idx| CoreState::Scheduled(ScheduledCore { para_id, collator: None }))
+		.collect::<Vec<_>>();
+
+	let claim_queue = cores
+		.iter()
+		.enumerate()
+		.map(|(idx, _core)| (CoreIndex::from(idx as u32), VecDeque::from([para_id])))
+		.collect::<BTreeMap<_, _>>();
+	let total_cores = cores.len();
+
+	test_harness(|mut virtual_overseer| async move {
+		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
+		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
+		helpers::handle_runtime_calls_on_new_head_activation(
+			&mut virtual_overseer,
+			activated_hash,
+			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
+			cores,
+			// Using latest runtime with the fancy claim queue exposed.
+			RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+			claim_queue,
+			vec![],
+		)
+		.await;
+
+		helpers::handle_core_processing_for_a_leaf(
+			&mut virtual_overseer,
+			activated_hash,
+			para_id,
+			// `CoreState` is `Free` => `OccupiedCoreAssumption` is `Free`
+			OccupiedCoreAssumption::Free,
+			total_cores,
 		)
 		.await;
 
@@ -777,6 +970,7 @@ fn no_collation_is_distributed_for_occupied_core_with_async_backing_disabled(
 			cores,
 			runtime_version,
 			claim_queue,
+			vec![],
 		)
 		.await;
 
@@ -785,7 +979,37 @@ fn no_collation_is_distributed_for_occupied_core_with_async_backing_disabled(
 }
 
 mod helpers {
+	use polkadot_primitives::{
+		async_backing::{Constraints, InboundHrmpLimitations},
+		BlockNumber,
+	};
+
 	use super::*;
+
+	// A set for dummy constraints for `ParaBackingState``
+	pub(crate) fn dummy_constraints(
+		min_relay_parent_number: BlockNumber,
+		valid_watermarks: Vec<BlockNumber>,
+		required_parent: HeadData,
+		validation_code_hash: ValidationCodeHash,
+	) -> Constraints {
+		Constraints {
+			min_relay_parent_number,
+			max_pov_size: 5 * 1024 * 1024,
+			max_code_size: 1_000_000,
+			ump_remaining: 10,
+			ump_remaining_bytes: 1_000,
+			max_ump_num_per_candidate: 10,
+			dmp_remaining_messages: vec![],
+			hrmp_inbound: InboundHrmpLimitations { valid_watermarks },
+			hrmp_channels_out: vec![],
+			max_hrmp_num_per_candidate: 0,
+			required_parent,
+			validation_code_hash,
+			upgrade_restriction: None,
+			future_validation_code: None,
+		}
+	}
 
 	// Sends `Initialize` with a collator config
 	pub async fn initialize_collator(virtual_overseer: &mut VirtualOverseer, para_id: ParaId) {
@@ -822,7 +1046,8 @@ mod helpers {
 		async_backing_params: AsyncBackingParams,
 		cores: Vec<CoreState>,
 		runtime_version: u32,
-		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+		pending_availability: Vec<CandidatePendingAvailability>,
 	) {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
@@ -854,6 +1079,25 @@ mod helpers {
 							)) => {
 				assert_eq!(hash, activated_hash);
 				let _ = tx.send(Ok(async_backing_params));
+			}
+		);
+
+		// Process the `ParaBackingState` message, and return some dummy state.
+		let message = overseer_recv(virtual_overseer).await;
+		let para_id = match message {
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::ParaBackingState(p_id, _),
+			)) => p_id,
+			_ => panic!("received unexpected message {:?}", message),
+		};
+
+		assert_matches!(
+			message,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ParaBackingState(p_id, tx))
+			) if parent == activated_hash && p_id == para_id => {
+				tx.send(Ok(Some(dummy_backing_state(pending_availability)))).unwrap();
 			}
 		);
 
@@ -889,7 +1133,14 @@ mod helpers {
 		activated_hash: Hash,
 		para_id: ParaId,
 		expected_occupied_core_assumption: OccupiedCoreAssumption,
+		cores_assigned: usize,
 	) {
+		// Expect no messages if no cores is assigned to the para
+		if cores_assigned == 0 {
+			assert!(overseer_recv(virtual_overseer).timeout(TIMEOUT / 2).await.is_none());
+			return
+		}
+
 		// Some hardcoded data - if needed, extract to parameters
 		let validation_code_hash = ValidationCodeHash::from(Hash::repeat_byte(42));
 		let parent_head = HeadData::from(vec![1, 2, 3]);
