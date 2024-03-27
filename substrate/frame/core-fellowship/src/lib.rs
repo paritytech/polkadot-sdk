@@ -84,15 +84,6 @@ pub mod weights;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
-macro_rules! override_params {
-	( $x:expr, $y: expr ) => {
-		for (base_element, new_element) in $x.iter_mut().zip($y) {
-			if new_element.is_some() {
-				*base_element = new_element.unwrap();
-			}
-		}
-	};
-}
 /// The desired outcome for which evidence is presented.
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 pub enum Wish {
@@ -553,22 +544,41 @@ pub mod pallet {
 			partial_params: Box<PartialParamsOf<T, I>>,
 		) -> DispatchResult {
 			T::ParamsOrigin::ensure_origin_or_root(origin)?;
-			Params::<T, I>::mutate(|p| {
-				override_params!(p.active_salary, partial_params.active_salary);
-				override_params!(p.passive_salary, partial_params.passive_salary);
-				override_params!(p.demotion_period, partial_params.demotion_period);
-				override_params!(p.min_promotion_period, partial_params.min_promotion_period);
-				if partial_params.offboard_timeout.is_some() {
-					p.offboard_timeout = partial_params.offboard_timeout.unwrap();
+			let params = Params::<T, I>::mutate(|p| {
+				Self::set_partial_params_slice(&mut p.active_salary, partial_params.active_salary);
+				Self::set_partial_params_slice(
+					&mut p.passive_salary,
+					partial_params.passive_salary,
+				);
+				Self::set_partial_params_slice(
+					&mut p.demotion_period,
+					partial_params.demotion_period,
+				);
+				Self::set_partial_params_slice(
+					&mut p.min_promotion_period,
+					partial_params.min_promotion_period,
+				);
+				if let Some(new_offboard_timeout) = partial_params.offboard_timeout {
+					p.offboard_timeout = new_offboard_timeout;
 				}
+				return p.clone();
 			});
-			let params = Params::<T, I>::get();
 			Self::deposit_event(Event::<T, I>::ParamsChanged { params });
 			Ok(())
 		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		pub(crate) fn set_partial_params_slice<S>(
+			base_vec: &mut [S; RANK_COUNT],
+			new_vec: [Option<S>; RANK_COUNT],
+		) {
+			for (base_element, new_element) in base_vec.iter_mut().zip(new_vec) {
+				if new_element.is_some() {
+					*base_element = new_element.unwrap();
+				}
+			}
+		}
 		/// Convert a rank into a `0..RANK_COUNT` index suitable for the arrays in Params.
 		///
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not

@@ -192,13 +192,29 @@ fn set_partial_params_works() {
 			passive_salary: [None; 9],
 			demotion_period: [None, Some(10), None, None, None, None, None, None, None],
 			min_promotion_period: [None; 9],
-			offboard_timeout: Some(1),
+			offboard_timeout: Some(2),
 		};
 		assert_noop!(
 			CoreFellowship::set_partial_params(signed(2), Box::new(params.clone())),
 			DispatchError::BadOrigin
 		);
 		assert_ok!(CoreFellowship::set_partial_params(signed(1), Box::new(params)));
+
+		// Update params from the base params value declared in `new_test_ext`
+		let raw_updated_params = ParamsType {
+			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
+			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+			demotion_period: [2, 10, 6, 8, 10, 12, 14, 16, 18],
+			min_promotion_period: [3, 6, 9, 12, 15, 18, 21, 24, 27],
+			offboard_timeout: 2,
+		};
+		// Updated params stored in Params storage value
+		let updated_params = Params::<Test>::get();
+		assert_eq!(raw_updated_params, updated_params);
+
+		System::assert_last_event(
+			Event::<Test, _>::ParamsChanged { params: updated_params }.into(),
+		);
 	});
 }
 
