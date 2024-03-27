@@ -1654,6 +1654,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1507" id="1507">1507</a>
 <a href="#1508" id="1508">1508</a>
 <a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3144,7 +3158,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>encoded = big_xcm.encode();
 		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
 
-		<span class="kw">let </span>nested_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
+		<span class="kw">let </span><span class="kw-2">mut </span>many_assets = Assets::new();
+		<span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..MAX_ITEMS_IN_ASSETS {
+			many_assets.push((GeneralIndex(index <span class="kw">as </span>u128), <span class="number">1u128</span>).into());
+		}
+
+		<span class="kw">let </span>full_xcm_pass =
+			Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
+				TransferAsset { assets: many_assets, beneficiary: Here.into() };
+				MAX_INSTRUCTIONS_TO_DECODE <span class="kw">as </span>usize
+			]);
+		<span class="kw">let </span>encoded = full_xcm_pass.encode();
+		<span class="macro">assert_eq!</span>(encoded.len(), <span class="number">12402</span>);
+		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_ok());
+
+		<span class="kw">let </span>nested_xcm_fail = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
 			DepositReserveAsset {
 				assets: All.into(),
 				dest: Here.into(),
@@ -3152,10 +3180,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			(MAX_INSTRUCTIONS_TO_DECODE / <span class="number">2</span>) <span class="kw">as </span>usize
 		]);
-		<span class="kw">let </span>encoded = nested_xcm.encode();
+		<span class="kw">let </span>encoded = nested_xcm_fail.encode();
 		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
 
-		<span class="kw">let </span>even_more_nested_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[SetAppendix(nested_xcm); <span class="number">64</span>]);
+		<span class="kw">let </span>even_more_nested_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[SetAppendix(nested_xcm_fail); <span class="number">64</span>]);
 		<span class="kw">let </span>encoded = even_more_nested_xcm.encode();
 		<span class="macro">assert_eq!</span>(encoded.len(), <span class="number">342530</span>);
 		<span class="comment">// This should not decode since the limit is 100

@@ -1428,7 +1428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					recipient: <span class="macro-nonterminal">$crate::impls::ParaId</span>,
 					call: <span class="macro-nonterminal">$crate::impls::DoubleEncoded</span>&lt;()&gt;
 				) {
-					<span class="kw">use </span><span class="macro-nonterminal">$crate::impls</span>::{bx, Chain, RelayChain};
+					<span class="kw">use </span><span class="macro-nonterminal">$crate::impls</span>::{bx, Chain, RelayChain, Encode};
 
 					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
 						<span class="kw">let </span>root_origin = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::RuntimeOrigin::root();
@@ -1436,10 +1436,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>xcm = <span class="macro-nonterminal">$crate::impls::xcm_transact_unpaid_execution</span>(call, <span class="macro-nonterminal">$crate::impls::OriginKind::Superuser</span>);
 
 						<span class="comment">// Send XCM `Transact`
-						</span><span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>RelayPallet&gt;]&gt;::XcmPallet::send(
+						</span><span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>RelayPallet&gt;]&gt;::XcmPallet::send_blob(
 							root_origin,
 							<span class="macro">bx!</span>(destination.into()),
-							<span class="macro">bx!</span>(xcm),
+							xcm.encode().try_into().unwrap(),
 						));
 						<span class="self">Self</span>::assert_xcm_pallet_sent();
 					});

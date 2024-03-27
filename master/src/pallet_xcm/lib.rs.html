@@ -3326,6 +3326,100 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3179" id="3179">3179</a>
 <a href="#3180" id="3180">3180</a>
 <a href="#3181" id="3181">3181</a>
+<a href="#3182" id="3182">3182</a>
+<a href="#3183" id="3183">3183</a>
+<a href="#3184" id="3184">3184</a>
+<a href="#3185" id="3185">3185</a>
+<a href="#3186" id="3186">3186</a>
+<a href="#3187" id="3187">3187</a>
+<a href="#3188" id="3188">3188</a>
+<a href="#3189" id="3189">3189</a>
+<a href="#3190" id="3190">3190</a>
+<a href="#3191" id="3191">3191</a>
+<a href="#3192" id="3192">3192</a>
+<a href="#3193" id="3193">3193</a>
+<a href="#3194" id="3194">3194</a>
+<a href="#3195" id="3195">3195</a>
+<a href="#3196" id="3196">3196</a>
+<a href="#3197" id="3197">3197</a>
+<a href="#3198" id="3198">3198</a>
+<a href="#3199" id="3199">3199</a>
+<a href="#3200" id="3200">3200</a>
+<a href="#3201" id="3201">3201</a>
+<a href="#3202" id="3202">3202</a>
+<a href="#3203" id="3203">3203</a>
+<a href="#3204" id="3204">3204</a>
+<a href="#3205" id="3205">3205</a>
+<a href="#3206" id="3206">3206</a>
+<a href="#3207" id="3207">3207</a>
+<a href="#3208" id="3208">3208</a>
+<a href="#3209" id="3209">3209</a>
+<a href="#3210" id="3210">3210</a>
+<a href="#3211" id="3211">3211</a>
+<a href="#3212" id="3212">3212</a>
+<a href="#3213" id="3213">3213</a>
+<a href="#3214" id="3214">3214</a>
+<a href="#3215" id="3215">3215</a>
+<a href="#3216" id="3216">3216</a>
+<a href="#3217" id="3217">3217</a>
+<a href="#3218" id="3218">3218</a>
+<a href="#3219" id="3219">3219</a>
+<a href="#3220" id="3220">3220</a>
+<a href="#3221" id="3221">3221</a>
+<a href="#3222" id="3222">3222</a>
+<a href="#3223" id="3223">3223</a>
+<a href="#3224" id="3224">3224</a>
+<a href="#3225" id="3225">3225</a>
+<a href="#3226" id="3226">3226</a>
+<a href="#3227" id="3227">3227</a>
+<a href="#3228" id="3228">3228</a>
+<a href="#3229" id="3229">3229</a>
+<a href="#3230" id="3230">3230</a>
+<a href="#3231" id="3231">3231</a>
+<a href="#3232" id="3232">3232</a>
+<a href="#3233" id="3233">3233</a>
+<a href="#3234" id="3234">3234</a>
+<a href="#3235" id="3235">3235</a>
+<a href="#3236" id="3236">3236</a>
+<a href="#3237" id="3237">3237</a>
+<a href="#3238" id="3238">3238</a>
+<a href="#3239" id="3239">3239</a>
+<a href="#3240" id="3240">3240</a>
+<a href="#3241" id="3241">3241</a>
+<a href="#3242" id="3242">3242</a>
+<a href="#3243" id="3243">3243</a>
+<a href="#3244" id="3244">3244</a>
+<a href="#3245" id="3245">3245</a>
+<a href="#3246" id="3246">3246</a>
+<a href="#3247" id="3247">3247</a>
+<a href="#3248" id="3248">3248</a>
+<a href="#3249" id="3249">3249</a>
+<a href="#3250" id="3250">3250</a>
+<a href="#3251" id="3251">3251</a>
+<a href="#3252" id="3252">3252</a>
+<a href="#3253" id="3253">3253</a>
+<a href="#3254" id="3254">3254</a>
+<a href="#3255" id="3255">3255</a>
+<a href="#3256" id="3256">3256</a>
+<a href="#3257" id="3257">3257</a>
+<a href="#3258" id="3258">3258</a>
+<a href="#3259" id="3259">3259</a>
+<a href="#3260" id="3260">3260</a>
+<a href="#3261" id="3261">3261</a>
+<a href="#3262" id="3262">3262</a>
+<a href="#3263" id="3263">3263</a>
+<a href="#3264" id="3264">3264</a>
+<a href="#3265" id="3265">3265</a>
+<a href="#3266" id="3266">3266</a>
+<a href="#3267" id="3267">3267</a>
+<a href="#3268" id="3268">3268</a>
+<a href="#3269" id="3269">3269</a>
+<a href="#3270" id="3270">3270</a>
+<a href="#3271" id="3271">3271</a>
+<a href="#3272" id="3272">3272</a>
+<a href="#3273" id="3273">3273</a>
+<a href="#3274" id="3274">3274</a>
+<a href="#3275" id="3275">3275</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3378,8 +3472,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_std::{boxed::Box, marker::PhantomData, prelude::<span class="kw-2">*</span>, result::Result, vec};
 <span class="kw">use </span>xcm::{latest::QueryResponseInfo, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm_builder::{
-	ExecuteController, ExecuteControllerWeightInfo, QueryController, QueryControllerWeightInfo,
-	SendController, SendControllerWeightInfo,
+	ExecuteController, ExecuteControllerWeightInfo, MaxXcmEncodedSize, QueryController,
+	QueryControllerWeightInfo, SendController, SendControllerWeightInfo,
 };
 <span class="kw">use </span>xcm_executor::{
 	traits::{
@@ -3415,6 +3509,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>new_query() -&gt; Weight;
 	<span class="kw">fn </span>take_response() -&gt; Weight;
 	<span class="kw">fn </span>claim_assets() -&gt; Weight;
+	<span class="kw">fn </span>execute_blob() -&gt; Weight;
+	<span class="kw">fn </span>send_blob() -&gt; Weight;
 }
 
 <span class="doccomment">/// fallback implementation
@@ -3497,6 +3593,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>claim_assets() -&gt; Weight {
+		Weight::from_parts(<span class="number">100_000_000</span>, <span class="number">0</span>)
+	}
+
+	<span class="kw">fn </span>execute_blob() -&gt; Weight {
+		Weight::from_parts(<span class="number">100_000_000</span>, <span class="number">0</span>)
+	}
+
+	<span class="kw">fn </span>send_blob() -&gt; Weight {
 		Weight::from_parts(<span class="number">100_000_000</span>, <span class="number">0</span>)
 	}
 }
@@ -3614,76 +3718,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&gt; ExecuteControllerWeightInfo <span class="kw">for </span>Pallet&lt;T&gt; {
-		<span class="kw">fn </span>execute() -&gt; Weight {
-			T::WeightInfo::execute()
+		<span class="kw">fn </span>execute_blob() -&gt; Weight {
+			T::WeightInfo::execute_blob()
 		}
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&gt; ExecuteController&lt;OriginFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">type </span>WeightInfo = <span class="self">Self</span>;
-		<span class="kw">fn </span>execute(
+		<span class="kw">fn </span>execute_blob(
 			origin: OriginFor&lt;T&gt;,
-			message: Box&lt;VersionedXcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;&gt;,
+			encoded_message: BoundedVec&lt;u8, MaxXcmEncodedSize&gt;,
 			max_weight: Weight,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, DispatchErrorWithPostInfo&gt; {
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;message {:?}, max_weight {:?}&quot;</span>, message, max_weight);
-			<span class="kw">let </span>outcome = (|| {
-				<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-				<span class="kw">let </span><span class="kw-2">mut </span>hash = message.using_encoded(sp_io::hashing::blake2_256);
-				<span class="kw">let </span>message = (<span class="kw-2">*</span>message).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
-				<span class="kw">let </span>value = (origin_location, message);
-				<span class="macro">ensure!</span>(T::XcmExecuteFilter::contains(<span class="kw-2">&amp;</span>value), Error::&lt;T&gt;::Filtered);
-				<span class="kw">let </span>(origin_location, message) = value;
-				<span class="prelude-val">Ok</span>(T::XcmExecutor::prepare_and_execute(
-					origin_location,
-					message,
-					<span class="kw-2">&amp;mut </span>hash,
-					max_weight,
-					max_weight,
-				))
-			})()
-			.map_err(|e: DispatchError| {
-				e.with_weight(&lt;<span class="self">Self</span>::WeightInfo <span class="kw">as </span>ExecuteControllerWeightInfo&gt;::execute())
-			})<span class="question-mark">?</span>;
-
-			<span class="self">Self</span>::deposit_event(Event::Attempted { outcome: outcome.clone() });
-			<span class="kw">let </span>weight_used = outcome.weight_used();
-			outcome.ensure_complete().map_err(|error| {
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;XCM execution failed with error {:?}&quot;</span>, error);
-				Error::&lt;T&gt;::LocalExecutionIncomplete.with_weight(
-					weight_used.saturating_add(
-						&lt;<span class="self">Self</span>::WeightInfo <span class="kw">as </span>ExecuteControllerWeightInfo&gt;::execute(),
-					),
-				)
-			})<span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(weight_used)
+			<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>message =
+				VersionedXcm::&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded_message[..])
+					.map_err(|error| {
+						<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::execute_blob&quot;</span>, <span class="string">&quot;Unable to decode XCM, error: {:?}&quot;</span>, error);
+						Error::&lt;T&gt;::UnableToDecode
+					})<span class="question-mark">?</span>;
+			<span class="self">Self</span>::execute_base(origin_location, Box::new(message), max_weight)
 		}
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&gt; SendControllerWeightInfo <span class="kw">for </span>Pallet&lt;T&gt; {
-		<span class="kw">fn </span>send() -&gt; Weight {
-			T::WeightInfo::send()
+		<span class="kw">fn </span>send_blob() -&gt; Weight {
+			T::WeightInfo::send_blob()
 		}
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&gt; SendController&lt;OriginFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">type </span>WeightInfo = <span class="self">Self</span>;
-		<span class="kw">fn </span>send(
+		<span class="kw">fn </span>send_blob(
 			origin: OriginFor&lt;T&gt;,
 			dest: Box&lt;VersionedLocation&gt;,
-			message: Box&lt;VersionedXcm&lt;()&gt;&gt;,
+			encoded_message: BoundedVec&lt;u8, MaxXcmEncodedSize&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, DispatchError&gt; {
 			<span class="kw">let </span>origin_location = T::SendXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>interior: Junctions =
-				origin_location.clone().try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidOrigin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>dest = Location::try_from(<span class="kw-2">*</span>dest).map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
-			<span class="kw">let </span>message: Xcm&lt;()&gt; = (<span class="kw-2">*</span>message).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
-
-			<span class="kw">let </span>message_id = <span class="self">Self</span>::send_xcm(interior, dest.clone(), message.clone())
-				.map_err(Error::&lt;T&gt;::from)<span class="question-mark">?</span>;
-			<span class="kw">let </span>e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
-			<span class="self">Self</span>::deposit_event(e);
-			<span class="prelude-val">Ok</span>(message_id)
+			<span class="kw">let </span>message =
+				VersionedXcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded_message[..]).map_err(|error| {
+					<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::send_blob&quot;</span>, <span class="string">&quot;Unable to decode XCM, error: {:?}&quot;</span>, error);
+					Error::&lt;T&gt;::UnableToDecode
+				})<span class="question-mark">?</span>;
+			<span class="self">Self</span>::send_base(origin_location, dest, Box::new(message))
 		}
 	}
 
@@ -3890,6 +3967,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>TooManyReserves,
 		<span class="doccomment">/// Local XCM execution incomplete.
 		</span>LocalExecutionIncomplete,
+		<span class="doccomment">/// Could not decode XCM.
+		</span>UnableToDecode,
+		<span class="doccomment">/// XCM encoded length is too large.
+		/// Returned when an XCM encoded length is larger than `MaxXcmEncodedSize`.
+		</span>XcmTooLarge,
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&gt; From&lt;SendError&gt; <span class="kw">for </span>Error&lt;T&gt; {
@@ -4227,16 +4309,73 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="doccomment">/// Underlying logic for both [`execute_blob`] and [`execute`].
+		</span><span class="kw">fn </span>execute_base(
+			origin_location: Location,
+			message: Box&lt;VersionedXcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;&gt;,
+			max_weight: Weight,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, DispatchErrorWithPostInfo&gt; {
+			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;message {:?}, max_weight {:?}&quot;</span>, message, max_weight);
+			<span class="kw">let </span>outcome = (|| {
+				<span class="kw">let </span><span class="kw-2">mut </span>hash = message.using_encoded(sp_io::hashing::blake2_256);
+				<span class="kw">let </span>message = (<span class="kw-2">*</span>message).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
+				<span class="kw">let </span>value = (origin_location, message);
+				<span class="macro">ensure!</span>(T::XcmExecuteFilter::contains(<span class="kw-2">&amp;</span>value), Error::&lt;T&gt;::Filtered);
+				<span class="kw">let </span>(origin_location, message) = value;
+				<span class="prelude-val">Ok</span>(T::XcmExecutor::prepare_and_execute(
+					origin_location,
+					message,
+					<span class="kw-2">&amp;mut </span>hash,
+					max_weight,
+					max_weight,
+				))
+			})()
+			.map_err(|e: DispatchError| e.with_weight(T::WeightInfo::execute()))<span class="question-mark">?</span>;
+
+			<span class="self">Self</span>::deposit_event(Event::Attempted { outcome: outcome.clone() });
+			<span class="kw">let </span>weight_used = outcome.weight_used();
+			outcome.ensure_complete().map_err(|error| {
+				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;XCM execution failed with error {:?}&quot;</span>, error);
+				Error::&lt;T&gt;::LocalExecutionIncomplete
+					.with_weight(weight_used.saturating_add(T::WeightInfo::execute()))
+			})<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(weight_used)
+		}
+
+		<span class="doccomment">/// Underlying logic for both [`send_blob`] and [`send`].
+		</span><span class="kw">fn </span>send_base(
+			origin_location: Location,
+			dest: Box&lt;VersionedLocation&gt;,
+			message: Box&lt;VersionedXcm&lt;()&gt;&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, DispatchError&gt; {
+			<span class="kw">let </span>interior: Junctions =
+				origin_location.clone().try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidOrigin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>dest = Location::try_from(<span class="kw-2">*</span>dest).map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
+			<span class="kw">let </span>message: Xcm&lt;()&gt; = (<span class="kw-2">*</span>message).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
+
+			<span class="kw">let </span>message_id = <span class="self">Self</span>::send_xcm(interior, dest.clone(), message.clone())
+				.map_err(Error::&lt;T&gt;::from)<span class="question-mark">?</span>;
+			<span class="kw">let </span>e = Event::Sent { origin: origin_location, destination: dest, message, message_id };
+			<span class="self">Self</span>::deposit_event(e);
+			<span class="prelude-val">Ok</span>(message_id)
+		}
+	}
+
 	<span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-		<span class="attr">#[pallet::call_index(<span class="number">0</span>)]
+		<span class="doccomment">/// WARNING: DEPRECATED. `send` will be removed after June 2024. Use `send_blob` instead.
+		</span><span class="attr">#[allow(deprecated)]
+		#[deprecated(note = <span class="string">&quot;`send` will be removed after June 2024. Use `send_blob` instead.&quot;</span>)]
+		#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(T::WeightInfo::send())]
 		</span><span class="kw">pub fn </span>send(
 			origin: OriginFor&lt;T&gt;,
 			dest: Box&lt;VersionedLocation&gt;,
 			message: Box&lt;VersionedXcm&lt;()&gt;&gt;,
 		) -&gt; DispatchResult {
-			&lt;<span class="self">Self </span><span class="kw">as </span>SendController&lt;<span class="kw">_</span>&gt;&gt;::send(origin, dest, message)<span class="question-mark">?</span>;
+			<span class="kw">let </span>origin_location = T::SendXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::send_base(origin_location, dest, message)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -4359,15 +4498,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// No more than `max_weight` will be used in its attempted execution. If this is less than
 		/// the maximum amount of weight that the message could take to be executed, then no
 		/// execution attempt will be made.
-		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
+		///
+		/// WARNING: DEPRECATED. `execute` will be removed after June 2024. Use `execute_blob`
+		/// instead.
+		</span><span class="attr">#[allow(deprecated)]
+		#[deprecated(
+			note = <span class="string">&quot;`execute` will be removed after June 2024. Use `execute_blob` instead.&quot;
+		</span>)]
+		#[pallet::call_index(<span class="number">3</span>)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
 		</span><span class="kw">pub fn </span>execute(
 			origin: OriginFor&lt;T&gt;,
 			message: Box&lt;VersionedXcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;&gt;,
 			max_weight: Weight,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="kw">let </span>weight_used =
-				&lt;<span class="self">Self </span><span class="kw">as </span>ExecuteController&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::execute(origin, message, max_weight)<span class="question-mark">?</span>;
+			<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>weight_used = <span class="self">Self</span>::execute_base(origin_location, message, max_weight)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
@@ -4776,6 +4922,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::claim_assets&quot;</span>, <span class="string">&quot;XCM execution failed with error: {:?}&quot;</span>, error);
 				Error::&lt;T&gt;::LocalExecutionIncomplete
 			})<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="doccomment">/// Execute an XCM from a local, signed, origin.
+		///
+		/// An event is deposited indicating whether the message could be executed completely
+		/// or only partially.
+		///
+		/// No more than `max_weight` will be used in its attempted execution. If this is less than
+		/// the maximum amount of weight that the message could take to be executed, then no
+		/// execution attempt will be made.
+		///
+		/// The message is passed in encoded. It needs to be decodable as a [`VersionedXcm`].
+		</span><span class="attr">#[pallet::call_index(<span class="number">13</span>)]
+		#[pallet::weight(T::WeightInfo::execute_blob())]
+		</span><span class="kw">pub fn </span>execute_blob(
+			origin: OriginFor&lt;T&gt;,
+			encoded_message: BoundedVec&lt;u8, MaxXcmEncodedSize&gt;,
+			max_weight: Weight,
+		) -&gt; DispatchResultWithPostInfo {
+			<span class="kw">let </span>weight_used = &lt;<span class="self">Self </span><span class="kw">as </span>ExecuteController&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::execute_blob(
+				origin,
+				encoded_message,
+				max_weight,
+			)<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(weight_used.saturating_add(T::WeightInfo::execute_blob())).into())
+		}
+
+		<span class="doccomment">/// Send an XCM from a local, signed, origin.
+		///
+		/// The destination, `dest`, will receive this message with a `DescendOrigin` instruction
+		/// that makes the origin of the message be the origin on this system.
+		///
+		/// The message is passed in encoded. It needs to be decodable as a [`VersionedXcm`].
+		</span><span class="attr">#[pallet::call_index(<span class="number">14</span>)]
+		#[pallet::weight(T::WeightInfo::send_blob())]
+		</span><span class="kw">pub fn </span>send_blob(
+			origin: OriginFor&lt;T&gt;,
+			dest: Box&lt;VersionedLocation&gt;,
+			encoded_message: BoundedVec&lt;u8, MaxXcmEncodedSize&gt;,
+		) -&gt; DispatchResult {
+			&lt;<span class="self">Self </span><span class="kw">as </span>SendController&lt;<span class="kw">_</span>&gt;&gt;::send_blob(origin, dest, encoded_message)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 	}

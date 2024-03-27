@@ -337,6 +337,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -360,6 +365,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
 	pallet_prelude::DispatchError,
+	parameter_types, BoundedVec,
 };
 <span class="kw">use </span>sp_std::boxed::Box;
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
@@ -380,8 +386,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Weight functions needed for [`ExecuteController`].
 </span><span class="kw">pub trait </span>ExecuteControllerWeightInfo {
-	<span class="doccomment">/// Weight for [`ExecuteController::execute`]
-	</span><span class="kw">fn </span>execute() -&gt; Weight;
+	<span class="doccomment">/// Weight for [`ExecuteController::execute_blob`]
+	</span><span class="kw">fn </span>execute_blob() -&gt; Weight;
+}
+
+<span class="macro">parameter_types! </span>{
+	<span class="kw">pub const </span>MaxXcmEncodedSize: u32 = xcm::MAX_XCM_ENCODED_SIZE;
 }
 
 <span class="doccomment">/// Execute an XCM locally, for a given origin.
@@ -400,19 +410,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Parameters
 	///
 	/// - `origin`: the origin of the call.
-	/// - `message`: the XCM program to be executed.
+	/// - `msg`: the encoded XCM to be executed, should be decodable as a [`VersionedXcm`]
 	/// - `max_weight`: the maximum weight that can be consumed by the execution.
-	</span><span class="kw">fn </span>execute(
+	</span><span class="kw">fn </span>execute_blob(
 		origin: Origin,
-		message: Box&lt;VersionedXcm&lt;RuntimeCall&gt;&gt;,
+		message: BoundedVec&lt;u8, MaxXcmEncodedSize&gt;,
 		max_weight: Weight,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, DispatchErrorWithPostInfo&gt;;
 }
 
 <span class="doccomment">/// Weight functions needed for [`SendController`].
 </span><span class="kw">pub trait </span>SendControllerWeightInfo {
-	<span class="doccomment">/// Weight for [`SendController::send`]
-	</span><span class="kw">fn </span>send() -&gt; Weight;
+	<span class="doccomment">/// Weight for [`SendController::send_blob`]
+	</span><span class="kw">fn </span>send_blob() -&gt; Weight;
 }
 
 <span class="doccomment">/// Send an XCM from a given origin.
@@ -432,11 +442,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// - `origin`: the origin of the call.
 	/// - `dest`: the destination of the message.
-	/// - `msg`: the XCM to be sent.
-	</span><span class="kw">fn </span>send(
+	/// - `msg`: the encoded XCM to be sent, should be decodable as a [`VersionedXcm`]
+	</span><span class="kw">fn </span>send_blob(
 		origin: Origin,
 		dest: Box&lt;VersionedLocation&gt;,
-		message: Box&lt;VersionedXcm&lt;()&gt;&gt;,
+		message: BoundedVec&lt;u8, MaxXcmEncodedSize&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, DispatchError&gt;;
 }
 
@@ -476,35 +486,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Origin, RuntimeCall&gt; ExecuteController&lt;Origin, RuntimeCall&gt; <span class="kw">for </span>() {
 	<span class="kw">type </span>WeightInfo = ();
-	<span class="kw">fn </span>execute(
+	<span class="kw">fn </span>execute_blob(
 		_origin: Origin,
-		_message: Box&lt;VersionedXcm&lt;RuntimeCall&gt;&gt;,
+		_message: BoundedVec&lt;u8, MaxXcmEncodedSize&gt;,
 		_max_weight: Weight,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, DispatchErrorWithPostInfo&gt; {
-		<span class="prelude-val">Err</span>(DispatchError::Other(<span class="string">&quot;ExecuteController::execute not implemented&quot;</span>)
+		<span class="prelude-val">Err</span>(DispatchError::Other(<span class="string">&quot;ExecuteController::execute_blob not implemented&quot;</span>)
 			.with_weight(Weight::zero()))
 	}
 }
 
 <span class="kw">impl </span>ExecuteControllerWeightInfo <span class="kw">for </span>() {
-	<span class="kw">fn </span>execute() -&gt; Weight {
+	<span class="kw">fn </span>execute_blob() -&gt; Weight {
 		Weight::zero()
 	}
 }
 
 <span class="kw">impl</span>&lt;Origin&gt; SendController&lt;Origin&gt; <span class="kw">for </span>() {
 	<span class="kw">type </span>WeightInfo = ();
-	<span class="kw">fn </span>send(
+	<span class="kw">fn </span>send_blob(
 		_origin: Origin,
 		_dest: Box&lt;VersionedLocation&gt;,
-		_message: Box&lt;VersionedXcm&lt;()&gt;&gt;,
+		_message: BoundedVec&lt;u8, MaxXcmEncodedSize&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, DispatchError&gt; {
 		<span class="prelude-val">Ok</span>(Default::default())
 	}
 }
 
 <span class="kw">impl </span>SendControllerWeightInfo <span class="kw">for </span>() {
-	<span class="kw">fn </span>send() -&gt; Weight {
+	<span class="kw">fn </span>send_blob() -&gt; Weight {
 		Weight::zero()
 	}
 }
