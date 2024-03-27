@@ -21,7 +21,8 @@
 
 #![cfg(any(feature = "test-helpers", test))]
 
-use crate::{Chain, ChainWithBalances};
+use crate::{Chain, ChainWithBalances, ChainWithMessages};
+use bp_messages::{ChainWithMessages as ChainWithMessagesBase, MessageNonce};
 use bp_runtime::ChainId;
 use frame_support::weights::Weight;
 use std::time::Duration;
@@ -44,7 +45,7 @@ impl bp_runtime::Chain for TestChain {
 	type Signature = sp_runtime::testing::TestSignature;
 
 	fn max_extrinsic_size() -> u32 {
-		unreachable!()
+		100000
 	}
 
 	fn max_extrinsic_weight() -> Weight {
@@ -67,6 +68,18 @@ impl ChainWithBalances for TestChain {
 	fn account_info_storage_key(_account_id: &u32) -> sp_core::storage::StorageKey {
 		unreachable!()
 	}
+}
+
+impl ChainWithMessagesBase for TestChain {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str = "Test";
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce = 0;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce = 0;
+}
+
+impl ChainWithMessages for TestChain {
+	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> = None;
+	const TO_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "TestMessagesDetailsMethod";
+	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str = "TestFromMessagesDetailsMethod";
 }
 
 /// Primitives-level parachain that may be used in tests.
