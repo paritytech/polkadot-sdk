@@ -245,37 +245,6 @@ pub trait UncheckedOnRuntimeUpgrade {
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		Ok(())
 	}
-
-	/// The expected and default behavior of this method is to handle executing `pre_upgrade` ->
-	/// `on_runtime_upgrade` -> `post_upgrade` hooks for a migration.
-	///
-	/// Internally, the default implementation
-	/// - Handles passing data from `pre_upgrade` to `post_upgrade`
-	/// - Ensure storage is not modified in `pre_upgrade` and `post_upgrade` hooks.
-	///
-	/// Combining the `pre_upgrade` -> `on_runtime_upgrade` -> `post_upgrade` logic flow into a
-	/// single method call is helpful for scenarios like testing a tuple of migrations, where the
-	/// tuple contains order-dependent migrations.
-	#[cfg(feature = "try-runtime")]
-	fn try_on_runtime_upgrade(checks: bool) -> Result<Weight, TryRuntimeError> {
-		let maybe_state = if checks {
-			let _guard = frame_support::StorageNoopGuard::default();
-			let state = Self::pre_upgrade()?;
-			Some(state)
-		} else {
-			None
-		};
-
-		let weight = Self::unchecked_on_runtime_upgrade();
-
-		if let Some(state) = maybe_state {
-			let _guard = frame_support::StorageNoopGuard::default();
-			// we want to panic if any checks fail right here right now.
-			Self::post_upgrade(state)?
-		}
-
-		Ok(weight)
-	}
 }
 
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
