@@ -11,15 +11,15 @@ doc:
         New config types is added on the message-queue `Config` trait:
         - `IdleMaxServiceWeight`
 
-    example:
-        ```rust
-        parameter_types! {
-            // The maximum weight to be used from remaining weight for processing enqueued messages on idle
-            pub const IdleMaxServiceWeight: Weight = Some(Weight);
-        }
+        example:
+            ```rust
+            parameter_types! {
+                // The maximum weight to be used from remaining weight for processing enqueued messages on idle
+                pub const IdleMaxServiceWeight: Weight = Some(Weight);
+            }
 
-        type IdleMaxServiceWeight = IdleMaxServiceWeight; // or `()` to not use this feature
-        ```
+            type IdleMaxServiceWeight = IdleMaxServiceWeight; // or `()` to not use this feature
+            ```
 
 crates:
     - name: pallet-message-queue
