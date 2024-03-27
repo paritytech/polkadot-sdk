@@ -786,5 +786,13 @@ pub mod pallet {
 			Self::do_notify_core_count(core_count)?;
 			Ok(())
 		}
+
+		#[pallet::call_index(99)]
+		#[pallet::weight(T::WeightInfo::swap_leases())]
+		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_swap_leases(id, other)?;
+			Ok(())
+		}
 	}
 }
