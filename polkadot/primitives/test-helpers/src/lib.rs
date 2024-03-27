@@ -136,17 +136,17 @@ pub fn dummy_head_data() -> HeadData {
 
 /// Create a meaningless collator id.
 pub fn dummy_collator() -> CollatorId {
-	CollatorId::from(sr25519::Public::from_raw([0; 32]))
+	CollatorId::from(sr25519::Public::default())
 }
 
 /// Create a meaningless validator id.
 pub fn dummy_validator() -> ValidatorId {
-	ValidatorId::from(sr25519::Public::from_raw([0; 32]))
+	ValidatorId::from(sr25519::Public::default())
 }
 
 /// Create a meaningless collator signature.
 pub fn dummy_collator_signature() -> CollatorSignature {
-	CollatorSignature::from(sr25519::Signature([0u8; 64]))
+	CollatorSignature::from(sr25519::Signature::default())
 }
 
 /// Create a meaningless persisted validation data.
@@ -249,7 +249,7 @@ pub fn resign_candidate_descriptor_with_collator<H: AsRef<[u8]>>(
 	descriptor.signature = signature;
 }
 
-/// Extracts validators's public keus (`ValidatorId`) from `Sr25519Keyring`
+/// Extracts validators's public keys (`ValidatorId`) from `Sr25519Keyring`
 pub fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> Vec<ValidatorId> {
 	val_ids.iter().map(|v| v.public().into()).collect()
 }

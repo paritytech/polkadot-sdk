@@ -10,7 +10,7 @@
 //!
 //! * [`Call::force_checkpoint`]: Set the initial trusted consensus checkpoint.
 //! * [`Call::set_operating_mode`]: Set the operating mode of the pallet. Can be used to disable
-//!   processing of conensus updates.
+//!   processing of consensus updates.
 //!
 //! ## Consensus Updates
 //!
@@ -130,6 +130,10 @@ pub mod pallet {
 		InvalidExecutionHeaderProof,
 		InvalidAncestryMerkleProof,
 		InvalidBlockRootsRootMerkleProof,
+		/// The gap between the finalized headers is larger than the sync committee period,
+		/// rendering execution headers unprovable using ancestry proofs (blocks root size is
+		/// the same as the sync committee period slots).
+		InvalidFinalizedHeaderGap,
 		HeaderNotFinalized,
 		BlockBodyHashTreeRootFailed,
 		HeaderHashTreeRootFailed,
@@ -396,6 +400,17 @@ pub mod pallet {
 				update.attested_header.slot > latest_finalized_state.slot ||
 					update_has_next_sync_committee,
 				Error::<T>::IrrelevantUpdate
+			);
+
+			// Verify the finalized header gap between the current finalized header and new imported
+			// header is not larger than the sync committee period, otherwise we cannot do
+			// ancestry proofs for execution headers in the gap.
+			ensure!(
+				latest_finalized_state
+					.slot
+					.saturating_add(config::SLOTS_PER_HISTORICAL_ROOT as u64) >=
+					update.finalized_header.slot,
+				Error::<T>::InvalidFinalizedHeaderGap
 			);
 
 			// Verify that the `finality_branch`, if present, confirms `finalized_header` to match

@@ -1460,7 +1460,7 @@ impl<T: Config> Pallet<T> {
 
 /// Run a closure that errors on re-entrance. Meant to be used by anything that services queues.
 pub(crate) fn with_service_mutex<F: FnOnce() -> R, R>(f: F) -> Result<R, ()> {
-	// Holds the singelton token instance.
+	// Holds the singleton token instance.
 	environmental::environmental!(token: Option<()>);
 
 	token::using_once(&mut Some(()), || {
