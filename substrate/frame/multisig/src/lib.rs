@@ -39,6 +39,19 @@
 //!   number of signed origins.
 //! * `approve_as_multi` - Approve a call from a composite origin.
 //! * `cancel_as_multi` - Cancel a call from a composite origin.
+//! * `cancel_as_multi_without_timepoint` - Cancel a call from a composite origin without providing a timepoint.
+//!
+//! ### Security
+//!
+//! Multisig operations are stored in a DoubleKeyMap, where the keys are `call_hash`
+//! and `id` (derived from threshold and signatories).
+//! `timepoint` acts as an identifier for otherwise indistinguishable multisig operations
+//! (e.g. a recurring payment with, say, threshold 2, signatories A, B, C, and the same `call_hash`),
+//! hence granting an additional layer of security.
+//! However, retrieving and providing the `timepoint` may become an arduous task from the UX perspective.
+//! `timepoint` is made optional to balance the tradeoff between UX and security.
+//! If `threshold`, `signatories` and `call_hash` together will be enough for your use-case to distinguish
+//! multisig operations, then you can opt-out of `timepoint`.
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -448,7 +461,9 @@ pub mod pallet {
 		/// dispatch. May not be empty.
 		/// - `timepoint`: The timepoint (block number and transaction index) of the first approval.
 		/// Timepoint serves as an additional layer of security. If you do not wish to provide timepoint,
-		/// use `cancel_as_multi_without_timepoint`.
+		/// use `cancel_as_multi_without_timepoint`
+		/// (`timepoint` parameter is not an `Option`, but instead there is another function
+		/// `cancel_as_multi_without_timepoint` due to backwards compatibility).
 		/// - `call_hash`: The hash of the call to be executed.
 		///
 		/// ## Complexity
@@ -473,25 +488,10 @@ pub mod pallet {
 			Self::cancel(who, threshold, other_signatories, Some(timepoint), call_hash)
 		}
 
-		/// Cancel a pre-existing, on-going multisig transaction. Any deposit reserved previously
-		/// for this operation will be unreserved on success.
+		/// Same as [`Pallet::cancel_as_multi`], but without a timepoint.
 		///
-		/// The dispatch origin for this call must be _Signed_.
-		///
-		/// - `threshold`: The total number of approvals for this dispatch before it is executed.
-		/// - `other_signatories`: The accounts (other than the sender) who can approve this
-		/// dispatch. May not be empty.
-		/// - `call_hash`: The hash of the call to be executed.
-		///
-		/// ## Complexity
-		/// - `O(S)`.
-		/// - Up to one balance-reserve or unreserve operation.
-		/// - One passthrough operation, one insert, both `O(S)` where `S` is the number of
-		///   signatories. `S` is capped by `MaxSignatories`, with weight being proportional.
-		/// - One encode & hash, both of complexity `O(S)`.
-		/// - One event.
-		/// - I/O: 1 read `O(S)`, one remove.
-		/// - Storage: removes one item.
+		/// If `threshold`, `signatories` and `call_hash` together will be enough for your use-case
+		/// to distinguish multisig operations, use this function instead of `cancel_as_multi`
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::cancel_as_multi(other_signatories.len() as u32))]
 		pub fn cancel_as_multi_without_timepoint(
