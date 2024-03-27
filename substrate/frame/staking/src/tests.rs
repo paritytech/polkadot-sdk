@@ -7514,7 +7514,8 @@ mod ledger_recovery {
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
 			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			// assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_ok!(Staking::restore_ledger_v2(RuntimeOrigin::root(), 333, 444, 30, 0));
 
 			// try-state checks are ok now.
 			assert_ok!(Staking::do_try_state(System::block_number()));
@@ -7557,8 +7558,9 @@ mod ledger_recovery {
 			// try-state should fail.
 			assert!(Staking::do_try_state(System::block_number()).is_err());
 
-			// recover the ledger bonded by 333 stash.
-			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			// ~recover the ledger bonded by 333 stash.~
+			// for 333 lock exists but no bonded, just clear the lock (params can be optional to restore)
+			assert_ok!(Staking::restore_ledger_v2(RuntimeOrigin::root(), 333, 0, 0, 0));
 
 			// for the try-state checks to pass, we also need to recover the stash 444 which is
 			// corrupted too by proxy of kill(333). Currently, both the lock and the ledger of 444
@@ -7568,12 +7570,12 @@ mod ledger_recovery {
 				Error::<Test>::CannotRestoreLedger
 			);
 
-			assert_ok!(Staking::restore_ledger(
+			assert_ok!(Staking::restore_ledger_v2(
 				RuntimeOrigin::root(),
 				444,
-				None,
-				Some(total_444_before_corruption),
-				None,
+				444,
+				total_444_before_corruption,
+				0,
 			));
 
 			// try-state checks are ok now.

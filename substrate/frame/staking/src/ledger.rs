@@ -77,6 +77,18 @@ impl<T: Config> StakingLedger<T> {
 		}
 	}
 
+	pub fn force_new_with_controller(stash: T::AccountId, stake: BalanceOf<T>, controller: T::AccountId) -> Self {
+		Self {
+			stash: stash.clone(),
+			active: stake,
+			total: stake,
+			unlocking: Default::default(),
+			legacy_claimed_rewards: Default::default(),
+			// controllers are deprecated and mapped 1-1 to stashes.
+			controller: Some(controller),
+		}
+	}
+
 	/// Returns the paired account, if any.
 	///
 	/// A "pair" refers to the tuple (stash, controller). If the input is a

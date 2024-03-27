@@ -25,14 +25,14 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons
 	},
 	weights::Weight,
 	BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
+	traits::{CheckedSub, CheckedAdd, SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 
@@ -2083,6 +2083,62 @@ pub mod pallet {
 				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
 				Error::<T>::BadState
 			);
+			Ok(())
+		}
+
+		#[pallet::call_index(30)]
+		#[pallet::weight(T::WeightInfo::restore_ledger())]
+		pub fn restore_ledger_v2(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			controller: T::AccountId,
+			total: BalanceOf<T>,
+			num_slashing_spans: u32,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+			ensure!(current_lock > Zero::zero(), Error::<T>::CannotRestoreLedger);
+
+			let existing_controller = Bonded::<T>::get(&stash);
+			if existing_controller == None {
+				// it is a dangling lock. Clear the locks.
+				T::Currency::remove_lock(crate::STAKING_ID, &stash);
+				return Ok(());
+			}
+
+			let existing_controller = existing_controller.expect("checked above not none; qed");
+			ensure!(existing_controller == controller, Error::<T>::CannotRestoreLedger);
+
+			let existing_ledger = Ledger::<T>::get(&existing_controller);
+
+			// verify imbalances and restoration conditions.
+			match existing_ledger {
+				Some(ledger) => {
+					// ensure stash mismatches otherwise nothing to restore.
+					ensure!(ledger.stash != stash, Error::<T>::CannotRestoreLedger);
+					let stake_to_dissolve = &ledger.total;
+					ensure!(total == current_lock.checked_add(stake_to_dissolve).ok_or(ArithmeticError::Overflow)?, Error::<T>::CannotRestoreLedger);
+					// kill this ledger
+					Self::kill_stash(&ledger.stash, num_slashing_spans)?;
+				},
+				None => {
+					// if ledger is missing, make sure the passed total matches the existing lock.
+					ensure!(total == current_lock, Error::<T>::CannotRestoreLedger);
+				}
+			}
+
+			// re-bond stash and controller tuple.
+			Bonded::<T>::insert(&stash, &controller);
+
+			// restore ledger state.
+			StakingLedger::<T>::force_new_with_controller(stash.clone(), total, controller).update()?;
+
+			ensure!(
+				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+				Error::<T>::BadState
+			);
+
 			Ok(())
 		}
 	}
