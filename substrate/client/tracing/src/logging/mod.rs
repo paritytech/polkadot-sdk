@@ -98,7 +98,7 @@ fn prepare_subscriber<N, E, F, W>(
 	force_colors: Option<bool>,
 	detailed_output: bool,
 	builder_hook: impl Fn(
-		SubscriberBuilder<format::DefaultFields, EventFormat, EnvFilter, DefaultLogger>,
+		SubscriberBuilder<format::JsonFields, EventFormat, EnvFilter, DefaultLogger>,
 	) -> SubscriberBuilder<N, E, F, W>,
 ) -> Result<impl Subscriber + for<'a> LookupSpan<'a>>
 where
@@ -182,7 +182,7 @@ where
 		enable_color,
 		dup_to_stdout: !io::stderr().is_terminal() && io::stdout().is_terminal(),
 	};
-	let builder = FmtSubscriber::builder().with_env_filter(env_filter);
+	let builder = FmtSubscriber::builder().json().with_env_filter(env_filter);
 
 	let builder = builder.with_span_events(format::FmtSpan::NONE);
 

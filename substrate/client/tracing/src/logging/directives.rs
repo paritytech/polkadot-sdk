@@ -17,11 +17,11 @@
 use parking_lot::Mutex;
 use std::sync::OnceLock;
 use tracing_subscriber::{
-	filter::Directive, fmt as tracing_fmt, layer, reload::Handle, EnvFilter, Registry,
+	filter::Directive, fmt::{self as tracing_fmt, format::JsonFields}, layer, reload::Handle, EnvFilter, Registry,
 };
 
 // Handle to reload the tracing log filter
-static FILTER_RELOAD_HANDLE: OnceLock<Handle<EnvFilter, SCSubscriber>> = OnceLock::new();
+static FILTER_RELOAD_HANDLE: OnceLock<Handle<EnvFilter, SCSubscriber<JsonFields>>> = OnceLock::new();
 // Directives that are defaulted to when resetting the log filter
 static DEFAULT_DIRECTIVES: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 // Current state of log filter
@@ -100,7 +100,7 @@ pub fn reset_log_filter() -> Result<(), String> {
 }
 
 /// Initialize FILTER_RELOAD_HANDLE, only possible once
-pub(crate) fn set_reload_handle(handle: Handle<EnvFilter, SCSubscriber>) {
+pub(crate) fn set_reload_handle(handle: Handle<EnvFilter, SCSubscriber<JsonFields>>) {
 	let _ = FILTER_RELOAD_HANDLE.set(handle);
 }
 

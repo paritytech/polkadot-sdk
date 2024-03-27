@@ -79,6 +79,8 @@ impl SubstrateCli for Cli {
 pub fn run() -> Result<()> {
 	let cli = Cli::from_args();
 
+//	tracing-subscriber 
+
 	match &cli.subcommand {
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
