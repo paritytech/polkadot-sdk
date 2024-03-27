@@ -2007,6 +2007,7 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 
 			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+			let stash_balance = T::Currency::free_balance(&stash);
 
 			let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
 				Ok(LedgerIntegrityState::Corrupted) => {
@@ -2017,7 +2018,7 @@ pub mod pallet {
 						T::Currency::set_lock(
 							crate::STAKING_ID,
 							&stash,
-							new_total,
+							new_total.min(stash_balance),
 							WithdrawReasons::all(),
 						);
 						new_total
@@ -2048,7 +2049,7 @@ pub mod pallet {
 					T::Currency::set_lock(
 						crate::STAKING_ID,
 						&stash,
-						new_total,
+						new_total.min(stash_balance),
 						WithdrawReasons::all(),
 					);
 

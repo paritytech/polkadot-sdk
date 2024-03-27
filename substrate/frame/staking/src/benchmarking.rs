@@ -32,7 +32,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex, StakingInterface};
+use sp_staking::{currency_to_vote::CurrencyToVote, SessionIndex};
 use sp_std::prelude::*;
 
 pub use frame_benchmarking::v1::{
@@ -957,10 +957,9 @@ benchmarks! {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
 		Ledger::<T>::remove(controller);
-		// TODO: None, None parameter inputs may not be the worst case scenario.
 	}: _(RawOrigin::Root, stash.clone(), None, None, None)
 	verify {
-		assert_eq!(Staking::<T>::status(&stash).unwrap(), StakerStatus::Nominator(vec![]));
+		assert_eq!(Staking::<T>::inspect_bond_state(&stash), Ok(LedgerIntegrityState::Ok));
 	}
 
 	impl_benchmark_test_suite!(
