@@ -114,7 +114,6 @@ pub mod pallet {
 	///
 	/// It is illegal for a `None` value to trail in the list.
 	#[pallet::storage]
-	#[pallet::getter(fn lease)]
 	pub type Leases<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Vec<Option<(T::AccountId, BalanceOf<T>)>>, ValueQuery>;
 

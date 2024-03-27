@@ -153,7 +153,7 @@ benchmarks! {
 
 	enter_backed_candidate_code_upgrade {
 		// For now we always assume worst case code size. In the future we could vary over this.
-		let v = crate::configuration::Pallet::<T>::config().max_code_size;
+		let v = crate::configuration::ActiveConfig::<T>::get().max_code_size;
 
 		let cores_with_backed: BTreeMap<_, _>
 			= vec![(0, BenchBuilder::<T>::fallback_min_validity_votes())]

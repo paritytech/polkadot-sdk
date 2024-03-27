@@ -706,8 +706,7 @@ pub mod pallet {
 	///
 	/// Consider using the [`ParachainsCache`] type of modifying.
 	#[pallet::storage]
-	#[pallet::getter(fn parachains)]
-	pub(crate) type Parachains<T: Config> = StorageValue<_, Vec<ParaId>, ValueQuery>;
+	pub type Parachains<T: Config> = StorageValue<_, Vec<ParaId>, ValueQuery>;
 
 	/// The current lifecycle of a all known Para IDs.
 	#[pallet::storage]
@@ -715,22 +714,17 @@ pub mod pallet {
 
 	/// The head-data of every registered para.
 	#[pallet::storage]
-	#[pallet::getter(fn para_head)]
-	pub(super) type Heads<T: Config> = StorageMap<_, Twox64Concat, ParaId, HeadData>;
+	pub type Heads<T: Config> = StorageMap<_, Twox64Concat, ParaId, HeadData>;
 
 	/// The context (relay-chain block number) of the most recent parachain head.
 	#[pallet::storage]
-	#[pallet::getter(fn para_most_recent_context)]
-	pub(super) type MostRecentContext<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
+	pub type MostRecentContext<T: Config> = StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
 
 	/// The validation code hash of every live para.
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
-	#[pallet::getter(fn current_code_hash)]
-	pub(super) type CurrentCodeHash<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
+	pub type CurrentCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
 	/// Actual past code hash, indicated by the para id as well as the block number at which it
 	/// became outdated.
@@ -744,8 +738,7 @@ pub mod pallet {
 	/// but we also keep their code on-chain for the same amount of time as outdated code
 	/// to keep it available for approval checkers.
 	#[pallet::storage]
-	#[pallet::getter(fn past_code_meta)]
-	pub(super) type PastCodeMeta<T: Config> =
+	pub type PastCodeMeta<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, ParaPastCodeMeta<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Which paras have past code that needs pruning and the relay-chain block at which the code
@@ -762,17 +755,13 @@ pub mod pallet {
 	/// The change will be applied after the first parablock for this ID included which executes
 	/// in the context of a relay chain block with a number >= `expected_at`.
 	#[pallet::storage]
-	#[pallet::getter(fn future_code_upgrade_at)]
-	pub(super) type FutureCodeUpgrades<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
+	pub type FutureCodeUpgrades<T: Config> = StorageMap<_, Twox64Concat, ParaId, BlockNumberFor<T>>;
 
 	/// The actual future code hash of a para.
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
-	#[pallet::getter(fn future_code_hash)]
-	pub(super) type FutureCodeHash<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
+	pub type FutureCodeHash<T: Config> = StorageMap<_, Twox64Concat, ParaId, ValidationCodeHash>;
 
 	/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
@@ -798,8 +787,7 @@ pub mod pallet {
 	/// NOTE that this field is used by parachains via merkle storage proofs, therefore changing
 	/// the format will require migration of parachains.
 	#[pallet::storage]
-	#[pallet::getter(fn upgrade_restriction_signal)]
-	pub(super) type UpgradeRestrictionSignal<T: Config> =
+	pub type UpgradeRestrictionSignal<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, UpgradeRestriction>;
 
 	/// The list of parachains that are awaiting for their upgrade restriction to cooldown.
@@ -819,8 +807,7 @@ pub mod pallet {
 
 	/// The actions to perform during the start of a specific session index.
 	#[pallet::storage]
-	#[pallet::getter(fn actions_queue)]
-	pub(super) type ActionsQueue<T: Config> =
+	pub type ActionsQueue<T: Config> =
 		StorageMap<_, Twox64Concat, SessionIndex, Vec<ParaId>, ValueQuery>;
 
 	/// Upcoming paras instantiation arguments.
@@ -841,9 +828,7 @@ pub mod pallet {
 	/// This storage is consistent with [`FutureCodeHash`], [`CurrentCodeHash`] and
 	/// [`PastCodeHash`].
 	#[pallet::storage]
-	#[pallet::getter(fn code_by_hash)]
-	pub(super) type CodeByHash<T: Config> =
-		StorageMap<_, Identity, ValidationCodeHash, ValidationCode>;
+	pub type CodeByHash<T: Config> = StorageMap<_, Identity, ValidationCodeHash, ValidationCode>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -922,7 +907,7 @@ pub mod pallet {
 			relay_parent_number: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let config = configuration::Pallet::<T>::config();
+			let config = configuration::ActiveConfig::<T>::get();
 			Self::schedule_code_upgrade(
 				para,
 				new_code,
@@ -956,7 +941,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::force_queue_action())]
 		pub fn force_queue_action(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
 			ensure_root(origin)?;
-			let next_session = shared::Pallet::<T>::session_index().saturating_add(One::one());
+			let next_session = shared::CurrentSessionIndex::<T>::get().saturating_add(One::one());
 			ActionsQueue::<T>::mutate(next_session, |v| {
 				if let Err(i) = v.binary_search(&para) {
 					v.insert(i, para);
@@ -998,9 +983,9 @@ pub mod pallet {
 					}
 				});
 
-				let cfg = configuration::Pallet::<T>::config();
+				let cfg = configuration::ActiveConfig::<T>::get();
 				Self::enact_pvf_accepted(
-					<frame_system::Pallet<T>>::block_number(),
+					frame_system::Pallet::<T>::block_number(),
 					&code_hash,
 					&vote.causes,
 					vote.age,
@@ -1059,8 +1044,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_none(origin)?;
 
-			let validators = shared::Pallet::<T>::active_validator_keys();
-			let current_session = shared::Pallet::<T>::session_index();
+			let validators = shared::ActiveValidatorKeys::<T>::get();
+			let current_session = shared::CurrentSessionIndex::<T>::get();
 			if stmt.session_index < current_session {
 				return Err(Error::<T>::PvfCheckStatementStale.into())
 			} else if stmt.session_index > current_session {
@@ -1108,9 +1093,9 @@ pub mod pallet {
 				});
 				match outcome {
 					PvfCheckOutcome::Accepted => {
-						let cfg = configuration::Pallet::<T>::config();
+						let cfg = configuration::ActiveConfig::<T>::get();
 						Self::enact_pvf_accepted(
-							<frame_system::Pallet<T>>::block_number(),
+							frame_system::Pallet::<T>::block_number(),
 							&stmt.subject,
 							&active_vote.causes,
 							active_vote.age,
@@ -1158,7 +1143,7 @@ pub mod pallet {
 				_ => return InvalidTransaction::Call.into(),
 			};
 
-			let current_session = shared::Pallet::<T>::session_index();
+			let current_session = shared::CurrentSessionIndex::<T>::get();
 			if stmt.session_index < current_session {
 				return InvalidTransaction::Stale.into()
 			} else if stmt.session_index > current_session {
@@ -1166,7 +1151,7 @@ pub mod pallet {
 			}
 
 			let validator_index = stmt.validator_index.0 as usize;
-			let validators = shared::Pallet::<T>::active_validator_keys();
+			let validators = shared::ActiveValidatorKeys::<T>::get();
 			let validator_public = match validators.get(validator_index) {
 				Some(pk) => pk,
 				None => return InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
@@ -1231,7 +1216,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// Check that we can schedule an upgrade at all.
 		ensure!(Self::can_upgrade_validation_code(id), Error::<T>::CannotUpgradeCode);
-		let config = configuration::Pallet::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		// Validation code sanity checks:
 		ensure!(new_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
 		ensure!(new_code.0.len() <= config.max_code_size as usize, Error::<T>::InvalidCode);
@@ -1274,7 +1259,7 @@ impl<T: Config> Pallet<T> {
 
 	/// The validation code of live para.
 	pub(crate) fn current_code(para_id: &ParaId) -> Option<ValidationCode> {
-		Self::current_code_hash(para_id).and_then(|code_hash| {
+		CurrentCodeHash::<T>::get(para_id).and_then(|code_hash| {
 			let code = CodeByHash::<T>::get(&code_hash);
 			if code.is_none() {
 				log::error!(
@@ -1298,7 +1283,7 @@ impl<T: Config> Pallet<T> {
 	fn apply_actions_queue(session: SessionIndex) -> Vec<ParaId> {
 		let actions = ActionsQueue::<T>::take(session);
 		let mut parachains = ParachainsCache::new();
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = frame_system::Pallet::<T>::block_number();
 		let mut outgoing = Vec::new();
 
 		for para in actions {
@@ -1406,7 +1391,7 @@ impl<T: Config> Pallet<T> {
 	// looks at old code metadata, compares them to the current acceptance window, and prunes those
 	// that are too old.
 	fn prune_old_code(now: BlockNumberFor<T>) -> Weight {
-		let config = configuration::Pallet::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let code_retention_period = config.code_retention_period;
 		if now <= code_retention_period {
 			let weight = T::DbWeight::get().reads_writes(1, 0);
@@ -1442,7 +1427,7 @@ impl<T: Config> Pallet<T> {
 							}
 						}
 
-						meta.is_empty() && Self::para_head(&para_id).is_none()
+						meta.is_empty() && Heads::<T>::get(&para_id).is_none()
 					});
 
 					// This parachain has been removed and now the vestigial code
@@ -1603,7 +1588,7 @@ impl<T: Config> Pallet<T> {
 		//
 		// we cannot onboard at the current session, so it must be at least one
 		// session ahead.
-		let onboard_at: SessionIndex = shared::Pallet::<T>::session_index() +
+		let onboard_at: SessionIndex = shared::CurrentSessionIndex::<T>::get() +
 			cmp::max(shared::SESSION_DELAY.saturating_sub(sessions_observed), 1);
 
 		ActionsQueue::<T>::mutate(onboard_at, |v| {
@@ -1657,7 +1642,7 @@ impl<T: Config> Pallet<T> {
 
 		let expected_at = expected_at.saturated_into();
 		let log = ConsensusLog::ParaScheduleUpgradeCode(id, *code_hash, expected_at);
-		<frame_system::Pallet<T>>::deposit_log(log.into());
+		frame_system::Pallet::<T>::deposit_log(log.into());
 
 		weight
 	}
@@ -1765,7 +1750,7 @@ impl<T: Config> Pallet<T> {
 		let validation_code_hash = validation_code.hash();
 		CurrentCodeHash::<T>::insert(&id, validation_code_hash);
 
-		let cfg = configuration::Pallet::<T>::config();
+		let cfg = configuration::ActiveConfig::<T>::get();
 		Self::kick_off_pvf_check(
 			PvfCheckCause::Onboarding(id),
 			validation_code_hash,
@@ -1994,14 +1979,14 @@ impl<T: Config> Pallet<T> {
 					// The code is known and there is no active PVF vote for it meaning it is
 					// already checked -- fast track the PVF checking into the accepted state.
 					weight += T::DbWeight::get().reads(1);
-					let now = <frame_system::Pallet<T>>::block_number();
+					let now = frame_system::Pallet::<T>::block_number();
 					weight += Self::enact_pvf_accepted(now, &code_hash, &[cause], 0, cfg);
 				} else {
 					// PVF is not being pre-checked and it is not known. Start a new pre-checking
 					// process.
 					weight += T::DbWeight::get().reads_writes(3, 2);
-					let now = <frame_system::Pallet<T>>::block_number();
-					let n_validators = shared::Pallet::<T>::active_validator_keys().len();
+					let now = frame_system::Pallet::<T>::block_number();
+					let n_validators = shared::ActiveValidatorKeys::<T>::get().len();
 					PvfActiveVoteMap::<T>::insert(
 						&code_hash,
 						PvfCheckActiveVoteState::new(now, n_validators, cause),
@@ -2065,10 +2050,10 @@ impl<T: Config> Pallet<T> {
 				CurrentCodeHash::<T>::insert(&id, &new_code_hash);
 
 				let log = ConsensusLog::ParaUpgradeCode(id, new_code_hash);
-				<frame_system::Pallet<T>>::deposit_log(log.into());
+				frame_system::Pallet::<T>::deposit_log(log.into());
 
 				// `now` is only used for registering pruning as part of `fn note_past_code`
-				let now = <frame_system::Pallet<T>>::block_number();
+				let now = frame_system::Pallet::<T>::block_number();
 
 				let weight = if let Some(prior_code_hash) = maybe_prior_code_hash {
 					Self::note_past_code(id, expected_at, now, prior_code_hash)
@@ -2217,7 +2202,7 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn test_on_new_session() {
 		Self::initializer_on_new_session(&SessionChangeNotification {
-			session_index: shared::Pallet::<T>::session_index(),
+			session_index: shared::CurrentSessionIndex::<T>::get(),
 			..Default::default()
 		});
 	}

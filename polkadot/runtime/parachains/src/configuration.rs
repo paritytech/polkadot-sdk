@@ -512,8 +512,7 @@ pub mod pallet {
 	/// The active configuration for the current session.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	#[pallet::getter(fn config)]
-	pub(crate) type ActiveConfig<T: Config> =
+	pub type ActiveConfig<T: Config> =
 		StorageValue<_, HostConfiguration<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Pending configuration changes.
@@ -1283,7 +1282,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn initializer_on_new_session(
 		session_index: &SessionIndex,
 	) -> SessionChangeOutcome<BlockNumberFor<T>> {
-		let pending_configs = <PendingConfigs<T>>::get();
+		let pending_configs = PendingConfigs::<T>::get();
 		let prev_config = ActiveConfig::<T>::get();
 
 		// No pending configuration changes, so we're done.
@@ -1310,7 +1309,7 @@ impl<T: Config> Pallet<T> {
 			ActiveConfig::<T>::put(new_config);
 		}
 
-		<PendingConfigs<T>>::put(future);
+		PendingConfigs::<T>::put(future);
 
 		SessionChangeOutcome { prev_config, new_config }
 	}
@@ -1345,7 +1344,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),
 	) -> DispatchResult {
-		let mut pending_configs = <PendingConfigs<T>>::get();
+		let mut pending_configs = PendingConfigs::<T>::get();
 
 		// 1. pending_configs = [] No pending configuration changes.
 		//
@@ -1376,7 +1375,7 @@ impl<T: Config> Pallet<T> {
 		let mut base_config = pending_configs
 			.last()
 			.map(|(_, config)| config.clone())
-			.unwrap_or_else(Self::config);
+			.unwrap_or_else(ActiveConfig::<T>::get);
 		let base_config_consistent = base_config.check_consistency().is_ok();
 
 		// Now, we need to decide what the new configuration should be.
@@ -1428,7 +1427,7 @@ impl<T: Config> Pallet<T> {
 			pending_configs.push((scheduled_session, new_config));
 		}
 
-		<PendingConfigs<T>>::put(pending_configs);
+		PendingConfigs::<T>::put(pending_configs);
 
 		Ok(())
 	}

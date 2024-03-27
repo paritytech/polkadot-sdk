@@ -37,7 +37,7 @@ const VOTE_AGAINST: VoteKind = VoteKind::Invalid;
 const VOTE_BACKING: VoteKind = VoteKind::Backing;
 
 fn filter_dispute_set(stmts: MultiDisputeStatementSet) -> CheckedMultiDisputeStatementSet {
-	let config = <configuration::Pallet<Test>>::config();
+	let config = configuration::ActiveConfig::<Test>::get();
 	let post_conclusion_acceptance_period = config.dispute_post_conclusion_acceptance_period;
 
 	stmts
@@ -1985,7 +1985,7 @@ fn deduplication_and_sorting_works() {
 fn apply_filter_all<T: Config, I: IntoIterator<Item = DisputeStatementSet>>(
 	sets: I,
 ) -> Vec<CheckedDisputeStatementSet> {
-	let config = <configuration::Pallet<T>>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 	let post_conclusion_acceptance_period = config.dispute_post_conclusion_acceptance_period;
 
 	let mut acc = Vec::<CheckedDisputeStatementSet>::new();
@@ -2203,7 +2203,7 @@ fn filter_removes_concluded_ancient() {
 		let candidate_hash_a = CandidateHash(sp_core::H256::repeat_byte(1));
 		let candidate_hash_b = CandidateHash(sp_core::H256::repeat_byte(2));
 
-		<Disputes<Test>>::insert(
+		Disputes::<Test>::insert(
 			&1,
 			&candidate_hash_a,
 			DisputeState {
@@ -2214,7 +2214,7 @@ fn filter_removes_concluded_ancient() {
 			},
 		);
 
-		<Disputes<Test>>::insert(
+		Disputes::<Test>::insert(
 			&1,
 			&candidate_hash_b,
 			DisputeState {
