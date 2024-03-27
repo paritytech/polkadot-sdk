@@ -18,10 +18,11 @@
 
 use clap::Args;
 use sc_network::config::{identity::ed25519, NodeKeyConfig};
+use sc_service::Role;
 use sp_core::H256;
 use std::{path::PathBuf, str::FromStr};
 
-use crate::{arg_enums::NodeKeyType, error};
+use crate::{arg_enums::NodeKeyType, error, Error};
 
 /// The file name of the node's Ed25519 secret key inside the chain-specific
 /// network config directory, if neither `--node-key` nor `--node-key-file`
@@ -79,22 +80,47 @@ pub struct NodeKeyParams {
 	/// the chosen type.
 	#[arg(long, value_name = "FILE")]
 	pub node_key_file: Option<PathBuf>,
+
+	/// Forces key generation if node-key-file file does not exist.
+	///
+	/// This is an unsafe feature for producation networks because the previous
+	/// node address would still live in the DHT for 36h and the node would suffer
+	/// from bad connectivity to other nodes untill the old record expires.
+	/// For minimal node downtime if no custom `node-key-file` argument is provided
+	/// the network-key is usually persisted accross nodes restarts,
+	/// in the `network` folder from directory provided in `--base-path`
+	///
+	/// This is safe to be used the first time you run your node or if you already
+	/// lost your node keys or if you don't care about the above problem.
+	#[arg(long)]
+	pub unsafe_force_node_key_generation: bool,
 }
 
 impl NodeKeyParams {
 	/// Create a `NodeKeyConfig` from the given `NodeKeyParams` in the context
 	/// of an optional network config storage directory.
-	pub fn node_key(&self, net_config_dir: &PathBuf) -> error::Result<NodeKeyConfig> {
+	pub fn node_key(
+		&self,
+		net_config_dir: &PathBuf,
+		role: Role,
+		is_dev: bool,
+	) -> error::Result<NodeKeyConfig> {
 		Ok(match self.node_key_type {
 			NodeKeyType::Ed25519 => {
 				let secret = if let Some(node_key) = self.node_key.as_ref() {
 					parse_ed25519_secret(node_key)?
 				} else {
-					sc_network::config::Secret::File(
-						self.node_key_file
-							.clone()
-							.unwrap_or_else(|| net_config_dir.join(NODE_KEY_ED25519_FILE)),
-					)
+					let key_path = self
+						.node_key_file
+						.clone()
+						.unwrap_or_else(|| net_config_dir.join(NODE_KEY_ED25519_FILE));
+					if !self.unsafe_force_node_key_generation &&
+						role.is_authority() && !is_dev &&
+						!key_path.exists()
+					{
+						return Err(Error::NetworkKeyNotFound(key_path))
+					}
+					sc_network::config::Secret::File(key_path)
 				};
 
 				NodeKeyConfig::Ed25519(secret)
