@@ -53,7 +53,6 @@ use polkadot_node_subsystem_types::{
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
 use polkadot_primitives::{Block, GroupIndex, Hash};
 use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
-use sc_network_types::PeerId;
 
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
