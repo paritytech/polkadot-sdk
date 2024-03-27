@@ -20,11 +20,11 @@
 
 use super::peer_id::{from_core_peer_id, to_core_peer_id};
 use arrayvec::ArrayVec;
-use libp2p_identity::PeerId;
 use log::{debug, warn};
 use mixnet::core::{AddressedPacket, NetworkStatus, Packet, PeerId as CorePeerId};
 use parking_lot::Mutex;
 use sc_network::NotificationService;
+use sc_network_types::PeerId;
 use std::{collections::HashMap, future::Future, sync::Arc};
 
 const LOG_TARGET: &str = "mixnet";

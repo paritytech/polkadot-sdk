@@ -101,7 +101,13 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 	};
 
 	tokio_handle.block_on(async move {
-		node_cli::service::new_full_base(config, None, false, |_, _| ()).expect("Creates node")
+		node_cli::service::new_full_base::<sc_network::NetworkWorker<_, _>>(
+			config,
+			None,
+			false,
+			|_, _| (),
+		)
+		.expect("Creates node")
 	})
 }
 

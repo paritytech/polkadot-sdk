@@ -33,7 +33,7 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	AssignmentPair, AsyncBackingParams, BlockNumber, CommittedCandidateReceipt, CoreState,
+	AssignmentPair, AsyncBackingParams, Block, BlockNumber, CommittedCandidateReceipt, CoreState,
 	GroupRotationInfo, HeadData, Header, IndexedVec, PersistedValidationData, ScheduledCore,
 	SessionIndex, SessionInfo, ValidatorPair,
 };
@@ -340,9 +340,14 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		Arc::new(LocalKeystore::in_memory()) as KeystorePtr
 	};
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
-	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (candidate_req_receiver, req_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (statement_req_receiver, _) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (candidate_req_receiver, req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0);
 
 	let test_state = TestState::from_config(config, req_cfg.inbound_queue.unwrap(), &mut rng);

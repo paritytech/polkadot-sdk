@@ -20,16 +20,17 @@
 //! Only supports bitswap 1.2.0.
 //! CID is expected to reference 256-bit Blake2b transaction hash.
 
-use cid::{self, Version};
-use futures::StreamExt;
-use libp2p_identity::PeerId;
-use log::{debug, error, trace};
-use prost::Message;
-use sc_client_api::BlockBackend;
-use sc_network::{
+use crate::{
 	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
 	types::ProtocolName,
 };
+
+use cid::{self, Version};
+use futures::StreamExt;
+use log::{debug, error, trace};
+use prost::Message;
+use sc_client_api::BlockBackend;
+use sc_network_types::PeerId;
 use schema::bitswap::{
 	message::{wantlist::WantType, Block as MessageBlock, BlockPresence, BlockPresenceType},
 	Message as BitswapMessage,
