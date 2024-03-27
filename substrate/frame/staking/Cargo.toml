@@ -40,10 +40,10 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 rand_chacha = { version = "0.2", default-features = false, optional = true }
 
 [dev-dependencies]
+pallet-balances = { path = "../balances" }
 sp-tracing = { path = "../../primitives/tracing" }
 sp-core = { path = "../../primitives/core" }
 sp-npos-elections = { path = "../../primitives/npos-elections" }
-pallet-balances = { path = "../balances" }
 pallet-timestamp = { path = "../timestamp" }
 pallet-staking-reward-curve = { path = "reward-curve" }
 pallet-bags-list = { path = "../bags-list" }

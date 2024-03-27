@@ -228,6 +228,8 @@ pub enum CollatorProtocolMessage {
 		/// The result sender should be informed when at least one parachain validator seconded the
 		/// collation. It is also completely okay to just drop the sender.
 		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+		/// The core index where the candidate should be backed.
+		core_index: CoreIndex,
 	},
 	/// Report a collator as having provided an invalid collation. This should lead to disconnect
 	/// and blacklist of the collator.

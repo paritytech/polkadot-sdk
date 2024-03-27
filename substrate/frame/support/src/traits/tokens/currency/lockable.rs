@@ -64,6 +64,12 @@ pub trait LockableCurrency<AccountId>: Currency<AccountId> {
 	fn remove_lock(id: LockIdentifier, who: &AccountId);
 }
 
+/// A inspect interface for a currency whose accounts can have liquidity restrictions.
+pub trait InspectLockableCurrency<AccountId>: LockableCurrency<AccountId> {
+	/// Amount of funds locked for `who` associated with `id`.
+	fn balance_locked(id: LockIdentifier, who: &AccountId) -> Self::Balance;
+}
+
 /// A vesting schedule over a currency. This allows a particular currency to have vesting limits
 /// applied to it.
 pub trait VestingSchedule<AccountId> {
