@@ -20,7 +20,7 @@ use crate::configuration::{self, migration::v11::V11HostConfiguration, Config, P
 use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::*,
-	traits::{Defensive, OnRuntimeUpgrade},
+	traits::{Defensive, UncheckedOnRuntimeUpgrade},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::vstaging::SchedulerParams;
@@ -70,14 +70,14 @@ pub type MigrateToV12<T> = VersionedMigration<
 
 pub struct UncheckedMigrateToV12<T>(sp_std::marker::PhantomData<T>);
 
-impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateToV12<T> {
+impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV12<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		log::trace!(target: crate::configuration::LOG_TARGET, "Running pre_upgrade() for HostConfiguration MigrateToV12");
 		Ok(Vec::new())
 	}
 
-	fn on_runtime_upgrade() -> Weight {
+	fn unchecked_on_runtime_upgrade() -> Weight {
 		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV12 started");
 		let weight_consumed = migrate_to_v12::<T>();
 

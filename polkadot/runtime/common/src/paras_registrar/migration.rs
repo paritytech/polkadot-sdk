@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use frame_support::traits::{Contains, OnRuntimeUpgrade};
+use frame_support::traits::{Contains, UncheckedOnRuntimeUpgrade};
 
 #[derive(Encode, Decode)]
 pub struct ParaInfoV1<Account, Balance> {
@@ -27,10 +27,10 @@ pub struct ParaInfoV1<Account, Balance> {
 pub struct VersionUncheckedMigrateToV1<T, UnlockParaIds>(
 	sp_std::marker::PhantomData<(T, UnlockParaIds)>,
 );
-impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
+impl<T: Config, UnlockParaIds: Contains<ParaId>> UncheckedOnRuntimeUpgrade
 	for VersionUncheckedMigrateToV1<T, UnlockParaIds>
 {
-	fn on_runtime_upgrade() -> Weight {
+	fn unchecked_on_runtime_upgrade() -> Weight {
 		let mut count = 0u64;
 		Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|key, v1| {
 			count.saturating_inc();

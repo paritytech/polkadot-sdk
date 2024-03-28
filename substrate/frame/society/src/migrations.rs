@@ -19,7 +19,7 @@
 
 use super::*;
 use codec::{Decode, Encode};
-use frame_support::traits::{Defensive, DefensiveOption, Instance, OnRuntimeUpgrade};
+use frame_support::traits::{Defensive, DefensiveOption, Instance, UncheckedOnRuntimeUpgrade};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
@@ -36,7 +36,7 @@ impl<
 		T: Config<I>,
 		I: Instance + 'static,
 		PastPayouts: Get<Vec<(<T as frame_system::Config>::AccountId, BalanceOf<T, I>)>>,
-	> OnRuntimeUpgrade for VersionUncheckedMigrateToV2<T, I, PastPayouts>
+	> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV2<T, I, PastPayouts>
 {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -47,7 +47,7 @@ impl<
 		Ok((v0::Candidates::<T, I>::get(), v0::Members::<T, I>::get()).encode())
 	}
 
-	fn on_runtime_upgrade() -> Weight {
+	fn unchecked_on_runtime_upgrade() -> Weight {
 		let onchain = Pallet::<T, I>::on_chain_storage_version();
 		if onchain < 2 {
 			log::info!(

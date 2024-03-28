@@ -227,6 +227,26 @@ pub trait OnRuntimeUpgrade {
 	}
 }
 
+/// See [`Hooks::on_runtime_upgrade`].
+pub trait UncheckedOnRuntimeUpgrade {
+	/// See [`Hooks::on_runtime_upgrade`].
+	fn unchecked_on_runtime_upgrade() -> Weight {
+		Weight::zero()
+	}
+
+	/// See [`Hooks::pre_upgrade`].
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		Ok(Vec::new())
+	}
+
+	/// See [`Hooks::post_upgrade`].
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		Ok(())
+	}
+}
+
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
