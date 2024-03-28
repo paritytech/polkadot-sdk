@@ -393,7 +393,7 @@ fn reduce_all<A: IdentifierT>(assignments: &mut Vec<StakedAssignment<A>>) -> u32
 				// voter_root_path.last().unwrap()); TODO: @kian
 				// the common path must be non-void..
 				debug_assert!(common_count > 0);
-				// and smaller than btoh
+				// and smaller than both
 				debug_assert!(common_count <= voter_root_path.len());
 				debug_assert!(common_count <= target_root_path.len());
 

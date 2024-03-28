@@ -205,7 +205,7 @@ pub(crate) fn submit_finality_proof_info_from_args<T: Config<I>, I: 'static>(
 	// as an extra weight.
 	let votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
 	let extra_weight =
-		if votes_ancestries_len > T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY {
+		if votes_ancestries_len > T::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY {
 			T::WeightInfo::submit_finality_proof(precommits_len, votes_ancestries_len)
 		} else {
 			Weight::zero()
@@ -396,11 +396,11 @@ mod tests {
 		let finality_target = test_header(1);
 		let mut justification_params = JustificationGeneratorParams {
 			header: finality_target.clone(),
-			ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY,
+			ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY,
 			..Default::default()
 		};
 
-		// when there are `REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY` headers => no refund
+		// when there are `REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY` headers => no refund
 		let justification = make_justification_for_header(justification_params.clone());
 		let call = RuntimeCall::Grandpa(crate::Call::submit_finality_proof_ex {
 			finality_target: Box::new(finality_target.clone()),
@@ -409,7 +409,7 @@ mod tests {
 		});
 		assert_eq!(call.submit_finality_proof_info().unwrap().extra_weight, Weight::zero());
 
-		// when there are `REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY + 1` headers => full refund
+		// when there are `REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY + 1` headers => full refund
 		justification_params.ancestors += 1;
 		let justification = make_justification_for_header(justification_params);
 		let call_weight = <TestRuntime as Config>::WeightInfo::submit_finality_proof(

@@ -91,7 +91,7 @@ enum ImportedBlockInfoError {
 	#[error(transparent)]
 	RuntimeError(RuntimeApiError),
 
-	#[error("future cancalled while requesting {0}")]
+	#[error("future cancelled while requesting {0}")]
 	FutureCancelled(&'static str, futures::channel::oneshot::Canceled),
 
 	#[error(transparent)]
