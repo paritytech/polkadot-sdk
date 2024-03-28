@@ -19,13 +19,18 @@
 //! This module is intended to contain common boiler plate code handling unreleased runtime API
 //! calls.
 
+use std::collections::{BTreeMap, VecDeque};
+
 use polkadot_node_subsystem_types::messages::{RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_overseer::SubsystemSender;
-use polkadot_primitives::{Hash, ValidatorIndex};
+use polkadot_primitives::{CoreIndex, Hash, Id as ParaId, ScheduledCore, ValidatorIndex};
 
-use crate::{has_required_runtime, request_disabled_validators, runtime};
+use crate::{has_required_runtime, request_claim_queue, request_disabled_validators, runtime};
 
 const LOG_TARGET: &'static str = "parachain::subsystem-util-vstaging";
+
+/// A snapshot of the runtime claim queue at an arbitrare relay chain block.
+pub type ClaimQueueSnapshot = BTreeMap<CoreIndex, VecDeque<ParaId>>;
 
 // TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
 /// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
@@ -53,4 +58,41 @@ pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<Runti
 	};
 
 	Ok(disabled_validators)
+}
+
+/// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
+/// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
+/// Any specific [`RuntimeApiError`]s are bubbled up to the caller.
+pub async fn fetch_claim_queue(
+	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
+	relay_parent: Hash,
+) -> Result<Option<ClaimQueueSnapshot>, runtime::Error> {
+	if has_required_runtime(
+		sender,
+		relay_parent,
+		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+	)
+	.await
+	{
+		let res = request_claim_queue(relay_parent, sender)
+			.await
+			.await
+			.map_err(runtime::Error::RuntimeRequestCanceled)??;
+		Ok(Some(res))
+	} else {
+		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
+		Ok(None)
+	}
+}
+
+/// Returns the next scheduled `ParaId` for a core in the claim queue, wrapped in `ScheduledCore`.
+pub fn fetch_next_scheduled_on_core(
+	claim_queue: &ClaimQueueSnapshot,
+	core_idx: CoreIndex,
+) -> Option<ScheduledCore> {
+	claim_queue
+		.get(&core_idx)?
+		.front()
+		.cloned()
+		.map(|para_id| ScheduledCore { para_id, collator: None })
 }
