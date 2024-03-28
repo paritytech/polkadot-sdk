@@ -797,7 +797,7 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 			claim_queue,
 		)
 		.await;
-		helpers::handle_core_processing_for_a_leaf(
+		helpers::handle_cores_processing_for_a_leaf(
 			&mut virtual_overseer,
 			activated_hash,
 			para_id,
@@ -867,7 +867,7 @@ fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elasti
 		)
 		.await;
 
-		helpers::handle_core_processing_for_a_leaf(
+		helpers::handle_cores_processing_for_a_leaf(
 			&mut virtual_overseer,
 			activated_hash,
 			para_id,
@@ -925,7 +925,7 @@ fn distribute_collation_for_free_cores_with_async_backing_enabled_and_elastic_sc
 		)
 		.await;
 
-		helpers::handle_core_processing_for_a_leaf(
+		helpers::handle_cores_processing_for_a_leaf(
 			&mut virtual_overseer,
 			activated_hash,
 			para_id,
@@ -1112,7 +1112,7 @@ mod helpers {
 
 	// Handles all runtime requests performed in `handle_new_activations` for the case when a
 	// collation should be prepared for the new leaf
-	pub async fn handle_core_processing_for_a_leaf(
+	pub async fn handle_cores_processing_for_a_leaf(
 		virtual_overseer: &mut VirtualOverseer,
 		activated_hash: Hash,
 		para_id: ParaId,
