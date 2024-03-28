@@ -18,7 +18,7 @@ log = { version = "0.4.19", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 pallet-asset-tx-payment = { path = "../../../substrate/frame/transaction-payment/asset-tx-payment", default-features = false, version = "29.0.0" }
 pallet-assets = { path = "../../../substrate/frame/assets", default-features = false, version = "30.0.0" }

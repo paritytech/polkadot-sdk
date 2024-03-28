@@ -58,7 +58,7 @@ sp-io = { path = "../../../primitives/io", default-features = false, version = "
 frame-executive = { path = "../../../frame/executive", default-features = false, version = "29.0.0" }
 frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false, version = "29.0.0" }
 frame-benchmarking-pallet-pov = { path = "../../../frame/benchmarking/pov", default-features = false, version = "19.0.0" }
-frame-support = { path = "../../../frame/support", default-features = false, features = ["tuples-96"], version = "29.0.1" }
+frame-support = { path = "../../../frame/support", default-features = false, features = ["tuples-96"], version = "29.0.2" }
 frame-system = { path = "../../../frame/system", default-features = false, version = "29.0.0" }
 frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true, version = "29.0.0" }
 frame-election-provider-support = { path = "../../../frame/election-provider-support", default-features = false, version = "29.0.0" }
@@ -119,7 +119,7 @@ pallet-root-testing = { path = "../../../frame/root-testing", default-features =
 pallet-salary = { path = "../../../frame/salary", default-features = false, version = "14.0.0" }
 pallet-session = { path = "../../../frame/session", default-features = false, features = ["historical"], version = "29.0.0" }
 pallet-session-benchmarking = { path = "../../../frame/session/benchmarking", default-features = false, optional = true, version = "29.0.0" }
-pallet-staking = { path = "../../../frame/staking", default-features = false, version = "29.0.1" }
+pallet-staking = { path = "../../../frame/staking", default-features = false, version = "29.0.2" }
 pallet-staking-reward-curve = { path = "../../../frame/staking/reward-curve", default-features = false, version = "11.0.0" }
 pallet-staking-runtime-api = { path = "../../../frame/staking/runtime-api", default-features = false, version = "15.0.0" }
 pallet-state-trie-migration = { path = "../../../frame/state-trie-migration", default-features = false, version = "30.0.0" }

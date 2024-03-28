@@ -23,7 +23,7 @@ sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false
 sp-core = { path = "../../primitives/core", default-features = false, version = "29.0.0" }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "32.0.0" }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "29.0.0" }
-frame-support = { path = "../support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../system", default-features = false, version = "29.0.0" }
 
 [dev-dependencies]

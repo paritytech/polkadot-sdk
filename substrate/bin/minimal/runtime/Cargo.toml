@@ -17,7 +17,7 @@ scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
 frame = { path = "../../../frame", default-features = false, features = ["experimental", "runtime"], version = "0.1.0" }
-frame-support = { path = "../../../frame/support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../../frame/support", default-features = false, version = "29.0.2" }
 
 # pallets that we want to use
 pallet-balances = { path = "../../../frame/balances", default-features = false, version = "29.0.0" }

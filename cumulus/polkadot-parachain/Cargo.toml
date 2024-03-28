@@ -50,7 +50,7 @@ sp-session = { version = "28.0.0", path = "../../substrate/primitives/session" }
 frame-try-runtime = { path = "../../substrate/frame/try-runtime", optional = true, version = "0.35.0" }
 sc-consensus = { version = "0.34.0", path = "../../substrate/client/consensus/common" }
 sp-tracing = { version = "16.0.0", path = "../../substrate/primitives/tracing" }
-frame-support = { version = "29.0.1", path = "../../substrate/frame/support" }
+frame-support = { version = "29.0.2", path = "../../substrate/frame/support" }
 sc-cli = { version = "0.37.0", path = "../../substrate/client/cli" }
 sc-client-api = { version = "29.0.0", path = "../../substrate/client/api" }
 sc-executor = { version = "0.33.0", path = "../../substrate/client/executor" }

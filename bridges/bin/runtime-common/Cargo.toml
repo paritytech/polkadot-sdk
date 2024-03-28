@@ -34,7 +34,7 @@ pallet-bridge-relayers = { path = "../../modules/relayers", default-features = f
 
 # Substrate dependencies
 
-frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "29.0.0" }
 pallet-utility = { path = "../../../substrate/frame/utility", default-features = false, version = "29.0.0" }

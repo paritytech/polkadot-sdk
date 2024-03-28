@@ -14,7 +14,7 @@ workspace = true
 
 # Substrate
 sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
-frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 parachains-common = { version = "8.0.0", path = "../../../../../../common" }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false, version = "4.0.0" }
 bridge-hub-rococo-runtime = { version = "0.6.0", path = "../../../../../../runtimes/bridge-hubs/bridge-hub-rococo" }

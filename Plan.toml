@@ -764,8 +764,8 @@ publish = false
 
 [[crate]]
 name = "frame-support"
-from = "29.0.0"
-to = "29.0.1"
+from = "29.0.1"
+to = "29.0.2"
 bump = "minor"
 reason = "bumped by --patch"
 
@@ -1905,8 +1905,8 @@ reason = "changed"
 
 [[crate]]
 name = "pallet-staking"
-from = "29.0.0"
-to = "29.0.1"
+from = "29.0.1"
+to = "29.0.2"
 bump = "minor"
 reason = "bumped by --patch"
 
@@ -3456,3 +3456,8 @@ name = "pallet-balances"
 from = "29.0.0"
 to = "29.0.0"
 publish = false
+
+[[crate]]
+name = "pallet-balances"
+from = "31.0.0"
+to = "32.0.0"

@@ -45,7 +45,7 @@ sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", def
 
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false, version = "29.0.0" }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false, version = "29.0.0" }
-frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["tuples-96"], version = "29.0.1" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["tuples-96"], version = "29.0.2" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "27.0.0" }
 westend-runtime-constants = { package = "westend-runtime-constants", path = "constants", default-features = false, version = "8.0.0" }
@@ -80,7 +80,7 @@ pallet-referenda = { path = "../../../substrate/frame/referenda", default-featur
 pallet-scheduler = { path = "../../../substrate/frame/scheduler", default-features = false, version = "30.0.0" }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false, version = "29.0.0" }
 pallet-society = { path = "../../../substrate/frame/society", default-features = false, version = "29.0.0" }
-pallet-staking = { path = "../../../substrate/frame/staking", default-features = false, version = "29.0.1" }
+pallet-staking = { path = "../../../substrate/frame/staking", default-features = false, version = "29.0.2" }
 pallet-staking-reward-curve = { package = "pallet-staking-reward-curve", path = "../../../substrate/frame/staking/reward-curve", version = "11.0.0" }
 pallet-staking-runtime-api = { path = "../../../substrate/frame/staking/runtime-api", default-features = false, version = "15.0.0" }
 pallet-state-trie-migration = { path = "../../../substrate/frame/state-trie-migration", default-features = false, version = "30.0.0" }

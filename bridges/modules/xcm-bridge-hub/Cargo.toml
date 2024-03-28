@@ -22,7 +22,7 @@ pallet-bridge-messages = { path = "../messages", default-features = false, versi
 bridge-runtime-common = { path = "../../bin/runtime-common", default-features = false, version = "0.8.0" }
 
 # Substrate Dependencies
-frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }

@@ -13,7 +13,7 @@ workspace = true
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 
 # Substrate
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false, version = "30.0.0" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.0" }

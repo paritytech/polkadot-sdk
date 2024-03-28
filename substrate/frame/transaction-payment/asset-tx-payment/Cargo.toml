@@ -22,7 +22,7 @@ sp-io = { path = "../../../primitives/io", default-features = false, version = "
 sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "32.0.0" }
 sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
 
-frame-support = { path = "../../support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../../system", default-features = false, version = "29.0.0" }
 pallet-transaction-payment = { path = "..", default-features = false, version = "29.0.0" }
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true, version = "29.0.0" }

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-staking"
-version = "29.0.1"
+version = "29.0.2"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -25,7 +25,7 @@ sp-io = { path = "../../primitives/io", default-features = false, version = "31.
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"], version = "32.0.0" }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"], version = "27.0.0" }
 sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
-frame-support = { path = "../support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../support", default-features = false, version = "29.0.2" }
 frame-system = { path = "../system", default-features = false, version = "29.0.0" }
 pallet-session = { path = "../session", default-features = false, features = ["historical"], version = "29.0.0" }
 pallet-authorship = { path = "../authorship", default-features = false, version = "29.0.0" }

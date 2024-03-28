@@ -21,7 +21,7 @@ bp-header-chain = { path = "../header-chain", default-features = false, version 
 
 # Substrate Dependencies
 
-frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 

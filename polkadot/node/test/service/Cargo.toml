@@ -38,7 +38,7 @@ frame-system = { version = "29.0.0", path = "../../../../substrate/frame/system"
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../substrate/client/consensus/grandpa", version = "0.20.0" }
 grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../../substrate/primitives/consensus/grandpa", version = "14.0.0" }
 inherents = { package = "sp-inherents", path = "../../../../substrate/primitives/inherents", version = "27.0.0" }
-pallet-staking = { version = "29.0.1", path = "../../../../substrate/frame/staking" }
+pallet-staking = { version = "29.0.2", path = "../../../../substrate/frame/staking" }
 pallet-balances = { version = "29.0.0", path = "../../../../substrate/frame/balances" }
 pallet-transaction-payment = { version = "29.0.0", path = "../../../../substrate/frame/transaction-payment" }
 sc-chain-spec = { version = "28.0.0", path = "../../../../substrate/client/chain-spec" }

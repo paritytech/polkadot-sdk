@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 frame-system = { version = "29.0.0", path = "../../../../substrate/frame/system" }
 futures = "0.3.21"
 pallet-transaction-payment = { version = "29.0.0", path = "../../../../substrate/frame/transaction-payment" }

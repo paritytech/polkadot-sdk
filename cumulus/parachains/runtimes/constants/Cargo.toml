@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 smallvec = "1.11.0"
 
 # Substrate
-frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "29.0.1" }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false, version = "29.0.2" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
 
 # Polkadot
