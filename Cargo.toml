@@ -195,6 +195,7 @@ members = [
 	"polkadot/primitives/test-helpers",
 	"polkadot/rpc",
 	"polkadot/runtime/common",
+	"polkadot/runtime/common/pallet-para-sudo-wrapper",
 	"polkadot/runtime/common/slot_range_helper",
 	"polkadot/runtime/metrics",
 	"polkadot/runtime/parachains",

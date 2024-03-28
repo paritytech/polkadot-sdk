@@ -10478,6 +10478,62 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-para-sudo-wrapper"
+version = "7.0.0"
+dependencies = [
+ "bitvec",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-support-test",
+ "frame-system",
+ "hex-literal",
+ "impl-trait-for-tuples",
+ "libsecp256k1",
+ "log",
+ "pallet-asset-rate",
+ "pallet-authorship",
+ "pallet-babe",
+ "pallet-balances",
+ "pallet-broker",
+ "pallet-election-provider-multi-phase",
+ "pallet-fast-unstake",
+ "pallet-identity",
+ "pallet-session",
+ "pallet-staking",
+ "pallet-staking-reward-fn",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-treasury",
+ "pallet-vesting",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
+ "polkadot-runtime-parachains",
+ "rustc-hex",
+ "scale-info",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "slot-range-helper",
+ "sp-api",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring",
+ "sp-keystore",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-session",
+ "sp-staking",
+ "sp-std 14.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+ "static_assertions",
+]
+
+[[package]]
 name = "pallet-parachain-template"
 version = "0.0.0"
 dependencies = [
@@ -13257,6 +13313,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-fast-unstake",
  "pallet-identity",
+ "pallet-para-sudo-wrapper",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-fn",

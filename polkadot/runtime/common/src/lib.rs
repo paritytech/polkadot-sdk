@@ -26,7 +26,6 @@ pub mod elections;
 pub mod identity_migrator;
 pub mod impls;
 pub mod paras_registrar;
-pub mod paras_sudo_wrapper;
 pub mod purchase;
 pub mod slot_range;
 pub mod slots;
