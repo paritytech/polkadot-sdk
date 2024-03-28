@@ -2,6 +2,7 @@
 
 export PRODUCT=polkadot
 export VERSION=${VERSION:-1.5.0}
+export ENGINE=${ENGINE:-docker}
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 echo $PROJECT_ROOT
@@ -21,7 +22,8 @@ OUTPUT="${TMP}/changelogs/$PRODUCT/$VERSION"
 echo -e "OUTPUT: \t\t$OUTPUT"
 mkdir -p $OUTPUT
 
-prdoc load -d "$PROJECT_ROOT/prdoc/$VERSION" --json > $DATA_JSON
+$ENGINE run --rm -v ${PROJECT_ROOT}:/repo paritytech/prdoc load -d "prdoc/$VERSION" --json > $DATA_JSON
+#prdoc load -d "$PROJECT_ROOT/prdoc/$VERSION" --json > $DATA_JSON
 # ls -al $DATA_JSON
 
 cat $DATA_JSON | jq ' { "prdoc" : .}' > $CONTEXT_JSON
