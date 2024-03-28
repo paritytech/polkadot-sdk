@@ -130,7 +130,7 @@ impl<T: Decode, H> MaybeHashed<T, H> {
 	}
 }
 
-// TODO: deprecate
+#[deprecated(note = "Use `v3` instead. Will be removed after September 2024.")]
 pub mod v1 {
 	use super::*;
 
@@ -218,10 +218,12 @@ pub mod v1 {
 		fn next_dispatch_time(id: Vec<u8>) -> Result<BlockNumber, ()>;
 	}
 
+	#[allow(deprecated)]
 	impl<T, BlockNumber, Call, RuntimeOrigin> Anon<BlockNumber, Call, RuntimeOrigin> for T
 	where
 		T: v2::Anon<BlockNumber, Call, RuntimeOrigin>,
 	{
+		#[allow(deprecated)]
 		type Address = T::Address;
 
 		fn schedule(
@@ -232,10 +234,13 @@ pub mod v1 {
 			call: Call,
 		) -> Result<Self::Address, DispatchError> {
 			let c = MaybeHashed::<Call, T::Hash>::Value(call);
+
+			#[allow(deprecated)]
 			T::schedule(when, maybe_periodic, priority, origin, c)
 		}
 
 		fn cancel(address: Self::Address) -> Result<(), ()> {
+			#[allow(deprecated)]
 			T::cancel(address)
 		}
 
@@ -243,18 +248,22 @@ pub mod v1 {
 			address: Self::Address,
 			when: DispatchTime<BlockNumber>,
 		) -> Result<Self::Address, DispatchError> {
+			#[allow(deprecated)]
 			T::reschedule(address, when)
 		}
 
 		fn next_dispatch_time(address: Self::Address) -> Result<BlockNumber, ()> {
+			#[allow(deprecated)]
 			T::next_dispatch_time(address)
 		}
 	}
 
+	#[allow(deprecated)]
 	impl<T, BlockNumber, Call, RuntimeOrigin> Named<BlockNumber, Call, RuntimeOrigin> for T
 	where
 		T: v2::Named<BlockNumber, Call, RuntimeOrigin>,
 	{
+		#[allow(deprecated)]
 		type Address = T::Address;
 
 		fn schedule_named(
@@ -266,10 +275,12 @@ pub mod v1 {
 			call: Call,
 		) -> Result<Self::Address, ()> {
 			let c = MaybeHashed::<Call, T::Hash>::Value(call);
+			#[allow(deprecated)]
 			T::schedule_named(id, when, maybe_periodic, priority, origin, c)
 		}
 
 		fn cancel_named(id: Vec<u8>) -> Result<(), ()> {
+			#[allow(deprecated)]
 			T::cancel_named(id)
 		}
 
@@ -277,16 +288,18 @@ pub mod v1 {
 			id: Vec<u8>,
 			when: DispatchTime<BlockNumber>,
 		) -> Result<Self::Address, DispatchError> {
+			#[allow(deprecated)]
 			T::reschedule_named(id, when)
 		}
 
 		fn next_dispatch_time(id: Vec<u8>) -> Result<BlockNumber, ()> {
+			#[allow(deprecated)]
 			T::next_dispatch_time(id)
 		}
 	}
 }
 
-// TODO: deprecate
+#[deprecated(note = "Use `v3` instead. Will be removed after September 2024.")]
 pub mod v2 {
 	use super::*;
 
@@ -478,4 +491,5 @@ pub mod v3 {
 	}
 }
 
+#[allow(deprecated)]
 pub use v1::*;
