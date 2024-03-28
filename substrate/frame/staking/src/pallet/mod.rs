@@ -387,6 +387,16 @@ pub mod pallet {
 	pub type Nominators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
 
+	/// Nominators whose funds are managed by other pallets.
+	///
+	/// This pallet does not apply any locks on them, hence they are only virtually bonded. These
+	/// nominators should not be allowed to mutate their ledger directly via application code and
+	/// can only be accessed via low level functions made available by this pallet.
+	// TODO(ank4n): Can we keep this entry in `Ledger`?
+	#[pallet::storage]
+	pub type VirtualNominators<T: Config> =
+	CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
+
 	/// The maximum nominator count before we stop allowing new validators to join.
 	///
 	/// When this value is not set, no limits are enforced.
