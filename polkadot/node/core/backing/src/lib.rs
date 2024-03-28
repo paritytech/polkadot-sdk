@@ -88,7 +88,7 @@ use polkadot_node_subsystem::{
 	messages::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
-		HypotheticalCandidate, HypotheticalFrontierRequest, IntroduceCandidateRequest,
+		HypotheticalCandidate, HypotheticalFrontierRequest, IntroduceSecondedCandidateRequest,
 		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, RuntimeApiMessage,
 		RuntimeApiRequest, StatementDistributionMessage, StoreAvailableDataError,
 	},
@@ -1687,8 +1687,8 @@ async fn import_statement<Context>(
 		if !per_candidate.contains_key(&candidate_hash) {
 			if rp_state.prospective_parachains_mode.is_enabled() {
 				let (tx, rx) = oneshot::channel();
-				ctx.send_message(ProspectiveParachainsMessage::IntroduceCandidate(
-					IntroduceCandidateRequest {
+				ctx.send_message(ProspectiveParachainsMessage::IntroduceSecondedCandidate(
+					IntroduceSecondedCandidateRequest {
 						candidate_para: candidate.descriptor().para_id,
 						candidate_receipt: candidate.clone(),
 						persisted_validation_data: pvd.clone(),
@@ -1706,17 +1706,9 @@ async fn import_statement<Context>(
 
 						return Err(Error::RejectedByProspectiveParachains)
 					},
-					Ok(membership) =>
-						if membership.is_empty() {
-							return Err(Error::RejectedByProspectiveParachains)
-						},
+					Ok(false) => return Err(Error::RejectedByProspectiveParachains),
+					Ok(true) => {},
 				}
-
-				ctx.send_message(ProspectiveParachainsMessage::CandidateSeconded(
-					candidate.descriptor().para_id,
-					candidate_hash,
-				))
-				.await;
 			}
 
 			// Only save the candidate if it was approved by prospective parachains.

@@ -143,6 +143,7 @@ impl CandidateStorage {
 		&mut self,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
+		state: CandidateState,
 	) -> Result<CandidateHash, CandidateStorageInsertionError> {
 		let candidate_hash = candidate.hash();
 
@@ -159,7 +160,7 @@ impl CandidateStorage {
 		let entry = CandidateEntry {
 			candidate_hash,
 			relay_parent: candidate.descriptor.relay_parent,
-			state: CandidateState::Introduced,
+			state,
 			candidate: ProspectiveCandidate {
 				commitments: Cow::Owned(candidate.commitments),
 				collator: candidate.descriptor.collator,
@@ -187,15 +188,6 @@ impl CandidateStorage {
 				if e.get().is_empty() {
 					e.remove();
 				}
-			}
-		}
-	}
-
-	/// Note that an existing candidate has been seconded.
-	pub fn mark_seconded(&mut self, candidate_hash: &CandidateHash) {
-		if let Some(entry) = self.by_candidate_hash.get_mut(candidate_hash) {
-			if entry.state != CandidateState::Backed {
-				entry.state = CandidateState::Seconded;
 			}
 		}
 	}
@@ -290,10 +282,7 @@ impl CandidateStorage {
 ///
 /// Candidates aren't even considered until they've at least been seconded.
 #[derive(Debug, PartialEq)]
-enum CandidateState {
-	/// The candidate has been introduced in a spam-protected way but
-	/// is not necessarily backed.
-	Introduced,
+pub(crate) enum CandidateState {
 	/// The candidate has been seconded.
 	Seconded,
 	/// The candidate has been completely backed by the group.

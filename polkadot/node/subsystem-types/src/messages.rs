@@ -1017,9 +1017,9 @@ pub enum GossipSupportMessage {
 	NetworkBridgeUpdate(NetworkBridgeEvent<net_protocol::GossipSupportNetworkMessage>),
 }
 
-/// Request introduction of a candidate into the prospective parachains subsystem.
+/// Request introduction of a seconded candidate into the prospective parachains subsystem.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct IntroduceCandidateRequest {
+pub struct IntroduceSecondedCandidateRequest {
 	/// The para-id of the candidate.
 	pub candidate_para: ParaId,
 	/// The candidate receipt itself.
@@ -1160,15 +1160,11 @@ pub type Ancestors = HashSet<CandidateHash>;
 /// Messages sent to the Prospective Parachains subsystem.
 #[derive(Debug)]
 pub enum ProspectiveParachainsMessage {
-	/// Inform the Prospective Parachains Subsystem of a new candidate.
+	/// Inform the Prospective Parachains Subsystem of a new seconded candidate.
 	///
-	/// The response sender accepts the candidate membership, which is the existing
-	/// membership of the candidate if it was already known.
-	IntroduceCandidate(IntroduceCandidateRequest, oneshot::Sender<FragmentTreeMembership>),
-	/// Inform the Prospective Parachains Subsystem that a previously introduced candidate
-	/// has been seconded. This requires that the candidate was successfully introduced in
-	/// the past.
-	CandidateSeconded(ParaId, CandidateHash),
+	/// The response sender returns false if the candidate was rejected by prospective parachains,
+	/// true otherwise (if it was accepted or already present)
+	IntroduceSecondedCandidate(IntroduceSecondedCandidateRequest, oneshot::Sender<bool>),
 	/// Inform the Prospective Parachains Subsystem that a previously introduced candidate
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.

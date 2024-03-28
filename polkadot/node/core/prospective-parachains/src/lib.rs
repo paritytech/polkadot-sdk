@@ -36,7 +36,7 @@ use futures::{channel::oneshot, prelude::*};
 use polkadot_node_subsystem::{
 	messages::{
 		Ancestors, ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
-		HypotheticalFrontierRequest, IntroduceCandidateRequest, ParentHeadData,
+		HypotheticalFrontierRequest, IntroduceSecondedCandidateRequest, ParentHeadData,
 		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
@@ -56,7 +56,8 @@ use polkadot_primitives::{
 use crate::{
 	error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
 	fragment_tree::{
-		CandidateStorage, CandidateStorageInsertionError, FragmentTree, Scope as TreeScope,
+		CandidateState, CandidateStorage, CandidateStorageInsertionError, FragmentTree,
+		Scope as TreeScope,
 	},
 };
 
@@ -141,10 +142,8 @@ async fn run_iteration<Context>(
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 			FromOrchestra::Communication { msg } => match msg {
-				ProspectiveParachainsMessage::IntroduceCandidate(request, tx) =>
-					handle_candidate_introduced(&mut *ctx, view, request, tx).await?,
-				ProspectiveParachainsMessage::CandidateSeconded(para, candidate_hash) =>
-					handle_candidate_seconded(view, para, candidate_hash),
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(request, tx) =>
+					handle_introduce_seconded_candidate(&mut *ctx, view, request, tx).await,
 				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) =>
 					handle_candidate_backed(&mut *ctx, view, para, candidate_hash).await?,
 				ProspectiveParachainsMessage::GetBackableCandidates(
@@ -261,15 +260,15 @@ async fn handle_active_leaves_update<Context>(
 			let mut compact_pending = Vec::with_capacity(pending_availability.len());
 
 			for c in pending_availability {
-				let res = candidate_storage.add_candidate(c.candidate, c.persisted_validation_data);
+				let res = candidate_storage.add_candidate(
+					c.candidate,
+					c.persisted_validation_data,
+					CandidateState::Backed,
+				);
 				let candidate_hash = c.compact.candidate_hash;
-				compact_pending.push(c.compact);
 
 				match res {
-					Ok(_) | Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
-						// Anything on-chain is guaranteed to be backed.
-						candidate_storage.mark_backed(&candidate_hash);
-					},
+					Ok(_) | Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {},
 					Err(err) => {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -278,8 +277,14 @@ async fn handle_active_leaves_update<Context>(
 							?err,
 							"Scraped invalid candidate pending availability",
 						);
+
+						// Found a backed invalid candidate.
+						candidate_storage.remove_candidate(&candidate_hash);
+						break
 					},
 				}
+
+				compact_pending.push(c.compact);
 			}
 
 			let scope = TreeScope::with_ancestors(
@@ -407,13 +412,13 @@ async fn preprocess_candidates_pending_availability<Context>(
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn handle_candidate_introduced<Context>(
+async fn handle_introduce_seconded_candidate<Context>(
 	_ctx: &mut Context,
 	view: &mut View,
-	request: IntroduceCandidateRequest,
-	tx: oneshot::Sender<FragmentTreeMembership>,
-) -> JfyiErrorResult<()> {
-	let IntroduceCandidateRequest {
+	request: IntroduceSecondedCandidateRequest,
+	tx: oneshot::Sender<bool>,
+) {
+	let IntroduceSecondedCandidateRequest {
 		candidate_para: para,
 		candidate_receipt: candidate,
 		persisted_validation_data: pvd,
@@ -430,18 +435,18 @@ async fn handle_candidate_introduced<Context>(
 				"Received seconded candidate for inactive para",
 			);
 
-			let _ = tx.send(Vec::new());
-			return Ok(())
+			let _ = tx.send(false);
+			return
 		},
 		Some(storage) => storage,
 	};
 
-	let candidate_hash = match storage.add_candidate(candidate, pvd) {
+	let candidate_hash = match storage.add_candidate(candidate, pvd, CandidateState::Seconded) {
 		Ok(c) => c,
-		Err(CandidateStorageInsertionError::CandidateAlreadyKnown(c)) => {
-			// Candidate known - return existing fragment tree membership.
-			let _ = tx.send(fragment_tree_membership(&view.active_leaves, para, c));
-			return Ok(())
+		Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
+			// Candidate already known.
+			let _ = tx.send(true);
+			return
 		},
 		Err(CandidateStorageInsertionError::PersistedValidationDataMismatch) => {
 			// We can't log the candidate hash without either doing more ~expensive
@@ -454,57 +459,26 @@ async fn handle_candidate_introduced<Context>(
 				"Received seconded candidate had mismatching validation data",
 			);
 
-			let _ = tx.send(Vec::new());
-			return Ok(())
+			let _ = tx.send(false);
+			return
 		},
 	};
 
-	let mut membership = Vec::new();
-	for (relay_parent, leaf_data) in &mut view.active_leaves {
+	let mut candidate_introduced = false;
+	for leaf_data in view.active_leaves.values_mut() {
 		if let Some(tree) = leaf_data.fragment_trees.get_mut(&para) {
 			tree.add_and_populate(candidate_hash, &*storage);
-			if let Some(depths) = tree.candidate(&candidate_hash) {
-				membership.push((*relay_parent, depths));
+			if tree.candidate(&candidate_hash).is_some() {
+				candidate_introduced = true;
 			}
 		}
 	}
 
-	if membership.is_empty() {
+	if !candidate_introduced {
 		storage.remove_candidate(&candidate_hash);
 	}
 
-	let _ = tx.send(membership);
-
-	Ok(())
-}
-
-fn handle_candidate_seconded(view: &mut View, para: ParaId, candidate_hash: CandidateHash) {
-	let storage = match view.candidate_storage.get_mut(&para) {
-		None => {
-			gum::warn!(
-				target: LOG_TARGET,
-				para_id = ?para,
-				?candidate_hash,
-				"Received instruction to second unknown candidate",
-			);
-
-			return
-		},
-		Some(storage) => storage,
-	};
-
-	if !storage.contains(&candidate_hash) {
-		gum::warn!(
-			target: LOG_TARGET,
-			para_id = ?para,
-			?candidate_hash,
-			"Received instruction to second unknown candidate",
-		);
-
-		return
-	}
-
-	storage.mark_seconded(&candidate_hash);
+	let _ = tx.send(candidate_introduced);
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
