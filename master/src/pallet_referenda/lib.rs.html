@@ -1539,6 +1539,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1392" id="1392">1392</a>
 <a href="#1393" id="1393">1393</a>
 <a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1965,6 +1977,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>BadStatus,
 		<span class="doccomment">/// The preimage does not exist.
 		</span>PreimageNotExist,
+		<span class="doccomment">/// The preimage is stored with a different length than the one provided.
+		</span>PreimageStoredWithDifferentLength,
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -2002,6 +2016,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>proposal_origin = <span class="kw-2">*</span>proposal_origin;
 			<span class="kw">let </span>who = T::SubmitOrigin::ensure_origin(origin, <span class="kw-2">&amp;</span>proposal_origin)<span class="question-mark">?</span>;
+
+			<span class="comment">// If the pre-image is already stored, ensure that it has the same length as given in
+			// `proposal`.
+			</span><span class="kw">if let </span>(<span class="prelude-val">Some</span>(preimage_len), <span class="prelude-val">Some</span>(proposal_len)) =
+				(proposal.lookup_hash().and_then(|h| T::Preimages::len(<span class="kw-2">&amp;</span>h)), proposal.lookup_len())
+			{
+				<span class="kw">if </span>preimage_len != proposal_len {
+					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::PreimageStoredWithDifferentLength.into())
+				}
+			}
 
 			<span class="kw">let </span>track =
 				T::Tracks::track_for(<span class="kw-2">&amp;</span>proposal_origin).map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::NoTrack)<span class="question-mark">?</span>;
