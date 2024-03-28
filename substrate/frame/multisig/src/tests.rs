@@ -168,6 +168,7 @@ fn timepoint_checking_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
+		let call_weight = call.get_dispatch_info().weight;
 		let hash = blake2_256(&call.encode());
 
 		assert_noop!(
@@ -191,17 +192,6 @@ fn timepoint_checking_works() {
 			Weight::zero()
 		));
 
-		assert_noop!(
-			Multisig::as_multi(
-				RuntimeOrigin::signed(2),
-				2,
-				vec![1, 3],
-				None,
-				call.clone(),
-				Weight::zero()
-			),
-			Error::<Test>::NoTimepoint,
-		);
 		let later = Timepoint { index: 1, ..now() };
 		assert_noop!(
 			Multisig::as_multi(
@@ -209,11 +199,22 @@ fn timepoint_checking_works() {
 				2,
 				vec![1, 3],
 				Some(later),
-				call,
+				call.clone(),
 				Weight::zero()
 			),
 			Error::<Test>::WrongTimepoint,
 		);
+
+		assert_ok!(Multisig::as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			None,
+			call,
+			call_weight
+		));
+
+		assert_eq!(Balances::free_balance(6), 15);
 	});
 }
 
@@ -243,6 +244,47 @@ fn multisig_2_of_3_works() {
 			2,
 			vec![1, 3],
 			Some(now()),
+			call,
+			call_weight
+		));
+		assert_eq!(Balances::free_balance(6), 15);
+	});
+}
+
+#[test]
+fn multisig_3_of_3_without_timepoint_works() {
+	new_test_ext().execute_with(|| {
+		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 3);
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(1), multi, 5));
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(2), multi, 5));
+		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
+
+		let call = call_transfer(6, 15);
+		let call_weight = call.get_dispatch_info().weight;
+		let hash = blake2_256(&call.encode());
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			3,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(3),
+			3,
+			vec![1, 2],
+			None,
+			hash,
+			Weight::zero()
+		));
+		assert_eq!(Balances::free_balance(6), 0);
+
+		assert_ok!(Multisig::as_multi(
+			RuntimeOrigin::signed(2),
+			3,
+			vec![1, 3],
+			None,
 			call,
 			call_weight
 		));
@@ -316,7 +358,46 @@ fn cancel_multisig_works() {
 			Multisig::cancel_as_multi(RuntimeOrigin::signed(2), 3, vec![1, 3], now(), hash),
 			Error::<Test>::NotOwner,
 		);
-		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash),);
+		assert_ok!(Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 3, vec![2, 3], now(), hash));
+	});
+}
+
+#[test]
+fn cancel_multisig_without_timepoint_works() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			3,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			3,
+			vec![1, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		assert_noop!(
+			Multisig::cancel_as_multi_without_timepoint(
+				RuntimeOrigin::signed(2),
+				3,
+				vec![1, 3],
+				hash
+			),
+			Error::<Test>::NotOwner,
+		);
+		assert_ok!(Multisig::cancel_as_multi_without_timepoint(
+			RuntimeOrigin::signed(1),
+			3,
+			vec![2, 3],
+			hash
+		));
 	});
 }
 
@@ -452,7 +533,7 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 		System::assert_last_event(
 			pallet_multisig::Event::MultisigExecuted {
 				approving: 3,
-				timepoint: now(),
+				timepoint: Some(now()),
 				multisig: multi,
 				call_hash: hash,
 				result: Err(TokenError::FundsUnavailable.into()),
