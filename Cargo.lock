@@ -10478,20 +10478,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-para-sudo-wrapper"
-version = "7.0.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "polkadot-primitives",
- "polkadot-runtime-parachains",
- "scale-info",
- "sp-std 14.0.0",
- "staging-xcm",
-]
-
-[[package]]
 name = "pallet-parachain-template"
 version = "0.0.0"
 dependencies = [
@@ -10523,6 +10509,20 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-paras-sudo-wrapper"
+version = "7.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "scale-info",
+ "sp-std 14.0.0",
+ "staging-xcm",
 ]
 
 [[package]]
@@ -15071,6 +15071,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-nis",
  "pallet-offences",
+ "pallet-paras-sudo-wrapper",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-ranked-collective",

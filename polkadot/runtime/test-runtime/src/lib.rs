@@ -61,7 +61,7 @@ use primitives::{
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use runtime_common::{
-	claims, impl_runtime_weights, paras_sudo_wrapper, BlockHashCount, BlockLength,
+	claims, impl_runtime_weights, pallet_paras_sudo_wrapper, BlockHashCount, BlockLength,
 	SlowAdjustingFeeUpdate,
 };
 use sp_core::{ConstU32, OpaqueMetadata};
@@ -88,7 +88,7 @@ pub use pallet_staking::StakerStatus;
 pub use pallet_sudo::Call as SudoCall;
 pub use pallet_timestamp::Call as TimestampCall;
 pub use parachains_paras::Call as ParasCall;
-pub use paras_sudo_wrapper::Call as ParasSudoWrapperCall;
+pub use pallet_paras_sudo_wrapper::Call as ParasSudoWrapperCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
@@ -571,7 +571,7 @@ impl parachains_scheduler::Config for Runtime {
 	type AssignmentProvider = ParaAssignmentProvider;
 }
 
-impl paras_sudo_wrapper::Config for Runtime {}
+impl pallet_paras_sudo_wrapper::Config for Runtime {}
 
 impl parachains_origin::Config for Runtime {}
 
@@ -703,7 +703,7 @@ construct_runtime! {
 		Paras: parachains_paras,
 		ParasShared: parachains_shared,
 		Scheduler: parachains_scheduler,
-		ParasSudoWrapper: paras_sudo_wrapper,
+		ParasSudoWrapper: pallet_paras_sudo_wrapper,
 		ParasOrigin: parachains_origin,
 		ParaSessionInfo: parachains_session_info,
 		Hrmp: parachains_hrmp,

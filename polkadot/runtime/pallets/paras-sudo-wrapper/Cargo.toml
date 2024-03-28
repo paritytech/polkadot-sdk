@@ -1,5 +1,5 @@
 [package]
-name = "pallet-para-sudo-wrapper"
+name = "pallet-paras-sudo-wrapper"
 version = "7.0.0"
 authors.workspace = true
 edition.workspace = true

@@ -61,7 +61,7 @@ use runtime_common::{
 	impls::{
 		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedLocationConverter,
 	},
-	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
+	paras_registrar, pallet_paras_sudo_wrapper, prod_or_fast, slots,
 	traits::{Leaser, OnSwap},
 	BalanceToU256, BlockHashCount, BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate,
 	U256ToBalance,
@@ -1254,7 +1254,7 @@ impl parachains_initializer::Config for Runtime {
 	type CoretimeOnNewSession = Coretime;
 }
 
-impl paras_sudo_wrapper::Config for Runtime {}
+impl pallet_paras_sudo_wrapper::Config for Runtime {}
 
 parameter_types! {
 	pub const PermanentSlotLeasePeriodLength: u32 = 26;
@@ -1581,7 +1581,7 @@ mod runtime {
 	#[runtime::pallet_index(61)]
 	pub type Slots = slots;
 	#[runtime::pallet_index(62)]
-	pub type ParasSudoWrapper = paras_sudo_wrapper;
+	pub type ParasSudoWrapper = pallet_paras_sudo_wrapper;
 	#[runtime::pallet_index(63)]
 	pub type Auctions = auctions;
 	#[runtime::pallet_index(64)]
