@@ -65,6 +65,7 @@ pub trait WeightInfo {
 	fn force_open_hrmp_channel(c: u32) -> Weight;
 	fn establish_system_channel() -> Weight;
 	fn poke_channel_deposits() -> Weight;
+	fn establish_channel_with_system() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -102,6 +103,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn poke_channel_deposits() -> Weight {
+		Weight::MAX
+	}
+	fn establish_channel_with_system() -> Weight {
 		Weight::MAX
 	}
 }
@@ -269,6 +273,10 @@ pub mod pallet {
 		/// `Configuration` pallet. Specifically, that means that the `Balance` of the `Currency`
 		/// implementation should be the same as `Balance` as used in the `Configuration`.
 		type Currency: ReservableCurrency<Self::AccountId>;
+
+		/// The default channel size and capacity to use when opening a channel to a system
+		/// parachain.
+		type DefaultChannelSizeAndCapacityWithSystem: Get<(u32, u32)>;
 
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
@@ -835,6 +843,50 @@ pub mod pallet {
 			Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
 
 			Ok(())
+		}
+
+		/// Establish a bidirectional HRMP channel between a parachain and a system chain.
+		///
+		/// Arguments:
+		///
+		/// - `target_system_chain`: A system chain, `ParaId`.
+		///
+		/// The origin needs to be the parachain origin.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::establish_channel_with_system())]
+		pub fn establish_channel_with_system(
+			origin: OriginFor<T>,
+			target_system_chain: ParaId,
+		) -> DispatchResultWithPostInfo {
+			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+
+			ensure!(target_system_chain.is_system(), Error::<T>::ChannelCreationNotAuthorized);
+
+			let (max_message_size, max_capacity) =
+				T::DefaultChannelSizeAndCapacityWithSystem::get();
+
+			// create bidirectional channel
+			Self::init_open_channel(sender, target_system_chain, max_capacity, max_message_size)?;
+			Self::accept_open_channel(target_system_chain, sender)?;
+
+			Self::init_open_channel(target_system_chain, sender, max_capacity, max_message_size)?;
+			Self::accept_open_channel(sender, target_system_chain)?;
+
+			Self::deposit_event(Event::HrmpSystemChannelOpened {
+				sender,
+				recipient: target_system_chain,
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			});
+
+			Self::deposit_event(Event::HrmpSystemChannelOpened {
+				sender: target_system_chain,
+				recipient: sender,
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			});
+
+			Ok(Pays::No.into())
 		}
 	}
 }
