@@ -23,9 +23,8 @@ use xcm::prelude::*;
 /// Errors related to determining asset transfer support.
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Error {
-	/// Invalid non-concrete asset.
-	NotConcrete,
 	/// Reserve chain could not be determined for assets.
+	#[codec(index = 1)]
 	UnknownReserve,
 }
 
