@@ -1,0 +1,23 @@
+[package]
+name = "sp-core-fuzz"
+version = "0.0.0"
+publish = false
+
+[lints]
+workspace = true
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+lazy_static = "1.4.0"
+libfuzzer-sys = "0.4"
+regex = "1.10.2"
+
+sp-core = { path = ".." }
+
+[[bin]]
+name = "fuzz_address_uri"
+path = "fuzz_targets/fuzz_address_uri.rs"
+test = false
+doc = false

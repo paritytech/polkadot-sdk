@@ -1,0 +1,15 @@
+Description: Bulk core assignment Smoke
+Network: ./0004-coretime-smoke-test.toml
+Creds: config
+
+alice: is up
+coretime-collator: is up
+
+# configure relay chain
+alice: js-script ./0004-configure-relay.js with "" return is 0 within 600 secs
+
+# configure broker chain
+coretime-collator: js-script ./0004-configure-broker.js with "" return is 0 within 600 secs
+
+# Ensure that parachain 100 got onboarded
+alice: parachain 100 block height is at least 5 within 900 seconds

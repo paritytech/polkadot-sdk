@@ -18,7 +18,7 @@
 
 pub mod error;
 pub mod execute;
-pub mod executor_intf;
+pub mod executor_interface;
 pub mod prepare;
 pub mod pvf;
 pub mod worker;
@@ -31,6 +31,7 @@ pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";
 
+use parity_scale_codec::{Decode, Encode};
 use std::{
 	io::{self, Read, Write},
 	mem,
@@ -45,14 +46,25 @@ pub mod tests {
 }
 
 /// Status of security features on the current system.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Encode, Decode)]
 pub struct SecurityStatus {
+	/// Whether Secure Validator Mode is enabled. This mode enforces that all required security
+	/// features are present. All features are enabled on a best-effort basis regardless.
+	pub secure_validator_mode: bool,
 	/// Whether the landlock features we use are fully available on this system.
 	pub can_enable_landlock: bool,
 	/// Whether the seccomp features we use are fully available on this system.
 	pub can_enable_seccomp: bool,
-	// Whether we are able to unshare the user namespace and change the filesystem root.
+	/// Whether we are able to unshare the user namespace and change the filesystem root.
 	pub can_unshare_user_namespace_and_change_root: bool,
+	/// Whether we are able to call `clone` with all sandboxing flags.
+	pub can_do_secure_clone: bool,
+}
+
+/// A handshake with information for the worker.
+#[derive(Debug, Encode, Decode)]
+pub struct WorkerHandshake {
+	pub security_status: SecurityStatus,
 }
 
 /// Write some data prefixed by its length into `w`. Sync version of `framed_send` to avoid
@@ -73,4 +85,34 @@ pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> 
 	let mut buf = vec![0; len];
 	r.read_exact(&mut buf)?;
 	Ok(buf)
+}
+
+#[cfg(all(test, not(feature = "test-utils")))]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn default_secure_status() {
+		let status = SecurityStatus::default();
+		assert!(
+			!status.secure_validator_mode,
+			"secure_validator_mode is false for default security status"
+		);
+		assert!(
+			!status.can_enable_landlock,
+			"can_enable_landlock is false for default security status"
+		);
+		assert!(
+			!status.can_enable_seccomp,
+			"can_enable_seccomp is false for default security status"
+		);
+		assert!(
+			!status.can_unshare_user_namespace_and_change_root,
+			"can_unshare_user_namespace_and_change_root is false for default security status"
+		);
+		assert!(
+			!status.can_do_secure_clone,
+			"can_do_secure_clone is false for default security status"
+		);
+	}
 }

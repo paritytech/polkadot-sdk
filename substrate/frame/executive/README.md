@@ -34,14 +34,13 @@ The default Substrate node template declares the
 `Executive` type declaration from the node template.
 
 ```rust
-#
 /// Executive: handles dispatch to the various modules.
 pub type Executive = executive::Executive<
     Runtime,
     Block,
     Context,
     Runtime,
-    AllPallets,
+    AllPalletsWithSystem,
 >;
 ```
 
@@ -51,7 +50,6 @@ You can add custom logic that should be called in your runtime on a runtime upgr
 generic parameter. The custom logic will be called before the on runtime upgrade logic of all modules is called.
 
 ```rust
-#
 struct CustomOnRuntimeUpgrade;
 impl frame_support::traits::OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -65,7 +63,7 @@ pub type Executive = executive::Executive<
     Block,
     Context,
     Runtime,
-    AllPallets,
+    AllPalletsWithSystem,
     CustomOnRuntimeUpgrade,
 >;
 ```

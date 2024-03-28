@@ -24,7 +24,7 @@ be found not to be discharging its duties properly.
 - Nominating: The process of placing staked funds behind one or more validators in order to share in any reward, and
   punishment, they take.
 - Stash account: The account holding an owner's funds used for staking.
-- Controller account: The account that controls an owner's funds for staking.
+- Controller account (being deprecated): The account that controls an owner's funds for staking.
 - Era: A (whole) number of sessions, which is the period that the validator set (and each validator's active nominator
   set) is recalculated and where rewards are paid out.
 - Slash: The punishment of a staker by reducing its funds.
@@ -45,10 +45,10 @@ The staking system in Substrate NPoS is designed to make the following possible:
 
 Almost any interaction with the Staking module requires a process of _**bonding**_ (also known as being a _staker_). To
 become *bonded*, a fund-holding account known as the _stash account_, which holds some or all of the funds that become
-frozen in place as part of the staking process, is paired with an active **controller** account, which issues
-instructions on how they shall be used.
+frozen in place as part of the staking process. The controller account, which this pallet now assigns the stash account to,
+issues instructions on how funds shall be used.
 
-An account pair can become bonded using the
+An account can become a bonded stash account using the
 [`bond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.bond) call.
 
 Stash accounts can update their associated controller back to their stash account using the
@@ -231,8 +231,8 @@ following:
 Any funds already placed into stash can be the target of the following operations:
 
 The controller account can free a portion (or all) of the funds using the
-[`unbond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.unbond) call. Note that the funds
-are not immediately accessible. Instead, a duration denoted by
+[`unbond`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.unbond) call. Note that the
+funds are not immediately accessible. Instead, a duration denoted by
 [`BondingDuration`](https://docs.rs/pallet-staking/latest/pallet_staking/trait.Config.html#associatedtype.BondingDuration)
 (in number of eras) must pass until the funds can actually be removed. Once the `BondingDuration` is over, the
 [`withdraw_unbonded`](https://docs.rs/pallet-staking/latest/pallet_staking/enum.Call.html#variant.withdraw_unbonded)

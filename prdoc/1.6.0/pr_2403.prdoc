@@ -1,0 +1,9 @@
+title: Configurable block number provider in pallet-vesting
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds `BlockNumberProvider` type to pallet-vesting Config trait, allowing for custom providers instead of hardcoding frame-system.
+      This is particularly useful for parachains wanting to use `cumulus_pallet_parachain_system::RelaychainDataProvider` with `pallet-vesting`.
+
+crates: [ ]

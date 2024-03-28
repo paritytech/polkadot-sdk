@@ -23,7 +23,7 @@
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
-// target/release/millau-bridge-node
+// target/release/unknown-bridge-node
 // benchmark
 // pallet
 // --chain=dev
@@ -60,29 +60,29 @@ pub trait WeightInfo {
 /// Those weights are test only and must never be used in production.
 pub struct BridgeWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
-	/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	///
 	/// The range of component `p` is `[1, 2]`.
@@ -97,29 +97,29 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	fn submit_parachain_heads_with_1kb_proof() -> Weight {
 		// Proof Size summary in bytes:
@@ -130,29 +130,29 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	fn submit_parachain_heads_with_16kb_proof() -> Weight {
 		// Proof Size summary in bytes:
@@ -167,29 +167,29 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	///
 	/// The range of component `p` is `[1, 2]`.
@@ -204,29 +204,29 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
-	/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	fn submit_parachain_heads_with_1kb_proof() -> Weight {
 		// Proof Size summary in bytes:
@@ -237,29 +237,29 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
-	/// Storage: BridgeRialtoParachains PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownParachains PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownParachains PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ParasInfo (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ParasInfo (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
+	/// Proof: BridgeUnknownParachains ParasInfo (max_values: Some(1), max_size: Some(60), added:
 	/// 555, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHashes (r:1 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHashes (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHashes (max_values: Some(1024), max_size:
 	/// Some(64), added: 1549, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoParachains ImportedParaHeads (r:0 w:1)
+	/// Storage: BridgeUnknownParachains ImportedParaHeads (r:0 w:1)
 	///
-	/// Proof: BridgeRialtoParachains ImportedParaHeads (max_values: Some(1024), max_size:
+	/// Proof: BridgeUnknownParachains ImportedParaHeads (max_values: Some(1024), max_size:
 	/// Some(196), added: 1681, mode: MaxEncodedLen)
 	fn submit_parachain_heads_with_16kb_proof() -> Weight {
 		// Proof Size summary in bytes:

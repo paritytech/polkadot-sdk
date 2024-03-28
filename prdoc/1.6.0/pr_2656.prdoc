@@ -1,0 +1,10 @@
+title: "pallet-broker: Small improvements to the origin checks"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Change the permissionless calls `drop_region`, `drop_contribution`, `drop_history` and
+      `drop_renewal` to allow any kind of origin.
+
+crates:
+  - name: "pallet-broker"

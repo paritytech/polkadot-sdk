@@ -16,8 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! `ChainSync`-related service code
+//! `SyncingEngine`-related service code
 
-pub mod chain_sync;
 pub mod mock;
 pub mod network;
+pub mod syncing_service;

@@ -16,8 +16,9 @@
 
 use crate::traits::{
 	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
-	FeeManager, OnResponse, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds,
-	WeightTrader,
+	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
+	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
+	VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 use frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
@@ -41,17 +42,17 @@ pub trait Config {
 	type OriginConverter: ConvertOrigin<<Self::RuntimeCall as Dispatchable>::RuntimeOrigin>;
 
 	/// Combinations of (Asset, Location) pairs which we trust as reserves.
-	type IsReserve: ContainsPair<MultiAsset, MultiLocation>;
+	type IsReserve: ContainsPair<Asset, Location>;
 
 	/// Combinations of (Asset, Location) pairs which we trust as teleporters.
-	type IsTeleporter: ContainsPair<MultiAsset, MultiLocation>;
+	type IsTeleporter: ContainsPair<Asset, Location>;
 
 	/// A list of (Origin, Target) pairs allowing a given Origin to be substituted with its
 	/// corresponding Target pair.
-	type Aliasers: ContainsPair<MultiLocation, MultiLocation>;
+	type Aliasers: ContainsPair<Location, Location>;
 
 	/// This chain's Universal Location.
-	type UniversalLocation: Get<InteriorMultiLocation>;
+	type UniversalLocation: Get<InteriorLocation>;
 
 	/// Whether we should execute the given XCM at all.
 	type Barrier: ShouldExecute;
@@ -98,7 +99,7 @@ pub trait Config {
 
 	/// The origin locations and specific universal junctions to which they are allowed to elevate
 	/// themselves.
-	type UniversalAliases: Contains<(MultiLocation, Junction)>;
+	type UniversalAliases: Contains<(Location, Junction)>;
 
 	/// The call dispatcher used by XCM.
 	///
@@ -111,4 +112,14 @@ pub trait Config {
 	/// Use this type to explicitly whitelist calls that cannot undergo recursion. This is a
 	/// temporary measure until we properly account for proof size weights for XCM instructions.
 	type SafeCallFilter: Contains<Self::RuntimeCall>;
+
+	/// Transactional processor for XCM instructions.
+	type TransactionalProcessor: ProcessTransaction;
+
+	/// Allows optional logic execution for the `HrmpNewChannelOpenRequest` XCM notification.
+	type HrmpNewChannelOpenRequestHandler: HandleHrmpNewChannelOpenRequest;
+	/// Allows optional logic execution for the `HrmpChannelAccepted` XCM notification.
+	type HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
+	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
+	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
 }

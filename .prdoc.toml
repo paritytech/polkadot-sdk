@@ -1,0 +1,7 @@
+# Config file for prdoc, see https://github.com/paritytech/prdoc
+
+version = 1
+schema = "prdoc/schema_user.json"
+output_dir = "prdoc"
+prdoc_folders = ["prdoc"]
+template = "prdoc/.template.prdoc"

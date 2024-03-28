@@ -1,18 +1,21 @@
 [package]
 name = "rococo-runtime"
 build = "build.rs"
-version = "1.0.0"
+version = "7.0.0"
 description = "Rococo testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
-serde = { version = "1.0.188", default-features = false }
-serde_derive = { version = "1.0.117", optional = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_derive = { optional = true, workspace = true }
 static_assertions = "1.1.0"
 smallvec = "1.8.0"
 
@@ -53,7 +56,7 @@ pallet-collective = { path = "../../../substrate/frame/collective", default-feat
 pallet-conviction-voting = { path = "../../../substrate/frame/conviction-voting", default-features = false }
 pallet-democracy = { path = "../../../substrate/frame/democracy", default-features = false }
 pallet-elections-phragmen = { path = "../../../substrate/frame/elections-phragmen", default-features = false }
-pallet-asset-rate = {  path = "../../../substrate/frame/asset-rate", default-features = false }
+pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
 pallet-grandpa = { path = "../../../substrate/frame/grandpa", default-features = false }
 pallet-identity = { path = "../../../substrate/frame/identity", default-features = false }
@@ -101,14 +104,15 @@ polkadot-parachain-primitives = { path = "../../parachain", default-features = f
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 [dev-dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
-remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
+remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 separator = "0.4.1"
-serde_json = "1.0.108"
+serde_json = { workspace = true, default-features = true }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 tokio = { version = "1.24.2", features = ["macros"] }
 
@@ -116,7 +120,7 @@ tokio = { version = "1.24.2", features = ["macros"] }
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 no_std = []
 std = [
 	"authority-discovery-primitives/std",
@@ -205,6 +209,7 @@ std = [
 	"tx-pool-api/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm-fee-payment-runtime-api/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -313,11 +318,11 @@ try-runtime = [
 ]
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
-fast-runtime = [ "rococo-runtime-constants/fast-runtime" ]
+fast-runtime = ["rococo-runtime-constants/fast-runtime"]
 
-runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
+runtime-metrics = ["runtime-parachains/runtime-metrics", "sp-io/with-tracing"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+# to make it smaller, like logging for example.
+on-chain-release-build = ["sp-api/disable-logging"]

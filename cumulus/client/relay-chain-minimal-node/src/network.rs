@@ -26,10 +26,9 @@ use sc_network::{
 	NetworkService,
 };
 
-use sc_network::config::FullNetworkConfiguration;
+use sc_network::{config::FullNetworkConfiguration, NotificationService};
 use sc_network_common::{role::Roles, sync::message::BlockAnnouncesHandshake};
 use sc_service::{error::Error, Configuration, NetworkStarter, SpawnTaskHandle};
-use sc_utils::mpsc::tracing_unbounded;
 
 use std::{iter, sync::Arc};
 
@@ -41,11 +40,15 @@ pub(crate) fn build_collator_network(
 	genesis_hash: Hash,
 	best_header: Header,
 ) -> Result<
-	(Arc<NetworkService<Block, Hash>>, NetworkStarter, Box<dyn sp_consensus::SyncOracle + Send>),
+	(
+		Arc<NetworkService<Block, Hash>>,
+		NetworkStarter,
+		Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
+	),
 	Error,
 > {
 	let protocol_id = config.protocol_id();
-	let block_announce_config = get_block_announce_proto_config::<Block>(
+	let (block_announce_config, _notification_service) = get_block_announce_proto_config::<Block>(
 		protocol_id.clone(),
 		&None,
 		Roles::from(&config.role),
@@ -69,8 +72,6 @@ pub(crate) fn build_collator_network(
 	let peer_store_handle = peer_store.handle();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
 
-	// RX is not used for anything because syncing is not started for the minimal node
-	let (tx, _rx) = tracing_unbounded("mpsc_syncing_engine_protocol", 100_000);
 	let network_params = sc_network::config::Params::<Block> {
 		role: config.role.clone(),
 		executor: {
@@ -86,7 +87,6 @@ pub(crate) fn build_collator_network(
 		protocol_id,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
-		tx,
 	};
 
 	let network_worker = sc_network::NetworkWorker::new(network_params)?;
@@ -116,7 +116,7 @@ pub(crate) fn build_collator_network(
 
 	let network_starter = NetworkStarter::new(network_start_tx);
 
-	Ok((network_service, network_starter, Box::new(SyncOracle {})))
+	Ok((network_service, network_starter, Arc::new(SyncOracle {})))
 }
 
 fn adjust_network_config_light_in_peers(config: &mut NetworkConfiguration) {
@@ -150,7 +150,7 @@ fn get_block_announce_proto_config<B: BlockT>(
 	best_number: NumberFor<B>,
 	best_hash: B::Hash,
 	genesis_hash: B::Hash,
-) -> NonDefaultSetConfig {
+) -> (NonDefaultSetConfig, Box<dyn NotificationService>) {
 	let block_announces_protocol = {
 		let genesis_hash = genesis_hash.as_ref();
 		if let Some(ref fork_id) = fork_id {
@@ -160,12 +160,11 @@ fn get_block_announce_proto_config<B: BlockT>(
 		}
 	};
 
-	NonDefaultSetConfig {
-		notifications_protocol: block_announces_protocol.into(),
-		fallback_names: iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into())
-			.collect(),
-		max_notification_size: 1024 * 1024,
-		handshake: Some(NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
+	NonDefaultSetConfig::new(
+		block_announces_protocol.into(),
+		iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
+		1024 * 1024,
+		Some(NotificationHandshake::new(BlockAnnouncesHandshake::<B>::build(
 			roles,
 			best_number,
 			best_hash,
@@ -173,11 +172,11 @@ fn get_block_announce_proto_config<B: BlockT>(
 		))),
 		// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
 		// protocol is still hardcoded into the peerset.
-		set_config: SetConfig {
+		SetConfig {
 			in_peers: 0,
 			out_peers: 0,
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: NonReservedPeerMode::Deny,
 		},
-	}
+	)
 }

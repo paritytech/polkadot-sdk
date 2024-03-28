@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Do not run unneeded subsystems on collator and its alongside node
+
+doc:
+  - audience: Node Dev
+    description: |
+      Optimizes overseer building strategy to only include subsystems needed to run the given
+      type of node. Reduces overseer overhead and also solves the problem with unused subsystems
+      getting stalled from time to time.
+
+crates:
+  - name: polkadot-overseer
+  - name: polkadot-service

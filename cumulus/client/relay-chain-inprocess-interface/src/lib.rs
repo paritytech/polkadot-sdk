@@ -21,7 +21,7 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		runtime_api::ParachainHost, Block as PBlock, BlockId, CommittedCandidateReceipt,
 		Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidatorId,
+		ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -109,6 +109,19 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -> RelayChainResult<Option<PersistedValidationData>> {
 		Ok(self.full_client.runtime_api().persisted_validation_data(
+			hash,
+			para_id,
+			occupied_core_assumption,
+		)?)
+	}
+
+	async fn validation_code_hash(
+		&self,
+		hash: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		Ok(self.full_client.runtime_api().validation_code_hash(
 			hash,
 			para_id,
 			occupied_core_assumption,
@@ -283,18 +296,19 @@ fn build_polkadot_full_node(
 		config,
 		polkadot_service::NewFullParams {
 			is_parachain_node,
-			grandpa_pause: None,
 			// Disable BEEFY. It should not be required by the internal relay chain node.
 			enable_beefy: false,
+			force_authoring_backoff: false,
 			jaeger_agent: None,
 			telemetry_worker_handle,
 
 			// Cumulus doesn't spawn PVF workers, so we can disable version checks.
 			node_version: None,
+			secure_validator_mode: false,
 			workers_path: None,
 			workers_names: None,
 
-			overseer_gen: polkadot_service::RealOverseerGen,
+			overseer_gen: polkadot_service::CollatorOverseerGen,
 			overseer_message_channel_capacity_override: None,
 			malus_finality_delay: None,
 			hwbench,

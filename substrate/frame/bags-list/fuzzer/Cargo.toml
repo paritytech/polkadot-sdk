@@ -9,11 +9,14 @@ repository.workspace = true
 description = "Fuzzer for FRAME pallet bags list"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 honggfuzz = "0.5"
-rand = { version = "0.8", features = ["std", "small_rng"] }
-frame-election-provider-support = { path = "../../election-provider-support", features = ["fuzz"]}
-pallet-bags-list = { path = "..", features = ["fuzz"]}
+rand = { version = "0.8", features = ["small_rng", "std"] }
+frame-election-provider-support = { path = "../../election-provider-support", features = ["fuzz"] }
+pallet-bags-list = { path = "..", features = ["fuzz"] }
 
 [[bin]]
 name = "bags-list"

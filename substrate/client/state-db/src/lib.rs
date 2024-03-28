@@ -474,7 +474,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 				if have_block {
 					let refs = self.pinned.entry(hash.clone()).or_default();
 					if *refs == 0 {
-						trace!(target: "state-db-pin", "Pinned block: {:?}", hash);
+						trace!(target: LOG_TARGET_PIN, "Pinned block: {:?}", hash);
 						self.non_canonical.pin(hash);
 					}
 					*refs += 1;
@@ -491,11 +491,11 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 			Entry::Occupied(mut entry) => {
 				*entry.get_mut() -= 1;
 				if *entry.get() == 0 {
-					trace!(target: "state-db-pin", "Unpinned block: {:?}", hash);
+					trace!(target: LOG_TARGET_PIN, "Unpinned block: {:?}", hash);
 					entry.remove();
 					self.non_canonical.unpin(hash);
 				} else {
-					trace!(target: "state-db-pin", "Releasing reference for {:?}", hash);
+					trace!(target: LOG_TARGET_PIN, "Releasing reference for {:?}", hash);
 				}
 			},
 			Entry::Vacant(_) => {},
@@ -872,7 +872,7 @@ mod tests {
 	fn check_stored_and_requested_mode_compatibility(
 		mode_when_created: Option<PruningMode>,
 		mode_when_reopened: Option<PruningMode>,
-		expected_effective_mode_when_reopenned: Result<PruningMode, ()>,
+		expected_effective_mode_when_reopened: Result<PruningMode, ()>,
 	) {
 		let mut db = make_db(&[]);
 		let (state_db_init, state_db) =
@@ -883,7 +883,7 @@ mod tests {
 
 		let state_db_reopen_result =
 			StateDb::<H256, H256, TestDb>::open(db.clone(), mode_when_reopened, false, false);
-		if let Ok(expected_mode) = expected_effective_mode_when_reopenned {
+		if let Ok(expected_mode) = expected_effective_mode_when_reopened {
 			let (state_db_init, state_db_reopened) = state_db_reopen_result.unwrap();
 			db.commit(&state_db_init);
 			assert_eq!(state_db_reopened.pruning_mode(), expected_mode,)

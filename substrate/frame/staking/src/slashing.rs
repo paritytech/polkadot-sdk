@@ -57,7 +57,7 @@ use crate::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{Currency, Defensive, Get, Imbalance, OnUnbalanced},
+	traits::{Currency, Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -85,7 +85,7 @@ pub(crate) struct SlashingSpan {
 
 impl SlashingSpan {
 	fn contains_era(&self, era: EraIndex) -> bool {
-		self.start <= era && self.length.map_or(true, |l| self.start + l > era)
+		self.start <= era && self.length.map_or(true, |l| self.start.saturating_add(l) > era)
 	}
 }
 
@@ -123,15 +123,15 @@ impl SlashingSpans {
 	// returns `true` if a new span was started, `false` otherwise. `false` indicates
 	// that internal state is unchanged.
 	pub(crate) fn end_span(&mut self, now: EraIndex) -> bool {
-		let next_start = now + 1;
+		let next_start = now.defensive_saturating_add(1);
 		if next_start <= self.last_start {
 			return false
 		}
 
-		let last_length = next_start - self.last_start;
+		let last_length = next_start.defensive_saturating_sub(self.last_start);
 		self.prior.insert(0, last_length);
 		self.last_start = next_start;
-		self.span_index += 1;
+		self.span_index.defensive_saturating_accrue(1);
 		true
 	}
 
@@ -141,9 +141,9 @@ impl SlashingSpans {
 		let mut index = self.span_index;
 		let last = SlashingSpan { index, start: last_start, length: None };
 		let prior = self.prior.iter().cloned().map(move |length| {
-			let start = last_start - length;
+			let start = last_start.defensive_saturating_sub(length);
 			last_start = start;
-			index -= 1;
+			index.defensive_saturating_reduce(1);
 
 			SlashingSpan { index, start, length: Some(length) }
 		});
@@ -164,13 +164,18 @@ impl SlashingSpans {
 		let old_idx = self
 			.iter()
 			.skip(1) // skip ongoing span.
-			.position(|span| span.length.map_or(false, |len| span.start + len <= window_start));
+			.position(|span| {
+				span.length
+					.map_or(false, |len| span.start.defensive_saturating_add(len) <= window_start)
+			});
 
-		let earliest_span_index = self.span_index - self.prior.len() as SpanIndex;
+		let earliest_span_index =
+			self.span_index.defensive_saturating_sub(self.prior.len() as SpanIndex);
 		let pruned = match old_idx {
 			Some(o) => {
 				self.prior.truncate(o);
-				let new_earliest = self.span_index - self.prior.len() as SpanIndex;
+				let new_earliest =
+					self.span_index.defensive_saturating_sub(self.prior.len() as SpanIndex);
 				Some((earliest_span_index, new_earliest))
 			},
 			None => None,
@@ -500,7 +505,7 @@ impl<'a, T: 'a + Config> InspectingSpans<'a, T> {
 
 		let reward = if span_record.slashed < slash {
 			// new maximum span slash. apply the difference.
-			let difference = slash - span_record.slashed;
+			let difference = slash.defensive_saturating_sub(span_record.slashed);
 			span_record.slashed = slash;
 
 			// compute reward.

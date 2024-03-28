@@ -1,63 +1,27 @@
 error: The number of pallets exceeds the maximum number of tuple elements. To increase this limit, enable the tuples-96 feature of [frame_support].
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:66:2
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:67:2
    |
-66 |     pub struct Runtime
+67 |     pub struct Runtime
    |     ^^^
 
-error[E0412]: cannot find type `RuntimeCall` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:35:64
-   |
-35 | pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Signature, ()>;
-   |                                                                ^^^^^^^^^^^ not found in this scope
-   |
-help: you might be missing a type parameter
-   |
-35 | pub type UncheckedExtrinsic<RuntimeCall> = generic::UncheckedExtrinsic<u32, RuntimeCall, Signature, ()>;
-   |                            +++++++++++++
-
-error[E0412]: cannot find type `Runtime` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:37:25
-   |
-37 | impl pallet::Config for Runtime {}
-   |                         ^^^^^^^ not found in this scope
-
-error[E0412]: cannot find type `Runtime` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:39:31
-   |
-39 | impl frame_system::Config for Runtime {
-   |                               ^^^^^^^ not found in this scope
-
-error[E0412]: cannot find type `RuntimeOrigin` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:41:23
-   |
-41 |     type RuntimeOrigin = RuntimeOrigin;
-   |                          ^^^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeOrigin`
-
-error[E0412]: cannot find type `RuntimeCall` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:43:21
-   |
-43 |     type RuntimeCall = RuntimeCall;
-   |                        ^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeCall`
-
-error[E0412]: cannot find type `RuntimeEvent` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:49:22
-   |
-49 |     type RuntimeEvent = RuntimeEvent;
-   |                         ^^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeEvent`
-
-error[E0412]: cannot find type `PalletInfo` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:55:20
-   |
-55 |     type PalletInfo = PalletInfo;
-   |                       ^^^^^^^^^^
-   |
-help: you might have meant to use the associated type
-   |
-55 |     type PalletInfo = Self::PalletInfo;
-   |                       ~~~~~~~~~~~~~~~~
-help: consider importing one of these items
-   |
-18 + use frame_benchmarking::__private::traits::PalletInfo;
-   |
-18 + use frame_support::traits::PalletInfo;
-   |
+error: recursion limit reached while expanding `frame_support::__private::tt_return!`
+   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:22:1
+    |
+22  | /  #[frame_support::pallet]
+23  | |  mod pallet {
+24  | |      #[pallet::config]
+25  | |      pub trait Config: frame_system::Config {}
+...   |
+66  | |/ construct_runtime! {
+67  | ||     pub struct Runtime
+68  | ||     {
+69  | ||         System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+...   ||
+180 | ||     }
+181 | || }
+    | ||_^
+    |  |_|
+    |    in this macro invocation
+    |
+    = help: consider increasing the recursion limit by adding a `#![recursion_limit = "256"]` attribute to your crate (`$CRATE`)
+    = note: this error originates in the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)

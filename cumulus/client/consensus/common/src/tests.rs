@@ -136,6 +136,15 @@ impl RelayChainInterface for Relaychain {
 		Ok(Some(PersistedValidationData { parent_head, ..Default::default() }))
 	}
 
+	async fn validation_code_hash(
+		&self,
+		_: PHash,
+		_: ParaId,
+		_: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		unimplemented!("Not needed for test")
+	}
+
 	async fn candidate_pending_availability(
 		&self,
 		_: PHash,
@@ -823,7 +832,7 @@ fn restore_limit_monitor() {
 		.collect::<Vec<_>>();
 
 	// Scenario before limit application (with B11 imported as best)
-	// Import order (freshess): B00, B10, B11, B12, B20, B21
+	// Import order (freshness): B00, B10, B11, B12, B20, B21
 	//
 	//   B00 --+-- B10 --+-- B20
 	//         |         +-- B21
@@ -1124,7 +1133,8 @@ fn find_potential_parents_aligned_with_pending() {
 
 	let backend = Arc::new(Backend::new_test(1000, 1));
 	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let mut para_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let relay_parent = relay_hash_from_block_num(10);
 	// Choose different relay parent for alternative chain to get new hashes.
@@ -1279,7 +1289,8 @@ fn find_potential_parents_aligned_no_pending() {
 
 	let backend = Arc::new(Backend::new_test(1000, 1));
 	let client = Arc::new(TestClientBuilder::with_backend(backend.clone()).build());
-	let mut para_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let mut para_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
 	let relay_parent = relay_hash_from_block_num(10);
 	// Choose different relay parent for alternative chain to get new hashes.

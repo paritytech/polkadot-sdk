@@ -1,6 +1,6 @@
 [package]
 name = "pallet-root-offences"
-version = "1.0.0-dev"
+version = "25.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,6 +9,9 @@ repository.workspace = true
 description = "FRAME root offences pallet"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -16,13 +19,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-pallet-session = { path = "../session", default-features = false , features = [ "historical" ]}
-pallet-staking = { path = "../staking", default-features = false}
+pallet-session = { path = "../session", default-features = false, features = ["historical"] }
+pallet-staking = { path = "../staking", default-features = false }
 
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
 sp-runtime = { path = "../../primitives/runtime" }
-sp-staking = { path = "../../primitives/staking", default-features = false}
+sp-staking = { path = "../../primitives/staking", default-features = false }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
@@ -30,8 +33,8 @@ pallet-timestamp = { path = "../timestamp" }
 pallet-staking-reward-curve = { path = "../staking/reward-curve" }
 
 sp-core = { path = "../../primitives/core" }
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
 
 frame-election-provider-support = { path = "../election-provider-support" }
 
@@ -56,7 +59,7 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-election-provider-support/std",

@@ -124,7 +124,7 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 	}
 	/// Storage: `CollatorSelection::CandidacyBond` (r:0 w:1)
 	/// Proof: `CollatorSelection::CandidacyBond` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
-	fn set_candidacy_bond() -> Weight {
+	fn set_candidacy_bond(_c: u32, _k: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -167,6 +167,30 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 	/// Proof: `CollatorSelection::LastAuthoredBlock` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	/// The range of component `c` is `[4, 100]`.
 	fn leave_intent(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `306 + c * (50 ±0)`
+		//  Estimated: `6287`
+		// Minimum execution time: 34_814_000 picoseconds.
+		Weight::from_parts(36_371_520, 0)
+			.saturating_add(Weight::from_parts(0, 6287))
+			// Standard Error: 2_391
+			.saturating_add(Weight::from_parts(201_700, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn update_bond(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `306 + c * (50 ±0)`
+		//  Estimated: `6287`
+		// Minimum execution time: 34_814_000 picoseconds.
+		Weight::from_parts(36_371_520, 0)
+			.saturating_add(Weight::from_parts(0, 6287))
+			// Standard Error: 2_391
+			.saturating_add(Weight::from_parts(201_700, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	fn take_candidate_slot(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `306 + c * (50 ±0)`
 		//  Estimated: `6287`

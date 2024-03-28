@@ -16,10 +16,14 @@
 // limitations under the License.
 
 use crate::{
-	pallet::{parse::error::VariantField, Def},
+	pallet::{
+		parse::error::{VariantDef, VariantField},
+		Def,
+	},
 	COUNTER,
 };
 use frame_support_procedural_tools::get_doc_literals;
+use quote::ToTokens;
 use syn::spanned::Spanned;
 
 ///
@@ -67,20 +71,23 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		)
 	);
 
-	let as_str_matches = error.variants.iter().map(|(variant, field_ty, _)| {
-		let variant_str = variant.to_string();
-		match field_ty {
-			Some(VariantField { is_named: true }) => {
-				quote::quote_spanned!(error.attr_span => Self::#variant { .. } => #variant_str,)
-			},
-			Some(VariantField { is_named: false }) => {
-				quote::quote_spanned!(error.attr_span => Self::#variant(..) => #variant_str,)
-			},
-			None => {
-				quote::quote_spanned!(error.attr_span => Self::#variant => #variant_str,)
-			},
-		}
-	});
+	let as_str_matches = error.variants.iter().map(
+		|VariantDef { ident: variant, field: field_ty, docs: _, cfg_attrs }| {
+			let variant_str = variant.to_string();
+			let cfg_attrs = cfg_attrs.iter().map(|attr| attr.to_token_stream());
+			match field_ty {
+				Some(VariantField { is_named: true }) => {
+					quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* Self::#variant { .. } => #variant_str,)
+				},
+				Some(VariantField { is_named: false }) => {
+					quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* Self::#variant(..) => #variant_str,)
+				},
+				None => {
+					quote::quote_spanned!(error.attr_span => #( #cfg_attrs )* Self::#variant => #variant_str,)
+				},
+			}
+		},
+	);
 
 	let error_item = {
 		let item = &mut def.item.content.as_mut().expect("Checked by def parser").1[error.index];

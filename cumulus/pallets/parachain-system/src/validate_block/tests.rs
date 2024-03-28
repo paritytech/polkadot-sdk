@@ -21,12 +21,13 @@ use cumulus_test_client::{
 	runtime::{
 		self as test_runtime, Block, Hash, Header, TestPalletCall, UncheckedExtrinsic, WASM_BINARY,
 	},
-	transfer, BlockData, BuildParachainBlockData, Client, DefaultTestClientBuilderExt, HeadData,
-	InitBlockBuilder, TestClientBuilder, TestClientBuilderExt, ValidationParams,
+	transfer, BlockData, BlockOrigin, BuildParachainBlockData, Client, ClientBlockImportExt,
+	DefaultTestClientBuilderExt, HeadData, InitBlockBuilder, TestClientBuilder,
+	TestClientBuilderExt, ValidationParams,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use sp_keyring::AccountKeyring::*;
-use sp_runtime::traits::Header as HeaderT;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::{env, process::Command};
 
 use crate::validate_block::MemoryOptimizedValidationParams;
@@ -58,7 +59,7 @@ fn call_validate_block(
 }
 
 fn create_test_client() -> (Client, Header) {
-	let client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().enable_import_proof_recording().build();
 
 	let genesis_header = client
 		.header(client.chain_info().genesis_hash)
@@ -100,7 +101,7 @@ fn build_block_with_witness(
 }
 
 #[test]
-fn validate_block_no_extra_extrinsics() {
+fn validate_block_works() {
 	sp_tracing::try_init_simple();
 
 	let (client, parent_head) = create_test_client();
@@ -289,4 +290,43 @@ fn validation_params_and_memory_optimized_validation_params_encode_and_decode() 
 
 	let decoded = ValidationParams::decode_all(&mut &encoded[..]).unwrap();
 	assert_eq!(decoded, validation_params);
+}
+
+/// Test for ensuring that we are differentiating in the `validation::trie_cache` between different
+/// child tries.
+///
+/// This is achieved by first building a block using `read_and_write_child_tries` that should set
+/// the values in the child tries. In the second step we are building a second block with the same
+/// extrinsic that reads the values from the child tries and it asserts that we read the correct
+/// data from the state.
+#[test]
+fn validate_block_works_with_child_tries() {
+	sp_tracing::try_init_simple();
+
+	let (mut client, parent_head) = create_test_client();
+	let TestBlockData { block, .. } = build_block_with_witness(
+		&client,
+		vec![generate_extrinsic(&client, Charlie, TestPalletCall::read_and_write_child_tries {})],
+		parent_head.clone(),
+		Default::default(),
+	);
+	let block = block.into_block();
+
+	futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+
+	let parent_head = block.header().clone();
+
+	let TestBlockData { block, validation_data } = build_block_with_witness(
+		&client,
+		vec![generate_extrinsic(&client, Alice, TestPalletCall::read_and_write_child_tries {})],
+		parent_head.clone(),
+		Default::default(),
+	);
+
+	let header = block.header().clone();
+
+	let res_header =
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.expect("Calls `validate_block`");
+	assert_eq!(header, res_header);
 }

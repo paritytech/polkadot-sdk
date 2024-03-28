@@ -19,7 +19,7 @@
 
 use crate::{test_fungibles::TestFungibles, *};
 use frame_support::{
-	assert_ok, ensure, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, ItemOf, Mutate},
 		nonfungible::Inspect as NftInspect,
@@ -29,9 +29,9 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
-use sp_core::{ConstU16, ConstU32, ConstU64, H256};
+use sp_core::{ConstU32, ConstU64};
 use sp_runtime::{
-	traits::{BlakeTwo256, Identity, IdentityLookup},
+	traits::{BlockNumberProvider, Identity},
 	BuildStorage, Saturating,
 };
 use sp_std::collections::btree_map::BTreeMap;
@@ -47,30 +47,9 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -91,7 +70,6 @@ parameter_types! {
 	pub static CoretimeWorkplan: BTreeMap<(u32, CoreIndex), Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeUsage: BTreeMap<CoreIndex, Vec<(CoreAssignment, PartsOf57600)>> = Default::default();
 	pub static CoretimeInPool: CoreMaskBitCount = 0;
-	pub static NotifyCoreCount: Vec<u16> = Default::default();
 	pub static NotifyRevenueInfo: Vec<(u32, u64)> = Default::default();
 }
 
@@ -99,18 +77,20 @@ pub struct TestCoretimeProvider;
 impl CoretimeInterface for TestCoretimeProvider {
 	type AccountId = u64;
 	type Balance = u64;
-	type BlockNumber = u32;
-	fn latest() -> Self::BlockNumber {
-		System::block_number() as u32
-	}
+	type RelayChainBlockNumberProvider = System;
 	fn request_core_count(count: CoreIndex) {
-		NotifyCoreCount::mutate(|s| s.insert(0, count));
+		CoreCountInbox::<Test>::put(count);
 	}
-	fn request_revenue_info_at(when: Self::BlockNumber) {
-		if when > Self::latest() {
-			panic!("Asking for revenue info in the future {:?} {:?}", when, Self::latest());
+	fn request_revenue_info_at(when: RCBlockNumberOf<Self>) {
+		if when > RCBlockNumberProviderOf::<Self>::current_block_number() {
+			panic!(
+				"Asking for revenue info in the future {:?} {:?}",
+				when,
+				RCBlockNumberProviderOf::<Self>::current_block_number()
+			);
 		}
 
+		let when = when as u32;
 		let mut total = 0;
 		CoretimeSpending::mutate(|s| {
 			s.retain(|(n, a)| {
@@ -129,27 +109,28 @@ impl CoretimeInterface for TestCoretimeProvider {
 	}
 	fn assign_core(
 		core: CoreIndex,
-		begin: Self::BlockNumber,
+		begin: RCBlockNumberOf<Self>,
 		assignment: Vec<(CoreAssignment, PartsOf57600)>,
-		end_hint: Option<Self::BlockNumber>,
+		end_hint: Option<RCBlockNumberOf<Self>>,
 	) {
-		CoretimeWorkplan::mutate(|p| p.insert((begin, core), assignment.clone()));
-		let item = (Self::latest(), AssignCore { core, begin, assignment, end_hint });
+		CoretimeWorkplan::mutate(|p| p.insert((begin as u32, core), assignment.clone()));
+		let item = (
+			RCBlockNumberProviderOf::<Self>::current_block_number() as u32,
+			AssignCore {
+				core,
+				begin: begin as u32,
+				assignment,
+				end_hint: end_hint.map(|v| v as u32),
+			},
+		);
 		CoretimeTrace::mutate(|v| v.push(item));
 	}
-	fn check_notify_core_count() -> Option<u16> {
-		NotifyCoreCount::mutate(|s| s.pop())
-	}
-	fn check_notify_revenue_info() -> Option<(Self::BlockNumber, Self::Balance)> {
-		NotifyRevenueInfo::mutate(|s| s.pop())
+	fn check_notify_revenue_info() -> Option<(RCBlockNumberOf<Self>, Self::Balance)> {
+		NotifyRevenueInfo::mutate(|s| s.pop()).map(|v| (v.0 as _, v.1))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_core_count(count: u16) {
-		NotifyCoreCount::mutate(|s| s.insert(0, count));
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_notify_revenue_info(when: Self::BlockNumber, revenue: Self::Balance) {
-		NotifyRevenueInfo::mutate(|s| s.push((when, revenue)));
+	fn ensure_notify_revenue_info(when: RCBlockNumberOf<Self>, revenue: Self::Balance) {
+		NotifyRevenueInfo::mutate(|s| s.push((when as u32, revenue)));
 	}
 }
 impl TestCoretimeProvider {
@@ -158,14 +139,16 @@ impl TestCoretimeProvider {
 		ensure!(CoretimeInPool::get() > 0, ());
 		c.insert(who, c.get(&who).ok_or(())?.checked_sub(price).ok_or(())?);
 		CoretimeCredit::set(c);
-		CoretimeSpending::mutate(|v| v.push((Self::latest(), price)));
+		CoretimeSpending::mutate(|v| {
+			v.push((RCBlockNumberProviderOf::<Self>::current_block_number() as u32, price))
+		});
 		Ok(())
 	}
 	pub fn bump() {
 		let mut pool_size = CoretimeInPool::get();
 		let mut workplan = CoretimeWorkplan::get();
 		let mut usage = CoretimeUsage::get();
-		let now = Self::latest();
+		let now = RCBlockNumberProviderOf::<Self>::current_block_number() as u32;
 		workplan.retain(|(when, core), assignment| {
 			if *when <= now {
 				if let Some(old_assignment) = usage.get(core) {
@@ -208,7 +191,7 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = ItemOf<TestFungibles<(), u64, (), ConstU64<0>, ()>, (), u64>;
 	type OnRevenue = IntoZero;
-	type TimeslicePeriod = ConstU32<2>;
+	type TimeslicePeriod = ConstU64<2>;
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = TestCoretimeProvider;
@@ -264,7 +247,7 @@ impl TestExt {
 	}
 
 	pub fn advance_notice(mut self, advance_notice: Timeslice) -> Self {
-		self.0.advance_notice = advance_notice;
+		self.0.advance_notice = advance_notice as u64;
 		self
 	}
 

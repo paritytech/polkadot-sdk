@@ -19,13 +19,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(not(feature = "std"))]
 extern crate alloc;
 
 #[cfg(feature = "serde")]
 use serde::Serialize;
 
-use codec::{Codec, Decode, Encode, Input};
+use alloc::vec::Vec;
+use codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use sp_keystore::KeystorePtr;
@@ -33,7 +33,6 @@ use sp_runtime::{
 	traits::{Header as HeaderT, NumberFor},
 	ConsensusEngineId, RuntimeDebug,
 };
-use sp_std::{borrow::Cow, vec::Vec};
 
 /// The log target to be used by client code.
 pub const CLIENT_LOG_TARGET: &str = "grandpa";
@@ -61,10 +60,6 @@ pub type AuthoritySignature = app::Signature;
 
 /// The `ConsensusEngineId` of GRANDPA.
 pub const GRANDPA_ENGINE_ID: ConsensusEngineId = *b"FRNK";
-
-/// The storage key for the current set of weighted Grandpa authorities.
-/// The value stored is an encoded VersionedAuthorityList.
-pub const GRANDPA_AUTHORITIES_KEY: &[u8] = b":grandpa_authorities";
 
 /// The weight of an authority.
 pub type AuthorityWeight = u64;
@@ -462,60 +457,6 @@ where
 		.ok()?;
 
 	Some(grandpa::SignedMessage { message, signature, id: public })
-}
-
-/// WASM function call to check for pending changes.
-pub const PENDING_CHANGE_CALL: &str = "grandpa_pending_change";
-/// WASM function call to get current GRANDPA authorities.
-pub const AUTHORITIES_CALL: &str = "grandpa_authorities";
-
-/// The current version of the stored AuthorityList type. The encoding version MUST be updated any
-/// time the AuthorityList type changes.
-const AUTHORITIES_VERSION: u8 = 1;
-
-/// An AuthorityList that is encoded with a version specifier. The encoding version is updated any
-/// time the AuthorityList type changes. This ensures that encodings of different versions of an
-/// AuthorityList are differentiable. Attempting to decode an authority list with an unknown
-/// version will fail.
-#[derive(Default)]
-pub struct VersionedAuthorityList<'a>(Cow<'a, AuthorityList>);
-
-impl<'a> From<AuthorityList> for VersionedAuthorityList<'a> {
-	fn from(authorities: AuthorityList) -> Self {
-		VersionedAuthorityList(Cow::Owned(authorities))
-	}
-}
-
-impl<'a> From<&'a AuthorityList> for VersionedAuthorityList<'a> {
-	fn from(authorities: &'a AuthorityList) -> Self {
-		VersionedAuthorityList(Cow::Borrowed(authorities))
-	}
-}
-
-impl<'a> Into<AuthorityList> for VersionedAuthorityList<'a> {
-	fn into(self) -> AuthorityList {
-		self.0.into_owned()
-	}
-}
-
-impl<'a> Encode for VersionedAuthorityList<'a> {
-	fn size_hint(&self) -> usize {
-		(AUTHORITIES_VERSION, self.0.as_ref()).size_hint()
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		(AUTHORITIES_VERSION, self.0.as_ref()).using_encoded(f)
-	}
-}
-
-impl<'a> Decode for VersionedAuthorityList<'a> {
-	fn decode<I: Input>(value: &mut I) -> Result<Self, codec::Error> {
-		let (version, authorities): (u8, AuthorityList) = Decode::decode(value)?;
-		if version != AUTHORITIES_VERSION {
-			return Err("unknown Grandpa authorities version".into())
-		}
-		Ok(authorities.into())
-	}
 }
 
 /// An opaque type used to represent the key ownership proof at the runtime API

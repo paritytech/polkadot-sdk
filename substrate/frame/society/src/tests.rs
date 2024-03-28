@@ -18,11 +18,11 @@
 //! Tests for the module.
 
 use super::*;
-use migrations::old;
+use migrations::v0;
 use mock::*;
 
 use frame_support::{assert_noop, assert_ok};
-use sp_core::blake2_256;
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::BadOrigin;
 use BidKind::*;
 use VouchingStatus::*;
@@ -32,41 +32,41 @@ use RuntimeOrigin as Origin;
 #[test]
 fn migration_works() {
 	EnvBuilder::new().founded(false).execute(|| {
-		use old::Vote::*;
+		use v0::Vote::*;
 
 		// Initialise the old storage items.
 		Founder::<Test>::put(10);
 		Head::<Test>::put(30);
-		old::Members::<Test, ()>::put(vec![10, 20, 30]);
-		old::Vouching::<Test, ()>::insert(30, Vouching);
-		old::Vouching::<Test, ()>::insert(40, Banned);
-		old::Strikes::<Test, ()>::insert(20, 1);
-		old::Strikes::<Test, ()>::insert(30, 2);
-		old::Strikes::<Test, ()>::insert(40, 5);
-		old::Payouts::<Test, ()>::insert(20, vec![(1, 1)]);
-		old::Payouts::<Test, ()>::insert(
+		v0::Members::<Test, ()>::put(vec![10, 20, 30]);
+		v0::Vouching::<Test, ()>::insert(30, Vouching);
+		v0::Vouching::<Test, ()>::insert(40, Banned);
+		v0::Strikes::<Test, ()>::insert(20, 1);
+		v0::Strikes::<Test, ()>::insert(30, 2);
+		v0::Strikes::<Test, ()>::insert(40, 5);
+		v0::Payouts::<Test, ()>::insert(20, vec![(1, 1)]);
+		v0::Payouts::<Test, ()>::insert(
 			30,
 			(0..=<Test as Config>::MaxPayouts::get())
 				.map(|i| (i as u64, i as u64))
 				.collect::<Vec<_>>(),
 		);
-		old::SuspendedMembers::<Test, ()>::insert(40, true);
+		v0::SuspendedMembers::<Test, ()>::insert(40, true);
 
-		old::Defender::<Test, ()>::put(20);
-		old::DefenderVotes::<Test, ()>::insert(10, Approve);
-		old::DefenderVotes::<Test, ()>::insert(20, Approve);
-		old::DefenderVotes::<Test, ()>::insert(30, Reject);
+		v0::Defender::<Test, ()>::put(20);
+		v0::DefenderVotes::<Test, ()>::insert(10, Approve);
+		v0::DefenderVotes::<Test, ()>::insert(20, Approve);
+		v0::DefenderVotes::<Test, ()>::insert(30, Reject);
 
-		old::SuspendedCandidates::<Test, ()>::insert(50, (10, Deposit(100)));
+		v0::SuspendedCandidates::<Test, ()>::insert(50, (10, Deposit(100)));
 
-		old::Candidates::<Test, ()>::put(vec![
+		v0::Candidates::<Test, ()>::put(vec![
 			Bid { who: 60, kind: Deposit(100), value: 200 },
 			Bid { who: 70, kind: Vouch(30, 30), value: 100 },
 		]);
-		old::Votes::<Test, ()>::insert(60, 10, Approve);
-		old::Votes::<Test, ()>::insert(70, 10, Reject);
-		old::Votes::<Test, ()>::insert(70, 20, Approve);
-		old::Votes::<Test, ()>::insert(70, 30, Approve);
+		v0::Votes::<Test, ()>::insert(60, 10, Approve);
+		v0::Votes::<Test, ()>::insert(70, 10, Reject);
+		v0::Votes::<Test, ()>::insert(70, 20, Approve);
+		v0::Votes::<Test, ()>::insert(70, 30, Approve);
 
 		let bids = (0..=<Test as Config>::MaxBids::get())
 			.map(|i| Bid {
@@ -75,7 +75,7 @@ fn migration_works() {
 				value: 10u64 + i as u64,
 			})
 			.collect::<Vec<_>>();
-		old::Bids::<Test, ()>::put(bids);
+		v0::Bids::<Test, ()>::put(bids);
 
 		migrations::from_original::<Test, ()>(&mut [][..]).expect("migration failed");
 		migrations::assert_internal_consistency::<Test, ()>();
@@ -541,7 +541,7 @@ fn suspended_candidate_rejected_works() {
 			assert_ok!(Society::vote(Origin::signed(30), x, true));
 		}
 
-		// Voting continues, as no canidate is clearly accepted yet and the founder chooses not to
+		// Voting continues, as no candidate is clearly accepted yet and the founder chooses not to
 		// act.
 		conclude_intake(false, None);
 		assert_eq!(members(), vec![10, 20, 30]);
@@ -720,7 +720,7 @@ fn unvouch_works() {
 		// But their pick doesn't resign (yet).
 		conclude_intake(false, None);
 		// Voting still happening and voucher cannot unvouch.
-		assert_eq!(candidacies(), vec![(20, candidacy(1, 100, Vouch(10, 0), 0, 1))]);
+		assert_eq!(candidacies(), vec![(20, candidacy(1, 100, Vouch(10, 0), 0, 4))]);
 		assert_eq!(Members::<Test>::get(10).unwrap().vouching, Some(VouchingStatus::Vouching));
 
 		// Candidate gives in and resigns.
@@ -836,72 +836,72 @@ fn founder_and_head_cannot_be_removed() {
 fn challenges_work() {
 	EnvBuilder::new().execute(|| {
 		// Add some members
-		place_members([20, 30, 40]);
+		place_members([20, 30, 40, 50]);
 		// Votes are empty
-		assert_eq!(DefenderVotes::<Test>::get(0, 10), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 20), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 30), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 40), None);
+		assert_eq!(DefenderVotes::<Test>::get(0, 50), None);
 		// Check starting point
-		assert_eq!(members(), vec![10, 20, 30, 40]);
+		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		assert_eq!(Defending::<Test>::get(), None);
 
-		// 30 will be challenged during the challenge rotation
+		// 40 will be challenged during the challenge rotation
 		next_challenge();
-		assert_eq!(Defending::<Test>::get().unwrap().0, 30);
+		assert_eq!(Defending::<Test>::get().unwrap().0, 40);
 		// They can always free vote for themselves
-		assert_ok!(Society::defender_vote(Origin::signed(30), true));
+		assert_ok!(Society::defender_vote(Origin::signed(40), true));
 
 		// If no one else votes, nothing happens
 		next_challenge();
-		assert_eq!(members(), vec![10, 20, 30, 40]);
+		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		// Reset votes for last challenge
 		assert_ok!(Society::cleanup_challenge(Origin::signed(0), 0, 10));
-		// New challenge period
-		assert_eq!(Defending::<Test>::get().unwrap().0, 30);
+		// New challenge period, 20 is challenged
+		assert_eq!(Defending::<Test>::get().unwrap().0, 20);
 		// Non-member cannot vote
 		assert_noop!(Society::defender_vote(Origin::signed(1), true), Error::<Test>::NotMember);
 		// 3 people say accept, 1 reject
-		assert_ok!(Society::defender_vote(Origin::signed(10), true));
 		assert_ok!(Society::defender_vote(Origin::signed(20), true));
 		assert_ok!(Society::defender_vote(Origin::signed(30), true));
-		assert_ok!(Society::defender_vote(Origin::signed(40), false));
+		assert_ok!(Society::defender_vote(Origin::signed(40), true));
+		assert_ok!(Society::defender_vote(Origin::signed(50), false));
 
 		next_challenge();
-		// 30 survives
-		assert_eq!(members(), vec![10, 20, 30, 40]);
+		// 20 survives
+		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
 		// Reset votes for last challenge
 		assert_ok!(Society::cleanup_challenge(Origin::signed(0), 1, 10));
 		// Votes are reset
-		assert_eq!(DefenderVotes::<Test>::get(0, 10), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 20), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 30), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 40), None);
+		assert_eq!(DefenderVotes::<Test>::get(0, 50), None);
 
-		// One more time
-		assert_eq!(Defending::<Test>::get().unwrap().0, 30);
+		// One more time, 40 is challenged
+		assert_eq!(Defending::<Test>::get().unwrap().0, 40);
 		// 2 people say accept, 2 reject
-		assert_ok!(Society::defender_vote(Origin::signed(10), true));
 		assert_ok!(Society::defender_vote(Origin::signed(20), true));
-		assert_ok!(Society::defender_vote(Origin::signed(30), false));
+		assert_ok!(Society::defender_vote(Origin::signed(30), true));
 		assert_ok!(Society::defender_vote(Origin::signed(40), false));
+		assert_ok!(Society::defender_vote(Origin::signed(50), false));
 
 		next_challenge();
-		// 30 is suspended
-		assert_eq!(members(), vec![10, 20, 40]);
+		// 40 is suspended
+		assert_eq!(members(), vec![10, 20, 30, 50]);
 		assert_eq!(
-			SuspendedMembers::<Test>::get(30),
-			Some(MemberRecord { rank: 0, strikes: 0, vouching: None, index: 2 })
+			SuspendedMembers::<Test>::get(40),
+			Some(MemberRecord { rank: 0, strikes: 0, vouching: None, index: 3 })
 		);
 		// Reset votes for last challenge
 		assert_ok!(Society::cleanup_challenge(Origin::signed(0), 2, 10));
-		// New defender is chosen
-		assert_eq!(Defending::<Test>::get().unwrap().0, 20);
+		// New defender is chosen, 30 is challenged
+		assert_eq!(Defending::<Test>::get().unwrap().0, 30);
 		// Votes are reset
-		assert_eq!(DefenderVotes::<Test>::get(0, 10), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 20), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 30), None);
 		assert_eq!(DefenderVotes::<Test>::get(0, 40), None);
+		assert_eq!(DefenderVotes::<Test>::get(0, 50), None);
 	});
 }
 
@@ -1044,6 +1044,9 @@ fn vouching_handles_removed_member_with_candidate() {
 fn votes_are_working() {
 	EnvBuilder::new().execute(|| {
 		place_members([20]);
+		// Member 10 is rank 1 and Member 20 is rank 0
+		assert_eq!(Members::<Test>::get(10).unwrap().rank, 1);
+		assert_eq!(Members::<Test>::get(20).unwrap().rank, 0);
 		// Users make bids of various amounts
 		assert_ok!(Society::bid(RuntimeOrigin::signed(50), 500));
 		assert_ok!(Society::bid(RuntimeOrigin::signed(40), 400));
@@ -1061,6 +1064,32 @@ fn votes_are_working() {
 		assert_eq!(Votes::<Test>::get(30, 20), Some(Vote { approve: true, weight: 1 }));
 		assert_eq!(Votes::<Test>::get(40, 10), Some(Vote { approve: true, weight: 4 }));
 		assert_eq!(Votes::<Test>::get(50, 10), None);
+
+		// Votes have correct weights on the tally
+		assert_eq!(
+			Candidates::<Test>::get(30).unwrap().tally,
+			Tally { approvals: 5, rejections: 0 }
+		);
+		assert_eq!(
+			Candidates::<Test>::get(40).unwrap().tally,
+			Tally { approvals: 4, rejections: 0 }
+		);
+		// Member 10 changes his vote for Candidate 30
+		assert_ok!(Society::vote(Origin::signed(10), 30, false));
+		// Assert the tally calculation is correct
+		assert_eq!(
+			Candidates::<Test>::get(30).unwrap().tally,
+			Tally { approvals: 1, rejections: 4 }
+		);
+		// Member 10 changes his vote again
+		assert_ok!(Society::vote(Origin::signed(10), 30, true));
+		// Assert the tally is still correct
+		assert_eq!(
+			Candidates::<Test>::get(30).unwrap().tally,
+			Tally { approvals: 5, rejections: 0 }
+		);
+
+		// Finish intake
 		conclude_intake(false, None);
 		// Cleanup the candidacy
 		assert_ok!(Society::cleanup_candidacy(Origin::signed(0), 30, 10));
@@ -1240,7 +1269,7 @@ fn waive_repay_works() {
 			Payouts::<Test>::get(20),
 			PayoutRecord { paid: 0, payouts: vec![].try_into().unwrap() }
 		);
-		assert_eq!(Members::<Test>::get(10).unwrap().rank, 1);
+		assert_eq!(Members::<Test>::get(20).unwrap().rank, 1);
 		assert_eq!(Balances::free_balance(20), 50);
 	});
 }

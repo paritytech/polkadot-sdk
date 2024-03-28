@@ -27,6 +27,7 @@ use frame_support::traits::Get;
 use sp_runtime::transaction_validity::TransactionPriority;
 
 // reexport everything from `integrity_tests` module
+#[allow(unused_imports)]
 pub use integrity_tests::*;
 
 /// Compute priority boost for message delivery transaction that delivers
@@ -127,7 +128,7 @@ mod integrity_tests {
 		Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 		BalanceOf<Runtime>: Send + Sync + FixedPointOperand,
 	{
-		// esimate priority of transaction that delivers one message and has large tip
+		// estimate priority of transaction that delivers one message and has large tip
 		let maximal_messages_in_delivery_transaction =
 			Runtime::MaxUnconfirmedMessagesAtInboundLane::get();
 		let small_with_tip_priority =
@@ -162,7 +163,7 @@ mod integrity_tests {
 	{
 		// just an estimation of extra transaction bytes that are added to every transaction
 		// (including signature, signed extensions extra and etc + in our case it includes
-		// all call arguments extept the proof itself)
+		// all call arguments except the proof itself)
 		let base_tx_size = 512;
 		// let's say we are relaying similar small messages and for every message we add more trie
 		// nodes to the proof (x0.5 because we expect some nodes to be reused)

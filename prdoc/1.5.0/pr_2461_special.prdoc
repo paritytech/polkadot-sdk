@@ -1,0 +1,9 @@
+title: "PVF: remove audit log access"
+author: mrcnski
+topic: Node
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

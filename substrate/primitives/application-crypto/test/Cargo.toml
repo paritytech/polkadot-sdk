@@ -9,12 +9,15 @@ publish = false
 homepage = "https://substrate.io"
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 sp-api = { path = "../../api" }
 sp-application-crypto = { path = ".." }
-sp-core = { path = "../../core", default-features = false}
-sp-keystore = { path = "../../keystore", default-features = false}
+sp-core = { path = "../../core", default-features = false }
+sp-keystore = { path = "../../keystore", default-features = false }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }

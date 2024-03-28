@@ -1,7 +1,7 @@
 [package]
 description = "Substrate offchain workers primitives"
 name = "sp-offchain"
-version = "4.0.0-dev"
+version = "26.0.0"
 license = "Apache-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -9,14 +9,17 @@ homepage = "https://substrate.io"
 repository.workspace = true
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { path = "../api", default-features = false}
-sp-core = { path = "../core", default-features = false}
-sp-runtime = { path = "../runtime", default-features = false}
+sp-api = { path = "../api", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "sp-api/std", "sp-core/std", "sp-runtime/std" ]
+default = ["std"]
+std = ["sp-api/std", "sp-core/std", "sp-runtime/std"]
