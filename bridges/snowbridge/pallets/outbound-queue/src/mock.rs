@@ -69,6 +69,7 @@ impl pallet_message_queue::Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ();
 	type QueuePausedQuery = ();
 }
 
@@ -77,7 +78,8 @@ parameter_types! {
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
-		rewards: Rewards { local: DOT, remote: meth(1) }
+		rewards: Rewards { local: DOT, remote: meth(1) },
+		multiplier: FixedU128::from_rational(4, 3),
 	};
 }
 

@@ -84,7 +84,7 @@ mod benchmarks {
 	// - load the full ring context.
 	// - recompute the ring verifier.
 	// - sorting the epoch tickets in one shot
-	//  (here we account for the very unluky scenario where we haven't done any sort work yet)
+	//  (here we account for the very unlucky scenario where we haven't done any sort work yet)
 	// - pending epoch change config.
 	//
 	// For this bench we assume a redundancy factor of 2 (suggested value to be used in prod).
@@ -139,8 +139,8 @@ mod benchmarks {
 			TicketsIds::<T>::insert((epoch_tag as u8, i), id);
 			let body = TicketBody {
 				attempt_idx: i,
-				erased_public: EphemeralPublic([i as u8; 32]),
-				revealed_public: EphemeralPublic([i as u8; 32]),
+				erased_public: EphemeralPublic::from([i as u8; 32]),
+				revealed_public: EphemeralPublic::from([i as u8; 32]),
 			};
 			TicketsData::<T>::set(id, Some(body));
 		});
@@ -236,8 +236,8 @@ mod benchmarks {
 			.map(|i| {
 				let body = TicketBody {
 					attempt_idx: i,
-					erased_public: EphemeralPublic([i as u8; 32]),
-					revealed_public: EphemeralPublic([i as u8; 32]),
+					erased_public: EphemeralPublic::from([i as u8; 32]),
+					revealed_public: EphemeralPublic::from([i as u8; 32]),
 				};
 				let id_bytes = crate::hashing::blake2_128(&i.to_le_bytes());
 				let id = TicketId::from_le_bytes(id_bytes);
