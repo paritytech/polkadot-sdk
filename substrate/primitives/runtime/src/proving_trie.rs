@@ -15,17 +15,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! A generic implementation of a simple merkle trie used for making and verifying proofs.
+//! Types for a simple merkle trie used for checking and generating proofs.
 
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
 	LayoutV0, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
 };
 
-use crate::{traits::HashOutput, Decode, Encode, KeyTypeId};
+use crate::{traits::HashOutput, Decode, DispatchError, Encode, KeyTypeId};
+
+/// A trait for creating a merkle trie for checking and generating merkle proofs.
+pub trait ProvingTrie<Hashing, Hash, Item>
+where
+	Hashing: sp_core::Hasher<Out = Hash>,
+	Hash: HashOutput,
+	Item: Encode + Decode,
+	Self: Sized,
+{
+	/// Access the underlying trie root.
+	fn root(&self) -> &Hash;
+	/// Check a proof contained within the current memory-db. Returns `None` if the
+	/// nodes within the current `MemoryDB` are insufficient to query the item.
+	fn query(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Item>;
+	/// Prove the full verification data for a given key and key ID.
+	fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>>;
+	/// Create a new instance of a `ProvingTrie` using an iterator of items in the trie.
+	fn generate<I>(items: I) -> Result<Self, DispatchError>
+	where
+		I: IntoIterator<Item = Item>;
+}
 
 /// A trie instance for checking and generating proofs.
-pub struct ProvingTrie<Hashing, Hash, Item>
+pub struct BasicProvingTrie<Hashing, Hash, Item>
 where
 	Hashing: sp_core::Hasher<Out = Hash>,
 	Hash: HashOutput,
@@ -36,7 +57,7 @@ where
 	_phantom: core::marker::PhantomData<Item>,
 }
 
-impl<Hashing, Hash, Item> ProvingTrie<Hashing, Hash, Item>
+impl<Hashing, Hash, Item> BasicProvingTrie<Hashing, Hash, Item>
 where
 	Hashing: sp_core::Hasher<Out = Hash>,
 	Hash: HashOutput,
@@ -89,11 +110,11 @@ where
 			HashDBT::insert(&mut memory_db, EMPTY_PREFIX, &node[..]);
 		}
 
-		ProvingTrie { db: memory_db, root, _phantom: Default::default() }
+		Self { db: memory_db, root, _phantom: Default::default() }
 	}
 
 	/// Create a new instance of a `ProvingTrie` using an iterator of items in the trie.
-	pub fn generate_for<I>(items: I) -> Result<Self, &'static str>
+	pub fn generate_for<I>(items: I) -> Result<Self, DispatchError>
 	where
 		I: IntoIterator<Item = Item>,
 	{
@@ -111,6 +132,6 @@ where
 			}
 		}
 
-		Ok(ProvingTrie { db, root, _phantom: Default::default() })
+		Ok(Self { db, root, _phantom: Default::default() })
 	}
 }
