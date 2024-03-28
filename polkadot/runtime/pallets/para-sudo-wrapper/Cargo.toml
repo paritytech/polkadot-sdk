@@ -21,11 +21,10 @@ sp-core = { path = "../../../../substrate/primitives/core", default-features = f
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
 frame-election-provider-support = { path = "../../../../substrate/frame/election-provider-support", default-features = false }
-
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 
 primitives = { package = "polkadot-primitives", path = "../../../primitives", default-features = false }
-libsecp256k1 = { version = "0.7.0", default-features = false }
+runtime-parachains = { package = "polkadot-runtime-parachains", path = "../../parachains", default-features = false }
 
 xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false }
 
@@ -37,9 +36,9 @@ std = [
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"libsecp256k1/std",
 	"parity-scale-codec/std",
 	"primitives/std",
+	"runtime-parachains/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -53,14 +52,14 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"libsecp256k1/hmac",
-	"libsecp256k1/static-context",
 	"primitives/runtime-benchmarks",
+	"runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
