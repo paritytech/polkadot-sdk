@@ -21,7 +21,7 @@ honggfuzz = "0.5.54"
 
 pallet-nomination-pools = { path = "..", features = ["fuzzing"], version = "26.0.0" }
 frame-system = { version = "29.0.0", path = "../../system" }
-frame-support = { version = "29.0.0", path = "../../support" }
+frame-support = { version = "29.0.1", path = "../../support" }
 sp-runtime = { version = "32.0.0", path = "../../../primitives/runtime" }
 sp-io = { version = "31.0.0", path = "../../../primitives/io" }
 sp-tracing = { version = "16.0.0", path = "../../../primitives/tracing" }

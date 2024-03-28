@@ -19,7 +19,7 @@ sp-authority-discovery = { path = "../../../../../../../substrate/primitives/aut
 sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false, version = "0.33.0" }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy", version = "14.0.0" }
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false, version = "0.20.0" }
-pallet-staking = { path = "../../../../../../../substrate/frame/staking", default-features = false, version = "29.0.0" }
+pallet-staking = { path = "../../../../../../../substrate/frame/staking", default-features = false, version = "29.0.1" }
 
 # Polkadot
 polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false, version = "8.0.1" }

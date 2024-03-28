@@ -29,7 +29,7 @@ sp-io = { path = "../../primitives/io", default-features = false, version = "31.
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "32.0.0" }
 
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "29.0.0" }
-frame-support = { path = "../support", default-features = false, version = "29.0.0" }
+frame-support = { path = "../support", default-features = false, version = "29.0.1" }
 frame-system = { path = "../system", default-features = false, version = "29.0.0" }
 
 pallet-identity = { path = "../identity", default-features = false, version = "29.0.0" }

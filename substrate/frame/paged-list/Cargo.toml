@@ -20,7 +20,7 @@ docify = "0.2.7"
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "29.0.0" }
-frame-support = { path = "../support", default-features = false, version = "29.0.0" }
+frame-support = { path = "../support", default-features = false, version = "29.0.1" }
 frame-system = { path = "../system", default-features = false, version = "29.0.0" }
 
 sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "32.0.0" }

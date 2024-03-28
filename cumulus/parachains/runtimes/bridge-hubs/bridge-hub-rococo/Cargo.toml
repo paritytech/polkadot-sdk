@@ -26,7 +26,7 @@ serde = { version = "1.0.195", optional = true, features = ["derive"] }
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
 frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false, version = "29.0.0" }
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "29.0.0" }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "29.0.1" }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true, version = "29.0.0" }
 frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false, version = "27.0.0" }

@@ -28,7 +28,7 @@ sp-arithmetic = { version = "24.0.0", path = "../../../../primitives/arithmetic"
 sp-runtime = { version = "32.0.0", path = "../../../../primitives/runtime" }
 # used by generate_solution_type:
 sp-npos-elections = { path = "../../../../primitives/npos-elections", default-features = false, version = "27.0.0" }
-frame-support = { version = "29.0.0", path = "../../../support" }
+frame-support = { version = "29.0.1", path = "../../../support" }
 
 [[bin]]
 name = "compact"

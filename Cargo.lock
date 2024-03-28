@@ -10950,7 +10950,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "8.0.3"
+version = "8.0.4"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -17416,7 +17416,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ethabi-decode",
  "frame-support",
@@ -17493,7 +17493,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-runtime-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -17507,7 +17507,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bp-runtime",
  "byte-slice-cast",
@@ -17553,7 +17553,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -17600,7 +17600,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-outbound-queue"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bridge-hub-common",
  "ethabi-decode",
@@ -17625,7 +17625,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ethabi-decode",
  "frame-benchmarking",

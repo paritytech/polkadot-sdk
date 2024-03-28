@@ -19,7 +19,7 @@ log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
-frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.1" }
 frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }

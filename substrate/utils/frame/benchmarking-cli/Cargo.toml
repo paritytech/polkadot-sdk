@@ -34,7 +34,7 @@ serde_json = "1.0.111"
 thiserror = "1.0.48"
 thousands = "0.2.0"
 frame-benchmarking = { version = "29.0.0", path = "../../../frame/benchmarking" }
-frame-support = { version = "29.0.0", path = "../../../frame/support" }
+frame-support = { version = "29.0.1", path = "../../../frame/support" }
 frame-system = { version = "29.0.0", path = "../../../frame/system" }
 sc-block-builder = { version = "0.34.0", path = "../../../client/block-builder" }
 sc-cli = { path = "../../../client/cli", default-features = false, version = "0.37.0" }

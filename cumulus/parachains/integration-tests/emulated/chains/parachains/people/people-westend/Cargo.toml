@@ -11,7 +11,7 @@ publish = false
 
 # Substrate
 sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
-frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false, version = "29.0.0" }
+frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false, version = "29.0.1" }
 parachains-common = { version = "8.0.0", path = "../../../../../../common" }
 cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false, version = "0.8.0" }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false, version = "4.0.0" }

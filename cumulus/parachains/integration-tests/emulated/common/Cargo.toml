@@ -17,7 +17,7 @@ paste = "1.0.14"
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa", version = "0.20.0" }
 sp-authority-discovery = { version = "27.0.0", path = "../../../../../substrate/primitives/authority-discovery" }
 sp-runtime = { version = "32.0.0", path = "../../../../../substrate/primitives/runtime" }
-frame-support = { version = "29.0.0", path = "../../../../../substrate/frame/support" }
+frame-support = { version = "29.0.1", path = "../../../../../substrate/frame/support" }
 sp-core = { version = "29.0.0", path = "../../../../../substrate/primitives/core" }
 sp-consensus-babe = { version = "0.33.0", path = "../../../../../substrate/primitives/consensus/babe" }
 pallet-assets = { version = "30.0.0", path = "../../../../../substrate/frame/assets" }

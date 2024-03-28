@@ -20,7 +20,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 impl-trait-for-tuples = "0.2.2"
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
-frame-support = { path = "../support", default-features = false, version = "29.0.0" }
+frame-support = { path = "../support", default-features = false, version = "29.0.1" }
 frame-system = { path = "../system", default-features = false, version = "29.0.0" }
 pallet-timestamp = { path = "../timestamp", default-features = false, version = "28.0.0" }
 sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"], version = "29.0.0" }

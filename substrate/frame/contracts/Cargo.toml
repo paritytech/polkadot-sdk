@@ -40,7 +40,7 @@ rand_pcg = { version = "0.3", optional = true }
 # Substrate Dependencies
 environmental = { version = "1.1.4", default-features = false }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "29.0.0" }
-frame-support = { path = "../support", default-features = false, version = "29.0.0" }
+frame-support = { path = "../support", default-features = false, version = "29.0.1" }
 frame-system = { path = "../system", default-features = false, version = "29.0.0" }
 pallet-balances = { path = "../balances", default-features = false, optional = true, version = "29.0.0" }
 pallet-contracts-uapi = { version = "6.0.0", path = "uapi" }

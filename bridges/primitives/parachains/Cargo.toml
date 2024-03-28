@@ -22,7 +22,7 @@ bp-runtime = { path = "../runtime", default-features = false, version = "0.8.0" 
 
 # Substrate dependencies
 
-frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.1" }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
