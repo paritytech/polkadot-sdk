@@ -3803,6 +3803,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-transaction-pool",
 ]
@@ -9553,6 +9554,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-utility",
  "parity-scale-codec",
+ "paste",
  "pretty_assertions",
  "rand",
  "rand_pcg",
