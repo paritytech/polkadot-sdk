@@ -62,6 +62,8 @@ pub use sp_runtime::BuildStorage;
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub use impls::ToAuthor;
 
+pub use pallet_paras_sudo_wrapper as paras_sudo_wrapper;
+
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
