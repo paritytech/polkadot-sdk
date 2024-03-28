@@ -54,10 +54,10 @@ use std::{sync::Arc, time::Duration};
 
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 
-/// Hostfunctions that should be used in parachain nodes.
+/// Host functions that should be used in parachain nodes.
 ///
-/// Contains the standard substrate hostfunctions, as well as a
-/// hostfunction to enable PoV-reclaim on parachain nodes.
+/// Contains the standard substrate host functions, as well as a
+/// host function to enable PoV-reclaim on parachain nodes.
 pub type ParachainHostFunctions = (
 	cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
 	sp_io::SubstrateHostFunctions,
