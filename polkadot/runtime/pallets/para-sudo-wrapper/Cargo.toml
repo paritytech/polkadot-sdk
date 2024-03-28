@@ -12,7 +12,6 @@ workspace = true
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-inherents = { package = "sp-inherents", path = "../../../../substrate/primitives/inherents", default-features = false }
 sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
@@ -42,7 +41,6 @@ std = [
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
-	"inherents/std",
 	"libsecp256k1/std",
 	"pallet-asset-rate?/std",
 	"parity-scale-codec/std",
