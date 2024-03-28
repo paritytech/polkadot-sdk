@@ -76,13 +76,13 @@ pub(crate) enum RoundAction {
 pub(crate) struct VoterOracle<B: Block> {
 	/// Queue of known sessions. Keeps track of voting rounds (block numbers) within each session.
 	///
-	/// There are three voter states coresponding to three queue states:
+	/// There are three voter states corresponding to three queue states:
 	/// 1. voter uninitialized: queue empty,
 	/// 2. up-to-date - all mandatory blocks leading up to current GRANDPA finalized: queue has ONE
 	///    element, the 'current session' where `mandatory_done == true`,
 	/// 3. lagging behind GRANDPA: queue has [1, N] elements, where all `mandatory_done == false`.
-	///    In this state, everytime a session gets its mandatory block BEEFY finalized, it's popped
-	///    off the queue, eventually getting to state `2. up-to-date`.
+	///    In this state, every time a session gets its mandatory block BEEFY finalized, it's
+	///    popped off the queue, eventually getting to state `2. up-to-date`.
 	sessions: VecDeque<Rounds<B>>,
 	/// Min delta in block numbers between two blocks, BEEFY should vote on.
 	min_block_delta: u32,

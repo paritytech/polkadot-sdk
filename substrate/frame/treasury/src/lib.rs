@@ -621,7 +621,7 @@ pub mod pallet {
 			with_context::<SpendContext<BalanceOf<T, I>>, _>(|v| {
 				let context = v.or_default();
 
-				// We group based on `max_amount`, to dinstinguish between different kind of
+				// We group based on `max_amount`, to distinguish between different kind of
 				// origins. (assumes that all origins have different `max_amount`)
 				//
 				// Worst case is that we reject some "valid" request.
@@ -1042,7 +1042,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// ### Invariants of proposal storage items
 	///
 	/// 1. [`ProposalCount`] >= Number of elements in [`Proposals`].
-	/// 2. Each entry in [`Proposals`] should be saved under a key stricly less than current
+	/// 2. Each entry in [`Proposals`] should be saved under a key strictly less than current
 	/// [`ProposalCount`].
 	/// 3. Each [`ProposalIndex`] contained in [`Approvals`] should exist in [`Proposals`].
 	/// Note, that this automatically implies [`Approvals`].count() <= [`Proposals`].count().
@@ -1078,7 +1078,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// ## Invariants of spend storage items
 	///
 	/// 1. [`SpendCount`] >= Number of elements in [`Spends`].
-	/// 2. Each entry in [`Spends`] should be saved under a key stricly less than current
+	/// 2. Each entry in [`Spends`] should be saved under a key strictly less than current
 	/// [`SpendCount`].
 	/// 3. For each spend entry contained in [`Spends`] we should have spend.expire_at
 	/// > spend.valid_from.

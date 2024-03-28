@@ -10,7 +10,7 @@
 //!
 //! * [`Call::force_checkpoint`]: Set the initial trusted consensus checkpoint.
 //! * [`Call::set_operating_mode`]: Set the operating mode of the pallet. Can be used to disable
-//!   processing of conensus updates.
+//!   processing of consensus updates.
 //!
 //! ## Consensus Updates
 //!
