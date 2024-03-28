@@ -13,3 +13,4 @@ doc:
 
 crates:
   - name: polkadot-runtime-common
+    bump: minor
