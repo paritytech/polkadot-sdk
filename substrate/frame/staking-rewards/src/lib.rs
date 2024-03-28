@@ -68,6 +68,11 @@ use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::boxed::Box;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 /// The type of the unique id for each pool.
 pub type PoolId = u32;
 
@@ -80,7 +85,7 @@ pub struct PoolStakerInfo<Balance> {
 }
 
 /// A staking pool.
-#[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	/// The asset that is staked in this pool.
 	staking_asset_id: AssetId,
@@ -103,7 +108,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::tokens::AssetId};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::AccountIdConversion;
+	use sp_runtime::traits::{AccountIdConversion, Saturating};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -158,7 +163,7 @@ pub mod pallet {
 	///
 	/// Incremented when a new pool is created.
 	#[pallet::storage]
-	pub type NextPoolId<T: Config> = StorageValue<_, PoolId>;
+	pub type NextPoolId<T: Config> = StorageValue<_, PoolId, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -166,7 +171,7 @@ pub mod pallet {
 		/// An account staked some tokens in a pool.
 		Staked {
 			/// The account that staked assets.
-			staker: T::AccountId,
+			who: T::AccountId,
 			/// The pool.
 			pool_id: PoolId,
 			/// The staked asset amount.
@@ -175,7 +180,7 @@ pub mod pallet {
 		/// An account unstaked some tokens from a pool.
 		Unstaked {
 			/// The account that unstaked assets.
-			staker: T::AccountId,
+			who: T::AccountId,
 			/// The pool.
 			pool_id: PoolId,
 			/// The unstaked asset amount.
@@ -183,6 +188,8 @@ pub mod pallet {
 		},
 		/// An account harvested some rewards.
 		RewardsHarvested {
+			/// The extrinsic caller.
+			who: T::AccountId,
 			/// The staker whos rewards were harvested.
 			staker: T::AccountId,
 			/// The pool.
@@ -192,6 +199,8 @@ pub mod pallet {
 		},
 		/// A new reward pool was created.
 		PoolCreated {
+			/// The account that created the pool.
+			creator: T::AccountId,
 			/// Unique ID for the new pool.
 			pool_id: PoolId,
 			/// The staking asset.
@@ -200,25 +209,20 @@ pub mod pallet {
 			reward_asset_id: T::AssetId,
 			/// The initial reward rate per block.
 			reward_rate_per_block: T::Balance,
+			/// The account allowed to modify the pool.
+			admin: T::AccountId,
 		},
-		/// A reward pool was deleted.
+		/// A reward pool was deleted by the admin.
 		PoolDeleted {
 			/// The deleted pool id.
 			pool_id: PoolId,
 		},
-		/// A pool was modified.
+		/// A pool was modified by the admin.
 		PoolModifed {
 			/// The modified pool.
 			pool_id: PoolId,
 			/// The new reward rate.
 			new_reward_rate_per_block: T::Balance,
-		},
-		/// Reward assets were withdrawn from a pool.
-		RewardPoolWithdrawal {
-			/// The affected pool.
-			pool_id: PoolId,
-			/// The acount of reward asset withdrawn.
-			amount: T::Balance,
 		},
 	}
 
@@ -231,7 +235,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn integrity_test() {
-			todo!()
+			// TODO: Proper implementation
 		}
 	}
 
@@ -243,12 +247,49 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Create a new reward pool.
 		pub fn create_pool(
-			_origin: OriginFor<T>,
-			_staked_asset_id: Box<T::AssetId>,
-			_reward_asset_id: Box<T::AssetId>,
-			_admin: Option<T::AccountId>,
+			origin: OriginFor<T>,
+			staked_asset_id: Box<T::AssetId>,
+			reward_asset_id: Box<T::AssetId>,
+			reward_rate_per_block: T::Balance,
+			admin: Option<T::AccountId>,
 		) -> DispatchResult {
-			todo!()
+			// Ensure Origin is allowed to create pools.
+			T::PermissionedPoolCreator::ensure_origin(origin.clone())?;
+
+			// Get the admin, or try to use the origin as admin.
+			let origin_acc_id = ensure_signed(origin)?;
+			let admin = match admin {
+				Some(admin) => admin,
+				None => origin_acc_id,
+			};
+
+			// Create the pool.
+			let pool = PoolInfo::<T::AccountId, T::AssetId, T::Balance, BlockNumberFor<T>> {
+				staking_asset_id: *staked_asset_id.clone(),
+				reward_asset_id: *reward_asset_id.clone(),
+				reward_rate_per_block,
+				total_tokens_staked: 0u32.into(),
+				accumulated_rewards_per_share: 0u32.into(),
+				last_rewarded_block: 0u32.into(),
+				admin: admin.clone(),
+			};
+
+			// Insert the pool into storage.
+			let pool_id = NextPoolId::<T>::get();
+			Pools::<T>::insert(pool_id, pool);
+			NextPoolId::<T>::put(pool_id.saturating_add(1));
+
+			// Emit the event.
+			Self::deposit_event(Event::PoolCreated {
+				creator: origin_acc_id,
+				pool_id,
+				staking_asset_id: *staked_asset_id,
+				reward_asset_id: *reward_asset_id,
+				reward_rate_per_block,
+				admin,
+			});
+
+			Ok(())
 		}
 
 		/// Removes an existing reward pool.
