@@ -1266,7 +1266,7 @@ impl pallet_beefy_mmr::Config for Runtime {
 	type BeefyDataProvider = ParaHeadsRootProvider;
 }
 
-impl pallet_paras_sudo_wrapper::Config for Runtime {}
+impl paras_sudo_wrapper::Config for Runtime {}
 
 parameter_types! {
 	pub const PermanentSlotLeasePeriodLength: u32 = 365;
@@ -1433,7 +1433,7 @@ construct_runtime! {
 		// Pallet for migrating Identity to a parachain. To be removed post-migration.
 		IdentityMigrator: identity_migrator = 248,
 
-		ParasSudoWrapper: pallet_paras_sudo_wrapper = 250,
+		ParasSudoWrapper: paras_sudo_wrapper = 250,
 		AssignedSlots: assigned_slots = 251,
 
 		// Validator Manager pallet.
