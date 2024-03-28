@@ -1203,7 +1203,7 @@ impl pallet_message_queue::Config for Runtime {
 impl parachains_dmp::Config for Runtime {}
 
 parameter_types! {
-	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (51200, 500);
+	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4096, 4);
 }
 
 impl parachains_hrmp::Config for Runtime {
