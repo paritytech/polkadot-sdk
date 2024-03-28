@@ -47,6 +47,7 @@ sp-session = { default-features = false, path = "../primitives/session", optiona
 sp-consensus-aura = { default-features = false, path = "../primitives/consensus/aura", optional = true }
 sp-consensus-grandpa = { default-features = false, path = "../primitives/consensus/grandpa", optional = true }
 sp-inherents = { default-features = false, path = "../primitives/inherents", optional = true }
+sp-genesis-builder = { default-features = false, path = "../primitives/genesis-builder", optional = true }
 
 frame-executive = { default-features = false, path = "../frame/executive", optional = true }
 frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
@@ -70,6 +71,7 @@ runtime = [
 	"sp-session",
 	"sp-transaction-pool",
 	"sp-version",
+	"sp-genesis-builder",
 
 	"frame-executive",
 	"frame-system-rpc-runtime-api",

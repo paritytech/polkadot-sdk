@@ -36,22 +36,28 @@ extern crate alloc;
 /// The result type alias, used in build methods. `Err` contains formatted error message.
 pub type Result = core::result::Result<(), sp_runtime::RuntimeString>;
 
-sp_api::decl_runtime_apis! {
-	/// API to interact with RuntimeGenesisConfig for the runtime
-	pub trait GenesisBuilder {
-		/// Creates the default `RuntimeGenesisConfig` and returns it as a JSON blob.
-		///
-		/// This function instantiates the default `RuntimeGenesisConfig` struct for the runtime and serializes it into a JSON
-		/// blob. It returns a `Vec<u8>` containing the JSON representation of the default `RuntimeGenesisConfig`.
-		fn create_default_config() -> alloc::vec::Vec<u8>;
+pub mod runtime_api {
+	use super::*;
 
-		/// Build `RuntimeGenesisConfig` from a JSON blob not using any defaults and store it in the storage.
-		///
-		/// This function deserializes the full `RuntimeGenesisConfig` from the given JSON blob and puts it into the storage.
-		/// If the provided JSON blob is incorrect or incomplete or the deserialization fails, an error is returned.
-		/// It is recommended to log any errors encountered during the process.
-		///
-		/// Please note that provided json blob must contain all `RuntimeGenesisConfig` fields, no defaults will be used.
-		fn build_config(json: alloc::vec::Vec<u8>) -> Result;
+	sp_api::decl_runtime_apis! {
+		/// API to interact with RuntimeGenesisConfig for the runtime
+		pub trait GenesisBuilder {
+			/// Creates the default `RuntimeGenesisConfig` and returns it as a JSON blob.
+			///
+			/// This function instantiates the default `RuntimeGenesisConfig` struct for the runtime and serializes it into a JSON
+			/// blob. It returns a `Vec<u8>` containing the JSON representation of the default `RuntimeGenesisConfig`.
+			fn create_default_config() -> alloc::vec::Vec<u8>;
+
+			/// Build `RuntimeGenesisConfig` from a JSON blob not using any defaults and store it in the storage.
+			///
+			/// This function deserializes the full `RuntimeGenesisConfig` from the given JSON blob and puts it into the storage.
+			/// If the provided JSON blob is incorrect or incomplete or the deserialization fails, an error is returned.
+			/// It is recommended to log any errors encountered during the process.
+			///
+			/// Please note that provided json blob must contain all `RuntimeGenesisConfig` fields, no defaults will be used.
+			fn build_config(json: alloc::vec::Vec<u8>) -> Result;
+		}
 	}
 }
+
+pub use runtime_api::*;

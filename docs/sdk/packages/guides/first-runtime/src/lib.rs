@@ -95,7 +95,7 @@ mod runtime_types {
 		AllPalletsWithSystem,
 	>;
 }
-pub use runtime_types::*;
+use runtime_types::*;
 
 #[docify::export_content]
 mod config_impls {
@@ -222,6 +222,16 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl apis::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> apis::GenesisBuildResult {
+			build_config::<RuntimeGenesisConfig>(config)
+		}
+	}
+
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
 		Block,
 		interface::Balance,
@@ -237,16 +247,6 @@ impl_runtime_apis! {
 		}
 		fn query_length_to_fee(length: u32) -> interface::Balance {
 			TransactionPayment::length_to_fee(length)
-		}
-	}
-
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
-		}
-
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
 }

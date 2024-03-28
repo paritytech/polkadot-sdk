@@ -5470,6 +5470,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -13452,7 +13453,6 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-docs-packages-guides-first-pallet",
  "scale-info",
- "sp-genesis-builder",
  "substrate-wasm-builder",
 ]
 

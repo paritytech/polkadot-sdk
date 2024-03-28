@@ -24,7 +24,7 @@
 //! * a runtime must always be one-runtime-per-crate.
 //!
 //! You can find the full code of this guide in
-//! [`polkadot_sdk_docs_guides_packages_first_runtime`].
+//! [`polkadot_sdk_docs_packages_guides_first_runtime`].
 //!
 //! ## Your First Runtime
 //!
@@ -49,8 +49,8 @@
 //!
 //! Notice how we use [`frame::pallet_macros::derive_impl`] to provide "default" configuration items
 //! for each pallet. Feel free to dive into the definition of each default prelude (eg.
-//! [`frame::prelude::frame_system::pallet::config_preludes::SolochainDefaultConfig`]) to learn more
-//! which types are exactly used.
+//! [`frame::prelude::frame_system::pallet::config_preludes`]) to learn more which types are exactly
+//! used.
 //!
 //! > Recall that in [`crate::guides::your_first_pallet`], we provided `type AccountId = u64` to
 //! > `frame_system`, while in this case we rely on whatever is provided by
@@ -74,7 +74,7 @@
 //! APIs that the runtime wishes to expose. As you will see in the code, most of these runtime API
 //! implementations are merely forwarding calls to `RuntimeExecutive` which handles the actual
 //! logic. Given that the implementation block is somewhat large, we won't repeat it here. You can
-//! look for `impl_runtime_apis!` in [`polkadot_sdk_docs_guides_packages_first_runtime`].
+//! look for `impl_runtime_apis!` in [`polkadot_sdk_docs_packages_guides_first_runtime`].
 //!
 //! ```
 //! impl_runtime_apis! {
