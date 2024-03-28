@@ -14,3 +14,5 @@ doc:
 crates:
   - name: polkadot-runtime-common
     bump: minor
+  - name: polkadot-runtime-parachains
+    bump: major

@@ -402,7 +402,7 @@ pub(crate) enum PvfCheckCause<BlockNumber> {
 /// or aborted. This strategy then comes into play around the relay chain block this upgrade was
 /// scheduled in.
 #[derive(Debug, Copy, Clone, PartialEq, TypeInfo, Decode, Encode)]
-pub(crate) enum UpgradeStrategy {
+pub enum UpgradeStrategy {
 	/// Set the `GoAhead` signal to inform the parachain that it is time to upgrade.
 	///
 	/// The upgrade will then be applied after the first parachain block was enacted that must have
