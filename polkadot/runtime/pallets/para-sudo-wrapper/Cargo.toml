@@ -21,13 +21,8 @@ sp-staking = { path = "../../../../substrate/primitives/staking", default-featur
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false, features = ["serde"] }
 sp-npos-elections = { path = "../../../../substrate/primitives/npos-elections", default-features = false, features = ["serde"] }
 
-pallet-authorship = { path = "../../../../substrate/frame/authorship", default-features = false }
-pallet-broker = { path = "../../../../substrate/frame/broker", default-features = false }
-pallet-session = { path = "../../../../substrate/frame/session", default-features = false }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
-pallet-staking = { path = "../../../../substrate/frame/staking", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-pallet-timestamp = { path = "../../../../substrate/frame/timestamp", default-features = false }
 pallet-asset-rate = { path = "../../../../substrate/frame/asset-rate", default-features = false, optional = true }
 frame-election-provider-support = { path = "../../../../substrate/frame/election-provider-support", default-features = false }
 
@@ -50,11 +45,6 @@ std = [
 	"inherents/std",
 	"libsecp256k1/std",
 	"pallet-asset-rate?/std",
-	"pallet-authorship/std",
-	"pallet-broker/std",
-	"pallet-session/std",
-	"pallet-staking/std",
-	"pallet-timestamp/std",
 	"parity-scale-codec/std",
 	"primitives/std",
 	"runtime-parachains/std",
@@ -76,10 +66,6 @@ runtime-benchmarks = [
 	"libsecp256k1/hmac",
 	"libsecp256k1/static-context",
 	"pallet-asset-rate/runtime-benchmarks",
-	"pallet-babe/runtime-benchmarks",
-	"pallet-broker/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
 	"runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -90,12 +76,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-asset-rate/try-runtime",
-	"pallet-authorship/try-runtime",
-	"pallet-babe?/try-runtime",
-	"pallet-broker/try-runtime",
-	"pallet-session/try-runtime",
-	"pallet-staking/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
