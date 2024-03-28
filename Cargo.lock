@@ -10481,15 +10481,12 @@ dependencies = [
 name = "pallet-para-sudo-wrapper"
 version = "7.0.0"
 dependencies = [
- "frame-benchmarking",
- "frame-election-provider-support",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
- "sp-session",
  "sp-std 14.0.0",
  "staging-xcm",
 ]

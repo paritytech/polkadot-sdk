@@ -13,12 +13,9 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", default-features = false }
-sp-session = { path = "../../../../substrate/primitives/session", default-features = false }
 
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-frame-election-provider-support = { path = "../../../../substrate/frame/election-provider-support", default-features = false }
-frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 
 primitives = { package = "polkadot-primitives", path = "../../../primitives", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../../parachains", default-features = false }
@@ -29,28 +26,22 @@ xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false
 default = ["std"]
 no_std = []
 std = [
-	"frame-benchmarking/std",
-	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
 	"parity-scale-codec/std",
 	"primitives/std",
 	"runtime-parachains/std",
 	"scale-info/std",
-	"sp-session/std",
 	"sp-std/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
 	"runtime-parachains/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"runtime-parachains/try-runtime",
