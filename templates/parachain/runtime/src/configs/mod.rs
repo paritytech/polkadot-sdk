@@ -62,10 +62,6 @@ use super::{
 };
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
-// Feature-gated imports for development and testing
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 
