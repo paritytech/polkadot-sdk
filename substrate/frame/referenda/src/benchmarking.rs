@@ -29,6 +29,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded as ArithBounded;
+use sp_std::borrow::Cow;
 
 const SEED: u32 = 0;
 
@@ -105,7 +106,7 @@ fn fill_queue<T: Config<I>, I: 'static>(
 	others
 }
 
-fn info<T: Config<I>, I: 'static>(index: ReferendumIndex) -> &'static TrackInfoOf<T, I> {
+fn info<T: Config<I>, I: 'static>(index: ReferendumIndex) -> Cow<'static, TrackInfoOf<T, I>> {
 	let status = Referenda::<T, I>::ensure_ongoing(index).unwrap();
 	T::Tracks::info(status.track).expect("Id value returned from T::Tracks")
 }
