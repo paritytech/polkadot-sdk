@@ -17,7 +17,7 @@
 
 use crate::{
 	defensive,
-	storage::transactional::with_transaction_opaque_err,
+	storage::{storage_prefix, transactional::with_transaction_opaque_err},
 	traits::{
 		Defensive, GetStorageVersion, NoStorageVersionSet, PalletInfoAccess, SafeMode,
 		StorageVersion,
@@ -364,6 +364,118 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 				return Err("Keys remaining post-removal, this should never happen 🚨".into())
 			},
 			false => log::info!("No {} keys found post-removal 🎉", P::get()),
+		};
+		Ok(())
+	}
+}
+
+/// `RemoveStorage` is a utility struct used to remove a storage item from a specific pallet.
+///
+/// This struct is generic over three parameters:
+/// - `P` is a type that implements the [`Get`] trait for a static string, representing the pallet's
+///   name.
+/// - `S` is a type that implements the [`Get`] trait for a static string, representing the storage
+///   name.
+/// - `DbWeight` is a type that implements the [`Get`] trait for [`RuntimeDbWeight`], providing the
+///   weight for database operations.
+///
+/// On runtime upgrade, the `on_runtime_upgrade` function will clear the storage from the specified
+/// storage, logging the number of keys removed. If the `try-runtime` feature is enabled, the
+/// `pre_upgrade` and `post_upgrade` functions can be used to verify the storage removal before and
+/// after the upgrade.
+///
+/// # Examples:
+/// ```ignore
+/// construct_runtime! {
+/// 	pub enum Runtime
+/// 	{
+/// 		System: frame_system = 0,
+///
+/// 		SomePallet: pallet_something = 1,
+///
+/// 		YourOtherPallets...
+/// 	}
+/// };
+///
+/// parameter_types! {
+/// 		pub const SomePallet: &'static str = "SomePallet";
+/// 		pub const StorageAccounts: &'static str = "Accounts";
+/// 		pub const StorageAccountCount: &'static str = "AccountCount";
+/// }
+///
+/// pub type Migrations = (
+/// 	RemoveStorage<SomePallet, StorageAccounts, RocksDbWeight>,
+/// 	RemoveStorage<SomePallet, StorageAccountCount, RocksDbWeight>,
+/// 	AnyOtherMigrations...
+/// );
+///
+/// pub type Executive = frame_executive::Executive<
+/// 	Runtime,
+/// 	Block,
+/// 	frame_system::ChainContext<Runtime>,
+/// 	Runtime,
+/// 	Migrations
+/// >;
+/// ```
+///
+/// WARNING: `RemoveStorage` has no guard rails preventing it from bricking the chain if the
+/// operation of removing storage for the given pallet would exceed the block weight limit.
+///
+/// If your storage has too many keys to be removed in a single block, it is advised to wait for
+/// a multi-block scheduler currently under development which will allow for removal of storage
+/// items (and performing other heavy migrations) over multiple blocks
+/// (see <https://github.com/paritytech/substrate/issues/13690>).
+pub struct RemoveStorage<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>(
+	PhantomData<(P, S, DbWeight)>,
+);
+impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
+	frame_support::traits::OnRuntimeUpgrade for RemoveStorage<P, S, DbWeight>
+{
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		let keys_removed = match clear_prefix(&hashed_prefix, None) {
+			KillStorageResult::AllRemoved(value) => value,
+			KillStorageResult::SomeRemaining(value) => {
+				log::error!(
+					"`clear_prefix` failed to remove all keys for storage `{}` from pallet `{}`. THIS SHOULD NEVER HAPPEN! 🚨",
+					S::get(), P::get()
+				);
+				value
+			},
+		} as u64;
+
+		log::info!("Removed `{}` `{}` `{}` keys 🧹", keys_removed, P::get(), S::get());
+
+		DbWeight::get().reads_writes(keys_removed + 1, keys_removed)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		use crate::storage::unhashed::contains_prefixed_key;
+
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		match contains_prefixed_key(&hashed_prefix) {
+			true => log::info!("Found `{}` `{}` keys pre-removal 👀", P::get(), S::get()),
+			false => log::warn!(
+				"Migration RemoveStorage<{}, {}> can be removed (no keys found pre-removal).",
+				P::get(),
+				S::get()
+			),
+		};
+		Ok(Default::default())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use crate::storage::unhashed::contains_prefixed_key;
+
+		let hashed_prefix = storage_prefix(P::get().as_bytes(), S::get().as_bytes());
+		match contains_prefixed_key(&hashed_prefix) {
+			true => {
+				log::error!("`{}` `{}` has keys remaining post-removal ❗", P::get(), S::get());
+				return Err("Keys remaining post-removal, this should never happen 🚨".into())
+			},
+			false => log::info!("No `{}` `{}` keys found post-removal 🎉", P::get(), S::get()),
 		};
 		Ok(())
 	}
