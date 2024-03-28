@@ -6,8 +6,9 @@ title: Introduce a new dispatchable function `set_partial_params` in `pallet-cor
 doc:
   - audience: Runtime Dev
     description: |
-      This PR adds a new dispatchable function `set_partial_params` to update config with multiple arguments
-			without duplicating the fields that does not need to update.
+      This PR adds a new dispatchable function `set_partial_params` 
+      to update config with multiple arguments without duplicating the 
+      fields that does not need to update.
 
 crates:
   - name: pallet-core-fellowship
