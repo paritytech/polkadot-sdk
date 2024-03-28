@@ -19,17 +19,14 @@
 
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
+	LayoutV0, MemoryDB, Recorder, Trie, TrieMut,
 };
 
-use crate::{traits::HashOutput, Decode, DispatchError, Encode, KeyTypeId};
+use crate::{Decode, DispatchError, Encode, KeyTypeId};
 
 /// A trait for creating a merkle trie for checking and generating merkle proofs.
 pub trait ProvingTrie<Hashing, Hash, Item>
 where
-	Hashing: sp_core::Hasher<Out = Hash>,
-	Hash: HashOutput,
-	Item: Encode + Decode,
 	Self: Sized,
 {
 	/// Access the underlying trie root.
@@ -40,7 +37,7 @@ where
 	/// Prove the full verification data for a given key and key ID.
 	fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>>;
 	/// Create a new instance of a `ProvingTrie` using an iterator of items in the trie.
-	fn generate<I>(items: I) -> Result<Self, DispatchError>
+	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
 	where
 		I: IntoIterator<Item = Item>;
 }
@@ -49,8 +46,6 @@ where
 pub struct BasicProvingTrie<Hashing, Hash, Item>
 where
 	Hashing: sp_core::Hasher<Out = Hash>,
-	Hash: HashOutput,
-	Item: Encode + Decode,
 {
 	db: MemoryDB<Hashing>,
 	root: Hash,
@@ -60,7 +55,7 @@ where
 impl<Hashing, Hash, Item> ProvingTrie<Hashing, Hash, Item> for BasicProvingTrie<Hashing, Hash, Item>
 where
 	Hashing: sp_core::Hasher<Out = Hash>,
-	Hash: HashOutput,
+	Hash: Default,
 	Item: Encode + Decode,
 {
 	/// Access the underlying trie root.
@@ -102,7 +97,7 @@ where
 	}
 
 	/// Create a new instance of a `ProvingTrie` using an iterator of items in the trie.
-	fn generate<I>(items: I) -> Result<Self, DispatchError>
+	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
 	where
 		I: IntoIterator<Item = Item>,
 	{
@@ -121,24 +116,5 @@ where
 		}
 
 		Ok(Self { db, root, _phantom: Default::default() })
-	}
-}
-
-impl<Hashing, Hash, Item> BasicProvingTrie<Hashing, Hash, Item>
-where
-	Hashing: sp_core::Hasher<Out = Hash>,
-	Hash: HashOutput,
-	Item: Encode + Decode,
-{
-	/// Create a new instance of a `ProvingTrie` using a set of raw nodes.
-	pub fn from_nodes(root: Hash, nodes: &[Vec<u8>]) -> Self {
-		use sp_trie::HashDBT;
-
-		let mut memory_db = MemoryDB::default();
-		for node in nodes {
-			HashDBT::insert(&mut memory_db, EMPTY_PREFIX, &node[..]);
-		}
-
-		Self { db: memory_db, root, _phantom: Default::default() }
 	}
 }
