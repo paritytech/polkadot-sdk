@@ -1690,26 +1690,29 @@ impl<T: Config> Pallet<T> {
 			now + cfg.minimum_validation_upgrade_delay,
 		);
 
-		if upgrade_strategy == UpgradeStrategy::ApplyAtExpectedBlock {
-			FutureCodeUpgradesAt::<T>::mutate(|future_upgrades| {
-				let insert_idx = future_upgrades
-					.binary_search_by_key(&expected_at, |&(_, b)| b)
-					.unwrap_or_else(|idx| idx);
-				future_upgrades.insert(insert_idx, (id, expected_at));
-			});
+		match upgrade_strategy {
+			UpgradeStrategy::SetGoAheadSignal => {
+				FutureCodeUpgradesAt::<T>::mutate(|future_upgrades| {
+					let insert_idx = future_upgrades
+						.binary_search_by_key(&expected_at, |&(_, b)| b)
+						.unwrap_or_else(|idx| idx);
+					future_upgrades.insert(insert_idx, (id, expected_at));
+				});
 
-			weight += T::DbWeight::get().reads_writes(0, 2);
-		} else {
-			FutureCodeUpgrades::<T>::insert(&id, expected_at);
+				weight += T::DbWeight::get().reads_writes(0, 2);
+			},
+			UpgradeStrategy::ApplyAtExpectedBlock => {
+				FutureCodeUpgrades::<T>::insert(&id, expected_at);
 
-			UpcomingUpgrades::<T>::mutate(|upcoming_upgrades| {
-				let insert_idx = upcoming_upgrades
-					.binary_search_by_key(&expected_at, |&(_, b)| b)
-					.unwrap_or_else(|idx| idx);
-				upcoming_upgrades.insert(insert_idx, (id, expected_at));
-			});
+				UpcomingUpgrades::<T>::mutate(|upcoming_upgrades| {
+					let insert_idx = upcoming_upgrades
+						.binary_search_by_key(&expected_at, |&(_, b)| b)
+						.unwrap_or_else(|idx| idx);
+					upcoming_upgrades.insert(insert_idx, (id, expected_at));
+				});
 
-			weight += T::DbWeight::get().reads_writes(1, 3);
+				weight += T::DbWeight::get().reads_writes(1, 3);
+			},
 		}
 
 		let expected_at = expected_at.saturated_into();
