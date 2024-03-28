@@ -119,7 +119,6 @@
 //! ```
 
 #[cfg(doc)]
-#[cfg_attr(doc, aquamarine::aquamarine)]
 /// # Block Execution
 ///
 /// These are the steps of block execution as done by [`Executive::execute_block`]. A block is

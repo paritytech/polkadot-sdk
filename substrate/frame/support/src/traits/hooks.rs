@@ -318,7 +318,6 @@ pub trait IntegrityTest {
 	fn integrity_test() {}
 }
 
-#[cfg_attr(doc, aquamarine::aquamarine)]
 /// The pallet hooks trait. This is merely an umbrella trait for:
 ///
 /// - [`OnInitialize`]
@@ -370,16 +369,16 @@ pub trait IntegrityTest {
 /// end
 /// ```
 ///
-/// * [`OnRuntimeUpgrade`](Hooks::OnRuntimeUpgrade) hooks are only executed when a code change is
-///   detected.
-/// * [`OnRuntimeUpgrade`](Hooks::OnRuntimeUpgrade) hooks are mandatorily executed at the very
-///   beginning of the block body, before any extrinsics are processed.
+/// * [`OnRuntimeUpgrade`](crate::traits::OnRuntimeUpgrade) hooks are only executed when a code
+///   change is detected.
+/// * [`OnRuntimeUpgrade`](crate::traits::OnRuntimeUpgrade) hooks are mandatorily executed at the
+///   very beginning of the block body, before any extrinsics are processed.
 /// * [`Inherents`](sp_inherents) are always executed before any other other signed or unsigned
 ///   extrinsics.
-/// * [`OnIdle`](Hooks::OnIdle) hooks are executed after extrinsics if there is weight remaining in
-///   the block.
-/// * [`OnFinalize`](Hooks::OnFinalize) hooks are mandatorily executed after
-///   [`OnIdle`](Hooks::OnIdle).
+/// * [`OnIdle`](crate::traits::OnIdle) hooks are executed after extrinsics if there is weight
+///   remaining in the block.
+/// * [`OnFinalize`](crate::traits::OnFinalize) hooks are mandatorily executed after
+///   [`OnIdle`](crate::traits::OnIdle).
 ///
 /// > [`OffchainWorker`](crate::traits::misc::OffchainWorker) hooks are not part of this flow,
 /// > because they are not part of the consensus/main block building logic. See
