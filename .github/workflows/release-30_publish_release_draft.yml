@@ -54,8 +54,8 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          VERSION=$(echo "$VERSION" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
-          TMP=$(mktemp -d)
+          export VERSION=$(echo "$VERSION" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
+          export TMP=$(mktemp -d)
           echo "TMP: $TMP"
 
           ./scripts/release/build-changelogs.sh
