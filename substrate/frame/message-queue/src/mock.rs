@@ -23,15 +23,8 @@ pub use super::mock_helpers::*;
 use super::*;
 
 use crate as pallet_message_queue;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use frame_support::{derive_impl, parameter_types};
+use sp_runtime::BuildStorage;
 use sp_std::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -44,31 +37,9 @@ frame_support::construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 parameter_types! {
 	pub const HeapSize: u32 = 24;
@@ -85,6 +56,7 @@ impl Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ServiceWeight;
 }
 
 /// Mocked `WeightInfo` impl with allows to set the weight per call.
@@ -384,8 +356,8 @@ pub fn num_overweight_enqueued_events() -> u32 {
 		.count() as u32
 }
 
-pub fn fp(pages: u32, count: u64, size: u64) -> QueueFootprint {
-	QueueFootprint { storage: Footprint { count, size }, pages }
+pub fn fp(pages: u32, ready_pages: u32, count: u64, size: u64) -> QueueFootprint {
+	QueueFootprint { storage: Footprint { count, size }, pages, ready_pages }
 }
 
 /// A random seed that can be overwritten with `MQ_SEED`.

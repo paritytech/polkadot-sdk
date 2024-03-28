@@ -1374,7 +1374,7 @@ impl<T: Config> Pallet<T> {
 		outgoing
 	}
 
-	// note replacement of the code of para with given `id`, which occured in the
+	// note replacement of the code of para with given `id`, which occurred in the
 	// context of the given relay-chain block number. provide the replaced code.
 	//
 	// `at` for para-triggered replacement is the block number of the relay-chain
@@ -1756,7 +1756,7 @@ impl<T: Config> Pallet<T> {
 		//
 		// - Empty value is treated as the current code is already inserted during the onboarding.
 		//
-		// This is only an intermediate solution and should be fixed in foreseable future.
+		// This is only an intermediate solution and should be fixed in foreseeable future.
 		//
 		// [soaking issue]: https://github.com/paritytech/polkadot/issues/3918
 		let validation_code =

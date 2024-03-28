@@ -41,6 +41,6 @@ sp-storage = { path = "../../primitives/storage" }
 sp-trie = { path = "../../primitives/trie" }
 
 [dev-dependencies]
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 sp-test-primitives = { path = "../../primitives/test-primitives" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }

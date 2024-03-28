@@ -151,6 +151,7 @@ pub fn generate_extrinsic_with_pair(
 		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::<Runtime>::new(),
 	);
 
 	let function = function.into();
@@ -158,7 +159,7 @@ pub fn generate_extrinsic_with_pair(
 	let raw_payload = SignedPayload::from_raw(
 		function.clone(),
 		extra.clone(),
-		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), ()),
+		((), VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
 	);
 	let signature = raw_payload.using_encoded(|e| origin.sign(e));
 
@@ -203,13 +204,16 @@ pub fn validate_block(
 	let mut ext_ext = ext.ext();
 
 	let heap_pages = HeapAllocStrategy::Static { extra_pages: 1024 };
-	let executor = WasmExecutor::<sp_io::SubstrateHostFunctions>::builder()
-		.with_execution_method(WasmExecutionMethod::default())
-		.with_max_runtime_instances(1)
-		.with_runtime_cache_size(2)
-		.with_onchain_heap_alloc_strategy(heap_pages)
-		.with_offchain_heap_alloc_strategy(heap_pages)
-		.build();
+	let executor = WasmExecutor::<(
+		sp_io::SubstrateHostFunctions,
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	)>::builder()
+	.with_execution_method(WasmExecutionMethod::default())
+	.with_max_runtime_instances(1)
+	.with_runtime_cache_size(2)
+	.with_onchain_heap_alloc_strategy(heap_pages)
+	.with_offchain_heap_alloc_strategy(heap_pages)
+	.build();
 
 	executor
 		.uncached_call(

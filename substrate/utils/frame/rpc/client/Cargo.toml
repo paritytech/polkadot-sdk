@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 jsonrpsee = { version = "0.22", features = ["ws-client"] }
 sc-rpc-api = { path = "../../../../client/rpc-api" }
 async-trait = "0.1.74"
-serde = "1"
+serde = { workspace = true, default-features = true }
 sp-runtime = { path = "../../../../primitives/runtime" }
 log = { workspace = true, default-features = true }
 

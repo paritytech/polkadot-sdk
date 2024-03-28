@@ -2226,7 +2226,7 @@ fn resume_dispute_without_local_statement() {
 			test_state
 		})
 	})
-	// Alice should send a DisputeParticiationMessage::Participate on restart since she has no
+	// Alice should send a DisputeParticipationMessage::Participate on restart since she has no
 	// local statement for the active dispute.
 	.resume(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
@@ -2390,7 +2390,7 @@ fn resume_dispute_with_local_statement() {
 			test_state
 		})
 	})
-	// Alice should not send a DisputeParticiationMessage::Participate on restart since she has a
+	// Alice should not send a DisputeParticipationMessage::Participate on restart since she has a
 	// local statement for the active dispute, instead she should try to (re-)send her vote.
 	.resume(|mut test_state, mut virtual_overseer| {
 		let candidate_receipt = make_valid_candidate_receipt();
@@ -2495,7 +2495,7 @@ fn resume_dispute_without_local_statement_or_local_key() {
 				test_state
 			})
 		})
-		// Two should not send a DisputeParticiationMessage::Participate on restart since she is no
+		// Two should not send a DisputeParticipationMessage::Participate on restart since she is no
 		// validator in that dispute.
 		.resume(|mut test_state, mut virtual_overseer| {
 			Box::pin(async move {

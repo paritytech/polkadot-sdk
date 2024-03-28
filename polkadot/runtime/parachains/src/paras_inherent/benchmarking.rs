@@ -65,7 +65,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_cores(cores_with_backed)
+			.set_backed_and_concluding_paras(cores_with_backed)
 			.build();
 
 		let mut benchmark = scenario.data.clone();
@@ -110,7 +110,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_cores(cores_with_backed.clone())
+			.set_backed_and_concluding_paras(cores_with_backed.clone())
 			.build();
 
 		let mut benchmark = scenario.data.clone();
@@ -120,7 +120,7 @@ benchmarks! {
 		// with `v` validity votes.
 		// let votes = v as usize;
 		let votes = min(scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).unwrap().len(), v as usize);
-		assert_eq!(benchmark.backed_candidates.get(0).unwrap().validity_votes.len(), votes);
+		assert_eq!(benchmark.backed_candidates.get(0).unwrap().validity_votes().len(), votes);
 
 		benchmark.bitfields.clear();
 		benchmark.disputes.clear();
@@ -146,10 +146,6 @@ benchmarks! {
 		}
 
 		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			cores_with_backed.len()
-		);
-		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()
 		);
@@ -165,7 +161,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_cores(cores_with_backed.clone())
+			.set_backed_and_concluding_paras(cores_with_backed.clone())
 			.set_code_upgrade(v)
 			.build();
 
@@ -177,7 +173,7 @@ benchmarks! {
 		// There is 1 backed
 		assert_eq!(benchmark.backed_candidates.len(), 1);
 		assert_eq!(
-			benchmark.backed_candidates.get(0).unwrap().validity_votes.len(),
+			benchmark.backed_candidates.get(0).unwrap().validity_votes().len(),
 			votes,
 		);
 
@@ -209,10 +205,6 @@ benchmarks! {
 				);
 			}
 
-		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			cores_with_backed.len()
-		);
 		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()

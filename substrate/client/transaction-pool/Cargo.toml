@@ -23,8 +23,8 @@ futures-timer = "3.0.2"
 linked-hash-map = "0.5.4"
 log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
-serde = { version = "1.0.196", features = ["derive"] }
-thiserror = "1.0.48"
+serde = { features = ["derive"], workspace = true, default-features = true }
+thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
 sc-client-api = { path = "../api" }
 sc-transaction-pool-api = { path = "api" }
