@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Pallet to demonstrate the usage of Tasks to recongnize and execute service work"
+description = "Pallet to demonstrate the usage of Tasks to recognize and execute service work"
 
 [lints]
 workspace = true
