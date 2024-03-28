@@ -404,7 +404,7 @@ impl TestEnvironment {
 		let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
 
 		usage.push(ResourceUsage {
-			resource_name: "Test environment".to_string(),
+			resource_name: "test-environment".to_string(),
 			total: total_cpu,
 			per_block: total_cpu / num_blocks,
 		});
