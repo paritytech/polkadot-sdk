@@ -733,7 +733,7 @@ fn random_sel<X, F: Fn(&X) -> Weight>(
 /// are preferred. And for disputes, local and older disputes are preferred (see
 /// `limit_and_sanitize_disputes`). for backed candidates, since with a increasing number of
 /// parachains their chances of inclusion become slim. All backed candidates  are checked
-/// beforehands in `fn create_inherent_inner` which guarantees sanity.
+/// beforehand in `fn create_inherent_inner` which guarantees sanity.
 ///
 /// Assumes disputes are already filtered by the time this is called.
 ///
@@ -1070,7 +1070,7 @@ fn limit_and_sanitize_disputes<
 		log::debug!(target: LOG_TARGET, "Above max consumable weight: {}/{}", disputes_weight, max_consumable_weight);
 		let mut checked_acc = Vec::<CheckedDisputeStatementSet>::with_capacity(disputes.len());
 
-		// Accumualated weight of all disputes picked, that passed the checks.
+		// Accumulated weight of all disputes picked, that passed the checks.
 		let mut weight_acc = Weight::zero();
 
 		// Select disputes in-order until the remaining weight is attained

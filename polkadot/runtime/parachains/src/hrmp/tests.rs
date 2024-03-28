@@ -702,7 +702,7 @@ fn verify_externally_accessible() {
 			sp_io::storage::get(&well_known_keys::hrmp_ingress_channel_index(para_b))
 				.expect("the ingress index must be present for para_b");
 		let ingress_index = <Vec<ParaId>>::decode(&mut &raw_ingress_index[..])
-			.expect("ingress indexx should be decodable as a list of para ids");
+			.expect("ingress index should be decodable as a list of para ids");
 		assert_eq!(ingress_index, vec![para_a]);
 
 		// Now, verify that we can access and decode the egress index.
