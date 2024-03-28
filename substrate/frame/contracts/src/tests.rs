@@ -1096,6 +1096,7 @@ fn track_check_uncheck_module_call() {
 		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_result();
 	});
 
+	// It should have recorded 1 `Checked` for the upload and 1 `Unchecked` for the instantiate.
 	let record = crate::wasm::tracker::LOADED_MODULE.with(|stack| stack.borrow().clone());
 	assert_eq!(record, vec![LoadingMode::Checked, LoadingMode::Unchecked]);
 }
