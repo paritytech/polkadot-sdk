@@ -260,7 +260,7 @@ pub mod pallet {
 			let origin_acc_id = ensure_signed(origin)?;
 			let admin = match admin {
 				Some(admin) => admin,
-				None => origin_acc_id,
+				None => origin_acc_id.clone(),
 			};
 
 			// Create the pool.

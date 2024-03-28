@@ -80,6 +80,7 @@ fn create_pool_works() {
 		assert_eq!(
 			events(),
 			[Event::<MockRuntime>::PoolCreated {
+				creator: user,
 				pool_id: 0,
 				staking_asset_id: staking_asset_id.clone(),
 				reward_asset_id: reward_asset_id.clone(),
@@ -120,6 +121,7 @@ fn create_pool_works() {
 		assert_eq!(
 			events(),
 			[Event::<MockRuntime>::PoolCreated {
+				creator: user,
 				pool_id: 1,
 				staking_asset_id: staking_asset_id.clone(),
 				reward_asset_id: reward_asset_id.clone(),
