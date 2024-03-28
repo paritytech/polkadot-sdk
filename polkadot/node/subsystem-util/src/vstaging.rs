@@ -62,7 +62,7 @@ pub async fn get_disabled_validators_with_fallback<Sender: SubsystemSender<Runti
 
 /// Checks if the runtime supports `request_claim_queue` and attempts to fetch the claim queue.
 /// Returns `ClaimQueueSnapshot` or `None` if claim queue API is not supported by runtime.
-/// Any specific [`RuntimeApiError`]s are bubbled up to the caller.
+/// Any specific `RuntimeApiError` is bubbled up to the caller.
 pub async fn fetch_claim_queue(
 	sender: &mut impl SubsystemSender<RuntimeApiMessage>,
 	relay_parent: Hash,
