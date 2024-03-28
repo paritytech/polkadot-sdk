@@ -11,19 +11,16 @@ on:
         description: "Path to the benchmark data file"
         required: true
         type: string
-  push:
-    branches:
-      - as-fix-gha-subsystem-bench
 
 jobs:
   subsystem-benchmarks:
     runs-on: ubuntu-latest
     environment: subsystem-benchmarks
     steps:
-      # - name: Validate inputs
-      #   run: |
-      #     echo "${{ github.event.inputs.benchmark-data-dir-path }}" | grep -P '^[a-z\-]'
-      #     echo "${{ github.event.inputs.output-file-path }}" | grep -P '^[a-z\-]+\.json'
+      - name: Validate inputs
+        run: |
+          echo "${{ github.event.inputs.benchmark-data-dir-path }}" | grep -P '^[a-z\-]'
+          echo "${{ github.event.inputs.output-file-path }}" | grep -P '^[a-z\-]+\.json'
 
       - name: Checkout Sources
         uses: actions/checkout@v4.1.2
@@ -34,8 +31,7 @@ jobs:
       - name: Copy bench results
         id: step_one
         run: |
-          # cp bench/gitlab/${{ github.event.inputs.output-file-path }} ${{ github.event.inputs.output-file-path }}
-          cp bench/gitlab/availability-distribution-regression-bench.json availability-distribution-regression-bench.json
+          cp bench/gitlab/${{ github.event.inputs.output-file-path }} ${{ github.event.inputs.output-file-path }}
 
       - name: Switch branch
         id: step_two
@@ -48,20 +44,11 @@ jobs:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
           private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
 
-      # - name: Store benchmark result
-      #   uses: benchmark-action/github-action-benchmark@v1
-      #   with:
-      #     tool: "customSmallerIsBetter"
-      #     output-file-path: ${{ github.event.inputs.output-file-path }}
-      #     benchmark-data-dir-path: "bench/${{ github.event.inputs.benchmark-data-dir-path }}"
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-      #     auto-push: true
-
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "customSmallerIsBetter"
-          output-file-path: availability-distribution-regression-bench.json
-          benchmark-data-dir-path: "bench/availability-distribution-regression-bench"
+          output-file-path: ${{ github.event.inputs.output-file-path }}
+          benchmark-data-dir-path: "bench/${{ github.event.inputs.benchmark-data-dir-path }}"
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
