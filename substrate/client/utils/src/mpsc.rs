@@ -44,7 +44,7 @@ use std::{
 #[derive(Debug)]
 pub struct TracingUnboundedSender<T> {
 	inner: Sender<T>,
-	name: &'static str,
+	name: String,
 	queue_size_warning: usize,
 	warning_fired: Arc<AtomicBool>,
 	creation_backtrace: Arc<Backtrace>,
@@ -55,7 +55,7 @@ impl<T> Clone for TracingUnboundedSender<T> {
 	fn clone(&self) -> Self {
 		Self {
 			inner: self.inner.clone(),
-			name: self.name,
+			name: self.name.clone(),
 			queue_size_warning: self.queue_size_warning,
 			warning_fired: self.warning_fired.clone(),
 			creation_backtrace: self.creation_backtrace.clone(),
@@ -68,25 +68,25 @@ impl<T> Clone for TracingUnboundedSender<T> {
 #[derive(Debug)]
 pub struct TracingUnboundedReceiver<T> {
 	inner: Receiver<T>,
-	name: &'static str,
+	name: String,
 }
 
 /// Wrapper around [`async_channel::unbounded`] that tracks the in- and outflow via
 /// `UNBOUNDED_CHANNELS_COUNTER` and warns if the message queue grows
 /// above the warning threshold.
 pub fn tracing_unbounded<T>(
-	name: &'static str,
+	name: &str,
 	queue_size_warning: usize,
 ) -> (TracingUnboundedSender<T>, TracingUnboundedReceiver<T>) {
 	let (s, r) = async_channel::unbounded();
 	let sender = TracingUnboundedSender {
 		inner: s,
-		name,
+		name: name.into(),
 		queue_size_warning,
 		warning_fired: Arc::new(AtomicBool::new(false)),
 		creation_backtrace: Arc::new(Backtrace::force_capture()),
 	};
-	let receiver = TracingUnboundedReceiver { inner: r, name };
+	let receiver = TracingUnboundedReceiver { inner: r, name: name.into() };
 	(sender, receiver)
 }
 
@@ -104,9 +104,11 @@ impl<T> TracingUnboundedSender<T> {
 	/// Proxy function to `async_channel::Sender::try_send`.
 	pub fn unbounded_send(&self, msg: T) -> Result<(), TrySendError<T>> {
 		self.inner.try_send(msg).map(|s| {
-			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, SENT_LABEL]).inc();
+			UNBOUNDED_CHANNELS_COUNTER
+				.with_label_values(&[self.name.as_str(), SENT_LABEL])
+				.inc();
 			UNBOUNDED_CHANNELS_SIZE
-				.with_label_values(&[self.name])
+				.with_label_values(&[self.name.as_str()])
 				.set(self.inner.len().saturated_into());
 
 			if self.inner.len() >= self.queue_size_warning &&
@@ -145,9 +147,11 @@ impl<T> TracingUnboundedReceiver<T> {
 	/// that discounts the messages taken out.
 	pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
 		self.inner.try_recv().map(|s| {
-			UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[self.name, RECEIVED_LABEL]).inc();
+			UNBOUNDED_CHANNELS_COUNTER
+				.with_label_values(&[self.name.as_str(), RECEIVED_LABEL])
+				.inc();
 			UNBOUNDED_CHANNELS_SIZE
-				.with_label_values(&[self.name])
+				.with_label_values(&[self.name.as_str()])
 				.set(self.inner.len().saturated_into());
 			s
 		})
@@ -168,11 +172,11 @@ impl<T> Drop for TracingUnboundedReceiver<T> {
 		// Discount the messages
 		if count > 0 {
 			UNBOUNDED_CHANNELS_COUNTER
-				.with_label_values(&[self.name, DROPPED_LABEL])
+				.with_label_values(&[self.name.as_str(), DROPPED_LABEL])
 				.inc_by(count.saturated_into());
 		}
 		// Reset the size metric to 0
-		UNBOUNDED_CHANNELS_SIZE.with_label_values(&[self.name]).set(0);
+		UNBOUNDED_CHANNELS_SIZE.with_label_values(&[self.name.as_str()]).set(0);
 		// Drain all the pending messages in the channel since they can never be accessed,
 		// this can be removed once https://github.com/smol-rs/async-channel/issues/23 is
 		// resolved
@@ -190,9 +194,11 @@ impl<T> Stream for TracingUnboundedReceiver<T> {
 		match Pin::new(&mut s.inner).poll_next(cx) {
 			Poll::Ready(msg) => {
 				if msg.is_some() {
-					UNBOUNDED_CHANNELS_COUNTER.with_label_values(&[s.name, RECEIVED_LABEL]).inc();
+					UNBOUNDED_CHANNELS_COUNTER
+						.with_label_values(&[s.name.as_str(), RECEIVED_LABEL])
+						.inc();
 					UNBOUNDED_CHANNELS_SIZE
-						.with_label_values(&[s.name])
+						.with_label_values(&[s.name.as_str()])
 						.set(s.inner.len().saturated_into());
 				}
 				Poll::Ready(msg)

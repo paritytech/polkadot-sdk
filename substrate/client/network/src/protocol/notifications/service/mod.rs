@@ -338,7 +338,16 @@ impl NotificationService for NotificationHandle {
 	// Clone [`NotificationService`]
 	fn clone(&mut self) -> Result<Box<dyn NotificationService>, ()> {
 		let mut subscribers = self.subscribers.lock();
-		let (event_tx, event_rx) = tracing_unbounded("mpsc-notification-to-protocol", 100_000);
+		let protocol_name = self.protocol.to_string();
+		let keys = protocol_name.split("/").collect::<Vec<_>>();
+		let metric_name = keys
+			.iter()
+			.rev()
+			.take(2) // Last two tokens gives the protocol name and version
+			.fold("mpsc-notification-to-protocol".into(), |acc, val| format!("{}-{}", acc, val));
+		log::info!(target: LOG_TARGET, "Register metric name after clone {:}", metric_name);
+
+		let (event_tx, event_rx) = tracing_unbounded(metric_name.as_str(), 100_000);
 		subscribers.push(event_tx);
 
 		Ok(Box::new(NotificationHandle {
@@ -624,7 +633,15 @@ pub fn notification_service(
 	protocol: ProtocolName,
 ) -> (ProtocolHandlePair, Box<dyn NotificationService>) {
 	let (cmd_tx, cmd_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
-	let (event_tx, event_rx) = tracing_unbounded("mpsc-notification-to-protocol", 100_000);
+	let protocol_name = protocol.to_string();
+	let keys = protocol_name.split("/").collect::<Vec<_>>();
+	let metric_name = keys
+		.iter()
+		.rev()
+		.take(2) // Last two tokens gives the protocol name and version
+		.fold("mpsc-notification-to-protocol".into(), |acc, val| format!("{}-{}", acc, val));
+	log::info!(target: LOG_TARGET, "Register metric name {:}", metric_name);
+	let (event_tx, event_rx) = tracing_unbounded(metric_name.as_str(), 100_000);
 	let subscribers = Arc::new(Mutex::new(vec![event_tx]));
 
 	(
