@@ -505,10 +505,10 @@ pub mod pallet {
 			proposal: Box<<T as Config<I>>::Proposal>,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResult {
-			let proposor = ensure_signed(origin)?;
-			ensure!(Self::has_voting_rights(&proposor), Error::<T, I>::NoVotingRights);
+			let proposer = ensure_signed(origin)?;
+			ensure!(Self::has_voting_rights(&proposer), Error::<T, I>::NoVotingRights);
 
-			T::ProposalProvider::propose_proposal(proposor, threshold, proposal, length_bound)?;
+			T::ProposalProvider::propose_proposal(proposer, threshold, proposal, length_bound)?;
 			Ok(())
 		}
 
