@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{mock::*, *};
-use frame_support::{assert_ok, traits::fungible::NativeOrWithId};
+use frame_support::{assert_err, assert_ok, traits::fungible::NativeOrWithId};
 
 fn create_tokens(owner: u128, tokens: Vec<NativeOrWithId<u32>>) {
 	create_tokens_with_ed(owner, tokens, 1)
@@ -162,4 +162,45 @@ fn create_pool_works() {
 			]
 		);
 	});
+}
+
+#[test]
+fn create_pool_with_non_existent_asset_fails() {
+	new_test_ext().execute_with(|| {
+		let valid_asset = NativeOrWithId::<u32>::WithId(1);
+		let invalid_asset = NativeOrWithId::<u32>::WithId(200);
+
+		assert_err!(
+			StakingRewards::create_pool(
+				RuntimeOrigin::signed(1),
+				Box::new(valid_asset.clone()),
+				Box::new(invalid_asset.clone()),
+				10,
+				None
+			),
+			Error::<MockRuntime>::NonExistentAsset
+		);
+
+		assert_err!(
+			StakingRewards::create_pool(
+				RuntimeOrigin::signed(1),
+				Box::new(invalid_asset.clone()),
+				Box::new(valid_asset.clone()),
+				10,
+				None
+			),
+			Error::<MockRuntime>::NonExistentAsset
+		);
+
+		assert_err!(
+			StakingRewards::create_pool(
+				RuntimeOrigin::signed(1),
+				Box::new(invalid_asset.clone()),
+				Box::new(invalid_asset.clone()),
+				10,
+				None
+			),
+			Error::<MockRuntime>::NonExistentAsset
+		);
+	})
 }

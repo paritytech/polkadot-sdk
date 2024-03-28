@@ -230,6 +230,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// An operation was attempted on a non-existent pool.
 		NonExistentPool,
+		/// An operation was attempted using a non-existent asset.
+		NonExistentAsset,
 	}
 
 	#[pallet::hooks]
@@ -255,6 +257,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Ensure Origin is allowed to create pools.
 			T::PermissionedPoolCreator::ensure_origin(origin.clone())?;
+
+			// Ensure the assets exist.
+			ensure!(
+				T::Assets::asset_exists(*staked_asset_id.clone()),
+				Error::<T>::NonExistentAsset
+			);
+			ensure!(
+				T::Assets::asset_exists(*reward_asset_id.clone()),
+				Error::<T>::NonExistentAsset
+			);
 
 			// Get the admin, or try to use the origin as admin.
 			let origin_acc_id = ensure_signed(origin)?;
