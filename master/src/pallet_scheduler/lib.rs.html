@@ -1750,6 +1750,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1603" id="1603">1603</a>
 <a href="#1604" id="1604">1604</a>
 <a href="#1605" id="1605">1605</a>
+<a href="#1606" id="1606">1606</a>
+<a href="#1607" id="1607">1607</a>
+<a href="#1608" id="1608">1608</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3198,7 +3201,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; schedule::v2::Anon&lt;BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, T::PalletsOrigin&gt;
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">impl</span>&lt;T: Config&gt; schedule::v2::Anon&lt;BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, T::PalletsOrigin&gt;
 	<span class="kw">for </span>Pallet&lt;T&gt;
 {
 	<span class="kw">type </span>Address = TaskAddress&lt;BlockNumberFor&lt;T&gt;&gt;;
@@ -3232,7 +3236,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; schedule::v2::Named&lt;BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, T::PalletsOrigin&gt;
+<span class="comment">// TODO: migrate `schedule::v2::Anon` to `v3`
+</span><span class="attr">#[allow(deprecated)]
+</span><span class="kw">impl</span>&lt;T: Config&gt; schedule::v2::Named&lt;BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall, T::PalletsOrigin&gt;
 	<span class="kw">for </span>Pallet&lt;T&gt;
 {
 	<span class="kw">type </span>Address = TaskAddress&lt;BlockNumberFor&lt;T&gt;&gt;;

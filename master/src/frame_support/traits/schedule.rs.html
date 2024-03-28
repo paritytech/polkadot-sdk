@@ -626,6 +626,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#479" id="479">479</a>
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -758,7 +772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="comment">// TODO: deprecate
+<span class="attr">#[deprecated(note = <span class="string">&quot;Use `v3` instead. Will be removed after September 2024.&quot;</span>)]
 </span><span class="kw">pub mod </span>v1 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -846,11 +860,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>next_dispatch_time(id: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;BlockNumber, ()&gt;;
 	}
 
-	<span class="kw">impl</span>&lt;T, BlockNumber, Call, RuntimeOrigin&gt; Anon&lt;BlockNumber, Call, RuntimeOrigin&gt; <span class="kw">for </span>T
+	<span class="attr">#[allow(deprecated)]
+	</span><span class="kw">impl</span>&lt;T, BlockNumber, Call, RuntimeOrigin&gt; Anon&lt;BlockNumber, Call, RuntimeOrigin&gt; <span class="kw">for </span>T
 	<span class="kw">where
 		</span>T: v2::Anon&lt;BlockNumber, Call, RuntimeOrigin&gt;,
 	{
-		<span class="kw">type </span>Address = T::Address;
+		<span class="attr">#[allow(deprecated)]
+		</span><span class="kw">type </span>Address = T::Address;
 
 		<span class="kw">fn </span>schedule(
 			when: DispatchTime&lt;BlockNumber&gt;,
@@ -860,30 +876,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			call: Call,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Address, DispatchError&gt; {
 			<span class="kw">let </span>c = MaybeHashed::&lt;Call, T::Hash&gt;::Value(call);
-			T::schedule(when, maybe_periodic, priority, origin, c)
+
+			<span class="attr">#[allow(deprecated)]
+			</span>T::schedule(when, maybe_periodic, priority, origin, c)
 		}
 
 		<span class="kw">fn </span>cancel(address: <span class="self">Self</span>::Address) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-			T::cancel(address)
+			<span class="attr">#[allow(deprecated)]
+			</span>T::cancel(address)
 		}
 
 		<span class="kw">fn </span>reschedule(
 			address: <span class="self">Self</span>::Address,
 			when: DispatchTime&lt;BlockNumber&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Address, DispatchError&gt; {
-			T::reschedule(address, when)
+			<span class="attr">#[allow(deprecated)]
+			</span>T::reschedule(address, when)
 		}
 
 		<span class="kw">fn </span>next_dispatch_time(address: <span class="self">Self</span>::Address) -&gt; <span class="prelude-ty">Result</span>&lt;BlockNumber, ()&gt; {
-			T::next_dispatch_time(address)
+			<span class="attr">#[allow(deprecated)]
+			</span>T::next_dispatch_time(address)
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T, BlockNumber, Call, RuntimeOrigin&gt; Named&lt;BlockNumber, Call, RuntimeOrigin&gt; <span class="kw">for </span>T
+	<span class="attr">#[allow(deprecated)]
+	</span><span class="kw">impl</span>&lt;T, BlockNumber, Call, RuntimeOrigin&gt; Named&lt;BlockNumber, Call, RuntimeOrigin&gt; <span class="kw">for </span>T
 	<span class="kw">where
 		</span>T: v2::Named&lt;BlockNumber, Call, RuntimeOrigin&gt;,
 	{
-		<span class="kw">type </span>Address = T::Address;
+		<span class="attr">#[allow(deprecated)]
+		</span><span class="kw">type </span>Address = T::Address;
 
 		<span class="kw">fn </span>schedule_named(
 			id: Vec&lt;u8&gt;,
@@ -894,27 +917,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			call: Call,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Address, ()&gt; {
 			<span class="kw">let </span>c = MaybeHashed::&lt;Call, T::Hash&gt;::Value(call);
-			T::schedule_named(id, when, maybe_periodic, priority, origin, c)
+			<span class="attr">#[allow(deprecated)]
+			</span>T::schedule_named(id, when, maybe_periodic, priority, origin, c)
 		}
 
 		<span class="kw">fn </span>cancel_named(id: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-			T::cancel_named(id)
+			<span class="attr">#[allow(deprecated)]
+			</span>T::cancel_named(id)
 		}
 
 		<span class="kw">fn </span>reschedule_named(
 			id: Vec&lt;u8&gt;,
 			when: DispatchTime&lt;BlockNumber&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Address, DispatchError&gt; {
-			T::reschedule_named(id, when)
+			<span class="attr">#[allow(deprecated)]
+			</span>T::reschedule_named(id, when)
 		}
 
 		<span class="kw">fn </span>next_dispatch_time(id: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;BlockNumber, ()&gt; {
-			T::next_dispatch_time(id)
+			<span class="attr">#[allow(deprecated)]
+			</span>T::next_dispatch_time(id)
 		}
 	}
 }
 
-<span class="comment">// TODO: deprecate
+<span class="attr">#[deprecated(note = <span class="string">&quot;Use `v3` instead. Will be removed after September 2024.&quot;</span>)]
 </span><span class="kw">pub mod </span>v2 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -1106,5 +1133,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">pub use </span>v1::<span class="kw-2">*</span>;
+<span class="attr">#[allow(deprecated)]
+</span><span class="kw">pub use </span>v1::<span class="kw-2">*</span>;
 </code></pre></div></section></main></body></html>
