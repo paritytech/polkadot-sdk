@@ -31,13 +31,17 @@ use sp_runtime::{traits::AccountIdConversion, DispatchError, ModuleError};
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
-// Helper function to deduplicate testing different teleport types.
-fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
-	origin_location: Location,
-	expected_beneficiary: Location,
-	call: Call,
-	expected_weight_limit: WeightLimit,
-) {
+/// Test `limited_teleport_assets`
+///
+/// Asserts that the sender's balance is decreased as a result of execution of
+/// local effects.
+#[test]
+fn limited_teleport_assets_works() {
+	let origin_location: Location = AccountId32 { network: None, id: ALICE.into() }.into();
+	let expected_beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
+	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
+	let expected_weight_limit = weight_limit.clone();
+
 	let balances = vec![
 		(ALICE, INITIAL_BALANCE),
 		(ParaId::from(OTHER_PARA_ID).into_account_truncating(), INITIAL_BALANCE),
@@ -47,7 +51,14 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 		let weight = BaseXcmWeight::get() * 2;
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		// call extrinsic
-		call();
+		assert_ok!(XcmPallet::limited_teleport_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(RelayLocation::get().into()),
+			Box::new(expected_beneficiary.clone().into()),
+			Box::new((Here, SEND_AMOUNT).into()),
+			0,
+			weight_limit,
+		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
 		assert_eq!(
 			sent_xcm(),
@@ -86,57 +97,6 @@ fn do_test_and_verify_teleport_assets<Call: FnOnce()>(
 			RuntimeEvent::XcmPallet(crate::Event::Sent { .. })
 		));
 	});
-}
-
-/// Test `teleport_assets`
-///
-/// Asserts that the sender's balance is decreased as a result of execution of
-/// local effects.
-#[test]
-fn teleport_assets_works() {
-	let origin_location: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-	let beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
-	do_test_and_verify_teleport_assets(
-		origin_location.clone(),
-		beneficiary.clone(),
-		|| {
-			assert_ok!(XcmPallet::teleport_assets(
-				RuntimeOrigin::signed(ALICE),
-				Box::new(RelayLocation::get().into()),
-				Box::new(beneficiary.into()),
-				Box::new((Here, SEND_AMOUNT).into()),
-				0,
-			));
-		},
-		Unlimited,
-	);
-}
-
-/// Test `limited_teleport_assets`
-///
-/// Asserts that the sender's balance is decreased as a result of execution of
-/// local effects.
-#[test]
-fn limited_teleport_assets_works() {
-	let origin_location: Location = AccountId32 { network: None, id: ALICE.into() }.into();
-	let beneficiary: Location = AccountId32 { network: None, id: BOB.into() }.into();
-	let weight_limit = WeightLimit::Limited(Weight::from_parts(5000, 5000));
-	let expected_weight_limit = weight_limit.clone();
-	do_test_and_verify_teleport_assets(
-		origin_location.clone(),
-		beneficiary.clone(),
-		|| {
-			assert_ok!(XcmPallet::limited_teleport_assets(
-				RuntimeOrigin::signed(ALICE),
-				Box::new(RelayLocation::get().into()),
-				Box::new(beneficiary.into()),
-				Box::new((Here, SEND_AMOUNT).into()),
-				0,
-				weight_limit,
-			));
-		},
-		expected_weight_limit,
-	);
 }
 
 /// `limited_teleport_assets` should fail for filtered assets
@@ -184,12 +144,13 @@ fn reserve_transfer_assets_with_paid_router_works() {
 		let dest: Location =
 			Junction::AccountId32 { network: None, id: user_account.clone().into() }.into();
 		assert_eq!(Balances::total_balance(&user_account), INITIAL_BALANCE);
-		assert_ok!(XcmPallet::reserve_transfer_assets(
+		assert_ok!(XcmPallet::limited_reserve_transfer_assets(
 			RuntimeOrigin::signed(user_account.clone()),
 			Box::new(Parachain(paid_para_id).into()),
 			Box::new(dest.clone().into()),
 			Box::new((Here, SEND_AMOUNT).into()),
 			0,
+			Unlimited,
 		));
 
 		// XCM_FEES_NOT_WAIVED_USER_ACCOUNT spent amount

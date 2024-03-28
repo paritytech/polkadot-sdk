@@ -191,6 +191,10 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Called when new message is sent (queued to local outbound XCM queue) over the bridge.
 		pub(crate) fn on_message_sent_to_bridge(message_size: u32) {
+			log::trace!(
+				target: "xcm::xcm_bridge_hub_router::on_message_sent_to_bridge",
+				"message_size: {:?}", message_size,
+			);
 			let _ = Bridge::<T, I>::try_mutate(|bridge| {
 				let is_channel_with_bridge_hub_congested = T::WithBridgeHubChannel::is_congested();
 				let is_bridge_congested = bridge.is_congested;
@@ -238,6 +242,10 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 		remote_location: &InteriorLocation,
 		message: &Xcm<()>,
 	) -> Option<(Location, Option<Asset>)> {
+		log::trace!(
+			target: "xcm::xcm_bridge_hub_router::exporter_for",
+			"network: {:?}, remote_location: {:?}, msg: {:?}", network, remote_location, message
+		);
 		// ensure that the message is sent to the expected bridged network (if specified).
 		if let Some(bridged_network) = T::BridgedNetworkId::get() {
 			if *network != bridged_network {
@@ -300,7 +308,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 
 		log::info!(
 			target: LOG_TARGET,
-			"Going to send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}",
+			"Validate send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}",
 			(network, remote_location),
 			message_size,
 			fee,
@@ -321,6 +329,10 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		dest: &mut Option<Location>,
 		xcm: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
+		log::trace!(
+			target: "xcm::xcm_bridge_hub_router::validate",
+			"msg: {:?}, destination: {:?}", xcm, dest,
+		);
 		// `dest` and `xcm` are required here
 		let dest_ref = dest.as_ref().ok_or(SendError::MissingArgument)?;
 		let xcm_ref = xcm.as_ref().ok_or(SendError::MissingArgument)?;
@@ -366,6 +378,10 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// increase delivery fee factor if required
 		Self::on_message_sent_to_bridge(message_size);
 
+		log::trace!(
+			target: "xcm::xcm_bridge_hub_router::deliver",
+			"message sent, xcm_hash: {:?}", xcm_hash,
+		);
 		Ok(xcm_hash)
 	}
 }
