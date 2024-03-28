@@ -11,6 +11,9 @@ on:
         description: "Path to the benchmark data file"
         required: true
         type: string
+  push:
+    branches:
+      - as-fix-gha-subsystem-bench
 
 jobs:
   subsystem-benchmarks:
@@ -32,11 +35,11 @@ jobs:
         run: |
           git checkout master
 
-      - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          tool: "customSmallerIsBetter"
-          output-file-path: ${{ github.event.inputs.output-file-path }}
-          benchmark-data-dir-path: "bench/${{ github.event.inputs.benchmark-data-dir-path }}"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          auto-push: true
+      # - name: Store benchmark result
+      #   uses: benchmark-action/github-action-benchmark@v1
+      #   with:
+      #     tool: "customSmallerIsBetter"
+      #     output-file-path: ${{ github.event.inputs.output-file-path }}
+      #     benchmark-data-dir-path: "bench/${{ github.event.inputs.benchmark-data-dir-path }}"
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     auto-push: true
