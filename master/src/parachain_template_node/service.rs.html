@@ -594,8 +594,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>cumulus_client_cli::CollatorOptions;
 <span class="comment">// Local Runtime Types
 </span><span class="kw">use </span>parachain_template_runtime::{
+	apis::RuntimeApi,
 	opaque::{Block, Hash},
-	RuntimeApi,
 };
 
 <span class="comment">// Cumulus Imports
@@ -634,7 +634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	<span class="kw">fn </span>dispatch(method: <span class="kw-2">&amp;</span>str, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		parachain_template_runtime::api::dispatch(method, data)
+		parachain_template_runtime::apis::api::dispatch(method, data)
 	}
 
 	<span class="kw">fn </span>native_version() -&gt; sc_executor::NativeVersion {

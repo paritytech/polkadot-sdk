@@ -1911,7 +1911,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="prelude-val">Ok</span>(<span class="macro">quote!</span>(
-		<span class="kw">const </span>RUNTIME_API_VERSIONS: #c::ApisVec = #<span class="macro">c::create_apis_vec!</span>([ #( #result ),* ]);
+		<span class="kw">pub const </span>RUNTIME_API_VERSIONS: #c::ApisVec = #<span class="macro">c::create_apis_vec!</span>([ #( #result ),* ]);
 
 		#( #sections )*
 	))
