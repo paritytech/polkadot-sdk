@@ -724,6 +724,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -779,6 +788,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::{sync::Arc, time::Duration};
 
 <span class="kw">pub use </span>cumulus_primitives_proof_size_hostfunction::storage_proof_size;
+
+<span class="doccomment">/// Host functions that should be used in parachain nodes.
+///
+/// Contains the standard substrate host functions, as well as a
+/// host function to enable PoV-reclaim on parachain nodes.
+</span><span class="kw">pub type </span>ParachainHostFunctions = (
+	cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	sp_io::SubstrateHostFunctions,
+);
 
 <span class="comment">// Given the sporadic nature of the explicit recovery operation and the
 // possibility to retry infinite times this value is more than enough.

@@ -1415,8 +1415,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1268" id="1268">1268</a>
 <a href="#1269" id="1269">1269</a>
 <a href="#1270" id="1270">1270</a>
-<a href="#1271" id="1271">1271</a>
-<a href="#1272" id="1272">1272</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1488,13 +1486,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
 
 <span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
-</span><span class="kw">type </span>HostFunctions =
-	(sp_io::SubstrateHostFunctions, cumulus_client_service::storage_proof_size::HostFunctions);
+</span><span class="kw">type </span>HostFunctions = cumulus_client_service::ParachainHostFunctions;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">type </span>HostFunctions = (
-	sp_io::SubstrateHostFunctions,
-	cumulus_client_service::storage_proof_size::HostFunctions,
+	cumulus_client_service::ParachainHostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
