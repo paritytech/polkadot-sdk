@@ -165,9 +165,9 @@ mod tests {
 		assert_eq!(balance_trie.query(69u32), None);
 
 		// Create a proof for a valid key.
-		let proof = balance_trie.prove(6u32).unwrap();
+		let proof = balance_trie.create_proof(6u32).unwrap();
 		// Can't create proof for invalid key.
-		assert_eq!(balance_trie.prove(69u32), None);
+		assert_eq!(balance_trie.create_proof(69u32), None);
 
 		// Create a new proving trie from the proof.
 		let new_balance_trie = BalanceTrie::from_nodes(root, &proof);
