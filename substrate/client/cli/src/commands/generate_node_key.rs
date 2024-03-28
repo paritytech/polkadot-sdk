@@ -17,7 +17,7 @@
 
 //! Implementation of the `generate-node-key` subcommand
 
-use crate::{Error, SubstrateCli, DEFAULT_NETWORK_CONFIG_PATH, NODE_KEY_ED25519_FILE};
+use crate::{build_network_key_dir_or_default, Error, SubstrateCli, NODE_KEY_ED25519_FILE};
 use clap::Parser;
 use libp2p_identity::{ed25519, Keypair};
 use sc_service::BasePath;
@@ -37,7 +37,7 @@ use std::{
 pub struct GenerateNodeKeyCmd {
 	/// Name of file to save secret key to.
 	/// If not given, the secret key is printed to stdout.
-	#[arg(long, conflicts_with_all = ["base_path", "default_base_path"])]
+	#[arg(long, conflicts_with_all = ["base_path", "default_base_path", "chain"])]
 	file: Option<PathBuf>,
 
 	/// The output is in raw binary format.
@@ -45,6 +45,11 @@ pub struct GenerateNodeKeyCmd {
 	#[arg(long)]
 	bin: bool,
 
+	/// Specify the chain specification.
+	///
+	/// It can be any of the predefined chains like dev, local, staging, polkadot, kusama.
+	#[arg(long, value_name = "CHAIN_SPEC")]
+	pub chain: Option<String>,
 	/// A directory where the key should be saved. If a key already
 	/// exists in the directory, it won't be overwritten.
 	#[arg(long, conflicts_with_all = ["file", "default_base_path"])]
@@ -58,7 +63,7 @@ pub struct GenerateNodeKeyCmd {
 
 impl GenerateNodeKeyCmd {
 	/// Run the command
-	pub fn run<C: SubstrateCli>(&self, _cli: &C) -> Result<(), Error> {
+	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<(), Error> {
 		let keypair = ed25519::Keypair::generate();
 
 		let secret = keypair.secret();
@@ -72,15 +77,16 @@ impl GenerateNodeKeyCmd {
 		match (&self.file, &self.base_path, self.default_base_path) {
 			(Some(file), None, false) => fs::write(file, file_data)?,
 			(None, Some(_), false) | (None, None, true) => {
-				let network_path = self
-					.base_path
-					.clone()
-					.unwrap_or_else(|| {
-						BasePath::from_project("", "", &C::executable_name()).path().to_path_buf()
-					})
-					.join(DEFAULT_NETWORK_CONFIG_PATH);
+				let chain_spec = cli.load_spec(self.chain.as_deref().unwrap_or(""))?;
+
+				let network_path = build_network_key_dir_or_default(
+					self.base_path.clone().map(BasePath::new),
+					&chain_spec,
+					cli,
+				);
 
 				fs::create_dir_all(network_path.as_path())?;
+
 				let key_path = network_path.join(NODE_KEY_ED25519_FILE);
 				if key_path.exists() {
 					eprintln!("Skip generation, a key already exists in {:?}", key_path);
@@ -105,6 +111,8 @@ impl GenerateNodeKeyCmd {
 
 #[cfg(test)]
 pub mod tests {
+	use crate::DEFAULT_NETWORK_CONFIG_PATH;
+
 	use super::*;
 	use sc_service::{ChainSpec, ChainType, GenericChainSpec, NoExtension};
 	use std::io::Read;
@@ -163,8 +171,11 @@ pub mod tests {
 	#[test]
 	fn generate_node_key_base_path() {
 		let base_dir = Builder::new().prefix("keyfile").tempdir().unwrap();
-		let key_path =
-			base_dir.path().join(DEFAULT_NETWORK_CONFIG_PATH).join(NODE_KEY_ED25519_FILE);
+		let key_path = base_dir
+			.path()
+			.join("chains/test_id/")
+			.join(DEFAULT_NETWORK_CONFIG_PATH)
+			.join(NODE_KEY_ED25519_FILE);
 		let base_path = base_dir.path().display().to_string();
 		let generate =
 			GenerateNodeKeyCmd::parse_from(&["generate-node-key", "--base-path", &base_path]);
