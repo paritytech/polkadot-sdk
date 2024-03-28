@@ -13,6 +13,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 inherents = { package = "sp-inherents", path = "../../../../substrate/primitives/inherents", default-features = false }
+sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
 sp-session = { path = "../../../../substrate/primitives/session", default-features = false }
@@ -38,13 +39,6 @@ libsecp256k1 = { version = "0.7.0", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../../parachains", default-features = false }
 
 xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false }
-
-[dev-dependencies]
-hex-literal = "0.4.1"
-pallet-babe = { path = "../../../../substrate/frame/babe" }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-serde_json = { workspace = true, default-features = true }
-libsecp256k1 = "0.7.0"
 
 [features]
 default = ["std"]
@@ -72,6 +66,7 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
+	"sp-std/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
