@@ -1092,28 +1092,12 @@ fn track_check_uncheck_module_call() {
 	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
 		Contracts::bare_upload_code(ALICE, wasm, None, Determinism::Enforced).unwrap();
-
-		Contracts::bare_instantiate(
-			ALICE,
-			1_000,
-			GAS_LIMIT,
-			None,
-			Code::Existing(code_hash),
-			vec![],
-			vec![],
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-		)
-		.result
-		.unwrap()
+		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_result();
 	});
 
-	assert_eq!(
-		crate::wasm::tracker::LOADED_MODULE.with(|stack| stack.borrow().clone()),
-		vec![LoadingMode::Checked, LoadingMode::Unchecked]
-	);
+	let record = crate::wasm::tracker::LOADED_MODULE.with(|stack| stack.borrow().clone());
+	assert_eq!(record, vec![LoadingMode::Checked, LoadingMode::Unchecked]);
 }
 
 #[test]
