@@ -35,7 +35,6 @@ jobs:
         id: step_two
         run: |
           git checkout master --
-          ls -1
 
       # - name: Store benchmark result
       #   uses: benchmark-action/github-action-benchmark@v1
@@ -45,3 +44,11 @@ jobs:
       #     benchmark-data-dir-path: "bench/${{ github.event.inputs.benchmark-data-dir-path }}"
       #     github-token: ${{ secrets.GITHUB_TOKEN }}
       #     auto-push: true
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          output-file-path: availability-distribution-regression-bench.json
+          benchmark-data-dir-path: "bench/availability-distribution-regression-bench"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
