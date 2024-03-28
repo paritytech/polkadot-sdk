@@ -17,104 +17,162 @@
 
 //! Types for a simple merkle trie used for checking and generating proofs.
 
+use crate::{Decode, DispatchError, Encode};
+
+use sp_std::vec::Vec;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
-	LayoutV0, MemoryDB, Recorder, Trie, TrieMut,
+	LayoutV0, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
 };
 
-use crate::{Decode, DispatchError, Encode, KeyTypeId};
-
 /// A trait for creating a merkle trie for checking and generating merkle proofs.
-pub trait ProvingTrie<Hashing, Hash, Item>
+pub trait ProvingTrie<Hashing, Hash, Key, Value>
 where
 	Self: Sized,
 {
+	/// Create a new instance of a `ProvingTrie` using an iterator of key/value pairs.
+	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
+	where
+		I: IntoIterator<Item = (Key, Value)>;
 	/// Access the underlying trie root.
 	fn root(&self) -> &Hash;
 	/// Check a proof contained within the current memory-db. Returns `None` if the
 	/// nodes within the current `MemoryDB` are insufficient to query the item.
-	fn query(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Item>;
-	/// Prove the full verification data for a given key and key ID.
-	fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>>;
-	/// Create a new instance of a `ProvingTrie` using an iterator of items in the trie.
-	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
-	where
-		I: IntoIterator<Item = Item>;
+	fn query(&self, key: Key) -> Option<Value>;
+	/// Create the full verification data needed to prove a key and its value in the trie. Returns
+	/// `None` if the nodes nodes within the current `MemoryDB` are insufficient to create a proof.
+	fn create_proof(&self, key: Key) -> Option<Vec<Vec<u8>>>;
+	/// Create a new instance of `ProvingTrie` from raw nodes. Nodes can be generated using the
+	/// `create_proof` function.
+	fn from_nodes(root: Hash, nodes: &[Vec<u8>]) -> Self;
 }
 
-/// A trie instance for checking and generating proofs.
-pub struct BasicProvingTrie<Hashing, Hash, Item>
+/// A basic trie implementation for checking and generating proofs for a key / value pair.
+pub struct BasicProvingTrie<Hashing, Hash, Key, Value>
 where
 	Hashing: sp_core::Hasher<Out = Hash>,
 {
 	db: MemoryDB<Hashing>,
 	root: Hash,
-	_phantom: core::marker::PhantomData<Item>,
+	_phantom: core::marker::PhantomData<(Key, Value)>,
 }
 
-impl<Hashing, Hash, Item> ProvingTrie<Hashing, Hash, Item> for BasicProvingTrie<Hashing, Hash, Item>
+impl<Hashing, Hash, Key, Value> ProvingTrie<Hashing, Hash, Key, Value>
+	for BasicProvingTrie<Hashing, Hash, Key, Value>
 where
 	Hashing: sp_core::Hasher<Out = Hash>,
-	Hash: Default,
-	Item: Encode + Decode,
+	Hash: Default + Send + Sync,
+	Key: Encode,
+	Value: Encode + Decode,
 {
-	/// Access the underlying trie root.
-	fn root(&self) -> &Hash {
-		&self.root
-	}
-
-	/// Check a proof contained within the current memory-db. Returns `None` if the
-	/// nodes within the current `MemoryDB` are insufficient to query the item.
-	fn query(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Item> {
-		let trie = TrieDBBuilder::new(&self.db, &self.root).build();
-		let val_idx = (key_id, key_data)
-			.using_encoded(|s| trie.get(s))
-			.ok()?
-			.and_then(|raw| u32::decode(&mut &*raw).ok())?;
-
-		val_idx
-			.using_encoded(|s| trie.get(s))
-			.ok()?
-			.and_then(|raw| Item::decode(&mut &*raw).ok())
-	}
-
-	/// Prove the full verification data for a given key and key ID.
-	fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>> {
-		let mut recorder = Recorder::<LayoutV0<Hashing>>::new();
-		{
-			let trie =
-				TrieDBBuilder::new(&self.db, &self.root).with_recorder(&mut recorder).build();
-			let val_idx = (key_id, key_data).using_encoded(|s| {
-				trie.get(s).ok()?.and_then(|raw| u32::decode(&mut &*raw).ok())
-			})?;
-
-			val_idx.using_encoded(|s| {
-				trie.get(s).ok()?.and_then(|raw| Item::decode(&mut &*raw).ok())
-			})?;
-		}
-
-		Some(recorder.drain().into_iter().map(|r| r.data).collect())
-	}
-
-	/// Create a new instance of a `ProvingTrie` using an iterator of items in the trie.
 	fn generate_for<I>(items: I) -> Result<Self, DispatchError>
 	where
-		I: IntoIterator<Item = Item>,
+		I: IntoIterator<Item = (Key, Value)>,
 	{
 		let mut db = MemoryDB::default();
 		let mut root = Default::default();
 
 		{
 			let mut trie = TrieDBMutBuilderV0::new(&mut db, &mut root).build();
-			for (i, item) in items.into_iter().enumerate() {
-				let i = i as u32;
-
-				// insert each item into the trie
-				i.using_encoded(|k| item.using_encoded(|v| trie.insert(k, v)))
+			for (key, value) in items.into_iter() {
+				key.using_encoded(|k| value.using_encoded(|v| trie.insert(k, v)))
 					.map_err(|_| "failed to insert into trie")?;
 			}
 		}
 
 		Ok(Self { db, root, _phantom: Default::default() })
+	}
+
+	fn root(&self) -> &Hash {
+		&self.root
+	}
+
+	fn query(&self, key: Key) -> Option<Value> {
+		let trie = TrieDBBuilder::new(&self.db, &self.root).build();
+		key.using_encoded(|s| trie.get(s))
+			.ok()?
+			.and_then(|raw| Value::decode(&mut &*raw).ok())
+	}
+
+	fn create_proof(&self, key: Key) -> Option<Vec<Vec<u8>>> {
+		let mut recorder = Recorder::<LayoutV0<Hashing>>::new();
+
+		{
+			let trie =
+				TrieDBBuilder::new(&self.db, &self.root).with_recorder(&mut recorder).build();
+
+			key.using_encoded(|k| {
+				trie.get(k).ok()?.and_then(|raw| Value::decode(&mut &*raw).ok())
+			})?;
+		}
+
+		Some(recorder.drain().into_iter().map(|r| r.data).collect())
+	}
+
+	fn from_nodes(root: Hash, nodes: &[Vec<u8>]) -> Self {
+		use sp_trie::HashDBT;
+
+		let mut memory_db = MemoryDB::default();
+		for node in nodes {
+			HashDBT::insert(&mut memory_db, EMPTY_PREFIX, &node[..]);
+		}
+
+		Self { db: memory_db, root, _phantom: Default::default() }
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::traits::BlakeTwo256;
+	use sp_core::H256;
+	use sp_std::{collections::btree_map::BTreeMap, str::FromStr};
+
+	// A trie which simulates a trie of accounts (u32) and balances (u128).
+	type BalanceTrie = BasicProvingTrie<BlakeTwo256, H256, u32, u128>;
+
+	// The expected root hash for an empty trie.
+	fn empty_root() -> H256 {
+		H256::from_str("0x03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314")
+			.unwrap()
+	}
+
+	#[test]
+	fn empty_trie_works() {
+		let empty_trie = BalanceTrie::generate_for(Vec::new()).unwrap();
+		assert_eq!(*empty_trie.root(), empty_root());
+	}
+
+	#[test]
+	fn basic_end_to_end() {
+		// Create a map of users and their balances.
+		let mut map = BTreeMap::<u32, u128>::new();
+		for i in 0..10u32 {
+			map.insert(i, i.into());
+		}
+
+		// Put items into the trie.
+		let balance_trie = BalanceTrie::generate_for(map).unwrap();
+
+		// Root is changed.
+		let root = *balance_trie.root();
+		assert!(root != empty_root());
+
+		// Assert valid key is queryable.
+		assert_eq!(balance_trie.query(6u32), Some(6u128));
+		assert_eq!(balance_trie.query(9u32), Some(9u128));
+		// Invalid key returns none.
+		assert_eq!(balance_trie.query(69u32), None);
+
+		// Create a proof for a valid key.
+		let proof = balance_trie.prove(6u32).unwrap();
+		// Can't create proof for invalid key.
+		assert_eq!(balance_trie.prove(69u32), None);
+
+		// Create a new proving trie from the proof.
+		let new_balance_trie = BalanceTrie::from_nodes(root, &proof);
+
+		// Assert valid key is queryable.
+		assert_eq!(new_balance_trie.query(6u32), Some(6u128));
 	}
 }
