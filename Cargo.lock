@@ -9553,6 +9553,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-utility",
  "parity-scale-codec",
+ "paste",
  "pretty_assertions",
  "rand",
  "rand_pcg",
