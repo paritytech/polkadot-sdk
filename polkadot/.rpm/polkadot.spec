@@ -37,9 +37,6 @@ getent passwd polkadot >/dev/null || \
 if [ ! -e "$config_file" ]; then
     echo 'POLKADOT_CLI_ARGS=""' > /etc/default/polkadot
 fi
-if [ $1 -eq 1 ]; then
-    polkadot key generate-node-key --default-base-path
-fi
 exit 0
 
 %clean

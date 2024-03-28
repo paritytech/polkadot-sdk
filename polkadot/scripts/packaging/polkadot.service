@@ -5,6 +5,7 @@ Documentation=https://github.com/paritytech/polkadot
 
 [Service]
 EnvironmentFile=-/etc/default/polkadot
+ExecStartPre=/usr/bin/polkadot key generate-node-key --default-base-path
 ExecStart=/usr/bin/polkadot $POLKADOT_CLI_ARGS
 User=polkadot
 Group=polkadot

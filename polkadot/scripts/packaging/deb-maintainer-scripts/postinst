@@ -14,7 +14,4 @@ if [ "$action" = "configure" ]; then
   if [ ! -e "$config_file" ]; then
     echo 'POLKADOT_CLI_ARGS=""' > /etc/default/polkadot
   fi
-  if [ -z "$2" ]; then
-    /usr/bin/polkadot key generate-node-key --default-base-path
-  fi
 fi
