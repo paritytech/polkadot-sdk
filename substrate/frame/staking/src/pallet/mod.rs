@@ -25,7 +25,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		LockableCurrency, OnUnbalanced, UnixTime,
+		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -48,9 +48,9 @@ pub use impls::*;
 
 use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, MaxNominationsOf, NegativeImbalanceOf,
-	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
+	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
+	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -88,10 +88,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The staking balance.
 		type Currency: LockableCurrency<
-			Self::AccountId,
-			Moment = BlockNumberFor<Self>,
-			Balance = Self::CurrencyBalance,
-		>;
+				Self::AccountId,
+				Moment = BlockNumberFor<Self>,
+				Balance = Self::CurrencyBalance,
+			> + InspectLockableCurrency<Self::AccountId>;
 		/// Just the `Currency::Balance` type; we have this item to allow us to constrain it to
 		/// `From<u64>`.
 		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
@@ -785,9 +785,12 @@ pub mod pallet {
 		SnapshotTargetsSizeExceeded { size: u32 },
 		/// A new force era mode was set.
 		ForceEra { mode: Forcing },
+		/// Report of a controller batch deprecation.
+		ControllerBatchDeprecated { failures: u32 },
 	}
 
 	#[pallet::error]
+	#[derive(PartialEq)]
 	pub enum Error<T> {
 		/// Not a controller account.
 		NotController,
@@ -847,6 +850,8 @@ pub mod pallet {
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
+		/// Cannot reset a ledger.
+		CannotRestoreLedger,
 	}
 
 	#[pallet::hooks]
@@ -929,6 +934,11 @@ pub mod pallet {
 				return Err(Error::<T>::AlreadyBonded.into())
 			}
 
+			// An existing controller cannot become a stash.
+			if StakingLedger::<T>::is_bonded(StakingAccount::Controller(stash.clone())) {
+				return Err(Error::<T>::AlreadyPaired.into())
+			}
+
 			// Reject a bond which is considered to be _dust_.
 			if value < T::Currency::minimum_balance() {
 				return Err(Error::<T>::InsufficientBond.into())
@@ -969,7 +979,6 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-
 			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
 			let stash_balance = T::Currency::free_balance(&stash);
@@ -1326,8 +1335,6 @@ pub mod pallet {
 		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// The bonded map and ledger are mutated directly as this extrinsic is related to a
-			// (temporary) passive migration.
 			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				let controller = ledger.controller()
                     .defensive_proof("Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.")
@@ -1337,9 +1344,8 @@ pub mod pallet {
 					// Stash is already its own controller.
 					return Err(Error::<T>::AlreadyPaired.into())
 				}
-				<Ledger<T>>::remove(controller);
-				<Bonded<T>>::insert(&stash, &stash);
-				<Ledger<T>>::insert(&stash, ledger);
+
+				let _ = ledger.set_controller_to_stash()?;
 				Ok(())
 			})?
 		}
@@ -1952,7 +1958,7 @@ pub mod pallet {
 						};
 
 						if ledger.stash != *controller && !payee_deprecated {
-							Some((controller.clone(), ledger))
+							Some(ledger)
 						} else {
 							None
 						}
@@ -1961,14 +1967,115 @@ pub mod pallet {
 				.collect();
 
 			// Update unique pairs.
-			for (controller, ledger) in filtered_batch_with_ledger {
-				let stash = ledger.stash.clone();
-
-				<Bonded<T>>::insert(&stash, &stash);
-				<Ledger<T>>::remove(controller);
-				<Ledger<T>>::insert(stash, ledger);
+			let mut failures = 0;
+			for ledger in filtered_batch_with_ledger {
+				let _ = ledger.clone().set_controller_to_stash().map_err(|_| failures += 1);
 			}
+			Self::deposit_event(Event::<T>::ControllerBatchDeprecated { failures });
+
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
+		}
+
+		/// Restores the state of a ledger which is in an inconsistent state.
+		///
+		/// The requirements to restore a ledger are the following:
+		/// * The stash is bonded; or
+		/// * The stash is not bonded but it has a staking lock left behind; or
+		/// * If the stash has an associated ledger and its state is inconsistent; or
+		/// * If the ledger is not corrupted *but* its staking lock is out of sync.
+		///
+		/// The `maybe_*` input parameters will overwrite the corresponding data and metadata of the
+		/// ledger associated with the stash. If the input parameters are not set, the ledger will
+		/// be reset values from on-chain state.
+		#[pallet::call_index(29)]
+		#[pallet::weight(T::WeightInfo::restore_ledger())]
+		pub fn restore_ledger(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			maybe_controller: Option<T::AccountId>,
+			maybe_total: Option<BalanceOf<T>>,
+			maybe_unlocking: Option<BoundedVec<UnlockChunk<BalanceOf<T>>, T::MaxUnlockingChunks>>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			let current_lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+			let stash_balance = T::Currency::free_balance(&stash);
+
+			let (new_controller, new_total) = match Self::inspect_bond_state(&stash) {
+				Ok(LedgerIntegrityState::Corrupted) => {
+					let new_controller = maybe_controller.unwrap_or(stash.clone());
+
+					let new_total = if let Some(total) = maybe_total {
+						let new_total = total.min(stash_balance);
+						// enforce lock == ledger.amount.
+						T::Currency::set_lock(
+							crate::STAKING_ID,
+							&stash,
+							new_total,
+							WithdrawReasons::all(),
+						);
+						new_total
+					} else {
+						current_lock
+					};
+
+					Ok((new_controller, new_total))
+				},
+				Ok(LedgerIntegrityState::CorruptedKilled) => {
+					if current_lock == Zero::zero() {
+						// this case needs to restore both lock and ledger, so the new total needs
+						// to be given by the called since there's no way to restore the total
+						// on-chain.
+						ensure!(maybe_total.is_some(), Error::<T>::CannotRestoreLedger);
+						Ok((
+							stash.clone(),
+							maybe_total.expect("total exists as per the check above; qed."),
+						))
+					} else {
+						Ok((stash.clone(), current_lock))
+					}
+				},
+				Ok(LedgerIntegrityState::LockCorrupted) => {
+					// ledger is not corrupted but its locks are out of sync. In this case, we need
+					// to enforce a new ledger.total and staking lock for this stash.
+					let new_total =
+						maybe_total.ok_or(Error::<T>::CannotRestoreLedger)?.min(stash_balance);
+					T::Currency::set_lock(
+						crate::STAKING_ID,
+						&stash,
+						new_total,
+						WithdrawReasons::all(),
+					);
+
+					Ok((stash.clone(), new_total))
+				},
+				Err(Error::<T>::BadState) => {
+					// the stash and ledger do not exist but lock is lingering.
+					T::Currency::remove_lock(crate::STAKING_ID, &stash);
+					ensure!(
+						Self::inspect_bond_state(&stash) == Err(Error::<T>::NotStash),
+						Error::<T>::BadState
+					);
+
+					return Ok(());
+				},
+				Ok(LedgerIntegrityState::Ok) | Err(_) => Err(Error::<T>::CannotRestoreLedger),
+			}?;
+
+			// re-bond stash and controller tuple.
+			Bonded::<T>::insert(&stash, &new_controller);
+
+			// resoter ledger state.
+			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
+			ledger.controller = Some(new_controller);
+			ledger.unlocking = maybe_unlocking.unwrap_or_default();
+			ledger.update()?;
+
+			ensure!(
+				Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+				Error::<T>::BadState
+			);
+			Ok(())
 		}
 	}
 }

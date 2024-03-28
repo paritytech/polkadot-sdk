@@ -485,6 +485,20 @@ pub struct StakingLedger<T: Config> {
 	controller: Option<T::AccountId>,
 }
 
+/// State of a ledger with regards with its data and metadata integrity.
+#[derive(PartialEq, Debug)]
+enum LedgerIntegrityState {
+	/// Ledger, bond and corresponding staking lock is OK.
+	Ok,
+	/// Ledger and/or bond is corrupted. This means that the bond has a ledger with a different
+	/// stash than the bonded stash.
+	Corrupted,
+	/// Ledger was corrupted and it has been killed.
+	CorruptedKilled,
+	/// Ledger and bond are OK, however the ledger's stash lock is out of sync.
+	LockCorrupted,
+}
+
 impl<T: Config> StakingLedger<T> {
 	/// Remove entries from `unlocking` that are sufficiently old and reduce the
 	/// total by the sum of their balances.
