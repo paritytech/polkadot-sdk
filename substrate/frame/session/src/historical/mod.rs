@@ -32,8 +32,9 @@ mod shared;
 
 use codec::{Decode, Encode};
 use sp_runtime::{
+	proving_trie::ProvingTrie,
 	traits::{Convert, OpaqueKeys},
-	KeyTypeId,
+	DispatchError, KeyTypeId,
 };
 use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
@@ -176,7 +177,7 @@ impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHi
 
 		if let Some(new_validators) = new_validators_and_id {
 			let count = new_validators.len() as ValidatorCount;
-			match ProvingTrie::<T>::generate_for(new_validators) {
+			match ValidatorProvingTrie::<T>::generate_for(new_validators) {
 				Ok(trie) => <HistoricalSessions<T>>::insert(new_index, &(trie.root, count)),
 				Err(reason) => {
 					print("Failed to generate historical ancestry-inclusion proof.");
@@ -221,13 +222,15 @@ pub type IdentificationTuple<T> =
 	(<T as pallet_session::Config>::ValidatorId, <T as Config>::FullIdentification);
 
 /// A trie instance for checking and generating proofs.
-pub struct ProvingTrie<T: Config> {
+pub struct ValidatorProvingTrie<T: Config> {
 	db: MemoryDB<T::Hashing>,
 	root: T::Hash,
 }
 
-impl<T: Config> ProvingTrie<T> {
-	fn generate_for<I>(validators: I) -> Result<Self, &'static str>
+impl<T: Config> ProvingTrie<T::Hashing, T::Hash, IdentificationTuple<T>>
+	for ValidatorProvingTrie<T>
+{
+	fn generate_for<I>(validators: I) -> Result<Self, DispatchError>
 	where
 		I: IntoIterator<Item = (T::ValidatorId, T::FullIdentification)>,
 	{
@@ -261,22 +264,11 @@ impl<T: Config> ProvingTrie<T> {
 			}
 		}
 
-		Ok(ProvingTrie { db, root })
-	}
-
-	fn from_nodes(root: T::Hash, nodes: &[Vec<u8>]) -> Self {
-		use sp_trie::HashDBT;
-
-		let mut memory_db = MemoryDB::default();
-		for node in nodes {
-			HashDBT::insert(&mut memory_db, EMPTY_PREFIX, &node[..]);
-		}
-
-		ProvingTrie { db: memory_db, root }
+		Ok(Self { db, root })
 	}
 
 	/// Prove the full verification data for a given key and key ID.
-	pub fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>> {
+	fn prove(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<Vec<Vec<u8>>> {
 		let mut recorder = Recorder::<LayoutV0<T::Hashing>>::new();
 		{
 			let trie =
@@ -296,7 +288,7 @@ impl<T: Config> ProvingTrie<T> {
 	}
 
 	/// Access the underlying trie root.
-	pub fn root(&self) -> &T::Hash {
+	fn root(&self) -> &T::Hash {
 		&self.root
 	}
 
@@ -316,6 +308,19 @@ impl<T: Config> ProvingTrie<T> {
 	}
 }
 
+impl<T: Config> ValidatorProvingTrie<T> {
+	fn from_nodes(root: T::Hash, nodes: &[Vec<u8>]) -> Self {
+		use sp_trie::HashDBT;
+
+		let mut memory_db = MemoryDB::default();
+		for node in nodes {
+			HashDBT::insert(&mut memory_db, EMPTY_PREFIX, &node[..]);
+		}
+
+		Self { db: memory_db, root }
+	}
+}
+
 impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T> {
 	type Proof = MembershipProof;
 	type IdentificationTuple = IdentificationTuple<T>;
@@ -332,7 +337,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 
 		let count = validators.len() as ValidatorCount;
 
-		let trie = ProvingTrie::<T>::generate_for(validators).ok()?;
+		let trie = ValidatorProvingTrie::<T>::generate_for(validators).ok()?;
 
 		let (id, data) = key;
 		trie.prove(id, data.as_ref()).map(|trie_nodes| MembershipProof {
@@ -364,7 +369,7 @@ impl<T: Config, D: AsRef<[u8]>> KeyOwnerProofSystem<(KeyTypeId, D)> for Pallet<T
 				return None
 			}
 
-			let trie = ProvingTrie::<T>::from_nodes(root, &proof.trie_nodes);
+			let trie = ValidatorProvingTrie::<T>::from_nodes(root, &proof.trie_nodes);
 			trie.query(id, data.as_ref())
 		}
 	}

@@ -20,17 +20,18 @@
 //! Validator-set extracting an iterator from an off-chain worker stored list containing historical
 //! validator-sets. Based on the logic of historical slashing, but the validation is done off-chain.
 //! Use [`fn store_current_session_validator_set_to_offchain()`](super::onchain) to store the
-//! required data to the offchain validator set. This is used in conjunction with [`ProvingTrie`]
-//! and the off-chain indexing API.
+//! required data to the offchain validator set. This is used in conjunction with
+//! [`ValidatorProvingTrie`] and the off-chain indexing API.
 
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
+	proving_trie::ProvingTrie,
 	KeyTypeId,
 };
 use sp_session::MembershipProof;
 use sp_std::prelude::*;
 
-use super::{shared, Config, IdentificationTuple, ProvingTrie};
+use super::{shared, Config, IdentificationTuple, ValidatorProvingTrie};
 use crate::{Pallet as SessionModule, SessionIndex};
 
 /// A set of validators, which was used for a fixed session index.
@@ -59,7 +60,7 @@ impl<T: Config> ValidatorSet<T> {
 }
 
 /// Implement conversion into iterator for usage
-/// with [ProvingTrie](super::ProvingTrie::generate_for).
+/// with [ValidatorProvingTrie](super::ValidatorProvingTrie::generate_for).
 impl<T: Config> sp_std::iter::IntoIterator for ValidatorSet<T> {
 	type Item = (T::ValidatorId, T::FullIdentification);
 	type IntoIter = sp_std::vec::IntoIter<Self::Item>;
@@ -79,7 +80,7 @@ pub fn prove_session_membership<T: Config, D: AsRef<[u8]>>(
 ) -> Option<MembershipProof> {
 	let validators = ValidatorSet::<T>::load_from_offchain_db(session_index)?;
 	let count = validators.len() as u32;
-	let trie = ProvingTrie::<T>::generate_for(validators.into_iter()).ok()?;
+	let trie = ValidatorProvingTrie::<T>::generate_for(validators.into_iter()).ok()?;
 
 	let (id, data) = session_key;
 	trie.prove(id, data.as_ref()).map(|trie_nodes| MembershipProof {
