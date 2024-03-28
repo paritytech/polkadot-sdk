@@ -10481,15 +10481,12 @@ dependencies = [
 name = "pallet-para-sudo-wrapper"
 version = "7.0.0"
 dependencies = [
- "bitvec",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
  "frame-system",
  "hex-literal",
- "impl-trait-for-tuples",
  "libsecp256k1",
- "log",
  "pallet-asset-rate",
  "pallet-authorship",
  "pallet-babe",
@@ -10500,12 +10497,8 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-parachains",
- "rustc-hex",
  "scale-info",
- "serde",
- "serde_derive",
  "serde_json",
- "sp-api",
  "sp-core",
  "sp-inherents",
  "sp-io",
@@ -10516,7 +10509,6 @@ dependencies = [
  "sp-staking",
  "sp-std 14.0.0",
  "staging-xcm",
- "static_assertions",
 ]
 
 [[package]]
