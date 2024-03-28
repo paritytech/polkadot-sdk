@@ -69,26 +69,26 @@ macro_rules! builder {
 }
 
 builder!(
-instantiate_with_code(
-	origin: OriginFor<Test>,
-	value: BalanceOf<Test>,
-	gas_limit: Weight,
-	storage_deposit_limit: Option<Compact<BalanceOf<Test>>>,
-	code: Vec<u8>,
-	data: Vec<u8>,
-	salt: Vec<u8>,
+	instantiate_with_code(
+		origin: OriginFor<Test>,
+		value: BalanceOf<Test>,
+		gas_limit: Weight,
+		storage_deposit_limit: Option<Compact<BalanceOf<Test>>>,
+		code: Vec<u8>,
+		data: Vec<u8>,
+		salt: Vec<u8>,
 	) -> DispatchResultWithPostInfo
 );
 
 builder!(
-instantiate(
-	origin: OriginFor<Test>,
-	value: BalanceOf<Test>,
-	gas_limit: Weight,
-	storage_deposit_limit: Option<Compact<BalanceOf<Test>>>,
-	code_hash: CodeHash<Test>,
-	data: Vec<u8>,
-	salt: Vec<u8>,
+	instantiate(
+		origin: OriginFor<Test>,
+		value: BalanceOf<Test>,
+		gas_limit: Weight,
+		storage_deposit_limit: Option<Compact<BalanceOf<Test>>>,
+		code_hash: CodeHash<Test>,
+		data: Vec<u8>,
+		salt: Vec<u8>,
 	) -> DispatchResultWithPostInfo
 );
 
