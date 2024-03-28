@@ -36,8 +36,8 @@
 //!
 //! ## compact_encoded_length
 //!
-//! This is a [SCALE compact encoded][frame::deps::codec::Compact] integer which is equal to the
-//! length, in bytes, of the rest of the extrinsic details.
+//! This is a [SCALE compact encoded][polkadot_sdk_frame::deps::codec::Compact] integer which is
+//! equal to the length, in bytes, of the rest of the extrinsic details.
 //!
 //! To obtain this value, we must encode and concatenate together the rest of the extrinsic details
 //! first, and then obtain the byte length of these. We can then compact encode that length, and
@@ -69,9 +69,9 @@
 //!
 //! ### from_address
 //!
-//! This is the [SCALE encoded][frame::deps::codec] address of the sender of the extrinsic. The
-//! address is the first generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`], and so
-//! can vary from chain to chain.
+//! This is the [SCALE encoded][polkadot_sdk_frame::deps::codec] address of the sender of the
+//! extrinsic. The address is the first generic parameter of
+//! [`sp_runtime::generic::UncheckedExtrinsic`], and so can vary from chain to chain.
 //!
 //! The address type used on the Polkadot relay chain is [`sp_runtime::MultiAddress<AccountId32>`],
 //! where `AccountId32` is defined [here][`sp_core::crypto::AccountId32`]. When constructing a
@@ -80,9 +80,9 @@
 //!
 //! ### signature
 //!
-//! This is the [SCALE encoded][frame::deps::codec] signature. The signature type is configured via
-//! the third generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`], which determines the
-//! shape of the signature and signing algorithm that should be used.
+//! This is the [SCALE encoded][polkadot_sdk_frame::deps::codec] signature. The signature type is
+//! configured via the third generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`], which
+//! determines the shape of the signature and signing algorithm that should be used.
 //!
 //! The signature is obtained by signing the _signed payload_ bytes (see below on how this is
 //! constructed) using the private key associated with the address and correct algorithm.
@@ -92,10 +92,10 @@
 //!
 //! ### signed_extensions_extra
 //!
-//! This is the concatenation of the [SCALE encoded][frame::deps::codec] bytes representing each of
-//! the [_signed extensions_][sp_runtime::traits::SignedExtension], and are configured by the
-//! fourth generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`]. Learn more about
-//! signed extensions [here][crate::reference_docs::signed_extensions].
+//! This is the concatenation of the [SCALE encoded][polkadot_sdk_frame::deps::codec] bytes
+//! representing each of the [_signed extensions_][sp_runtime::traits::SignedExtension], and are
+//! configured by the fourth generic parameter of [`sp_runtime::generic::UncheckedExtrinsic`]. Learn
+//! more about signed extensions [here][crate::reference_docs::signed_extensions].
 //!
 //! When it comes to constructing an extrinsic, each signed extension has two things that we are
 //! interested in here:
@@ -111,11 +111,11 @@
 //! At the time of writing, Polkadot configures them
 //! [here](https://github.com/polkadot-fellows/runtimes/blob/1dc04eb954eadf8aadb5d83990b89662dbb5a074/relay/polkadot/src/lib.rs#L1432C25-L1432C25).
 //! Some of the common signed extensions are defined
-//! [here][frame::deps::frame_system#signed-extensions].
+//! [here][polkadot_sdk_frame::deps::frame_system#signed-extensions].
 //!
 //! Information about exactly which signed extensions are present on a chain and in what order is
 //! also a part of the metadata for the chain. For V15 metadata, it can be
-//! [found here][frame::deps::frame_support::__private::metadata::v15::ExtrinsicMetadata].
+//! [found here][polkadot_sdk_frame::deps::frame_support::__private::metadata::v15::ExtrinsicMetadata].
 //!
 //! ## call_data
 //!
@@ -123,10 +123,10 @@
 //! altered. This is defined by the second generic parameter of
 //! [`sp_runtime::generic::UncheckedExtrinsic`].
 //!
-//! A call can be anything that implements [`Encode`][frame::deps::codec::Encode]. In FRAME-based
-//! runtimes, a call is represented as an enum of enums, where the outer enum represents the FRAME
-//! pallet being called, and the inner enum represents the call being made within that pallet, and
-//! any arguments to it. Read more about the call enum
+//! A call can be anything that implements [`Encode`][polkadot_sdk_frame::deps::codec::Encode]. In
+//! FRAME-based runtimes, a call is represented as an enum of enums, where the outer enum represents
+//! the FRAME pallet being called, and the inner enum represents the call being made within that
+//! pallet, and any arguments to it. Read more about the call enum
 //! [here][crate::reference_docs::frame_runtime_types].
 //!
 //! FRAME `Call` enums are automatically generated, and end up looking something like this:
@@ -152,7 +152,7 @@
 //! Information about the pallets that exist for a chain (including their indexes), the calls
 //! available in each pallet (including their indexes), and the arguments required for each call
 //! can be found in the metadata for the chain. For V15 metadata, this information
-//! [is here][frame::deps::frame_support::__private::metadata::v15::PalletMetadata].
+//! [is here][polkadot_sdk_frame::deps::frame_support::__private::metadata::v15::PalletMetadata].
 //!
 //! # The Signed Payload Format
 //!

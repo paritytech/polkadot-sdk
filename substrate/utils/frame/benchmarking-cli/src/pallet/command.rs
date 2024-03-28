@@ -48,7 +48,7 @@ use std::{
 };
 
 /// Logging target
-const LOG_TARGET: &'static str = "frame::benchmark::pallet";
+const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
 
 /// The inclusive range of a component.
 #[derive(Serialize, Debug, Clone, Eq, PartialEq)]

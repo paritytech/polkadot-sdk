@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame::prelude::*;
+use polkadot_sdk_frame::prelude::*;
 
-#[frame::pallet(dev_mode)]
+#[polkadot_sdk_frame::pallet(dev_mode)]
 pub mod pallet {
 	use super::*;
 
@@ -46,7 +46,7 @@ pub mod pallet {
 #[cfg(test)]
 mod tests {
 	use crate::pallet as my_pallet;
-	use frame::testing_prelude::*;
+	use polkadot_sdk_frame::testing_prelude::*;
 
 	construct_runtime!(
 		pub enum Runtime {

@@ -22,7 +22,7 @@
 //! * [`polkadot`], to understand what is Polkadot as a development platform.
 //! * [`substrate`], for an overview of what Substrate as the main blockchain framework of Polkadot
 //!   SDK.
-//! * [`frame`], to learn about how to write blockchain applications aka. "App Chains".
+//! * [`polkadot_sdk_frame`], to learn about how to write blockchain applications aka. "App Chains".
 //! * Continue with the [`polkadot_sdk_docs`'s "getting started"](crate#getting-started).
 //!
 //! ## Components
@@ -43,8 +43,8 @@
 //! [![GitHub
 //! Repo](https://img.shields.io/badge/github-frame-2324CC85)](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame)
 //!
-//! [`frame`] is the framework used to create Substrate-based application logic, aka. runtimes.
-//! Learn more about the distinction of a runtime and node in
+//! [`polkadot_sdk_frame`] is the framework used to create Substrate-based application logic, aka.
+//! runtimes. Learn more about the distinction of a runtime and node in
 //! [`reference_docs::wasm_meta_protocol`].
 //!
 //! #### Cumulus
@@ -83,7 +83,7 @@
 //! A Substrate-based chain is a blockchain composed of a runtime and a node. As noted above, the
 //! runtime is the application logic of the blockchain, and the node is everything else.
 //! See [`crate::reference_docs::wasm_meta_protocol`] for an in-depth explanation of this. The
-//! former is built with [`frame`], and the latter is built with rest of Substrate.
+//! former is built with [`polkadot_sdk_frame`], and the latter is built with rest of Substrate.
 //!
 //! > You can think of a Substrate-based chain as a white-labeled blockchain.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/polkadot_sdk_polkadot.mmd")]
@@ -111,7 +111,7 @@
 //! * [Starknet's Madara Sequencer](https://github.com/keep-starknet-strange/madara)
 //!
 //! [`substrate`]: crate::polkadot_sdk::substrate
-//! [`frame`]: crate::polkadot_sdk::frame_runtime
+//! [`polkadot_sdk_frame`]: crate::polkadot_sdk::frame_runtime
 //! [`cumulus`]: crate::polkadot_sdk::cumulus
 //! [`polkadot`]: crate::polkadot_sdk::polkadot
 //! [`xcm`]: crate::polkadot_sdk::xcm
