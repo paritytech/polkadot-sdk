@@ -883,7 +883,6 @@ fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elasti
 
 		virtual_overseer
 	});
-	panic!("Just testing ...");
 }
 
 // There are variable number of cores of cores in `Free` state and async backing is enabled.
