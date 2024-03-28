@@ -28,7 +28,7 @@ use polkadot_node_subsystem::{
 	ActivatedLeaf,
 };
 use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystemContextHandle};
-use polkadot_node_subsystem_util::TimeoutExt;
+use polkadot_node_subsystem_util::{vstaging::ClaimQueueSnapshot, TimeoutExt};
 use polkadot_primitives::{
 	async_backing::{BackingState, CandidatePendingAvailability},
 	AsyncBackingParams, BlockNumber, CollatorPair, HeadData, PersistedValidationData,
@@ -36,7 +36,10 @@ use polkadot_primitives::{
 };
 use rstest::rstest;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
-use std::pin::Pin;
+use std::{
+	collections::{BTreeMap, VecDeque},
+	pin::Pin,
+};
 use test_helpers::{
 	dummy_candidate_descriptor, dummy_hash, dummy_head_data, dummy_validator, make_candidate,
 };
@@ -617,7 +620,7 @@ fn fallback_when_no_validation_code_hash_api(#[case] runtime_version: u32) {
 					_hash,
 					RuntimeApiRequest::ClaimQueue(tx),
 				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
-					let res = BTreeMap::<CoreIndex, VecDeque<ParaId>>::new();
+					let res = ClaimQueueSnapshot::new();
 					tx.send(Ok(res)).unwrap();
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -780,7 +783,7 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 		candidate_hash: Default::default(),
 		candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
 	})];
-	let claim_queue = BTreeMap::from([(CoreIndex::from(0), VecDeque::from([para_id]))]);
+	let claim_queue = ClaimQueueSnapshot::from([(CoreIndex::from(0), VecDeque::from([para_id]))]);
 
 	test_harness(|mut virtual_overseer| async move {
 		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
@@ -958,7 +961,7 @@ fn no_collation_is_distributed_for_occupied_core_with_async_backing_disabled(
 		candidate_hash: Default::default(),
 		candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
 	})];
-	let claim_queue = BTreeMap::from([(CoreIndex::from(0), VecDeque::from([para_id]))]);
+	let claim_queue = ClaimQueueSnapshot::from([(CoreIndex::from(0), VecDeque::from([para_id]))]);
 
 	test_harness(|mut virtual_overseer| async move {
 		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
@@ -1046,7 +1049,7 @@ mod helpers {
 		async_backing_params: AsyncBackingParams,
 		cores: Vec<CoreState>,
 		runtime_version: u32,
-		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+		claim_queue: ClaimQueueSnapshot,
 		pending_availability: Vec<CandidatePendingAvailability>,
 	) {
 		assert_matches!(
