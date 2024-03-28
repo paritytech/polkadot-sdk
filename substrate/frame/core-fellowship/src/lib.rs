@@ -533,10 +533,13 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Set the parameters.
+		/// Set the parameters partially.
 		///
 		/// - `origin`: An origin complying with `ParamsOrigin` or root.
-		/// - `params`: The new parameters for the pallet.
+		/// - `partial_params`: The new parameters for the pallet.
+		///
+		/// This update config with multiple arguments without duplicating
+		/// the fields that does not need to update (set to None).
 		#[pallet::weight(T::WeightInfo::set_params())]
 		#[pallet::call_index(9)]
 		pub fn set_partial_params(
@@ -569,11 +572,14 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Partially update the base slice with a new slice
+		///
+		/// Only elements in the base slice which has a new value in the new slice will be updated.
 		pub(crate) fn set_partial_params_slice<S>(
-			base_vec: &mut [S; RANK_COUNT],
-			new_vec: [Option<S>; RANK_COUNT],
+			base_slice: &mut [S; RANK_COUNT],
+			new_slice: [Option<S>; RANK_COUNT],
 		) {
-			for (base_element, new_element) in base_vec.iter_mut().zip(new_vec) {
+			for (base_element, new_element) in base_slice.iter_mut().zip(new_slice) {
 				if new_element.is_some() {
 					*base_element = new_element.unwrap();
 				}
