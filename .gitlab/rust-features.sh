@@ -15,7 +15,7 @@
 #
 # The steps of this script:
 #   1. Check that all required dependencies are installed.
-#   2. Check that all rules are fullfilled for the whole workspace. If not:
+#   2. Check that all rules are fulfilled for the whole workspace. If not:
 #   4. Check all crates to find the offending ones.
 #   5. Print all offending crates and exit with code 1.
 #

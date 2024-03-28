@@ -46,7 +46,7 @@
 //! 1. Scheduling a runtime call at a specific block.
 #![doc = docify::embed!("src/tests.rs", basic_scheduling_works)]
 //!
-//! 2. Scheduling a preimage hash of a runtime call at a specifc block
+//! 2. Scheduling a preimage hash of a runtime call at a specific block
 #![doc = docify::embed!("src/tests.rs", scheduling_with_preimages_works)]
 
 //!
@@ -1266,6 +1266,17 @@ impl<T: Config> Pallet<T> {
 					task: (when, agenda_index),
 					id: task.maybe_id,
 				});
+
+				// It was not available when we needed it, so we don't need to have requested it
+				// anymore.
+				T::Preimages::drop(&task.call);
+
+				// We don't know why `peek` failed, thus we most account here for the "full weight".
+				let _ = weight.try_consume(T::WeightInfo::service_task(
+					task.call.lookup_len().map(|x| x as usize),
+					task.maybe_id.is_some(),
+					task.maybe_periodic.is_some(),
+				));
 
 				return Err((Unavailable, Some(task)))
 			},

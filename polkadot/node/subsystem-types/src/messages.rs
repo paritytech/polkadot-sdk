@@ -45,7 +45,7 @@ use polkadot_primitives::{
 	async_backing, slashing,
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
-	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreState,
+	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData,
 	Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
 	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
@@ -55,7 +55,7 @@ use polkadot_primitives::{
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
 };
 
@@ -82,8 +82,15 @@ pub struct CanSecondRequest {
 pub enum CandidateBackingMessage {
 	/// Requests a set of backable candidates attested by the subsystem.
 	///
-	/// Each pair is (candidate_hash, candidate_relay_parent).
-	GetBackedCandidates(Vec<(CandidateHash, Hash)>, oneshot::Sender<Vec<BackedCandidate>>),
+	/// The order of candidates of the same para must be preserved in the response.
+	/// If a backed candidate of a para cannot be retrieved, the response should not contain any
+	/// candidates of the same para that follow it in the input vector. In other words, assuming
+	/// candidates are supplied in dependency order, we must ensure that this dependency order is
+	/// preserved.
+	GetBackedCandidates(
+		HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
+		oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
+	),
 	/// Request the subsystem to check whether it's allowed to second given candidate.
 	/// The rule is to only fetch collations that are either built on top of the root
 	/// of some fragment tree or have a parent node which represents backed candidate.
@@ -221,6 +228,8 @@ pub enum CollatorProtocolMessage {
 		/// The result sender should be informed when at least one parachain validator seconded the
 		/// collation. It is also completely okay to just drop the sender.
 		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+		/// The core index where the candidate should be backed.
+		core_index: CoreIndex,
 	},
 	/// Report a collator as having provided an invalid collation. This should lead to disconnect
 	/// and blacklist of the collator.
@@ -729,6 +738,9 @@ pub enum RuntimeApiRequest {
 	/// Approval voting params
 	/// `V10`
 	ApprovalVotingParams(SessionIndex, RuntimeApiSender<ApprovalVotingParams>),
+	/// Fetch the `ClaimQueue` from scheduler pallet
+	/// `V11`
+	ClaimQueue(RuntimeApiSender<BTreeMap<CoreIndex, VecDeque<ParaId>>>),
 }
 
 impl RuntimeApiRequest {
@@ -763,6 +775,9 @@ impl RuntimeApiRequest {
 
 	/// `approval_voting_params`
 	pub const APPROVAL_VOTING_PARAMS_REQUIREMENT: u32 = 10;
+
+	/// `ClaimQueue`
+	pub const CLAIM_QUEUE_RUNTIME_REQUIREMENT: u32 = 11;
 }
 
 /// A message to the Runtime API subsystem.
@@ -792,7 +807,7 @@ pub enum StatementDistributionMessage {
 
 /// This data becomes intrinsics or extrinsics which should be included in a future relay chain
 /// block.
-// It needs to be cloneable because multiple potential block authors can request copies.
+// It needs to be clonable because multiple potential block authors can request copies.
 #[derive(Debug, Clone)]
 pub enum ProvisionableData {
 	/// This bitfield indicates the availability of various candidate blocks.
@@ -1114,7 +1129,7 @@ pub struct ProspectiveValidationDataRequest {
 }
 
 /// The parent head-data hash with optional data itself.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParentHeadData {
 	/// Parent head-data hash.
 	OnlyHash(Hash),
@@ -1125,6 +1140,16 @@ pub enum ParentHeadData {
 		/// Parent head-data hash.
 		hash: Hash,
 	},
+}
+
+impl ParentHeadData {
+	/// Return the hash of the parent head-data.
+	pub fn hash(&self) -> Hash {
+		match self {
+			ParentHeadData::OnlyHash(hash) => *hash,
+			ParentHeadData::WithData { hash, .. } => *hash,
+		}
+	}
 }
 
 /// Indicates the relay-parents whose fragment tree a candidate
