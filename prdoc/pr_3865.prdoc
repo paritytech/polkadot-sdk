@@ -8,4 +8,4 @@ doc:
 
 crates:
   - name: pallet-balances
-    bump: minor
+    bump: patch
