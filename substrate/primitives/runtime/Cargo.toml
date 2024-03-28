@@ -31,6 +31,7 @@ sp-arithmetic = { path = "../arithmetic", default-features = false }
 sp-core = { path = "../core", default-features = false }
 sp-io = { path = "../io", default-features = false }
 sp-std = { path = "../std", default-features = false }
+sp-trie = { path = "../trie", default-features = false }
 sp-weights = { path = "../weights", default-features = false }
 docify = { version = "0.2.7" }
 
@@ -66,6 +67,7 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-tracing/std",
+	"sp-trie/std",
 	"sp-weights/std",
 ]
 
