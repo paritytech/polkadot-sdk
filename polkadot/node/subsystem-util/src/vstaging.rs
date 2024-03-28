@@ -29,7 +29,7 @@ use crate::{has_required_runtime, request_claim_queue, request_disabled_validato
 
 const LOG_TARGET: &'static str = "parachain::subsystem-util-vstaging";
 
-/// A snapshot of the runtime claim queue at an arbitrare relay chain block.
+/// A snapshot of the runtime claim queue at an arbitrary relay chain block.
 pub type ClaimQueueSnapshot = BTreeMap<CoreIndex, VecDeque<ParaId>>;
 
 // TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
