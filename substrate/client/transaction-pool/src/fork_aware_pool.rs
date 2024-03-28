@@ -80,7 +80,6 @@ mod view_revalidation;
 
 pub(crate) const LOG_TARGET: &str = "txpool";
 
-//todo: View probably needs a hash? parent hash? number?
 pub struct View<PoolApi: graph::ChainApi> {
 	pool: graph::Pool<PoolApi>,
 	at: HashAndNumber<PoolApi::Block>,
@@ -94,12 +93,16 @@ where
 		Self { pool: graph::Pool::new(Default::default(), true.into(), api), at }
 	}
 
+	fn new_from_other(&self, at: &HashAndNumber<PoolApi::Block>) -> Self {
+		View { at: at.clone(), pool: self.pool.deep_clone() }
+	}
+
 	async fn finalize(&self, finalized: graph::BlockHash<PoolApi>) {
 		log::info!("View::finalize: {:?} {:?}", self.at, finalized);
 		let _ = self.pool.validated_pool().on_block_finalized(finalized).await;
 	}
 
-	pub async fn submit_at(
+	pub async fn submit_many(
 		&self,
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = ExtrinsicFor<PoolApi>>,
@@ -128,10 +131,17 @@ where
 	pub fn status(&self) -> PoolStatus {
 		self.pool.validated_pool().status()
 	}
+
+	pub fn create_watcher(
+		&self,
+		tx_hash: ExtrinsicHash<PoolApi>,
+	) -> Watcher<ExtrinsicHash<PoolApi>, ExtrinsicHash<PoolApi>> {
+		self.pool.validated_pool().create_watcher(tx_hash)
+	}
 }
 
 //todo: better name: ViewStore?
-pub struct ViewManager<PoolApi, Block>
+pub struct ViewStore<PoolApi, Block>
 where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block>,
@@ -141,70 +151,15 @@ where
 	listener: MultiViewListener<PoolApi>,
 }
 
-#[derive(Debug)]
-pub enum ViewCreationError {
-	AlreadyExists,
-	Unknown,
-	BlockIdConversion,
-}
-
-impl<PoolApi, Block> ViewManager<PoolApi, Block>
+impl<PoolApi, Block> ViewStore<PoolApi, Block>
 where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
 	fn new(api: Arc<PoolApi>, finalized_hash: Block::Hash) -> Self {
-		// let number = api
-		// 	.resolve_block_number(finalized_hash)
-		// 	.map_err(|_| ViewCreationError::BlockIdConversion) //?
-		// 	.unwrap();
-		// let at = HashAndNumber { hash: finalized_hash, number };
-		// let view = Arc::new(View::new(api.clone(), at.clone()));
-		// let views = RwLock::from(HashMap::from([(finalized_hash, view)]));
-		let views = Default::default();
-
-		Self { api, views, listener: MultiViewListener::new() }
+		Self { api, views: Default::default(), listener: MultiViewListener::new() }
 	}
-
-	fn create_new_empty_view_at(&self, hash: Block::Hash) {
-		//todo: error handling
-	}
-
-	// shall be called on block import
-	// todo: shall be moved to ForkAwareTxPool
-	// pub async fn create_new_view_at(
-	// 	&self,
-	// 	hash: Block::Hash,
-	// 	xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
-	// ) -> Result<Arc<View<PoolApi>>, ViewCreationError> {
-	// 	if self.views.read().contains_key(&hash) {
-	// 		return Err(ViewCreationError::AlreadyExists)
-	// 	}
-	//
-	// 	log::info!("create_new_view_at: {hash:?}");
-	//
-	// 	let number = self
-	// 		.api
-	// 		.resolve_block_number(hash)
-	// 		.map_err(|_| ViewCreationError::BlockIdConversion)?;
-	// 	let at = HashAndNumber { hash, number };
-	// 	let view = Arc::new(View::new(self.api.clone(), at.clone()));
-	//
-	// 	//todo: lock or clone?
-	// 	//todo: source?
-	// 	let source = TransactionSource::External;
-	//
-	// 	//todo: internal checked banned: not required any more?
-	// 	let xts = xts.read().clone();
-	// 	let _ = view.pool.submit_at(&at, source, xts).await;
-	// 	self.views.write().insert(hash, view.clone());
-	//
-	// 	// brute force: just revalidate all xts against block
-	// 	// target: find parent, extract all provided tags on enacted path and recompute graph
-	//
-	// 	Ok(view)
-	// }
 
 	/// Imports a bunch of unverified extrinsics to every view
 	pub async fn submit_at(
@@ -213,16 +168,14 @@ where
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>> {
 		let futs = {
-			let g = self.views.read();
-			let futs = g
+			let views = self.views.read();
+			let futs = views
 				.iter()
 				.map(|(hash, view)| {
 					let view = view.clone();
 					//todo: remove this clone (Arc?)
 					let xts = xts.clone();
-					async move {
-						(view.at.hash, view.pool.submit_at(&view.at, source, xts.clone()).await)
-					}
+					async move { (view.at.hash, view.submit_many(source, xts.clone()).await) }
 				})
 				.collect::<Vec<_>>();
 			futs
@@ -238,22 +191,17 @@ where
 		source: TransactionSource,
 		xt: Block::Extrinsic,
 	) -> HashMap<Block::Hash, Result<ExtrinsicHash<PoolApi>, PoolApi::Error>> {
-		let futs = {
-			let g = self.views.read();
-			let futs = g
-				.iter()
-				.map(|(hash, view)| {
-					let view = view.clone();
-					let xt = xt.clone();
-
-					async move { (view.at.hash, view.submit_one(source, xt.clone()).await) }
-				})
-				.collect::<Vec<_>>();
-			futs
-		};
-		let results = futures::future::join_all(futs).await;
-
-		HashMap::<_, _>::from_iter(results.into_iter())
+		let mut output = HashMap::new();
+		let mut result = self.submit_at(source, std::iter::once(xt)).await;
+		result.iter_mut().for_each(|(hash, result)| {
+			output.insert(
+				*hash,
+				result
+					.pop()
+					.expect("for one transaction there shall be exactly one result. qed"),
+			);
+		});
+		output
 	}
 
 	/// Import a single extrinsic and starts to watch its progress in the pool.
@@ -266,15 +214,15 @@ where
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let external_watcher = self.listener.create_external_watcher_for_tx(tx_hash).await;
 		let futs = {
-			let g = self.views.read();
-			let futs = g
+			let views = self.views.read();
+			let futs = views
 				.iter()
 				.map(|(hash, view)| {
 					let view = view.clone();
 					let xt = xt.clone();
 
 					async move {
-						let result = view.submit_and_watch(source, xt.clone()).await;
+						let result = view.submit_and_watch(source, xt).await;
 						if let Ok(watcher) = result {
 							self.listener
 								.add_view_watcher_for_tx(
@@ -309,30 +257,41 @@ where
 	}
 
 	pub fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
-		self.views
-			.read()
-			.iter()
-			.map(|(h, v)| (*h, v.pool.validated_pool().status()))
-			.collect()
+		self.views.read().iter().map(|(h, v)| (*h, v.status())).collect()
 	}
 
 	pub fn is_empty(&self) -> bool {
 		self.views.read().is_empty()
 	}
 
+	/// Finds the best existing view to clone from along the path.
+	/// Allows to include all the transactions from the imported blocks (that are on the retracted
+	/// path). Tip of retracted fork is most recent block processed by txpool.
+	///
+	/// ```text
+	/// Tree route from R1 to E2.
+	///   <- R3 <- R2 <- R1
+	///  /
+	/// C
+	///  \-> E1 -> E2
+	/// ```
+	/// ```text
+	/// Search path is:
+	/// [R1, R2, R3, C, E1, E2]
+	/// ```
 	fn find_best_view(&self, tree_route: &TreeRoute<Block>) -> Option<Arc<View<PoolApi>>> {
 		let views = self.views.read();
 		let best_view = {
 			tree_route
-				.enacted()
+				.retracted()
 				.iter()
-				.rev()
 				.chain(std::iter::once(tree_route.common_block()))
-				.chain(tree_route.retracted().iter().rev())
-				.rev()
+				.chain(tree_route.enacted().iter())
 				.find(|block| views.contains_key(&block.hash))
 		};
-		best_view.map(|h| views.get(&h.hash).expect("best_hash is an existing key.qed").clone())
+		best_view.map(|h| {
+			views.get(&h.hash).expect("hash was just found in the map's keys. qed").clone()
+		})
 	}
 
 	// todo: API change? ready at block?
@@ -348,8 +307,6 @@ where
 		at: Block::Hash,
 	) -> Option<Vec<graph::base_pool::Transaction<graph::ExtrinsicHash<PoolApi>, Block::Extrinsic>>>
 	{
-		// let pool = self.pool.validated_pool().pool.read();
-		// pool.futures().cloned().collect::<Vec<_>>()
 		self.views
 			.read()
 			.get(&at)
@@ -373,20 +330,6 @@ where
 				no_view_blocks.push(*hash);
 			}
 		}
-		// let finalized_view = { self.views.read().get(&finalized_hash).map(|v| v.clone()) };
-		//
-		// let Some(finalized_view) = finalized_view else {
-		// 	log::warn!(
-		// 		target: LOG_TARGET,
-		// 		"Error occurred while attempting to notify watchers about finalization {}",
-		// 		finalized_hash
-		// 	);
-		// 	return;
-		// };
-		//
-		// for hash in tree_route.iter().chain(std::iter::once(&finalized_hash)) {
-		// 	finalized_view.finalize(*hash).await;
-		// }
 	}
 }
 
@@ -547,7 +490,7 @@ where
 	mempool: Arc<TxMemPool<PoolApi, Block>>,
 
 	// todo: is ViewManager strucy really needed? (no)
-	views: Arc<ViewManager<PoolApi, Block>>,
+	view_store: Arc<ViewStore<PoolApi, Block>>,
 	// todo: is ReadyPoll struct really needed? (no)
 	ready_poll: Arc<Mutex<ReadyPoll<super::ReadyIteratorFor<PoolApi>, Block>>>,
 	// current tree? (somehow similar to enactment state?)
@@ -577,7 +520,7 @@ where
 		Self {
 			mempool: Arc::from(TxMemPool::new(pool_api.clone())),
 			api: pool_api.clone(),
-			views: Arc::new(ViewManager::new(pool_api, finalized_hash)),
+			view_store: Arc::new(ViewStore::new(pool_api, finalized_hash)),
 			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
 			enactment_state: Arc::new(Mutex::new(EnactmentState::new(
 				best_block_hash,
@@ -594,16 +537,16 @@ where
 
 	//todo: this should be new TransactionPool API?
 	pub fn status_all(&self) -> HashMap<Block::Hash, PoolStatus> {
-		self.views.status()
+		self.view_store.status()
 	}
 
 	//todo:naming? maybe just views()
 	pub fn views_len(&self) -> usize {
-		self.views.views.read().len()
+		self.view_store.views.read().len()
 	}
 
 	pub fn has_view(&self, hash: Block::Hash) -> bool {
-		self.views.views.read().get(&hash).is_some()
+		self.view_store.views.read().get(&hash).is_some()
 	}
 
 	pub fn mempool_len(&self) -> (usize, usize) {
@@ -611,8 +554,34 @@ where
 	}
 }
 
-//todo: naming + doc!
-fn xxxx<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
+//todo: naming + better doc!
+/// Converts the input view-to-statuses map into the output vector of statuses.
+///
+/// The result of importing a bunch of transactions into a single view is the vector of statuses.
+/// Every item represents a status for single transaction. The input is the map that associates
+/// hash-views with vectors indicating the statuses of transactions imports.
+///
+/// Import to multiple views result in two-dimensional array of statuses, which is provided as
+/// input map.
+///
+/// This function converts the map into the vec of results, according to the following rules:
+/// - for given transaction if at least one status is success, then output vector contains success,
+/// - if given transaction status is error for every view, then output vector contains error.
+///
+/// The results for transactions are in the same order for every view. An output vector preserves
+/// this order.
+///
+/// ```skip
+/// in:
+/// view  |   xt0 status | xt1 status | xt2 status
+/// h1   -> [ Ok(xth0),    Ok(xth1),    Err       ]
+/// h2   -> [ Ok(xth0),    Err,         Err       ]
+/// h3   -> [ Ok(xth0),    Ok(xth1),    Err       ]
+///
+/// out:
+/// [ Ok(xth0), Ok(xth1), Err ]
+/// ```
+fn reduce_multiview_result<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
 	let mut values = input.values();
 	let Some(first) = values.next() else {
 		return Default::default();
@@ -638,10 +607,10 @@ fn xxxx<H, E>(input: &mut HashMap<H, Vec<Result<H, E>>>) -> Vec<Result<H, E>> {
 }
 
 #[cfg(test)]
-mod xxxx_test {
+mod reduce_multiview_result_tests {
 	use super::*;
 	use sp_core::H256;
-	#[derive(Debug, PartialEq)]
+	#[derive(Debug, PartialEq, Clone)]
 	enum Error {
 		Custom(u8),
 	}
@@ -650,7 +619,7 @@ mod xxxx_test {
 	fn empty() {
 		sp_tracing::try_init_simple();
 		let mut input = HashMap::default();
-		let r = xxxx::<H256, Error>(&mut input);
+		let r = reduce_multiview_result::<H256, Error>(&mut input);
 		assert!(r.is_empty());
 	}
 
@@ -686,19 +655,11 @@ mod xxxx_test {
 				],
 			),
 		];
-		let mut input = HashMap::from_iter(v);
-		let r = xxxx(&mut input);
+		let mut input = HashMap::from_iter(v.clone());
+		let r = reduce_multiview_result(&mut input);
 
-		let x: Option<(u8, usize)> = r.into_iter().fold(None, |h, e| match (h, e) {
-			(None, Err(Error::Custom(n))) => Some((n, 1)),
-			(Some((h, count)), Err(Error::Custom(n))) => {
-				assert_eq!(h + 1, n);
-				Some((n, count + 1))
-			},
-			_ => panic!(),
-		});
-		assert_eq!(x.unwrap().0 % 10, 3);
-		assert_eq!(x.unwrap().1, 4);
+		//order in HashMap is random, the result shall be one of:
+		assert!(r == v[0].1 || r == v[1].1 || r == v[2].1);
 	}
 
 	#[test]
@@ -710,7 +671,7 @@ mod xxxx_test {
 			(H256::repeat_byte(0x14), vec![Err(Error::Custom(23))]),
 		];
 		let mut input = HashMap::from_iter(v);
-		let r = xxxx(&mut input);
+		let r = reduce_multiview_result(&mut input);
 	}
 
 	#[test]
@@ -720,17 +681,30 @@ mod xxxx_test {
 		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![
 			(
 				H256::repeat_byte(0x13),
-				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x13))],
+				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))],
 			),
 			(
 				H256::repeat_byte(0x14),
-				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x13))],
+				vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))],
 			),
 		];
 		let mut input = HashMap::from_iter(v);
-		let r = xxxx(&mut input);
+		let r = reduce_multiview_result(&mut input);
 
-		assert_eq!(r, vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x13))]);
+		assert_eq!(r, vec![Ok(H256::repeat_byte(0x13)), Ok(H256::repeat_byte(0x14))]);
+	}
+
+	#[test]
+	fn one_view() {
+		sp_tracing::try_init_simple();
+		let v: Vec<(H256, Vec<Result<H256, Error>>)> = vec![(
+			H256::repeat_byte(0x13),
+			vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))],
+		)];
+		let mut input = HashMap::from_iter(v);
+		let r = reduce_multiview_result(&mut input);
+
+		assert_eq!(r, vec![Ok(H256::repeat_byte(0x10)), Err(Error::Custom(11))]);
 	}
 
 	#[test]
@@ -766,7 +740,7 @@ mod xxxx_test {
 			),
 		];
 		let mut input = HashMap::from_iter(v);
-		let r = xxxx(&mut input);
+		let r = reduce_multiview_result(&mut input);
 
 		assert_eq!(
 			r,
@@ -797,11 +771,11 @@ where
 		source: TransactionSource,
 		xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
-		let views = self.views.clone();
+		let view_store = self.view_store.clone();
 		self.mempool.extend_unwatched(xts.clone());
 		let xts = xts.clone();
 
-		if views.is_empty() {
+		if view_store.is_empty() {
 			return future::ready(Ok(xts
 				.iter()
 				.map(|xt| {
@@ -818,8 +792,8 @@ where
 		// 	.report(|metrics| metrics.submitted_transactions.inc_by(xts.len() as u64));
 
 		async move {
-			let mut results_map = views.submit_at(source, xts).await;
-			Ok(xxxx(&mut results_map))
+			let mut results_map = view_store.submit_at(source, xts).await;
+			Ok(reduce_multiview_result(&mut results_map))
 		}
 		.boxed()
 	}
@@ -832,7 +806,7 @@ where
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
-		let views = self.views.clone();
+		let views = self.view_store.clone();
 		self.mempool.push_unwatched(xt.clone());
 
 		if views.is_empty() {
@@ -866,14 +840,14 @@ where
 		source: TransactionSource,
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
-		let views = self.views.clone();
+		let view_store = self.view_store.clone();
 		self.mempool.push_watched(xt.clone());
 
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		async move {
-			let result = views.submit_and_watch(at, source, xt).await;
+			let result = view_store.submit_and_watch(at, source, xt).await;
 			match result {
 				Ok(watcher) => Ok(watcher),
 				Err(err) => Err(err),
@@ -924,7 +898,7 @@ where
 
 	// todo: API change? ready at hash (not number)?
 	fn ready_at(&self, at: <Self::Block as BlockT>::Hash) -> super::PolledIterator<PoolApi> {
-		if let Some(view) = self.views.views.read().get(&at) {
+		if let Some(view) = self.view_store.views.read().get(&at) {
 			let iterator: super::ReadyIteratorFor<PoolApi> =
 				Box::new(view.pool.validated_pool().ready());
 			return async move { iterator }.boxed();
@@ -943,11 +917,11 @@ where
 	}
 
 	fn ready(&self, at: <Self::Block as BlockT>::Hash) -> Option<super::ReadyIteratorFor<PoolApi>> {
-		self.views.ready(at)
+		self.view_store.ready(at)
 	}
 
 	fn futures(&self, at: <Self::Block as BlockT>::Hash) -> Option<Vec<Self::InPoolTransaction>> {
-		self.views.futures(at)
+		self.view_store.futures(at)
 	}
 }
 
@@ -996,7 +970,7 @@ where
 			},
 		};
 
-		if self.views.views.read().contains_key(&hash_and_number.hash) {
+		if self.view_store.views.read().contains_key(&hash_and_number.hash) {
 			log::debug!(
 				target: LOG_TARGET,
 				"view already exists for block: {:?}",
@@ -1005,7 +979,7 @@ where
 			return
 		}
 
-		let best_view = self.views.find_best_view(tree_route);
+		let best_view = self.view_store.find_best_view(tree_route);
 		let new_view = if let Some(best_view) = best_view {
 			self.build_cloned_view(best_view, hash_and_number, tree_route).await
 		} else {
@@ -1024,7 +998,7 @@ where
 	) -> Option<Arc<View<PoolApi>>> {
 		//todo: handle errors during creation (log?)
 
-		if self.views.views.read().contains_key(&at.hash) {
+		if self.view_store.views.read().contains_key(&at.hash) {
 			return None;
 		}
 
@@ -1037,7 +1011,7 @@ where
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
 
 		let view = Arc::new(view);
-		self.views.views.write().insert(at.hash, view.clone());
+		self.view_store.views.write().insert(at.hash, view.clone());
 
 		{
 			let view = view.clone();
@@ -1057,7 +1031,7 @@ where
 	) -> Option<Arc<View<PoolApi>>> {
 		log::info!("build_cloned_view: for: {:?} from: {:?}", at.hash, origin_view.at.hash);
 		let new_block_hash = at.hash;
-		let mut view = View { at: at.clone(), pool: origin_view.pool.deep_clone() };
+		let mut view = View::new_from_other(&origin_view, at);
 
 		//todo: this cloning probably has some flaws. It is possible that tx should be watched, but
 		//was removed from original view (e.g. runtime upgrade)
@@ -1068,8 +1042,8 @@ where
 			.watched_transactions()
 			.iter()
 			.map(|tx_hash| {
-				let watcher = view.pool.validated_pool().create_watcher(*tx_hash);
-				self.views.listener.add_view_watcher_for_tx(
+				let watcher = view.create_watcher(*tx_hash);
+				self.view_store.listener.add_view_watcher_for_tx(
 					*tx_hash,
 					at.hash,
 					watcher.into_stream().boxed(),
@@ -1087,7 +1061,7 @@ where
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
 		self.update_view(&mut view).await;
 		let view = Arc::from(view);
-		self.views.views.write().insert(new_block_hash, view.clone());
+		self.view_store.views.write().insert(new_block_hash, view.clone());
 
 		{
 			let view = view.clone();
@@ -1113,7 +1087,7 @@ where
 		let xts = self.mempool.clone_unwatched();
 
 		//todo: internal checked banned: not required any more?
-		let _ = view.pool.submit_at(&view.at, source, xts).await;
+		let _ = view.submit_many(source, xts).await;
 		let view = Arc::from(view);
 
 		let futs = {
@@ -1124,7 +1098,7 @@ where
 					let view = view.clone();
 					async move {
 						let tx_hash = self.hash_of(&t);
-						let result = view.pool.submit_and_watch(&view.at, source, t.clone()).await;
+						let result = view.submit_and_watch(source, t.clone()).await;
 						let watcher = result.map_or_else(
 							|error| {
 								let error = error.into_pool_error();
@@ -1138,7 +1112,7 @@ where
 									// transaction being already included in the block we want to
 									// send inblock + finalization event.
 									Ok(Error::InvalidTransaction(InvalidTransaction::Stale)) =>
-										Some(view.pool.validated_pool().create_watcher(tx_hash)),
+										Some(view.create_watcher(tx_hash)),
 									//ignore
 									Ok(
 										Error::TemporarilyBanned |
@@ -1157,7 +1131,7 @@ where
 						);
 
 						if let Some(watcher) = watcher {
-							self.views
+							self.view_store
 								.listener
 								.add_view_watcher_for_tx(
 									tx_hash,
@@ -1228,7 +1202,7 @@ where
 				let mut resubmitted_to_report = 0;
 
 				resubmit_transactions.extend(block_transactions.into_iter().filter(|tx| {
-					let tx_hash = view.pool.hash_of(tx);
+					let tx_hash = self.api.hash_and_length(tx).0;
 					let contains = pruned_log.contains(&tx_hash);
 
 					// need to count all transactions, not just filtered, here
@@ -1269,24 +1243,11 @@ where
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 		log::info!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?}");
 
-		// if !self.views.views.read().contains_key(&finalized_hash) {
-		// 	if tree_route.is_empty() {
-		// 		log::info!("Creating new view for finalized block: {}", finalized_hash);
-		// 		self.create_new_view_at(finalized_hash).await;
-		// 	} else {
-		// 		//convert &[Hash] to TreeRoute
-		// 		let tree_route = self.api.tree_route(tree_route[0],
-		// tree_route[tree_route.len()-1]).expect( 			"Tree route between currently and recently
-		// finalized blocks must exist. qed", 		);
-		// 		self.handle_new_block(finalized_hash, &tree_route).await;
-		// 	}
-		// }
-
-		self.views.finalize_route(finalized_hash, tree_route).await;
+		self.view_store.finalize_route(finalized_hash, tree_route).await;
 		log::info!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_len());
 		{
 			//clean up older then finalized
-			let mut views = self.views.views.write();
+			let mut views = self.view_store.views.write();
 			views.retain(|hash, v| match finalized_number {
 				Err(_) | Ok(None) => *hash == finalized_hash,
 				Ok(Some(n)) if v.at.number == n => *hash == finalized_hash,
