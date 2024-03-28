@@ -93,3 +93,7 @@ sp-version = { path = "../../substrate/primitives/version" }
 
 # XCM
 xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
+
+# Packages defined right here
+polkadot-sdk-docs-packages-guides-first-pallet = { path = "./packages/guides/first-pallet" }
+polkadot-sdk-docs-packages-guides-first-runtime = { path = "./packages/guides/first-runtime" }

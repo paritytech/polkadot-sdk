@@ -106,3 +106,7 @@ pub mod frame_offchain_workers;
 /// Learn about the different ways through which multiple [`frame`] pallets can be combined to work
 /// together.
 pub mod frame_pallet_coupling;
+
+/// Learn about RPC and Runtime APIs, and how frame pallets can expose their custom versions of
+/// each.
+pub mod frame_rpc_runtime_apis;

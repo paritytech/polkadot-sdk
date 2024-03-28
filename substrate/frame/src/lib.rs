@@ -147,6 +147,9 @@ pub mod runtime {
 		/// All of the types related to the FRAME runtime executive.
 		pub use frame_executive::*;
 
+		/// Some fee related types.
+		pub use frame_support::weights::{FeePolynomial, FixedFee, IdentityFee, NoFee};
+
 		/// Macro to amalgamate the runtime into `struct Runtime`.
 		pub use frame_support::construct_runtime;
 

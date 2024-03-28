@@ -13393,6 +13393,8 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-utility",
  "parity-scale-codec",
+ "polkadot-sdk-docs-packages-guides-first-pallet",
+ "polkadot-sdk-docs-packages-guides-first-runtime",
  "sc-cli",
  "sc-client-db",
  "sc-consensus-aura",
@@ -13419,6 +13421,34 @@ dependencies = [
  "staging-parachain-info",
  "staging-xcm",
  "subkey",
+ "substrate-wasm-builder",
+]
+
+[[package]]
+name = "polkadot-sdk-docs-packages-guides-first-pallet"
+version = "0.0.0"
+dependencies = [
+ "docify 0.2.7",
+ "frame",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
+name = "polkadot-sdk-docs-packages-guides-first-runtime"
+version = "0.0.0"
+dependencies = [
+ "docify 0.2.7",
+ "frame",
+ "pallet-balances",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "polkadot-sdk-docs-packages-guides-first-pallet",
+ "scale-info",
+ "sp-genesis-builder",
  "substrate-wasm-builder",
 ]
 

@@ -134,6 +134,8 @@ members = [
 	"cumulus/test/service",
 	"cumulus/xcm/xcm-emulator",
 	"docs/sdk",
+	"docs/sdk/packages/guides/first-pallet",
+	"docs/sdk/packages/guides/first-runtime",
 	"polkadot",
 	"polkadot/cli",
 	"polkadot/core-primitives",
