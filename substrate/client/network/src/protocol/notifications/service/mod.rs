@@ -338,16 +338,9 @@ impl NotificationService for NotificationHandle {
 	// Clone [`NotificationService`]
 	fn clone(&mut self) -> Result<Box<dyn NotificationService>, ()> {
 		let mut subscribers = self.subscribers.lock();
-		let protocol_name = self.protocol.to_string();
-		let keys = protocol_name.split("/").collect::<Vec<_>>();
-		let metric_name = keys
-			.iter()
-			.rev()
-			.take(2) // Last two tokens gives the protocol name and version
-			.fold("mpsc-notification-to-protocol".into(), |acc, val| format!("{}-{}", acc, val));
-		log::info!(target: LOG_TARGET, "Register metric name after clone {:}", metric_name);
 
-		let (event_tx, event_rx) = tracing_unbounded(metric_name.as_str(), 100_000);
+		let (event_tx, event_rx) =
+			tracing_unbounded(metric_name_for_protocol(&self.protocol).as_str(), 100_000);
 		subscribers.push(event_tx);
 
 		Ok(Box::new(NotificationHandle {
@@ -633,19 +626,24 @@ pub fn notification_service(
 	protocol: ProtocolName,
 ) -> (ProtocolHandlePair, Box<dyn NotificationService>) {
 	let (cmd_tx, cmd_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
-	let protocol_name = protocol.to_string();
-	let keys = protocol_name.split("/").collect::<Vec<_>>();
-	let metric_name = keys
-		.iter()
-		.rev()
-		.take(2) // Last two tokens gives the protocol name and version
-		.fold("mpsc-notification-to-protocol".into(), |acc, val| format!("{}-{}", acc, val));
-	log::info!(target: LOG_TARGET, "Register metric name {:}", metric_name);
-	let (event_tx, event_rx) = tracing_unbounded(metric_name.as_str(), 100_000);
+
+	let (event_tx, event_rx) =
+		tracing_unbounded(metric_name_for_protocol(&protocol).as_str(), 100_000);
 	let subscribers = Arc::new(Mutex::new(vec![event_tx]));
 
 	(
 		ProtocolHandlePair::new(protocol.clone(), subscribers.clone(), cmd_rx),
 		Box::new(NotificationHandle::new(protocol.clone(), cmd_tx, event_rx, subscribers)),
 	)
+}
+
+// Decorates the mpsc-notification-to-protocol metric with the name of the protocol,
+// to be able to distiguish between different protocols in dashboards.
+fn metric_name_for_protocol(protocol: &ProtocolName) -> String {
+	let protocol_name = protocol.to_string();
+	let keys = protocol_name.split("/").collect::<Vec<_>>();
+	keys.iter()
+		.rev()
+		.take(2) // Last two tokens give the protocol name and version
+		.fold("mpsc-notification-to-protocol".into(), |acc, val| format!("{}-{}", acc, val))
 }
