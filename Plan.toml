@@ -3459,5 +3459,5 @@ publish = false
 
 [[crate]]
 name = "pallet-balances"
-from = "31.0.0"
-to = "32.0.0"
+from = "29.0.0"
+to = "29.0.1"
