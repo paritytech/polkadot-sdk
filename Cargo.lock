@@ -22453,6 +22453,7 @@ dependencies = [
 name = "xcm-fee-payment-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "frame-executive",
  "frame-support",
  "frame-system",
  "pallet-balances",

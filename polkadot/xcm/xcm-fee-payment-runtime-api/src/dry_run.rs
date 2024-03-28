@@ -17,23 +17,28 @@
 //! Runtime API definition for getting xcm transfer messages.
 //! These messages can be used to get the fees that need to be paid.
 
+use codec::{Encode, Decode};
+use frame_support::pallet_prelude::TypeInfo;
 use sp_std::vec::Vec;
+use sp_runtime::traits::Block as BlockT;
 use xcm::prelude::*;
 
+#[derive(Encode, Decode, Debug, TypeInfo)]
+pub struct XcmDryRunEffects {
+    pub local_program: Xcm<()>,
+}
+
 sp_api::decl_runtime_apis! {
-    /// API for obtaining the messages for different types of cross-chain transfers.
+    /// API for dry-running extrinsics and XCM programs to get the programs that need to be passed to the fees API.
     ///
     /// All calls return a vector of tuples (location, xcm) where each "xcm" is executed in "location".
     /// If there's local execution, the location will be "Here".
     /// This vector can be used to calculate both execution and delivery fees.
-	pub trait XcmTransfersApi {
-        /// Generic transfer, will figure out if it's a teleport or a reserve transfer.
-		fn transfer_assets() -> Vec<(Location, Xcm<()>)>;
+	pub trait XcmDryRunApi {
+        /// Dry run extrinsic.
+        fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects, ()>;
 
-        /// Returns messages for a teleport.
-		fn teleport_assets(dest: Location, beneficiary: Location, assets: Assets) -> Vec<(VersionedLocation, VersionedXcm<()>)>;
-
-        /// Returns messages for a reserve transfer.
-		fn reserve_transfer_assets() -> Vec<(Location, Xcm<()>)>;
+        /// Dry run XCM program
+        fn dry_run_xcm(xcm: Xcm<()>) -> Result<XcmDryRunEffects, ()>;
 	}
 }

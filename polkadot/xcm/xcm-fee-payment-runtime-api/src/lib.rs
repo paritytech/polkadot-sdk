@@ -27,9 +27,9 @@
 /// Main API.
 /// Estimates fees.
 mod fees;
-/// Transfers API.
+/// Dry-run API.
 /// Returns the messages that need to be passed to the fees API.
-mod transfers;
+mod dry_run;
 
 pub use fees::{XcmPaymentApi, Error as XcmPaymentApiError};
-pub use transfers::XcmTransfersApi;
+pub use dry_run::{XcmDryRunApi, XcmDryRunEffects};

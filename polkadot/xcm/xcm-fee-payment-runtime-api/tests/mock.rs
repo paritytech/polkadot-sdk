@@ -25,12 +25,13 @@ use frame_support::{
     weights::WeightToFee as WeightToFeeT,
 };
 use pallet_xcm::TestWeightInfo;
-use sp_runtime::{AccountId32, traits::IdentityLookup, SaturatedConversion};
+use sp_runtime::{AccountId32, traits::{IdentityLookup, Block as BlockT}, SaturatedConversion};
+use sp_std::cell::RefCell;
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{EnsureXcmOrigin, FixedWeightBounds, IsConcrete};
 use xcm_executor::XcmExecutor;
 
-use xcm_fee_payment_runtime_api::{XcmTransfersApi, XcmPaymentApi, XcmPaymentApiError};
+use xcm_fee_payment_runtime_api::{XcmDryRunApi, XcmPaymentApi, XcmPaymentApiError, XcmDryRunEffects};
 
 construct_runtime! {
     pub enum Test {
@@ -43,6 +44,15 @@ construct_runtime! {
 type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;
 type AccountId = AccountId32;
+
+type Executive = frame_executive::Executive<
+    Test,
+    Block,
+    frame_system::ChainContext<Test>,
+    Test,
+    AllPalletsWithSystem,
+    (),
+>;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -59,8 +69,16 @@ impl pallet_balances::Config for Test {
     type ExistentialDeposit = ConstU128<1>;
 }
 
-pub struct TestSendXcm;
-impl SendXcm for TestSendXcm {
+thread_local! {
+    pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
+}
+
+pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
+    SENT_XCM.with(|q| (*q.borrow()).clone())
+}
+
+pub struct TestXcmSender;
+impl SendXcm for TestXcmSender {
     type Ticket = (Location, Xcm<()>);
     fn validate(
         dest: &mut Option<Location>,
@@ -72,6 +90,7 @@ impl SendXcm for TestSendXcm {
     }
     fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
         let hash = fake_message_hash(&ticket.1);
+        SENT_XCM.with(|q| q.borrow_mut().push(ticket));
         Ok(hash)
     }
 }
@@ -80,7 +99,7 @@ fn fake_message_hash<Call>(message: &Xcm<Call>) -> XcmHash {
     message.using_encoded(sp_io::hashing::blake2_256)
 }
 
-pub type XcmRouter = TestSendXcm;
+pub type XcmRouter = TestXcmSender;
 
 parameter_types! {
     pub const BaseXcmWeight: Weight = Weight::from_parts(1_000_000_000_000, 1024 * 1024);
@@ -201,35 +220,30 @@ sp_api::mock_impl_runtime_apis! {
         }
     }
 
-    impl XcmTransfersApi<Block> for RuntimeApi {
-        fn transfer_assets() -> Vec<(Location, Xcm<()>)> {
-            todo!()
+    impl XcmDryRunApi<Block> for RuntimeApi {
+        fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects, ()> {
+            match extrinsic.function {
+                RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
+                    dest,
+                    beneficiary,
+                    assets,
+                    fee_asset_item,
+                    weight_limit,
+                }) => {
+                    let assets: Assets = (*assets).try_into().map_err(|()| ())?;
+                    Executive::apply_extrinsic(extrinsic);
+                    Ok(XcmDryRunEffects {
+                        local_program: Xcm::builder_unsafe()
+                            .withdraw_asset(assets.clone())
+                            .burn_asset(assets)
+                            .build(),
+                    })
+                },
+                _ => Err(()),
+            }
         }
-        fn teleport_assets(
-			dest: Location,
-			beneficiary: Location,
-			assets: Assets,
-        ) -> Vec<(VersionedLocation, VersionedXcm<()>)> {
-			vec![
-				(
-					VersionedLocation::V4(Here.into()),
-					VersionedXcm::V4(Xcm(vec![
-						WithdrawAsset(assets.clone()),
-						BurnAsset(assets.clone()),
-					])),
-				),
-				(
-					VersionedLocation::V4(dest),
-					VersionedXcm::V4(Xcm(vec![
-						ReceiveTeleportedAsset(assets.clone()),
-						ClearOrigin,
-                        BuyExecution { fees: (Here, 100u128).into(), weight_limit: Unlimited },
-                        DepositAsset { assets: Wild(All), beneficiary },
-					])),
-				),
-			]
-        }
-        fn reserve_transfer_assets() -> Vec<(Location, Xcm<()>)> {
+
+        fn dry_run_xcm(xcm: Xcm<()>) -> Result<XcmDryRunEffects, ()> {
             todo!()
         }
     }

@@ -18,7 +18,7 @@
 
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::testing::H256;
-use xcm_fee_payment_runtime_api::{XcmPaymentApi, XcmTransfersApi};
+use xcm_fee_payment_runtime_api::{XcmPaymentApi, XcmDryRunApi};
 use xcm::prelude::*;
 
 mod mock;
@@ -28,12 +28,14 @@ use mock::{TestClient, HereLocation};
 fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
     let client = TestClient;
     let runtime_api = client.runtime_api();
-    let messages = runtime_api.teleport_assets(
+    // TODO: Build extrinsic
+        // (Parent, Parachain(1000)).into(),
+        // AccountId32 { id: [0u8; 32], network: None }.into(),
+        // (Here, 100u128).into(),
+    let messages = runtime_api.dry_run_extrinsic(
         H256::zero(),
-        (Parent, Parachain(1000)).into(),
-        AccountId32 { id: [0u8; 32], network: None }.into(),
-        (Here, 100u128).into(),
-    ).unwrap();
+        extrinsic,
+    ).unwrap().unwrap();
     // assert_eq!(messages, [...]);
 
     let mut messages_iter = messages.iter();

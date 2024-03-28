@@ -33,6 +33,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", defaul
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
+frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
 
 [features]
 default = ["std"]
@@ -51,4 +52,5 @@ std = [
 	"sp-io/std",
 	"pallet-balances/std",
 	"xcm-executor/std",
+	"frame-executive/std",
 ]
