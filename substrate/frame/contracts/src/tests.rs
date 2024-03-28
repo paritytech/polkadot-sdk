@@ -1347,7 +1347,7 @@ fn transfer_expendable_cannot_kill_account() {
 }
 
 #[test]
-fn cannot_self_destruct_through_draning() {
+fn cannot_self_destruct_through_draining() {
 	let (wasm, _code_hash) = compile_module::<Test>("drain").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
@@ -1662,7 +1662,7 @@ fn cannot_self_destruct_in_constructor() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Fail to instantiate the BOB because the contructor calls seal_terminate.
+		// Fail to instantiate the BOB because the constructor calls seal_terminate.
 		assert_err_ignore_postinfo!(
 			Contracts::instantiate_with_code(
 				RuntimeOrigin::signed(ALICE),
@@ -5096,7 +5096,7 @@ fn cannot_instantiate_indeterministic_code() {
 			<Error<Test>>::CodeRejected,
 		);
 
-		// Try to upload a non deterministic code as deterministic
+		// Try to upload a non-deterministic code as deterministic
 		assert_err!(
 			Contracts::upload_code(
 				RuntimeOrigin::signed(ALICE),
@@ -5176,7 +5176,7 @@ fn cannot_instantiate_indeterministic_code() {
 			<Error<Test>>::Indeterministic,
 		);
 
-		// Instantiations are not allowed even in non determinism mode
+		// Instantiations are not allowed even in non-determinism mode
 		assert_err!(
 			<Pallet<Test>>::bare_call(
 				ALICE,
@@ -5202,7 +5202,7 @@ fn cannot_set_code_indeterministic_code() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Put the non deterministic contract on-chain
+		// Put the non-deterministic contract on-chain
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
 			wasm,
@@ -5226,7 +5226,7 @@ fn cannot_set_code_indeterministic_code() {
 		.unwrap()
 		.account_id;
 
-		// We do not allow to set the code hash to a non determinstic wasm
+		// We do not allow to set the code hash to a non-deterministic wasm
 		assert_err!(
 			<Pallet<Test>>::bare_call(
 				ALICE,
@@ -5252,7 +5252,7 @@ fn delegate_call_indeterministic_code() {
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Put the non deterministic contract on-chain
+		// Put the non-deterministic contract on-chain
 		assert_ok!(Contracts::upload_code(
 			RuntimeOrigin::signed(ALICE),
 			wasm,
@@ -5293,7 +5293,7 @@ fn delegate_call_indeterministic_code() {
 			<Error<Test>>::Indeterministic,
 		);
 
-		// The delegate call will work on non deterministic mode
+		// The delegate call will work on non-deterministic mode
 		assert_ok!(
 			<Pallet<Test>>::bare_call(
 				ALICE,
@@ -5429,7 +5429,7 @@ fn locking_delegate_dependency_works() {
 			contract.storage_base_deposit() - ED
 		);
 
-		// Removing an unexisting dependency should fail.
+		// Removing a nonexistent dependency should fail.
 		assert_err!(
 			call(&addr_caller, &unlock_delegate_dependency_input).result,
 			Error::<Test>::DelegateDependencyNotFound

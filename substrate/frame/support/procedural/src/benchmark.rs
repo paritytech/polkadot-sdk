@@ -249,7 +249,7 @@ impl BenchmarkCallDef {
 	}
 }
 
-/// Represents a parsed `#[benchmark]` or `#[instance_banchmark]` item.
+/// Represents a parsed `#[benchmark]` or `#[instance_benchmark]` item.
 #[derive(Clone)]
 struct BenchmarkDef {
 	params: Vec<ParamDef>,
@@ -466,7 +466,7 @@ pub fn benchmarks(
 	let mod_vis = module.vis;
 	let mod_name = module.ident;
 
-	// consume #[benchmarks] attribute by exclusing it from mod_attrs
+	// consume #[benchmarks] attribute by excluding it from mod_attrs
 	let mod_attrs: Vec<&Attribute> = module
 		.attrs
 		.iter()

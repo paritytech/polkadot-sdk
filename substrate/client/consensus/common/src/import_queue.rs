@@ -133,7 +133,7 @@ pub trait ImportQueue<B: BlockT>: Send {
 	/// Start asynchronous runner for import queue.
 	///
 	/// Takes an object implementing [`Link`] which allows the import queue to
-	/// influece the synchronization process.
+	/// influence the synchronization process.
 	async fn run(self, link: Box<dyn Link<B>>);
 }
 
