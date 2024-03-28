@@ -28,7 +28,8 @@ jobs:
       - name: Copy bench results
         id: step_one
         run: |
-          cp bench/gitlab/${{ github.event.inputs.output-file-path }} ${{ github.event.inputs.output-file-path }}
+          # cp bench/gitlab/${{ github.event.inputs.output-file-path }} ${{ github.event.inputs.output-file-path }}
+          cp bench/gitlab/availability-distribution-regression-bench.json availability-distribution-regression-bench.json
 
       - name: Switch branch
         id: step_two
