@@ -32,7 +32,7 @@ xcm = { package = "staging-xcm", path = "../../../xcm", default-features = false
 default = ["std"]
 no_std = []
 std = [
-	"frame-benchmarking?/std",
+	"frame-benchmarking/std",
 	"frame-election-provider-support/std",
 	"frame-support/std",
 	"frame-system/std",
