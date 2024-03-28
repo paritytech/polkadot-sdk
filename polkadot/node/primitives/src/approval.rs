@@ -382,7 +382,7 @@ pub mod v2 {
 			/// The core index chosen in this cert.
 			core_index: CoreIndex,
 		},
-		/// Deprectated assignment. Soon to be removed.
+		/// Deprecated assignment. Soon to be removed.
 		///  An assignment story based on the VRF that authorized the relay-chain block where the
 		/// candidate was included combined with a sample number.
 		///

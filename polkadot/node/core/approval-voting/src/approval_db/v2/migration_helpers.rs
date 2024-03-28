@@ -79,7 +79,7 @@ pub fn v1_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
 			block.candidates().iter().enumerate()
 		{
 			// Loading the candidate will also perform the conversion to the updated format and
-			// return that represantation.
+			// return that representation.
 			if let Some(candidate_entry) = backend
 				.load_candidate_entry_v1(&candidate_hash, candidate_index as CandidateIndex)
 				.map_err(|e| Error::InternalError(e))?

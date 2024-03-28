@@ -193,7 +193,7 @@ pub struct HostFnWeights<T: Config> {
 	/// Weight of calling `seal_set_storage`.
 	pub set_storage: Weight,
 
-	/// Weight per written byten of an item stored with `seal_set_storage`.
+	/// Weight per written byte of an item stored with `seal_set_storage`.
 	pub set_storage_per_new_byte: Weight,
 
 	/// Weight per overwritten byte of an item stored with `seal_set_storage`.

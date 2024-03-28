@@ -2148,6 +2148,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
+ "parity-scale-codec",
  "rococo-westend-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
@@ -9552,6 +9553,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-utility",
  "parity-scale-codec",
+ "paste",
  "pretty_assertions",
  "rand",
  "rand_pcg",
@@ -11188,6 +11190,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -13540,12 +13543,14 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
+ "staging-xcm",
  "substrate-prometheus-endpoint",
  "tempfile",
  "thiserror",
  "tracing-gum",
  "westend-runtime",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -13644,6 +13649,7 @@ dependencies = [
  "sc-service",
  "schnorrkel 0.11.4",
  "serde",
+ "serde_json",
  "serde_yaml",
  "sha1",
  "sp-application-crypto",
@@ -15115,6 +15121,7 @@ dependencies = [
  "substrate-wasm-builder",
  "tiny-keccak",
  "tokio",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -15555,6 +15562,7 @@ dependencies = [
  "futures-timer",
  "ip_network",
  "libp2p",
+ "linked_hash_set",
  "log",
  "multihash 0.18.1",
  "multihash-codetable",
@@ -21968,6 +21976,7 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "westend-runtime-constants",
+ "xcm-fee-payment-runtime-api",
 ]
 
 [[package]]
@@ -22439,6 +22448,20 @@ dependencies = [
  "sp-tracing 16.0.0",
  "staging-xcm",
  "staging-xcm-executor",
+]
+
+[[package]]
+name = "xcm-fee-payment-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "sp-weights",
+ "staging-xcm",
 ]
 
 [[package]]
