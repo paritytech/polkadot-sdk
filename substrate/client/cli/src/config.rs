@@ -428,8 +428,10 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	/// By default this is retrieved from `NodeKeyParams` if it is available. Otherwise its
 	/// `NodeKeyConfig::default()`.
 	fn node_key(&self, net_config_dir: &PathBuf) -> Result<NodeKeyConfig> {
+		let is_dev = self.is_dev()?;
+		let role = self.role(is_dev)?;
 		self.node_key_params()
-			.map(|x| x.node_key(net_config_dir))
+			.map(|x| x.node_key(net_config_dir, role, is_dev))
 			.unwrap_or_else(|| Ok(Default::default()))
 	}
 
