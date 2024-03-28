@@ -13,7 +13,6 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 inherents = { package = "sp-inherents", path = "../../../../substrate/primitives/inherents", default-features = false }
-sp-std = { package = "sp-std", path = "../../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
 sp-session = { path = "../../../../substrate/primitives/session", default-features = false }
@@ -73,7 +72,6 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
