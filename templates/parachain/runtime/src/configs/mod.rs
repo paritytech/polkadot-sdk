@@ -50,9 +50,6 @@ use sp_runtime::Perbill;
 use sp_version::RuntimeVersion;
 use xcm::latest::prelude::BodyId;
 
-// Template pallet import
-pub use pallet_parachain_template;
-
 // Local module imports
 use super::{
 	weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
