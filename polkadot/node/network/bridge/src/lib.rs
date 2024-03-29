@@ -122,7 +122,7 @@ fn note_peers_count(metrics: &Metrics, shared: &Shared) {
 	}
 
 	for (version, count) in collation_stats {
-		metrics.note_peer_count(PeerSet::Validation, version, count)
+		metrics.note_peer_count(PeerSet::Collation, version, count)
 	}
 }
 
