@@ -305,10 +305,22 @@ impl<T: Config> DelegateeSupport for Pallet<T> {
 	}
 
 	fn report_slash(who: &Self::AccountId, slash: Self::Balance) {
+
+	}
+}
+
+impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
+	fn on_slash(
+		who: &T::AccountId,
+		_slashed_active: BalanceOf<T>,
+		_slashed_unlocking: &sp_std::collections::btree_map::BTreeMap<EraIndex, BalanceOf<T>>,
+		slashed_total: BalanceOf<T>,
+	) {
 		<Delegatees<T>>::mutate(who, |maybe_register| match maybe_register {
-			Some(register) => register.pending_slash.saturating_accrue(slash),
+			// if delegatee, register the slashed amount as pending slash.
+			Some(register) => register.pending_slash.saturating_accrue(slashed_total),
 			None => {
-				defensive!("should not be called on non-delegate");
+				// nothing to do
 			},
 		});
 	}
