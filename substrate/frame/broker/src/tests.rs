@@ -214,7 +214,10 @@ fn mutate_operations_work() {
 			Error::<Test>::NotAllowed
 		);
 
-		assert_noop!(<Broker as Mutate<_>>::burn(&region_id.into(), Some(&2)), Error::<Test>::NotOwner);
+		assert_noop!(
+			<Broker as Mutate<_>>::burn(&region_id.into(), Some(&2)),
+			Error::<Test>::NotOwner
+		);
 		// 'withdraw' the region from user 1:
 		assert_ok!(<Broker as Mutate<_>>::burn(&region_id.into(), Some(&1)));
 		assert_eq!(Regions::<Test>::get(region_id).unwrap().owner, None);

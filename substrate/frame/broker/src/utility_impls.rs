@@ -72,15 +72,15 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub(crate) fn issue(
+	pub fn issue(
 		core: CoreIndex,
 		begin: Timeslice,
 		end: Timeslice,
-		owner: T::AccountId,
+		owner: Option<T::AccountId>,
 		paid: Option<BalanceOf<T>>,
 	) -> RegionId {
 		let id = RegionId { begin, core, mask: CoreMask::complete() };
-		let record = RegionRecord { end, owner: Some(owner), paid };
+		let record = RegionRecord { end, owner: owner, paid };
 		Regions::<T>::insert(&id, &record);
 		id
 	}

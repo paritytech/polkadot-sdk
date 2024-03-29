@@ -741,10 +741,16 @@ impl_runtime_apis! {
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Coretime chain can reserve transfer regions to some random parachain.
-					let raw_region_id = 42;
+
+					// Properties of a mock region:
+					let core = 0;
+					let begin = 0;
+					let end = 42;
+
+					let region_id = pallet_broker::Pallet::<Runtime>::issue(core, begin, end, None, None);
 					Some((
 						Asset {
-							fun: NonFungible(Index(raw_region_id)),
+							fun: NonFungible(Index(region_id.into())),
 							id: AssetId(xcm_config::BrokerPalletLocation::get())
 						},
 						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
