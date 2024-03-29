@@ -1653,6 +1653,9 @@ pub mod pallet {
 
 		/// The maximum length, in bytes, that a pools metadata maybe.
 		type MaxMetadataLen: Get<u32>;
+
+		/// The admin to control the pallet's parameters
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	/// The sum of funds across all pools.
@@ -2512,7 +2515,7 @@ pub mod pallet {
 			max_members_per_pool: ConfigOp<u32>,
 			global_max_commission: ConfigOp<Perbill>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			let _ = T::AdminOrigin::ensure_origin(origin)?;
 
 			macro_rules! config_op_exp {
 				($storage:ty, $op:ident) => {
@@ -2549,8 +2552,8 @@ pub mod pallet {
 			new_nominator: ConfigOp<T::AccountId>,
 			new_bouncer: ConfigOp<T::AccountId>,
 		) -> DispatchResult {
-			let mut bonded_pool = match ensure_root(origin.clone()) {
-				Ok(()) => BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?,
+			let mut bonded_pool = match T::AdminOrigin::ensure_origin(origin.clone()) {
+				Ok(_) => BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?,
 				Err(frame_support::error::BadOrigin) => {
 					let who = ensure_signed(origin)?;
 					let bonded_pool =
