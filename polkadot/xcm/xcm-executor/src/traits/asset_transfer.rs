@@ -24,7 +24,6 @@ use xcm::prelude::*;
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
 pub enum Error {
 	/// Reserve chain could not be determined for assets.
-	#[codec(index = 1)]
 	UnknownReserve,
 }
 
