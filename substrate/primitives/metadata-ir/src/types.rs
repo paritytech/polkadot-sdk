@@ -160,7 +160,7 @@ pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	pub ty: T::Type,
 	/// Extrinsic version.
 	pub version: u8,
-	/// The type of the address that signes the extrinsic
+	/// The type of the address that signs the extrinsic
 	pub address_ty: T::Type,
 	/// The type of the outermost Call enum.
 	pub call_ty: T::Type,

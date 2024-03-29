@@ -29,6 +29,7 @@ multihash = { version = "0.18.1", default-features = false, features = [
 	"sha2",
 	"std",
 ] }
+linked_hash_set = "0.1.4"
 log = { workspace = true, default-features = true }
 prost = "0.12"
 rand = "0.8.5"

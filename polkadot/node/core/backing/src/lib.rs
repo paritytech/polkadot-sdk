@@ -292,7 +292,7 @@ struct State {
 	/// Cache the per-session Validator->Group mapping.
 	validator_to_group_cache:
 		LruMap<SessionIndex, Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>>,
-	/// A cloneable sender which is dispatched to background candidate validation tasks to inform
+	/// A clonable sender which is dispatched to background candidate validation tasks to inform
 	/// the main task of the result.
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	/// The handle to the keystore used for signing.
@@ -911,7 +911,7 @@ async fn handle_active_leaves_update<Context>(
 			}
 
 			let mut seconded_at_depth = HashMap::new();
-			if let Some(response) = membership_answers.next().await {
+			while let Some(response) = membership_answers.next().await {
 				match response {
 					Err(oneshot::Canceled) => {
 						gum::warn!(
@@ -2231,15 +2231,16 @@ async fn handle_statement_message<Context>(
 
 fn handle_get_backed_candidates_message(
 	state: &State,
-	requested_candidates: Vec<(CandidateHash, Hash)>,
-	tx: oneshot::Sender<Vec<BackedCandidate>>,
+	requested_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
+	tx: oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
 	metrics: &Metrics,
 ) -> Result<(), Error> {
 	let _timer = metrics.time_get_backed_candidates();
 
-	let backed = requested_candidates
-		.into_iter()
-		.filter_map(|(candidate_hash, relay_parent)| {
+	let mut backed = HashMap::with_capacity(requested_candidates.len());
+
+	for (para_id, para_candidates) in requested_candidates {
+		for (candidate_hash, relay_parent) in para_candidates.iter() {
 			let rp_state = match state.per_relay_parent.get(&relay_parent) {
 				Some(rp_state) => rp_state,
 				None => {
@@ -2249,13 +2250,13 @@ fn handle_get_backed_candidates_message(
 						?candidate_hash,
 						"Requested candidate's relay parent is out of view",
 					);
-					return None
+					break
 				},
 			};
-			rp_state
+			let maybe_backed_candidate = rp_state
 				.table
 				.attested_candidate(
-					&candidate_hash,
+					candidate_hash,
 					&rp_state.table_context,
 					rp_state.minimum_backing_votes,
 				)
@@ -2265,9 +2266,18 @@ fn handle_get_backed_candidates_message(
 						&rp_state.table_context,
 						rp_state.inject_core_index,
 					)
-				})
-		})
-		.collect();
+				});
+
+			if let Some(backed_candidate) = maybe_backed_candidate {
+				backed
+					.entry(para_id)
+					.or_insert_with(|| Vec::with_capacity(para_candidates.len()))
+					.push(backed_candidate);
+			} else {
+				break
+			}
+		}
+	}
 
 	tx.send(backed).map_err(|data| Error::Send(data))?;
 	Ok(())

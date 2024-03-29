@@ -1119,7 +1119,7 @@ fn reschedule_named_works() {
 }
 
 #[test]
-fn reschedule_named_perodic_works() {
+fn reschedule_named_periodic_works() {
 	new_test_ext().execute_with(|| {
 		let call =
 			RuntimeCall::Logger(LoggerCall::log { i: 42, weight: Weight::from_parts(10, 0) });
@@ -2980,7 +2980,7 @@ fn reschedule_named_last_task_removes_agenda() {
 	});
 }
 
-/// Ensures that an unvailable call sends an event.
+/// Ensures that an unavailable call sends an event.
 #[test]
 fn unavailable_call_is_detected() {
 	use frame_support::traits::schedule::v3::Named;
@@ -3008,6 +3008,8 @@ fn unavailable_call_is_detected() {
 
 		// Ensure the preimage isn't available
 		assert!(!Preimage::have(&bound));
+		// But we have requested it
+		assert!(Preimage::is_requested(&hash));
 
 		// Executes in block 4.
 		run_to_block(4);
@@ -3016,5 +3018,7 @@ fn unavailable_call_is_detected() {
 			System::events().last().unwrap().event,
 			crate::Event::CallUnavailable { task: (4, 0), id: Some(name) }.into()
 		);
+		// It should not be requested anymore.
+		assert!(!Preimage::is_requested(&hash));
 	});
 }
