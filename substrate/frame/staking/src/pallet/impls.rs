@@ -154,6 +154,8 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
 		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
+		// for virtual nominators, we don't need to check the balance. Since they are only accessed
+		// via low level apis, we can assume that the caller has done the due diligence.
 		let extra = if Self::is_virtual_nominator(stash) {
 			additional
 		} else {
@@ -1184,10 +1186,15 @@ impl<T: Config> Pallet<T> {
 			}
 	}
 
+	/// Whether `who` is a virtual nominator whose funds are managed by another pallet.
 	pub(crate) fn is_virtual_nominator(who: &T::AccountId) -> bool {
 		VirtualNominators::<T>::contains_key(who)
 	}
 
+
+	/// Update the lock for a staker.
+	///
+	/// For virtual nominators, it is no-op.
 	pub(crate) fn update_lock(
 		who: &T::AccountId,
 		amount: BalanceOf<T>,
