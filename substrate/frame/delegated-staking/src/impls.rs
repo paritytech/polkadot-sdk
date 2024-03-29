@@ -165,10 +165,6 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::CoreStaking::slash_reward_fraction()
 	}
 
-	fn unsafe_release_all(_who: &Self::AccountId) {
-		defensive_assert!(false, "unsafe_release_all is not supported");
-	}
-
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> sp_staking::Page {
 		T::CoreStaking::max_exposure_page_size()

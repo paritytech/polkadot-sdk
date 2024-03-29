@@ -224,10 +224,6 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn slash_reward_fraction() -> Perbill {
 		unimplemented!("method currently not used in testing")
 	}
-
-	fn unsafe_release_all(_who: &Self::AccountId) {
-		unimplemented!("method currently not used in testing")
-	}
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

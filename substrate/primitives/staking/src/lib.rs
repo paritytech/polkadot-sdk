@@ -295,11 +295,6 @@ pub trait StakingInterface {
 	/// Returns the fraction of the slash to be rewarded to reporter.
 	fn slash_reward_fraction() -> Perbill;
 
-	/// Release all funds bonded for stake.
-	///
-	/// Unsafe, only used for migration of `delegatee` accounts.
-	fn unsafe_release_all(who: &Self::AccountId);
-
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> Page;
 
@@ -314,6 +309,24 @@ pub trait StakingInterface {
 	fn set_current_era(era: EraIndex);
 }
 
+/// Set of low level apis to manipulate staking ledger.
+///
+/// This is a low level api and should be used if you know what you are doing.
+pub trait StakingUnsafe: StakingInterface {
+	/// Release all funds bonded for stake without unbonding the ledger.
+	///
+	/// Unsafe, only used for migration of `nominator` to `virtual_nominator`.
+	fn force_release(who: &Self::AccountId);
+
+	/// Book-keep a new bond for `who` without applying any locks (hence virtual).
+	///
+	/// Caller is responsible for ensuring the passed amount is locked and valid.
+	fn virtual_bond(
+		who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult;
+}
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {

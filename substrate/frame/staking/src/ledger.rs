@@ -32,7 +32,7 @@
 //! state consistency.
 
 use frame_support::{defensive, ensure, traits::Defensive};
-use sp_staking::{StakingAccount, StakingInterface};
+use sp_staking::{StakingAccount, StakingUnsafe};
 use sp_std::prelude::*;
 
 use crate::{
@@ -252,7 +252,7 @@ impl<T: Config> StakingLedger<T> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-			Pallet::<T>::unsafe_release_all(&ledger.stash);
+			Pallet::<T>::force_release(&ledger.stash);
 			Ledger::<T>::remove(controller);
 
 			<Bonded<T>>::remove(&stash);

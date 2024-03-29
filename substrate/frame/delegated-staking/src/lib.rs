@@ -179,7 +179,9 @@ use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
-use sp_staking::{delegation::DelegateeSupport, EraIndex, Stake, StakerStatus, StakingInterface};
+use sp_staking::{
+	delegation::DelegateeSupport, EraIndex, Stake, StakerStatus, StakingInterface, StakingUnsafe,
+};
 use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
@@ -215,7 +217,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// Core staking implementation.
-		type CoreStaking: StakingInterface<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
+		type CoreStaking: StakingUnsafe<Balance = BalanceOf<Self>, AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -519,7 +521,7 @@ impl<T: Config> Pallet<T> {
 		let stake = T::CoreStaking::stake(who)?;
 
 		// release funds from core staking.
-		T::CoreStaking::unsafe_release_all(who);
+		T::CoreStaking::force_release(who);
 
 		// transferring just released staked amount. This should never fail but if it does, it
 		// indicates bad state and we abort.

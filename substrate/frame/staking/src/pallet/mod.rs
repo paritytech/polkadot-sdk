@@ -394,8 +394,7 @@ pub mod pallet {
 	/// can only be accessed via low level functions made available by this pallet.
 	// TODO(ank4n): Can we keep this entry in `Ledger`?
 	#[pallet::storage]
-	pub type VirtualNominators<T: Config> =
-	CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
+	pub type VirtualNominators<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	/// The maximum nominator count before we stop allowing new validators to join.
 	///

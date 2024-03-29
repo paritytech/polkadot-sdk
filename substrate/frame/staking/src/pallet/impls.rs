@@ -44,7 +44,7 @@ use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
-	StakingInterface,
+	StakingInterface, StakingUnsafe,
 };
 use sp_std::prelude::*;
 
@@ -1899,9 +1899,19 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	fn slash_reward_fraction() -> Perbill {
 		SlashRewardFraction::<T>::get()
 	}
+}
 
-	fn unsafe_release_all(who: &Self::AccountId) {
+impl<T: Config> StakingUnsafe for Pallet<T> {
+	fn force_release(who: &Self::AccountId) {
 		T::Currency::remove_lock(crate::STAKING_ID, who)
+	}
+
+	fn virtual_bond(
+		who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult {
+		unimplemented!()
 	}
 }
 
