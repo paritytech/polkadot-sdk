@@ -291,6 +291,11 @@ where
 		new_best
 	}
 
+	/// Restart the chain-sync strategy with the new arguments.
+	pub fn on_restart(&mut self, sync_mode: SyncMode) {
+		self.chain_sync.as_mut().map(|s| s.on_restart(chain_sync_mode(sync_mode)));
+	}
+
 	/// Configure an explicit fork sync request in case external code has detected that there is a
 	/// stale fork missing.
 	pub fn set_sync_fork_request(
@@ -303,6 +308,10 @@ where
 		if let Some(ref mut chain_sync) = self.chain_sync {
 			chain_sync.set_sync_fork_request(peers.clone(), hash, number);
 		}
+	}
+
+	pub fn update_common_number_for_peers(&mut self, number: NumberFor<B>) {
+		self.chain_sync.as_mut().map(|s| s.update_common_number_for_peers(number));
 	}
 
 	/// Request extra justification.

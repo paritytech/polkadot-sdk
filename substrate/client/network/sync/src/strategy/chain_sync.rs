@@ -473,6 +473,12 @@ where
 			.count()
 	}
 
+	/// Restart the chain-sync with the new sync mode.
+	pub fn on_restart(&mut self, chain_sync_mode: ChainSyncMode) {
+		self.mode = chain_sync_mode;
+		self.restart();
+	}
+
 	/// Get the total number of downloaded blocks.
 	pub fn num_downloaded_blocks(&self) -> usize {
 		self.downloaded_blocks
@@ -1289,6 +1295,16 @@ where
 	fn update_peer_common_number(&mut self, peer_id: &PeerId, new_common: NumberFor<B>) {
 		if let Some(peer) = self.peers.get_mut(peer_id) {
 			peer.update_common_number(new_common);
+		}
+	}
+
+	pub fn update_common_number_for_peers(&mut self, new_common: NumberFor<B>) {
+		for peer in self.peers.values_mut() {
+			if peer.best_number >= new_common {
+				peer.update_common_number(new_common);
+			} else {
+				peer.update_common_number(peer.best_number);
+			}
 		}
 	}
 
