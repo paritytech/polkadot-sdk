@@ -122,6 +122,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		T::CoreStaking::unbond(stash, value)
 	}
 
+	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
+		T::CoreStaking::update_payee(stash, reward_acc)
+	}
+
 	/// Withdraw unbonding funds until current era.
 	///
 	/// Funds are moved to unclaimed_withdrawals register of the `DelegateeLedger`.

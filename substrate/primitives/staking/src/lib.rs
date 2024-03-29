@@ -256,6 +256,9 @@ pub trait StakingInterface {
 	/// schedules have reached their unlocking era should allow more calls to this function.
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 
+	/// Update the reward destination for the ledger associated with the stash.
+	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult;
+
 	/// Unlock any funds schedule to unlock before or at the current era.
 	///
 	/// Returns whether the stash was killed because of this withdraw or not.

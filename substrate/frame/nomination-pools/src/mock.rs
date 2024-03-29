@@ -190,6 +190,10 @@ impl sp_staking::StakingInterface for StakingMock {
 		}
 	}
 
+	fn update_payee(_: &Self::AccountId, _: &Self::AccountId) {
+		unimplemented!("method currently not used in testing")
+	}
+
 	fn election_ongoing() -> bool {
 		unimplemented!("method currently not used in testing")
 	}

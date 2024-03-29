@@ -1825,6 +1825,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map(|_| ())
 	}
 
+	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
+		// since controller is deprecated and this function is never used for old ledgers with
+		// distinct controllers, we can safely assume that stash is the controller.
+		Self::set_payee(RawOrigin::Signed(stash.clone()).into(), RewardDestination::Account(reward_acc.clone()))
+	}
+
 	fn chill(who: &Self::AccountId) -> DispatchResult {
 		// defensive-only: any account bonded via this interface has the stash set as the
 		// controller, but we have to be sure. Same comment anywhere else that we read this.

@@ -517,8 +517,7 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::BadState)?;
 
 		Self::do_register_delegatee(who, reward_account);
-		// FIXME(ank4n) expose set payee in staking interface.
-		// T::CoreStaking::set_payee(who, reward_account)
+		T::CoreStaking::update_payee(who, reward_account)?;
 
 		Self::do_delegate(&proxy_delegator, who, stake.total)
 	}
