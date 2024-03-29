@@ -112,7 +112,7 @@ const COST_EXCESSIVE_SECONDED: Rep = Rep::CostMinor("Sent Excessive `Seconded` S
 const COST_DISABLED_VALIDATOR: Rep = Rep::CostMinor("Sent a statement from a disabled validator");
 
 const COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE: Rep =
-	Rep::CostMinor("Unexpected Manifest, missing knowlege for relay parent");
+	Rep::CostMinor("Unexpected Manifest, missing knowledge for relay parent");
 const COST_UNEXPECTED_MANIFEST_DISALLOWED: Rep =
 	Rep::CostMinor("Unexpected Manifest, Peer Disallowed");
 const COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN: Rep =
@@ -628,8 +628,8 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).await?;
 			let mut per_session_state =
 				PerSessionState::new(session_info, &state.keystore, minimum_backing_votes);
-			if let Some(toplogy) = state.unused_topologies.remove(&session_index) {
-				per_session_state.supply_topology(&toplogy.topology, toplogy.local_index);
+			if let Some(topology) = state.unused_topologies.remove(&session_index) {
+				per_session_state.supply_topology(&topology.topology, topology.local_index);
 			}
 			state.per_session.insert(session_index, per_session_state);
 		}
