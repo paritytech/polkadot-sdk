@@ -373,6 +373,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -461,7 +466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		warning_fired: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
 		creation_backtrace: Arc::new(Backtrace::force_capture()),
 	};
-	<span class="kw">let </span>receiver = TracingUnboundedReceiver { inner: r, name };
+	<span class="kw">let </span>receiver = TracingUnboundedReceiver { inner: r, name: name.into() };
 	(sender, receiver)
 }
 
@@ -531,6 +536,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The number of elements in the channel (proxy function to [`async_channel::Receiver`]).
 	</span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 		<span class="self">self</span>.inner.len()
+	}
+
+	<span class="doccomment">/// The name of this receiver
+	</span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+		<span class="self">self</span>.name
 	}
 }
 
