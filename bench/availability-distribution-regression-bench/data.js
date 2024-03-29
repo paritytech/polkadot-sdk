@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1711715605365,
+  "lastUpdate": 1711722500096,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -207,6 +207,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010827330106666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin",
+            "email": "dmitry@markin.tech"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0d9324847391e902bb42f84f0e76096b1f764efe",
+          "message": "Fix `addresses_to_publish_respects_existing_p2p_protocol` test in sc-authority-discovery (#3895)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/3887.",
+          "timestamp": "2024-03-29T13:13:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d9324847391e902bb42f84f0e76096b1f764efe"
+        },
+        "date": 1711722476275,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.94,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011525132520000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16248929208666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02693435398666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013765804173333333,
             "unit": "seconds"
           }
         ]
