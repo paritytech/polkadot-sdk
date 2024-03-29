@@ -44,7 +44,7 @@ use sp_std::{fmt, prelude::*};
 const EXTRINSIC_FORMAT_VERSION: u8 = 5;
 
 /// The `SignaturePayload` of `UncheckedExtrinsic`.
-type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
+pub type UncheckedSignaturePayload<Address, Signature, Extension> = (Address, Signature, Extension);
 
 impl<Address: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> SignaturePayload
 	for UncheckedSignaturePayload<Address, Signature, Extension>
@@ -128,7 +128,6 @@ pub struct UncheckedExtrinsic<Address, Call, Signature, Extension, Context = ()>
 	/// The function that should be called.
 	pub function: Call,
 	/// Phantom type for `Context`.
-	#[codec(skip)]
 	pub _phantom: PhantomData<Context>,
 }
 
@@ -302,14 +301,19 @@ where
 				CheckedExtrinsic {
 					format: ExtrinsicFormat::Signed(signed, extra),
 					function: self.function,
+					_phantom: Default::default(),
 				}
 			},
 			Preamble::General(extra) => CheckedExtrinsic {
 				format: ExtrinsicFormat::General(extra),
 				function: self.function,
+				_phantom: Default::default(),
 			},
-			Preamble::Bare =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare => CheckedExtrinsic {
+				format: ExtrinsicFormat::Bare,
+				function: self.function,
+				_phantom: Default::default(),
+			},
 		})
 	}
 }

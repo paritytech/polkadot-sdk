@@ -33,5 +33,5 @@ pub use self::{
 	digest::{Digest, DigestItem, DigestItemRef, OpaqueDigestItemId},
 	era::{Era, Phase},
 	header::Header,
-	unchecked_extrinsic::{Preamble, SignedPayload, UncheckedExtrinsic},
+	unchecked_extrinsic::{Preamble, SignedPayload, UncheckedExtrinsic, UncheckedSignaturePayload},
 };
