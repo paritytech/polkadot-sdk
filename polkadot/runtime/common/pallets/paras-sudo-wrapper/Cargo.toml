@@ -4,6 +4,7 @@ version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Polkadot paras sudo wrapper pallet"
 
 [lints]
 workspace = true
