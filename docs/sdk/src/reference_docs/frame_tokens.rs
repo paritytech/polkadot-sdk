@@ -41,8 +41,7 @@
 //! However, to keep pallets flexible and modular, it is often prefered to
 //! [loosely couple](crate::reference_docs::frame_pallet_coupling#loosely--coupling-pallets).
 //!
-//! To achieve
-//! loose coupling,
+//! To achieve loose coupling,
 //! we separate token logic into traits and trait implementations.
 //!
 //! ## Traits and Trait Implementations
