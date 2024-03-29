@@ -676,10 +676,6 @@ impl<T: Config> Pallet<T> {
 			.defensive_ok_or(Error::<T>::BadState)?
 			.save_or_kill(source_delegator);
 
-		// FIXME(ank4n): If all funds are migrated from source, it can be cleaned up and ED returned
-		// to delegate or alternatively whoever cleans it up. This could be a permission-less
-		// extrinsic.
-
 		// release funds from source
 		let released = T::Currency::release(
 			&HoldReason::Delegating.into(),
