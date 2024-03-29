@@ -294,9 +294,6 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	// Instead, public or fellowship referenda should be used to propose and command the treasury
 	// spend or spend_local dispatchables. The parameters below have been configured accordingly to
 	// discourage its use.
-	// TODO: replace with `NeverEnsure` once polkadot-sdk 1.5 is released.
-	type ApproveOrigin = NeverEnsureOrigin<()>;
-	type OnSlash = ();
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type ProposalBond = HundredPercent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
