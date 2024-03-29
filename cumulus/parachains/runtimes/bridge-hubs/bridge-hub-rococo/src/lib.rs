@@ -38,7 +38,9 @@ pub mod xcm_config;
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{
-	gwei, meth, outbound::Message, AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
+	gwei, meth,
+	outbound::{Command, Fee},
+	AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
 };
 use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_api::impl_runtime_apis;
@@ -115,8 +117,8 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 
-/// The TransactionExtension to the basic transaction logic.
-pub type TxExtension = (
+/// The SignedExtension to the basic transaction logic.
+pub type SignedExtra = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -134,7 +136,7 @@ pub type TxExtension = (
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
@@ -202,7 +204,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_008_000,
+	spec_version: 1_009_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 4,
@@ -242,7 +244,7 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -262,8 +264,6 @@ impl frame_system::Config for Runtime {
 	type DbWeight = RocksDbWeight;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
-	/// Weight information for the extensions of this pallet.
-	type ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
@@ -279,10 +279,7 @@ impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
-	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
-	#[cfg(not(feature = "experimental"))]
-	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
@@ -326,7 +323,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
-	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -391,6 +387,7 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = MessageQueueServiceWeight;
 }
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
@@ -448,7 +445,6 @@ impl pallet_aura::Config for Runtime {
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	#[cfg(feature = "experimental")]
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
@@ -510,7 +506,8 @@ parameter_types! {
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
-		rewards: Rewards { local: 1 * UNITS, remote: meth(1) }
+		rewards: Rewards { local: 1 * UNITS, remote: meth(1) },
+		multiplier: FixedU128::from_rational(1, 1),
 	};
 }
 
@@ -762,14 +759,12 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		[frame_system, SystemBench::<Runtime>]
-		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
-		[pallet_transaction_payment, TransactionPayment]
 		[pallet_collator_selection, CollatorSelection]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
@@ -799,7 +794,7 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			Aura::authorities().into_inner()
+			pallet_aura::Authorities::<Runtime>::get().into_inner()
 		}
 	}
 
@@ -1031,8 +1026,8 @@ impl_runtime_apis! {
 			snowbridge_pallet_outbound_queue::api::prove_message::<Runtime>(leaf_index)
 		}
 
-		fn calculate_fee(message: Message) -> Option<Balance> {
-			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(message)
+		fn calculate_fee(command: Command, parameters: Option<PricingParameters<Balance>>) -> Fee<Balance> {
+			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(command, parameters)
 		}
 	}
 
@@ -1070,7 +1065,6 @@ impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
-			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 
@@ -1101,7 +1095,6 @@ impl_runtime_apis! {
 			use sp_storage::TrackedStorageKey;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
-			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			impl frame_system_benchmarking::Config for Runtime {
 				fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
 					ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
@@ -1485,16 +1478,16 @@ mod tests {
 	use codec::Encode;
 	use sp_runtime::{
 		generic::Era,
-		traits::{TransactionExtensionBase, Zero},
+		traits::{SignedExtension, Zero},
 	};
 
 	#[test]
 	fn ensure_signed_extension_definition_is_compatible_with_relay() {
-		use bp_polkadot_core::SuffixedCommonTransactionExtensionExt;
+		use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
 
 		sp_io::TestExternalities::default().execute_with(|| {
 			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
-			let payload: TxExtension = (
+			let payload: SignedExtra = (
 				frame_system::CheckNonZeroSender::new(),
 				frame_system::CheckSpecVersion::new(),
 				frame_system::CheckTxVersion::new(),
@@ -1508,11 +1501,11 @@ mod tests {
 					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 				)
-			).into();
+			);
 
 			// for BridgeHubRococo
 			{
-				let bhr_indirect_payload = bp_bridge_hub_rococo::TransactionExtension::from_params(
+				let bhr_indirect_payload = bp_bridge_hub_rococo::SignedExtension::from_params(
 					VERSION.spec_version,
 					VERSION.transaction_version,
 					bp_runtime::TransactionEra::Immortal,
@@ -1523,8 +1516,8 @@ mod tests {
 				);
 				assert_eq!(payload.encode(), bhr_indirect_payload.encode());
 				assert_eq!(
-					payload.implicit().unwrap().encode(),
-					bhr_indirect_payload.implicit().unwrap().encode()
+					payload.additional_signed().unwrap().encode(),
+					bhr_indirect_payload.additional_signed().unwrap().encode()
 				)
 			}
 		});

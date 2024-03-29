@@ -83,8 +83,8 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 
-/// The TransactionExtension to the basic transaction logic.
-pub type TxExtension = (
+/// The SignedExtension to the basic transaction logic.
+pub type SignedExtra = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -97,7 +97,7 @@ pub type TxExtension = (
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
@@ -126,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("people-rococo"),
 	impl_name: create_runtime_str!("people-rococo"),
 	authoring_version: 1,
-	spec_version: 1_008_000,
+	spec_version: 1_009_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 0,
@@ -164,7 +164,7 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = Everything;
 	type BlockWeights = RuntimeBlockWeights;
@@ -178,7 +178,6 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
-	type ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = ConstU32<16>;
@@ -188,10 +187,7 @@ impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
-	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
-	#[cfg(not(feature = "experimental"))]
-	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
@@ -233,7 +229,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
-	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -287,6 +282,7 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = MessageQueueServiceWeight;
 	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
 }
 
@@ -339,7 +335,6 @@ impl pallet_aura::Config for Runtime {
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	#[cfg(feature = "experimental")]
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
@@ -455,7 +450,6 @@ mod benches {
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
 		[pallet_timestamp, Timestamp]
-		[pallet_transaction_payment, TransactionPayment]
 		// Polkadot
 		[polkadot_runtime_common::identity_migrator, IdentityMigrator]
 		// Cumulus
@@ -463,7 +457,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_collator_selection, CollatorSelection]
 		// XCM
-		[pallet_xcm, PalletXcmExtrinsiscsBenchmark::<Runtime>]
+		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 	);
@@ -476,7 +470,7 @@ impl_runtime_apis! {
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			Aura::authorities().into_inner()
+			pallet_aura::Authorities::<Runtime>::get().into_inner()
 		}
 	}
 
@@ -651,7 +645,7 @@ impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 
 			// This is defined once again in dispatch_benchmark, because list_benchmarks!
 			// and add_benchmarks! are macros exported by define_benchmarks! macros and those types
@@ -687,7 +681,7 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
-			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
+			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
 				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
 					xcm_config::XcmConfig,

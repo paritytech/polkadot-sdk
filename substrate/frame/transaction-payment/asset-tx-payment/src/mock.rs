@@ -71,7 +71,7 @@ parameter_types! {
 	pub static TransactionByteFee: u64 = 1;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -136,12 +136,13 @@ impl WeightToFeeT for TransactionByteFee {
 	}
 }
 
-#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
+	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
 }
 
@@ -205,56 +206,4 @@ impl Config for Runtime {
 		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto>,
 		CreditToBlockAuthor,
 	>;
-	type WeightInfo = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = Helper;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let base_weight = 5;
-	let balance_factor = 100;
-	crate::tests::ExtBuilder::default()
-		.balance_factor(balance_factor)
-		.base_weight(Weight::from_parts(base_weight, 0))
-		.build()
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub struct Helper;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl BenchmarkHelperTrait<u64, u32, u32> for Helper {
-	fn create_asset_id_parameter(id: u32) -> (u32, u32) {
-		(id.into(), id.into())
-	}
-
-	fn setup_balances_and_pool(asset_id: u32, account: u64) {
-		use frame_support::{assert_ok, traits::fungibles::Mutate};
-		use sp_runtime::traits::StaticLookup;
-		let min_balance = 1;
-		assert_ok!(Assets::force_create(
-			RuntimeOrigin::root(),
-			asset_id.into(),
-			42,   /* owner */
-			true, /* is_sufficient */
-			min_balance
-		));
-
-		// mint into the caller account
-		let caller = 2;
-		let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
-		let balance = 1000;
-		assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-		assert_eq!(Assets::balance(asset_id, caller), balance);
-
-		use frame_support::traits::Currency;
-		let _ = Balances::deposit_creating(&account, u32::MAX.into());
-
-		let beneficiary = <Runtime as system::Config>::Lookup::unlookup(account);
-		let balance = 1000;
-
-		assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
-		assert_eq!(Assets::balance(asset_id, account), balance);
-	}
 }

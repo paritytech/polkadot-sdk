@@ -27,10 +27,11 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 use polkadot_runtime_parachains::{
 	assigner_parachains as parachains_assigner_parachains,
 	configuration as parachains_configuration, disputes as parachains_disputes,
-	disputes::slashing as parachains_slashing, dmp as parachains_dmp, hrmp as parachains_hrmp,
-	inclusion as parachains_inclusion, initializer as parachains_initializer,
-	origin as parachains_origin, paras as parachains_paras,
-	paras_inherent as parachains_paras_inherent, runtime_api_impl::v7 as runtime_impl,
+	disputes::slashing as parachains_slashing,
+	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
+	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
+	paras_inherent as parachains_paras_inherent,
+	runtime_api_impl::{v7 as runtime_impl, vstaging as staging_runtime_impl},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -139,7 +140,7 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-#[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
@@ -238,7 +239,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = frame_support::weights::ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
-	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -394,7 +394,7 @@ where
 
 		let current_block = System::block_number().saturated_into::<u64>().saturating_sub(1);
 		let tip = 0;
-		let tx_ext: TxExtension = (
+		let extra: SignedExtra = (
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -406,17 +406,16 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-		)
-			.into();
-		let raw_payload = SignedPayload::new(call, tx_ext)
+		);
+		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
 				log::warn!("Unable to create signed payload: {:?}", e);
 			})
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
-		let (call, tx_ext, _) = raw_payload.deconstruct();
+		let (call, extra, _) = raw_payload.deconstruct();
 		let address = Indices::unlookup(account);
-		Some((call, (address, signature, tx_ext)))
+		Some((call, (address, signature, extra)))
 	}
 }
 
@@ -444,32 +443,12 @@ parameter_types! {
 	pub Prefix: &'static [u8] = b"Pay KSMs to the Kusama account:";
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-pub struct ClaimsHelper;
-
-#[cfg(feature = "runtime-benchmarks")]
-use frame_support::dispatch::DispatchInfo;
-
-#[cfg(feature = "runtime-benchmarks")]
-impl claims::BenchmarkHelperTrait<RuntimeCall, DispatchInfo> for ClaimsHelper {
-	fn default_call_and_info() -> (RuntimeCall, DispatchInfo) {
-		use frame_support::dispatch::GetDispatchInfo;
-		let call = RuntimeCall::Claims(claims::Call::attest {
-			statement: claims::StatementKind::Regular.to_text().to_vec(),
-		});
-		let info = call.get_dispatch_info();
-		(call, info)
-	}
-}
-
 impl claims::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VestingSchedule = Vesting;
 	type Prefix = Prefix;
 	type MoveClaimOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = claims::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ClaimsHelper;
 }
 
 parameter_types! {
@@ -750,8 +729,8 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// `BlockId` type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The extension to the basic transaction logic.
-pub type TxExtension = (
+/// The `SignedExtension` to the basic transaction logic.
+pub type SignedExtra = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -763,7 +742,7 @@ pub type TxExtension = (
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -774,7 +753,7 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 /// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
 
 pub type Hash = <Block as BlockT>::Hash;
 pub type Extrinsic = <Block as BlockT>::Extrinsic;
@@ -851,6 +830,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
+	#[api_version(10)]
 	impl primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
@@ -977,6 +957,30 @@ sp_api::impl_runtime_apis! {
 				dispute_proof,
 				key_ownership_proof,
 			)
+		}
+
+		fn minimum_backing_votes() -> u32 {
+			runtime_impl::minimum_backing_votes::<Runtime>()
+		}
+
+		fn para_backing_state(para_id: ParaId) -> Option<primitives::async_backing::BackingState> {
+			runtime_impl::backing_state::<Runtime>(para_id)
+		}
+
+		fn async_backing_params() -> primitives::AsyncBackingParams {
+			runtime_impl::async_backing_params::<Runtime>()
+		}
+
+		fn approval_voting_params() -> primitives::vstaging::ApprovalVotingParams {
+			staging_runtime_impl::approval_voting_params::<Runtime>()
+		}
+
+		fn disabled_validators() -> Vec<ValidatorIndex> {
+			staging_runtime_impl::disabled_validators::<Runtime>()
+		}
+
+		fn node_features() -> primitives::vstaging::NodeFeatures {
+			staging_runtime_impl::node_features::<Runtime>()
 		}
 	}
 

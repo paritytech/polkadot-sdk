@@ -18,7 +18,7 @@ use frame_support::traits::ProcessMessageError;
 use sp_std::result::Result;
 use xcm::latest::{Instruction, Location, Weight, XcmHash};
 
-/// Properyies of an XCM message and its imminent execution.
+/// Properties of an XCM message and its imminent execution.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Properties {
 	/// The amount of weight that the system has determined this

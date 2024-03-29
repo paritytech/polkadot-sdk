@@ -139,7 +139,7 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-/// We assume that ~10% of the block weight is consumed by `on_initalize` handlers.
+/// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
 const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
@@ -177,7 +177,7 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -246,7 +246,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -323,8 +322,8 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
-/// The extension to the basic transaction logic.
-pub type TxExtension = (
+/// The SignedExtension to the basic transaction logic.
+pub type SignedExtra = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckGenesis<Runtime>,
@@ -336,7 +335,7 @@ pub type TxExtension = (
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -347,7 +346,7 @@ pub type Executive = frame_executive::Executive<
 	TestOnRuntimeUpgrade,
 >;
 /// The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
 
 pub struct TestOnRuntimeUpgrade;
 

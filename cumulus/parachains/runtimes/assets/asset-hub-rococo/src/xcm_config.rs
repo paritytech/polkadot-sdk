@@ -192,7 +192,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// We dont need to check teleports here.
+	// We don't need to check teleports here.
 	NoChecking,
 	// The account to use for tracking teleports.
 	CheckingAccount,
@@ -628,6 +628,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 /// Converts a local signed origin into an XCM location.

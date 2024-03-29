@@ -142,6 +142,9 @@ polkadot-node-core-pvf-checker = { path = "../core/pvf-checker", optional = true
 polkadot-node-core-runtime-api = { path = "../core/runtime-api", optional = true }
 polkadot-statement-distribution = { path = "../network/statement-distribution", optional = true }
 
+xcm = { package = "staging-xcm", path = "../../xcm" }
+xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api" }
+
 [dev-dependencies]
 polkadot-test-client = { path = "../test/client" }
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
@@ -196,7 +199,6 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
-	"pallet-transaction-payment/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
@@ -219,14 +221,15 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
-fast-runtime = [
-	"rococo-runtime?/fast-runtime",
-	"westend-runtime?/fast-runtime",
-]
+fast-runtime = ["rococo-runtime?/fast-runtime", "westend-runtime?/fast-runtime"]
 
 malus = ["full-node"]
 runtime-metrics = [
 	"polkadot-runtime-parachains/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
+]
+
+elastic-scaling-experimental = [
+	"polkadot-collator-protocol?/elastic-scaling-experimental",
 ]
