@@ -83,10 +83,6 @@
 //! [Config::CoreStaking] to provide delegation based staking. NominationPool can use this pallet as
 //! its Staking provider to support delegation based staking from pool accounts.
 //!
-//! #### [Delegatee Support](DelegateeSupport)
-//! Implements `DelegateeSupport` trait which an implementation of [StakingInterface] (such as
-//! pallet-staking) can use to back-support `delegatee` accounts.
-//!
 //! ## Lazy Slashing
 //! One of the reasons why direct nominators on staking pallet cannot scale well is because all
 //! nominators are slashed at the same time. This is expensive and needs to be bounded operation.
@@ -179,9 +175,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
-use sp_staking::{
-	delegation::DelegateeSupport, EraIndex, Stake, StakerStatus, StakingInterface, StakingUnsafe,
-};
+use sp_staking::{EraIndex, Stake, StakerStatus, StakingInterface, StakingUnsafe};
 use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
@@ -761,6 +755,14 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::Slashed { delegatee: delegatee_acc, delegator, amount });
 
 		Ok(())
+	}
+
+	/// Total balance that is available for stake. Includes already staked amount.
+	#[cfg(test)]
+	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
+		Delegatee::<T>::from(who)
+			.map(|delegatee| delegatee.ledger.stakeable_balance())
+			.unwrap_or_default()
 	}
 }
 

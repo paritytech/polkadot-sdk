@@ -64,7 +64,7 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchResult, RuntimeDebug,
 };
-use sp_staking::{delegation::DelegateeSupport, offence::DisableStrategy, EraIndex};
+use sp_staking::{offence::DisableStrategy, EraIndex};
 use sp_std::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
@@ -608,7 +608,6 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
-	let lazy_slash = Pallet::<T>::is_virtual_nominator(stash);
 	let value = ledger.slash(value, T::Currency::minimum_balance(), slash_era);
 
 	if value.is_zero() {
@@ -616,10 +615,8 @@ pub fn do_slash<T: Config>(
 		return
 	}
 
-	if lazy_slash {
-		// If delegated staking, report slash and move on.
-		T::DelegateeSupport::report_slash(stash, value);
-	} else {
+	// Skip slashing for virtual nominators. The pallets managing them should handle the slashing.
+	if !Pallet::<T>::is_virtual_nominator(stash) {
 		let (imbalance, missing) = T::Currency::slash(stash, value);
 		slashed_imbalance.subsume(imbalance);
 

@@ -37,7 +37,6 @@ use sp_runtime::{
 };
 
 use sp_staking::{
-	delegation::DelegateeSupport,
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 };
@@ -104,12 +103,6 @@ pub mod pallet {
 			+ From<u64>
 			+ TypeInfo
 			+ MaxEncodedLen;
-
-		/// Something that provides delegation support to staking pallet.
-		type DelegateeSupport: DelegateeSupport<
-			Balance = Self::CurrencyBalance,
-			AccountId = Self::AccountId,
-		>;
 
 		/// Time used for computing era duration.
 		///

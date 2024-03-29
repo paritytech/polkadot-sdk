@@ -42,7 +42,6 @@ use sp_runtime::{
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
-	delegation::DelegateeSupport,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
@@ -1969,24 +1968,6 @@ impl<T: Config> StakingUnsafe for Pallet<T> {
 		ledger.bond(RewardDestination::Account(payee.clone()))?;
 
 		Ok(())
-	}
-}
-
-/// Standard implementation of `DelegateeSupport` that supports only direct staking and no
-/// delegated staking.
-pub struct NoDelegation<T>(PhantomData<T>);
-impl<T: Config> DelegateeSupport for NoDelegation<T> {
-	type Balance = BalanceOf<T>;
-	type AccountId = T::AccountId;
-	fn stakeable_balance(_who: &Self::AccountId) -> Self::Balance {
-		defensive!("stakeable balance should not have been called for NoDelegation");
-		BalanceOf::<T>::zero()
-	}
-	fn is_delegatee(_who: &Self::AccountId) -> bool {
-		false
-	}
-	fn report_slash(_who: &Self::AccountId, _slash: Self::Balance) {
-		defensive!("delegation report_slash should not be have been called for NoDelegation");
 	}
 }
 

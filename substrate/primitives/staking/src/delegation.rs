@@ -21,55 +21,6 @@ use scale_info::TypeInfo;
 use sp_runtime::{DispatchResult, Saturating};
 use sp_std::ops::Sub;
 
-/// Support plugin for `delegatee` accounts.
-///
-/// A `delegatee` account is an account that can receive delegations from other accounts. Their
-/// balance is made up of multiple child delegators. This trait allows a pallet such as
-/// `pallet-staking` to support these special accounts.
-pub trait DelegateeSupport {
-	/// Balance type used by the staking system.
-	type Balance: Sub<Output = Self::Balance>
-		+ Ord
-		+ PartialEq
-		+ Default
-		+ Copy
-		+ MaxEncodedLen
-		+ FullCodec
-		+ TypeInfo
-		+ Saturating;
-
-	/// AccountId type used by the staking system.
-	type AccountId: Clone + sp_std::fmt::Debug;
-
-	/// Balance of `delegatee` which can be staked.
-	///
-	/// Similar to free balance for a normal account.
-	fn stakeable_balance(delegatee: &Self::AccountId) -> Self::Balance;
-
-	/// Returns true if `delegatee` is restricted to update which account they can receive their
-	/// staking rewards.
-	///
-	/// For `delegatee` accounts we restrict the reward destination to be the same as the
-	/// `delegatee` account itself. This is since the actual `delegatee` balances is not considered
-	/// while staking. Instead, their balance is made up of multiple child delegators.
-	fn restrict_reward_destination(
-		_who: &Self::AccountId,
-		_reward_destination: Option<Self::AccountId>,
-	) -> bool {
-		// never restrict by default
-		false
-	}
-
-	/// Returns true if `who` is a `delegatee` and accepts delegations from other accounts.
-	fn is_delegatee(who: &Self::AccountId) -> bool;
-
-	/// Reports an ongoing slash to the `delegatee` account that would be applied lazily.
-	///
-	/// Slashing a delegatee account is not immediate since the balance is made up of multiple child
-	/// delegators. This function should bookkeep the slash to be applied later.
-	fn report_slash(who: &Self::AccountId, slash: Self::Balance);
-}
-
 /// Trait that extends on [`StakingInterface`] to provide additional capability to delegate funds to
 /// an account.
 pub trait DelegatedStakeInterface: StakingInterface {
