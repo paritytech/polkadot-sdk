@@ -16,10 +16,7 @@
 // limitations under the License.
 
 use crate::StakingInterface;
-use codec::{FullCodec, MaxEncodedLen};
-use scale_info::TypeInfo;
-use sp_runtime::{DispatchResult, Saturating};
-use sp_std::ops::Sub;
+use sp_runtime::{DispatchResult};
 
 /// Trait that extends on [`StakingInterface`] to provide additional capability to delegate funds to
 /// an account.

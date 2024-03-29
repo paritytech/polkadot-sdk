@@ -320,9 +320,10 @@ pub trait StakingUnsafe: StakingInterface {
 
 	/// Book-keep a new bond for `who` without applying any locks (hence virtual).
 	///
-	/// Caller is responsible for ensuring the passed amount is locked and valid.
+	/// It is important that who is a keyless account and therefore cannot interact with staking
+	/// pallet directly. Caller is responsible for ensuring the passed amount is locked and valid.
 	fn virtual_bond(
-		who: &Self::AccountId,
+		keyless_who: &Self::AccountId,
 		value: Self::Balance,
 		payee: &Self::AccountId,
 	) -> DispatchResult;

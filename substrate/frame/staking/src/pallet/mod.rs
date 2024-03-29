@@ -382,9 +382,10 @@ pub mod pallet {
 
 	/// Nominators whose funds are managed by other pallets.
 	///
-	/// This pallet does not apply any locks on them, hence they are only virtually bonded. These
-	/// nominators should not be allowed to mutate their ledger directly via application code and
-	/// can only be accessed via low level functions made available by this pallet.
+	/// This pallet does not apply any locks on them, therefore they are only virtually bonded. They
+	/// are expected to be keyless accounts and hence should not be allowed to mutate their ledger
+	/// directly via this pallet. Instead, these accounts are managed by other pallets and accessed
+	/// via low level apis. We keep track of them to do minimal integrity checks.
 	// TODO(ank4n): Can we keep this entry in `Ledger`?
 	#[pallet::storage]
 	pub type VirtualNominators<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;

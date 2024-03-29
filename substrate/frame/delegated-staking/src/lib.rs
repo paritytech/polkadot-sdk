@@ -100,12 +100,6 @@
 //! ## Migration from Nominator to Delegatee
 //! More details [here](https://hackmd.io/@ak0n/np-delegated-staking-migration).
 //!
-//! ## Reward Destination Restrictions
-//! This pallets set an important restriction of rewards account to be separate from `delegatee`
-//! account. This is because, `delegatee` balance is not what is directly exposed but the funds that
-//! are delegated to it. For `delegatee` accounts, we have also no way to auto-compound rewards. The
-//! rewards need to be paid out to delegators and then delegated again to the `delegatee` account.
-//!
 //! ## Nomination Pool vs Delegation Staking
 //! This pallet is not a replacement for Nomination Pool but adds a new primitive over staking
 //! pallet that can be used by Nomination Pool to support delegation based staking. It can be

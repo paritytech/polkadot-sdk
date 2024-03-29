@@ -403,13 +403,7 @@ mod staking_integration {
 				Staking::set_payee(RuntimeOrigin::signed(200), RewardDestination::Stash),
 				StakingError::<T>::RewardDestinationRestricted
 			);
-
-			// non stash account different than one passed to DelegatedStaking also does not work..
-			assert_noop!(
-				Staking::set_payee(RuntimeOrigin::signed(200), RewardDestination::Account(202)),
-				StakingError::<T>::RewardDestinationRestricted
-			);
-
+			
 			// passing correct reward destination works
 			assert_ok!(Staking::set_payee(
 				RuntimeOrigin::signed(200),
