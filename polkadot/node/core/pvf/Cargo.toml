@@ -50,7 +50,7 @@ hex-literal = "0.4.1"
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
 # For benches and integration tests, depend on ourselves with the test-utils
 # feature.
-polkadot-node-core-pvf = { path = ".", features = ["test-utils"] }
+polkadot-node-core-pvf = { path = "", features = ["test-utils"] }
 rococo-runtime = { path = "../../../runtime/rococo" }
 
 adder = { package = "test-parachain-adder", path = "../../../parachain/test-parachains/adder" }
