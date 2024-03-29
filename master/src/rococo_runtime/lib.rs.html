@@ -2696,12 +2696,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2549" id="2549">2549</a>
 <a href="#2550" id="2550">2550</a>
 <a href="#2551" id="2551">2551</a>
-<a href="#2552" id="2552">2552</a>
-<a href="#2553" id="2553">2553</a>
-<a href="#2554" id="2554">2554</a>
-<a href="#2555" id="2555">2555</a>
-<a href="#2556" id="2556">2556</a>
-<a href="#2557" id="2557">2557</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4572,12 +4566,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>offchain_primitives::OffchainWorkerApi&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>offchain_worker(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) {
-			<span class="kw">use </span>sp_runtime::{traits::Header, DigestItem};
-
-			<span class="kw">if </span>header.digest().logs().iter().any(|di| di == <span class="kw-2">&amp;</span>DigestItem::RuntimeEnvironmentUpdated) {
-				pallet_im_online::migration::clear_offchain_storage(Session::validators().len() <span class="kw">as </span>u32);
-			}
-
 			Executive::offchain_worker(header)
 		}
 	}
