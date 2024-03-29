@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-sdk-docs"
-description = "The one stop shop for developers of the polakdot-sdk"
+description = "The one stop shop for developers of the polkadot-sdk"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "paritytech.github.io"
 repository.workspace = true

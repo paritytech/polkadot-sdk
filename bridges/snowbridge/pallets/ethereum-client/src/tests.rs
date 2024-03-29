@@ -249,7 +249,7 @@ pub fn execution_header_pruning() {
 			stored_hashes.push(hash);
 		}
 
-		// We should have only stored upto `execution_header_prune_threshold`
+		// We should have only stored up to `execution_header_prune_threshold`
 		assert_eq!(
 			ExecutionHeaders::<Test>::iter().count() as u32,
 			execution_header_prune_threshold
