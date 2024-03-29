@@ -339,8 +339,7 @@ impl NotificationService for NotificationHandle {
 	fn clone(&mut self) -> Result<Box<dyn NotificationService>, ()> {
 		let mut subscribers = self.subscribers.lock();
 
-		let (event_tx, event_rx) =
-			tracing_unbounded(metric_name_for_protocol(&self.protocol).as_str(), 100_000);
+		let (event_tx, event_rx) = tracing_unbounded(self.rx.name(), 100_000);
 		subscribers.push(event_tx);
 
 		Ok(Box::new(NotificationHandle {
@@ -628,7 +627,7 @@ pub fn notification_service(
 	let (cmd_tx, cmd_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
 
 	let (event_tx, event_rx) =
-		tracing_unbounded(metric_name_for_protocol(&protocol).as_str(), 100_000);
+		tracing_unbounded(metric_label_for_protocol(&protocol).leak(), 100_000);
 	let subscribers = Arc::new(Mutex::new(vec![event_tx]));
 
 	(
@@ -639,7 +638,7 @@ pub fn notification_service(
 
 // Decorates the mpsc-notification-to-protocol metric with the name of the protocol,
 // to be able to distiguish between different protocols in dashboards.
-fn metric_name_for_protocol(protocol: &ProtocolName) -> String {
+fn metric_label_for_protocol(protocol: &ProtocolName) -> String {
 	let protocol_name = protocol.to_string();
 	let keys = protocol_name.split("/").collect::<Vec<_>>();
 	keys.iter()
