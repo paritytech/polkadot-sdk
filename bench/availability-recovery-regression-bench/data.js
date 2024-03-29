@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1711715934276,
+  "lastUpdate": 1711722801492,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -167,6 +167,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.20140178177999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin",
+            "email": "dmitry@markin.tech"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0d9324847391e902bb42f84f0e76096b1f764efe",
+          "message": "Fix `addresses_to_publish_respects_existing_p2p_protocol` test in sc-authority-discovery (#3895)\n\nFixes https://github.com/paritytech/polkadot-sdk/issues/3887.",
+          "timestamp": "2024-03-29T13:13:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d9324847391e902bb42f84f0e76096b1f764efe"
+        },
+        "date": 1711722777802,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20344677356666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.518641145546665,
             "unit": "seconds"
           }
         ]
