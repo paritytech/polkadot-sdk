@@ -94,7 +94,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		ensure!(delegatee.available_to_bond() >= value, Error::<T>::NotEnoughFunds);
 		ensure!(delegatee.ledger.payee == *payee, Error::<T>::InvalidRewardDestination);
 
-		T::CoreStaking::bond(who, value, payee)
+		T::CoreStaking::virtual_bond(who, value, payee)
 	}
 
 	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult {

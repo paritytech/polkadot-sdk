@@ -311,7 +311,7 @@ pub trait StakingInterface {
 
 /// Set of low level apis to manipulate staking ledger.
 ///
-/// This is a low level api and should be used if you know what you are doing.
+/// These apis bypass safety checks and should only be used if you know what you are doing.
 pub trait StakingUnsafe: StakingInterface {
 	/// Release all funds bonded for stake without unbonding the ledger.
 	///
@@ -327,6 +327,7 @@ pub trait StakingUnsafe: StakingInterface {
 		payee: &Self::AccountId,
 	) -> DispatchResult;
 }
+
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {

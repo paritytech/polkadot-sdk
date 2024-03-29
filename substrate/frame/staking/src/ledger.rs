@@ -178,7 +178,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		Pallet::<T>::update_hold(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
+		Pallet::<T>::update_lock(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
 
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
@@ -199,7 +199,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::AlreadyBonded);
 		}
 
-		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
+		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone()) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 
@@ -214,7 +214,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash);
 		}
 
-		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone().from(&self.stash)) {
+		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone()) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 

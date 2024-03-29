@@ -544,7 +544,7 @@ impl<T: Config> Pallet<T> {
 		if delegatee.is_bonded() {
 			T::CoreStaking::bond_extra(&delegatee.key, amount)
 		} else {
-			T::CoreStaking::bond(&delegatee.key, amount, &delegatee.reward_account())
+			T::CoreStaking::virtual_bond(&delegatee.key, amount, &delegatee.reward_account())
 		}
 	}
 
