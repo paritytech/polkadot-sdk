@@ -22453,6 +22453,7 @@ dependencies = [
 name = "xcm-fee-payment-runtime-api"
 version = "0.1.0"
 dependencies = [
+ "env_logger 0.9.3",
  "frame-executive",
  "frame-support",
  "frame-system",

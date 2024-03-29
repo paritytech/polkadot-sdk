@@ -25,7 +25,8 @@ use xcm::prelude::*;
 
 #[derive(Encode, Decode, Debug, TypeInfo)]
 pub struct XcmDryRunEffects {
-    pub local_program: Xcm<()>,
+    pub local_program: VersionedXcm<()>,
+    pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
 }
 
 sp_api::decl_runtime_apis! {

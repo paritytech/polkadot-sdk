@@ -18,44 +18,59 @@
 //! Implements both runtime APIs for fee estimation and getting the messages for transfers.
 
 use codec::Encode;
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use frame_support::{
-    construct_runtime, derive_impl, parameter_types,
-    traits::{Nothing, ConstU32, ConstU128},
+    construct_runtime, derive_impl, parameter_types, assert_ok,
+    traits::{Nothing, ConstU32, ConstU128, OriginTrait, ContainsPair, Everything, Equals},
     weights::WeightToFee as WeightToFeeT,
 };
 use pallet_xcm::TestWeightInfo;
-use sp_runtime::{AccountId32, traits::{IdentityLookup, Block as BlockT}, SaturatedConversion};
-use sp_std::cell::RefCell;
+use sp_runtime::{traits::{IdentityLookup, Block as BlockT, TryConvert, Get}, SaturatedConversion, BuildStorage};
+use sp_std::{cell::RefCell, marker::PhantomData};
 use xcm::{prelude::*, Version as XcmVersion};
-use xcm_builder::{EnsureXcmOrigin, FixedWeightBounds, IsConcrete};
-use xcm_executor::XcmExecutor;
+use xcm_builder::{
+    EnsureXcmOrigin, FixedWeightBounds, IsConcrete, FungibleAdapter, MintLocation,
+    AllowTopLevelPaidExecutionFrom, TakeWeightCredit,
+};
+use xcm_executor::{XcmExecutor, traits::ConvertLocation};
 
 use xcm_fee_payment_runtime_api::{XcmDryRunApi, XcmPaymentApi, XcmPaymentApiError, XcmDryRunEffects};
 
 construct_runtime! {
-    pub enum Test {
+    pub enum TestRuntime {
         System: frame_system,
         Balances: pallet_balances,
         XcmPallet: pallet_xcm,
     }
 }
 
-type Block = frame_system::mocking::MockBlock<Test>;
+pub type SignedExtra = (
+	// frame_system::CheckEra<TestRuntime>,
+	// frame_system::CheckNonce<TestRuntime>,
+    frame_system::CheckWeight<TestRuntime>,
+);
+pub type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
+type Block = sp_runtime::testing::Block<TestXt>;
 type Balance = u128;
-type AccountId = AccountId32;
+type AccountId = u64;
+
+pub(crate) fn extra() -> SignedExtra {
+    (
+        frame_system::CheckWeight::new(),
+    )
+}
 
 type Executive = frame_executive::Executive<
-    Test,
+    TestRuntime,
     Block,
-    frame_system::ChainContext<Test>,
-    Test,
+    frame_system::ChainContext<TestRuntime>,
+    TestRuntime,
     AllPalletsWithSystem,
     (),
 >;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl frame_system::Config for Test {
+impl frame_system::Config for TestRuntime {
     type Block = Block;
     type AccountId = AccountId;
     type AccountData = pallet_balances::AccountData<Balance>;
@@ -63,10 +78,10 @@ impl frame_system::Config for Test {
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
-impl pallet_balances::Config for Test {
+impl pallet_balances::Config for TestRuntime {
     type AccountStore = System;
     type Balance = Balance;
-    type ExistentialDeposit = ConstU128<1>;
+    type ExistentialDeposit = ExistentialDeposit;
 }
 
 thread_local! {
@@ -85,7 +100,7 @@ impl SendXcm for TestXcmSender {
         msg: &mut Option<Xcm<()>>,
     ) -> SendResult<Self::Ticket> {
         let ticket = (dest.take().unwrap(), msg.take().unwrap());
-        let fees: Assets = (HereLocation::get(), 1_000_000_000_000u128).into();
+        let fees: Assets = (HereLocation::get(), DeliveryFees::get()).into();
         Ok((ticket, fees))
     }
     fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
@@ -102,12 +117,18 @@ fn fake_message_hash<Call>(message: &Xcm<Call>) -> XcmHash {
 pub type XcmRouter = TestXcmSender;
 
 parameter_types! {
-    pub const BaseXcmWeight: Weight = Weight::from_parts(1_000_000_000_000, 1024 * 1024);
+    pub const DeliveryFees: u128 = 20; // Random value.
+    pub const ExistentialDeposit: u128 = 1; // Random value.
+    pub const BaseXcmWeight: Weight = Weight::from_parts(100, 10); // Random value.
     pub const MaxInstructions: u32 = 100;
-    pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Westend)].into();
+    pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Westend), Parachain(2000)].into();
     pub static AdvertisedXcmVersion: XcmVersion = 4;
     pub const HereLocation: Location = Location::here();
+    pub const RelayLocation: Location = Location::parent();
     pub const MaxAssetsIntoHolding: u32 = 64;
+    pub CheckAccount: AccountId = XcmPallet::check_account();
+    pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
+    pub const AnyNetwork: Option<NetworkId> = None;
 }
 
 /// Simple `WeightToFee` implementation that adds the ref_time by the proof_size.
@@ -122,16 +143,79 @@ impl WeightToFeeT for WeightToFee {
 
 type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 
+/// Matches the pair (NativeToken, AssetHub).
+/// This is used in the `IsTeleporter` configuration item, meaning we accept our native token
+/// coming from AssetHub as a teleport.
+pub struct NativeTokenToAssetHub;
+impl ContainsPair<Asset, Location> for NativeTokenToAssetHub {
+    fn contains(asset: &Asset, origin: &Location) -> bool {
+        matches!(asset.id.0.unpack(), (0, []))
+            && matches!(origin.unpack(), (1, [Parachain(1000)]))
+    }
+}
+
+/// Matches the pair (RelayToken, AssetHub).
+/// This is used in the `IsReserve` configuration item, meaning we accept the relay token
+/// coming from AssetHub as a reserve asset transfer.
+pub struct RelayTokenToAssetHub;
+impl ContainsPair<Asset, Location> for RelayTokenToAssetHub {
+    fn contains(asset: &Asset, origin: &Location) -> bool {
+        matches!(asset.id.0.unpack(), (1, []))
+            && matches!(origin.unpack(), (1, [Parachain(1000)]))
+    }
+}
+
+/// Converts locations that are only the `AccountIndex64` junction into local u64 accounts.
+pub struct AccountIndex64Aliases<Network, AccountId>(PhantomData<(Network, AccountId)>);
+impl<Network: Get<Option<NetworkId>>, AccountId: From<u64>>
+    ConvertLocation<AccountId> for AccountIndex64Aliases<Network, AccountId>
+{
+    fn convert_location(location: &Location) -> Option<AccountId> {
+        let index = match location.unpack() {
+            (0, [AccountIndex64 { index, network: None }]) => index,
+            (0, [AccountIndex64 { index, network }]) if *network == Network::get() => index,
+            _ => return None,
+        };
+        Some((*index).into())
+    }
+}
+
+/// We only alias local account locations to actual local accounts.
+/// We don't allow sovereign accounts for locations outside our chain.
+pub type LocationToAccountId = AccountIndex64Aliases<AnyNetwork, u64>;
+
+pub type FungibleTransactor = FungibleAdapter<
+    // We use pallet-balances for handling this fungible asset.
+    Balances,
+    // The fungible asset handled by this transactor is the native token of the chain.
+    IsConcrete<HereLocation>,
+    // How we convert locations to accounts.
+    LocationToAccountId,
+    // We need to specify the AccountId type.
+    AccountId,
+    // We mint the native tokens locally, so we track how many we've sent away via teleports.
+    LocalCheckAccount,
+>;
+
+// TODO: Handle the relay chain asset so we can also test with
+// reserve asset transfers.
+pub type AssetTransactor = FungibleTransactor;
+
+pub type Barrier = (
+    TakeWeightCredit, // We need this for pallet-xcm's extrinsics to work.
+    AllowTopLevelPaidExecutionFrom<Equals<HereLocation>>, // TODO: Technically, we should allow messages from "AssetHub".
+);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
     type RuntimeCall = RuntimeCall;
     type XcmSender = XcmRouter;
-    type AssetTransactor = ();
+    type AssetTransactor = AssetTransactor;
     type OriginConverter = ();
     type IsReserve = ();
-    type IsTeleporter = ();
+    type IsTeleporter = NativeTokenToAssetHub;
     type UniversalLocation = UniversalLocation;
-    type Barrier = ();
+    type Barrier = Barrier;
     type Weigher = Weigher;
     type Trader = ();
     type ResponseHandler = ();
@@ -154,15 +238,37 @@ impl xcm_executor::Config for XcmConfig {
 	type HrmpChannelClosingHandler = ();
 }
 
-impl pallet_xcm::Config for Test {
+/// Converts a signed origin of a u64 account into a location with only the `AccountIndex64` junction.
+pub struct SignedToAccountIndex64<RuntimeOrigin, AccountId>(PhantomData<(RuntimeOrigin, AccountId)>);
+impl<
+    RuntimeOrigin: OriginTrait + Clone,
+    AccountId: Into<u64>,
+> TryConvert<RuntimeOrigin, Location> for SignedToAccountIndex64<RuntimeOrigin, AccountId>
+where
+	RuntimeOrigin::PalletsOrigin: From<SystemRawOrigin<AccountId>>
+		+ TryInto<SystemRawOrigin<AccountId>, Error = RuntimeOrigin::PalletsOrigin>,
+{
+    fn try_convert(origin: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
+        origin.try_with_caller(|caller| match caller.try_into() {
+            Ok(SystemRawOrigin::Signed(who)) =>
+                Ok(Junction::AccountIndex64 { network: None, index: who.into() }.into()),
+            Ok(other) => Err(other.into()),
+            Err(other) => Err(other),
+        })
+    }
+}
+
+pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId>;
+
+impl pallet_xcm::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
     type XcmRouter = XcmRouter;
-    type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
+    type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
     type XcmExecuteFilter = Nothing;
     type XcmExecutor = XcmExecutor<XcmConfig>;
-    type XcmTeleportFilter = Nothing;
-    type XcmReserveTransferFilter = Nothing;
+    type XcmTeleportFilter = Everything; // Put everything instead of something more restricted.
+    type XcmReserveTransferFilter = Everything; // Same.
     type Weigher = Weigher;
     type UniversalLocation = UniversalLocation;
     type RuntimeOrigin = RuntimeOrigin;
@@ -178,6 +284,18 @@ impl pallet_xcm::Config for Test {
     type MaxRemoteLockConsumers = ConstU32<0>;
     type RemoteLockConsumerIdentifier = ();
     type WeightInfo = TestWeightInfo;
+}
+
+pub fn new_test_ext_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io::TestExternalities {
+    let mut t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
+
+    pallet_balances::GenesisConfig::<TestRuntime> { balances }
+        .assimilate_storage(&mut t)
+        .unwrap();
+
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
 }
 
 #[derive(Clone)]
@@ -222,21 +340,31 @@ sp_api::mock_impl_runtime_apis! {
 
     impl XcmDryRunApi<Block> for RuntimeApi {
         fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects, ()> {
-            match extrinsic.function {
+            // First we execute the extrinsic to check the queue.
+            match &extrinsic.call {
                 RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
-                    dest,
-                    beneficiary,
+                    dest: _dest,
+                    beneficiary: _beneficiary,
                     assets,
-                    fee_asset_item,
-                    weight_limit,
+                    fee_asset_item: _fee_asset_item,
+                    weight_limit: _weight_limit,
                 }) => {
-                    let assets: Assets = (*assets).try_into().map_err(|()| ())?;
-                    Executive::apply_extrinsic(extrinsic);
+                    let assets: Assets = (**assets).clone().try_into()?;
+                    assert_ok!(Executive::apply_extrinsic(extrinsic)); // Asserting just because it's for tests.
+                    let forwarded_messages = sent_xcm()
+                        .into_iter()
+                        .map(|(location, message)| (
+                            VersionedLocation::V4(location),
+                            VersionedXcm::V4(message)
+                        )).collect();
                     Ok(XcmDryRunEffects {
-                        local_program: Xcm::builder_unsafe()
-                            .withdraw_asset(assets.clone())
-                            .burn_asset(assets)
-                            .build(),
+                        local_program: VersionedXcm::V4(
+                            Xcm::builder_unsafe()
+                                .withdraw_asset(assets.clone())
+                                .burn_asset(assets)
+                                .build()
+                            ),
+                        forwarded_messages,
                     })
                 },
                 _ => Err(()),

@@ -22,61 +22,111 @@ use xcm_fee_payment_runtime_api::{XcmPaymentApi, XcmDryRunApi};
 use xcm::prelude::*;
 
 mod mock;
-use mock::{TestClient, HereLocation};
+use mock::{TestClient, HereLocation, TestXt, RuntimeCall, new_test_ext_with_balances, extra, DeliveryFees, ExistentialDeposit};
 
+// Scenario: User `1` in the local chain wants to transfer assets to account `[0u8; 32]` on "AssetHub".
+// He wants to make sure he has enough for fees, so before he calls the `transfer_asset` extrinsic to do the transfer,
+// he decides to use the `XcmDryRunApi` and `XcmPaymentApi` runtime APIs to estimate fees.
 #[test]
 fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
-    let client = TestClient;
-    let runtime_api = client.runtime_api();
-    // TODO: Build extrinsic
-        // (Parent, Parachain(1000)).into(),
-        // AccountId32 { id: [0u8; 32], network: None }.into(),
-        // (Here, 100u128).into(),
-    let messages = runtime_api.dry_run_extrinsic(
-        H256::zero(),
-        extrinsic,
-    ).unwrap().unwrap();
-    // assert_eq!(messages, [...]);
+    let _ = env_logger::builder()
+        .is_test(true)
+        .try_init();
+    let balances = vec![(1, 100 + DeliveryFees::get() + ExistentialDeposit::get())];
+    new_test_ext_with_balances(balances).execute_with(|| {
+        let client = TestClient;
+        let runtime_api = client.runtime_api();
+        let who = 1; // AccountId = u64.
+        let extrinsic = TestXt::new(
+            RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
+                dest: Box::new(VersionedLocation::V4((Parent, Parachain(1000)).into())),
+                beneficiary: Box::new(VersionedLocation::V4(AccountId32 { id: [0u8; 32], network: None }.into())),
+                assets: Box::new(VersionedAssets::V4((Here, 100u128).into())),
+                fee_asset_item: 0,
+                weight_limit: WeightLimit::Unlimited,
+            }),
+            Some((who, extra())),
+        );
+        let dry_run_effects = runtime_api.dry_run_extrinsic(
+            H256::zero(),
+            extrinsic,
+        ).unwrap().unwrap();
 
-    let mut messages_iter = messages.iter();
+        assert_eq!(
+            dry_run_effects.local_program,
+            VersionedXcm::V4(
+                Xcm::builder_unsafe()
+                    .withdraw_asset((Here, 100u128).into())
+                    .burn_asset((Here, 100u128).into())
+                    .build()
+            )
+        );
+        assert_eq!(
+            dry_run_effects.forwarded_messages,
+            vec![
+                (
+                    VersionedLocation::V4(Location::new(1, [Parachain(1000)])),
+                    VersionedXcm::V4(
+                        Xcm::<()>::builder_unsafe()
+                            .receive_teleported_asset(([Parent, Parachain(2000)], 100u128).into())
+                            .clear_origin()
+                            .buy_execution((Parent, Parachain(2000), 100u128).into())
+                            .deposit_asset(AllCounted(1).into(), AccountId32 { id: [0u8; 32], network: None }.into())
+                            .build()
+                    )
+                ),
+            ],
+        );
 
-    let (_, local_message) = messages_iter.next().unwrap();
+        // TODO: Weighing the local program is not relevant for extrinsics that already
+        // take this weight into account.
+        // In this case, we really only care about delivery fees.
+        let local_program = dry_run_effects.local_program;
 
-    // We get a double result since the actual call returns a result and the runtime api returns results.
-    let weight = runtime_api.query_xcm_weight(
-        H256::zero(),
-        local_message.clone(),
-    ).unwrap().unwrap();
-    assert_eq!(weight, Weight::from_parts(2_000_000_000_000, 2 * 1024 * 1024));
-    let execution_fees = runtime_api.query_weight_to_asset_fee(
-        H256::zero(),
-        weight,
-        VersionedAssetId::V4(HereLocation::get().into())
-    ).unwrap().unwrap();
-    assert_eq!(execution_fees, 2_000_002_097_152);
+        // We get a double result since the actual call returns a result and the runtime api returns results.
+        let weight = runtime_api.query_xcm_weight(
+            H256::zero(),
+            local_program.clone(),
+        ).unwrap().unwrap();
+        assert_eq!(weight, Weight::from_parts(200, 20));
+        let execution_fees = runtime_api.query_weight_to_asset_fee(
+            H256::zero(),
+            weight,
+            VersionedAssetId::V4(HereLocation::get().into())
+        ).unwrap().unwrap();
+        assert_eq!(execution_fees, 2_000_002_097_152);
 
-    let (destination, remote_message) = messages_iter.next().unwrap();
+        let mut forwarded_messages_iter = dry_run_effects.forwarded_messages.into_iter();
 
-    let delivery_fees = runtime_api.query_delivery_fees(
-        H256::zero(),
-        destination.clone(),
-        remote_message.clone(),
-    ).unwrap().unwrap();
+        let (destination, remote_message) = forwarded_messages_iter.next().unwrap();
 
-    // This would have to be the runtime API of the destination,
-    // which we have the location for.
-    let remote_execution_weight = runtime_api.query_xcm_weight(
-        H256::zero(),
-        remote_message.clone(),
-    ).unwrap().unwrap();
-    let remote_execution_fees = runtime_api.query_weight_to_asset_fee(
-        H256::zero(),
-        remote_execution_weight,
-        VersionedAssetId::V4(HereLocation::get().into()),
-    );
+        let delivery_fees = runtime_api.query_delivery_fees(
+            H256::zero(),
+            destination.clone(),
+            remote_message.clone(),
+        ).unwrap().unwrap();
+        assert_eq!(delivery_fees, VersionedAssets::V4((Here, 100u128).into()));
 
-    // Now we know that locally we need to use `execution_fees` and
-    // `delivery_fees`.
-    // On the message we forward to the destination, we need to
-    // put `remote_execution_fees` in `BuyExecution`.
+        // TODO: This would have to be the runtime API of the destination,
+        // which we have the location for.
+        // If I had a mock runtime configured for "AssetHub" then I would use the
+        // runtime APIs from that.
+        let remote_execution_weight = runtime_api.query_xcm_weight(
+            H256::zero(),
+            remote_message.clone(),
+        ).unwrap().unwrap();
+        let remote_execution_fees = runtime_api.query_weight_to_asset_fee(
+            H256::zero(),
+            remote_execution_weight,
+            VersionedAssetId::V4(HereLocation::get().into()),
+        ).unwrap().unwrap();
+        assert_eq!(remote_execution_fees, 100u128);
+
+        // Now we know that locally we need to use `execution_fees` and
+        // `delivery_fees`.
+        // On the message we forward to the destination, we need to
+        // put `remote_execution_fees` in `BuyExecution`.
+        // For the `transfer_assets` extrinsic, it just means passing the correct amount
+        // of fees in the parameters.
+    });
 }
