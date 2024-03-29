@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1711702918125,
+  "lastUpdate": 1711707825690,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -103,6 +103,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011546961813333343,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn",
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b310b575cd73928cf061e1ae0d184f7e900976d5",
+          "message": "Remove transient code after `im-online` pallet removal (#3383)\n\nRemoves transient code introduced to clean up offchain database after\n`im-online` pallet removal.\n\nShould be merged after #2290 has been enacted.",
+          "timestamp": "2024-03-29T09:12:40Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b310b575cd73928cf061e1ae0d184f7e900976d5"
+        },
+        "date": 1711707802331,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.89333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014100756359999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16313833589999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.027004377906666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011511754360000005,
             "unit": "seconds"
           }
         ]
