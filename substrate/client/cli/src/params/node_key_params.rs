@@ -90,8 +90,8 @@ pub struct NodeKeyParams {
 	/// the network-key is usually persisted accross nodes restarts,
 	/// in the `network` folder from directory provided in `--base-path`
 	///
-	/// This is safe to be used the first time you run your node or if you already
-	/// lost your node keys or if you don't care about the above problem.
+	/// Warning!! If you ever run the node with this argument, make sure
+	/// you remove it for the subsequent restarts.
 	#[arg(long)]
 	pub unsafe_force_node_key_generation: bool,
 }

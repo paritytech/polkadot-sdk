@@ -85,9 +85,12 @@ pub enum Error {
 		"Starting an authorithy without network key in {0}.
 		\n This is not a safe operation because the old identity still lives in the dht for 36 hours.
 		\n Because of it your node might suffer from not being properly connected to other nodes for validation purposes.
-		\n If it is the first time running your node you could use one of the following methods.
-		\n 1. Pass --unsafe-force-node-key-generation and make sure you remove it for subsequent node restarts
-		\n 2. Separately generate the key with: polkadot key generate-node-key --file <YOUR_PATH_TO_NODE_KEY>"
+		\n If it is the first time running your node you could use one of the following methods:
+		\n 1. [Preferred] Separately generate the key with: polkadot key generate-node-key --default-base-path
+		\n 2. [Preferred] Separately generate the key with: polkadot key generate-node-key --base-path <YOUR_BASE_PATH>
+		\n 3. [Preferred] Separately generate the key with: polkadot key generate-node-key --file <YOUR_PATH_TO_NODE_KEY>
+		\n 4. [Unsafe] Pass --unsafe-force-node-key-generation and make sure you remove it for subsequent node restarts"
+
 	)]
 	NetworkKeyNotFound(PathBuf),
 }
