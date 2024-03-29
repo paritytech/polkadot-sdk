@@ -997,6 +997,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#850" id="850">850</a>
 <a href="#851" id="851">851</a>
 <a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1341,6 +1351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>addresses_to_publish(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Multiaddr&gt; {
+		<span class="kw">let </span>local_peer_id = <span class="self">self</span>.network.local_peer_id();
 		<span class="kw">let </span>publish_non_global_ips = <span class="self">self</span>.publish_non_global_ips;
 		<span class="kw">let </span>addresses = <span class="self">self
 			</span>.public_addresses
@@ -1348,7 +1359,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.into_iter()
 			.chain(<span class="self">self</span>.network.external_addresses().into_iter().filter_map(|<span class="kw-2">mut </span>address| {
 				<span class="comment">// Make sure the reported external address does not contain `/p2p/...` protocol.
-				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(multiaddr::Protocol::P2p(<span class="kw">_</span>)) = address.iter().last() {
+				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+					<span class="kw">if </span>peer_id != <span class="kw-2">*</span>local_peer_id.as_ref() {
+						<span class="macro">error!</span>(
+							target: LOG_TARGET,
+							<span class="string">&quot;Network returned external address &#39;{address}&#39; with peer id \
+							 not matching the local peer id &#39;{local_peer_id}&#39;.&quot;</span>,
+						);
+						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
+					}
 					address.pop();
 				}
 
@@ -1374,15 +1393,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-		<span class="kw">let </span>peer_id = <span class="self">self</span>.network.local_peer_id();
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Authority DHT record peer_id=&#39;{peer_id}&#39; addresses=&#39;{addresses:?}&#39;&quot;</span>,
+			<span class="string">&quot;Authority DHT record peer_id=&#39;{local_peer_id}&#39; addresses=&#39;{addresses:?}&#39;&quot;</span>,
 		);
 
-		<span class="comment">// The address must include the peer id.
-		</span><span class="kw">let </span>peer_id: Multihash = peer_id.into();
-		addresses.into_iter().map(<span class="kw">move </span>|a| a.with(multiaddr::Protocol::P2p(peer_id)))
+		<span class="comment">// The address must include the local peer id.
+		</span><span class="kw">let </span>local_peer_id: Multihash = local_peer_id.into();
+		addresses
+			.into_iter()
+			.map(<span class="kw">move </span>|a| a.with(multiaddr::Protocol::P2p(local_peer_id)))
 	}
 
 	<span class="doccomment">/// Publish own public addresses.
