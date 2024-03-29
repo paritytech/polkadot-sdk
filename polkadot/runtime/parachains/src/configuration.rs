@@ -247,7 +247,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_validators: None,
 			dispute_period: 6,
 			dispute_post_conclusion_acceptance_period: 100.into(),
-			n_delay_tranches: Default::default(),
+			n_delay_tranches: 1,
 			zeroth_delay_tranche_width: Default::default(),
 			needed_approvals: Default::default(),
 			relay_vrf_modulo_samples: Default::default(),
