@@ -1849,7 +1849,7 @@ fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 		let local_group_index = local_validator.group_index.unwrap();
 
 		let other_group = next_group_index(local_group_index, validator_count, group_size);
-		
+
 		// Other para is same para for elastic scaling test (groups_for_first_para > 1)
 		let other_para = ParaId::from((groups_for_first_para == 1) as u32);
 
