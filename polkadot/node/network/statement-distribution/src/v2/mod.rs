@@ -37,7 +37,7 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::{
 	messages::{
 		network_bridge_event::NewGossipTopology, CandidateBackingMessage, HypotheticalCandidate,
-		HypotheticalFrontierRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		HypotheticalMembershipRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
 		ProspectiveParachainsMessage,
 	},
 	overseer, ActivatedLeaf,
@@ -2156,11 +2156,10 @@ async fn fragment_tree_update_inner<Context>(
 	// 2. find out which are in the frontier
 	let frontier = {
 		let (tx, rx) = oneshot::channel();
-		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalFrontier(
-			HypotheticalFrontierRequest {
+		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
+			HypotheticalMembershipRequest {
 				candidates: hypotheticals,
 				fragment_tree_relay_parent: active_leaf_hash,
-				backed_in_path_only: false,
 			},
 			tx,
 		))

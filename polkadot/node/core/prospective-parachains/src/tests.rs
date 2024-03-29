@@ -19,7 +19,7 @@ use assert_matches::assert_matches;
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		AllMessages, HypotheticalFrontierRequest, ParentHeadData, ProspectiveParachainsMessage,
+		AllMessages, HypotheticalMembershipRequest, ParentHeadData, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest,
 	},
 };
@@ -438,7 +438,7 @@ async fn get_hypothetical_frontier(
 		receipt: Arc::new(receipt),
 		persisted_validation_data,
 	};
-	let request = HypotheticalFrontierRequest {
+	let request = HypotheticalMembershipRequest {
 		candidates: vec![hypothetical_candidate.clone()],
 		fragment_tree_relay_parent: Some(fragment_tree_relay_parent),
 		backed_in_path_only,
@@ -446,7 +446,7 @@ async fn get_hypothetical_frontier(
 	let (tx, rx) = oneshot::channel();
 	virtual_overseer
 		.send(overseer::FromOrchestra::Communication {
-			msg: ProspectiveParachainsMessage::GetHypotheticalFrontier(request, tx),
+			msg: ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx),
 		})
 		.await;
 	let resp = rx.await.unwrap();

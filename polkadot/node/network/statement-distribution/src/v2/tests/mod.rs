@@ -26,8 +26,8 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::Statement;
 use polkadot_node_subsystem::messages::{
-	network_bridge_event::NewGossipTopology, AllMessages, ChainApiMessage, FragmentTreeMembership,
-	HypotheticalCandidate, NetworkBridgeEvent, ProspectiveParachainsMessage, ReportPeerMessage,
+	network_bridge_event::NewGossipTopology, AllMessages, ChainApiMessage, HypotheticalCandidate,
+	HypotheticalMembership, NetworkBridgeEvent, ProspectiveParachainsMessage, ReportPeerMessage,
 	RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
@@ -509,7 +509,7 @@ async fn activate_leaf(
 	leaf: &TestLeaf,
 	test_state: &TestState,
 	is_new_session: bool,
-	hypothetical_frontier: Vec<(HypotheticalCandidate, FragmentTreeMembership)>,
+	hypothetical_frontier: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	let activated = new_leaf(leaf.hash, leaf.number);
 
@@ -534,7 +534,7 @@ async fn handle_leaf_activation(
 	leaf: &TestLeaf,
 	test_state: &TestState,
 	is_new_session: bool,
-	hypothetical_frontier: Vec<(HypotheticalCandidate, FragmentTreeMembership)>,
+	hypothetical_frontier: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	let TestLeaf {
 		number,
@@ -644,7 +644,7 @@ async fn handle_leaf_activation(
 				tx.send(Ok((validator_groups, group_rotation_info))).unwrap();
 			},
 			AllMessages::ProspectiveParachains(
-				ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx),
+				ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx),
 			) => {
 				assert_eq!(req.fragment_tree_relay_parent, Some(*hash));
 				assert!(!req.backed_in_path_only);
@@ -699,12 +699,12 @@ async fn handle_sent_request(
 
 async fn answer_expected_hypothetical_depth_request(
 	virtual_overseer: &mut VirtualOverseer,
-	responses: Vec<(HypotheticalCandidate, FragmentTreeMembership)>,
+	responses: Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 ) {
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::ProspectiveParachains(
-			ProspectiveParachainsMessage::GetHypotheticalFrontier(req, tx)
+			ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx)
 		) => {
 			assert_eq!(req.fragment_tree_relay_parent, None);
 			assert!(!req.backed_in_path_only);

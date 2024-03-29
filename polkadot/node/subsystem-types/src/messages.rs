@@ -1103,15 +1103,12 @@ impl HypotheticalCandidate {
 /// or might be included in the hypothetical frontier of fragment trees
 /// under a given active leaf.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct HypotheticalFrontierRequest {
+pub struct HypotheticalMembershipRequest {
 	/// Candidates, in arbitrary order, which should be checked for
 	/// possible membership in fragment trees.
 	pub candidates: Vec<HypotheticalCandidate>,
 	/// Either a specific fragment tree to check, otherwise all.
 	pub fragment_tree_relay_parent: Option<Hash>,
-	/// Only return membership if all candidates in the path from the
-	/// root are backed.
-	pub backed_in_path_only: bool,
 }
 
 /// A request for the persisted validation data stored in the prospective
@@ -1151,8 +1148,22 @@ impl ParentHeadData {
 }
 
 /// Indicates the relay-parents whose fragment tree a candidate
-/// is present in and the depths of that tree the candidate is present in.
-pub type FragmentTreeMembership = Vec<(Hash, Vec<usize>)>;
+/// is present in.
+pub type HypotheticalMembership = Vec<(Hash, MemberState)>;
+
+#[derive(Debug)]
+/// The possible states a candidate can be in a leaf's fragment chain.
+pub enum MemberState {
+	/// Present in the candidate storage, but not connected to the prospective chain.
+	Unconnected,
+	/// Present in the fragment chain
+	Present,
+	/// Could be added to the fragment chain in the future
+	Potential,
+	/// Not present in the candidate storage and cannot be added to the fragment chain in the
+	/// future.
+	None,
+}
 
 /// A collection of ancestor candidates of a parachain.
 pub type Ancestors = HashSet<CandidateHash>;
@@ -1188,12 +1199,10 @@ pub enum ProspectiveParachainsMessage {
 	///
 	/// For any candidate which is already known, this returns the depths the candidate
 	/// occupies.
-	GetHypotheticalFrontier(
-		HypotheticalFrontierRequest,
-		oneshot::Sender<Vec<(HypotheticalCandidate, FragmentTreeMembership)>>,
+	GetHypotheticalMembership(
+		HypotheticalMembershipRequest,
+		oneshot::Sender<Vec<(HypotheticalCandidate, HypotheticalMembership)>>,
 	),
-	/// Get the membership of the candidate in all fragment trees.
-	GetTreeMembership(ParaId, CandidateHash, oneshot::Sender<FragmentTreeMembership>),
 	/// Get the minimum accepted relay-parent number for each para in the fragment tree
 	/// for the given relay-chain block hash.
 	///

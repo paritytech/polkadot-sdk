@@ -17,7 +17,7 @@
 //! Tests for the backing subsystem with enabled prospective parachains.
 
 use polkadot_node_subsystem::{
-	messages::{ChainApiMessage, FragmentTreeMembership},
+	messages::{ChainApiMessage, HypotheticalMembership},
 	ActivatedLeaf, TimeoutExt,
 };
 use polkadot_primitives::{AsyncBackingParams, BlockNumber, Header, OccupiedCore};
@@ -300,8 +300,8 @@ async fn assert_validate_seconded_candidate(
 async fn assert_hypothetical_frontier_requests(
 	virtual_overseer: &mut VirtualOverseer,
 	mut expected_requests: Vec<(
-		HypotheticalFrontierRequest,
-		Vec<(HypotheticalCandidate, FragmentTreeMembership)>,
+		HypotheticalMembershipRequest,
+		Vec<(HypotheticalCandidate, HypotheticalMembership)>,
 	)>,
 ) {
 	// Requests come with no particular order.
@@ -311,7 +311,7 @@ async fn assert_hypothetical_frontier_requests(
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::ProspectiveParachains(
-				ProspectiveParachainsMessage::GetHypotheticalFrontier(request, tx),
+				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx),
 			) => {
 				let idx = match expected_requests.iter().position(|r| r.0 == request) {
 					Some(idx) => idx,
@@ -334,7 +334,7 @@ fn make_hypothetical_frontier_response(
 	depths: Vec<usize>,
 	hypothetical_candidate: HypotheticalCandidate,
 	relay_parent_hash: Hash,
-) -> Vec<(HypotheticalCandidate, FragmentTreeMembership)> {
+) -> Vec<(HypotheticalCandidate, HypotheticalMembership)> {
 	vec![(hypothetical_candidate, vec![(relay_parent_hash, depths)])]
 }
 
@@ -412,7 +412,7 @@ fn seconding_sanity_check_allowed() {
 			receipt: Arc::new(candidate.clone()),
 			persisted_validation_data: pvd.clone(),
 		};
-		let expected_request_a = HypotheticalFrontierRequest {
+		let expected_request_a = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
 			fragment_tree_relay_parent: Some(leaf_a_hash),
 			backed_in_path_only: false,
@@ -422,7 +422,7 @@ fn seconding_sanity_check_allowed() {
 			hypothetical_candidate.clone(),
 			leaf_a_hash,
 		);
-		let expected_request_b = HypotheticalFrontierRequest {
+		let expected_request_b = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
 			fragment_tree_relay_parent: Some(leaf_b_hash),
 			backed_in_path_only: false,
@@ -557,7 +557,7 @@ fn seconding_sanity_check_disallowed() {
 			receipt: Arc::new(candidate.clone()),
 			persisted_validation_data: pvd.clone(),
 		};
-		let expected_request_a = HypotheticalFrontierRequest {
+		let expected_request_a = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
 			fragment_tree_relay_parent: Some(leaf_a_hash),
 			backed_in_path_only: false,
@@ -659,7 +659,7 @@ fn seconding_sanity_check_disallowed() {
 			receipt: Arc::new(candidate),
 			persisted_validation_data: pvd,
 		};
-		let expected_request_a = HypotheticalFrontierRequest {
+		let expected_request_a = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
 			fragment_tree_relay_parent: Some(leaf_a_hash),
 			backed_in_path_only: false,
@@ -669,7 +669,7 @@ fn seconding_sanity_check_disallowed() {
 			hypothetical_candidate.clone(),
 			leaf_a_hash,
 		);
-		let expected_request_b = HypotheticalFrontierRequest {
+		let expected_request_b = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
 			fragment_tree_relay_parent: Some(leaf_b_hash),
 			backed_in_path_only: false,
@@ -760,7 +760,7 @@ fn prospective_parachains_reject_candidate() {
 			persisted_validation_data: pvd.clone(),
 		};
 		let expected_request_a = vec![(
-			HypotheticalFrontierRequest {
+			HypotheticalMembershipRequest {
 				candidates: vec![hypothetical_candidate.clone()],
 				fragment_tree_relay_parent: Some(leaf_a_hash),
 				backed_in_path_only: false,
@@ -945,7 +945,7 @@ fn second_multiple_candidates_per_relay_parent() {
 				persisted_validation_data: pvd.clone(),
 			};
 			let expected_request_a = vec![(
-				HypotheticalFrontierRequest {
+				HypotheticalMembershipRequest {
 					candidates: vec![hypothetical_candidate.clone()],
 					fragment_tree_relay_parent: Some(leaf_hash),
 					backed_in_path_only: false,
@@ -1506,7 +1506,7 @@ fn seconding_sanity_check_occupy_same_depth() {
 				persisted_validation_data: pvd.clone(),
 			};
 			let expected_request_a = vec![(
-				HypotheticalFrontierRequest {
+				HypotheticalMembershipRequest {
 					candidates: vec![hypothetical_candidate.clone()],
 					fragment_tree_relay_parent: Some(leaf_hash),
 					backed_in_path_only: false,
@@ -1648,7 +1648,7 @@ fn occupied_core_assignment() {
 			persisted_validation_data: pvd.clone(),
 		};
 		let expected_request = vec![(
-			HypotheticalFrontierRequest {
+			HypotheticalMembershipRequest {
 				candidates: vec![hypothetical_candidate.clone()],
 				fragment_tree_relay_parent: Some(leaf_a_hash),
 				backed_in_path_only: false,

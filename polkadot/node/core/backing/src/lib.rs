@@ -30,7 +30,7 @@
 //! assigned group of validators may be backed on-chain and proceed to the availability
 //! stage.
 //!
-//! Depth is a concept relating to asynchronous backing, by which validators
+//! Depth is a concept relating to asynchronous backing, by which
 //! short sub-chains of candidates are backed and extended off-chain, and then placed
 //! asynchronously into blocks of the relay chain as those are authored and as the
 //! relay-chain state becomes ready for them. Asynchronous backing allows parachains to
@@ -66,7 +66,7 @@
 #![deny(unused_crate_dependencies)]
 
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{HashMap, HashSet},
 	sync::Arc,
 };
 
@@ -88,9 +88,10 @@ use polkadot_node_subsystem::{
 	messages::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
-		HypotheticalCandidate, HypotheticalFrontierRequest, IntroduceSecondedCandidateRequest,
-		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, RuntimeApiMessage,
-		RuntimeApiRequest, StatementDistributionMessage, StoreAvailableDataError,
+		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
+		MemberState, ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage,
+		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
+		StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -247,16 +248,39 @@ struct PerCandidateState {
 	relay_parent: Hash,
 }
 
-struct ActiveLeafState {
-	prospective_parachains_mode: ProspectiveParachainsMode,
-	/// The candidates seconded at various depths under this active
-	/// leaf with respect to parachain id. A candidate can only be
-	/// seconded when its hypothetical frontier under every active leaf
-	/// has an empty entry in this map.
-	///
-	/// When prospective parachains are disabled, the only depth
-	/// which is allowed is 0.
-	seconded_at_depth: HashMap<ParaId, BTreeMap<usize, CandidateHash>>,
+enum ActiveLeafState {
+	ProspectiveParachainsDisabled { seconded: HashSet<ParaId> },
+	ProspectiveParachainsEnabled { max_candidate_depth: usize, allowed_ancestry_len: usize },
+}
+
+impl ActiveLeafState {
+	fn new(mode: ProspectiveParachainsMode) -> Self {
+		match mode {
+			ProspectiveParachainsMode::Disabled =>
+				Self::ProspectiveParachainsDisabled { seconded: HashSet::new() },
+			ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len } =>
+				Self::ProspectiveParachainsEnabled { max_candidate_depth, allowed_ancestry_len },
+		}
+	}
+
+	fn add_seconded_candidate(&mut self, para_id: ParaId) {
+		if let Self::ProspectiveParachainsDisabled { seconded } = self {
+			seconded.insert(para_id);
+		}
+	}
+}
+
+impl From<&ActiveLeafState> for ProspectiveParachainsMode {
+	fn from(state: &ActiveLeafState) -> Self {
+		match *state {
+			ActiveLeafState::ProspectiveParachainsDisabled { .. } =>
+				ProspectiveParachainsMode::Disabled,
+			ActiveLeafState::ProspectiveParachainsEnabled {
+				max_candidate_depth,
+				allowed_ancestry_len,
+			} => ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len },
+		}
+	}
 }
 
 /// The state of the subsystem.
@@ -865,17 +889,9 @@ async fn handle_active_leaves_update<Context>(
 				return Ok(())
 			}
 
-			state.per_leaf.insert(
-				leaf.hash,
-				ActiveLeafState {
-					prospective_parachains_mode: ProspectiveParachainsMode::Disabled,
-					// This is empty because the only allowed relay-parent and depth
-					// when prospective parachains are disabled is the leaf hash and 0,
-					// respectively. We've just learned about the leaf hash, so we cannot
-					// have any candidates seconded with it as a relay-parent yet.
-					seconded_at_depth: HashMap::new(),
-				},
-			);
+			state
+				.per_leaf
+				.insert(leaf.hash, ActiveLeafState::new(ProspectiveParachainsMode::Disabled));
 
 			(vec![leaf.hash], ProspectiveParachainsMode::Disabled)
 		},
@@ -883,63 +899,9 @@ async fn handle_active_leaves_update<Context>(
 			let fresh_relay_parents =
 				state.implicit_view.known_allowed_relay_parents_under(&leaf.hash, None);
 
-			// At this point, all candidates outside of the implicit view
-			// have been cleaned up. For all which remain, which we've seconded,
-			// we ask the prospective parachains subsystem where they land in the fragment
-			// tree for the given active leaf. This comprises our `seconded_at_depth`.
+			let active_leaf_state = ActiveLeafState::new(prospective_parachains_mode);
 
-			let remaining_seconded = state
-				.per_candidate
-				.iter()
-				.filter(|(_, cd)| cd.seconded_locally)
-				.map(|(c_hash, cd)| (*c_hash, cd.para_id));
-
-			// one-to-one correspondence to remaining_seconded
-			let mut membership_answers = FuturesOrdered::new();
-
-			for (candidate_hash, para_id) in remaining_seconded {
-				let (tx, rx) = oneshot::channel();
-				membership_answers
-					.push_back(rx.map_ok(move |membership| (para_id, candidate_hash, membership)));
-
-				ctx.send_message(ProspectiveParachainsMessage::GetTreeMembership(
-					para_id,
-					candidate_hash,
-					tx,
-				))
-				.await;
-			}
-
-			let mut seconded_at_depth = HashMap::new();
-			if let Some(response) = membership_answers.next().await {
-				match response {
-					Err(oneshot::Canceled) => {
-						gum::warn!(
-							target: LOG_TARGET,
-							"Prospective parachains subsystem unreachable for membership request",
-						);
-					},
-					Ok((para_id, candidate_hash, membership)) => {
-						// This request gives membership in all fragment trees. We have some
-						// wasted data here, and it can be optimized if it proves
-						// relevant to performance.
-						if let Some((_, depths)) =
-							membership.into_iter().find(|(leaf_hash, _)| leaf_hash == &leaf.hash)
-						{
-							let para_entry: &mut BTreeMap<usize, CandidateHash> =
-								seconded_at_depth.entry(para_id).or_default();
-							for depth in depths {
-								para_entry.insert(depth, candidate_hash);
-							}
-						}
-					},
-				}
-			}
-
-			state.per_leaf.insert(
-				leaf.hash,
-				ActiveLeafState { prospective_parachains_mode, seconded_at_depth },
-			);
+			state.per_leaf.insert(leaf.hash, active_leaf_state);
 
 			let fresh_relay_parent = match fresh_relay_parents {
 				Some(f) => f.to_vec(),
@@ -982,7 +944,7 @@ async fn handle_active_leaves_update<Context>(
 				// block itself did.
 				leaf_mode
 			},
-			Some(l) => l.prospective_parachains_mode,
+			Some(l) => l.into(),
 		};
 
 		// construct a `PerRelayParent` from the runtime API
@@ -1248,7 +1210,8 @@ async fn construct_per_relay_parent_state<Context>(
 
 enum SecondingAllowed {
 	No,
-	Yes(Vec<(Hash, Vec<usize>)>),
+	// On which leaves is seconding allowed.
+	Yes(Vec<Hash>),
 }
 
 /// Checks whether a candidate can be seconded based on its hypothetical frontiers in the fragment
@@ -1259,9 +1222,8 @@ async fn seconding_sanity_check<Context>(
 	active_leaves: &HashMap<Hash, ActiveLeafState>,
 	implicit_view: &ImplicitView,
 	hypothetical_candidate: HypotheticalCandidate,
-	backed_in_path_only: bool,
 ) -> SecondingAllowed {
-	let mut membership = Vec::new();
+	let mut leaves_for_seconding = Vec::new();
 	let mut responses = FuturesOrdered::<BoxFuture<'_, Result<_, oneshot::Canceled>>>::new();
 
 	let candidate_para = hypothetical_candidate.candidate_para();
@@ -1269,7 +1231,7 @@ async fn seconding_sanity_check<Context>(
 	let candidate_hash = hypothetical_candidate.candidate_hash();
 
 	for (head, leaf_state) in active_leaves {
-		if leaf_state.prospective_parachains_mode.is_enabled() {
+		if ProspectiveParachainsMode::from(leaf_state).is_enabled() {
 			// Check that the candidate relay parent is allowed for para, skip the
 			// leaf otherwise.
 			let allowed_parents_for_para =
@@ -1279,40 +1241,39 @@ async fn seconding_sanity_check<Context>(
 			}
 
 			let (tx, rx) = oneshot::channel();
-			ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalFrontier(
-				HypotheticalFrontierRequest {
+			ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
+				HypotheticalMembershipRequest {
 					candidates: vec![hypothetical_candidate.clone()],
 					fragment_tree_relay_parent: Some(*head),
-					backed_in_path_only,
 				},
 				tx,
 			))
 			.await;
 			let response = rx.map_ok(move |frontiers| {
-				let depths: Vec<usize> = frontiers
-					.into_iter()
-					.flat_map(|(candidate, memberships)| {
-						debug_assert_eq!(candidate.candidate_hash(), candidate_hash);
-						memberships.into_iter().flat_map(|(relay_parent, depths)| {
-							debug_assert_eq!(relay_parent, *head);
-							depths
-						})
-					})
-					.collect();
-				(depths, head, leaf_state)
+				let mut res = (MemberState::None, head);
+				if let Some(states) = frontiers.into_iter().find_map(|(candidate, states)| {
+					(candidate.candidate_hash() == candidate_hash).then_some(states)
+				}) {
+					if let Some(state) = states
+						.into_iter()
+						.find_map(|(relay_parent, state)| (&relay_parent == head).then_some(state))
+					{
+						res = (state, head);
+					}
+				}
+
+				res
 			});
 			responses.push_back(response.boxed());
 		} else {
 			if *head == candidate_relay_parent {
-				if leaf_state
-					.seconded_at_depth
-					.get(&candidate_para)
-					.map_or(false, |occupied| occupied.contains_key(&0))
-				{
-					// The leaf is already occupied.
-					return SecondingAllowed::No
+				if let ActiveLeafState::ProspectiveParachainsDisabled { seconded } = leaf_state {
+					if seconded.contains(&candidate_para) {
+						// The leaf is already occupied.
+						return SecondingAllowed::No
+					}
 				}
-				responses.push_back(futures::future::ok((vec![0], head, leaf_state)).boxed());
+				responses.push_back(futures::future::ok((MemberState::Potential, head)).boxed());
 			}
 		}
 	}
@@ -1331,33 +1292,36 @@ async fn seconding_sanity_check<Context>(
 
 				return SecondingAllowed::No
 			},
-			Ok((depths, head, leaf_state)) => {
-				for depth in &depths {
-					if leaf_state
-						.seconded_at_depth
-						.get(&candidate_para)
-						.map_or(false, |occupied| occupied.contains_key(&depth))
-					{
-						gum::debug!(
-							target: LOG_TARGET,
-							?candidate_hash,
-							depth,
-							leaf_hash = ?head,
-							"Refusing to second candidate at depth - already occupied."
-						);
+			Ok((member_state, head)) => match member_state {
+				MemberState::Potential => {
+					leaves_for_seconding.push(*head);
+				},
+				MemberState::None => {
+					gum::debug!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						leaf_hash = ?head,
+						"Refusing to second candidate",
+					);
 
-						return SecondingAllowed::No
-					}
-				}
+					return SecondingAllowed::No
+				},
+				_ => {
+					gum::debug!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						leaf_hash = ?head,
+						"Refusing to second candidate - already present state: {:?}",
+						member_state,
+					);
 
-				membership.push((*head, depths));
+					return SecondingAllowed::No
+				},
 			},
 		}
 	}
 
-	// At this point we've checked the depths of the candidate against all active
-	// leaves.
-	SecondingAllowed::Yes(membership)
+	SecondingAllowed::Yes(leaves_for_seconding)
 }
 
 /// Performs seconding sanity check for an advertisement.
@@ -1386,16 +1350,12 @@ async fn handle_can_second_request<Context>(
 			&state.per_leaf,
 			&state.implicit_view,
 			hypothetical_candidate,
-			true,
 		)
 		.await;
 
 		match result {
 			SecondingAllowed::No => false,
-			SecondingAllowed::Yes(membership) => {
-				// Candidate should be recognized by at least some fragment tree.
-				membership.iter().any(|(_, m)| !m.is_empty())
-			},
+			SecondingAllowed::Yes(leaves) => !leaves.is_empty(),
 		}
 	} else {
 		// Relay parent is unknown or async backing is disabled.
@@ -1437,7 +1397,7 @@ async fn handle_validated_candidate_command<Context>(
 						};
 
 						let parent_head_data_hash = persisted_validation_data.parent_head.hash();
-						// Note that `GetHypotheticalFrontier` doesn't account for recursion,
+						// Note that `GetHypotheticalMembership` doesn't account for recursion,
 						// i.e. candidates can appear at multiple depths in the tree and in fact
 						// at all depths, and we don't know what depths a candidate will ultimately
 						// occupy because that's dependent on other candidates we haven't yet
@@ -1463,7 +1423,6 @@ async fn handle_validated_candidate_command<Context>(
 							&state.per_leaf,
 							&state.implicit_view,
 							hypothetical_candidate,
-							false,
 						)
 						.await
 						{
@@ -1519,7 +1478,7 @@ async fn handle_validated_candidate_command<Context>(
 							}
 
 							// update seconded depths in active leaves.
-							for (leaf, depths) in fragment_tree_membership {
+							for leaf in fragment_tree_membership {
 								let leaf_data = match state.per_leaf.get_mut(&leaf) {
 									None => {
 										gum::warn!(
@@ -1533,14 +1492,7 @@ async fn handle_validated_candidate_command<Context>(
 									Some(d) => d,
 								};
 
-								let seconded_at_depth = leaf_data
-									.seconded_at_depth
-									.entry(candidate.descriptor().para_id)
-									.or_default();
-
-								for depth in depths {
-									seconded_at_depth.insert(depth, candidate_hash);
-								}
+								leaf_data.add_seconded_candidate(candidate.descriptor().para_id);
 							}
 
 							rp_state.issued_statements.insert(candidate_hash);
@@ -1651,7 +1603,7 @@ fn sign_statement(
 /// and any of the following are true:
 /// 1. There is no `PersistedValidationData` attached.
 /// 2. Prospective parachains are enabled for the relay parent and the prospective parachains
-///    subsystem returned an empty `FragmentTreeMembership` i.e. did not recognize the candidate as
+///    subsystem returned an empty `HypotheticalMembership` i.e. did not recognize the candidate as
 ///    being applicable to any of the active leaves.
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn import_statement<Context>(

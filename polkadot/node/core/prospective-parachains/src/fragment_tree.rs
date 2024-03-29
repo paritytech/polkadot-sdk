@@ -88,15 +88,11 @@
 
 use std::{
 	borrow::Cow,
-	collections::{
-		hash_map::{Entry, HashMap},
-		BTreeMap, HashSet,
-	},
+	collections::{hash_map::HashMap, BTreeMap, HashSet},
 };
 
 use super::LOG_TARGET;
-use bitvec::prelude::*;
-use polkadot_node_subsystem::messages::Ancestors;
+use polkadot_node_subsystem::messages::{Ancestors, MemberState};
 use polkadot_node_subsystem_util::inclusion_emulator::{
 	ConstraintModifications, Constraints, Fragment, ProspectiveCandidate, RelayChainBlockInfo,
 };
@@ -113,16 +109,22 @@ pub enum CandidateStorageInsertionError {
 	PersistedValidationDataMismatch,
 	/// The candidate was already known.
 	CandidateAlreadyKnown(CandidateHash),
+	/// There's another candidate with this parent head hash already present. We don't accept
+	/// forks.
+	CandidateWithDuplicateParentHeadHash(Hash),
+	/// There's another candidate with this output head hash already present. We don't accept
+	/// cycles.
+	CandidateWithDuplicateOutputHeadHash(Hash),
 }
 
 /// Stores candidates and information about them such as their relay-parents and their backing
 /// states.
 pub(crate) struct CandidateStorage {
 	// Index from head data hash to candidate hashes with that head data as a parent.
-	by_parent_head: HashMap<Hash, HashSet<CandidateHash>>,
+	by_parent_head: HashMap<Hash, CandidateHash>,
 
 	// Index from head data hash to candidate hashes outputting that head data.
-	by_output_head: HashMap<Hash, HashSet<CandidateHash>>,
+	by_output_head: HashMap<Hash, CandidateHash>,
 
 	// Index from candidate hash to fragment node.
 	by_candidate_hash: HashMap<CandidateHash, CandidateEntry>,
@@ -157,6 +159,19 @@ impl CandidateStorage {
 
 		let parent_head_hash = persisted_validation_data.parent_head.hash();
 		let output_head_hash = candidate.commitments.head_data.hash();
+
+		if self.by_parent_head.contains_key(&parent_head_hash) {
+			return Err(CandidateStorageInsertionError::CandidateWithDuplicateParentHeadHash(
+				parent_head_hash,
+			));
+		}
+
+		if self.by_output_head.contains_key(&output_head_hash) {
+			return Err(CandidateStorageInsertionError::CandidateWithDuplicateOutputHeadHash(
+				output_head_hash,
+			));
+		}
+
 		let entry = CandidateEntry {
 			candidate_hash,
 			relay_parent: candidate.descriptor.relay_parent,
@@ -171,9 +186,9 @@ impl CandidateStorage {
 			},
 		};
 
-		self.by_parent_head.entry(parent_head_hash).or_default().insert(candidate_hash);
-		self.by_output_head.entry(output_head_hash).or_default().insert(candidate_hash);
-		// sanity-checked already.
+		// These have all been sanity checked already.
+		self.by_parent_head.insert(parent_head_hash, candidate_hash);
+		self.by_output_head.insert(output_head_hash, candidate_hash);
 		self.by_candidate_hash.insert(candidate_hash, entry);
 
 		Ok(candidate_hash)
@@ -183,12 +198,9 @@ impl CandidateStorage {
 	pub fn remove_candidate(&mut self, candidate_hash: &CandidateHash) {
 		if let Some(entry) = self.by_candidate_hash.remove(candidate_hash) {
 			let parent_head_hash = entry.candidate.persisted_validation_data.parent_head.hash();
-			if let Entry::Occupied(mut e) = self.by_parent_head.entry(parent_head_hash) {
-				e.get_mut().remove(&candidate_hash);
-				if e.get().is_empty() {
-					e.remove();
-				}
-			}
+			let output_head_hash = entry.candidate.commitments.head_data.hash();
+			self.by_parent_head.remove(&parent_head_hash);
+			self.by_output_head.remove(&output_head_hash);
 		}
 	}
 
@@ -217,14 +229,8 @@ impl CandidateStorage {
 	/// Retain only candidates which pass the predicate.
 	pub(crate) fn retain(&mut self, pred: impl Fn(&CandidateHash) -> bool) {
 		self.by_candidate_hash.retain(|h, _v| pred(h));
-		self.by_parent_head.retain(|_parent, children| {
-			children.retain(|h| pred(h));
-			!children.is_empty()
-		});
-		self.by_output_head.retain(|_output, candidates| {
-			candidates.retain(|h| pred(h));
-			!candidates.is_empty()
-		});
+		self.by_parent_head.retain(|_parent, child| pred(child));
+		self.by_output_head.retain(|_output, candidate| pred(candidate));
 	}
 
 	/// Get head-data by hash.
@@ -236,13 +242,11 @@ impl CandidateStorage {
 		// from their persisted validation data if they exist.
 		self.by_output_head
 			.get(hash)
-			.and_then(|m| m.iter().next())
 			.and_then(|a_candidate| self.by_candidate_hash.get(a_candidate))
 			.map(|e| &e.candidate.commitments.head_data)
 			.or_else(|| {
 				self.by_parent_head
 					.get(hash)
-					.and_then(|m| m.iter().next())
 					.and_then(|a_candidate| self.by_candidate_hash.get(a_candidate))
 					.map(|e| &e.candidate.persisted_validation_data.parent_head)
 			})
@@ -256,16 +260,12 @@ impl CandidateStorage {
 		self.by_candidate_hash.get(candidate_hash).map(|entry| entry.relay_parent)
 	}
 
-	fn iter_para_children<'a>(
-		&'a self,
-		parent_head_hash: &Hash,
-	) -> impl Iterator<Item = &'a CandidateEntry> + 'a {
+	fn get_para_child<'a>(&'a self, parent_head_hash: &Hash) -> Option<&'a CandidateEntry> {
 		let by_candidate_hash = &self.by_candidate_hash;
 		self.by_parent_head
 			.get(parent_head_hash)
-			.into_iter()
-			.flat_map(|hashes| hashes.iter())
-			.filter_map(move |h| by_candidate_hash.get(h))
+			.map(move |h| by_candidate_hash.get(h))
+			.flatten()
 	}
 
 	fn get(&'_ self, candidate_hash: &CandidateHash) -> Option<&'_ CandidateEntry> {
@@ -416,14 +416,6 @@ impl Scope {
 	}
 }
 
-/// We use indices into a flat vector to refer to nodes in the tree.
-/// Every tree also has an implicit root.
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum NodePointer {
-	Root,
-	Storage(usize),
-}
-
 /// A hypothetical candidate, which may or may not exist in
 /// the fragment tree already.
 pub(crate) enum HypotheticalCandidate<'a> {
@@ -460,23 +452,18 @@ impl<'a> HypotheticalCandidate<'a> {
 ///
 /// All nodes in the tree must be either pending availability or within the scope. Within the scope
 /// means it's built off of the relay-parent or an ancestor.
-pub(crate) struct FragmentTree {
+pub(crate) struct FragmentChain {
 	scope: Scope,
 
 	// Invariant: a contiguous prefix of the 'nodes' storage will contain
 	// the top-level children.
-	nodes: Vec<FragmentNode>,
+	chain: Vec<FragmentNode>,
 
-	// The candidates stored in this tree, mapped to a bitvec indicating the depths
-	// where the candidate is stored.
-	candidates: HashMap<CandidateHash, BitVec<u16, Msb0>>,
+	candidates: HashSet<CandidateHash>,
 }
 
-impl FragmentTree {
-	/// Create a new [`FragmentTree`] with given scope and populated from the storage.
-	///
-	/// Can be populated recursively (i.e. `populate` will pick up candidates that build on other
-	/// candidates).
+impl FragmentChain {
+	/// Create a new [`FragmentChain`] with given scope and populated from the storage.
 	pub fn populate(scope: Scope, storage: &CandidateStorage) -> Self {
 		gum::trace!(
 			target: LOG_TARGET,
@@ -484,14 +471,14 @@ impl FragmentTree {
 			relay_parent_num = scope.relay_parent.number,
 			para_id = ?scope.para,
 			ancestors = scope.ancestors.len(),
-			"Instantiating Fragment Tree",
+			"Instantiating Fragment Chain",
 		);
 
-		let mut tree = FragmentTree { scope, nodes: Vec::new(), candidates: HashMap::new() };
+		let mut fragment_chain = Self { scope, chain: Vec::new(), candidates: HashSet::new() };
 
-		tree.populate_from_bases(storage, vec![NodePointer::Root]);
+		fragment_chain.populate_chain(storage);
 
-		tree
+		fragment_chain
 	}
 
 	/// Get the scope of the Fragment Tree.
@@ -499,72 +486,15 @@ impl FragmentTree {
 		&self.scope
 	}
 
-	// Inserts a node and updates child references in a non-root parent.
-	fn insert_node(&mut self, node: FragmentNode) {
-		let pointer = NodePointer::Storage(self.nodes.len());
-		let parent_pointer = node.parent;
-		let candidate_hash = node.candidate_hash;
-
-		let max_depth = self.scope.max_depth;
-
-		self.candidates
-			.entry(candidate_hash)
-			.or_insert_with(|| bitvec![u16, Msb0; 0; max_depth + 1])
-			.set(node.depth, true);
-
-		match parent_pointer {
-			NodePointer::Storage(ptr) => {
-				self.nodes.push(node);
-				self.nodes[ptr].children.push((pointer, candidate_hash))
-			},
-			NodePointer::Root => {
-				// Maintain the invariant of node storage beginning with depth-0.
-				if self.nodes.last().map_or(true, |last| last.parent == NodePointer::Root) {
-					self.nodes.push(node);
-				} else {
-					let pos =
-						self.nodes.iter().take_while(|n| n.parent == NodePointer::Root).count();
-					self.nodes.insert(pos, node);
-				}
-			},
-		}
-	}
-
-	fn node_has_candidate_child(
-		&self,
-		pointer: NodePointer,
-		candidate_hash: &CandidateHash,
-	) -> bool {
-		self.node_candidate_child(pointer, candidate_hash).is_some()
-	}
-
-	fn node_candidate_child(
-		&self,
-		pointer: NodePointer,
-		candidate_hash: &CandidateHash,
-	) -> Option<NodePointer> {
-		match pointer {
-			NodePointer::Root => self
-				.nodes
-				.iter()
-				.take_while(|n| n.parent == NodePointer::Root)
-				.enumerate()
-				.find(|(_, n)| &n.candidate_hash == candidate_hash)
-				.map(|(i, _)| NodePointer::Storage(i)),
-			NodePointer::Storage(ptr) =>
-				self.nodes.get(ptr).and_then(|n| n.candidate_child(candidate_hash)),
-		}
-	}
-
 	/// Returns an O(n) iterator over the hashes of candidates contained in the
 	/// tree.
 	pub(crate) fn candidates(&self) -> impl Iterator<Item = CandidateHash> + '_ {
-		self.candidates.keys().cloned()
+		self.candidates.iter().cloned()
 	}
 
-	/// Whether the candidate exists and at what depths.
-	pub(crate) fn candidate(&self, candidate: &CandidateHash) -> Option<Vec<usize>> {
-		self.candidates.get(candidate).map(|d| d.iter_ones().collect())
+	/// Whether the candidate exists.
+	pub(crate) fn contains_candidate(&self, candidate: &CandidateHash) -> bool {
+		self.candidates.contains(candidate)
 	}
 
 	/// Add a candidate and recursively populate from storage.
@@ -576,52 +506,20 @@ impl FragmentTree {
 			Some(e) => e,
 		};
 
+		let required_parent_head = self
+			.chain
+			.last()
+			.map(|c| &c.fragment.candidate().commitments.head_data)
+			.unwrap_or_else(|| &self.scope.base_constraints.required_parent);
+
 		let candidate_parent = &candidate_entry.candidate.persisted_validation_data.parent_head;
 
-		// Select an initial set of bases, whose required relay-parent matches that of the
-		// candidate.
-		let root_base = if &self.scope.base_constraints.required_parent == candidate_parent {
-			Some(NodePointer::Root)
-		} else {
-			None
-		};
-
-		let non_root_bases = self
-			.nodes
-			.iter()
-			.enumerate()
-			.filter(|(_, n)| {
-				n.cumulative_modifications.required_parent.as_ref() == Some(candidate_parent)
-			})
-			.map(|(i, _)| NodePointer::Storage(i));
-
-		let bases = root_base.into_iter().chain(non_root_bases).collect();
-
-		// Pass this into the population function, which will sanity-check stuff like depth,
-		// fragments, etc. and then recursively populate.
-		self.populate_from_bases(storage, bases);
-	}
-
-	/// Returns `true` if the path from the root to the node's parent (inclusive)
-	/// only contains backed candidates, `false` otherwise.
-	fn path_contains_backed_only_candidates(
-		&self,
-		mut parent_pointer: NodePointer,
-		candidate_storage: &CandidateStorage,
-	) -> bool {
-		while let NodePointer::Storage(ptr) = parent_pointer {
-			let node = &self.nodes[ptr];
-			let candidate_hash = &node.candidate_hash;
-
-			if candidate_storage.get(candidate_hash).map_or(true, |candidate_entry| {
-				!matches!(candidate_entry.state, CandidateState::Backed)
-			}) {
-				return false
-			}
-			parent_pointer = node.parent;
+		// If this builds on the latest required head, add it and populate from storage,
+		// as it may connect previously disconnected candidates also.
+		if required_parent_head == candidate_parent {
+			self.populate_chain(storage);
 		}
-
-		true
+		// If not, there's nothing to be done
 	}
 
 	/// Returns the hypothetical depths where a candidate with the given hash and parent head data
@@ -629,22 +527,28 @@ impl FragmentTree {
 	///
 	/// If the candidate is already known, this returns the actual depths where this
 	/// candidate is part of the tree.
-	///
-	/// Setting `backed_in_path_only` to `true` ensures this function only returns such membership
-	/// that every candidate in the path from the root is backed.
 	pub(crate) fn hypothetical_depths(
 		&self,
-		hash: CandidateHash,
+		candidate_hash: CandidateHash,
 		candidate: HypotheticalCandidate,
 		candidate_storage: &CandidateStorage,
-		backed_in_path_only: bool,
-	) -> Vec<usize> {
-		// if `true`, we always have to traverse the tree.
-		if !backed_in_path_only {
-			// if known.
-			if let Some(depths) = self.candidates.get(&hash) {
-				return depths.iter_ones().collect()
-			}
+	) -> MemberState {
+		// pub enum MemberState {
+		// 	/// Present in the candidate storage, but not connected to the prospective chain.
+		// 	Unconnected,
+		// 	/// Present in the fragment chain
+		// 	Present,
+		// 	/// Can be added to the fragment chain
+		// 	Potential,
+		// 	/// Not present in the candidate storage and cannot be added to the fragment chain in the
+		// 	/// future.
+		// 	None,
+		// }
+		let mut can_be_chained = false;
+
+		// If we've got enough candidates for the configured depth.
+		if self.chain.len() + 1 > self.scope.max_depth {
+			return MemberState::None
 		}
 
 		// if out of scope.
@@ -654,63 +558,56 @@ impl FragmentTree {
 		} else if let Some(info) = self.scope.ancestors_by_hash.get(&candidate_relay_parent) {
 			info.clone()
 		} else {
-			return Vec::new()
+			return MemberState::None
 		};
 
-		let max_depth = self.scope.max_depth;
-		let mut depths = bitvec![u16, Msb0; 0; max_depth + 1];
+		// If we've already used this candidate in the chain
+		if self.candidates.contains(&candidate_hash) {
+			return MemberState::Present
+		}
 
-		// iterate over all nodes where parent head-data matches,
-		// relay-parent number is <= candidate, and depth < max_depth.
-		let node_pointers = (0..self.nodes.len()).map(NodePointer::Storage);
-		for parent_pointer in std::iter::once(NodePointer::Root).chain(node_pointers) {
-			let (modifications, child_depth, earliest_rp) = match parent_pointer {
-				NodePointer::Root =>
-					(ConstraintModifications::identity(), 0, self.scope.earliest_relay_parent()),
-				NodePointer::Storage(ptr) => {
-					let node = &self.nodes[ptr];
-					let parent_rp = self
-						.scope
-						.ancestor_by_hash(&node.relay_parent())
-						.or_else(|| {
-							self.scope
-								.get_pending_availability(&node.candidate_hash)
-								.map(|_| self.scope.earliest_relay_parent())
-						})
-						.expect("All nodes in tree are either pending availability or within scope; qed");
+		let identity_modifications = ConstraintModifications::identity();
+		let cumulative_modifications = if let Some(last_candidate) = self.chain.last() {
+			&last_candidate.cumulative_modifications
+		} else {
+			&identity_modifications
+		};
+		let earliest_rp = if let Some(last_candidate) = self.chain.last() {
+			self.scope
+				.ancestor_by_hash(&last_candidate.relay_parent())
+				.or_else(|| {
+					// if the relay-parent is out of scope _and_ it is in the tree,
+					// it must be a candidate pending availability.
+					self.scope
+						.get_pending_availability(&candidate_hash)
+						.map(|c| c.relay_parent.clone())
+				})
+				.expect("All nodes in tree are either pending availability or within scope; qed")
+		} else {
+			self.scope.earliest_relay_parent()
+		};
 
-					(node.cumulative_modifications.clone(), node.depth + 1, parent_rp)
+		if earliest_rp.number > candidate_relay_parent.number {
+			return MemberState::None
+		}
+
+		let child_constraints =
+			match self.scope.base_constraints.apply_modifications(&cumulative_modifications) {
+				Err(e) => {
+					gum::debug!(
+						target: LOG_TARGET,
+						new_parent_head = ?cumulative_modifications.required_parent,
+						err = ?e,
+						"Failed to apply modifications",
+					);
+
+					return MemberState::None
 				},
+				Ok(c) => c,
 			};
 
-			if child_depth > max_depth {
-				continue
-			}
-
-			if earliest_rp.number > candidate_relay_parent.number {
-				continue
-			}
-
-			let child_constraints =
-				match self.scope.base_constraints.apply_modifications(&modifications) {
-					Err(e) => {
-						gum::debug!(
-							target: LOG_TARGET,
-							new_parent_head = ?modifications.required_parent,
-							err = ?e,
-							"Failed to apply modifications",
-						);
-
-						continue
-					},
-					Ok(c) => c,
-				};
-
-			let parent_head_hash = candidate.parent_head_data_hash();
-			if parent_head_hash != child_constraints.required_parent.hash() {
-				continue
-			}
-
+		let parent_head_hash = candidate.parent_head_data_hash();
+		if parent_head_hash == child_constraints.required_parent.hash() {
 			// We do additional checks for complete candidates.
 			if let HypotheticalCandidate::Complete { ref receipt, ref persisted_validation_data } =
 				candidate
@@ -731,19 +628,28 @@ impl FragmentTree {
 				)
 				.is_err()
 				{
-					continue
+					return MemberState::None
 				}
+
+				// TODO: Sanity check that we can introduce it to candidate storage
 			}
 
-			// Check that the path only contains backed candidates, if necessary.
-			if !backed_in_path_only ||
-				self.path_contains_backed_only_candidates(parent_pointer, candidate_storage)
-			{
-				depths.set(child_depth, true);
-			}
+			can_be_chained = true;
 		}
 
-		depths.iter_ones().collect()
+		if can_be_chained {
+			MemberState::Potential
+		} else {
+			// Check if this is already an unconnected candidate
+			if candidate_storage.contains(&candidate_hash) {
+				return MemberState::Unconnected
+			}
+			// Check if it can also be a potential unconnected candidate
+			// It's in scope, the depth is right.
+			// TODO: We should check the number of unconnected candidates we have so far.
+			// Sanity check that we can introduce it to candidate storage
+			MemberState::Potential
+		}
 	}
 
 	/// Select `count` candidates after the given `ancestors` which pass
@@ -775,102 +681,22 @@ impl FragmentTree {
 		if count == 0 {
 			return vec![]
 		}
-		// First, we need to order the ancestors.
-		// The node returned is the one from which we can start finding new backable candidates.
-		let Some(base_node) = self.find_ancestor_path(ancestors) else { return vec![] };
+		let base_pos = self.find_ancestor_path(ancestors);
 
-		self.find_backable_chain_inner(
-			base_node,
-			count,
-			count,
-			&pred,
-			&mut Vec::with_capacity(count as usize),
-		)
-	}
+		let actual_end_index = std::cmp::min(base_pos + (count as usize), self.chain.len());
+		let mut res = Vec::with_capacity(actual_end_index - base_pos);
 
-	// Try finding a candidate chain starting from `base_node` of length `expected_count`.
-	// If not possible, return the longest one we could find.
-	// Does a depth-first search, since we're optimistic that there won't be more than one such
-	// chains (parachains shouldn't usually have forks). So in the usual case, this will conclude
-	// in `O(expected_count)`.
-	// Cycles are accepted, but this doesn't allow for infinite execution time, because the maximum
-	// depth we'll reach is `expected_count`.
-	//
-	// Worst case performance is `O(num_forks ^ expected_count)`, the same as populating the tree.
-	// Although an exponential function, this is actually a constant that can only be altered via
-	// sudo/governance, because:
-	// 1. `num_forks` at a given level is at most `max_candidate_depth * max_validators_per_core`
-	//    (because each validator in the assigned group can second `max_candidate_depth`
-	//    candidates). The prospective-parachains subsystem assumes that the number of para forks is
-	//    limited by collator-protocol and backing subsystems. In practice, this is a constant which
-	//    can only be altered by sudo or governance.
-	// 2. `expected_count` is equal to the number of cores a para is scheduled on (in an elastic
-	//    scaling scenario). For non-elastic-scaling, this is just 1. In practice, this should be a
-	//    small number (1-3), capped by the total number of available cores (a constant alterable
-	//    only via governance/sudo).
-	fn find_backable_chain_inner(
-		&self,
-		base_node: NodePointer,
-		expected_count: u32,
-		remaining_count: u32,
-		pred: &dyn Fn(&CandidateHash) -> bool,
-		accumulator: &mut Vec<CandidateHash>,
-	) -> Vec<CandidateHash> {
-		if remaining_count == 0 {
-			// The best option is the chain we've accumulated so far.
-			return accumulator.to_vec();
-		}
-
-		let children: Vec<_> = match base_node {
-			NodePointer::Root => self
-				.nodes
-				.iter()
-				.enumerate()
-				.take_while(|(_, n)| n.parent == NodePointer::Root)
-				.filter(|(_, n)| self.scope.get_pending_availability(&n.candidate_hash).is_none())
-				.filter(|(_, n)| pred(&n.candidate_hash))
-				.map(|(ptr, n)| (NodePointer::Storage(ptr), n.candidate_hash))
-				.collect(),
-			NodePointer::Storage(base_node_ptr) => {
-				let base_node = &self.nodes[base_node_ptr];
-
-				base_node
-					.children
-					.iter()
-					.filter(|(_, hash)| self.scope.get_pending_availability(&hash).is_none())
-					.filter(|(_, hash)| pred(&hash))
-					.map(|(ptr, hash)| (*ptr, *hash))
-					.collect()
-			},
-		};
-
-		let mut best_result = accumulator.clone();
-		for (child_ptr, child_hash) in children {
-			accumulator.push(child_hash);
-
-			let result = self.find_backable_chain_inner(
-				child_ptr,
-				expected_count,
-				remaining_count - 1,
-				&pred,
-				accumulator,
-			);
-
-			accumulator.pop();
-
-			// Short-circuit the search if we've found the right length. Otherwise, we'll
-			// search for a max.
-			// Taking the first best selection doesn't introduce bias or become gameable,
-			// because `find_ancestor_path` uses a `HashSet` to track the ancestors, which
-			// makes the order in which ancestors are visited non-deterministic.
-			if result.len() == expected_count as usize {
-				return result
-			} else if best_result.len() < result.len() {
-				best_result = result;
+		for elem in &self.chain[base_pos..actual_end_index] {
+			if self.scope.get_pending_availability(&elem.candidate_hash).is_none() &&
+				pred(&elem.candidate_hash)
+			{
+				res.push(elem.candidate_hash);
+			} else {
+				break
 			}
 		}
 
-		best_result
+		res
 	}
 
 	// Orders the ancestors into a viable path from root to the last one.
@@ -879,259 +705,163 @@ impl FragmentTree {
 	// av-cores do not back parachain forks), None is returned otherwise.
 	// If we cannot use all ancestors, stop at the first found hole in the chain. This usually
 	// translates to a timed out candidate.
-	fn find_ancestor_path(&self, mut ancestors: Ancestors) -> Option<NodePointer> {
-		// The number of elements in the path we've processed so far.
-		let mut depth = 0;
-		let mut last_node = NodePointer::Root;
-		let mut next_node: Option<NodePointer> = Some(NodePointer::Root);
-
-		while let Some(node) = next_node {
-			if depth > self.scope.max_depth {
-				return None;
+	fn find_ancestor_path(&self, mut ancestors: Ancestors) -> usize {
+		for (index, candidate) in self.chain.iter().enumerate() {
+			if !ancestors.remove(&candidate.candidate_hash) {
+				return index
 			}
-
-			last_node = node;
-
-			next_node = match node {
-				NodePointer::Root => {
-					let children = self
-						.nodes
-						.iter()
-						.enumerate()
-						.take_while(|n| n.1.parent == NodePointer::Root)
-						.map(|(index, node)| (NodePointer::Storage(index), node.candidate_hash))
-						.collect::<Vec<_>>();
-
-					self.find_valid_child(&mut ancestors, children.iter()).ok()?
-				},
-				NodePointer::Storage(ptr) => {
-					let children = self.nodes.get(ptr).and_then(|n| Some(n.children.iter()));
-					if let Some(children) = children {
-						self.find_valid_child(&mut ancestors, children).ok()?
-					} else {
-						None
-					}
-				},
-			};
-
-			depth += 1;
 		}
 
-		Some(last_node)
+		0
 	}
 
-	// Find a node from the given iterator which is present in the ancestors
-	// collection. If there are multiple such nodes, return an error and log a warning. We don't
-	// accept forks in a parachain to be backed. The supplied ancestors should all form a chain.
-	// If there is no such node, return None.
-	fn find_valid_child<'a>(
-		&self,
-		ancestors: &'a mut Ancestors,
-		nodes: impl Iterator<Item = &'a (NodePointer, CandidateHash)> + 'a,
-	) -> Result<Option<NodePointer>, ()> {
-		let mut possible_children =
-			nodes.filter_map(|(node_ptr, hash)| match ancestors.remove(&hash) {
-				true => Some(node_ptr),
-				false => None,
-			});
+	fn populate_chain(&mut self, storage: &CandidateStorage) {
+		let mut depth = self.chain.len();
 
-		// We don't accept forks in a parachain to be backed. The supplied ancestors
-		// should all form a chain.
-		let next = possible_children.next();
-		if let Some(second_child) = possible_children.next() {
-			if let (Some(NodePointer::Storage(first_child)), NodePointer::Storage(second_child)) =
-				(next, second_child)
-			{
-				gum::error!(
-					target: LOG_TARGET,
-					para_id = ?self.scope.para,
-					relay_parent = ?self.scope.relay_parent,
-					"Trying to find new backable candidates for a parachain for which we've backed a fork.\
-					This is a bug and the runtime should not have allowed it.\n\
-					Backed candidates with the same parent: {}, {}",
-					self.nodes[*first_child].candidate_hash,
-					self.nodes[*second_child].candidate_hash,
-				);
-			}
-
-			Err(())
+		let mut cumulative_modifications = if let Some(last_candidate) = self.chain.last() {
+			last_candidate.cumulative_modifications.clone()
 		} else {
-			Ok(next.copied())
-		}
-	}
-
-	fn populate_from_bases(&mut self, storage: &CandidateStorage, initial_bases: Vec<NodePointer>) {
-		// Populate the tree breadth-first.
-		let mut last_sweep_start = None;
+			ConstraintModifications::identity()
+		};
+		let mut earliest_rp = if let Some(last_candidate) = self.chain.last() {
+			self.scope
+				.ancestor_by_hash(&last_candidate.relay_parent())
+				.or_else(|| {
+					// if the relay-parent is out of scope _and_ it is in the tree,
+					// it must be a candidate pending availability.
+					self.scope
+						.get_pending_availability(&last_candidate.candidate_hash)
+						.map(|c| c.relay_parent.clone())
+				})
+				.expect("All nodes in tree are either pending availability or within scope; qed")
+		} else {
+			self.scope.earliest_relay_parent()
+		};
 
 		loop {
-			let sweep_start = self.nodes.len();
-
-			if Some(sweep_start) == last_sweep_start {
-				break
+			if depth > self.scope.max_depth {
+				break;
 			}
 
-			let parents: Vec<NodePointer> = if let Some(last_start) = last_sweep_start {
-				(last_start..self.nodes.len()).map(NodePointer::Storage).collect()
-			} else {
-				initial_bases.clone()
-			};
+			let child_constraints =
+				match self.scope.base_constraints.apply_modifications(&cumulative_modifications) {
+					Err(e) => {
+						gum::debug!(
+							target: LOG_TARGET,
+							new_parent_head = ?cumulative_modifications.required_parent,
+							err = ?e,
+							"Failed to apply modifications",
+						);
 
-			// 1. get parent head and find constraints
-			// 2. iterate all candidates building on the right head and viable relay parent
-			// 3. add new node
-			for parent_pointer in parents {
-				let (modifications, child_depth, earliest_rp) = match parent_pointer {
-					NodePointer::Root =>
-						(ConstraintModifications::identity(), 0, self.scope.earliest_relay_parent()),
-					NodePointer::Storage(ptr) => {
-						let node = &self.nodes[ptr];
-						let parent_rp = self
-							.scope
-							.ancestor_by_hash(&node.relay_parent())
-							.or_else(|| {
-								// if the relay-parent is out of scope _and_ it is in the tree,
-								// it must be a candidate pending availability.
-								self.scope
-									.get_pending_availability(&node.candidate_hash)
-									.map(|c| c.relay_parent.clone())
-							})
-							.expect("All nodes in tree are either pending availability or within scope; qed");
-
-						(node.cumulative_modifications.clone(), node.depth + 1, parent_rp)
+						break
 					},
+					Ok(c) => c,
 				};
 
-				if child_depth > self.scope.max_depth {
-					continue
-				}
+			let required_head_hash = child_constraints.required_parent.hash();
+			let possible_child = storage.get_para_child(&required_head_hash);
 
-				let child_constraints =
-					match self.scope.base_constraints.apply_modifications(&modifications) {
-						Err(e) => {
-							gum::debug!(
-								target: LOG_TARGET,
-								new_parent_head = ?modifications.required_parent,
-								err = ?e,
-								"Failed to apply modifications",
-							);
-
-							continue
-						},
-						Ok(c) => c,
-					};
-
-				// Add nodes to tree wherever
+			if let Some(candidate) = possible_child {
+				// Add one node to chain if
 				// 1. parent hash is correct
 				// 2. relay-parent does not move backwards.
 				// 3. all non-pending-availability candidates have relay-parent in scope.
 				// 4. candidate outputs fulfill constraints
-				let required_head_hash = child_constraints.required_parent.hash();
-				for candidate in storage.iter_para_children(&required_head_hash) {
-					let pending = self.scope.get_pending_availability(&candidate.candidate_hash);
-					let relay_parent = pending
-						.map(|p| p.relay_parent.clone())
-						.or_else(|| self.scope.ancestor_by_hash(&candidate.relay_parent));
 
-					let relay_parent = match relay_parent {
-						Some(r) => r,
-						None => continue,
-					};
+				let pending = self.scope.get_pending_availability(&candidate.candidate_hash);
+				let Some(relay_parent) = pending
+					.map(|p| p.relay_parent.clone())
+					.or_else(|| self.scope.ancestor_by_hash(&candidate.relay_parent))
+				else {
+					break
+				};
 
-					// require: pending availability candidates don't move backwards
-					// and only those can be out-of-scope.
-					//
-					// earliest_rp can be before the earliest relay parent in the scope
-					// when the parent is a pending availability candidate as well, but
-					// only other pending candidates can have a relay parent out of scope.
-					let min_relay_parent_number = pending
-						.map(|p| match parent_pointer {
-							NodePointer::Root => p.relay_parent.number,
-							NodePointer::Storage(_) => earliest_rp.number,
-						})
-						.unwrap_or_else(|| {
-							std::cmp::max(
-								earliest_rp.number,
-								self.scope.earliest_relay_parent().number,
-							)
-						});
+				// require: pending availability candidates don't move backwards
+				// and only those can be out-of-scope.
+				//
+				// earliest_rp can be before the earliest relay parent in the scope
+				// when the parent is a pending availability candidate as well, but
+				// only other pending candidates can have a relay parent out of scope.
+				let min_relay_parent_number = pending
+					.map(|p| match depth {
+						0 => p.relay_parent.number,
+						_ => earliest_rp.number,
+					})
+					.unwrap_or_else(|| {
+						std::cmp::max(earliest_rp.number, self.scope.earliest_relay_parent().number)
+					});
 
-					if relay_parent.number < min_relay_parent_number {
-						continue // relay parent moved backwards.
-					}
-
-					// don't add candidates where the parent already has it as a child.
-					if self.node_has_candidate_child(parent_pointer, &candidate.candidate_hash) {
-						continue
-					}
-
-					let fragment = {
-						let mut constraints = child_constraints.clone();
-						if let Some(ref p) = pending {
-							// overwrite for candidates pending availability as a special-case.
-							constraints.min_relay_parent_number = p.relay_parent.number;
-						}
-
-						let f = Fragment::new(
-							relay_parent.clone(),
-							constraints,
-							candidate.candidate.partial_clone(),
-						);
-
-						match f {
-							Ok(f) => f.into_owned(),
-							Err(e) => {
-								gum::debug!(
-									target: LOG_TARGET,
-									err = ?e,
-									?relay_parent,
-									candidate_hash = ?candidate.candidate_hash,
-									"Failed to instantiate fragment",
-								);
-
-								continue
-							},
-						}
-					};
-
-					let mut cumulative_modifications = modifications.clone();
-					cumulative_modifications.stack(fragment.constraint_modifications());
-
-					let node = FragmentNode {
-						parent: parent_pointer,
-						fragment,
-						candidate_hash: candidate.candidate_hash,
-						depth: child_depth,
-						cumulative_modifications,
-						children: Vec::new(),
-					};
-
-					self.insert_node(node);
+				if relay_parent.number < min_relay_parent_number {
+					break // relay parent moved backwards.
 				}
-			}
 
-			last_sweep_start = Some(sweep_start);
+				// don't add candidates if they're already present in the chain.
+				// this can never happen, as candidates can only be duplicated if there's a cycle.
+				// and CandidateStorage does not allow cycles.
+				if self.contains_candidate(&candidate.candidate_hash) {
+					break
+				}
+
+				let fragment = {
+					let mut constraints = child_constraints.clone();
+					if let Some(ref p) = pending {
+						// overwrite for candidates pending availability as a special-case.
+						constraints.min_relay_parent_number = p.relay_parent.number;
+					}
+
+					let f = Fragment::new(
+						relay_parent.clone(),
+						constraints,
+						candidate.candidate.partial_clone(),
+					);
+
+					match f {
+						Ok(f) => f.into_owned(),
+						Err(e) => {
+							gum::debug!(
+								target: LOG_TARGET,
+								err = ?e,
+								?relay_parent,
+								candidate_hash = ?candidate.candidate_hash,
+								"Failed to instantiate fragment",
+							);
+
+							break
+						},
+					}
+				};
+
+				// Update the cumulative constraint modifications.
+				cumulative_modifications.stack(fragment.constraint_modifications());
+				// Update the earliest rp
+				earliest_rp = relay_parent;
+
+				let node = FragmentNode {
+					fragment,
+					candidate_hash: candidate.candidate_hash,
+					cumulative_modifications: cumulative_modifications.clone(),
+				};
+
+				self.chain.push(node);
+				self.candidates.insert(candidate.candidate_hash);
+
+				depth += 1;
+			} else {
+				break;
+			}
 		}
 	}
 }
 
 struct FragmentNode {
-	// A pointer to the parent node.
-	parent: NodePointer,
 	fragment: Fragment<'static>,
 	candidate_hash: CandidateHash,
-	depth: usize,
 	cumulative_modifications: ConstraintModifications,
-	children: Vec<(NodePointer, CandidateHash)>,
 }
 
 impl FragmentNode {
 	fn relay_parent(&self) -> Hash {
 		self.fragment.relay_parent().hash
-	}
-
-	fn candidate_child(&self, candidate_hash: &CandidateHash) -> Option<NodePointer> {
-		self.children.iter().find(|(_, c)| c == candidate_hash).map(|(p, _)| *p)
 	}
 }
 

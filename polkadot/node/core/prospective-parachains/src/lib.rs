@@ -31,12 +31,13 @@ use std::{
 	collections::{HashMap, HashSet},
 };
 
+use fragment_tree::FragmentChain;
 use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, ChainApiMessage, FragmentTreeMembership, HypotheticalCandidate,
-		HypotheticalFrontierRequest, IntroduceSecondedCandidateRequest, ParentHeadData,
+		Ancestors, ChainApiMessage, HypotheticalCandidate, HypotheticalMembership,
+		HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest, ParentHeadData,
 		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
 		RuntimeApiRequest,
 	},
@@ -56,8 +57,7 @@ use polkadot_primitives::{
 use crate::{
 	error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
 	fragment_tree::{
-		CandidateState, CandidateStorage, CandidateStorageInsertionError, FragmentTree,
-		Scope as TreeScope,
+		CandidateState, CandidateStorage, CandidateStorageInsertionError, Scope as TreeScope,
 	},
 };
 
@@ -73,7 +73,7 @@ const LOG_TARGET: &str = "parachain::prospective-parachains";
 
 struct RelayBlockViewData {
 	// Scheduling info for paras and upcoming paras.
-	fragment_trees: HashMap<ParaId, FragmentTree>,
+	fragment_chains: HashMap<ParaId, FragmentChain>,
 	pending_availability: HashSet<CandidateHash>,
 }
 
@@ -153,10 +153,8 @@ async fn run_iteration<Context>(
 					ancestors,
 					tx,
 				) => answer_get_backable_candidates(&view, relay_parent, para, count, ancestors, tx),
-				ProspectiveParachainsMessage::GetHypotheticalFrontier(request, tx) =>
+				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx) =>
 					answer_hypothetical_frontier_request(&view, request, tx),
-				ProspectiveParachainsMessage::GetTreeMembership(para, candidate, tx) =>
-					answer_tree_membership_request(&view, para, candidate, tx),
 				ProspectiveParachainsMessage::GetMinimumRelayParents(relay_parent, tx) =>
 					answer_minimum_relay_parents_request(&view, relay_parent, tx),
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) =>
@@ -202,9 +200,7 @@ async fn handle_active_leaves_update<Context>(
 			return Ok(())
 		};
 
-		let mut pending_availability = HashSet::new();
-		let scheduled_paras =
-			fetch_upcoming_paras(&mut *ctx, hash, &mut pending_availability).await?;
+		let scheduled_paras = fetch_upcoming_paras(&mut *ctx, hash).await?;
 
 		let block_info: RelayChainBlockInfo =
 			match fetch_block_info(&mut *ctx, &mut temp_header_cache, hash).await? {
@@ -226,8 +222,10 @@ async fn handle_active_leaves_update<Context>(
 		let ancestry =
 			fetch_ancestry(&mut *ctx, &mut temp_header_cache, hash, allowed_ancestry_len).await?;
 
+		let mut all_pending_availability = HashSet::new();
+
 		// Find constraints.
-		let mut fragment_trees = HashMap::new();
+		let mut fragment_chains = HashMap::new();
 		for para in scheduled_paras {
 			let candidate_storage =
 				view.candidate_storage.entry(para).or_insert_with(CandidateStorage::new);
@@ -249,6 +247,8 @@ async fn handle_active_leaves_update<Context>(
 					continue
 				},
 			};
+
+			all_pending_availability.extend(pending_availability.iter().map(|c| c.candidate_hash));
 
 			let pending_availability = preprocess_candidates_pending_availability(
 				ctx,
@@ -278,8 +278,6 @@ async fn handle_active_leaves_update<Context>(
 							"Scraped invalid candidate pending availability",
 						);
 
-						// Found a backed invalid candidate.
-						candidate_storage.remove_candidate(&candidate_hash);
 						break
 					},
 				}
@@ -305,13 +303,15 @@ async fn handle_active_leaves_update<Context>(
 				"Creating fragment tree"
 			);
 
-			let tree = FragmentTree::populate(scope, &*candidate_storage);
+			let tree = FragmentChain::populate(scope, &*candidate_storage);
 
-			fragment_trees.insert(para, tree);
+			fragment_chains.insert(para, tree);
 		}
 
-		view.active_leaves
-			.insert(hash, RelayBlockViewData { fragment_trees, pending_availability });
+		view.active_leaves.insert(
+			hash,
+			RelayBlockViewData { fragment_chains, pending_availability: all_pending_availability },
+		);
 	}
 
 	if !update.deactivated.is_empty() {
@@ -329,7 +329,7 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 	let mut live_candidates = HashSet::new();
 	let mut live_paras = HashSet::new();
 	for sub_view in active_leaves.values() {
-		for (para_id, fragment_tree) in &sub_view.fragment_trees {
+		for (para_id, fragment_tree) in &sub_view.fragment_chains {
 			live_candidates.extend(fragment_tree.candidates());
 			live_paras.insert(*para_id);
 		}
@@ -342,6 +342,9 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 			return false
 		}
 
+		// TODO: Here, we need to retain possible candidates which may become connected in
+		// the future, up to some limit per para.
+		// Also need to trim based on the relay parents beforehand.
 		storage.retain(|h| live_candidates.contains(&h));
 
 		// Even if `storage` is now empty, we retain.
@@ -462,20 +465,51 @@ async fn handle_introduce_seconded_candidate<Context>(
 			let _ = tx.send(false);
 			return
 		},
+		Err(CandidateStorageInsertionError::CandidateWithDuplicateParentHeadHash(hash)) => {
+			gum::info!(
+				target: LOG_TARGET,
+				para = ?para,
+				"The received seconded candidate would result in a fork. We already have another
+				candidate with this parent head hash: {:?}. Dropping the candidate.",
+				hash
+			);
+
+			let _ = tx.send(false);
+			return
+		},
+		Err(CandidateStorageInsertionError::CandidateWithDuplicateOutputHeadHash(hash)) => {
+			gum::info!(
+				target: LOG_TARGET,
+				para = ?para,
+				"The received seconded candidate with output head hash {:?} would result in a
+				candidate cycle. Dropping the candidate.",
+				hash
+			);
+
+			let _ = tx.send(false);
+			return
+		},
 	};
 
 	let mut candidate_introduced = false;
 	for leaf_data in view.active_leaves.values_mut() {
-		if let Some(tree) = leaf_data.fragment_trees.get_mut(&para) {
+		if let Some(tree) = leaf_data.fragment_chains.get_mut(&para) {
+			// TODO: Even if the candidate was not introduced in the fragment tree,
+			// we need to check that the relay parent would be valid.
 			tree.add_and_populate(candidate_hash, &*storage);
-			if tree.candidate(&candidate_hash).is_some() {
+			if tree.contains_candidate(&candidate_hash) {
 				candidate_introduced = true;
 			}
 		}
 	}
 
 	if !candidate_introduced {
-		storage.remove_candidate(&candidate_hash);
+		// TODO: here we need to remove the candidate only if we go over the limit.
+		if true {
+			storage.remove_candidate(&candidate_hash);
+		} else {
+			candidate_introduced = true;
+		}
 	}
 
 	let _ = tx.send(candidate_introduced);
@@ -551,7 +585,7 @@ fn answer_get_backable_candidates(
 		Some(d) => d,
 	};
 
-	let tree = match data.fragment_trees.get(&para) {
+	let tree = match data.fragment_chains.get(&para) {
 		None => {
 			gum::debug!(
 				target: LOG_TARGET,
@@ -622,12 +656,12 @@ fn answer_get_backable_candidates(
 
 fn answer_hypothetical_frontier_request(
 	view: &View,
-	request: HypotheticalFrontierRequest,
-	tx: oneshot::Sender<Vec<(HypotheticalCandidate, FragmentTreeMembership)>>,
+	request: HypotheticalMembershipRequest,
+	tx: oneshot::Sender<Vec<(HypotheticalCandidate, HypotheticalMembership)>>,
 ) {
 	let mut response = Vec::with_capacity(request.candidates.len());
 	for candidate in request.candidates {
-		response.push((candidate, Vec::new()));
+		response.push((candidate, vec![]));
 	}
 
 	let required_active_leaf = request.fragment_tree_relay_parent;
@@ -637,7 +671,7 @@ fn answer_hypothetical_frontier_request(
 		.filter(|(h, _)| required_active_leaf.as_ref().map_or(true, |x| h == &x))
 	{
 		for &mut (ref c, ref mut membership) in &mut response {
-			let fragment_tree = match leaf_view.fragment_trees.get(&c.candidate_para()) {
+			let fragment_tree = match leaf_view.fragment_chains.get(&c.candidate_para()) {
 				None => continue,
 				Some(f) => f,
 			};
@@ -663,45 +697,14 @@ fn answer_hypothetical_frontier_request(
 				},
 			};
 
-			let depths = fragment_tree.hypothetical_depths(
-				candidate_hash,
-				hypothetical,
-				candidate_storage,
-				request.backed_in_path_only,
-			);
-
-			if !depths.is_empty() {
-				membership.push((*active_leaf, depths));
-			}
+			membership.push((
+				*active_leaf,
+				fragment_tree.hypothetical_depths(candidate_hash, hypothetical, candidate_storage),
+			));
 		}
 	}
 
 	let _ = tx.send(response);
-}
-
-fn fragment_tree_membership(
-	active_leaves: &HashMap<Hash, RelayBlockViewData>,
-	para: ParaId,
-	candidate: CandidateHash,
-) -> FragmentTreeMembership {
-	let mut membership = Vec::new();
-	for (relay_parent, view_data) in active_leaves {
-		if let Some(tree) = view_data.fragment_trees.get(&para) {
-			if let Some(depths) = tree.candidate(&candidate) {
-				membership.push((*relay_parent, depths));
-			}
-		}
-	}
-	membership
-}
-
-fn answer_tree_membership_request(
-	view: &View,
-	para: ParaId,
-	candidate: CandidateHash,
-	tx: oneshot::Sender<FragmentTreeMembership>,
-) {
-	let _ = tx.send(fragment_tree_membership(&view.active_leaves, para, candidate));
 }
 
 fn answer_minimum_relay_parents_request(
@@ -711,7 +714,7 @@ fn answer_minimum_relay_parents_request(
 ) {
 	let mut v = Vec::new();
 	if let Some(leaf_data) = view.active_leaves.get(&relay_parent) {
-		for (para_id, fragment_tree) in &leaf_data.fragment_trees {
+		for (para_id, fragment_tree) in &leaf_data.fragment_chains {
 			v.push((*para_id, fragment_tree.scope().earliest_relay_parent().number));
 		}
 	}
@@ -753,7 +756,7 @@ fn answer_prospective_validation_data_request(
 	for fragment_tree in view
 		.active_leaves
 		.values()
-		.filter_map(|x| x.fragment_trees.get(&request.para_id))
+		.filter_map(|x| x.fragment_chains.get(&request.para_id))
 	{
 		if head_data.is_some() && relay_parent_info.is_some() && max_pov_size.is_some() {
 			break
@@ -817,7 +820,6 @@ async fn fetch_backing_state<Context>(
 async fn fetch_upcoming_paras<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
-	pending_availability: &mut HashSet<CandidateHash>,
 ) -> JfyiErrorResult<Vec<ParaId>> {
 	let (tx, rx) = oneshot::channel();
 
@@ -834,8 +836,6 @@ async fn fetch_upcoming_paras<Context>(
 	for core in cores {
 		match core {
 			CoreState::Occupied(occupied) => {
-				pending_availability.insert(occupied.candidate_hash);
-
 				if let Some(next_up_on_available) = occupied.next_up_on_available {
 					upcoming.insert(next_up_on_available.para_id);
 				}
