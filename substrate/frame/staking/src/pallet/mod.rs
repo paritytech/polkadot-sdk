@@ -32,7 +32,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
+	traits::{SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 
@@ -378,6 +378,16 @@ pub mod pallet {
 	#[pallet::getter(fn nominators)]
 	pub type Nominators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
+
+	/// Nominators whose funds are managed by other pallets.
+	///
+	/// This pallet does not apply any locks on them, therefore they are only virtually bonded. They
+	/// are expected to be keyless accounts and hence should not be allowed to mutate their ledger
+	/// directly via this pallet. Instead, these accounts are managed by other pallets and accessed
+	/// via low level apis. We keep track of them to do minimal integrity checks.
+	// TODO(ank4n): Can we keep this entry in `Ledger`? Worth a migration?
+	#[pallet::storage]
+	pub type VirtualNominators<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	/// The maximum nominator count before we stop allowing new validators to join.
 	///
@@ -858,6 +868,10 @@ pub mod pallet {
 		ControllerDeprecated,
 		/// Cannot reset a ledger.
 		CannotRestoreLedger,
+		/// Provided reward destination is not allowed.
+		RewardDestinationRestricted,
+		/// Not enough funds available to withdraw
+		NotEnoughFunds,
 	}
 
 	#[pallet::hooks]
@@ -985,29 +999,7 @@ pub mod pallet {
 			#[pallet::compact] max_additional: BalanceOf<T>,
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
-			let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
-
-			let stash_balance = T::Currency::free_balance(&stash);
-			if let Some(extra) = stash_balance.checked_sub(&ledger.total) {
-				let extra = extra.min(max_additional);
-				ledger.total += extra;
-				ledger.active += extra;
-				// Last check: the new active amount of ledger must be more than ED.
-				ensure!(
-					ledger.active >= T::Currency::minimum_balance(),
-					Error::<T>::InsufficientBond
-				);
-
-				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-				ledger.update()?;
-				// update this staker in the sorted list, if they exist in it.
-				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
-				}
-
-				Self::deposit_event(Event::<T>::Bonded { stash, amount: extra });
-			}
-			Ok(())
+			Self::do_bond_extra(&stash, max_additional)
 		}
 
 		/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond
@@ -1315,9 +1307,7 @@ pub mod pallet {
 				Error::<T>::ControllerDeprecated
 			);
 
-			let _ = ledger
-				.set_payee(payee)
-				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
+			ledger.set_payee(payee)?;
 
 			Ok(())
 		}

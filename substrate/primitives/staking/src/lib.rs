@@ -29,7 +29,7 @@ use core::ops::Sub;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, RuntimeDebug, Saturating,
+	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
 };
 
 pub mod offence;
@@ -254,6 +254,9 @@ pub trait StakingInterface {
 	/// schedules have reached their unlocking era should allow more calls to this function.
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 
+	/// Update the reward destination for the ledger associated with the stash.
+	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult;
+
 	/// Unlock any funds schedule to unlock before or at the current era.
 	///
 	/// Returns whether the stash was killed because of this withdraw or not.
@@ -274,7 +277,7 @@ pub trait StakingInterface {
 	/// Checks whether an account `staker` has been exposed in an era.
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool;
 
-	/// Return the status of the given staker, `None` if not staked at all.
+	/// Return the status of the given staker, `Err` if not staked at all.
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError>;
 
 	/// Checks whether or not this is a validator account.
@@ -290,6 +293,9 @@ pub trait StakingInterface {
 		}
 	}
 
+	/// Returns the fraction of the slash to be rewarded to reporter.
+	fn slash_reward_fraction() -> Perbill;
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_exposure_page_size() -> Page;
 
@@ -302,6 +308,27 @@ pub trait StakingInterface {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_era(era: EraIndex);
+}
+
+/// Set of low level apis to manipulate staking ledger.
+///
+/// These apis bypass some or all safety checks and should only be used if you know what you are
+/// doing.
+pub trait StakingUnsafe: StakingInterface {
+	/// Release all funds bonded for stake without unbonding the ledger.
+	///
+	/// Unsafe, only used for migration of `nominator` to `virtual_nominator`.
+	fn force_release(who: &Self::AccountId);
+
+	/// Book-keep a new bond for `who` without applying any locks (hence virtual).
+	///
+	/// It is important that who is a keyless account and therefore cannot interact with staking
+	/// pallet directly. Caller is responsible for ensuring the passed amount is locked and valid.
+	fn virtual_bond(
+		keyless_who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult;
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
@@ -420,6 +447,70 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub nominator_count: u32,
 	/// Number of pages of nominators.
 	pub page_count: Page,
+}
+
+/// Extension of [`StakingInterface`] with delegation functionality.
+///
+/// Introduces two new actors:
+/// - `Delegator`: An account that delegates funds to a `Delegatee`.
+/// - `Delegatee`: An account that receives delegated funds from `Delegators`. It can then use these
+/// funds to participate in the staking system. It can never use its own funds.
+///
+/// The `Delegatee` is responsible for managing rewards and slashing for all the `Delegators` that
+/// have delegated funds to it.
+pub trait DelegatedStakeInterface: StakingInterface {
+	/// Effective balance of the `delegatee` account.
+	///
+	/// This takes into account any pending slashes to `Delegatee`.
+	fn delegatee_balance(delegatee: &Self::AccountId) -> Self::Balance;
+
+	/// Returns the total amount of funds delegated by a `delegator`.
+	fn delegator_balance(delegator: &Self::AccountId) -> Self::Balance;
+
+	/// Delegate funds to `delegatee`.
+	///
+	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
+	fn delegate(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		reward_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Add more delegation to the `delegatee`.
+	///
+	/// If this is the first delegation, use [`Self::delegate`] instead.
+	fn delegate_extra(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Withdraw or revoke delegation to `delegatee`.
+	///
+	/// If there are `delegatee` funds upto `amount` available to withdraw, then those funds would
+	/// be released to the `delegator`
+	fn withdraw_delegation(
+		delegator: &Self::AccountId,
+		delegatee: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Returns true if there are pending slashes posted to the `delegatee` account.
+	///
+	/// Slashes to `delegatee` account are not immediate and are applied lazily. Since `delegatee`
+	/// has an unbounded number of delegators, immediate slashing is not possible.
+	fn has_pending_slash(delegatee: &Self::AccountId) -> bool;
+
+	/// Apply a pending slash to a `delegatee` by slashing `value` from `delegator`.
+	///
+	/// If a reporter is provided, the reporter will receive a fraction of the slash as reward.
+	fn delegator_slash(
+		delegatee: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult;
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

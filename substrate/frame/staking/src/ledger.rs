@@ -33,13 +33,14 @@
 
 use frame_support::{
 	defensive, ensure,
-	traits::{Defensive, LockableCurrency, WithdrawReasons},
+	traits::{Defensive, LockableCurrency},
 };
 use sp_staking::StakingAccount;
 use sp_std::prelude::*;
 
 use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,
+	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
+	STAKING_ID,
 };
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -187,7 +188,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
-		T::Currency::set_lock(STAKING_ID, &self.stash, self.total, WithdrawReasons::all());
+		Pallet::<T>::update_lock(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
 				defensive!("update called on a ledger that is not bonded.");
@@ -204,22 +205,29 @@ impl<T: Config> StakingLedger<T> {
 	/// It sets the reward preferences for the bonded stash.
 	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::AlreadyBonded)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			<Bonded<T>>::insert(&self.stash, &self.stash);
-			self.update()
+			return Err(Error::<T>::AlreadyBonded)
 		}
+		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone()) {
+			return Err(Error::<T>::RewardDestinationRestricted);
+		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		<Bonded<T>>::insert(&self.stash, &self.stash);
+		self.update()
 	}
 
 	/// Sets the ledger Payee.
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
-			Err(Error::<T>::NotStash)
-		} else {
-			<Payee<T>>::insert(&self.stash, payee);
-			Ok(())
+			return Err(Error::<T>::NotStash)
 		}
+
+		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone()) {
+			return Err(Error::<T>::RewardDestinationRestricted);
+		}
+
+		<Payee<T>>::insert(&self.stash, payee);
+		Ok(())
 	}
 
 	/// Sets the ledger controller to its stash.

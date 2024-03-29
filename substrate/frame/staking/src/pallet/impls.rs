@@ -28,14 +28,16 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, OnUnbalanced, TryCollect, UnixTime,
+		InspectLockableCurrency, Len, LockableCurrency, OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
-	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
+	traits::{
+		Bounded, CheckedSub, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero,
+	},
 	Perbill, Percent,
 };
 use sp_staking::{
@@ -147,6 +149,37 @@ impl<T: Config> Pallet<T> {
 	pub fn weight_of(who: &T::AccountId) -> VoteWeight {
 		let issuance = T::Currency::total_issuance();
 		Self::slashable_balance_of_vote_weight(who, issuance)
+	}
+
+	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
+		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
+
+		let extra = if Self::is_virtual_nominator(stash) {
+			additional
+		} else {
+			// additional amount or actual balance of stash whichever is lower.
+			additional.min(
+				T::Currency::free_balance(stash)
+					.checked_sub(&ledger.total)
+					.ok_or(sp_runtime::ArithmeticError::Overflow)?,
+			)
+		};
+
+		ledger.total += extra;
+		ledger.active += extra;
+		// Last check: the new active amount of ledger must be more than ED.
+		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
+
+		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
+		ledger.update()?;
+		// update this staker in the sorted list, if they exist in it.
+		if T::VoterList::contains(stash) {
+			let _ = T::VoterList::on_update(&stash, Self::weight_of(stash)).defensive();
+		}
+
+		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: extra });
+
+		Ok(())
 	}
 
 	pub(super) fn do_withdraw_unbonded(
@@ -1132,6 +1165,45 @@ impl<T: Config> Pallet<T> {
 	) -> Exposure<T::AccountId, BalanceOf<T>> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
+
+	/// Whether the passed reward destination is restricted for the given account.
+	///
+	/// Virtual nominators are not allowed to compound their rewards as this pallet does not manage
+	/// locks for them. For external pallets that manage the virtual bond, it is their
+	/// responsibility to distribute the reward and re-bond them.
+	///
+	/// Conservatively, we expect them to always set the reward destination to a non stash account.
+	pub(crate) fn restrict_reward_destination(
+		who: &T::AccountId,
+		reward_destination: RewardDestination<T::AccountId>,
+	) -> bool {
+		Self::is_virtual_nominator(who) &&
+			match reward_destination {
+				RewardDestination::Account(payee) => payee == *who,
+				_ => true,
+			}
+	}
+
+	pub(crate) fn is_virtual_nominator(who: &T::AccountId) -> bool {
+		VirtualNominators::<T>::contains_key(who)
+	}
+
+	pub(crate) fn update_lock(
+		who: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> sp_runtime::DispatchResult {
+		// Skip locking virtual nominators. They are handled by external pallets.
+		if !Self::is_virtual_nominator(who) {
+			T::Currency::set_lock(
+				crate::STAKING_ID,
+				who,
+				amount,
+				frame_support::traits::WithdrawReasons::all(),
+			);
+		}
+
+		Ok(())
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -1748,6 +1820,15 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			.map(|_| ())
 	}
 
+	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
+		// since controller is deprecated and this function is never used for old ledgers with
+		// distinct controllers, we can safely assume that stash is the controller.
+		Self::set_payee(
+			RawOrigin::Signed(stash.clone()).into(),
+			RewardDestination::Account(reward_acc.clone()),
+		)
+	}
+
 	fn chill(who: &Self::AccountId) -> DispatchResult {
 		// defensive-only: any account bonded via this interface has the stash set as the
 		// controller, but we have to be sure. Same comment anywhere else that we read this.
@@ -1832,6 +1913,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		}
 	}
 
+	fn slash_reward_fraction() -> Perbill {
+		SlashRewardFraction::<T>::get()
+	}
+
 	sp_staking::runtime_benchmarks_enabled! {
 		fn nominations(who: &Self::AccountId) -> Option<Vec<T::AccountId>> {
 			Nominators::<T>::get(who).map(|n| n.targets.into_inner())
@@ -1857,6 +1942,36 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		fn max_exposure_page_size() -> Page {
 			T::MaxExposurePageSize::get()
 		}
+	}
+}
+
+impl<T: Config> sp_staking::StakingUnsafe for Pallet<T> {
+	fn force_release(who: &Self::AccountId) {
+		T::Currency::remove_lock(crate::STAKING_ID, who)
+	}
+
+	fn virtual_bond(
+		who: &Self::AccountId,
+		value: Self::Balance,
+		payee: &Self::AccountId,
+	) -> DispatchResult {
+		if StakingLedger::<T>::is_bonded(StakingAccount::Stash(who.clone())) {
+			return Err(Error::<T>::AlreadyBonded.into())
+		}
+
+		frame_system::Pallet::<T>::inc_consumers(&who).map_err(|_| Error::<T>::BadState)?;
+
+		// mark who as a virtual nominator
+		VirtualNominators::<T>::insert(who, ());
+
+		Self::deposit_event(Event::<T>::Bonded { stash: who.clone(), amount: value });
+		let ledger = StakingLedger::<T>::new(who.clone(), value);
+
+		// You're auto-bonded forever, here. We might improve this by only bonding when
+		// you actually validate/nominate and remove once you unbond __everything__.
+		ledger.bond(RewardDestination::Account(payee.clone()))?;
+
+		Ok(())
 	}
 }
 
