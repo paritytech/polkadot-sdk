@@ -551,8 +551,6 @@ pub mod pallet {
 		LockNotFound,
 		/// The unlock operation cannot succeed because there are still consumers of the lock.
 		InUse,
-		/// Invalid non-concrete asset.
-		InvalidAssetNotConcrete,
 		/// Invalid asset, reserve chain could not be determined for it.
 		InvalidAssetUnknownReserve,
 		/// Invalid asset, do not support remote asset reserves with different fees reserves.
@@ -576,7 +574,6 @@ pub mod pallet {
 	impl<T: Config> From<AssetTransferError> for Error<T> {
 		fn from(e: AssetTransferError) -> Self {
 			match e {
-				AssetTransferError::NotConcrete => Error::<T>::InvalidAssetNotConcrete,
 				AssetTransferError::UnknownReserve => Error::<T>::InvalidAssetUnknownReserve,
 			}
 		}

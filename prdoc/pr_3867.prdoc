@@ -1,9 +1,0 @@
-title: Remove unused NonConcrete error in asset transfer
-
-doc:
-  - audience: Runtime Dev
-    description: |
-      This PR removes the unused NotConcrete variant in the errors related to determining asset transfer support
-
-crates:
-  - name: staging-xcm-executor
