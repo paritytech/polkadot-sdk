@@ -1191,7 +1191,6 @@ impl<T: Config> Pallet<T> {
 		VirtualNominators::<T>::contains_key(who)
 	}
 
-
 	/// Update the lock for a staker.
 	///
 	/// For virtual nominators, it is no-op.
