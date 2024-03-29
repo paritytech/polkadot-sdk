@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1711703199150,
+  "lastUpdate": 1711708122220,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -83,6 +83,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.22636818130666658,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn",
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "b310b575cd73928cf061e1ae0d184f7e900976d5",
+          "message": "Remove transient code after `im-online` pallet removal (#3383)\n\nRemoves transient code introduced to clean up offchain database after\n`im-online` pallet removal.\n\nShould be merged after #2290 has been enacted.",
+          "timestamp": "2024-03-29T09:12:40Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b310b575cd73928cf061e1ae0d184f7e900976d5"
+        },
+        "date": 1711708098847,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.34961518349333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1837224126933334,
             "unit": "seconds"
           }
         ]
