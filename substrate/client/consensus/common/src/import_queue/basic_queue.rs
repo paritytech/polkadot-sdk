@@ -187,7 +187,7 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	/// Start asynchronous runner for import queue.
 	///
 	/// Takes an object implementing [`Link`] which allows the import queue to
-	/// influence the synchronization process.
+	/// influece the synchronization process.
 	async fn run(mut self, mut link: Box<dyn Link<B>>) {
 		loop {
 			if let Err(_) = self.result_port.next_action(&mut *link).await {
@@ -198,7 +198,7 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	}
 }
 
-/// Messages designated to the background worker.
+/// Messages destinated to the background worker.
 mod worker_messages {
 	use super::*;
 

@@ -277,7 +277,6 @@ fn distribute_collation_from_implicit_view() {
 					pov: pov.clone(),
 					parent_head_data: HeadData(vec![1, 2, 3]),
 					result_sender: None,
-					core_index: CoreIndex(0),
 				},
 			)
 			.await;
@@ -359,7 +358,6 @@ fn distribute_collation_up_to_limit() {
 					pov: pov.clone(),
 					parent_head_data: HeadData(vec![1, 2, 3]),
 					result_sender: None,
-					core_index: CoreIndex(0),
 				},
 			)
 			.await;

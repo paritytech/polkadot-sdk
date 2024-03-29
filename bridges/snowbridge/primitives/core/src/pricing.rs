@@ -13,8 +13,6 @@ pub struct PricingParameters<Balance> {
 	pub rewards: Rewards<Balance>,
 	/// Ether (wei) fee per gas unit
 	pub fee_per_gas: U256,
-	/// Fee multiplier
-	pub multiplier: FixedU128,
 }
 
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
@@ -43,9 +41,6 @@ where
 			return Err(InvalidPricingParameters)
 		}
 		if self.rewards.remote.is_zero() {
-			return Err(InvalidPricingParameters)
-		}
-		if self.multiplier == FixedU128::zero() {
 			return Err(InvalidPricingParameters)
 		}
 		Ok(())

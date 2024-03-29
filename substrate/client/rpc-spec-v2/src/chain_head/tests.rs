@@ -2786,7 +2786,7 @@ async fn ensure_operation_limits_works() {
 			FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id
 	);
 
-	// The storage is finished and capacity must be released.
+	// The storage is finished and capactiy must be released.
 	let alice_id = AccountKeyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
@@ -3113,7 +3113,7 @@ async fn storage_closest_merkle_value() {
 
 	/// The core of this test.
 	///
-	/// Checks keys that are exact match, keys with descendant and keys that should not return
+	/// Checks keys that are exact match, keys with descedant and keys that should not return
 	/// values.
 	///
 	/// Returns (key, merkle value) pairs.
@@ -3139,7 +3139,7 @@ async fn storage_closest_merkle_value() {
 							key: hex_string(b":AAAB"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue
 						},
-						// Key with descendant.
+						// Key with descedent.
 						StorageQuery {
 							key: hex_string(b":A"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue

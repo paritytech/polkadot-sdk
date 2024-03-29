@@ -126,13 +126,13 @@ impl DelayedApprovalTimer {
 	/// no additional timer is started.
 	pub(crate) fn maybe_arm_timer(
 		&mut self,
-		wait_until: Tick,
+		wait_untill: Tick,
 		clock: &dyn Clock,
 		block_hash: Hash,
 		validator_index: ValidatorIndex,
 	) {
 		if self.blocks.insert(block_hash) {
-			let clock_wait = clock.wait(wait_until);
+			let clock_wait = clock.wait(wait_untill);
 			self.timers.push(Box::pin(async move {
 				clock_wait.await;
 				(block_hash, validator_index)

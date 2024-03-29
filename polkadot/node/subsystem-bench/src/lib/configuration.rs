@@ -122,10 +122,10 @@ pub struct TestConfiguration {
 	/// Randomly sampled pov_sizes
 	#[serde(skip)]
 	pub pov_sizes: Vec<usize>,
-	/// The amount of bandwidth remote validators have.
+	/// The amount of bandiwdth remote validators have.
 	#[serde(default = "default_bandwidth")]
 	pub peer_bandwidth: usize,
-	/// The amount of bandwidth our node has.
+	/// The amount of bandiwdth our node has.
 	#[serde(default = "default_bandwidth")]
 	pub bandwidth: usize,
 	/// Optional peer emulation latency (round trip time) wrt node under test
@@ -205,7 +205,7 @@ impl TestConfiguration {
 		let peer_id_to_authority = peer_ids
 			.iter()
 			.zip(validator_authority_id.iter())
-			.map(|(peer_id, authority_id)| (*peer_id, authority_id.clone()))
+			.map(|(peer_id, authorithy_id)| (*peer_id, authorithy_id.clone()))
 			.collect();
 
 		TestAuthorities {

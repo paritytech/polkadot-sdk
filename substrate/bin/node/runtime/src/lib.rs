@@ -1303,7 +1303,6 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = ConstU32<{ 64 * 1024 }>;
 	type MaxStale = ConstU32<128>;
 	type ServiceWeight = MessageQueueServiceWeight;
-	type IdleMaxServiceWeight = ();
 }
 
 parameter_types! {

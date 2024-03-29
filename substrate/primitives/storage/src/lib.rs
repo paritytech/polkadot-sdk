@@ -452,7 +452,7 @@ impl TryFrom<u8> for StateVersion {
 impl StateVersion {
 	/// If defined, values in state of size bigger or equal
 	/// to this threshold will use a separate trie node.
-	/// Otherwise, value will be inlined in branch or leaf
+	/// Otherwhise, value will be inlined in branch or leaf
 	/// node.
 	pub fn state_value_threshold(&self) -> Option<u32> {
 		match self {

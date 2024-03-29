@@ -159,7 +159,7 @@ pub trait StorageValue<T: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	fn decode_len() -> Option<usize>
 	where
@@ -363,7 +363,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	fn decode_len<KeyArg: EncodeLike<K>>(key: KeyArg) -> Option<usize>
 	where
@@ -381,8 +381,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	///  - `None` does not mean that `get()` does not return a value. The default value is
-	///    completely
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	///
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
@@ -411,7 +410,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 pub trait IterableStorageMap<K: FullEncode, V: FullCodec>: StorageMap<K, V> {
 	/// The type that iterates over all `(key, value)`.
 	type Iterator: Iterator<Item = (K, V)>;
-	/// The type that iterates over all `key`s.
+	/// The type that itereates over all `key`s.
 	type KeyIterator: Iterator<Item = K>;
 
 	/// Enumerate all elements in the map in lexicographical order of the encoded key. If you
@@ -778,7 +777,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	fn decode_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
 	where
@@ -799,7 +798,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	fn decode_non_dedup_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
 	where
@@ -981,7 +980,7 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	fn decode_len<KArg: EncodeLikeTuple<K::KArg> + TupleToEncodedIter>(key: KArg) -> Option<usize>
 	where
@@ -1489,8 +1488,8 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	}
 }
 
-/// It is expected that the length is at the beginning of the encoded object and that the length is
-/// a `Compact<u32>`.
+/// It is expected that the length is at the beginning of the encoded objectand that the length is a
+/// `Compact<u32>`.
 ///
 /// # Note
 /// The length returned by this trait is not deduplicated, i.e. it is the length of the underlying
@@ -1791,7 +1790,7 @@ mod test {
 		});
 	}
 
-	// This test ensures that the Digest encoding does not change without being noticed.
+	// This test ensures that the Digest encoding does not change without being noticied.
 	#[test]
 	fn digest_storage_append_works_as_expected() {
 		TestExternalities::default().execute_with(|| {

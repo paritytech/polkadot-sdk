@@ -287,7 +287,7 @@ impl Protocol {
 		match self {
 			// Hundreds of validators will start requesting their chunks once they see a candidate
 			// awaiting availability on chain. Given that they will see that block at different
-			// times (due to network delays), 100 seems big enough to accommodate for "bursts",
+			// times (due to network delays), 100 seems big enough to accomodate for "bursts",
 			// assuming we can service requests relatively quickly, which would need to be measured
 			// as well.
 			Protocol::ChunkFetchingV1 => 100,

@@ -377,7 +377,6 @@ async fn distribute_collation_with_receipt(
 			pov: pov.clone(),
 			parent_head_data: HeadData(vec![1, 2, 3]),
 			result_sender: None,
-			core_index: CoreIndex(0),
 		},
 	)
 	.await;

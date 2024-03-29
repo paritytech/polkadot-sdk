@@ -136,8 +136,6 @@ mod v1 {
 			exchange_rate: UD60x18,
 			// Cost of delivering a message from Ethereum to BridgeHub, in ROC/KSM/DOT
 			delivery_cost: u128,
-			// Fee multiplier
-			multiplier: UD60x18,
 		},
 	}
 
@@ -205,11 +203,10 @@ mod v1 {
 					Token::Uint(U256::from(*transfer_asset_xcm)),
 					Token::Uint(*register_token),
 				])]),
-				Command::SetPricingParameters { exchange_rate, delivery_cost, multiplier } =>
+				Command::SetPricingParameters { exchange_rate, delivery_cost } =>
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::Uint(exchange_rate.clone().into_inner()),
 						Token::Uint(U256::from(*delivery_cost)),
-						Token::Uint(multiplier.clone().into_inner()),
 					])]),
 			}
 		}
@@ -276,8 +273,7 @@ mod v1 {
 	}
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
+#[cfg_attr(feature = "std", derive(PartialEq, Debug))]
 /// Fee for delivering message
 pub struct Fee<Balance>
 where
@@ -350,13 +346,12 @@ pub trait GasMeter {
 	/// the command within the message
 	const MAXIMUM_BASE_GAS: u64;
 
-	/// Total gas consumed at most, including verification & dispatch
 	fn maximum_gas_used_at_most(command: &Command) -> u64 {
 		Self::MAXIMUM_BASE_GAS + Self::maximum_dispatch_gas_used_at_most(command)
 	}
 
-	/// Measures the maximum amount of gas a command payload will require to *dispatch*, NOT
-	/// including validation & verification.
+	/// Measures the maximum amount of gas a command payload will require to dispatch, AFTER
+	/// validation & verification.
 	fn maximum_dispatch_gas_used_at_most(command: &Command) -> u64;
 }
 

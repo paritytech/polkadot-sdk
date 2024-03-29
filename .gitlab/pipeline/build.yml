@@ -350,7 +350,7 @@ build-runtimes-polkavm:
     - .run-immediately
     # - .collect-artifact
   variables:
-    # this variable gets overridden by "rusty-cachier environment inject", use the value as default
+    # this variable gets overriden by "rusty-cachier environment inject", use the value as default
     CARGO_TARGET_DIR: "$CI_PROJECT_DIR/target"
   before_script:
     - mkdir -p ./artifacts/subkey

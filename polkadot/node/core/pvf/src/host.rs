@@ -917,7 +917,7 @@ async fn sweeper_task(mut sweeper_rx: mpsc::Receiver<PathBuf>) {
 				gum::trace!(
 					target: LOG_TARGET,
 					?result,
-					"Swept the artifact file {}",
+					"Sweeped the artifact file {}",
 					condemned.display(),
 				);
 			},

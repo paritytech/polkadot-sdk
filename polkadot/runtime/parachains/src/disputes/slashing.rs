@@ -643,7 +643,7 @@ fn is_known_offence<T: Config>(
 	}
 }
 
-/// Actual `HandleReports` implementation.
+/// Actual `HandleReports` implemention.
 ///
 /// When configured properly, should be instantiated with
 /// `T::KeyOwnerIdentification, Offences, ReportLongevity` parameters.

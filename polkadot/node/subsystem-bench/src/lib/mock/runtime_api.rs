@@ -36,7 +36,6 @@ use std::collections::HashMap;
 const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
 
 /// Minimal state to answer requests.
-#[derive(Clone)]
 pub struct RuntimeApiState {
 	// All authorities in the test,
 	authorities: TestAuthorities,
@@ -50,7 +49,6 @@ pub struct RuntimeApiState {
 }
 
 /// A mocked `runtime-api` subsystem.
-#[derive(Clone)]
 pub struct MockRuntimeApi {
 	state: RuntimeApiState,
 	config: TestConfiguration,

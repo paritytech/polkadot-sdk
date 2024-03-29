@@ -18,7 +18,7 @@
 use super::*;
 use crate::{self as pools};
 use frame_support::{assert_ok, derive_impl, parameter_types, traits::fungible::Mutate, PalletId};
-use frame_system::{EnsureRoot, RawOrigin};
+use frame_system::RawOrigin;
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::{OnStakingUpdate, Stake};
 
@@ -303,7 +303,6 @@ impl pools::Config for Runtime {
 	type MaxMetadataLen = MaxMetadataLen;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
-	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

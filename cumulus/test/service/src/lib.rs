@@ -735,7 +735,7 @@ pub fn node_config(
 	tokio_handle: tokio::runtime::Handle,
 	key: Sr25519Keyring,
 	nodes: Vec<MultiaddrWithPeerId>,
-	nodes_exclusive: bool,
+	nodes_exlusive: bool,
 	para_id: ParaId,
 	is_collator: bool,
 	endowed_accounts: Vec<AccountId>,
@@ -759,7 +759,7 @@ pub fn node_config(
 		None,
 	);
 
-	if nodes_exclusive {
+	if nodes_exlusive {
 		network_config.default_peers_set.reserved_nodes = nodes;
 		network_config.default_peers_set.non_reserved_mode =
 			sc_network::config::NonReservedPeerMode::Deny;

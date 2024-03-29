@@ -47,37 +47,24 @@
 //! consume on Ethereum. Using this upper bound, a final fee can be calculated.
 //!
 //! The fee calculation also requires the following parameters:
-//! * Average ETH/DOT exchange rate over some period
-//! * Max fee per unit of gas that bridge is willing to refund relayers for
+//! * ETH/DOT exchange rate
+//! * Ether fee per unit of gas
 //!
 //! By design, it is expected that governance should manually update these
 //! parameters every few weeks using the `set_pricing_parameters` extrinsic in the
 //! system pallet.
 //!
-//! This is an interim measure. Once ETH/DOT liquidity pools are available in the Polkadot network,
-//! we'll use them as a source of pricing info, subject to certain safeguards.
-//!
 //! ## Fee Computation Function
 //!
 //! ```text
 //! LocalFee(Message) = WeightToFee(ProcessMessageWeight(Message))
-//! RemoteFee(Message) = MaxGasRequired(Message) * Params.MaxFeePerGas + Params.Reward
-//! RemoteFeeAdjusted(Message) = Params.Multiplier * (RemoteFee(Message) / Params.Ratio("ETH/DOT"))
-//! Fee(Message) = LocalFee(Message) + RemoteFeeAdjusted(Message)
+//! RemoteFee(Message) = MaxGasRequired(Message) * FeePerGas + Reward
+//! Fee(Message) = LocalFee(Message) + (RemoteFee(Message) / Ratio("ETH/DOT"))
 //! ```
 //!
-//! By design, the computed fee includes a safety factor (the `Multiplier`) to cover
-//! unfavourable fluctuations in the ETH/DOT exchange rate.
-//!
-//! ## Fee Settlement
-//!
-//! On the remote side, in the gateway contract, the relayer accrues
-//!
-//! ```text
-//! Min(GasPrice, Message.MaxFeePerGas) * GasUsed() + Message.Reward
-//! ```
-//! Or in plain english, relayers are refunded for gas consumption, using a
-//! price that is a minimum of the actual gas price, or `Message.MaxFeePerGas`.
+//! By design, the computed fee is always going to conservative, to cover worst-case
+//! costs of dispatch on Ethereum. In future iterations of the design, we will optimize
+//! this, or provide a mechanism to asynchronously refund a portion of collected fees.
 //!
 //! # Extrinsics
 //!
@@ -119,7 +106,7 @@ pub use snowbridge_outbound_queue_merkle_tree::MerkleProof;
 use sp_core::{H256, U256};
 use sp_runtime::{
 	traits::{CheckedDiv, Hash},
-	DigestItem, Saturating,
+	DigestItem,
 };
 use sp_std::prelude::*;
 pub use types::{CommittedMessage, ProcessMessageOriginOf};
@@ -379,9 +366,8 @@ pub mod pallet {
 			// downcast to u128
 			let fee: u128 = fee.try_into().defensive_unwrap_or(u128::MAX);
 
-			// multiply by multiplier and convert to local currency
+			// convert to local currency
 			let fee = FixedU128::from_inner(fee)
-				.saturating_mul(params.multiplier)
 				.checked_div(&params.exchange_rate)
 				.expect("exchange rate is not zero; qed")
 				.into_inner();

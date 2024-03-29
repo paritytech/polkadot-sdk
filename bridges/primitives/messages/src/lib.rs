@@ -289,27 +289,27 @@ pub struct ReceivedMessages<DispatchLevelResult> {
 	/// Id of the lane which is receiving messages.
 	pub lane: LaneId,
 	/// Result of messages which we tried to dispatch
-	pub receive_results: Vec<(MessageNonce, ReceptionResult<DispatchLevelResult>)>,
+	pub receive_results: Vec<(MessageNonce, ReceivalResult<DispatchLevelResult>)>,
 }
 
 impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
 	/// Creates new `ReceivedMessages` structure from given results.
 	pub fn new(
 		lane: LaneId,
-		receive_results: Vec<(MessageNonce, ReceptionResult<DispatchLevelResult>)>,
+		receive_results: Vec<(MessageNonce, ReceivalResult<DispatchLevelResult>)>,
 	) -> Self {
 		ReceivedMessages { lane, receive_results }
 	}
 
 	/// Push `result` of the `message` delivery onto `receive_results` vector.
-	pub fn push(&mut self, message: MessageNonce, result: ReceptionResult<DispatchLevelResult>) {
+	pub fn push(&mut self, message: MessageNonce, result: ReceivalResult<DispatchLevelResult>) {
 		self.receive_results.push((message, result));
 	}
 }
 
 /// Result of single message receival.
 #[derive(RuntimeDebug, Encode, Decode, PartialEq, Eq, Clone, TypeInfo)]
-pub enum ReceptionResult<DispatchLevelResult> {
+pub enum ReceivalResult<DispatchLevelResult> {
 	/// Message has been received and dispatched. Note that we don't care whether dispatch has
 	/// been successful or not - in both case message falls into this category.
 	///

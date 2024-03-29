@@ -88,7 +88,7 @@ impl<
 	type Beneficiary = Beneficiary;
 	type AssetKind = AssetKind;
 	type Balance = u128;
-	type Id = QueryId;
+	type Id = Querier::QueryId;
 	type Error = xcm::latest::Error;
 
 	fn pay(

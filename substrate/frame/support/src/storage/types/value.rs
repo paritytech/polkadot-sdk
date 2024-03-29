@@ -225,7 +225,7 @@ where
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	pub fn decode_len() -> Option<usize>
 	where
@@ -243,8 +243,7 @@ where
 	///
 	/// # Warning
 	///
-	///  - `None` does not mean that `get()` does not return a value. The default value is
-	///    completely
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	///
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This

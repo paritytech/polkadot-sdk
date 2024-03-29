@@ -348,7 +348,7 @@ where
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completely
+	/// `None` does not mean that `get()` does not return a value. The default value is completly
 	/// ignored by this function.
 	pub fn decode_len<KArg: EncodeLikeTuple<Key::KArg> + TupleToEncodedIter>(
 		key: KArg,

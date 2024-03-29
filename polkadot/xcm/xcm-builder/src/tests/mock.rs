@@ -38,7 +38,7 @@ pub use sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	fmt::Debug,
 };
-pub use xcm::latest::{prelude::*, QueryId, Weight};
+pub use xcm::latest::{prelude::*, Weight};
 use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
 pub use xcm_executor::{
 	traits::{
@@ -414,6 +414,7 @@ pub struct TestQueryHandler<T, BlockNumber>(core::marker::PhantomData<(T, BlockN
 impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 	for TestQueryHandler<T, BlockNumber>
 {
+	type QueryId = u64;
 	type BlockNumber = BlockNumber;
 	type Error = XcmError;
 	type UniversalLocation = T::UniversalLocation;
@@ -422,7 +423,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 		responder: impl Into<Location>,
 		_timeout: Self::BlockNumber,
 		_match_querier: impl Into<Location>,
-	) -> QueryId {
+	) -> Self::QueryId {
 		let query_id = 1;
 		expect_response(query_id, responder.into());
 		query_id
@@ -432,7 +433,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 		message: &mut Xcm<()>,
 		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
-	) -> Result<QueryId, Self::Error> {
+	) -> Result<Self::QueryId, Self::Error> {
 		let responder = responder.into();
 		let destination = Self::UniversalLocation::get()
 			.invert_target(&responder)
@@ -444,7 +445,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 		Ok(query_id)
 	}
 
-	fn take_response(query_id: QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+	fn take_response(query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
 		QUERIES
 			.with(|q| {
 				q.borrow().get(&query_id).and_then(|v| match v {
@@ -459,7 +460,7 @@ impl<T: Config, BlockNumber: sp_runtime::traits::Zero + Encode> QueryHandler
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn expect_response(_id: QueryId, _response: xcm::latest::Response) {
+	fn expect_response(_id: Self::QueryId, _response: xcm::latest::Response) {
 		// Unnecessary since it's only a test implementation
 	}
 }

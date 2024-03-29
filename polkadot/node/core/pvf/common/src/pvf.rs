@@ -85,9 +85,9 @@ impl PvfPrepData {
 	/// Creates a structure for tests.
 	#[cfg(feature = "test-utils")]
 	pub fn from_discriminator_and_timeout(num: u32, timeout: Duration) -> Self {
-		let discriminator_buf = num.to_le_bytes().to_vec();
+		let descriminator_buf = num.to_le_bytes().to_vec();
 		Self::from_code(
-			discriminator_buf,
+			descriminator_buf,
 			ExecutorParams::default(),
 			timeout,
 			PrepareJobKind::Compilation,

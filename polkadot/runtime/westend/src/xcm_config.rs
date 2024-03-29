@@ -41,11 +41,10 @@ use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily, FrameTransactionalProcessor,
-	FungibleAdapter, HashedDescription, IsChildSystemParachain, IsConcrete, MintLocation,
-	OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	FungibleAdapter, HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::XcmExecutor;
 
@@ -143,12 +142,13 @@ impl Contains<Location> for OnlyParachains {
 	}
 }
 
-pub struct Fellows;
-impl Contains<Location> for Fellows {
+pub struct CollectivesOrFellows;
+impl Contains<Location> for CollectivesOrFellows {
 	fn contains(location: &Location) -> bool {
 		matches!(
 			location.unpack(),
-			(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+			(0, [Parachain(COLLECTIVES_ID)]) |
+				(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
 		)
 	}
 }
@@ -172,8 +172,8 @@ pub type Barrier = TrailingSetTopicAsId<(
 			AllowTopLevelPaidExecutionFrom<Everything>,
 			// Subscriptions for version tracking are OK.
 			AllowSubscriptionsFrom<OnlyParachains>,
-			// Messages from system parachains or the Fellows plurality need not pay for execution.
-			AllowExplicitUnpaidExecutionFrom<(IsChildSystemParachain<ParaId>, Fellows)>,
+			// Collectives and Fellows plurality get free execution.
+			AllowExplicitUnpaidExecutionFrom<CollectivesOrFellows>,
 		),
 		UniversalLocation,
 		ConstU32<8>,
@@ -272,9 +272,7 @@ pub type LocalPalletOriginToLocation = (
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// Note that this configuration of `SendXcmOrigin` is different from the one present in
-	// production.
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
+	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalPalletOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	// Anyone can execute XCM messages locally...
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;

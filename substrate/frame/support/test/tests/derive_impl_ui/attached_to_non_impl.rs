@@ -50,7 +50,7 @@ impl Animal for FourLeggedAnimal {
 	}
 }
 
-pub struct AquaticMammal {}
+pub struct AcquaticMammal {}
 
 #[derive_impl(FourLeggedAnimal as Animal)]
 struct Something {}

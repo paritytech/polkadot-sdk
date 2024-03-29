@@ -190,7 +190,7 @@ impl<V: FullCodec> Page<V> {
 		let values = sp_io::storage::get(&key)
 			.and_then(|raw| sp_std::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
 		if values.is_empty() {
-			// Don't create empty pages.
+			// Dont create empty pages.
 			return None
 		}
 		let values = values.into_iter().skip(value_index as usize);

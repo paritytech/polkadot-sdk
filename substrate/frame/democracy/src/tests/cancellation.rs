@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The tests for cancellation functionality.
+//! The tests for cancelation functionality.
 
 use super::*;
 

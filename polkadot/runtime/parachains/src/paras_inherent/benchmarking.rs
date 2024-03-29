@@ -146,6 +146,10 @@ benchmarks! {
 		}
 
 		assert_eq!(
+			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
+			cores_with_backed.len()
+		);
+		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()
 		);
@@ -205,6 +209,10 @@ benchmarks! {
 				);
 			}
 
+		assert_eq!(
+			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
+			cores_with_backed.len()
+		);
 		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()

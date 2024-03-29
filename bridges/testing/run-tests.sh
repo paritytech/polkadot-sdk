@@ -30,7 +30,7 @@ done
 export POLKADOT_SDK_PATH=`realpath $(dirname "$0")/../..`
 export BRIDGE_TESTS_FOLDER=$POLKADOT_SDK_PATH/bridges/testing/tests
 
-# set path to binaries
+# set pathc to binaries
 if [ "$ZOMBIENET_DOCKER_PATHS" -eq 1 ]; then
     export POLKADOT_BINARY=/usr/local/bin/polkadot
     export POLKADOT_PARACHAIN_BINARY=/usr/local/bin/polkadot-parachain

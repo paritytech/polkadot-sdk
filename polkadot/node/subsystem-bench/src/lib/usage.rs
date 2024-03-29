@@ -17,7 +17,6 @@
 //! Test usage implementation
 
 use colored::Colorize;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -38,16 +37,10 @@ impl std::fmt::Display for BenchmarkUsage {
 			self.network_usage
 				.iter()
 				.map(|v| v.to_string())
-				.sorted()
 				.collect::<Vec<String>>()
 				.join("\n"),
 			format!("{:<32}{:>12}{:>12}", "CPU usage, seconds", "total", "per block").blue(),
-			self.cpu_usage
-				.iter()
-				.map(|v| v.to_string())
-				.sorted()
-				.collect::<Vec<String>>()
-				.join("\n")
+			self.cpu_usage.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n")
 		)
 	}
 }
@@ -82,27 +75,6 @@ impl BenchmarkUsage {
 			_ => None,
 		}
 	}
-
-	// Prepares a json string for a graph representation
-	// See: https://github.com/benchmark-action/github-action-benchmark?tab=readme-ov-file#examples
-	pub fn to_chart_json(&self) -> color_eyre::eyre::Result<String> {
-		let chart = self
-			.network_usage
-			.iter()
-			.map(|v| ChartItem {
-				name: v.resource_name.clone(),
-				unit: "KiB".to_string(),
-				value: v.per_block,
-			})
-			.chain(self.cpu_usage.iter().map(|v| ChartItem {
-				name: v.resource_name.clone(),
-				unit: "seconds".to_string(),
-				value: v.per_block,
-			}))
-			.collect::<Vec<_>>();
-
-		Ok(serde_json::to_string(&chart)?)
-	}
 }
 
 fn check_usage(
@@ -129,8 +101,8 @@ fn check_resource_usage(
 			None
 		} else {
 			Some(format!(
-				"The resource `{}` is expected to be equal to {} with a precision {}, but the current value is {} ({})",
-				resource_name, base, precision, usage.per_block, diff
+				"The resource `{}` is expected to be equal to {} with a precision {}, but the current value is {}",
+				resource_name, base, precision, usage.per_block
 			))
 		}
 	} else {
@@ -147,7 +119,7 @@ pub struct ResourceUsage {
 
 impl std::fmt::Display for ResourceUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{:<32}{:>12.4}{:>12.4}", self.resource_name.cyan(), self.total, self.per_block)
+		write!(f, "{:<32}{:>12.3}{:>12.3}", self.resource_name.cyan(), self.total, self.per_block)
 	}
 }
 
@@ -172,10 +144,3 @@ impl ResourceUsage {
 }
 
 type ResourceUsageCheck<'a> = (&'a str, f64, f64);
-
-#[derive(Debug, Serialize)]
-pub struct ChartItem {
-	pub name: String,
-	pub unit: String,
-	pub value: f64,
-}

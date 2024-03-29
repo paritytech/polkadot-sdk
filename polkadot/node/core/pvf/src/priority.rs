@@ -29,7 +29,7 @@ pub enum Priority {
 }
 
 impl Priority {
-	/// Returns `true` if `self` is `Critical`
+	/// Returns `true` if `self` is `Crticial`
 	pub fn is_critical(self) -> bool {
 		self == Priority::Critical
 	}

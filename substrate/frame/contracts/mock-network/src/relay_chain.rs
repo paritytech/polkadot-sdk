@@ -225,7 +225,6 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = MessageQueueHeapSize;
 	type MaxStale = MessageQueueMaxStale;
 	type ServiceWeight = MessageQueueServiceWeight;
-	type IdleMaxServiceWeight = ();
 	type MessageProcessor = MessageProcessor;
 	type QueueChangeHandler = ();
 	type WeightInfo = ();

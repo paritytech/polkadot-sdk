@@ -424,7 +424,7 @@ mod tests {
 
 	/// Scenario:
 	/// The relay-chain transfers an NFT into a parachain's sovereign account, who then mints a
-	/// trustless-backed-derived locally.
+	/// trustless-backed-derivated locally.
 	///
 	/// Asserts that the parachain accounts are updated as expected.
 	#[test]
@@ -479,7 +479,7 @@ mod tests {
 			assert_ok!(ParachainPalletXcm::send_xcm(alice, Parent, message));
 		});
 		ParaA::execute_with(|| {
-			log::debug!(target: "xcm-executor", "Hello");
+			log::debug!(target: "xcm-exceutor", "Hello");
 			assert_eq!(
 				parachain::ForeignUniques::owner((Parent, GeneralIndex(2)).into(), 69u32.into()),
 				Some(ALICE),

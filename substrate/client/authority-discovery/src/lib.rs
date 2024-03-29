@@ -80,10 +80,6 @@ pub struct WorkerConfig {
 	/// Defaults to `true` to avoid the surprise factor.
 	pub publish_non_global_ips: bool,
 
-	/// Public addresses set by the node operator to always publish first in the authority
-	/// discovery DHT record.
-	pub public_addresses: Vec<Multiaddr>,
-
 	/// Reject authority discovery records that are not signed by their network identity (PeerId)
 	///
 	/// Defaults to `false` to provide compatibility with old versions
@@ -108,7 +104,6 @@ impl Default for WorkerConfig {
 			// `authority_discovery_dht_event_received`.
 			max_query_interval: Duration::from_secs(10 * 60),
 			publish_non_global_ips: true,
-			public_addresses: Vec::new(),
 			strict_record_validation: false,
 		}
 	}

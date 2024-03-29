@@ -145,7 +145,7 @@ pub enum WasmError {
 	#[error("{0}")]
 	Instantiation(String),
 
-	/// Other error happened.
+	/// Other error happenend.
 	#[error("Other error happened while constructing the runtime: {0}")]
 	Other(String),
 }

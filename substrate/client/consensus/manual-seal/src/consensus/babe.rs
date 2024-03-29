@@ -82,7 +82,7 @@ pub struct BabeVerifier<B: BlockT, C> {
 }
 
 impl<B: BlockT, C> BabeVerifier<B, C> {
-	/// create a new verifier
+	/// create a nrew verifier
 	pub fn new(epoch_changes: SharedEpochChanges<B, Epoch>, client: Arc<C>) -> BabeVerifier<B, C> {
 		BabeVerifier { epoch_changes, client }
 	}

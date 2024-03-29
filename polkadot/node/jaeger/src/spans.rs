@@ -70,7 +70,7 @@
 //! let root_span =
 //! 	jaeger::Span::new(relay_parent, "root_of_aaall_spans");
 //!
-//! // the preferred way of adding additional delayed information:
+//! // the prefered way of adding additional delayed information:
 //! let span = root_span.child("inner");
 //!
 //! // ... more operations ...

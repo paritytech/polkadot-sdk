@@ -531,9 +531,9 @@ enum FrameArgs<'a, T: Config, E> {
 		nonce: u64,
 		/// The executable whose `deploy` function is run.
 		executable: E,
-		/// A salt used in the contract address derivation of the new contract.
+		/// A salt used in the contract address deriviation of the new contract.
 		salt: &'a [u8],
-		/// The input data is used in the contract address derivation of the new contract.
+		/// The input data is used in the contract address deriviation of the new contract.
 		input_data: &'a [u8],
 	},
 }
