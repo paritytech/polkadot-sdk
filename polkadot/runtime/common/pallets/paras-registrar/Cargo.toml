@@ -23,6 +23,7 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../../..
 xcm = { package = "staging-xcm", path = "../../../../xcm", default-features = false }
 
 [dev-dependencies]
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, features = ["serde"] }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
