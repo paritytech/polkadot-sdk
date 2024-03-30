@@ -2189,6 +2189,10 @@ impl<T: Config> StoredMap<T::AccountId, T::AccountData> for Pallet<T> {
 		k: &T::AccountId,
 		f: impl FnOnce(&mut Option<T::AccountData>) -> Result<R, E>,
 	) -> Result<R, E> {
+		// NOTE: We cannot use `try_get` here since in the case that the account exists, but does
+		// not have any data set (Default), it would report the account as existing, although the
+		// caller of this `StoredMap` never put anything in.
+		// However, the `is_default` would work better if it was an `Option<AccountData>`...
 		let account = Account::<T>::get(k);
 		let is_default = account.data == T::AccountData::default();
 		let mut some_data = if is_default { None } else { Some(account.data) };
