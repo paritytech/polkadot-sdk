@@ -1448,7 +1448,7 @@ mod tests {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking {
 	use super::*;
-	use crate::claims::Call;
+	use crate::Call;
 	use frame_benchmarking::{account, benchmarks};
 	use frame_support::traits::UnfilteredDispatchable;
 	use frame_system::RawOrigin;
@@ -1669,8 +1669,8 @@ mod benchmarking {
 
 		impl_benchmark_test_suite!(
 			Pallet,
-			crate::claims::tests::new_test_ext(),
-			crate::claims::tests::Test,
+			crate::tests::new_test_ext(),
+			crate::tests::Test,
 		);
 	}
 }
