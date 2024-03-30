@@ -1,0 +1,45 @@
+[package]
+name = "pallet-claims"
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Polkadot claims pallet"
+
+[lints]
+workspace = true
+
+[dependencies]
+parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+sp-std = { package = "sp-std", path = "../../../../../substrate/primitives/std", default-features = false }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
+primitives = { package = "polkadot-primitives", path = "../../../../primitives", default-features = false }
+runtime-parachains = { package = "polkadot-runtime-parachains", path = "../../../parachains", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../xcm", default-features = false }
+
+[features]
+default = ["std"]
+no_std = []
+std = [
+	"frame-support/std",
+	"frame-system/std",
+	"parity-scale-codec/std",
+	"primitives/std",
+	"runtime-parachains/std",
+	"scale-info/std",
+	"sp-std/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"primitives/runtime-benchmarks",
+	"runtime-parachains/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"runtime-parachains/try-runtime",
+]
