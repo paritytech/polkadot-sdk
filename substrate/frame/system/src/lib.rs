@@ -2189,8 +2189,8 @@ impl<T: Config> StoredMap<T::AccountId, T::AccountData> for Pallet<T> {
 		k: &T::AccountId,
 		f: impl FnOnce(&mut Option<T::AccountData>) -> Result<R, E>,
 	) -> Result<R, E> {
-		let maybe_account = Account::<T>::try_get(k).ok();
-		let mut some_data = maybe_account.map(|a| a.data);
+		let account = Account::<T>::try_get(k);
+		let mut some_data = account.ok().map(|a| a.data);
 		let result = f(&mut some_data)?;
 		if Self::providers(k) > 0 || Self::sufficients(k) > 0 {
 			Account::<T>::mutate(k, |a| a.data = some_data.unwrap_or_default());
