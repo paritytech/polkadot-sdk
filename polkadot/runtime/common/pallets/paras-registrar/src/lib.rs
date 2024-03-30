@@ -18,7 +18,7 @@
 //! In essence this is a simple wrapper around `paras`.
 
 pub mod migration;
-mod traits;
+pub mod traits;
 
 use frame_support::{
 	dispatch::DispatchResult,

@@ -20,6 +20,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	traits::{Currency, ReservableCurrency},
 };
+pub use pallet_paras_registrar::traits::{OnSwap, Registrar};
 use primitives::{HeadData, Id as ParaId, ValidationCode};
 use sp_std::vec::*;
 
