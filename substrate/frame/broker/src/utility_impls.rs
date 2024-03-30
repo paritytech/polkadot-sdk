@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
 		paid: Option<BalanceOf<T>>,
 	) -> RegionId {
 		let id = RegionId { begin, core, mask: CoreMask::complete() };
-		let record = RegionRecord { end, owner: owner, paid };
+		let record = RegionRecord { end, owner, paid };
 		Regions::<T>::insert(&id, &record);
 		id
 	}
