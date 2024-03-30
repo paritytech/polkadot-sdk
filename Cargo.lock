@@ -9473,6 +9473,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-claims"
+version = "7.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "scale-info",
+ "sp-std 14.0.0",
+ "staging-xcm",
+]
+
+[[package]]
 name = "pallet-collator-selection"
 version = "9.0.0"
 dependencies = [
