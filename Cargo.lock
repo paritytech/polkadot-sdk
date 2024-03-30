@@ -10546,6 +10546,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-purchase"
+version = "7.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "libsecp256k1",
+ "log",
+ "pallet-balances",
+ "pallet-vesting",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "rustc-hex",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-ranked-collective"
 version = "28.0.0"
 dependencies = [
