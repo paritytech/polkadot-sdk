@@ -13275,6 +13275,7 @@ dependencies = [
  "pallet-babe",
  "pallet-balances",
  "pallet-broker",
+ "pallet-claims",
  "pallet-election-provider-multi-phase",
  "pallet-fast-unstake",
  "pallet-identity",
