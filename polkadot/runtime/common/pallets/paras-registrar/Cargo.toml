@@ -22,6 +22,9 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../../..
 xcm = { package = "staging-xcm", path = "../../../../xcm", default-features = false }
 polkadot-runtime-common = { path = "../../", default-features = false }
 
+[dev-dependencies]
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
+
 [features]
 default = ["std"]
 no_std = []
