@@ -54,7 +54,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError> {
 		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
-		return T::CoreStaking::stake(who);
+		T::CoreStaking::stake(who)
 	}
 
 	fn total_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
@@ -80,7 +80,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn fully_unbond(who: &Self::AccountId) -> DispatchResult {
 		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
-		return T::CoreStaking::fully_unbond(who);
+		T::CoreStaking::fully_unbond(who)
 	}
 
 	fn bond(
@@ -100,12 +100,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult {
 		ensure!(Self::is_delegatee(who), Error::<T>::NotDelegatee);
-		return T::CoreStaking::nominate(who, validators);
+		T::CoreStaking::nominate(who, validators)
 	}
 
 	fn chill(who: &Self::AccountId) -> DispatchResult {
 		ensure!(Self::is_delegatee(who), Error::<T>::NotDelegatee);
-		return T::CoreStaking::chill(who);
+		T::CoreStaking::chill(who)
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {

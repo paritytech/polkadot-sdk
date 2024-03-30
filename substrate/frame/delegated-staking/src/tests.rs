@@ -198,9 +198,7 @@ fn delegatee_restrictions() {
 #[test]
 fn apply_pending_slash() {
 	ExtBuilder::default().build_and_execute(|| {
-		(
-        // fixme(ank4n): add tests for apply_pending_slash
-        )
+		// fixme(ank4n): add tests for apply_pending_slash
 	});
 }
 

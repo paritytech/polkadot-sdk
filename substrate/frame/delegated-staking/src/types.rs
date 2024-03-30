@@ -290,6 +290,7 @@ impl<T: Config> Delegatee<T> {
 
 	/// Reloads self from storage.
 	#[cfg(test)]
+	#[allow(unused)]
 	pub(crate) fn refresh(&self) -> Result<Delegatee<T>, DispatchError> {
 		Self::from(&self.key)
 	}
@@ -299,6 +300,7 @@ impl<T: Config> Delegatee<T> {
 	/// This is similar to [Self::available_to_bond] except it also includes `unclaimed_withdrawals`
 	/// of `Delegatee`.
 	#[cfg(test)]
+	#[allow(unused)]
 	pub(crate) fn total_unbonded(&self) -> BalanceOf<T> {
 		let bonded_stake = self.bonded_stake();
 

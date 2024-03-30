@@ -176,13 +176,8 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive(Default)]
 pub struct ExtBuilder {}
-
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {}
-	}
-}
 
 impl ExtBuilder {
 	fn build(self) -> sp_io::TestExternalities {
@@ -242,7 +237,7 @@ impl ExtBuilder {
 
 		ext
 	}
-	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+	pub fn build_and_execute(self, test: impl FnOnce()) {
 		sp_tracing::try_init_simple();
 		let mut ext = self.build();
 		ext.execute_with(test);
@@ -280,7 +275,7 @@ pub(crate) fn setup_delegation_stake(
 
 		fund(delegator, amount_to_delegate + ExistentialDeposit::get());
 		assert_ok!(DelegatedStaking::delegate_funds(
-			RawOrigin::Signed(delegator.clone()).into(),
+			RawOrigin::Signed(*delegator).into(),
 			delegatee,
 			amount_to_delegate
 		));
@@ -306,15 +301,16 @@ pub(crate) fn get_delegatee(delegatee: &AccountId) -> Delegatee<T> {
 	Delegatee::<T>::from(delegatee).expect("delegate should exist")
 }
 
-
+#[allow(unused)]
 pub(crate) fn held_balance(who: &AccountId) -> Balance {
-	Balances::balance_on_hold(&HoldReason::Delegating.into(), &who)
+	Balances::balance_on_hold(&HoldReason::Delegating.into(), who)
 }
 
 parameter_types! {
 	static ObservedEventsDelegatedStaking: usize = 0;
 }
 
+#[allow(unused)]
 pub(crate) fn events_since_last_call() -> Vec<crate::Event<Runtime>> {
 	let events = System::events()
 		.into_iter()

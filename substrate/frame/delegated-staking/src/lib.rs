@@ -54,9 +54,9 @@
 //! - **Delegatee**: An account who accepts delegations from other accounts.
 //! - **Delegator**: An account who delegates their funds to a `delegatee`.
 //! - **DelegateeLedger**: A data structure that stores important information about the `delegatee`
-//! 	such as their total delegated stake.
+//!   such as their total delegated stake.
 //! - **Delegation**: A data structure that stores the amount of funds delegated to a `delegatee` by
-//! 	a `delegator`.
+//!   a `delegator`.
 //!
 //! ## Interface
 //!
@@ -129,7 +129,7 @@
 //! ## Limitations
 //! - Rewards can not be auto-compounded.
 //! - Slashes are lazy and hence there could be a period of time when an account can use funds for
-//! 	operations such as voting in governance even though they should be slashed.
+//!   operations such as voting in governance even though they should be slashed.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
@@ -469,7 +469,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns true if who is not already staking on [`Config::CoreStaking`].
 	fn not_direct_staker(who: &T::AccountId) -> bool {
-		T::CoreStaking::status(&who).is_err()
+		T::CoreStaking::status(who).is_err()
 	}
 
 	/// Returns true if who is a [`StakerStatus::Nominator`] on [`Config::CoreStaking`].
@@ -531,7 +531,7 @@ impl<T: Config> Pallet<T> {
 		if delegatee.is_bonded() {
 			T::CoreStaking::bond_extra(&delegatee.key, amount)
 		} else {
-			T::CoreStaking::virtual_bond(&delegatee.key, amount, &delegatee.reward_account())
+			T::CoreStaking::virtual_bond(&delegatee.key, amount, delegatee.reward_account())
 		}
 	}
 
@@ -605,7 +605,7 @@ impl<T: Config> Pallet<T> {
 
 		let released = T::Currency::release(
 			&HoldReason::Delegating.into(),
-			&delegator,
+			delegator,
 			amount,
 			Precision::BestEffort,
 		)?;
@@ -658,7 +658,7 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		let source_delegation =
-			Delegators::<T>::get(&source_delegator).defensive_ok_or(Error::<T>::BadState)?;
+			Delegators::<T>::get(source_delegator).defensive_ok_or(Error::<T>::BadState)?;
 
 		// some checks that must have already been checked before.
 		ensure!(source_delegation.amount >= amount, Error::<T>::NotEnoughFunds);
@@ -679,7 +679,7 @@ impl<T: Config> Pallet<T> {
 		// release funds from source
 		let released = T::Currency::release(
 			&HoldReason::Delegating.into(),
-			&source_delegator,
+			source_delegator,
 			amount,
 			Precision::BestEffort,
 		)?;
@@ -689,7 +689,7 @@ impl<T: Config> Pallet<T> {
 		// transfer the released amount to `destination_delegator`.
 		// Note: The source should have been funded ED in the beginning so it should not be dusted.
 		T::Currency::transfer(
-			&source_delegator,
+			source_delegator,
 			destination_delegator,
 			amount,
 			Preservation::Preserve,
@@ -697,7 +697,7 @@ impl<T: Config> Pallet<T> {
 		.map_err(|_| Error::<T>::BadState)?;
 
 		// hold the funds again in the new delegator account.
-		T::Currency::hold(&HoldReason::Delegating.into(), &destination_delegator, amount)?;
+		T::Currency::hold(&HoldReason::Delegating.into(), destination_delegator, amount)?;
 
 		Ok(())
 	}
