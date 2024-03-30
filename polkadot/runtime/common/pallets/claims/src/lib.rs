@@ -16,6 +16,8 @@
 
 //! Pallet to process claims from Ethereum addresses.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use frame_support::{
 	ensure,
 	traits::{Currency, Get, IsSubType, VestingSchedule},
@@ -704,7 +706,7 @@ mod tests {
 	use parity_scale_codec::Encode;
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
-	use crate::claims;
+	use crate as claims;
 	use claims::Call as ClaimsCall;
 	use frame_support::{
 		assert_err, assert_noop, assert_ok, derive_impl,
