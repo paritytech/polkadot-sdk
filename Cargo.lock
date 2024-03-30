@@ -10808,6 +10808,7 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "libsecp256k1",
+ "log",
  "pallet-balances",
  "pallet-vesting",
  "parity-scale-codec",
