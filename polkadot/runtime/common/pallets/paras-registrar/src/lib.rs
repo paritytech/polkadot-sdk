@@ -18,6 +18,7 @@
 //! In essence this is a simple wrapper around `paras`.
 
 pub mod migration;
+mod traits;
 
 use frame_support::{
 	dispatch::DispatchResult,
@@ -34,9 +35,9 @@ use runtime_parachains::{
 };
 use sp_std::{prelude::*, result};
 
+use crate::traits::{OnSwap, Registrar};
 pub use pallet::*;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_runtime_common::traits::{OnSwap, Registrar};
 use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -131,7 +132,7 @@ pub mod pallet {
 		type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// Runtime hook for when a lease holding parachain and on-demand parachain swap.
-		type OnSwap: polkadot_runtime_common::traits::OnSwap;
+		type OnSwap: crate::traits::OnSwap;
 
 		/// The deposit to be paid to run a on-demand parachain.
 		/// This should include the cost for storing the genesis head and validation code.
@@ -701,9 +702,8 @@ impl<T: Config> OnNewHead for Pallet<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
-		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
-	};
+	use crate as paras_registrar;
+	use crate::{mock::conclude_pvf_checking, traits::Registrar as RegistrarTrait};
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl,
 		error::BadOrigin,
@@ -735,7 +735,7 @@ mod tests {
 			Configuration: configuration,
 			Parachains: paras,
 			ParasShared: shared,
-			Registrar: paras_registrar,
+			Registrar: crate::{Pallet, Call, Storage, Event<T>},
 			ParachainsOrigin: origin,
 		}
 	);
@@ -1667,3 +1667,6 @@ mod benchmarking {
 		);
 	}
 }
+
+#[cfg(test)]
+mod mock;

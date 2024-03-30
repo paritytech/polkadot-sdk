@@ -10,6 +10,7 @@ description = "Polkadot paras registrar pallet"
 workspace = true
 
 [dependencies]
+impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
@@ -20,9 +21,10 @@ frame-system = { path = "../../../../../substrate/frame/system", default-feature
 primitives = { package = "polkadot-primitives", path = "../../../../primitives", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../../../parachains", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../../xcm", default-features = false }
-polkadot-runtime-common = { path = "../../", default-features = false }
 
 [dev-dependencies]
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, features = ["serde"] }
+sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
 
 [features]
@@ -37,18 +39,15 @@ std = [
 	"scale-info/std",
 	"sp-std/std",
 	"xcm/std",
-	"polkadot-runtime-common/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
 	"runtime-parachains/runtime-benchmarks",
-	"polkadot-runtime-common/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"runtime-parachains/try-runtime",
-	"polkadot-runtime-common/try-runtime",
 ]
