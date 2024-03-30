@@ -9699,6 +9699,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-delegated-staking"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-nomination-pools",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "substrate-test-utils",
+]
+
+[[package]]
 name = "pallet-democracy"
 version = "28.0.0"
 dependencies = [
