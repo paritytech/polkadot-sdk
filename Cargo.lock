@@ -10512,6 +10512,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-paras-registrar"
+version = "7.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-common",
+ "polkadot-runtime-parachains",
+ "scale-info",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "staging-xcm",
+]
+
+[[package]]
 name = "pallet-preimage"
 version = "28.0.0"
 dependencies = [
