@@ -16,6 +16,8 @@
 
 //! Pallet to process purchase of DOTs.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, EnsureOrigin, ExistenceRequirement, Get, VestingSchedule},
