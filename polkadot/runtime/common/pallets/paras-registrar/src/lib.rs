@@ -17,6 +17,8 @@
 //! Pallet to handle parachain registration and related fund management.
 //! In essence this is a simple wrapper around `paras`.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 pub mod migration;
 pub mod traits;
 

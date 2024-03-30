@@ -21,8 +21,7 @@ use frame_support::{
 	traits::{Currency, ReservableCurrency},
 };
 pub use pallet_paras_registrar::traits::{OnSwap, Registrar};
-use primitives::{HeadData, Id as ParaId, ValidationCode};
-use sp_std::vec::*;
+use primitives::Id as ParaId;
 
 /// Error type for something that went wrong with leasing.
 #[derive(Debug)]
