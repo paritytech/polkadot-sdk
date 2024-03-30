@@ -13274,6 +13274,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-fast-unstake",
  "pallet-identity",
+ "pallet-purchase",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-fn",
