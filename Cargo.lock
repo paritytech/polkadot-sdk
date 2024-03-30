@@ -9480,10 +9480,12 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "polkadot-primitives",
- "polkadot-runtime-parachains",
+ "rustc-hex",
  "scale-info",
+ "serde",
+ "sp-io",
+ "sp-runtime",
  "sp-std 14.0.0",
- "staging-xcm",
 ]
 
 [[package]]
