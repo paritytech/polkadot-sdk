@@ -167,7 +167,7 @@ pub struct Delegatee<T: Config> {
 impl<T: Config> Delegatee<T> {
 	/// Get `Delegatee` from storage if it exists or return an error.
 	pub(crate) fn from(delegatee: &T::AccountId) -> Result<Delegatee<T>, DispatchError> {
-		let ledger = DelegateeLedger::<T>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		let ledger = DelegateeLedger::<T>::get(delegatee).ok_or(Error::<T>::NotAgent)?;
 		Ok(Delegatee { key: delegatee.clone(), ledger })
 	}
 

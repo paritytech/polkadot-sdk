@@ -53,12 +53,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError> {
-		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		ensure!(Self::is_agent(who), Error::<T>::NotSupported);
 		T::CoreStaking::stake(who)
 	}
 
 	fn total_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
-		if Self::is_delegatee(who) {
+		if Self::is_agent(who) {
 			return T::CoreStaking::total_stake(who);
 		}
 
@@ -79,7 +79,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn fully_unbond(who: &Self::AccountId) -> DispatchResult {
-		ensure!(Self::is_delegatee(who), Error::<T>::NotSupported);
+		ensure!(Self::is_agent(who), Error::<T>::NotSupported);
 		T::CoreStaking::fully_unbond(who)
 	}
 
@@ -99,17 +99,17 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult {
-		ensure!(Self::is_delegatee(who), Error::<T>::NotDelegatee);
+		ensure!(Self::is_agent(who), Error::<T>::NotAgent);
 		T::CoreStaking::nominate(who, validators)
 	}
 
 	fn chill(who: &Self::AccountId) -> DispatchResult {
-		ensure!(Self::is_delegatee(who), Error::<T>::NotDelegatee);
+		ensure!(Self::is_agent(who), Error::<T>::NotAgent);
 		T::CoreStaking::chill(who)
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
-		let ledger = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotDelegatee)?;
+		let ledger = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotAgent)?;
 		ensure!(ledger.stakeable_balance() >= extra, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::bond_extra(who, extra)
@@ -154,7 +154,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
-		ensure!(Self::is_delegatee(who), Error::<T>::NotDelegatee);
+		ensure!(Self::is_agent(who), Error::<T>::NotAgent);
 		T::CoreStaking::status(who)
 	}
 
@@ -209,13 +209,13 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::register_as_delegatee(
+		Pallet::<T>::register_agent(
 			RawOrigin::Signed(delegatee.clone()).into(),
 			reward_account.clone(),
 		)?;
 
 		// Delegate the funds from who to the delegatee account.
-		Pallet::<T>::delegate_funds(
+		Pallet::<T>::delegate_to_agent(
 			RawOrigin::Signed(who.clone()).into(),
 			delegatee.clone(),
 			amount,
@@ -228,7 +228,7 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		delegatee: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::delegate_funds(
+		Pallet::<T>::delegate_to_agent(
 			RawOrigin::Signed(who.clone()).into(),
 			delegatee.clone(),
 			amount,
@@ -245,7 +245,7 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		amount: Self::Balance,
 	) -> DispatchResult {
 		// fixme(ank4n): Can this not require slashing spans?
-		Pallet::<T>::release(
+		Pallet::<T>::release_delegation(
 			RawOrigin::Signed(delegatee.clone()).into(),
 			delegator.clone(),
 			amount,

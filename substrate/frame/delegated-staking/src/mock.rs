@@ -264,7 +264,7 @@ pub(crate) fn setup_delegation_stake(
 	increment: Balance,
 ) -> Balance {
 	fund(&delegatee, 100);
-	assert_ok!(DelegatedStaking::register_as_delegatee(
+	assert_ok!(DelegatedStaking::register_agent(
 		RawOrigin::Signed(delegatee).into(),
 		reward_acc
 	));
@@ -274,7 +274,7 @@ pub(crate) fn setup_delegation_stake(
 		delegated_amount += amount_to_delegate;
 
 		fund(delegator, amount_to_delegate + ExistentialDeposit::get());
-		assert_ok!(DelegatedStaking::delegate_funds(
+		assert_ok!(DelegatedStaking::delegate_to_agent(
 			RawOrigin::Signed(*delegator).into(),
 			delegatee,
 			amount_to_delegate

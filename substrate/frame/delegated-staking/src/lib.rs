@@ -162,7 +162,6 @@ use frame_support::{
 		tokens::{fungible::Credit, Fortitude, Precision, Preservation},
 		Defensive, DefensiveOption, Imbalance, OnUnbalanced,
 	},
-	weights::Weight,
 };
 
 use sp_runtime::{
@@ -225,7 +224,7 @@ pub mod pallet {
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
 		/// Not an existing delegatee account.
-		NotDelegatee,
+		NotAgent,
 		/// Not a Delegator account.
 		NotDelegator,
 		/// Some corruption in internal state.
@@ -270,37 +269,44 @@ pub mod pallet {
 	pub(crate) type Delegatees<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegateeLedger<T>, OptionQuery>;
 
-	#[pallet::call]
+	// This pallet is not currently written with the intention of exposing any calls. But the
+	// functions defined in the following impl block should act as a good reference for how the
+	// exposed calls would look like when exposed.
 	impl<T: Config> Pallet<T> {
-		/// Register an account to be a `Delegatee`.
+		/// Register an account to become a stake `Agent`. Sometimes also called a `Delegatee`.
 		///
-		/// `Delegatee` accounts accepts delegations from other `delegator`s and stake funds on
-		/// their behalf.
-		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::default())]
-		pub fn register_as_delegatee(
+		/// Delegators can authorize `Agent`s to stake on their behalf by delegating their funds to
+		/// them. The `Agent` can then use the delegated funds to stake to [`Config::CoreStaking`].
+		///
+		/// Implementation note: This function allows any account to become an agent. It is
+		/// important though that accounts that call [`StakingUnsafe::virtual_bond`] are keyless
+		/// accounts. This is not a problem for now since this is only used by other pallets in the
+		/// runtime which use keyless account as agents. If we later want to expose this as a
+		/// dispatchable call, we should derive a sub-account from the caller and use that as the
+		/// agent account.
+		pub fn register_agent(
 			origin: OriginFor<T>,
 			reward_account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			// Existing `delegatee` cannot register again.
-			ensure!(!Self::is_delegatee(&who), Error::<T>::NotAllowed);
+			// Existing `agent` cannot register again.
+			ensure!(!Self::is_agent(&who), Error::<T>::NotAllowed);
 
-			// A delegator cannot become a `delegatee`.
+			// A delegator cannot become an `agent`.
 			ensure!(!Self::is_delegator(&who), Error::<T>::NotAllowed);
 
 			// They cannot be already a direct staker in the staking pallet.
 			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaking);
 
-			// Reward account cannot be same as `delegatee` account.
+			// Reward account cannot be same as `agent` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
 
-			Self::do_register_delegatee(&who, &reward_account);
+			Self::do_register_agent(&who, &reward_account);
 			Ok(())
 		}
 
-		/// Migrate from a `Nominator` account to `Delegatee` account.
+		/// Migrate from a `Nominator` account to `Agent` account.
 		///
 		/// The origin needs to
 		/// - be a `Nominator` with `CoreStaking`,
@@ -308,39 +314,35 @@ pub mod pallet {
 		/// - have enough funds to transfer existential deposit to a delegator account created for
 		///   the migration.
 		///
-		/// This operation will create a new delegator account for the origin called
-		/// `proxy_delegator` and transfer the staked amount to it. The `proxy_delegator` delegates
-		/// the funds to the origin making origin a `Delegatee` account. The actual `delegator`
-		/// accounts of the origin can later migrate their funds using [Call::migrate_delegation] to
+		/// This function will create a proxy account to the agent called `proxy_delegator` and
+		/// transfer the directly staked amount by the agent to it. The `proxy_delegator` delegates
+		/// the funds to the origin making origin an `Agent` account. The real `delegator`
+		/// accounts of the origin can later migrate their funds using [Self::migrate_delegation] to
 		/// claim back their share of delegated funds from `proxy_delegator` to self.
-		#[pallet::call_index(1)]
-		#[pallet::weight(Weight::default())]
-		pub fn migrate_to_delegatee(
+		pub fn migrate_to_agent(
 			origin: OriginFor<T>,
 			reward_account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// ensure who is not already a delegatee.
-			ensure!(!Self::is_delegatee(&who), Error::<T>::NotAllowed);
+			// ensure who is not already an agent.
+			ensure!(!Self::is_agent(&who), Error::<T>::NotAllowed);
 
 			// and they should already be a nominator in `CoreStaking`.
 			ensure!(Self::is_direct_nominator(&who), Error::<T>::NotAllowed);
 
-			// Reward account cannot be same as `delegatee` account.
+			// Reward account cannot be same as `agent` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
 
-			Self::do_migrate_to_delegatee(&who, &reward_account)
+			Self::do_migrate_to_agent(&who, &reward_account)
 		}
 
-		/// Release delegated amount to delegator.
+		/// Release previously delegated funds by delegator to origin.
 		///
-		/// This can be called by existing `delegatee` accounts.
+		/// Only agents can call this.
 		///
-		/// Tries to withdraw unbonded fund from `CoreStaking` if needed and release amount to
+		/// Tries to withdraw unbonded funds from `CoreStaking` if needed and release amount to
 		/// `delegator`.
-		#[pallet::call_index(2)]
-		#[pallet::weight(Weight::default())]
-		pub fn release(
+		pub fn release_delegation(
 			origin: OriginFor<T>,
 			delegator: T::AccountId,
 			amount: BalanceOf<T>,
@@ -350,85 +352,81 @@ pub mod pallet {
 			Self::do_release(&who, &delegator, amount, num_slashing_spans)
 		}
 
-		/// Migrate delegated fund.
+		/// Claim delegated funds that are held in `proxy_delegator` to the claiming delegator's
+		/// account. If successful, the specified funds will be delegated directly from `delegator`
+		/// account to the agent.
 		///
-		/// This can be called by migrating `delegatee` accounts.
+		/// This can be called by `agent` accounts that were previously a direct `Nominator` with
+		/// [`Config::CoreStaking`] and has some remaining unclaimed delegations.
 		///
-		/// This moves delegator funds from `pxoxy_delegator` account to `delegator` account.
-		#[pallet::call_index(3)]
-		#[pallet::weight(Weight::default())]
-		pub fn migrate_delegation(
+		/// Internally, it moves some delegations from `pxoxy_delegator` account to `delegator`
+		/// account and reapplying the holds.
+		pub fn claim_delegation(
 			origin: OriginFor<T>,
 			delegator: T::AccountId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			let delegatee = ensure_signed(origin)?;
+			let agent = ensure_signed(origin)?;
 
 			// Ensure they have minimum delegation.
 			ensure!(amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 			// Ensure delegator is sane.
-			ensure!(!Self::is_delegatee(&delegator), Error::<T>::NotAllowed);
+			ensure!(!Self::is_agent(&delegator), Error::<T>::NotAllowed);
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
 			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure delegatee is sane.
-			ensure!(Self::is_delegatee(&delegatee), Error::<T>::NotDelegatee);
+			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
 			// and has enough delegated balance to migrate.
-			let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, delegatee);
+			let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, agent);
 			let balance_remaining = Self::held_balance_of(&proxy_delegator);
 			ensure!(balance_remaining >= amount, Error::<T>::NotEnoughFunds);
 
 			Self::do_migrate_delegation(&proxy_delegator, &delegator, amount)
 		}
 
-		/// Delegate funds to a `Delegatee` account and bonds it to [Config::CoreStaking].
+		/// Delegate given `amount` of tokens to an `Agent` account.
 		///
-		/// If delegation already exists, it increases the delegation by `amount`.
-		#[pallet::call_index(4)]
-		#[pallet::weight(Weight::default())]
-		pub fn delegate_funds(
+		/// If `origin` is the first time delegator, we add them to state. If they are already
+		/// delegating, we increase the delegation.
+		///
+		/// Conditions:
+		/// - Delegators cannot delegate to more than one agent.
+		/// - The `agent` account should already be registered as such. See [`Self::register_agent`]
+		pub fn delegate_to_agent(
 			origin: OriginFor<T>,
-			delegatee: T::AccountId,
+			agent: T::AccountId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let delegator = ensure_signed(origin)?;
 
 			// ensure amount is over minimum to delegate
 			ensure!(amount > T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 			// ensure delegator is sane.
-			ensure!(Delegation::<T>::can_delegate(&who, &delegatee), Error::<T>::InvalidDelegation);
-			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaking);
+			ensure!(
+				Delegation::<T>::can_delegate(&delegator, &agent),
+				Error::<T>::InvalidDelegation
+			);
+			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
-			// ensure delegatee is sane.
-			ensure!(Self::is_delegatee(&delegatee), Error::<T>::NotDelegatee);
+			// ensure agent is sane.
+			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
-			let delegator_balance =
-				T::Currency::reducible_balance(&who, Preservation::Preserve, Fortitude::Polite);
+			let delegator_balance = T::Currency::reducible_balance(
+				&delegator,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
 			ensure!(delegator_balance >= amount, Error::<T>::NotEnoughFunds);
 
 			// add to delegation
-			Self::do_delegate(&who, &delegatee, amount)?;
-			// bond the amount to `CoreStaking`.
-			Self::do_bond(&delegatee, amount)
-		}
+			Self::do_delegate(&delegator, &agent, amount)?;
 
-		/// Apply slash to a delegator account.
-		///
-		/// `Delegatee` accounts with pending slash in their ledger can call this to apply slash to
-		/// one of its `delegator` account. Each slash to a delegator account needs to be posted
-		/// separately until all pending slash is cleared.
-		#[pallet::call_index(5)]
-		#[pallet::weight(Weight::default())]
-		pub fn apply_slash(
-			origin: OriginFor<T>,
-			delegator: T::AccountId,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			Self::do_slash(who, delegator, amount, None)
+			// bond the newly delegated amount to `CoreStaking`.
+			Self::do_bond(&agent, amount)
 		}
 	}
 
@@ -458,7 +456,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns true if who is registered as a `Delegatee`.
-	fn is_delegatee(who: &T::AccountId) -> bool {
+	fn is_agent(who: &T::AccountId) -> bool {
 		<Delegatees<T>>::contains_key(who)
 	}
 
@@ -479,7 +477,7 @@ impl<T: Config> Pallet<T> {
 			.unwrap_or(false)
 	}
 
-	fn do_register_delegatee(who: &T::AccountId, reward_account: &T::AccountId) {
+	fn do_register_agent(who: &T::AccountId, reward_account: &T::AccountId) {
 		DelegateeLedger::<T>::new(reward_account).save(who);
 
 		// Delegatee is a virtual account. Make this account exist.
@@ -488,10 +486,7 @@ impl<T: Config> Pallet<T> {
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
 
-	fn do_migrate_to_delegatee(
-		who: &T::AccountId,
-		reward_account: &T::AccountId,
-	) -> DispatchResult {
+	fn do_migrate_to_agent(who: &T::AccountId, reward_account: &T::AccountId) -> DispatchResult {
 		// We create a proxy delegator that will keep all the delegation funds until funds are
 		// transferred to actual delegator.
 		let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, who.clone());
@@ -516,7 +511,7 @@ impl<T: Config> Pallet<T> {
 		T::Currency::transfer(who, &proxy_delegator, stake.total, Preservation::Protect)
 			.map_err(|_| Error::<T>::BadState)?;
 
-		Self::do_register_delegatee(who, reward_account);
+		Self::do_register_agent(who, reward_account);
 		T::CoreStaking::update_payee(who, reward_account)?;
 
 		Self::do_delegate(&proxy_delegator, who, stake.total)
@@ -540,7 +535,7 @@ impl<T: Config> Pallet<T> {
 		delegatee: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let mut ledger = DelegateeLedger::<T>::get(delegatee).ok_or(Error::<T>::NotDelegatee)?;
+		let mut ledger = DelegateeLedger::<T>::get(delegatee).ok_or(Error::<T>::NotAgent)?;
 
 		let new_delegation_amount =
 			if let Some(existing_delegation) = Delegation::<T>::get(delegator) {
@@ -579,7 +574,7 @@ impl<T: Config> Pallet<T> {
 		let mut delegation = Delegation::<T>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 
 		// make sure delegation to be released is sound.
-		ensure!(&delegation.delegatee == who, Error::<T>::NotDelegatee);
+		ensure!(&delegation.delegatee == who, Error::<T>::NotAgent);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
@@ -663,8 +658,7 @@ impl<T: Config> Pallet<T> {
 		// some checks that must have already been checked before.
 		ensure!(source_delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 		debug_assert!(
-			!Self::is_delegator(destination_delegator) &&
-				!Self::is_delegatee(destination_delegator)
+			!Self::is_delegator(destination_delegator) && !Self::is_agent(destination_delegator)
 		);
 
 		// update delegations
@@ -711,7 +705,7 @@ impl<T: Config> Pallet<T> {
 		let delegatee = Delegatee::<T>::from(&delegatee_acc)?;
 		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 
-		ensure!(delegation.delegatee == delegatee_acc, Error::<T>::NotDelegatee);
+		ensure!(delegation.delegatee == delegatee_acc, Error::<T>::NotAgent);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
 		let (mut credit, missing) =
@@ -804,7 +798,7 @@ impl<T: Config> Pallet<T> {
 				T::CoreStaking::status(delegator).is_err(),
 				"delegator should not be directly staked"
 			);
-			ensure!(!Self::is_delegatee(delegator), "delegator cannot be delegatee");
+			ensure!(!Self::is_agent(delegator), "delegator cannot be delegatee");
 
 			delegation_aggregation
 				.entry(delegation.delegatee.clone())
