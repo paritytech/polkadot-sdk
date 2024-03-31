@@ -38,7 +38,10 @@ use frame_support::{
 use sp_staking::StakingAccount;
 use sp_std::prelude::*;
 
-use crate::{BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger, STAKING_ID, VirtualStakers};
+use crate::{
+	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
+	VirtualStakers, STAKING_ID,
+};
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use sp_runtime::traits::Zero;
