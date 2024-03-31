@@ -30,6 +30,7 @@ no_std = []
 std = [
 	"frame-support/std",
 	"frame-system/std",
+	"frame-benchmarking/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
 	"sp-std/std",
