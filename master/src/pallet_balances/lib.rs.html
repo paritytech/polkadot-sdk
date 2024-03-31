@@ -1314,11 +1314,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1167" id="1167">1167</a>
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
-<a href="#1170" id="1170">1170</a>
-<a href="#1171" id="1171">1171</a>
-<a href="#1172" id="1172">1172</a>
-<a href="#1173" id="1173">1173</a>
-<a href="#1174" id="1174">1174</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1338,11 +1333,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! # Balances Pallet
 //!
-//! The Balances pallet provides functionality for handling accounts and balances.
+//! The Balances pallet provides functionality for handling accounts and balances for a single
+//! token.
 //!
-//! - [`Config`]
-//! - [`Call`]
-//! - [`Pallet`]
+//! It makes heavy use of concepts such as Holds and Freezes from the
+//! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
+//! as a prerequisite to understanding this pallet.
+//!
+//! Also see the [`frame_tokens`] reference docs for higher level information regarding the
+//! place of this palet in FRAME.
 //!
 //! ## Overview
 //!
@@ -1359,42 +1358,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ### Terminology
 //!
-//! - **Existential Deposit:** The minimum balance required to create or keep an account open. This
-//!   prevents &quot;dust accounts&quot; from filling storage. When the free plus the reserved balance (i.e.
-//!   the total balance) fall below this, then the account is said to be dead; and it loses its
-//!   functionality as well as any prior history and all information on it is removed from the
-//!   chain&#39;s state. No account should ever have a total balance that is strictly between 0 and the
-//!   existential deposit (exclusive). If this ever happens, it indicates either a bug in this
-//!   pallet or an erroneous raw mutation of storage.
-//!
-//! - **Total Issuance:** The total number of units in existence in a system.
-//!
 //! - **Reaping an account:** The act of removing an account by resetting its nonce. Happens after
-//!   its total balance has become zero (or, strictly speaking, less than the Existential Deposit).
-//!
-//! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only
-//!   balance that matters for most operations.
-//!
-//! - **Reserved Balance:** Reserved balance still belongs to the account holder, but is suspended.
-//!   Reserved balance can still be slashed, but only after all the free balance has been slashed.
-//!
-//! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite
-//!   accounting (i.e. a difference between total issuance and account balances). Functions that
-//! result in an imbalance will return an object of the `Imbalance` trait that can be managed within
-//! your runtime logic. (If an imbalance is simply dropped, it should automatically maintain any
-//! book-keeping such as total issuance.)
-//!
-//! - **Lock:** A freeze on a specified amount of an account&#39;s free balance until a specified block
-//!   number. Multiple locks always operate over the same funds, so they &quot;overlay&quot; rather than
-//! &quot;stack&quot;.
+//!   its total balance has become less than the Existential Deposit.
 //!
 //! ### Implementations
 //!
-//! The Balances pallet provides implementations for the following traits. If these traits provide
-//! the functionality that you need, then you can avoid coupling with the Balances pallet.
+//! The Balances pallet provides implementations for the following [`fungible`] traits. If these
+//! traits provide the functionality that you need, then you should avoid tight coupling with the
+//! Balances pallet.
 //!
-//! - [`Currency`]: Functions for dealing with a
-//! fungible assets system.
+//! - [`fungible::Inspect`]
+//! - [`fungible::Mutate`]
+//! - [`fungible::Unbalanced`]
+//! - [`fungible::Balanced`]
+//! - [`fungible::BalancedHold`]
+//! - [`fungible::InspectHold`]
+//! - [`fungible::MutateHold`]
+//! - [`fungible::InspectFreeze`]
+//! - [`fungible::MutateFreeze`]
+//! - [`fungible::Imbalance`]
+//!
+//! It also implements the following [`Currency`] related traits, however they are deprecated and
+//! will eventually be removed.
+//!
+//! - [`Currency`]: Functions for dealing with a fungible assets system.
 //! - [`ReservableCurrency`]
 //! - [`NamedReservableCurrency`](frame_support::traits::NamedReservableCurrency):
 //! Functions for dealing with assets that can be reserved from an account.
@@ -1403,14 +1390,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - [`Imbalance`](frame_support::traits::Imbalance): Functions for handling
 //! imbalances between total issuance in the system and account balances. Must be used when a
 //! function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).
-//!
-//! ## Interface
-//!
-//! ### Dispatchable Functions
-//!
-//! - `transfer_allow_death` - Transfer some liquid free balance to another account.
-//! - `force_set_balance` - Set the balances of a given account. The origin of this call must be
-//!   root.
 //!
 //! ## Usage
 //!
@@ -1472,8 +1451,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * Total issued balanced of all accounts should be less than `Config::Balance::max_value()`.
 //! * Existential Deposit is set to a value greater than zero.
 //!
-//! Note, you may find the Balances pallet still functions with an ED of zero in some circumstances,
-//! however this is not a configuration which is generally supported, nor will it be.
+//! Note, you may find the Balances pallet still functions with an ED of zero when the
+//! `insecure_zero_ed` cargo feature is enabled. However this is not a configuration which is
+//! generally supported, nor will it be.
+//!
+//! [`frame_tokens`]: ../polkadot_sdk_docs/reference_docs/frame_tokens/index.html
 
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 </span><span class="kw">mod </span>benchmarking;
@@ -1629,10 +1611,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
+		///
+		/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxLocks: Get&lt;u32&gt;;
 
 		<span class="doccomment">/// The maximum number of named reserves that can exist on an account.
+		///
+		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxReserves: Get&lt;u32&gt;;
 
@@ -1776,6 +1762,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Any liquidity locks on some account balances.
 	/// NOTE: Should only be accessed when setting, changing and freeing a lock.
+	///
+	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>locks)]
 	</span><span class="kw">pub type </span>Locks&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
@@ -1787,6 +1775,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 
 	<span class="doccomment">/// Named reserves on some account balances.
+	///
+	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>reserves)]
 	</span><span class="kw">pub type </span>Reserves&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;

@@ -1859,6 +1859,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1712" id="1712">1712</a>
 <a href="#1713" id="1713">1713</a>
 <a href="#1714" id="1714">1714</a>
+<a href="#1715" id="1715">1715</a>
+<a href="#1716" id="1716">1716</a>
+<a href="#1717" id="1717">1717</a>
+<a href="#1718" id="1718">1718</a>
+<a href="#1719" id="1719">1719</a>
+<a href="#1720" id="1720">1720</a>
+<a href="#1721" id="1721">1721</a>
+<a href="#1722" id="1722">1722</a>
+<a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1878,7 +1889,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! # Assets Pallet
 //!
-//! A simple, secure module for dealing with fungible assets.
+//! A simple, secure module for dealing with sets of assets implementing
+//! [`fungible`](frame_support::traits::fungible) traits, via
+//! [`fungibles`](frame_support::traits::fungibles) traits.
+//!
+//! The pallet makes heavy use of concepts such as Holds and Freezes from the
+//! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
+//! as a prerequisite to understanding this pallet.
+//!
+//! See the [`frame_tokens`] reference docs for more information about the place of the
+//! Assets pallet in FRAME.
 //!
 //! ## Overview
 //!
@@ -1994,6 +2014,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! * [`System`](../frame_system/index.html)
 //! * [`Support`](../frame_support/index.html)
+//!
+//! [`frame_tokens`]: ../polkadot_sdk_docs/reference_docs/frame_tokens/index.html
 
 </span><span class="comment">// This recursion limit is needed because we have too many benchmarks and benchmarking will fail if
 // we add more without this limit.

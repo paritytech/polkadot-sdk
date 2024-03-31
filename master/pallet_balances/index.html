@@ -146,13 +146,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_balances/index.html">pallet_balances</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block">
-            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_balances</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_balances/lib.rs.html#18-1174">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="balances-pallet"><a href="#balances-pallet">Balances Pallet</a></h2>
-<p>The Balances pallet provides functionality for handling accounts and balances.</p>
-<ul>
-<li><a href="pallet/trait.Config.html" title="trait pallet_balances::pallet::Config"><code>Config</code></a></li>
-<li><a href="pallet/enum.Call.html" title="enum pallet_balances::pallet::Call"><code>Call</code></a></li>
-<li><a href="pallet/struct.Pallet.html" title="struct pallet_balances::pallet::Pallet"><code>Pallet</code></a></li>
-</ul>
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">pallet_balances</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/pallet_balances/lib.rs.html#18-1169">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="balances-pallet"><a href="#balances-pallet">Balances Pallet</a></h2>
+<p>The Balances pallet provides functionality for handling accounts and balances for a single
+token.</p>
+<p>It makes heavy use of concepts such as Holds and Freezes from the
+[<code>frame_support::traits::fungible</code>] traits, therefore you should read and understand those docs
+as a prerequisite to understanding this pallet.</p>
+<p>Also see the <a href="../polkadot_sdk_docs/reference_docs/frame_tokens/index.html"><code>frame_tokens</code></a> reference docs for higher level information regarding the
+place of this palet in FRAME.</p>
 <h3 id="overview"><a href="#overview">Overview</a></h3>
 <p>The Balances pallet provides functions for:</p>
 <ul>
@@ -167,49 +168,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </ul>
 <h4 id="terminology"><a href="#terminology">Terminology</a></h4>
 <ul>
-<li>
-<p><strong>Existential Deposit:</strong> The minimum balance required to create or keep an account open. This
-prevents “dust accounts” from filling storage. When the free plus the reserved balance (i.e.
-the total balance) fall below this, then the account is said to be dead; and it loses its
-functionality as well as any prior history and all information on it is removed from the
-chain’s state. No account should ever have a total balance that is strictly between 0 and the
-existential deposit (exclusive). If this ever happens, it indicates either a bug in this
-pallet or an erroneous raw mutation of storage.</p>
-</li>
-<li>
-<p><strong>Total Issuance:</strong> The total number of units in existence in a system.</p>
-</li>
-<li>
-<p><strong>Reaping an account:</strong> The act of removing an account by resetting its nonce. Happens after
-its total balance has become zero (or, strictly speaking, less than the Existential Deposit).</p>
-</li>
-<li>
-<p><strong>Free Balance:</strong> The portion of a balance that is not reserved. The free balance is the only
-balance that matters for most operations.</p>
-</li>
-<li>
-<p><strong>Reserved Balance:</strong> Reserved balance still belongs to the account holder, but is suspended.
-Reserved balance can still be slashed, but only after all the free balance has been slashed.</p>
-</li>
-<li>
-<p><strong>Imbalance:</strong> A condition when some funds were credited or debited without equal and opposite
-accounting (i.e. a difference between total issuance and account balances). Functions that
-result in an imbalance will return an object of the <code>Imbalance</code> trait that can be managed within
-your runtime logic. (If an imbalance is simply dropped, it should automatically maintain any
-book-keeping such as total issuance.)</p>
-</li>
-<li>
-<p><strong>Lock:</strong> A freeze on a specified amount of an account’s free balance until a specified block
-number. Multiple locks always operate over the same funds, so they “overlay” rather than
-“stack”.</p>
-</li>
+<li><strong>Reaping an account:</strong> The act of removing an account by resetting its nonce. Happens after
+its total balance has become less than the Existential Deposit.</li>
 </ul>
 <h4 id="implementations-1"><a href="#implementations-1">Implementations</a></h4>
-<p>The Balances pallet provides implementations for the following traits. If these traits provide
-the functionality that you need, then you can avoid coupling with the Balances pallet.</p>
+<p>The Balances pallet provides implementations for the following [<code>fungible</code>] traits. If these
+traits provide the functionality that you need, then you should avoid tight coupling with the
+Balances pallet.</p>
 <ul>
-<li>[<code>Currency</code>]: Functions for dealing with a
-fungible assets system.</li>
+<li>[<code>fungible::Inspect</code>]</li>
+<li>[<code>fungible::Mutate</code>]</li>
+<li>[<code>fungible::Unbalanced</code>]</li>
+<li>[<code>fungible::Balanced</code>]</li>
+<li>[<code>fungible::BalancedHold</code>]</li>
+<li>[<code>fungible::InspectHold</code>]</li>
+<li>[<code>fungible::MutateHold</code>]</li>
+<li>[<code>fungible::InspectFreeze</code>]</li>
+<li>[<code>fungible::MutateFreeze</code>]</li>
+<li>[<code>fungible::Imbalance</code>]</li>
+</ul>
+<p>It also implements the following [<code>Currency</code>] related traits, however they are deprecated and
+will eventually be removed.</p>
+<ul>
+<li>[<code>Currency</code>]: Functions for dealing with a fungible assets system.</li>
 <li>[<code>ReservableCurrency</code>]</li>
 <li><a href="frame_support::traits::NamedReservableCurrency"><code>NamedReservableCurrency</code></a>:
 Functions for dealing with assets that can be reserved from an account.</li>
@@ -218,12 +199,6 @@ dealing with accounts that allow liquidity restrictions.</li>
 <li><a href="frame_support::traits::Imbalance"><code>Imbalance</code></a>: Functions for handling
 imbalances between total issuance in the system and account balances. Must be used when a
 function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).</li>
-</ul>
-<h3 id="interface"><a href="#interface">Interface</a></h3><h4 id="dispatchable-functions"><a href="#dispatchable-functions">Dispatchable Functions</a></h4>
-<ul>
-<li><code>transfer_allow_death</code> - Transfer some liquid free balance to another account.</li>
-<li><code>force_set_balance</code> - Set the balances of a given account. The origin of this call must be
-root.</li>
 </ul>
 <h3 id="usage"><a href="#usage">Usage</a></h3>
 <p>The following examples show how to use the Balances pallet in your custom pallet.</p>
@@ -263,8 +238,9 @@ root.</li>
 <li>Total issued balanced of all accounts should be less than <code>Config::Balance::max_value()</code>.</li>
 <li>Existential Deposit is set to a value greater than zero.</li>
 </ul>
-<p>Note, you may find the Balances pallet still functions with an ED of zero in some circumstances,
-however this is not a configuration which is generally supported, nor will it be.</p>
+<p>Note, you may find the Balances pallet still functions with an ED of zero when the
+<code>insecure_zero_ed</code> cargo feature is enabled. However this is not a configuration which is
+generally supported, nor will it be.</p>
 </div></details><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name" id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_balances::weights::WeightInfo">WeightInfo</a>;</code></div></li><li><div class="item-name"><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_balances::pallet">pallet</a>::*;</code></div></li></ul><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="migration/index.html" title="mod pallet_balances::migration">migration</a></div></li><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod pallet_balances::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
 to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="weights/index.html" title="mod pallet_balances::weights">weights</a></div><div class="desc docblock-short">Autogenerated weights for <code>pallet_balances</code></div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AccountData.html" title="struct pallet_balances::AccountData">AccountData</a></div><div class="desc docblock-short">All balance information for an account.</div></li><li><div class="item-name"><a class="struct" href="struct.BalanceLock.html" title="struct pallet_balances::BalanceLock">BalanceLock</a></div><div class="desc docblock-short">A single lock on a balance. There can be many of these on an account and they “overlap”, so the
 same balance is frozen by multiple locks.</div></li><li><div class="item-name"><a class="struct" href="struct.DustCleaner.html" title="struct pallet_balances::DustCleaner">DustCleaner</a></div></li><li><div class="item-name"><a class="struct" href="struct.ExtraFlags.html" title="struct pallet_balances::ExtraFlags">ExtraFlags</a></div></li><li><div class="item-name"><a class="struct" href="struct.IdAmount.html" title="struct pallet_balances::IdAmount">IdAmount</a></div><div class="desc docblock-short">An identifier and balance.</div></li><li><div class="item-name"><a class="struct" href="struct.NegativeImbalance.html" title="struct pallet_balances::NegativeImbalance">NegativeImbalance</a></div><div class="desc docblock-short">Opaque, move-only struct with private fields that serves as a token denoting that

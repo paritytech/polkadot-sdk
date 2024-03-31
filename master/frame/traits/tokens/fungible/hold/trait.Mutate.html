@@ -240,8 +240,8 @@ will increase it.</p>
     precision: <a class="enum" href="../../enum.Precision.html" title="enum frame::traits::tokens::Precision">Precision</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self::<a class="associatedtype" href="../trait.Inspect.html#associatedtype.Balance" title="type frame::traits::tokens::fungible::Inspect::Balance">Balance</a>, <a class="enum" href="../../../../../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Release up to <code>amount</code> held funds in an account.</p>
 <p>The actual amount released is returned with <code>Ok</code>.</p>
-<p>If <code>precision</code> is <code>BestEffort</code>, then the amount actually unreserved and returned as the
-inner value of <code>Ok</code> may be smaller than the <code>amount</code> passed.</p>
+<p>If <code>precision</code> is <a href="../../enum.Precision.html#variant.BestEffort" title="variant frame::traits::tokens::Precision::BestEffort"><code>Precision::BestEffort</code></a>, then the amount actually unreserved and
+returned as the inner value of <code>Ok</code> may be smaller than the <code>amount</code> passed.</p>
 <p>NOTE! The inner of the <code>Ok</code> result variant returns the <em>actual</em> amount released. This is the
 opposite of the <code>ReservableCurrency::unreserve()</code> result, which gives the amount not able
 to be released!</p>

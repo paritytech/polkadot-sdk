@@ -596,6 +596,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
 <a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -614,6 +617,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // limitations under the License.
 
 </span><span class="doccomment">//! The traits for putting holds within a single fungible token class.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits
+//! including the place of the Holds in FRAME.
 
 </span><span class="kw">use crate</span>::{
 	ensure,
@@ -812,8 +818,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The actual amount released is returned with `Ok`.
 	///
-	/// If `precision` is `BestEffort`, then the amount actually unreserved and returned as the
-	/// inner value of `Ok` may be smaller than the `amount` passed.
+	/// If `precision` is [`Precision::BestEffort`], then the amount actually unreserved and
+	/// returned as the inner value of `Ok` may be smaller than the `amount` passed.
 	///
 	/// NOTE! The inner of the `Ok` result variant returns the *actual* amount released. This is the
 	/// opposite of the `ReservableCurrency::unreserve()` result, which gives the amount not able
