@@ -154,9 +154,9 @@ impl<T: Config> Pallet<T> {
 	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
 		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
-		// for virtual nominators, we don't need to check the balance. Since they are only accessed
+		// for virtual stakers, we don't need to check the balance. Since they are only accessed
 		// via low level apis, we can assume that the caller has done the due diligence.
-		let extra = if Self::is_virtual_nominator(stash) {
+		let extra = if Self::is_virtual_staker(stash) {
 			additional
 		} else {
 			// additional amount or actual balance of stash whichever is lower.
@@ -1170,7 +1170,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Whether the passed reward destination is restricted for the given account.
 	///
-	/// Virtual nominators are not allowed to compound their rewards as this pallet does not manage
+	/// virtual stakers are not allowed to compound their rewards as this pallet does not manage
 	/// locks for them. For external pallets that manage the virtual bond, it is their
 	/// responsibility to distribute the reward and re-bond them.
 	///
@@ -1179,27 +1179,27 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		reward_destination: RewardDestination<T::AccountId>,
 	) -> bool {
-		Self::is_virtual_nominator(who) &&
+		Self::is_virtual_staker(who) &&
 			match reward_destination {
 				RewardDestination::Account(payee) => payee == *who,
 				_ => true,
 			}
 	}
 
-	/// Whether `who` is a virtual nominator whose funds are managed by another pallet.
-	pub(crate) fn is_virtual_nominator(who: &T::AccountId) -> bool {
+	/// Whether `who` is a virtual staker whose funds are managed by another pallet.
+	pub(crate) fn is_virtual_staker(who: &T::AccountId) -> bool {
 		VirtualStakers::<T>::contains_key(who)
 	}
 
 	/// Update the lock for a staker.
 	///
-	/// For virtual nominators, it is no-op.
+	/// For virtual stakers, it is no-op.
 	pub(crate) fn update_lock(
 		who: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> sp_runtime::DispatchResult {
-		// Skip locking virtual nominators. They are handled by external pallets.
-		if !Self::is_virtual_nominator(who) {
+		// Skip locking virtual stakers. They are handled by external pallets.
+		if !Self::is_virtual_staker(who) {
 			T::Currency::set_lock(
 				crate::STAKING_ID,
 				who,
@@ -1971,7 +1971,7 @@ impl<T: Config> sp_staking::StakingUnsafe for Pallet<T> {
 		// mark this pallet as consumer of `who`.
 		frame_system::Pallet::<T>::inc_consumers(&who).map_err(|_| Error::<T>::BadState)?;
 
-		// mark who as a virtual nominator.
+		// mark who as a virtual staker.
 		VirtualStakers::<T>::insert(who, ());
 
 		Self::deposit_event(Event::<T>::Bonded { stash: who.clone(), amount: value });

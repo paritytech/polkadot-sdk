@@ -614,8 +614,8 @@ pub fn do_slash<T: Config>(
 		return
 	}
 
-	// Skip slashing for virtual nominators. The pallets managing them should handle the slashing.
-	if !Pallet::<T>::is_virtual_nominator(stash) {
+	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
+	if !Pallet::<T>::is_virtual_staker(stash) {
 		let (imbalance, missing) = T::Currency::slash(stash, value);
 		slashed_imbalance.subsume(imbalance);
 

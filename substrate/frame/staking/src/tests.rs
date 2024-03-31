@@ -6909,7 +6909,7 @@ mod staking_unsafe {
 	}
 
 	#[test]
-	fn virtual_nominator_cannot_pay_reward_to_self_account() {
+	fn virtual_staker_cannot_pay_reward_to_self_account() {
 		ExtBuilder::default().build_and_execute(|| {
 			// cannot set payee to self
 			assert_noop!(<Staking as StakingUnsafe>::virtual_bond(&10, 100, &10), Error::<Test>::RewardDestinationRestricted);
