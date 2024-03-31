@@ -1252,7 +1252,7 @@ impl<T: Config> BondedPool<T> {
 		// ratio will be wrong.
 		let points_issued = self.issue(amount);
 
-		T::StakeAdapter::bond(who, self.id, amount, ty)?;
+		T::StakeAdapter::pledge_bond(who, self.id, amount, ty)?;
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_accrue(amount);
 		});

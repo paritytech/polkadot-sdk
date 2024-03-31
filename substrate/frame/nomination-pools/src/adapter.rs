@@ -27,47 +27,65 @@ pub trait StakeStrategy {
 	type Balance: frame_support::traits::tokens::Balance;
 	type AccountId: Clone + sp_std::fmt::Debug;
 
+	/// See [`StakingInterface::bonding_duration`].
 	fn bonding_duration() -> EraIndex;
+
+	/// See [`StakingInterface::current_era`].
 	fn current_era() -> EraIndex;
+
+	/// See [`StakingInterface::minimum_nominator_bond`].
 	fn minimum_nominator_bond() -> Self::Balance;
 
-	/// Transferable balance of the pool.
+	/// Balance that can be transferred from pool account to member.
 	///
-	/// This is the amount that can be withdrawn from the pool.
-	///
-	/// Does not include reward account.
+	/// This is part of the pool balance that is not actively staked. That is, tokens that are
+	/// in unbonding period or unbonded.
 	fn transferable_balance(id: PoolId) -> Self::Balance;
 
 	/// Total balance of the pool including amount that is actively staked.
 	fn total_balance(id: PoolId) -> Self::Balance;
+
+	/// Amount of tokens delegated by the member.
 	fn member_delegation_balance(member_account: &Self::AccountId) -> Self::Balance;
 
+	/// See [`StakingInterface::active_stake`].
 	fn active_stake(pool: PoolId) -> Self::Balance;
+
+	/// See [`StakingInterface::total_stake`].
 	fn total_stake(pool: PoolId) -> Self::Balance;
 
+	/// See [`StakingInterface::nominate`].
 	fn nominate(pool_id: PoolId, validators: Vec<Self::AccountId>) -> DispatchResult;
 
+	/// See [`StakingInterface::chill`].
 	fn chill(pool_id: PoolId) -> DispatchResult;
 
-	fn bond(
+	/// Pledge `amount` towards staking pool with `pool_id` and update the pool bond. Also see
+	/// [`StakingInterface::bond`].
+	fn pledge_bond(
 		who: &Self::AccountId,
 		pool_id: PoolId,
 		amount: Self::Balance,
 		bond_type: BondType,
 	) -> DispatchResult;
 
+	/// See [`StakingInterface::unbond`].
 	fn unbond(pool_id: PoolId, amount: Self::Balance) -> DispatchResult;
 
+	/// See [`StakingInterface::withdraw_unbonded`].
 	fn withdraw_unbonded(pool_id: PoolId, num_slashing_spans: u32) -> Result<bool, DispatchError>;
 
+	/// Withdraw funds from pool account to member account.
 	fn member_withdraw(
 		who: &Self::AccountId,
 		pool: PoolId,
 		amount: Self::Balance,
 	) -> DispatchResult;
 
+	/// Check if there is any pending slash for the pool.
 	fn has_pending_slash(pool: PoolId) -> bool;
 
+	/// Slash the member account with `amount` against pending slashes for the pool.
 	fn member_slash(
 		who: &Self::AccountId,
 		pool: PoolId,
@@ -136,7 +154,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		Staking::chill(&pool_account)
 	}
 
-	fn bond(
+	fn pledge_bond(
 		who: &T::AccountId,
 		pool: PoolId,
 		amount: BalanceOf<T>,
@@ -256,7 +274,7 @@ impl<
 		Staking::chill(&pool_account)
 	}
 
-	fn bond(
+	fn pledge_bond(
 		who: &T::AccountId,
 		pool: PoolId,
 		amount: BalanceOf<T>,
