@@ -224,12 +224,12 @@ impl<
 
 	fn transferable_balance(pool: PoolId) -> BalanceOf<T> {
 		let pool_account = Pallet::<T>::create_bonded_account(pool);
-		Staking::delegatee_balance(&pool_account).saturating_sub(Self::active_stake(pool))
+		Staking::agent_balance(&pool_account).saturating_sub(Self::active_stake(pool))
 	}
 
 	fn total_balance(pool: PoolId) -> BalanceOf<T> {
 		let pool_account = Pallet::<T>::create_bonded_account(pool);
-		Staking::delegatee_balance(&pool_account)
+		Staking::agent_balance(&pool_account)
 	}
 
 	fn member_delegation_balance(member_account: &T::AccountId) -> Staking::Balance {

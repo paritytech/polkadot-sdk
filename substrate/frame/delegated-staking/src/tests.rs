@@ -553,7 +553,6 @@ mod staking_integration {
 	}
 }
 
-// FIMXE(ank4n): Move these integration test to nomination pools.
 mod pool_integration {
 	use super::*;
 	use pallet_nomination_pools::{BondExtra, BondedPools, PoolState};
@@ -581,12 +580,12 @@ mod pool_integration {
 			assert_eq!(held_balance(&creator), delegate_amount);
 
 			let pool_account = Pools::create_bonded_account(1);
-			let delegatee = get_delegatee(&pool_account);
+			let agent = get_agent(&pool_account);
 
 			// verify state
-			assert_eq!(delegatee.ledger.effective_balance(), delegate_amount);
-			assert_eq!(delegatee.available_to_bond(), 0);
-			assert_eq!(delegatee.total_unbonded(), 0);
+			assert_eq!(agent.ledger.effective_balance(), delegate_amount);
+			assert_eq!(agent.available_to_bond(), 0);
+			assert_eq!(agent.total_unbonded(), 0);
 		});
 	}
 
@@ -614,12 +613,12 @@ mod pool_integration {
 			// delegator is not actively exposed to core staking.
 			assert_eq!(Staking::status(&delegator), Err(StakingError::<T>::NotStash.into()));
 
-			let pool_delegatee = get_delegatee(&Pools::create_bonded_account(1));
+			let pool_agent = get_agent(&Pools::create_bonded_account(1));
 			// verify state
-			assert_eq!(pool_delegatee.ledger.effective_balance(), staked_amount);
-			assert_eq!(pool_delegatee.bonded_stake(), staked_amount);
-			assert_eq!(pool_delegatee.available_to_bond(), 0);
-			assert_eq!(pool_delegatee.total_unbonded(), 0);
+			assert_eq!(pool_agent.ledger.effective_balance(), staked_amount);
+			assert_eq!(pool_agent.bonded_stake(), staked_amount);
+			assert_eq!(pool_agent.available_to_bond(), 0);
+			assert_eq!(pool_agent.total_unbonded(), 0);
 
 			// let a bunch of delegators join this pool
 			for i in 301..350 {
@@ -629,11 +628,11 @@ mod pool_integration {
 				assert_eq!(held_balance(&i), 100 + i);
 			}
 
-			let pool_delegatee = pool_delegatee.refresh().unwrap();
-			assert_eq!(pool_delegatee.ledger.effective_balance(), staked_amount);
-			assert_eq!(pool_delegatee.bonded_stake(), staked_amount);
-			assert_eq!(pool_delegatee.available_to_bond(), 0);
-			assert_eq!(pool_delegatee.total_unbonded(), 0);
+			let pool_agent = pool_agent.refresh().unwrap();
+			assert_eq!(pool_agent.ledger.effective_balance(), staked_amount);
+			assert_eq!(pool_agent.bonded_stake(), staked_amount);
+			assert_eq!(pool_agent.available_to_bond(), 0);
+			assert_eq!(pool_agent.total_unbonded(), 0);
 		});
 	}
 
@@ -643,7 +642,7 @@ mod pool_integration {
 			let pool_id = create_pool(100, 200);
 			add_delegators_to_pool(pool_id, (300..310).collect(), 100);
 			let mut staked_amount = 200 + 100 * 10;
-			assert_eq!(get_pool_delegatee(pool_id).bonded_stake(), staked_amount);
+			assert_eq!(get_pool_agent(pool_id).bonded_stake(), staked_amount);
 
 			// bond extra to pool
 			for i in 300..310 {
@@ -652,7 +651,7 @@ mod pool_integration {
 					BondExtra::FreeBalance(50)
 				));
 				staked_amount += 50;
-				assert_eq!(get_pool_delegatee(pool_id).bonded_stake(), staked_amount);
+				assert_eq!(get_pool_agent(pool_id).bonded_stake(), staked_amount);
 			}
 		});
 	}
@@ -749,7 +748,7 @@ mod pool_integration {
 			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(301).into(), 301, 0));
 			assert_eq!(
 				events_since_last_call(),
-				vec![Event::Released { delegatee: pool_acc, delegator: 301, amount: 50 }]
+				vec![Event::Released { agent: pool_acc, delegator: 301, amount: 50 }]
 			);
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -766,8 +765,8 @@ mod pool_integration {
 			assert_eq!(
 				events_since_last_call(),
 				vec![
-					Event::Released { delegatee: pool_acc, delegator: 302, amount: 100 },
-					Event::Released { delegatee: pool_acc, delegator: 303, amount: 200 },
+					Event::Released { agent: pool_acc, delegator: 302, amount: 100 },
+					Event::Released { agent: pool_acc, delegator: 303, amount: 200 },
 				]
 			);
 			assert_eq!(
@@ -807,17 +806,17 @@ mod pool_integration {
 			start_era(5);
 			// withdraw pool should withdraw 1000 tokens
 			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
-			assert_eq!(get_pool_delegatee(pool_id).total_unbonded(), 1000);
+			assert_eq!(get_pool_agent(pool_id).total_unbonded(), 1000);
 
 			start_era(6);
 			// should withdraw 500 more
 			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
-			assert_eq!(get_pool_delegatee(pool_id).total_unbonded(), 1000 + 500);
+			assert_eq!(get_pool_agent(pool_id).total_unbonded(), 1000 + 500);
 
 			start_era(7);
 			// Nothing to withdraw, still at 1500.
 			assert_ok!(Pools::pool_withdraw_unbonded(RawOrigin::Signed(100).into(), pool_id, 0));
-			assert_eq!(get_pool_delegatee(pool_id).total_unbonded(), 1500);
+			assert_eq!(get_pool_agent(pool_id).total_unbonded(), 1500);
 		});
 	}
 
@@ -893,7 +892,7 @@ mod pool_integration {
 			);
 
 			// Make sure all data is cleaned up.
-			assert_eq!(Delegatees::<T>::contains_key(Pools::create_bonded_account(pool_id)), false);
+			assert_eq!(Agents::<T>::contains_key(Pools::create_bonded_account(pool_id)), false);
 			assert_eq!(Delegators::<T>::contains_key(creator), false);
 			for i in 300..310 {
 				assert_eq!(Delegators::<T>::contains_key(i), false);
@@ -958,12 +957,12 @@ mod pool_integration {
 				assert_eq!(held_balance(&i), delegator_stake);
 			}
 			assert_eq!(
-				get_pool_delegatee(pool_id).ledger.effective_balance(),
+				get_pool_agent(pool_id).ledger.effective_balance(),
 				Staking::total_stake(&pool_acc).unwrap()
 			);
 
 			// pending slash is book kept.
-			assert_eq!(get_pool_delegatee(pool_id).ledger.pending_slash, 500);
+			assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, 500);
 
 			// go in some distant future era.
 			start_era(10);
@@ -973,24 +972,24 @@ mod pool_integration {
 			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(300).into(), 300, 1));
 			assert_eq!(
 				events_since_last_call(),
-				vec![Event::Released { delegatee: pool_acc, delegator: 300, amount: 100 }]
+				vec![Event::Released { agent: pool_acc, delegator: 300, amount: 100 }]
 			);
-			assert_eq!(get_pool_delegatee(pool_id).ledger.pending_slash, 500);
+			assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, 500);
 
 			// withdraw the other two delegators (301 and 302) who were unbonding.
 			for i in 301..=302 {
 				let pre_balance = Balances::free_balance(i);
-				let pre_pending_slash = get_pool_delegatee(pool_id).ledger.pending_slash;
+				let pre_pending_slash = get_pool_agent(pool_id).ledger.pending_slash;
 				assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(i).into(), i, 0));
 				assert_eq!(
 					events_since_last_call(),
 					vec![
-						Event::Slashed { delegatee: pool_acc, delegator: i, amount: 50 },
-						Event::Released { delegatee: pool_acc, delegator: i, amount: 50 },
+						Event::Slashed { agent: pool_acc, delegator: i, amount: 50 },
+						Event::Released { agent: pool_acc, delegator: i, amount: 50 },
 					]
 				);
 				assert_eq!(
-					get_pool_delegatee(pool_id).ledger.pending_slash,
+					get_pool_agent(pool_id).ledger.pending_slash,
 					pre_pending_slash - 50
 				);
 				assert_eq!(held_balance(&i), 0);
@@ -1003,12 +1002,12 @@ mod pool_integration {
 			fund(&slash_reporter, 100);
 
 			for i in 303..306 {
-				let pre_pending_slash = get_pool_delegatee(pool_id).ledger.pending_slash;
+				let pre_pending_slash = get_pool_agent(pool_id).ledger.pending_slash;
 				assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), i));
 
 				// each member is slashed 50% of 100 = 50.
 				assert_eq!(
-					get_pool_delegatee(pool_id).ledger.pending_slash,
+					get_pool_agent(pool_id).ledger.pending_slash,
 					pre_pending_slash - 50
 				);
 				// left with 50.
@@ -1019,7 +1018,7 @@ mod pool_integration {
 			// slash creator
 			assert_ok!(Pools::apply_slash(RawOrigin::Signed(slash_reporter).into(), creator));
 			// all slash should be applied now.
-			assert_eq!(get_pool_delegatee(pool_id).ledger.pending_slash, 0);
+			assert_eq!(get_pool_agent(pool_id).ledger.pending_slash, 0);
 			// for creator, 50% of stake should be slashed (250), 10% of which should go to reporter
 			// (25).
 			assert_eq!(Balances::free_balance(slash_reporter), 115 + 25);
@@ -1046,7 +1045,7 @@ mod pool_integration {
 		}
 	}
 
-	fn get_pool_delegatee(pool_id: u32) -> Delegatee<T> {
-		get_delegatee(&Pools::create_bonded_account(pool_id))
+	fn get_pool_agent(pool_id: u32) -> Agent<T> {
+		get_agent(&Pools::create_bonded_account(pool_id))
 	}
 }
