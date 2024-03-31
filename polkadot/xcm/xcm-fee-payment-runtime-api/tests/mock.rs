@@ -21,7 +21,7 @@ use codec::Encode;
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use frame_support::{
     construct_runtime, derive_impl, parameter_types, assert_ok,
-    traits::{Nothing, ConstU32, ConstU128, OriginTrait, ContainsPair, Everything, Equals, AsEnsureOriginWithArg},
+    traits::{Nothing, Contains, ConstU32, ConstU128, OriginTrait, ContainsPair, Everything, AsEnsureOriginWithArg},
     weights::WeightToFee as WeightToFeeT,
 };
 use pallet_xcm::TestWeightInfo;
@@ -31,7 +31,7 @@ use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
     EnsureXcmOrigin, FixedWeightBounds, IsConcrete, FungibleAdapter, MintLocation,
     AllowTopLevelPaidExecutionFrom, TakeWeightCredit, FungiblesAdapter, ConvertedConcreteId,
-    NoChecking,
+    NoChecking, FixedRateOfFungible,
 };
 use xcm_executor::{XcmExecutor, traits::{ConvertLocation, JustTry}};
 
@@ -139,6 +139,7 @@ parameter_types! {
     pub const ExistentialDeposit: u128 = 1; // Random value.
     pub const BaseXcmWeight: Weight = Weight::from_parts(100, 10); // Random value.
     pub const MaxInstructions: u32 = 100;
+    pub const NativeTokenPerSecondPerByte: (AssetId, u128, u128) = (AssetId(HereLocation::get()), 1, 1);
     pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Westend), Parachain(2000)].into();
     pub static AdvertisedXcmVersion: XcmVersion = 4;
     pub const HereLocation: Location = Location::here();
@@ -198,9 +199,24 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<u64>>
     }
 }
 
-/// We only alias local account locations to actual local accounts.
-/// We don't allow sovereign accounts for locations outside our chain.
-pub type LocationToAccountId = AccountIndex64Aliases<AnyNetwork, u64>;
+/// Custom location converter to turn sibling chains into u64 accounts.
+pub struct SiblingChainToIndex64;
+impl ConvertLocation<AccountId> for SiblingChainToIndex64 {
+    fn convert_location(location: &Location) -> Option<AccountId> {
+        let index = match location.unpack() {
+            (1, [Parachain(id)]) => id,
+            _ => return None,
+        };
+        Some((*index).into())
+    }
+}
+
+/// We alias local account locations to actual local accounts.
+/// We also allow sovereign accounts for other sibling chains.
+pub type LocationToAccountId = (
+    AccountIndex64Aliases<AnyNetwork, u64>,
+    SiblingChainToIndex64,
+);
 
 pub type NativeTokenTransactor = FungibleAdapter<
     // We use pallet-balances for handling this fungible asset.
@@ -254,10 +270,19 @@ pub type RelayTokenTransactor = FungiblesAdapter<
 
 pub type AssetTransactors = (NativeTokenTransactor, RelayTokenTransactor);
 
+pub struct HereAndInnerLocations;
+impl Contains<Location> for HereAndInnerLocations {
+    fn contains(location: &Location) -> bool {
+        matches!(location.unpack(), (0, []) | (0, _))
+    }
+}
+
 pub type Barrier = (
     TakeWeightCredit, // We need this for pallet-xcm's extrinsics to work.
-    AllowTopLevelPaidExecutionFrom<Equals<HereLocation>>, // TODO: Technically, we should allow messages from "AssetHub".
+    AllowTopLevelPaidExecutionFrom<HereAndInnerLocations>, // TODO: Technically, we should allow messages from "AssetHub".
 );
+
+pub type Trader = FixedRateOfFungible<NativeTokenPerSecondPerByte, ()>;
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -270,7 +295,7 @@ impl xcm_executor::Config for XcmConfig {
     type UniversalLocation = UniversalLocation;
     type Barrier = Barrier;
     type Weigher = Weigher;
-    type Trader = ();
+    type Trader = Trader;
     type ResponseHandler = ();
     type AssetTrap = ();
     type AssetLocker = ();
@@ -417,7 +442,7 @@ sp_api::mock_impl_runtime_apis! {
         }
     }
 
-    impl XcmDryRunApi<Block> for RuntimeApi {
+    impl XcmDryRunApi<Block, RuntimeCall> for RuntimeApi {
         fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects, ()> {
             // First we execute the extrinsic to check the queue.
             // TODO: Not the best rust code out there. More functions could take references instead of ownership.
@@ -436,7 +461,7 @@ sp_api::mock_impl_runtime_apis! {
                     let fee_asset_item = *fee_asset_item as usize;
                     let weight_limit = weight_limit.clone();
                     let who = extrinsic.signature.as_ref().ok_or(())?.0; // TODO: Handle errors
-                    assert_ok!(Executive::apply_extrinsic(extrinsic)); // Asserting just because it's for tests.
+                    assert_ok!(Executive::apply_extrinsic(extrinsic)); // Asserting only because it's a test.
                     let forwarded_messages = sent_xcm()
                         .into_iter()
                         .map(|(location, message)| (
@@ -489,8 +514,27 @@ sp_api::mock_impl_runtime_apis! {
             }
         }
 
-        fn dry_run_xcm(xcm: Xcm<()>) -> Result<XcmDryRunEffects, ()> {
-            todo!()
+        fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>, max_weight: Weight) -> Result<XcmDryRunEffects, ()> {
+            let origin_location: Location = origin_location.try_into()?;
+            let xcm: Xcm<RuntimeCall> = xcm.try_into()?;
+            let mut hash = fake_message_hash(&xcm);
+            assert_ok!(XcmExecutor::<XcmConfig>::prepare_and_execute(
+                origin_location,
+                xcm,
+                &mut hash,
+                max_weight,
+                Weight::zero(),
+            )); // Asserting only because it's a test.
+            let forwarded_messages = sent_xcm()
+                .into_iter()
+                .map(|(location, message)| (
+                    VersionedLocation::V4(location),
+                    VersionedXcm::V4(message),
+                )).collect();
+            Ok(XcmDryRunEffects {
+                local_program: VersionedXcm::V4(Xcm(Vec::new())),
+                forwarded_messages,
+            })
         }
     }
 }

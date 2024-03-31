@@ -193,3 +193,48 @@ fn dry_run_reserve_asset_transfer() {
         );
     });
 }
+
+#[test]
+fn dry_run_xcm() {
+    let _ = env_logger::builder()
+        .is_test(true)
+        .try_init();
+    let who = 1; // AccountId = u64.
+    let transfer_amount = 100u128;
+    // TODO: We need to build the XCM to weigh it and then build the real XCM
+    // that can pay for fees.
+    // There might be a better way.
+    let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
+        .withdraw_asset((Here, transfer_amount).into())
+        .clear_origin()
+        .buy_execution((Here, transfer_amount).into(), Unlimited)
+        .deposit_reserve_asset(AllCounted(1).into(), (Parent, Parachain(2100)).into(), Xcm(vec![]))
+        .build();
+    let client = TestClient;
+    let runtime_api = client.runtime_api();
+    let xcm_weight = runtime_api.query_xcm_weight(
+        H256::zero(),
+        VersionedXcm::V4(xcm_to_weigh.clone().into()),
+    ).unwrap().unwrap();
+    let execution_fees = runtime_api.query_weight_to_asset_fee(
+        H256::zero(),
+        xcm_weight,
+        VersionedAssetId::V4(Here.into())
+    ).unwrap().unwrap();
+    let xcm = Xcm::<RuntimeCall>::builder_unsafe()
+        .withdraw_asset((Here, transfer_amount + execution_fees).into())
+        .clear_origin()
+        .buy_execution((Here, execution_fees).into(), Unlimited)
+        .deposit_reserve_asset(AllCounted(1).into(), (Parent, Parachain(2100)).into(), Xcm(vec![]))
+        .build();
+    let balances = vec![(who, transfer_amount + execution_fees + DeliveryFees::get() + ExistentialDeposit::get())];
+    new_test_ext_with_balances(balances).execute_with(|| {
+        let dry_run_effects = runtime_api.dry_run_xcm(
+            H256::zero(),
+            VersionedLocation::V4(AccountIndex64 { index: 1, network: None }.into()),
+            VersionedXcm::V4(xcm),
+            xcm_weight,
+        ).unwrap().unwrap();
+        dbg!(&dry_run_effects);
+    });
+}

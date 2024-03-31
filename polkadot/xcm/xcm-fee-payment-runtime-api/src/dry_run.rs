@@ -35,11 +35,11 @@ sp_api::decl_runtime_apis! {
     /// All calls return a vector of tuples (location, xcm) where each "xcm" is executed in "location".
     /// If there's local execution, the location will be "Here".
     /// This vector can be used to calculate both execution and delivery fees.
-	pub trait XcmDryRunApi {
+	pub trait XcmDryRunApi<Call> {
         /// Dry run extrinsic.
         fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects, ()>;
 
         /// Dry run XCM program
-        fn dry_run_xcm(xcm: Xcm<()>) -> Result<XcmDryRunEffects, ()>;
+        fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>, weight: Weight) -> Result<XcmDryRunEffects, ()>;
 	}
 }
