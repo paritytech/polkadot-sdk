@@ -33,7 +33,7 @@ pub mod v1 {
 			Ok(Default::default())
 		}
 
-		fn unchecked_on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 			if on_chain_version < 1 {
 				const MAX_PERMANENT_SLOTS: u32 = 100;

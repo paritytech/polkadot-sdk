@@ -52,7 +52,7 @@ mod v1 {
 	/// Migration to V1
 	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 
 			// Migrate the current traffic value
@@ -163,7 +163,7 @@ mod tests {
 
 			// For tests, db weight is zero.
 			assert_eq!(
-				<v1::UncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::unchecked_on_runtime_upgrade(),
+				<v1::UncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade(),
 				Weight::zero()
 			);
 

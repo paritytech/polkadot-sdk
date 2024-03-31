@@ -98,7 +98,7 @@ pub mod v2 {
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV2<T> {
 		#[allow(deprecated)]
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v1::QueueConfigData| -> v2::QueueConfigData {
 				v2::QueueConfigData {
 					suspend_threshold: pre.suspend_threshold,
@@ -188,7 +188,7 @@ pub mod v3 {
 	pub struct UncheckedMigrationToV3<T: Config>(PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV3<T> {
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() -> Weight {
 			#[frame_support::storage_alias]
 			type Overweight<T: Config> =
 				CountedStorageMap<Pallet<T>, Twox64Concat, OverweightIndex, ParaId>;
@@ -267,7 +267,7 @@ pub mod v4 {
 	pub struct UncheckedMigrationToV4<T: Config>(PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrationToV4<T> {
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
 				let pre_default = v2::QueueConfigData::default();
 				// If the previous values are the default ones, let's replace them with the new

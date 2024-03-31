@@ -81,7 +81,7 @@ pub mod v1 {
 			Ok((identities as u64).encode())
 		}
 
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() -> Weight {
 			log::info!(
 				target: TARGET,
 				"running storage migration from version 0 to version 1."

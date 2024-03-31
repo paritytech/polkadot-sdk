@@ -47,7 +47,7 @@ impl<
 		Ok((v0::Candidates::<T, I>::get(), v0::Members::<T, I>::get()).encode())
 	}
 
-	fn unchecked_on_runtime_upgrade() -> Weight {
+	fn on_runtime_upgrade() -> Weight {
 		let onchain = Pallet::<T, I>::on_chain_storage_version();
 		if onchain < 2 {
 			log::info!(

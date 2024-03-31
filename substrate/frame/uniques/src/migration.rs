@@ -27,7 +27,7 @@ mod v1 {
 	pub struct UncheckedMigrateToV1Impl<T, I>(PhantomData<(T, I)>);
 
 	impl<T: Config<I>, I: 'static> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1Impl<T, I> {
-		fn unchecked_on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			let mut count = 0;
 			for (collection, detail) in Collection::<T, I>::iter() {
 				CollectionAccount::<T, I>::insert(&detail.owner, &collection, ());

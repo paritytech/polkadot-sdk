@@ -166,7 +166,7 @@ mod v1 {
 	/// Migration to V1
 	pub struct UncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T> {
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 
 			v0::ParathreadQueue::<T>::kill();
@@ -304,7 +304,7 @@ mod v2 {
 	pub struct UncheckedMigrateToV2<T>(sp_std::marker::PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV2<T> {
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 
 			let old = v1::ClaimQueue::<T>::take();

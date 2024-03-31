@@ -30,7 +30,7 @@ pub struct VersionUncheckedMigrateToV1<T, UnlockParaIds>(
 impl<T: Config, UnlockParaIds: Contains<ParaId>> UncheckedOnRuntimeUpgrade
 	for VersionUncheckedMigrateToV1<T, UnlockParaIds>
 {
-	fn unchecked_on_runtime_upgrade() -> Weight {
+	fn on_runtime_upgrade() -> Weight {
 		let mut count = 0u64;
 		Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|key, v1| {
 			count.saturating_inc();

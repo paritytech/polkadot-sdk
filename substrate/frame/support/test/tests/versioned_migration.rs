@@ -113,7 +113,7 @@ impl<T: dummy_pallet::Config, const S: u32> UncheckedOnRuntimeUpgrade
 		Ok(PreUpgradeReturnBytes::get().to_vec())
 	}
 
-	fn unchecked_on_runtime_upgrade() -> frame_support::weights::Weight {
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		dummy_pallet::SomeStorage::<T>::put(S);
 		RocksDbWeight::get().reads_writes(UpgradeReads::get(), UpgradeWrites::get())
 	}

@@ -75,7 +75,7 @@ mod version_unchecked {
 		/// - If the value doesn't exist, there is nothing to do.
 		/// - If the value exists, it is read and then written back to storage inside a
 		/// [`crate::CurrentAndPreviousValue`].
-		fn unchecked_on_runtime_upgrade() -> frame_support::weights::Weight {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			// Read the old value from storage
 			if let Some(old_value) = v0::Value::<T>::take() {
 				// Write the new value to storage
@@ -174,7 +174,7 @@ mod test {
 			};
 
 			// Execute the migration
-			let weight = MigrateV0ToV1::<MockRuntime>::unchecked_on_runtime_upgrade();
+			let weight = MigrateV0ToV1::<MockRuntime>::on_runtime_upgrade();
 
 			// Verify post_upgrade succeeds
 			assert_ok!(MigrateV0ToV1::<MockRuntime>::post_upgrade(bytes));
@@ -201,7 +201,7 @@ mod test {
 			};
 
 			// Execute the migration
-			let weight = MigrateV0ToV1::<MockRuntime>::unchecked_on_runtime_upgrade();
+			let weight = MigrateV0ToV1::<MockRuntime>::on_runtime_upgrade();
 
 			// Verify post_upgrade succeeds
 			assert_ok!(MigrateV0ToV1::<MockRuntime>::post_upgrade(bytes));

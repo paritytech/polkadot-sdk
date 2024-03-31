@@ -186,7 +186,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV11<T> {
 		Ok(Vec::new())
 	}
 
-	fn unchecked_on_runtime_upgrade() -> Weight {
+	fn on_runtime_upgrade() -> Weight {
 		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV11 started");
 		let weight_consumed = migrate_to_v11::<T>();
 

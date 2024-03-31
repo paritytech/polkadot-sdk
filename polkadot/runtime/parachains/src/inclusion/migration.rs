@@ -106,7 +106,7 @@ mod v1 {
 			Ok((candidates_before_upgrade as u32).encode())
 		}
 
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let mut weight: Weight = Weight::zero();
 
 			let v0_candidates: Vec<_> = V0PendingAvailability::<T>::drain().collect();
@@ -225,7 +225,7 @@ mod tests {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			// No data to migrate.
 			assert_eq!(
-				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::unchecked_on_runtime_upgrade(),
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade(),
 				Weight::zero()
 			);
 			assert!(V1PendingAvailability::<Test>::iter().next().is_none());
@@ -299,7 +299,7 @@ mod tests {
 
 			// For tests, db weight is zero.
 			assert_eq!(
-				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::unchecked_on_runtime_upgrade(),
+				<VersionUncheckedMigrateToV1<Test> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade(),
 				Weight::zero()
 			);
 

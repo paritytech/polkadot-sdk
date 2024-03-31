@@ -227,10 +227,12 @@ pub trait OnRuntimeUpgrade {
 	}
 }
 
-/// See [`Hooks::on_runtime_upgrade`].
+/// This trait is not intended to be used directly for implementing storage migrations,
+/// but rather to be used internally by `VersionedMigration`.
 pub trait UncheckedOnRuntimeUpgrade {
-	/// See [`Hooks::on_runtime_upgrade`].
-	fn unchecked_on_runtime_upgrade() -> Weight {
+	/// This function is called by the `VersionedMigration` to execute the version
+	/// unchecked storage migration logic.
+	fn on_runtime_upgrade() -> Weight {
 		Weight::zero()
 	}
 

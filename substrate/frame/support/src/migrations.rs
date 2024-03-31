@@ -72,8 +72,8 @@ use sp_std::{marker::PhantomData, vec::Vec};
 /// mod version_unchecked {
 /// 	use super::*;
 /// 	pub struct VersionUncheckedMigrateV5ToV6<T>(sp_std::marker::PhantomData<T>);
-/// 	impl<T: Config> UncheckedOnRuntimeUpgrade for  VersionUncheckedMigrateV5ToV6<T> {
-/// 		// OnRuntimeUpgrade implementation...
+/// 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV5ToV6<T> {
+/// 		// `UncheckedOnRuntimeUpgrade` implementation...
 /// 	}
 /// }
 ///
@@ -151,7 +151,7 @@ impl<
 			);
 
 			// Execute the migration
-			let weight = Inner::unchecked_on_runtime_upgrade();
+			let weight = Inner::on_runtime_upgrade();
 
 			// Update the on-chain version
 			StorageVersion::new(TO).put::<Pallet>();

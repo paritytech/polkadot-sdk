@@ -138,7 +138,7 @@ pub mod v8 {
 			Ok(Vec::new())
 		}
 
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() -> Weight {
 			let mut translated = 0u64;
 			BondedPools::<T>::translate::<V7BondedPoolInner<T>, _>(|_key, old_value| {
 				translated.saturating_inc();
@@ -212,7 +212,7 @@ pub(crate) mod v7 {
 
 	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() {
 			let migrated = BondedPools::<T>::count();
 			// The TVL should be the sum of all the funds that are actively staked and in the
 			// unbonding process of the account of each pool.
@@ -283,7 +283,7 @@ mod v6 {
 		}
 	}
 	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV6<T> {
-		fn unchecked_on_runtime_upgrade() -> Weight {
+		fn on_runtime_upgrade() {
 			let mut success = 0u64;
 			let mut fail = 0u64;
 

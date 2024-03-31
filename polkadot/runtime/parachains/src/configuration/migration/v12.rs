@@ -77,7 +77,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV12<T> {
 		Ok(Vec::new())
 	}
 
-	fn unchecked_on_runtime_upgrade() -> Weight {
+	fn on_runtime_upgrade() -> Weight {
 		log::info!(target: configuration::LOG_TARGET, "HostConfiguration MigrateToV12 started");
 		let weight_consumed = migrate_to_v12::<T>();
 

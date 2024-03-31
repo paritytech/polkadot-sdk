@@ -75,7 +75,7 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateImpl<T> {
 		Ok(())
 	}
 
-	fn unchecked_on_runtime_upgrade() -> Weight {
+	fn on_runtime_upgrade() -> Weight {
 		crate::Authorities::<T>::put(
 			&BoundedAuthorityList::<T::MaxAuthorities>::force_from(
 				load_authority_list(),

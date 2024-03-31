@@ -172,7 +172,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV10<T> {
 		Ok(Vec::new())
 	}
 
-	fn unchecked_on_runtime_upgrade() -> Weight {
+	fn on_runtime_upgrade() -> Weight {
 		migrate_to_v10::<T>()
 	}
 
