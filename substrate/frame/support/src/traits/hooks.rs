@@ -227,11 +227,13 @@ pub trait OnRuntimeUpgrade {
 	}
 }
 
-/// This trait is not intended to be used directly for implementing storage migrations,
-/// but rather to be used internally by `VersionedMigration`.
+/// This trait is intended for use within `VersionedMigration` to
+/// execute storage migrations without automatic version checks. Implementations should
+/// ensure migration logic is safe and idempotent.
 pub trait UncheckedOnRuntimeUpgrade {
-	/// This function is called by the `VersionedMigration` to execute the version
-	/// unchecked storage migration logic.
+	/// Called within `VersionedMigration` to execute the actual migration. It is also
+	/// expected that no version checks are performed within this function.
+	/// See also [`Hooks::on_runtime_upgrade`].
 	fn on_runtime_upgrade() -> Weight {
 		Weight::zero()
 	}
@@ -481,7 +483,9 @@ pub trait Hooks<BlockNumber> {
 	/// ## Implementation Note: Standalone Migrations
 	///
 	/// Additional migrations can be created by directly implementing [`OnRuntimeUpgrade`] on
-	/// structs and passing them to `Executive`.
+	/// structs and passing them to `Executive`. Or alternatively, by implementing
+	/// [`UncheckedOnRuntimeUpgrade`], passing it to [`crate::migrations::VersionedMigration`],
+	/// which already implements [`OnRuntimeUpgrade`].
 	///
 	/// ## Implementation Note: Pallet Versioning
 	///
