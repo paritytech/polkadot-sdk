@@ -21,18 +21,19 @@ use codec::Encode;
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use frame_support::{
     construct_runtime, derive_impl, parameter_types, assert_ok,
-    traits::{Nothing, ConstU32, OriginTrait, ContainsPair, Everything, Equals},
+    traits::{Nothing, ConstU32, ConstU128, OriginTrait, ContainsPair, Everything, Equals, AsEnsureOriginWithArg},
     weights::WeightToFee as WeightToFeeT,
 };
 use pallet_xcm::TestWeightInfo;
-use sp_runtime::{traits::{IdentityLookup, Block as BlockT, TryConvert, Get}, SaturatedConversion, BuildStorage};
+use sp_runtime::{traits::{IdentityLookup, Block as BlockT, TryConvert, Get, MaybeEquivalence}, SaturatedConversion, BuildStorage};
 use sp_std::{cell::RefCell, marker::PhantomData};
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_builder::{
     EnsureXcmOrigin, FixedWeightBounds, IsConcrete, FungibleAdapter, MintLocation,
-    AllowTopLevelPaidExecutionFrom, TakeWeightCredit,
+    AllowTopLevelPaidExecutionFrom, TakeWeightCredit, FungiblesAdapter, ConvertedConcreteId,
+    NoChecking,
 };
-use xcm_executor::{XcmExecutor, traits::ConvertLocation};
+use xcm_executor::{XcmExecutor, traits::{ConvertLocation, JustTry}};
 
 use xcm_fee_payment_runtime_api::{XcmDryRunApi, XcmPaymentApi, XcmPaymentApiError, XcmDryRunEffects};
 
@@ -40,6 +41,7 @@ construct_runtime! {
     pub enum TestRuntime {
         System: frame_system,
         Balances: pallet_balances,
+        AssetsPallet: pallet_assets,
         XcmPallet: pallet_xcm,
     }
 }
@@ -52,6 +54,7 @@ pub type SignedExtra = (
 pub type TestXt = sp_runtime::testing::TestXt<RuntimeCall, SignedExtra>;
 type Block = sp_runtime::testing::Block<TestXt>;
 type Balance = u128;
+type AssetIdForAssetsPallet = u32;
 type AccountId = u64;
 
 pub fn extra() -> SignedExtra {
@@ -82,6 +85,21 @@ impl pallet_balances::Config for TestRuntime {
     type AccountStore = System;
     type Balance = Balance;
     type ExistentialDeposit = ExistentialDeposit;
+}
+
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
+impl pallet_assets::Config for TestRuntime {
+    type AssetId = AssetIdForAssetsPallet;
+    type Balance = Balance;
+    type Currency = Balances;
+    type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
+    type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+    type Freezer = ();
+    type AssetDeposit = ConstU128<1>;
+    type AssetAccountDeposit = ConstU128<10>;
+    type MetadataDepositBase = ConstU128<1>;
+    type MetadataDepositPerByte = ConstU128<1>;
+    type ApprovalDeposit = ConstU128<1>;
 }
 
 thread_local! {
@@ -184,7 +202,7 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<u64>>
 /// We don't allow sovereign accounts for locations outside our chain.
 pub type LocationToAccountId = AccountIndex64Aliases<AnyNetwork, u64>;
 
-pub type FungibleTransactor = FungibleAdapter<
+pub type NativeTokenTransactor = FungibleAdapter<
     // We use pallet-balances for handling this fungible asset.
     Balances,
     // The fungible asset handled by this transactor is the native token of the chain.
@@ -197,9 +215,44 @@ pub type FungibleTransactor = FungibleAdapter<
     LocalCheckAccount,
 >;
 
-// TODO: Handle the relay chain asset so we can also test with
-// reserve asset transfers.
-pub type AssetTransactor = FungibleTransactor;
+pub struct LocationToAssetIdForAssetsPallet;
+impl MaybeEquivalence<Location, AssetIdForAssetsPallet> for LocationToAssetIdForAssetsPallet {
+    fn convert(location: &Location) -> Option<AssetIdForAssetsPallet> {
+        match location.unpack() {
+            (1, []) => Some(1 as AssetIdForAssetsPallet),
+            _ => None,
+        }
+    }
+
+    fn convert_back(id: &AssetIdForAssetsPallet) -> Option<Location> {
+        match id {
+            1 => Some(Location::new(1, [])),
+            _ => None,
+        }
+    }
+}
+
+/// AssetTransactor for handling the relay chain token.
+pub type RelayTokenTransactor = FungiblesAdapter<
+    // We use pallet-assets for handling the relay token.
+    AssetsPallet,
+    // Matches the relay token.
+    ConvertedConcreteId<
+        AssetIdForAssetsPallet,
+        Balance,
+        LocationToAssetIdForAssetsPallet,
+        JustTry,
+    >,
+    // How we convert locations to accounts.
+    LocationToAccountId,
+    // We need to specify the AccountId type.
+    AccountId,
+    // We don't track teleports.
+    NoChecking,
+    (),
+>;
+
+pub type AssetTransactors = (NativeTokenTransactor, RelayTokenTransactor);
 
 pub type Barrier = (
     TakeWeightCredit, // We need this for pallet-xcm's extrinsics to work.
@@ -210,9 +263,9 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
     type RuntimeCall = RuntimeCall;
     type XcmSender = XcmRouter;
-    type AssetTransactor = AssetTransactor;
+    type AssetTransactor = AssetTransactors;
     type OriginConverter = ();
-    type IsReserve = ();
+    type IsReserve = RelayTokenToAssetHub;
     type IsTeleporter = NativeTokenToAssetHub;
     type UniversalLocation = UniversalLocation;
     type Barrier = Barrier;
@@ -298,6 +351,31 @@ pub fn new_test_ext_with_balances(balances: Vec<(AccountId, Balance)>) -> sp_io:
     ext
 }
 
+pub fn new_test_ext_with_balances_and_assets(balances: Vec<(AccountId, Balance)>, assets: Vec<(AssetIdForAssetsPallet, AccountId, Balance)>) -> sp_io::TestExternalities {
+    let mut t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
+
+    pallet_balances::GenesisConfig::<TestRuntime> { balances }
+        .assimilate_storage(&mut t)
+        .unwrap();
+
+    pallet_assets::GenesisConfig::<TestRuntime> {
+        assets: vec![
+            // id, owner, is_sufficient, min_balance.
+            // We don't actually need this to be sufficient, since we use the native assets in tests for the existential deposit.
+            (1, 0, true, 1),
+        ],
+        metadata: vec![
+            // id, name, symbol, decimals.
+            (1, "Relay Token".into(), "RLY".into(), 12),
+        ],
+        accounts: assets,
+    }.assimilate_storage(&mut t).unwrap();
+
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
+}
+
 #[derive(Clone)]
 pub(crate) struct TestClient;
 
@@ -368,11 +446,14 @@ sp_api::mock_impl_runtime_apis! {
                     let (fees_transfer_type, assets_transfer_type) =
                         XcmPallet::find_fee_and_assets_transfer_types(assets.inner(), fee_asset_item, &dest)
                             .map_err(|error| {
-                                log::error!("Couldn't determinte the transfer type. Error: {:?}", error);
+                                log::error!(target: "xcm", "Couldn't determinte the transfer type. Error: {:?}", error);
                                 ()
                             })?;
                     let origin_location: Location = AccountIndex64 { index: who.clone(), network: None }.into();
-                    let fees = assets.get(fee_asset_item).ok_or(())?; // TODO: Handle errors
+                    let fees = assets.get(fee_asset_item).ok_or_else(|| {
+                        log::error!(target: "xcm", "Couldn't get fee asset.");
+                        ()
+                    })?; // TODO: Handle errors
                     let fees_handling = XcmPallet::find_fees_handling(
                         origin_location.clone(),
                         dest.clone(),
@@ -383,7 +464,7 @@ sp_api::mock_impl_runtime_apis! {
                         &weight_limit,
                         fee_asset_item,
                     ).map_err(|error| {
-                        log::error!("Unable to handle fees. Error: {:?}", error);
+                        log::error!(target: "xcm", "Unable to handle fees. Error: {:?}", error);
                         () // TODO: Handle errors.
                     })?;
                     let (local_xcm, _) = XcmPallet::build_xcm_transfer_type(
@@ -395,7 +476,7 @@ sp_api::mock_impl_runtime_apis! {
                         fees_handling,
                         weight_limit,
                     ).map_err(|error| {
-                        log::error!("Unable to construct local XCM program. Error: {:?}", error);
+                        log::error!(target: "xcm", "Unable to construct local XCM program. Error: {:?}", error);
                         () // TODO: Handle errors.
                     })?;
                     let local_xcm: Xcm<()> = local_xcm.into();

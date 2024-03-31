@@ -32,6 +32,7 @@ pallet-xcm = { path = "../pallet-xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
+pallet-assets = { path = "../../../substrate/frame/assets", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
 log = { workspace = true }
@@ -53,6 +54,7 @@ std = [
 	"xcm-builder/std",
 	"sp-io/std",
 	"pallet-balances/std",
+	"pallet-assets/std",
 	"xcm-executor/std",
 	"frame-executive/std",
 ]

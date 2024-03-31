@@ -22,13 +22,18 @@ use xcm_fee_payment_runtime_api::{XcmPaymentApi, XcmDryRunApi};
 use xcm::prelude::*;
 
 mod mock;
-use mock::{TestClient, HereLocation, TestXt, RuntimeCall, new_test_ext_with_balances, extra, DeliveryFees, ExistentialDeposit};
+use mock::{
+    TestClient, HereLocation, TestXt, RuntimeCall,
+    new_test_ext_with_balances, extra, DeliveryFees, ExistentialDeposit,
+    new_test_ext_with_balances_and_assets,
+};
 
 // Scenario: User `1` in the local chain wants to transfer assets to account `[0u8; 32]` on "AssetHub".
 // He wants to make sure he has enough for fees, so before he calls the `transfer_asset` extrinsic to do the transfer,
 // he decides to use the `XcmDryRunApi` and `XcmPaymentApi` runtime APIs to estimate fees.
+// This uses a teleport because we're dealing with the native token of the chain, which is registered on "AssetHub".
 #[test]
-fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
+fn fee_estimation_for_teleport() {
     let _ = env_logger::builder()
         .is_test(true)
         .try_init();
@@ -43,7 +48,7 @@ fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
                 beneficiary: Box::new(VersionedLocation::V4(AccountId32 { id: [0u8; 32], network: None }.into())),
                 assets: Box::new(VersionedAssets::V4((Here, 100u128).into())),
                 fee_asset_item: 0,
-                weight_limit: WeightLimit::Unlimited,
+                weight_limit: Unlimited,
             }),
             Some((who, extra())),
         );
@@ -59,7 +64,7 @@ fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
                     .withdraw_asset((Here, 100u128).into())
                     .burn_asset((Here, 100u128).into())
                     .build()
-            )
+            ),
         );
         assert_eq!(
             dry_run_effects.forwarded_messages,
@@ -128,5 +133,63 @@ fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
         // put `remote_execution_fees` in `BuyExecution`.
         // For the `transfer_assets` extrinsic, it just means passing the correct amount
         // of fees in the parameters.
+    });
+}
+
+#[test]
+fn dry_run_reserve_asset_transfer() {
+    let _ = env_logger::builder()
+        .is_test(true)
+        .try_init();
+    let who = 1; // AccountId = u64.
+    // Native token used for fees.
+    let balances = vec![(who, DeliveryFees::get() + ExistentialDeposit::get())];
+    // Relay token is the one we want to transfer.
+    let assets = vec![(1, who, 100)]; // id, account_id, balance.
+    new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
+        let client = TestClient;
+        let runtime_api = client.runtime_api();
+        let extrinsic = TestXt::new(
+            RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
+                dest: Box::new(VersionedLocation::V4((Parent, Parachain(1000)).into())),
+                beneficiary: Box::new(VersionedLocation::V4(AccountId32 { id: [0u8; 32], network: None }.into())),
+                assets: Box::new(VersionedAssets::V4((Parent, 100u128).into())),
+                fee_asset_item: 0,
+                weight_limit: Unlimited,
+            }),
+            Some((who, extra())),
+        );
+        let dry_run_effects = runtime_api.dry_run_extrinsic(
+            H256::zero(),
+            extrinsic,
+        ).unwrap().unwrap();
+
+        assert_eq!(
+            dry_run_effects.local_program,
+            VersionedXcm::V4(
+                Xcm::builder_unsafe()
+                    .withdraw_asset((Parent, 100u128).into())
+                    .burn_asset((Parent, 100u128).into())
+                    .build()
+            ),
+        );
+
+        // In this case, the transfer type is `DestinationReserve`, so the remote xcm just withdraws the assets.
+        assert_eq!(
+            dry_run_effects.forwarded_messages,
+            vec![
+                (
+                    VersionedLocation::V4(Location::new(1, Parachain(1000))),
+                    VersionedXcm::V4(
+                        Xcm::<()>::builder_unsafe()
+                            .withdraw_asset((Parent, 100u128).into())
+                            .clear_origin()
+                            .buy_execution((Parent, 100u128).into(), Unlimited)
+                            .deposit_asset(AllCounted(1).into(), AccountId32 { id: [0u8; 32], network: None }.into())
+                            .build()
+                    ),
+                ),
+            ],
+        );
     });
 }

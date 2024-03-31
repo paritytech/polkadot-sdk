@@ -22458,6 +22458,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-assets",
  "pallet-balances",
  "pallet-xcm",
  "parity-scale-codec",
