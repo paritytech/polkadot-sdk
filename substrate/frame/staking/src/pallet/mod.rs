@@ -379,7 +379,7 @@ pub mod pallet {
 	pub type Nominators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Nominations<T>>;
 
-	/// Nominators whose funds are managed by other pallets.
+	/// Stakers whose funds are managed by other pallets.
 	///
 	/// This pallet does not apply any locks on them, therefore they are only virtually bonded. They
 	/// are expected to be keyless accounts and hence should not be allowed to mutate their ledger
@@ -387,7 +387,7 @@ pub mod pallet {
 	/// via low level apis. We keep track of them to do minimal integrity checks.
 	// TODO(ank4n): Can we keep this entry in `Ledger`? Worth a migration?
 	#[pallet::storage]
-	pub type VirtualNominators<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
+	pub type VirtualStakers<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 
 	/// The maximum nominator count before we stop allowing new validators to join.
 	///

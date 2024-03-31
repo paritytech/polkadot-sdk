@@ -6849,6 +6849,80 @@ mod staking_interface {
 	}
 }
 
+mod staking_unsafe {
+	use frame_support::traits::InspectLockableCurrency;
+	use sp_staking::{StakingUnsafe, StakingInterface, Stake};
+
+	use super::*;
+
+	#[test]
+	fn virtual_bond_does_not_lock() {
+		ExtBuilder::default().build_and_execute(|| {
+			mock::start_active_era(1);
+			assert_eq!(Balances::free_balance(10), 1);
+			// 10 can bond more than its balance amount since we do not require lock for virtual
+			// bonding.
+			assert_ok!(<Staking as StakingUnsafe>::virtual_bond(&10, 100, &15));
+			// nothing is locked on 10.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &10), 0);
+			// adding more balance does not lock anything as well.
+			assert_ok!(<Staking as StakingInterface>::bond_extra(&10, 1000));
+			// but ledger is updated correctly.
+			assert_eq!(<Staking as StakingInterface>::stake(&10), Ok(Stake { total: 1100, active: 1100 }));
+
+			// lets try unbonding some amount.
+			assert_ok!(<Staking as StakingInterface>::unbond(&10, 200));
+			assert_eq!(
+			Staking::ledger(10.into()).unwrap(),
+			StakingLedgerInspect {
+				stash: 10,
+				total: 1100,
+				active: 1100 - 200,
+				unlocking: bounded_vec![UnlockChunk { value: 200, era: 1 + 3 }],
+				legacy_claimed_rewards: bounded_vec![],
+			});
+
+			assert_eq!(<Staking as StakingInterface>::stake(&10), Ok(Stake { total: 1100, active: 900 }));
+			// still no locks.
+			assert_eq!(Balances::balance_locked(STAKING_ID, &10), 0);
+
+			mock::start_active_era(2);
+			// cannot withdraw without waiting for unbonding period.
+			assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(10, 0));
+			assert_eq!(<Staking as StakingInterface>::stake(&10), Ok(Stake { total: 1100, active: 900 }));
+
+			// in era 4, 10 can withdraw unlocking amount.
+			mock::start_active_era(4);
+			assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(10, 0));
+			assert_eq!(<Staking as StakingInterface>::stake(&10), Ok(Stake { total: 900, active: 900 }));
+
+			// unbond all.
+			assert_ok!(<Staking as StakingInterface>::unbond(&10, 900));
+			assert_eq!(<Staking as StakingInterface>::stake(&10), Ok(Stake { total: 900, active: 0 }));
+			mock::start_active_era(7);
+			assert_ok!(<Staking as StakingInterface>::withdraw_unbonded(10, 0));
+
+			// ensure withdrawing all amount cleans up storage.
+			assert_eq!(Staking::ledger(10.into()), Err(Error::<Test>::NotStash));
+			assert_eq!(VirtualStakers::<Test>::contains_key(10), false);
+		})
+	}
+
+	#[test]
+	fn virtual_nominator_cannot_pay_reward_to_self_account() {
+		ExtBuilder::default().build_and_execute(|| {
+			// cannot set payee to self
+			assert_noop!(<Staking as StakingUnsafe>::virtual_bond(&10, 100, &10), Error::<Test>::RewardDestinationRestricted);
+
+			// to another account works
+			assert_ok!(<Staking as StakingUnsafe>::virtual_bond(&10, 100, &11));
+
+			// cannot set via set_payee as well.
+			assert_noop!(<Staking as StakingInterface>::update_payee(&10, &10), Error::<Test>::RewardDestinationRestricted);
+		});
+	}
+}
+
 mod ledger {
 	use super::*;
 

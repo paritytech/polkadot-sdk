@@ -1188,7 +1188,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Whether `who` is a virtual nominator whose funds are managed by another pallet.
 	pub(crate) fn is_virtual_nominator(who: &T::AccountId) -> bool {
-		VirtualNominators::<T>::contains_key(who)
+		VirtualStakers::<T>::contains_key(who)
 	}
 
 	/// Update the lock for a staker.
@@ -1965,10 +1965,14 @@ impl<T: Config> sp_staking::StakingUnsafe for Pallet<T> {
 			return Err(Error::<T>::AlreadyBonded.into())
 		}
 
+		// check if payee not same as who.
+		ensure!(who != payee, Error::<T>::RewardDestinationRestricted);
+
+		// mark this pallet as consumer of `who`.
 		frame_system::Pallet::<T>::inc_consumers(&who).map_err(|_| Error::<T>::BadState)?;
 
-		// mark who as a virtual nominator
-		VirtualNominators::<T>::insert(who, ());
+		// mark who as a virtual nominator.
+		VirtualStakers::<T>::insert(who, ());
 
 		Self::deposit_event(Event::<T>::Bonded { stash: who.clone(), amount: value });
 		let ledger = StakingLedger::<T>::new(who.clone(), value);
@@ -2105,6 +2109,7 @@ impl<T: Config> Pallet<T> {
 	/// * Staking ledger and bond are not corrupted.
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
+			.filter(|(stash, _)| !VirtualStakers::<T>::contains_key(stash))
 			.map(|(stash, ctrl)| {
 				// ensure locks consistency.
 				ensure!(

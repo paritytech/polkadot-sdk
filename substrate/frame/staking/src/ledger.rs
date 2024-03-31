@@ -38,10 +38,7 @@ use frame_support::{
 use sp_staking::StakingAccount;
 use sp_std::prelude::*;
 
-use crate::{
-	BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger,
-	STAKING_ID,
-};
+use crate::{BalanceOf, Bonded, Config, Error, Ledger, Pallet, Payee, RewardDestination, StakingLedger, STAKING_ID, VirtualStakers};
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 use sp_runtime::traits::Zero;
@@ -188,7 +185,9 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
+		// update lock on stash based on ledger.
 		Pallet::<T>::update_lock(&self.stash, self.total).map_err(|_| Error::<T>::BadState)?;
+
 		Ledger::<T>::insert(
 			&self.controller().ok_or_else(|| {
 				defensive!("update called on a ledger that is not bonded.");
@@ -207,6 +206,8 @@ impl<T: Config> StakingLedger<T> {
 		if <Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::AlreadyBonded)
 		}
+
+		// check if the payee is ok.
 		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone()) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
@@ -222,6 +223,7 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::NotStash)
 		}
 
+		// check if the payee is ok.
 		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone()) {
 			return Err(Error::<T>::RewardDestinationRestricted);
 		}
@@ -265,6 +267,7 @@ impl<T: Config> StakingLedger<T> {
 
 			<Bonded<T>>::remove(&stash);
 			<Payee<T>>::remove(&stash);
+			<VirtualStakers<T>>::remove(&stash);
 
 			Ok(())
 		})?
