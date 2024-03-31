@@ -22,10 +22,7 @@
 use super::*;
 use sp_staking::{DelegatedStakeInterface, OnStakingUpdate};
 
-/// StakingInterface implementation with delegation support.
-///
-/// Only supports Nominators via Delegated Bonds. It is possible for a nominator to migrate and
-/// become a `delegatee`.
+/// Wrapper `StakingInterface` implementation for `Agents`.
 impl<T: Config> StakingInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
@@ -90,10 +87,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	) -> DispatchResult {
 		// ensure who is not already staked
 		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::AlreadyStaking);
-		let delegatee = Delegatee::<T>::from(who)?;
+		let agent = Agent::<T>::from(who)?;
 
-		ensure!(delegatee.available_to_bond() >= value, Error::<T>::NotEnoughFunds);
-		ensure!(delegatee.ledger.payee == *payee, Error::<T>::InvalidRewardDestination);
+		ensure!(agent.available_to_bond() >= value, Error::<T>::NotEnoughFunds);
+		ensure!(agent.ledger.payee == *payee, Error::<T>::InvalidRewardDestination);
 
 		T::CoreStaking::virtual_bond(who, value, payee)
 	}
@@ -116,8 +113,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult {
-		let delegatee = Delegatee::<T>::from(stash)?;
-		ensure!(delegatee.bonded_stake() >= value, Error::<T>::NotEnoughFunds);
+		let agent = Agent::<T>::from(stash)?;
+		ensure!(agent.bonded_stake() >= value, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::unbond(stash, value)
 	}
@@ -128,13 +125,13 @@ impl<T: Config> StakingInterface for Pallet<T> {
 
 	/// Withdraw unbonding funds until current era.
 	///
-	/// Funds are moved to unclaimed_withdrawals register of the `DelegateeLedger`.
+	/// Funds are moved to unclaimed_withdrawals register of the `AgentLedger`.
 	fn withdraw_unbonded(
-		delegatee_acc: Self::AccountId,
+		agent_acc: Self::AccountId,
 		num_slashing_spans: u32,
 	) -> Result<bool, DispatchError> {
-		Pallet::<T>::withdraw_unbonded(&delegatee_acc, num_slashing_spans)
-			.map(|delegatee| delegatee.ledger.total_delegated.is_zero())
+		Pallet::<T>::withdraw_unbonded(&agent_acc, num_slashing_spans)
+			.map(|agent| agent.ledger.total_delegated.is_zero())
 	}
 
 	fn desired_validator_count() -> u32 {
@@ -191,10 +188,10 @@ impl<T: Config> StakingInterface for Pallet<T> {
 }
 
 impl<T: Config> DelegatedStakeInterface for Pallet<T> {
-	/// Effective balance of the delegatee account.
-	fn delegatee_balance(who: &Self::AccountId) -> Self::Balance {
-		Delegatee::<T>::from(who)
-			.map(|delegatee| delegatee.ledger.effective_balance())
+	/// Effective balance of the `Agent` account.
+	fn agent_balance(who: &Self::AccountId) -> Self::Balance {
+		Agent::<T>::from(who)
+			.map(|agent| agent.ledger.effective_balance())
 			.unwrap_or_default()
 	}
 
@@ -202,71 +199,63 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 		Delegation::<T>::get(delegator).map(|d| d.amount).unwrap_or_default()
 	}
 
-	/// Delegate funds to `Delegatee`.
+	/// Delegate funds to an `Agent`.
 	fn delegate(
 		who: &Self::AccountId,
-		delegatee: &Self::AccountId,
+		agent: &Self::AccountId,
 		reward_account: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
 		Pallet::<T>::register_agent(
-			RawOrigin::Signed(delegatee.clone()).into(),
+			RawOrigin::Signed(agent.clone()).into(),
 			reward_account.clone(),
 		)?;
 
-		// Delegate the funds from who to the delegatee account.
-		Pallet::<T>::delegate_to_agent(
-			RawOrigin::Signed(who.clone()).into(),
-			delegatee.clone(),
-			amount,
-		)
+		// Delegate the funds from who to the `Agent` account.
+		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.clone()).into(), agent.clone(), amount)
 	}
 
-	/// Add more delegation to the delegatee account.
+	/// Add more delegation to the `Agent` account.
 	fn delegate_extra(
 		who: &Self::AccountId,
-		delegatee: &Self::AccountId,
+		agent: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
-		Pallet::<T>::delegate_to_agent(
-			RawOrigin::Signed(who.clone()).into(),
-			delegatee.clone(),
-			amount,
-		)
+		Pallet::<T>::delegate_to_agent(RawOrigin::Signed(who.clone()).into(), agent.clone(), amount)
 	}
 
-	/// Withdraw delegation of `delegator` to `delegatee`.
+	/// Withdraw delegation of `delegator` to `Agent`.
 	///
-	/// If there are funds in `delegatee` account that can be withdrawn, then those funds would be
+	/// If there are funds in `Agent` account that can be withdrawn, then those funds would be
 	/// unlocked/released in the delegator's account.
 	fn withdraw_delegation(
 		delegator: &Self::AccountId,
-		delegatee: &Self::AccountId,
+		agent: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
 		// fixme(ank4n): Can this not require slashing spans?
 		Pallet::<T>::release_delegation(
-			RawOrigin::Signed(delegatee.clone()).into(),
+			RawOrigin::Signed(agent.clone()).into(),
 			delegator.clone(),
 			amount,
 			0,
 		)
 	}
 
-	/// Returns true if the `delegatee` have any slash pending to be applied.
-	fn has_pending_slash(delegatee: &Self::AccountId) -> bool {
-		Delegatee::<T>::from(delegatee)
+	/// Returns true if the `Agent` have any slash pending to be applied.
+	fn has_pending_slash(agent: &Self::AccountId) -> bool {
+		Agent::<T>::from(agent)
 			.map(|d| !d.ledger.pending_slash.is_zero())
 			.unwrap_or(false)
 	}
 
 	fn delegator_slash(
-		delegatee: &Self::AccountId,
+		agent: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> sp_runtime::DispatchResult {
-		Pallet::<T>::do_slash(delegatee.clone(), delegator.clone(), value, maybe_reporter)
+		Pallet::<T>::do_slash(agent.clone(), delegator.clone(), value, maybe_reporter)
 	}
 }
 
@@ -278,7 +267,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		slashed_total: BalanceOf<T>,
 	) {
 		<Agents<T>>::mutate(who, |maybe_register| match maybe_register {
-			// if delegatee, register the slashed amount as pending slash.
+			// if existing agent, register the slashed amount as pending slash.
 			Some(register) => register.pending_slash.saturating_accrue(slashed_total),
 			None => {
 				// nothing to do

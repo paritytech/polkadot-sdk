@@ -23,16 +23,16 @@ use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use pallet_staking::Error as StakingError;
 
 #[test]
-fn create_a_delegatee_with_first_delegator() {
+fn create_a_agent_with_first_delegator() {
 	ExtBuilder::default().build_and_execute(|| {
-		let delegatee: AccountId = 200;
+		let agent: AccountId = 200;
 		let reward_account: AccountId = 201;
 		let delegator: AccountId = 202;
 
 		// set intention to accept delegation.
-		fund(&delegatee, 1000);
+		fund(&agent, 1000);
 		assert_ok!(DelegatedStaking::register_agent(
-			RawOrigin::Signed(delegatee).into(),
+			RawOrigin::Signed(agent).into(),
 			reward_account
 		));
 
@@ -40,27 +40,27 @@ fn create_a_delegatee_with_first_delegator() {
 		fund(&delegator, 1000);
 		assert_ok!(DelegatedStaking::delegate_to_agent(
 			RawOrigin::Signed(delegator).into(),
-			delegatee,
+			agent,
 			100
 		));
 
 		// verify
-		assert!(DelegatedStaking::is_agent(&delegatee));
-		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100);
+		assert!(DelegatedStaking::is_agent(&agent));
+		assert_eq!(DelegatedStaking::stakeable_balance(&agent), 100);
 		assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &delegator), 100);
 	});
 }
 
 #[test]
-fn cannot_become_delegatee() {
+fn cannot_become_agent() {
 	ExtBuilder::default().build_and_execute(|| {
-		// cannot set reward account same as delegatee account
+		// cannot set reward account same as agent account
 		assert_noop!(
 			DelegatedStaking::register_agent(RawOrigin::Signed(100).into(), 100),
 			Error::<T>::InvalidRewardDestination
 		);
 
-		// an existing validator cannot become delegatee
+		// an existing validator cannot become agent
 		assert_noop!(
 			DelegatedStaking::register_agent(
 				RawOrigin::Signed(mock::GENESIS_VALIDATOR).into(),
@@ -69,7 +69,7 @@ fn cannot_become_delegatee() {
 			Error::<T>::AlreadyStaking
 		);
 
-		// an existing nominator cannot become delegatee
+		// an existing nominator cannot become agent
 		assert_noop!(
 			DelegatedStaking::register_agent(
 				RawOrigin::Signed(mock::GENESIS_NOMINATOR_ONE).into(),
@@ -90,17 +90,17 @@ fn cannot_become_delegatee() {
 #[test]
 fn create_multiple_delegators() {
 	ExtBuilder::default().build_and_execute(|| {
-		let delegatee: AccountId = 200;
+		let agent: AccountId = 200;
 		let reward_account: AccountId = 201;
 
-		// stakeable balance is 0 for non delegatee
-		fund(&delegatee, 1000);
-		assert!(!DelegatedStaking::is_agent(&delegatee));
-		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 0);
+		// stakeable balance is 0 for non agent
+		fund(&agent, 1000);
+		assert!(!DelegatedStaking::is_agent(&agent));
+		assert_eq!(DelegatedStaking::stakeable_balance(&agent), 0);
 
 		// set intention to accept delegation.
 		assert_ok!(DelegatedStaking::register_agent(
-			RawOrigin::Signed(delegatee).into(),
+			RawOrigin::Signed(agent).into(),
 			reward_account
 		));
 
@@ -109,65 +109,61 @@ fn create_multiple_delegators() {
 			fund(&i, 100 + ExistentialDeposit::get());
 			assert_ok!(DelegatedStaking::delegate_to_agent(
 				RawOrigin::Signed(i).into(),
-				delegatee,
+				agent,
 				100
 			));
-			// Balance of 100 held on delegator account for delegating to the delegatee.
+			// Balance of 100 held on delegator account for delegating to the agent.
 			assert_eq!(Balances::balance_on_hold(&HoldReason::Delegating.into(), &i), 100);
 		}
 
 		// verify
-		assert!(DelegatedStaking::is_agent(&delegatee));
-		assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 100 * 100);
+		assert!(DelegatedStaking::is_agent(&agent));
+		assert_eq!(DelegatedStaking::stakeable_balance(&agent), 100 * 100);
 	});
 }
 
 #[test]
-fn delegatee_restrictions() {
+fn agent_restrictions() {
 	// Similar to creating a nomination pool
 	ExtBuilder::default().build_and_execute(|| {
-		let delegatee_one = 200;
+		let agent_one = 200;
 		let delegator_one = 210;
-		fund(&delegatee_one, 100);
+		fund(&agent_one, 100);
 		assert_ok!(DelegatedStaking::register_agent(
-			RawOrigin::Signed(delegatee_one).into(),
-			delegatee_one + 1
+			RawOrigin::Signed(agent_one).into(),
+			agent_one + 1
 		));
 		fund(&delegator_one, 200);
 		assert_ok!(DelegatedStaking::delegate_to_agent(
 			RawOrigin::Signed(delegator_one).into(),
-			delegatee_one,
+			agent_one,
 			100
 		));
 
-		let delegatee_two = 300;
+		let agent_two = 300;
 		let delegator_two = 310;
-		fund(&delegatee_two, 100);
+		fund(&agent_two, 100);
 		assert_ok!(DelegatedStaking::register_agent(
-			RawOrigin::Signed(delegatee_two).into(),
-			delegatee_two + 1
+			RawOrigin::Signed(agent_two).into(),
+			agent_two + 1
 		));
 		fund(&delegator_two, 200);
 		assert_ok!(DelegatedStaking::delegate_to_agent(
 			RawOrigin::Signed(delegator_two).into(),
-			delegatee_two,
+			agent_two,
 			100
 		));
 
-		// delegatee one tries to delegate to delegatee 2
+		// agent one tries to delegate to agent 2
 		assert_noop!(
-			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(delegatee_one).into(),
-				delegatee_two,
-				10
-			),
+			DelegatedStaking::delegate_to_agent(RawOrigin::Signed(agent_one).into(), agent_two, 10),
 			Error::<T>::InvalidDelegation
 		);
 
-		// delegatee one tries to delegate to a delegator
+		// agent one tries to delegate to a delegator
 		assert_noop!(
 			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(delegatee_one).into(),
+				RawOrigin::Signed(agent_one).into(),
 				delegator_one,
 				10
 			),
@@ -175,19 +171,19 @@ fn delegatee_restrictions() {
 		);
 		assert_noop!(
 			DelegatedStaking::delegate_to_agent(
-				RawOrigin::Signed(delegatee_one).into(),
+				RawOrigin::Signed(agent_one).into(),
 				delegator_two,
 				10
 			),
 			Error::<T>::InvalidDelegation
 		);
 
-		// delegator one tries to delegate to delegatee 2 as well (it already delegates to delegatee
+		// delegator one tries to delegate to agent 2 as well (it already delegates to agent
 		// 1)
 		assert_noop!(
 			DelegatedStaking::delegate_to_agent(
 				RawOrigin::Signed(delegator_one).into(),
-				delegatee_two,
+				agent_two,
 				10
 			),
 			Error::<T>::InvalidDelegation
@@ -211,17 +207,17 @@ mod staking_integration {
 	#[test]
 	fn bond() {
 		ExtBuilder::default().build_and_execute(|| {
-			let delegatee: AccountId = 99;
+			let agent: AccountId = 99;
 			let reward_acc: AccountId = 100;
-			assert_eq!(Staking::status(&delegatee), Err(StakingError::<T>::NotStash.into()));
+			assert_eq!(Staking::status(&agent), Err(StakingError::<T>::NotStash.into()));
 
-			// set intention to become a delegatee
-			fund(&delegatee, 100);
+			// set intention to become an agent
+			fund(&agent, 100);
 			assert_ok!(DelegatedStaking::register_agent(
-				RawOrigin::Signed(delegatee).into(),
+				RawOrigin::Signed(agent).into(),
 				reward_acc
 			));
-			assert_eq!(DelegatedStaking::stakeable_balance(&delegatee), 0);
+			assert_eq!(DelegatedStaking::stakeable_balance(&agent), 0);
 
 			let mut delegated_balance: Balance = 0;
 
@@ -230,7 +226,7 @@ mod staking_integration {
 				fund(&delegator, 200);
 				assert_ok!(DelegatedStaking::delegate_to_agent(
 					RawOrigin::Signed(delegator).into(),
-					delegatee,
+					agent,
 					100
 				));
 				delegated_balance += 100;
@@ -239,16 +235,13 @@ mod staking_integration {
 					100
 				);
 
-				let delegatee_obj = get_delegatee(&delegatee);
-				assert_eq!(delegatee_obj.ledger.stakeable_balance(), delegated_balance);
-				assert_eq!(delegatee_obj.available_to_bond(), 0);
-				assert_eq!(delegatee_obj.bonded_stake(), delegated_balance);
+				let agent_obj = get_agent(&agent);
+				assert_eq!(agent_obj.ledger.stakeable_balance(), delegated_balance);
+				assert_eq!(agent_obj.available_to_bond(), 0);
+				assert_eq!(agent_obj.bonded_stake(), delegated_balance);
 			}
 
-			assert_eq!(
-				Staking::stake(&delegatee).unwrap(),
-				Stake { total: 50 * 100, active: 50 * 100 }
-			)
+			assert_eq!(Staking::stake(&agent).unwrap(), Stake { total: 50 * 100, active: 50 * 100 })
 		});
 	}
 
@@ -257,89 +250,109 @@ mod staking_integration {
 		ExtBuilder::default().build_and_execute(|| {
 			// initial era
 			start_era(1);
-			let delegatee: AccountId = 200;
+			let agent: AccountId = 200;
 			let reward_acc: AccountId = 201;
 			let delegators: Vec<AccountId> = (301..=350).collect();
 			let total_staked =
-				setup_delegation_stake(delegatee, reward_acc, delegators.clone(), 10, 10);
+				setup_delegation_stake(agent, reward_acc, delegators.clone(), 10, 10);
 
 			// lets go to a new era
 			start_era(2);
 
-			assert!(eq_stake(delegatee, total_staked, total_staked));
+			assert!(eq_stake(agent, total_staked, total_staked));
 			// Withdrawing without unbonding would fail.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 301, 50, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 301, 50, 0),
 				Error::<T>::NotEnoughFunds
 			);
-			// assert_noop!(DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 200, 50,
-			// 0), Error::<T>::NotAllowed); active and total stake remains same
-			assert!(eq_stake(delegatee, total_staked, total_staked));
+			// assert_noop!(DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(),
+			// 200, 50, 0), Error::<T>::NotAllowed); active and total stake remains same
+			assert!(eq_stake(agent, total_staked, total_staked));
 
 			// 305 wants to unbond 50 in era 2, withdrawable in era 5.
-			assert_ok!(DelegatedStaking::unbond(&delegatee, 50));
+			assert_ok!(DelegatedStaking::unbond(&agent, 50));
 			// 310 wants to unbond 100 in era 3, withdrawable in era 6.
 			start_era(3);
-			assert_ok!(DelegatedStaking::unbond(&delegatee, 100));
+			assert_ok!(DelegatedStaking::unbond(&agent, 100));
 			// 320 wants to unbond 200 in era 4, withdrawable in era 7.
 			start_era(4);
-			assert_ok!(DelegatedStaking::unbond(&delegatee, 200));
+			assert_ok!(DelegatedStaking::unbond(&agent, 200));
 
 			// active stake is now reduced..
 			let expected_active = total_staked - (50 + 100 + 200);
-			assert!(eq_stake(delegatee, total_staked, expected_active));
+			assert!(eq_stake(agent, total_staked, expected_active));
 
 			// nothing to withdraw at era 4
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 305, 50, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 305, 50, 0),
 				Error::<T>::NotEnoughFunds
 			);
 
-			assert!(eq_stake(delegatee, total_staked, expected_active));
-			assert_eq!(get_delegatee(&delegatee).available_to_bond(), 0);
+			assert!(eq_stake(agent, total_staked, expected_active));
+			assert_eq!(get_agent(&agent).available_to_bond(), 0);
 			// full amount is still delegated
-			assert_eq!(get_delegatee(&delegatee).ledger.effective_balance(), total_staked);
+			assert_eq!(get_agent(&agent).ledger.effective_balance(), total_staked);
 
 			start_era(5);
 			// at era 5, 50 tokens are withdrawable, cannot withdraw more.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 305, 51, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 305, 51, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			// less is possible
-			assert_ok!(DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 305, 30, 0));
-			assert_ok!(DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 305, 20, 0));
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				305,
+				30,
+				0
+			));
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				305,
+				20,
+				0
+			));
 
 			// Lets go to future era where everything is unbonded. Withdrawable amount: 100 + 200
 			start_era(7);
 			// 305 has no more amount delegated so it cannot withdraw.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 305, 5, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 305, 5, 0),
 				Error::<T>::NotDelegator
 			);
 			// 309 is an active delegator but has total delegation of 90, so it cannot withdraw more
 			// than that.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 309, 91, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 309, 91, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			// 310 cannot withdraw more than delegated funds.
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 310, 101, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 310, 101, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			// but can withdraw all its delegation amount.
-			assert_ok!(DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 310, 100, 0));
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				310,
+				100,
+				0
+			));
 			// 320 can withdraw all its delegation amount.
-			assert_ok!(DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 320, 200, 0));
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				320,
+				200,
+				0
+			));
 
 			// cannot withdraw anything more..
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 301, 1, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 301, 1, 0),
 				Error::<T>::NotEnoughFunds
 			);
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 350, 1, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 350, 1, 0),
 				Error::<T>::NotEnoughFunds
 			);
 		});
@@ -348,12 +361,12 @@ mod staking_integration {
 	#[test]
 	fn withdraw_happens_with_unbonded_balance_first() {
 		ExtBuilder::default().build_and_execute(|| {
-			let delegatee = 200;
-			setup_delegation_stake(delegatee, 201, (300..350).collect(), 100, 0);
+			let agent = 200;
+			setup_delegation_stake(agent, 201, (300..350).collect(), 100, 0);
 
 			// verify withdraw not possible yet
 			assert_noop!(
-				DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 300, 100, 0),
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300, 100, 0),
 				Error::<T>::NotEnoughFunds
 			);
 
@@ -363,15 +376,15 @@ mod staking_integration {
 			// withdrawn and test its claimed from there first.
 
 			// fund(&300, 1000);
-			// assert_ok!(DelegatedStaking::delegate_to_agent(RawOrigin::Signed(300.into()), delegate,
-			// 100));
+			// assert_ok!(DelegatedStaking::delegate_to_agent(RawOrigin::Signed(300.into()),
+			// delegate, 100));
 			//
 			// // verify unbonded balance
-			// assert_eq!(get_delegatee(&delegatee).available_to_bond(), 100);
+			// assert_eq!(get_agent(&agent).available_to_bond(), 100);
 			//
 			// // withdraw works now without unbonding
-			// assert_ok!(DelegatedStaking::release_delegation(RawOrigin::Signed(delegatee).into(), 300, 100,
-			// 0)); assert_eq!(get_delegatee(&delegatee).available_to_bond(), 0);
+			// assert_ok!(DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300,
+			// 100, 0)); assert_eq!(get_agent(&agent).available_to_bond(), 0);
 		});
 	}
 
@@ -382,7 +395,7 @@ mod staking_integration {
 			fund(&200, 1000);
 			let balance_200 = Balances::free_balance(200);
 
-			// `delegatee` account cannot be reward destination
+			// `Agent` account cannot be reward destination
 			assert_noop!(
 				DelegatedStaking::register_agent(RawOrigin::Signed(200).into(), 200),
 				Error::<T>::InvalidRewardDestination
@@ -392,7 +405,11 @@ mod staking_integration {
 			assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(200).into(), 201));
 			// add some delegations to it
 			fund(&300, 1000);
-			assert_ok!(DelegatedStaking::delegate_to_agent(RawOrigin::Signed(300).into(), 200, 100));
+			assert_ok!(DelegatedStaking::delegate_to_agent(
+				RawOrigin::Signed(300).into(),
+				200,
+				100
+			));
 
 			// if delegate calls Staking pallet directly with a different reward destination, it
 			// fails.
@@ -409,8 +426,8 @@ mod staking_integration {
 
 			// amount is staked correctly
 			assert!(eq_stake(200, 100, 100));
-			assert_eq!(get_delegatee(&200).available_to_bond(), 0);
-			assert_eq!(get_delegatee(&200).ledger.effective_balance(), 100);
+			assert_eq!(get_agent(&200).available_to_bond(), 0);
+			assert_eq!(get_agent(&200).ledger.effective_balance(), 100);
 
 			// free balance of delegate is untouched
 			assert_eq!(Balances::free_balance(200), balance_200);
@@ -418,7 +435,7 @@ mod staking_integration {
 	}
 
 	#[test]
-	fn delegatee_restrictions() {
+	fn agent_restrictions() {
 		ExtBuilder::default().build_and_execute(|| {
 			setup_delegation_stake(200, 201, (202..203).collect(), 100, 0);
 
@@ -441,10 +458,7 @@ mod staking_integration {
 				Error::<T>::AlreadyStaking
 			);
 			assert_noop!(
-				DelegatedStaking::register_agent(
-					RawOrigin::Signed(GENESIS_VALIDATOR).into(),
-					201
-				),
+				DelegatedStaking::register_agent(RawOrigin::Signed(GENESIS_VALIDATOR).into(), 201),
 				Error::<T>::AlreadyStaking
 			);
 		});
@@ -498,8 +512,8 @@ mod staking_integration {
 				5000 - staked_amount - ExistentialDeposit::get()
 			);
 			assert_eq!(DelegatedStaking::stake(&200).unwrap(), init_stake);
-			assert_eq!(get_delegatee(&200).ledger.effective_balance(), 4000);
-			assert_eq!(get_delegatee(&200).available_to_bond(), 0);
+			assert_eq!(get_agent(&200).ledger.effective_balance(), 4000);
+			assert_eq!(get_agent(&200).available_to_bond(), 0);
 
 			// now lets migrate the delegators
 			let delegator_share = staked_amount / 4;
@@ -525,8 +539,8 @@ mod staking_integration {
 
 				// delegate stake is unchanged.
 				assert_eq!(DelegatedStaking::stake(&200).unwrap(), init_stake);
-				assert_eq!(get_delegatee(&200).ledger.effective_balance(), 4000);
-				assert_eq!(get_delegatee(&200).available_to_bond(), 0);
+				assert_eq!(get_agent(&200).ledger.effective_balance(), 4000);
+				assert_eq!(get_agent(&200).available_to_bond(), 0);
 			}
 
 			// cannot use migrate delegator anymore

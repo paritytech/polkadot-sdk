@@ -30,8 +30,8 @@
 //!   behalf for staking these delegated funds. Also, sometimes referred as `Delegatee`.
 //! - **Delegator**: An account who delegates their funds to an `agent` and authorises them to use
 //!   it for staking.
-//! - **DelegateeLedger**: A data structure that holds important information about the `agent` such
-//!   as total delegations they have received, any slashes posted to them, etc.
+//! - **AgentLedger**: A data structure that holds important information about the `agent` such as
+//!   total delegations they have received, any slashes posted to them, etc.
 //! - **Delegation**: A data structure that stores the amount of funds delegated to an `agent` by a
 //!   `delegator`.
 //!
@@ -79,7 +79,7 @@
 //! nominators are slashed at the same time. This is expensive and needs to be bounded operation.
 //!
 //! This pallet implements a lazy slashing mechanism. Any slashes to the `agent` are posted in its
-//! `DelegateeLedger` as a pending slash. Since the actual amount is held in the multiple
+//! `AgentLedger` as a pending slash. Since the actual amount is held in the multiple
 //! `delegator` accounts, this pallet has no way to know how to apply slash. It is the `agent`'s
 //! responsibility to apply slashes for each delegator, one at a time. Staking pallet ensures the
 //! pending slash never exceeds staked amount and would freeze further withdraws until all pending
@@ -258,11 +258,11 @@ pub mod pallet {
 	/// Map of `Agent` to their `Ledger`.
 	#[pallet::storage]
 	pub(crate) type Agents<T: Config> =
-		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegateeLedger<T>, OptionQuery>;
+		CountedStorageMap<_, Twox64Concat, T::AccountId, AgentLedger<T>, OptionQuery>;
 
-	// This pallet is not currently written with the intention of exposing any calls. But the
-	// functions defined in the following impl block should act as a good reference for how the
-	// exposed calls would look like when exposed.
+	/// This pallet is not currently written with the intention of exposing any calls. But the
+	/// functions defined in the following impl block should act as a good reference for how the
+	/// exposed calls would look like when exposed.
 	impl<T: Config> Pallet<T> {
 		/// Register an account to become a stake `Agent`. Sometimes also called a `Delegatee`.
 		///
@@ -301,7 +301,7 @@ pub mod pallet {
 		///
 		/// The origin needs to
 		/// - be a `Nominator` with `CoreStaking`,
-		/// - not already a `Delegatee`,
+		/// - not already an `Agent`,
 		/// - have enough funds to transfer existential deposit to a delegator account created for
 		///   the migration.
 		///
@@ -367,7 +367,7 @@ pub mod pallet {
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
 			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
-			// ensure delegatee is sane.
+			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
 			// and has enough delegated balance to migrate.
@@ -433,12 +433,9 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Derive a (keyless) pot account from the given delegatee account and account type.
-	pub(crate) fn sub_account(
-		account_type: AccountType,
-		delegatee_account: T::AccountId,
-	) -> T::AccountId {
-		T::PalletId::get().into_sub_account_truncating((account_type, delegatee_account.clone()))
+	/// Derive a (keyless) pot account from the given agent account and account type.
+	pub(crate) fn sub_account(account_type: AccountType, agent: T::AccountId) -> T::AccountId {
+		T::PalletId::get().into_sub_account_truncating((account_type, agent.clone()))
 	}
 
 	/// Balance of a delegator that is delegated.
@@ -446,12 +443,12 @@ impl<T: Config> Pallet<T> {
 		T::Currency::balance_on_hold(&HoldReason::Delegating.into(), who)
 	}
 
-	/// Returns true if who is registered as a `Delegatee`.
+	/// Returns true if who is registered as an `Agent`.
 	fn is_agent(who: &T::AccountId) -> bool {
 		<Agents<T>>::contains_key(who)
 	}
 
-	/// Returns true if who is delegating to a `Delegatee` account.
+	/// Returns true if who is delegating to an `Agent` account.
 	fn is_delegator(who: &T::AccountId) -> bool {
 		<Delegators<T>>::contains_key(who)
 	}
@@ -469,10 +466,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_register_agent(who: &T::AccountId, reward_account: &T::AccountId) {
-		DelegateeLedger::<T>::new(reward_account).save(who);
+		AgentLedger::<T>::new(reward_account).save(who);
 
-		// Delegatee is a virtual account. Make this account exist.
-		// TODO: Someday if we expose these calls in a runtime, we should take a deposit for
+		// Agent does not hold balance of its own but this pallet will provide for this to exist.
+		// This is expected to be a keyless account and not created by any user directly so safe.
+		// TODO: Someday if we allow anyone to be an agent, we should take a deposit for
 		// being a delegator.
 		frame_system::Pallet::<T>::inc_providers(who);
 	}
@@ -508,29 +506,29 @@ impl<T: Config> Pallet<T> {
 		Self::do_delegate(&proxy_delegator, who, stake.total)
 	}
 
-	fn do_bond(delegatee_acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
-		let delegatee = Delegatee::<T>::from(delegatee_acc)?;
+	fn do_bond(agent_acc: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+		let agent = Agent::<T>::from(agent_acc)?;
 
-		let available_to_bond = delegatee.available_to_bond();
+		let available_to_bond = agent.available_to_bond();
 		defensive_assert!(amount == available_to_bond, "not expected value to bond");
 
-		if delegatee.is_bonded() {
-			T::CoreStaking::bond_extra(&delegatee.key, amount)
+		if agent.is_bonded() {
+			T::CoreStaking::bond_extra(&agent.key, amount)
 		} else {
-			T::CoreStaking::virtual_bond(&delegatee.key, amount, delegatee.reward_account())
+			T::CoreStaking::virtual_bond(&agent.key, amount, agent.reward_account())
 		}
 	}
 
 	fn do_delegate(
 		delegator: &T::AccountId,
-		delegatee: &T::AccountId,
+		agent: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let mut ledger = DelegateeLedger::<T>::get(delegatee).ok_or(Error::<T>::NotAgent)?;
+		let mut ledger = AgentLedger::<T>::get(agent).ok_or(Error::<T>::NotAgent)?;
 
 		let new_delegation_amount =
 			if let Some(existing_delegation) = Delegation::<T>::get(delegator) {
-				ensure!(&existing_delegation.delegatee == delegatee, Error::<T>::InvalidDelegation);
+				ensure!(&existing_delegation.agent == agent, Error::<T>::InvalidDelegation);
 				existing_delegation
 					.amount
 					.checked_add(&amount)
@@ -539,15 +537,15 @@ impl<T: Config> Pallet<T> {
 				amount
 			};
 
-		Delegation::<T>::from(delegatee, new_delegation_amount).save_or_kill(delegator);
+		Delegation::<T>::from(agent, new_delegation_amount).save_or_kill(delegator);
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
-		ledger.save(delegatee);
+		ledger.save(agent);
 
 		T::Currency::hold(&HoldReason::Delegating.into(), delegator, amount)?;
 
 		Self::deposit_event(Event::<T>::Delegated {
-			agent: delegatee.clone(),
+			agent: agent.clone(),
 			delegator: delegator.clone(),
 			amount,
 		});
@@ -561,24 +559,24 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 		num_slashing_spans: u32,
 	) -> DispatchResult {
-		let mut delegatee = Delegatee::<T>::from(who)?;
+		let mut agent = Agent::<T>::from(who)?;
 		let mut delegation = Delegation::<T>::get(delegator).ok_or(Error::<T>::NotDelegator)?;
 
 		// make sure delegation to be released is sound.
-		ensure!(&delegation.delegatee == who, Error::<T>::NotAgent);
+		ensure!(&delegation.agent == who, Error::<T>::NotAgent);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
-		if delegatee.ledger.unclaimed_withdrawals < amount {
-			// get the updated delegatee
-			delegatee = Self::withdraw_unbonded(who, num_slashing_spans)?;
+		if agent.ledger.unclaimed_withdrawals < amount {
+			// get the updated agent.
+			agent = Self::withdraw_unbonded(who, num_slashing_spans)?;
 		}
 
 		// if we still do not have enough funds to release, abort.
-		ensure!(delegatee.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
+		ensure!(agent.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
-		// claim withdraw from delegatee.
-		delegatee.remove_unclaimed_withdraw(amount)?.save_or_kill()?;
+		// claim withdraw from agent.
+		agent.remove_unclaimed_withdraw(amount)?.save_or_kill()?;
 
 		// book keep delegation
 		delegation.amount = delegation
@@ -608,17 +606,17 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn withdraw_unbonded(
-		delegatee_acc: &T::AccountId,
+		agent_acc: &T::AccountId,
 		num_slashing_spans: u32,
-	) -> Result<Delegatee<T>, DispatchError> {
-		let delegatee = Delegatee::<T>::from(delegatee_acc)?;
-		let pre_total = T::CoreStaking::stake(delegatee_acc).defensive()?.total;
+	) -> Result<Agent<T>, DispatchError> {
+		let agent = Agent::<T>::from(agent_acc)?;
+		let pre_total = T::CoreStaking::stake(agent_acc).defensive()?.total;
 
 		let stash_killed: bool =
-			T::CoreStaking::withdraw_unbonded(delegatee_acc.clone(), num_slashing_spans)
+			T::CoreStaking::withdraw_unbonded(agent_acc.clone(), num_slashing_spans)
 				.map_err(|_| Error::<T>::WithdrawFailed)?;
 
-		let maybe_post_total = T::CoreStaking::stake(delegatee_acc);
+		let maybe_post_total = T::CoreStaking::stake(agent_acc);
 		// One of them should be true
 		defensive_assert!(
 			!(stash_killed && maybe_post_total.is_ok()),
@@ -630,11 +628,11 @@ impl<T: Config> Pallet<T> {
 		let new_withdrawn =
 			pre_total.checked_sub(&post_total).defensive_ok_or(Error::<T>::BadState)?;
 
-		let delegatee = delegatee.add_unclaimed_withdraw(new_withdrawn)?;
+		let agent = agent.add_unclaimed_withdraw(new_withdrawn)?;
 
-		delegatee.clone().save();
+		agent.clone().save();
 
-		Ok(delegatee)
+		Ok(agent)
 	}
 
 	/// Migrates delegation of `amount` from `source` account to `destination` account.
@@ -653,8 +651,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// update delegations
-		Delegation::<T>::from(&source_delegation.delegatee, amount)
-			.save_or_kill(destination_delegator);
+		Delegation::<T>::from(&source_delegation.agent, amount).save_or_kill(destination_delegator);
 
 		source_delegation
 			.decrease_delegation(amount)
@@ -688,15 +685,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn do_slash(
-		delegatee_acc: T::AccountId,
+		agent_acc: T::AccountId,
 		delegator: T::AccountId,
 		amount: BalanceOf<T>,
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
-		let delegatee = Delegatee::<T>::from(&delegatee_acc)?;
+		let agent = Agent::<T>::from(&agent_acc)?;
 		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 
-		ensure!(delegation.delegatee == delegatee_acc, Error::<T>::NotAgent);
+		ensure!(delegation.agent == agent_acc, Error::<T>::NotAgent);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
 		let (mut credit, missing) =
@@ -706,8 +703,8 @@ impl<T: Config> Pallet<T> {
 
 		let actual_slash = credit.peek();
 
-		// remove the applied slashed amount from delegatee.
-		delegatee.remove_slash(actual_slash).save();
+		// remove the applied slashed amount from agent.
+		agent.remove_slash(actual_slash).save();
 
 		delegation
 			.decrease_delegation(actual_slash)
@@ -726,7 +723,7 @@ impl<T: Config> Pallet<T> {
 
 		T::OnSlash::on_unbalanced(credit);
 
-		Self::deposit_event(Event::<T>::Slashed { agent: delegatee_acc, delegator, amount });
+		Self::deposit_event(Event::<T>::Slashed { agent: agent_acc, delegator, amount });
 
 		Ok(())
 	}
@@ -734,8 +731,8 @@ impl<T: Config> Pallet<T> {
 	/// Total balance that is available for stake. Includes already staked amount.
 	#[cfg(test)]
 	pub(crate) fn stakeable_balance(who: &T::AccountId) -> BalanceOf<T> {
-		Delegatee::<T>::from(who)
-			.map(|delegatee| delegatee.ledger.stakeable_balance())
+		Agent::<T>::from(who)
+			.map(|agent| agent.ledger.stakeable_balance())
 			.unwrap_or_default()
 	}
 }
@@ -757,21 +754,21 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn check_delegates(
-		ledgers: BTreeMap<T::AccountId, DelegateeLedger<T>>,
+		ledgers: BTreeMap<T::AccountId, AgentLedger<T>>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
-		for (delegatee, ledger) in ledgers {
+		for (agent, ledger) in ledgers {
 			ensure!(
 				matches!(
-					T::CoreStaking::status(&delegatee).expect("delegatee should be bonded"),
+					T::CoreStaking::status(&agent).expect("agent should be bonded"),
 					StakerStatus::Nominator(_) | StakerStatus::Idle
 				),
-				"delegatee should be bonded and not validator"
+				"agent should be bonded and not validator"
 			);
 
 			ensure!(
 				ledger.stakeable_balance() >=
-					T::CoreStaking::total_stake(&delegatee)
-						.expect("delegatee should exist as a nominator"),
+					T::CoreStaking::total_stake(&agent)
+						.expect("agent should exist as a nominator"),
 				"Cannot stake more than balance"
 			);
 		}
@@ -781,7 +778,7 @@ impl<T: Config> Pallet<T> {
 
 	fn check_delegators(
 		delegations: BTreeMap<T::AccountId, Delegation<T>>,
-		ledger: BTreeMap<T::AccountId, DelegateeLedger<T>>,
+		ledger: BTreeMap<T::AccountId, AgentLedger<T>>,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
 		let mut delegation_aggregation = BTreeMap::<T::AccountId, BalanceOf<T>>::new();
 		for (delegator, delegation) in delegations.iter() {
@@ -789,18 +786,18 @@ impl<T: Config> Pallet<T> {
 				T::CoreStaking::status(delegator).is_err(),
 				"delegator should not be directly staked"
 			);
-			ensure!(!Self::is_agent(delegator), "delegator cannot be delegatee");
+			ensure!(!Self::is_agent(delegator), "delegator cannot be an agent");
 
 			delegation_aggregation
-				.entry(delegation.delegatee.clone())
+				.entry(delegation.agent.clone())
 				.and_modify(|e| *e += delegation.amount)
 				.or_insert(delegation.amount);
 		}
 
-		for (delegatee, total_delegated) in delegation_aggregation {
-			ensure!(!Self::is_delegator(&delegatee), "delegatee cannot be delegator");
+		for (agent, total_delegated) in delegation_aggregation {
+			ensure!(!Self::is_delegator(&agent), "agent cannot be delegator");
 
-			let ledger = ledger.get(&delegatee).expect("ledger should exist");
+			let ledger = ledger.get(&agent).expect("ledger should exist");
 			ensure!(
 				ledger.total_delegated == total_delegated,
 				"ledger total delegated should match delegations"

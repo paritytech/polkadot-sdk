@@ -449,4 +449,68 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
+/// Extension of [`StakingInterface`] with delegation functionality.
+///
+/// Introduces two new actors:
+/// - `Delegator`: An account that delegates funds to a `Agent`.
+/// - `Agent`: An account that receives delegated funds from `Delegators`. It can then use these
+/// funds to participate in the staking system. It can never use its own funds to stake.
+///
+/// The `Agent` is responsible for managing rewards and slashing for all the `Delegators` that
+/// have delegated funds to it.
+pub trait DelegatedStakeInterface: StakingInterface {
+	/// Effective balance of the `Agent` account.
+	///
+	/// This takes into account any pending slashes to `Agent`.
+	fn agent_balance(agent: &Self::AccountId) -> Self::Balance;
+
+	/// Returns the total amount of funds delegated by a `delegator`.
+	fn delegator_balance(delegator: &Self::AccountId) -> Self::Balance;
+
+	/// Delegate funds to `Agent`.
+	///
+	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
+	fn delegate(
+		delegator: &Self::AccountId,
+		agent: &Self::AccountId,
+		reward_account: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Add more delegation to the `Agent`.
+	///
+	/// If this is the first delegation, use [`Self::delegate`] instead.
+	fn delegate_extra(
+		delegator: &Self::AccountId,
+		agent: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Withdraw or revoke delegation to `Agent`.
+	///
+	/// If there are `Agent` funds upto `amount` available to withdraw, then those funds would
+	/// be released to the `delegator`
+	fn withdraw_delegation(
+		delegator: &Self::AccountId,
+		agent: &Self::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult;
+
+	/// Returns true if there are pending slashes posted to the `Agent` account.
+	///
+	/// Slashes to `Agent` account are not immediate and are applied lazily. Since `Agent`
+	/// has an unbounded number of delegators, immediate slashing is not possible.
+	fn has_pending_slash(agent: &Self::AccountId) -> bool;
+
+	/// Apply a pending slash to a `Agent` by slashing `value` from `delegator`.
+	///
+	/// If a reporter is provided, the reporter will receive a fraction of the slash as reward.
+	fn delegator_slash(
+		agent: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+		maybe_reporter: Option<Self::AccountId>,
+	) -> sp_runtime::DispatchResult;
+}
+
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
