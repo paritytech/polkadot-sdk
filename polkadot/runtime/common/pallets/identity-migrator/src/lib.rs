@@ -300,9 +300,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	impl_benchmark_test_suite!(
-		Pallet,
-		crate::integration_tests::new_test_ext(),
-		crate::integration_tests::Test,
-	);
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test,);
 }
+
+#[cfg(test)]
+mod mock;
