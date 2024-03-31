@@ -1023,7 +1023,9 @@ mod helpers {
 
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
 		BondedPools::<T>::iter()
-			.map(|(id, _inner)| T::StakeAdapter::total_stake(id))
+			.map(|(id, _inner)| {
+				T::StakeAdapter::total_stake(&Pallet::<T>::create_bonded_account(id))
+			})
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()
 	}
