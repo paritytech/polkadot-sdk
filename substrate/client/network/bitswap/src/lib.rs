@@ -301,7 +301,7 @@ mod tests {
 	use substrate_test_runtime_client::{self, prelude::*, TestClientBuilder};
 
 	#[tokio::test]
-	async fn undecodeable_message() {
+	async fn undecodable_message() {
 		let client = substrate_test_runtime_client::new();
 		let (bitswap, config) = BitswapRequestHandler::new(Arc::new(client));
 

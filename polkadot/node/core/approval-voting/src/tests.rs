@@ -2479,6 +2479,173 @@ fn subsystem_import_checked_approval_sets_one_block_bit_at_a_time() {
 	});
 }
 
+// See https://github.com/paritytech/polkadot-sdk/issues/3826
+#[test]
+fn inclusion_events_can_be_unordered_by_core_index() {
+	let assignment_criteria = Box::new(MockAssignmentCriteria(
+		|| {
+			let mut assignments = HashMap::new();
+			for core in 0..3 {
+				let _ = assignments.insert(
+					CoreIndex(core),
+					approval_db::v2::OurAssignment {
+						cert: garbage_assignment_cert_v2(
+							AssignmentCertKindV2::RelayVRFModuloCompact {
+								core_bitfield: vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)]
+									.try_into()
+									.unwrap(),
+							},
+						),
+						tranche: 0,
+						validator_index: ValidatorIndex(0),
+						triggered: false,
+					}
+					.into(),
+				);
+			}
+			assignments
+		},
+		|_| Ok(0),
+	));
+	let config = HarnessConfigBuilder::default().assignment_criteria(assignment_criteria).build();
+	let store = config.backend();
+
+	test_harness(config, |test_harness| async move {
+		let TestHarness {
+			mut virtual_overseer,
+			clock,
+			sync_oracle_handle: _sync_oracle_handle,
+			..
+		} = test_harness;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(rx)) => {
+				rx.send(Ok(0)).unwrap();
+			}
+		);
+
+		let block_hash = Hash::repeat_byte(0x01);
+
+		let candidate_receipt0 = {
+			let mut receipt = dummy_candidate_receipt(block_hash);
+			receipt.descriptor.para_id = ParaId::from(0_u32);
+			receipt
+		};
+		let candidate_receipt1 = {
+			let mut receipt = dummy_candidate_receipt(block_hash);
+			receipt.descriptor.para_id = ParaId::from(1_u32);
+			receipt
+		};
+		let candidate_receipt2 = {
+			let mut receipt = dummy_candidate_receipt(block_hash);
+			receipt.descriptor.para_id = ParaId::from(2_u32);
+			receipt
+		};
+		let candidate_index0 = 0;
+		let candidate_index1 = 1;
+		let candidate_index2 = 2;
+
+		let validator0 = ValidatorIndex(0);
+		let validator1 = ValidatorIndex(1);
+		let validator2 = ValidatorIndex(2);
+		let validator3 = ValidatorIndex(3);
+
+		let validators = vec![
+			Sr25519Keyring::Alice,
+			Sr25519Keyring::Bob,
+			Sr25519Keyring::Charlie,
+			Sr25519Keyring::Dave,
+			Sr25519Keyring::Eve,
+		];
+		let session_info = SessionInfo {
+			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(vec![
+				vec![validator0, validator1],
+				vec![validator2],
+				vec![validator3],
+			]),
+			needed_approvals: 1,
+			zeroth_delay_tranche_width: 1,
+			relay_vrf_modulo_samples: 1,
+			n_delay_tranches: 1,
+			no_show_slots: 1,
+			..session_info(&validators)
+		};
+
+		ChainBuilder::new()
+			.add_block(
+				block_hash,
+				ChainBuilder::GENESIS_HASH,
+				1,
+				BlockConfig {
+					slot: Slot::from(0),
+					candidates: Some(vec![
+						(candidate_receipt0.clone(), CoreIndex(2), GroupIndex(2)),
+						(candidate_receipt1.clone(), CoreIndex(1), GroupIndex(0)),
+						(candidate_receipt2.clone(), CoreIndex(0), GroupIndex(1)),
+					]),
+					session_info: Some(session_info),
+					end_syncing: true,
+				},
+			)
+			.build(&mut virtual_overseer)
+			.await;
+
+		assert_eq!(clock.inner.lock().next_wakeup().unwrap(), 2);
+		clock.inner.lock().wakeup_all(100);
+
+		assert_eq!(clock.inner.lock().wakeups.len(), 0);
+
+		futures_timer::Delay::new(Duration::from_millis(100)).await;
+
+		// Assignment is distributed only once from `approval-voting`
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeAssignment(
+				_,
+				c_indices,
+			)) => {
+				assert_eq!(c_indices, vec![candidate_index0, candidate_index1, candidate_index2].try_into().unwrap());
+			}
+		);
+
+		// Candidate 0
+		recover_available_data(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		// Candidate 1
+		recover_available_data(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		// Candidate 2
+		recover_available_data(&mut virtual_overseer).await;
+		fetch_validation_code(&mut virtual_overseer).await;
+
+		// Check if assignment was triggered for candidate 0.
+		let candidate_entry =
+			store.load_candidate_entry(&candidate_receipt0.hash()).unwrap().unwrap();
+		let our_assignment =
+			candidate_entry.approval_entry(&block_hash).unwrap().our_assignment().unwrap();
+		assert!(our_assignment.triggered());
+
+		// Check if assignment was triggered for candidate 1.
+		let candidate_entry =
+			store.load_candidate_entry(&candidate_receipt1.hash()).unwrap().unwrap();
+		let our_assignment =
+			candidate_entry.approval_entry(&block_hash).unwrap().our_assignment().unwrap();
+		assert!(our_assignment.triggered());
+
+		// Check if assignment was triggered for candidate 2.
+		let candidate_entry =
+			store.load_candidate_entry(&candidate_receipt2.hash()).unwrap().unwrap();
+		let our_assignment =
+			candidate_entry.approval_entry(&block_hash).unwrap().our_assignment().unwrap();
+		assert!(our_assignment.triggered());
+
+		virtual_overseer
+	});
+}
+
 fn approved_ancestor_test(
 	skip_approval: impl Fn(BlockNumber) -> bool,
 	approved_height: BlockNumber,
@@ -3154,7 +3321,7 @@ where
 // starting configuration. The relevant ticks (all scheduled wakeups) are printed after no further
 // ticks are scheduled. To create a valid test, a prefix of the relevant ticks should be included
 // in the final test configuration, ending at the tick with the desired inputs to
-// should_trigger_assignemnt.
+// should_trigger_assignment.
 async fn step_until_done(clock: &MockClock) {
 	let mut relevant_ticks = Vec::new();
 	loop {
@@ -3837,7 +4004,7 @@ fn test_approval_is_sent_on_max_approval_coalesce_count() {
 
 async fn handle_approval_on_max_coalesce_count(
 	virtual_overseer: &mut VirtualOverseer,
-	candidate_indicies: Vec<CandidateIndex>,
+	candidate_indices: Vec<CandidateIndex>,
 ) {
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
@@ -3845,16 +4012,16 @@ async fn handle_approval_on_max_coalesce_count(
 			_,
 			c_indices,
 		)) => {
-			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indicies.clone()).unwrap(), c_indices);
+			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indices.clone()).unwrap(), c_indices);
 		}
 	);
 
-	for _ in &candidate_indicies {
+	for _ in &candidate_indices {
 		recover_available_data(virtual_overseer).await;
 		fetch_validation_code(virtual_overseer).await;
 	}
 
-	for _ in &candidate_indicies {
+	for _ in &candidate_indices {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive{exec_kind, response_sender, ..}) if exec_kind == PvfExecKind::Approval => {
@@ -3885,7 +4052,7 @@ async fn handle_approval_on_max_coalesce_count(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(vote)) => {
-			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indicies).unwrap(), vote.candidate_indices);
+			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indices).unwrap(), vote.candidate_indices);
 		}
 	);
 
@@ -3895,7 +4062,7 @@ async fn handle_approval_on_max_coalesce_count(
 
 async fn handle_approval_on_max_wait_time(
 	virtual_overseer: &mut VirtualOverseer,
-	candidate_indicies: Vec<CandidateIndex>,
+	candidate_indices: Vec<CandidateIndex>,
 	clock: Box<MockClock>,
 ) {
 	const TICK_NOW_BEGIN: u64 = 1;
@@ -3909,16 +4076,16 @@ async fn handle_approval_on_max_wait_time(
 			_,
 			c_indices,
 		)) => {
-			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indicies.clone()).unwrap(), c_indices);
+			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indices.clone()).unwrap(), c_indices);
 		}
 	);
 
-	for _ in &candidate_indicies {
+	for _ in &candidate_indices {
 		recover_available_data(virtual_overseer).await;
 		fetch_validation_code(virtual_overseer).await;
 	}
 
-	for _ in &candidate_indicies {
+	for _ in &candidate_indices {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::CandidateValidation(CandidateValidationMessage::ValidateFromExhaustive{exec_kind, response_sender, ..}) if exec_kind == PvfExecKind::Approval => {
@@ -3978,7 +4145,7 @@ async fn handle_approval_on_max_wait_time(
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::DistributeApproval(vote)) => {
-			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indicies).unwrap(), vote.candidate_indices);
+			assert_eq!(TryInto::<CandidateBitfield>::try_into(candidate_indices).unwrap(), vote.candidate_indices);
 		}
 	);
 
@@ -4319,7 +4486,7 @@ fn subsystem_relaunches_approval_work_on_restart() {
 		virtual_overseer
 	});
 
-	// Restart a new approval voting subsystem with the same database and major syncing true untill
+	// Restart a new approval voting subsystem with the same database and major syncing true until
 	// the last leaf.
 	let config = HarnessConfigBuilder::default().backend(store_clone).major_syncing(true).build();
 

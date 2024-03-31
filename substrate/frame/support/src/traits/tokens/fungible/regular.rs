@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! `Inspect` and `Mutate` traits for working with regular balances.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use crate::{
 	ensure,

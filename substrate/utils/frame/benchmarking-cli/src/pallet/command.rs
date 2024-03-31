@@ -415,7 +415,7 @@ impl PalletCmd {
 					.map_err(|e| {
 						format!("Error executing and verifying runtime benchmark: {}", e)
 					})?;
-					// Dont use these results since verification code will add overhead.
+					// Don't use these results since verification code will add overhead.
 					let _batch =
 						<std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
 							&mut &result[..],
@@ -437,7 +437,7 @@ impl PalletCmd {
 							&pallet.clone(),
 							&extrinsic.clone(),
 							&selected_components.clone(),
-							false, // dont run verification code for final values
+							false, // don't run verification code for final values
 							self.repeat,
 						)
 							.encode(),
@@ -469,7 +469,7 @@ impl PalletCmd {
 							&pallet.clone(),
 							&extrinsic.clone(),
 							&selected_components.clone(),
-							false, // dont run verification code for final values
+							false, // don't run verification code for final values
 							self.repeat,
 						)
 							.encode(),

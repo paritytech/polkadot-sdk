@@ -176,7 +176,7 @@ impl MultiLocation {
 	}
 
 	/// Consumes `self` and returns a `MultiLocation` suffixed with `new`, or an `Err` with
-	/// theoriginal value of `self` in case of overflow.
+	/// the original value of `self` in case of overflow.
 	pub fn pushed_with_interior(self, new: Junction) -> result::Result<Self, (Self, Junction)> {
 		match self.interior.pushed_with(new) {
 			Ok(i) => Ok(MultiLocation { interior: i, parents: self.parents }),
