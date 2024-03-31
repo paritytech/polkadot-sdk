@@ -547,6 +547,9 @@ impl<T: Config> PoolMember<T> {
 
 	/// Total balance of the member, both active and unbonding.
 	/// Doesn't mutate state.
+	///
+	/// Worst case, iterates over [`TotalUnbondingPools`] member unbonding pools to calculate member
+	/// balance.
 	fn total_balance(&self) -> BalanceOf<T> {
 		let maybe_pool = BondedPool::<T>::get(self.pool_id);
 		if maybe_pool.is_none() {
@@ -2211,9 +2214,13 @@ pub mod pallet {
 		///
 		/// # Note
 		///
-		/// If the target is the depositor, the pool will be destroyed.
+		/// - If the target is the depositor, the pool will be destroyed.
+		/// - If the pool has any pending slash, we also try to slash the member before letting them
+		/// withdraw. This calculation can be expensive and is only defensive. In ideal scenario,
+		/// pool slashes must have been already applied via permissionless [`Call::apply_slash`].
 		#[pallet::call_index(5)]
 		#[pallet::weight(
+		// fixme(ank4n): fix weight taking into account potential slashing.
 			T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)
 		)]
 		pub fn withdraw_unbonded(
@@ -2808,7 +2815,7 @@ pub mod pallet {
 
 		/// Apply a pending slash on a member.
 		#[pallet::call_index(23)]
-		// FIXME(ank4n): fix weight info.
+		// FIXME(ank4n): fix weight. Depends on unbonding pool count for member_account.
 		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
@@ -2915,7 +2922,7 @@ impl<T: Config> Pallet<T> {
 		);
 		// NOTE: Defensively force set balance to zero.
 		T::Currency::set_balance(&reward_account, Zero::zero());
-		// fixme(ank4n): Can't really do this with delegated staking?
+		// With `DelegateStake` strategy, this won't do anything.
 		T::Currency::set_balance(&bonded_pool.bonded_account(), Zero::zero());
 
 		Self::deposit_event(Event::<T>::Destroyed { pool_id: bonded_pool.id });
