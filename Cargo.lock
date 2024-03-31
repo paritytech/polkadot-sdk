@@ -10040,12 +10040,10 @@ dependencies = [
 name = "pallet-identity-migrator"
 version = "7.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal",
- "pallet-balances",
  "pallet-identity",
- "pallet-vesting",
  "parity-scale-codec",
  "scale-info",
  "sp-core",

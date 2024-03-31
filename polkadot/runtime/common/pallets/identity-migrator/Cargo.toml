@@ -19,11 +19,7 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
 pallet-identity = { path = "../../../../../substrate/frame/identity", default-features = false }
-
-[dev-dependencies]
-hex-literal = "0.4.1"
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
-pallet-vesting = { path = "../../../../../substrate/frame/vesting", default-features = false }
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false }
 
 [features]
 default = ["std"]
@@ -36,21 +32,15 @@ std = [
 	"sp-std/std",
 	"sp-runtime/std",
 	"sp-core/std",
-	"pallet-balances/std",
-	"pallet-vesting/std",
 	"pallet-identity/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-vesting/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-vesting/try-runtime",
 	"pallet-identity/try-runtime",
 ]
