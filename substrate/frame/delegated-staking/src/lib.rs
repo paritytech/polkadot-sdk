@@ -17,18 +17,23 @@
 
 //! # Delegated Staking Pallet
 //!
-//! An abstraction over staking pallet to support delegation of funds to a `delegatee` account which
-//! can use all the delegated funds to it in the staking pallet as if its own fund.
+//! This pallet implements [`sp_staking::DelegatedStakeInterface`] that extends [`StakingInterface`]
+//! to support delegation of stake. It consumes [`Config::CoreStaking`] to provide primitive staking
+//! functions and only implements the delegation features.
 //!
-//! NOTE: The pallet exposes some dispatchable calls already, but they might not be fully usable
-//! from outside the runtime. In the current version, the pallet is meant to be used by other
-//! pallets in the same runtime. Eventually though, expect those calls to be functionally complete
-//! and usable by off-chain programs as well as xcm based multi locations.
+//! Currently, it does not expose any dispatchable calls but is written with a vision to expose them
+//! in the future such that it can be utilised by any external account, off-chain entity or xcm
+//! multi location such as a parachain or a smart contract.
 //!
-//! Declaring dispatchable still has the benefit of being transactable for unit tests as well as
-//! aligned with general direction of moving towards a permissionless pallet. For example, we could
-//! clearly signal who is the expected signer of any interaction with this pallet and take into
-//! account any security considerations associated with those interactions.
+//! ## Key Terminologies
+//! - **Agent**: An account who accepts delegations from other accounts and act as an agent on their
+//!   behalf for staking these delegated funds. Also, sometimes referred as `Delegatee`.
+//! - **Delegator**: An account who delegates their funds to an `agent` and authorises them to use
+//!   it for staking.
+//! - **DelegateeLedger**: A data structure that holds important information about the `agent` such
+//!   as total delegations they have received, any slashes posted to them, etc.
+//! - **Delegation**: A data structure that stores the amount of funds delegated to an `agent` by a
+//!   `delegator`.
 //!
 //! ## Goals
 //!
@@ -37,78 +42,64 @@
 //! a very critical limitation that the funds were moved from delegator account to pool account
 //! and hence the delegator lost control over their funds for using it for other purposes such as
 //! governance. This pallet aims to solve this by extending the staking pallet to support a new
-//! primitive function: delegation of funds to an account for the intent of staking.
+//! primitive function: delegation of funds to an `agent` with the intent of staking. The agent can
+//! then stake the delegated funds to [`Config::CoreStaking`] on behalf of the delegators.
 //!
 //! #### Reward and Slashing
 //! This pallet does not enforce any specific strategy for how rewards or slashes are applied. It
-//! is upto the `delegatee` account to decide how to apply the rewards and slashes.
+//! is upto the `agent` account to decide how to apply the rewards and slashes.
 //!
 //! This importantly allows clients of this pallet to build their own strategies for reward/slashes.
-//! For example, a `delegatee` account can choose to first slash the reward pot before slashing the
-//! delegators. Or part of the reward can go to a insurance fund that can be used to cover any
+//! For example, an `agent` account can choose to first slash the reward pot before slashing the
+//! delegators. Or part of the reward can go to an insurance fund that can be used to cover any
 //! potential future slashes. The goal is to eventually allow foreign MultiLocations
 //! (smart contracts or pallets on another chain) to build their own pooled staking solutions
 //! similar to `NominationPools`.
+
+//! ## Core functions
 //!
-//! ## Key Terminologies
-//! - **Delegatee**: An account who accepts delegations from other accounts.
-//! - **Delegator**: An account who delegates their funds to a `delegatee`.
-//! - **DelegateeLedger**: A data structure that stores important information about the `delegatee`
-//!   such as their total delegated stake.
-//! - **Delegation**: A data structure that stores the amount of funds delegated to a `delegatee` by
-//!   a `delegator`.
-//!
-//! ## Interface
-//!
-//! #### Dispatchable Calls
-//! The pallet exposes the following [`Call`]s:
-//! - `register_as_delegatee`: Register an account to be a `delegatee`. Once an account is
-//!   registered as a `delegatee`, for staking operations, only its delegated funds are used. This
-//!   means it cannot use its own free balance to stake.
-//! - `migrate_to_delegate`: This allows a `Nominator` account to become a `delegatee` account.
+//! - Allow an account to receive delegations. See [`Pallet::register_agent`].
+//! - Delegate funds to an `agent` account. See [`Pallet::delegate_to_agent`].
+//! - Release delegated funds from an `agent` account to the `delegator`. See
+//!   [`Pallet::release_delegation`].
+//! - Migrate a `Nominator` account to an `agent` account. See [`Pallet::migrate_to_agent`].
 //!   Explained in more detail in the `Migration` section.
-//! - `release`: Release funds to `delegator` from `unclaimed_withdrawals` register of the
-//!   `delegatee`.
-//! - `migrate_delegation`: Migrate delegated funds from one account to another. This is useful for
-//!   example, delegators to a pool account which has migrated to be `delegatee` to migrate their
-//!   funds from pool account back to their own account and delegated to pool as a `delegator`. Once
-//!   the funds are migrated, the `delegator` can use the funds for other purposes which allows
-//!   usage of held funds in an account, such as governance.
-//! - `delegate_funds`: Delegate funds to a `delegatee` account and update the bond to staking.
-//! - `apply_slash`: If there is a pending slash in `delegatee` ledger, the passed delegator's
-//!   balance is slashed by the amount and the slash is removed from the delegatee ledger.
+//! - Migrate unclaimed delegated funds from `agent` to delegator. When a nominator migrates to an
+//! agent, the funds are held in a proxy account. This function allows the delegator to claim their
+//! share of the funds from the proxy account. See [`Pallet::claim_delegation`].
 //!
 //! #### [Staking Interface](StakingInterface)
 //! This pallet reimplements the staking interface as a wrapper implementation over
-//! [Config::CoreStaking] to provide delegation based staking. NominationPool can use this pallet as
-//! its Staking provider to support delegation based staking from pool accounts.
+//! [Config::CoreStaking] to provide delegation based staking. Concretely, a pallet like
+//! `NominationPools` can switch to this pallet as its Staking provider to support delegation based
+//! staking from pool accounts, allowing its members to lock funds in their own account.
 //!
 //! ## Lazy Slashing
 //! One of the reasons why direct nominators on staking pallet cannot scale well is because all
 //! nominators are slashed at the same time. This is expensive and needs to be bounded operation.
 //!
-//! This pallet implements a lazy slashing mechanism. Any slashes to a `delegatee` are posted in its
+//! This pallet implements a lazy slashing mechanism. Any slashes to the `agent` are posted in its
 //! `DelegateeLedger` as a pending slash. Since the actual amount is held in the multiple
-//! `delegator` accounts, this pallet has no way to know how to apply slash. It is `delegatee`'s
+//! `delegator` accounts, this pallet has no way to know how to apply slash. It is the `agent`'s
 //! responsibility to apply slashes for each delegator, one at a time. Staking pallet ensures the
-//! pending slash never exceeds staked amount and would freeze further withdraws until pending
-//! slashes are applied.
+//! pending slash never exceeds staked amount and would freeze further withdraws until all pending
+//! slashes are cleared.
 //!
 //! The user of this pallet can apply slash using
-//! [StakingInterface::delegator_slash](sp_staking::StakingInterface::delegator_slash).
+//! [DelegatedStakeInterface::delegator_slash](sp_staking::DelegatedStakeInterface::delegator_slash).
 //!
-//! ## Migration from Nominator to Delegatee
+//! ## Migration from Nominator to Agent
 //! More details [here](https://hackmd.io/@ak0n/np-delegated-staking-migration).
 //!
 //! ## Nomination Pool vs Delegation Staking
 //! This pallet is not a replacement for Nomination Pool but adds a new primitive over staking
 //! pallet that can be used by Nomination Pool to support delegation based staking. It can be
-//! thought of as something in middle of Nomination Pool and Staking Pallet. Technically, these
+//! thought of as layer in between of Nomination Pool and Staking Pallet. Technically, these
 //! changes could be made in one of those pallets as well but that would have meant significant
 //! refactoring and high chances of introducing a regression. With this approach, we can keep the
 //! existing pallets with minimal changes and introduce a new pallet that can be optionally used by
-//! Nomination Pool. This is completely configurable and a runtime can choose whether to use
-//! this pallet or not.
+//! Nomination Pool. The vision is to build this in a configurable way such that runtime can choose
+//! whether to use this pallet or not.
 //!
 //! With that said, following is the main difference between
 //! #### Nomination Pool without delegation support
@@ -117,7 +108,7 @@
 //!
 //! #### Nomination Pool with delegation support
 //!  1) delegate fund from delegator to pool account, and
-//!  2) stake from pool account as a `Delegatee` account on the staking pallet.
+//!  2) stake from pool account as an `Agent` account on the staking pallet.
 //!
 //! The difference being, in the second approach, the delegated funds will be locked in-place in
 //! user's account enabling them to participate in use cases that allows use of `held` funds such
@@ -213,7 +204,7 @@ pub mod pallet {
 		NotAllowed,
 		/// An existing staker cannot perform this action.
 		AlreadyStaking,
-		/// Reward Destination cannot be `delegatee` account.
+		/// Reward Destination cannot be same as `Agent` account.
 		InvalidRewardDestination,
 		/// Delegation conditions are not met.
 		///
@@ -223,13 +214,13 @@ pub mod pallet {
 		InvalidDelegation,
 		/// The account does not have enough funds to perform the operation.
 		NotEnoughFunds,
-		/// Not an existing delegatee account.
+		/// Not an existing `Agent` account.
 		NotAgent,
 		/// Not a Delegator account.
 		NotDelegator,
 		/// Some corruption in internal state.
 		BadState,
-		/// Unapplied pending slash restricts operation on `delegatee`.
+		/// Unapplied pending slash restricts operation on `Agent`.
 		UnappliedSlash,
 		/// Failed to withdraw amount from Core Staking.
 		WithdrawFailed,
@@ -249,22 +240,22 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Funds delegated by a delegator.
-		Delegated { delegatee: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		Delegated { agent: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 		/// Funds released to a delegator.
-		Released { delegatee: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		Released { agent: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 		/// Funds slashed from a delegator.
-		Slashed { delegatee: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
+		Slashed { agent: T::AccountId, delegator: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	/// Map of Delegators to their `Delegation`.
 	///
-	/// Implementation note: We are not using a double map with `delegator` and `delegatee` account
+	/// Implementation note: We are not using a double map with `delegator` and `agent` account
 	/// as keys since we want to restrict delegators to delegate only to one account at a time.
 	#[pallet::storage]
 	pub(crate) type Delegators<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, Delegation<T>, OptionQuery>;
 
-	/// Map of `Delegatee` to their `DelegateeLedger`.
+	/// Map of `Agent` to their `Ledger`.
 	#[pallet::storage]
 	pub(crate) type Delegatees<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegateeLedger<T>, OptionQuery>;
@@ -317,7 +308,7 @@ pub mod pallet {
 		/// This function will create a proxy account to the agent called `proxy_delegator` and
 		/// transfer the directly staked amount by the agent to it. The `proxy_delegator` delegates
 		/// the funds to the origin making origin an `Agent` account. The real `delegator`
-		/// accounts of the origin can later migrate their funds using [Self::migrate_delegation] to
+		/// accounts of the origin can later migrate their funds using [Self::claim_delegation] to
 		/// claim back their share of delegated funds from `proxy_delegator` to self.
 		pub fn migrate_to_agent(
 			origin: OriginFor<T>,
@@ -556,7 +547,7 @@ impl<T: Config> Pallet<T> {
 		T::Currency::hold(&HoldReason::Delegating.into(), delegator, amount)?;
 
 		Self::deposit_event(Event::<T>::Delegated {
-			delegatee: delegatee.clone(),
+			agent: delegatee.clone(),
 			delegator: delegator.clone(),
 			amount,
 		});
@@ -608,7 +599,7 @@ impl<T: Config> Pallet<T> {
 		defensive_assert!(released == amount, "hold should have been released fully");
 
 		Self::deposit_event(Event::<T>::Released {
-			delegatee: who.clone(),
+			agent: who.clone(),
 			delegator: delegator.clone(),
 			amount,
 		});
@@ -735,7 +726,7 @@ impl<T: Config> Pallet<T> {
 
 		T::OnSlash::on_unbalanced(credit);
 
-		Self::deposit_event(Event::<T>::Slashed { delegatee: delegatee_acc, delegator, amount });
+		Self::deposit_event(Event::<T>::Slashed { agent: delegatee_acc, delegator, amount });
 
 		Ok(())
 	}
