@@ -257,7 +257,7 @@ pub mod pallet {
 
 	/// Map of `Agent` to their `Ledger`.
 	#[pallet::storage]
-	pub(crate) type Delegatees<T: Config> =
+	pub(crate) type Agents<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, DelegateeLedger<T>, OptionQuery>;
 
 	// This pallet is not currently written with the intention of exposing any calls. But the
@@ -448,7 +448,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Returns true if who is registered as a `Delegatee`.
 	fn is_agent(who: &T::AccountId) -> bool {
-		<Delegatees<T>>::contains_key(who)
+		<Agents<T>>::contains_key(who)
 	}
 
 	/// Returns true if who is delegating to a `Delegatee` account.
@@ -748,7 +748,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// build map to avoid reading storage multiple times.
 		let delegation_map = Delegators::<T>::iter().collect::<BTreeMap<_, _>>();
-		let ledger_map = Delegatees::<T>::iter().collect::<BTreeMap<_, _>>();
+		let ledger_map = Agents::<T>::iter().collect::<BTreeMap<_, _>>();
 
 		Self::check_delegates(ledger_map.clone())?;
 		Self::check_delegators(delegation_map, ledger_map)?;

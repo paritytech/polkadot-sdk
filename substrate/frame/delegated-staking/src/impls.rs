@@ -109,7 +109,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
-		let ledger = <Delegatees<T>>::get(who).ok_or(Error::<T>::NotAgent)?;
+		let ledger = <Agents<T>>::get(who).ok_or(Error::<T>::NotAgent)?;
 		ensure!(ledger.stakeable_balance() >= extra, Error::<T>::NotEnoughFunds);
 
 		T::CoreStaking::bond_extra(who, extra)
@@ -277,7 +277,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		_slashed_unlocking: &sp_std::collections::btree_map::BTreeMap<EraIndex, BalanceOf<T>>,
 		slashed_total: BalanceOf<T>,
 	) {
-		<Delegatees<T>>::mutate(who, |maybe_register| match maybe_register {
+		<Agents<T>>::mutate(who, |maybe_register| match maybe_register {
 			// if delegatee, register the slashed amount as pending slash.
 			Some(register) => register.pending_slash.saturating_accrue(slashed_total),
 			None => {

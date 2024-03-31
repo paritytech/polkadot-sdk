@@ -60,7 +60,7 @@ impl<T: Config> Delegation<T> {
 			.map(|delegation| delegation.delegatee == delegatee.clone())
 			.unwrap_or(
 				// all good if its a new delegator except it should not be an existing delegatee.
-				!<Delegatees<T>>::contains_key(delegator),
+				!<Agents<T>>::contains_key(delegator),
 			)
 	}
 
@@ -128,12 +128,12 @@ impl<T: Config> DelegateeLedger<T> {
 
 	/// Get `DelegateeLedger` from storage.
 	pub(crate) fn get(key: &T::AccountId) -> Option<Self> {
-		<Delegatees<T>>::get(key)
+		<Agents<T>>::get(key)
 	}
 
 	/// Save self to storage with the given key.
 	pub(crate) fn save(self, key: &T::AccountId) {
-		<Delegatees<T>>::insert(key, self)
+		<Agents<T>>::insert(key, self)
 	}
 
 	/// Effective total balance of the `delegatee`.
@@ -280,7 +280,7 @@ impl<T: Config> Delegatee<T> {
 					self.ledger.pending_slash == Zero::zero(),
 				Error::<T>::BadState
 			);
-			<Delegatees<T>>::remove(key);
+			<Agents<T>>::remove(key);
 		} else {
 			self.ledger.save(&key)
 		}
