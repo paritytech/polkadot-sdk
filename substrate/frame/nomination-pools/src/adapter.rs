@@ -78,7 +78,7 @@ pub trait StakeStrategy {
 		Self::CoreStaking::chill(pool_account)
 	}
 
-	/// Pledge `amount` towards staking pool with `pool_id` and update the pool bond. Also see
+	/// Pledge `amount` towards `pool_account` and update the pool bond. Also see
 	/// [`StakingInterface::bond`].
 	fn pledge_bond(
 		who: &Self::AccountId,
