@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1711883842498,
+  "lastUpdate": 1711922497826,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -251,6 +251,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.565722522426661,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "256d5aefdc83928090aa2e3f8c022484fab38e0a",
+          "message": "Revert log level changes (#3913)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/3906",
+          "timestamp": "2024-03-31T20:47:01Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/256d5aefdc83928090aa2e3f8c022484fab38e0a"
+        },
+        "date": 1711922474203,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.16571782401333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.456690761686664,
             "unit": "seconds"
           }
         ]
