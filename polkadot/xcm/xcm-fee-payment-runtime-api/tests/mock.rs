@@ -21,7 +21,7 @@ use codec::Encode;
 use frame_system::{EnsureRoot, RawOrigin as SystemRawOrigin};
 use frame_support::{
     construct_runtime, derive_impl, parameter_types, assert_ok,
-    traits::{Nothing, ConstU32, ConstU128, OriginTrait, ContainsPair, Everything, Equals},
+    traits::{Nothing, ConstU32, OriginTrait, ContainsPair, Everything, Equals},
     weights::WeightToFee as WeightToFeeT,
 };
 use pallet_xcm::TestWeightInfo;
@@ -54,7 +54,7 @@ type Block = sp_runtime::testing::Block<TestXt>;
 type Balance = u128;
 type AccountId = u64;
 
-pub(crate) fn extra() -> SignedExtra {
+pub fn extra() -> SignedExtra {
     (
         frame_system::CheckWeight::new(),
     )
@@ -315,7 +315,8 @@ impl sp_api::ProvideRuntimeApi<Block> for TestClient {
 sp_api::mock_impl_runtime_apis! {
     impl XcmPaymentApi<Block> for RuntimeApi {
         fn query_acceptable_payment_assets(xcm_version: XcmVersion) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-            todo!()
+            if xcm_version != 4 { return Err(XcmPaymentApiError::UnhandledXcmVersion) };
+            Ok(vec![VersionedAssetId::V4(HereLocation::get().into())])
         }
 
         fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -341,15 +342,22 @@ sp_api::mock_impl_runtime_apis! {
     impl XcmDryRunApi<Block> for RuntimeApi {
         fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects, ()> {
             // First we execute the extrinsic to check the queue.
+            // TODO: Not the best rust code out there. More functions could take references instead of ownership.
+            // Should fix on another PR.
             match &extrinsic.call {
                 RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
-                    dest: _dest,
-                    beneficiary: _beneficiary,
+                    dest,
+                    beneficiary,
                     assets,
-                    fee_asset_item: _fee_asset_item,
-                    weight_limit: _weight_limit,
+                    fee_asset_item,
+                    weight_limit,
                 }) => {
                     let assets: Assets = (**assets).clone().try_into()?;
+                    let dest: Location = (**dest).clone().try_into()?;
+                    let beneficiary: Location = (**beneficiary).clone().try_into()?;
+                    let fee_asset_item = *fee_asset_item as usize;
+                    let weight_limit = weight_limit.clone();
+                    let who = extrinsic.signature.as_ref().ok_or(())?.0; // TODO: Handle errors
                     assert_ok!(Executive::apply_extrinsic(extrinsic)); // Asserting just because it's for tests.
                     let forwarded_messages = sent_xcm()
                         .into_iter()
@@ -357,13 +365,42 @@ sp_api::mock_impl_runtime_apis! {
                             VersionedLocation::V4(location),
                             VersionedXcm::V4(message)
                         )).collect();
+                    let (fees_transfer_type, assets_transfer_type) =
+                        XcmPallet::find_fee_and_assets_transfer_types(assets.inner(), fee_asset_item, &dest)
+                            .map_err(|error| {
+                                log::error!("Couldn't determinte the transfer type. Error: {:?}", error);
+                                ()
+                            })?;
+                    let origin_location: Location = AccountIndex64 { index: who.clone(), network: None }.into();
+                    let fees = assets.get(fee_asset_item).ok_or(())?; // TODO: Handle errors
+                    let fees_handling = XcmPallet::find_fees_handling(
+                        origin_location.clone(),
+                        dest.clone(),
+                        &fees_transfer_type,
+                        &assets_transfer_type,
+                        assets.inner().to_vec(),
+                        fees.clone(),
+                        &weight_limit,
+                        fee_asset_item,
+                    ).map_err(|error| {
+                        log::error!("Unable to handle fees. Error: {:?}", error);
+                        () // TODO: Handle errors.
+                    })?;
+                    let (local_xcm, _) = XcmPallet::build_xcm_transfer_type(
+                        origin_location,
+                        dest,
+                        beneficiary,
+                        assets.into_inner(),
+                        assets_transfer_type,
+                        fees_handling,
+                        weight_limit,
+                    ).map_err(|error| {
+                        log::error!("Unable to construct local XCM program. Error: {:?}", error);
+                        () // TODO: Handle errors.
+                    })?;
+                    let local_xcm: Xcm<()> = local_xcm.into();
                     Ok(XcmDryRunEffects {
-                        local_program: VersionedXcm::V4(
-                            Xcm::builder_unsafe()
-                                .withdraw_asset(assets.clone())
-                                .burn_asset(assets)
-                                .build()
-                            ),
+                        local_program: VersionedXcm::<()>::V4(local_xcm),
                         forwarded_messages,
                     })
                 },

@@ -68,9 +68,9 @@ fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
                     VersionedLocation::V4(Location::new(1, [Parachain(1000)])),
                     VersionedXcm::V4(
                         Xcm::<()>::builder_unsafe()
-                            .receive_teleported_asset(([Parent, Parachain(2000)], 100u128).into())
+                            .receive_teleported_asset(((Parent, Parachain(2000)), 100u128).into())
                             .clear_origin()
-                            .buy_execution((Parent, Parachain(2000), 100u128).into())
+                            .buy_execution(((Parent, Parachain(2000)), 100u128).into(), Unlimited)
                             .deposit_asset(AllCounted(1).into(), AccountId32 { id: [0u8; 32], network: None }.into())
                             .build()
                     )
@@ -94,7 +94,7 @@ fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
             weight,
             VersionedAssetId::V4(HereLocation::get().into())
         ).unwrap().unwrap();
-        assert_eq!(execution_fees, 2_000_002_097_152);
+        assert_eq!(execution_fees, 220);
 
         let mut forwarded_messages_iter = dry_run_effects.forwarded_messages.into_iter();
 
@@ -105,7 +105,7 @@ fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
             destination.clone(),
             remote_message.clone(),
         ).unwrap().unwrap();
-        assert_eq!(delivery_fees, VersionedAssets::V4((Here, 100u128).into()));
+        assert_eq!(delivery_fees, VersionedAssets::V4((Here, 20u128).into()));
 
         // TODO: This would have to be the runtime API of the destination,
         // which we have the location for.
@@ -120,7 +120,7 @@ fn can_get_both_execution_and_delivery_fees_for_a_transfer() {
             remote_execution_weight,
             VersionedAssetId::V4(HereLocation::get().into()),
         ).unwrap().unwrap();
-        assert_eq!(remote_execution_fees, 100u128);
+        assert_eq!(remote_execution_fees, 440u128);
 
         // Now we know that locally we need to use `execution_fees` and
         // `delivery_fees`.
