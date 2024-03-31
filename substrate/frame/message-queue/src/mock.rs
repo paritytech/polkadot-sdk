@@ -56,6 +56,7 @@ impl Config for Test {
 	type HeapSize = HeapSize;
 	type MaxStale = MaxStale;
 	type ServiceWeight = ServiceWeight;
+	type IdleMaxServiceWeight = ServiceWeight;
 }
 
 /// Mocked `WeightInfo` impl with allows to set the weight per call.
