@@ -623,7 +623,7 @@ mod pool_integration {
 			// let a bunch of delegators join this pool
 			for i in 301..350 {
 				fund(&i, 500);
-				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), (100 + i).into(), pool_id));
+				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), (100 + i), pool_id));
 				staked_amount += 100 + i;
 				assert_eq!(held_balance(&i), 100 + i);
 			}
@@ -892,10 +892,10 @@ mod pool_integration {
 			);
 
 			// Make sure all data is cleaned up.
-			assert_eq!(Agents::<T>::contains_key(Pools::create_bonded_account(pool_id)), false);
-			assert_eq!(Delegators::<T>::contains_key(creator), false);
+			assert!(!Agents::<T>::contains_key(Pools::create_bonded_account(pool_id)));
+			assert!(!Delegators::<T>::contains_key(creator));
 			for i in 300..310 {
-				assert_eq!(Delegators::<T>::contains_key(i), false);
+				assert!(!Delegators::<T>::contains_key(i));
 			}
 		});
 	}
