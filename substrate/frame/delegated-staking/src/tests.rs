@@ -623,7 +623,7 @@ mod pool_integration {
 			// let a bunch of delegators join this pool
 			for i in 301..350 {
 				fund(&i, 500);
-				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), (100 + i), pool_id));
+				assert_ok!(Pools::join(RawOrigin::Signed(i).into(), 100 + i, pool_id));
 				staked_amount += 100 + i;
 				assert_eq!(held_balance(&i), 100 + i);
 			}
