@@ -18,12 +18,7 @@
 
 use crate as identity_migrator;
 
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, },
-	weights::Weight,
-
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::Weight};
 use frame_system::EnsureRoot;
 use pallet_identity::{self, legacy::IdentityInfo};
 use sp_core::H256;
