@@ -25,6 +25,8 @@
 //! After the migration is complete, the pallet may be removed from both chains' runtimes as well as
 //! the `polkadot-runtime-common` crate.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use frame_support::{dispatch::DispatchResult, traits::Currency, weights::Weight};
 pub use pallet::*;
 use pallet_identity;
