@@ -23,7 +23,6 @@ pub mod auctions;
 pub mod claims;
 pub mod crowdloan;
 pub mod elections;
-pub mod identity_migrator;
 pub mod impls;
 pub mod paras_registrar;
 pub mod paras_sudo_wrapper;
@@ -62,6 +61,8 @@ pub use sp_runtime::BuildStorage;
 
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub use impls::ToAuthor;
+
+pub use pallet_identity_migrator as identity_migrator;
 
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
 	<T as frame_system::Config>::AccountId,
