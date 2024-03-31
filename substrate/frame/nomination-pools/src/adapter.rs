@@ -74,6 +74,9 @@ pub trait StakeStrategy {
 		amount: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn nominations(_: PoolId) -> Option<Vec<Self::AccountId>>;
 }
 
 /// A staking strategy implementation that supports transfer based staking.
@@ -186,6 +189,12 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	) -> DispatchResult {
 		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn nominations(pool: PoolId) -> Option<Vec<Self::AccountId>> {
+		let pool_account = Pallet::<T>::create_bonded_account(pool);
+		Staking::nominations(&pool_account)
+	}
 }
 
 /// A staking strategy implementation that supports delegation based staking.
@@ -297,5 +306,11 @@ impl<
 	) -> DispatchResult {
 		let pool_account = Pallet::<T>::create_bonded_account(pool);
 		Staking::delegator_slash(&pool_account, who, amount, maybe_reporter)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn nominations(pool: PoolId) -> Option<Vec<Self::AccountId>> {
+		let pool_account = Pallet::<T>::create_bonded_account(pool);
+		Staking::nominations(&pool_account)
 	}
 }
