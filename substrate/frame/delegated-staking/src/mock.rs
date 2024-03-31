@@ -132,7 +132,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type MaxControllersInDeprecationBatch = ConstU32<100>;
-	type EventListeners = DelegatedStaking;
+	type EventListeners = (Pools, DelegatedStaking);
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
 }
@@ -164,6 +164,22 @@ impl Convert<U256, Balance> for U256ToBalance {
 
 parameter_types! {
 	pub static MaxUnbonding: u32 = 8;
+	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
+}
+impl pallet_nomination_pools::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RewardCounter = sp_runtime::FixedU128;
+	type BalanceToU256 = BalanceToU256;
+	type U256ToBalance = U256ToBalance;
+	type PostUnbondingPoolsWindow = ConstU32<2>;
+	type PalletId = PoolsPalletId;
+	type MaxMetadataLen = ConstU32<256>;
+	type MaxUnbonding = MaxUnbonding;
+	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
+	type StakeAdapter = pallet_nomination_pools::adapter::DelegateStake<Self, DelegatedStaking>;
 }
 
 frame_support::construct_runtime!(
@@ -172,6 +188,7 @@ frame_support::construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
 		Staking: pallet_staking,
+		Pools: pallet_nomination_pools,
 		DelegatedStaking: delegated_staking,
 	}
 );
@@ -298,16 +315,24 @@ pub(crate) fn get_agent(agent: &AccountId) -> Agent<T> {
 	Agent::<T>::from(agent).expect("delegate should exist")
 }
 
-#[allow(unused)]
 pub(crate) fn held_balance(who: &AccountId) -> Balance {
 	Balances::balance_on_hold(&HoldReason::Delegating.into(), who)
 }
 
 parameter_types! {
 	static ObservedEventsDelegatedStaking: usize = 0;
+	static ObservedEventsPools: usize = 0;
 }
-
-#[allow(unused)]
+pub(crate) fn pool_events_since_last_call() -> Vec<pallet_nomination_pools::Event<Runtime>> {
+	let events = System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(|e| if let RuntimeEvent::Pools(inner) = e { Some(inner) } else { None })
+		.collect::<Vec<_>>();
+	let already_seen = ObservedEventsPools::get();
+	ObservedEventsPools::set(events.len());
+	events.into_iter().skip(already_seen).collect()
+}
 pub(crate) fn events_since_last_call() -> Vec<crate::Event<Runtime>> {
 	let events = System::events()
 		.into_iter()
