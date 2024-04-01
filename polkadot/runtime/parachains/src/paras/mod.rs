@@ -1691,7 +1691,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		match upgrade_strategy {
-			UpgradeStrategy::SetGoAheadSignal => {
+			UpgradeStrategy::ApplyAtExpectedBlock => {
 				FutureCodeUpgradesAt::<T>::mutate(|future_upgrades| {
 					let insert_idx = future_upgrades
 						.binary_search_by_key(&expected_at, |&(_, b)| b)
@@ -1701,7 +1701,7 @@ impl<T: Config> Pallet<T> {
 
 				weight += T::DbWeight::get().reads_writes(0, 2);
 			},
-			UpgradeStrategy::ApplyAtExpectedBlock => {
+			UpgradeStrategy::SetGoAheadSignal => {
 				FutureCodeUpgrades::<T>::insert(&id, expected_at);
 
 				UpcomingUpgrades::<T>::mutate(|upcoming_upgrades| {

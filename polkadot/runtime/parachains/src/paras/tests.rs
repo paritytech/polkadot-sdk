@@ -574,11 +574,13 @@ fn upgrade_strategy_apply_at_expected_block_works() {
 		);
 		// Include votes for super-majority.
 		submit_super_majority_pvf_votes(&new_code, EXPECTED_SESSION, true);
+		assert!(FutureCodeUpgradesAt::<Test>::get().iter().any(|(id, _)| *id == para_id));
 
 		run_to_block(expected_at + 1, None);
 		assert_eq!(Paras::past_code_meta(&para_id).most_recent_change(), Some(expected_at));
 		assert_eq!(PastCodeHash::<Test>::get(&(para_id, expected_at)), Some(original_code.hash()));
 		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
+		assert!(FutureCodeUpgradesAt::<Test>::get().iter().all(|(id, _)| *id != para_id));
 		assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
 		assert!(UpgradeGoAheadSignal::<Test>::get(&para_id).is_none());
 		assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
