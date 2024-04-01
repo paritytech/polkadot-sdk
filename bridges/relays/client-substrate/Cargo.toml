@@ -19,7 +19,7 @@ log = { workspace = true }
 num-traits = "0.2"
 rand = "0.8"
 scale-info = { version = "2.11.1", features = ["derive"] }
-tokio = { version = "1.36", features = ["rt-multi-thread"] }
+tokio = { version = "1.37", features = ["rt-multi-thread"] }
 thiserror = { workspace = true }
 
 # Bridge dependencies
