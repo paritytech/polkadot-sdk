@@ -563,10 +563,12 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 	activated: &ActivatedLeaf,
 	leaf_mode: ProspectiveParachainsMode,
 ) -> JfyiErrorResult<()> {
-	let seconding_limit = match leaf_mode {
+	let max_candidate_depth = match leaf_mode {
 		ProspectiveParachainsMode::Disabled => return Ok(()),
-		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth + 1,
+		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth,
 	};
+
+	let seconding_limit = max_candidate_depth + 1;
 
 	state
 		.implicit_view
@@ -701,7 +703,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			&availability_cores,
 			&group_rotation_info,
 			&maybe_claim_queue,
-			seconding_limit - 1,
+			max_candidate_depth,
 		);
 		state.per_relay_parent.insert(
 			new_relay_parent,
