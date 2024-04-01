@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712007151289,
+  "lastUpdate": 1712014507553,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -727,6 +727,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14830757186666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn",
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "52e103784945997cb3808cdfaaf72c468f8fc938",
+          "message": "`im-online` removal final cleanup (#3902)\n\nRejoice! Rejoice! The story is nearly over.\n\nThis PR removes stale migrations, auxiliary structures, and package\ndependencies, thus making Rococo and Westend totally free from any\n`im-online`-related stuff.\n\n`im-online` still stays a part of the Substrate node and its runtime:\nhttps://github.com/paritytech/polkadot-sdk/blob/0d9324847391e902bb42f84f0e76096b1f764efe/substrate/bin/node/runtime/src/lib.rs#L2276-L2277\nI'm not sure if it makes sense to remove it from there considering that\nwe're not removing `im-online` from FRAME. Please share your opinion.",
+          "timestamp": "2024-04-01T21:40:38Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/52e103784945997cb3808cdfaaf72c468f8fc938"
+        },
+        "date": 1712014483371,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15032764911333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02614782939333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01195878642,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00985203142666667,
             "unit": "seconds"
           }
         ]
