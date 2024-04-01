@@ -1367,8 +1367,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1220" id="1220">1220</a>
 <a href="#1221" id="1221">1221</a>
 <a href="#1222" id="1222">1222</a>
-<a href="#1223" id="1223">1223</a>
-<a href="#1224" id="1224">1224</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1413,16 +1411,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ValidationResult,
 };
 <span class="kw">use </span>polkadot_primitives::{
-	async_backing, slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
-	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreIndex, CoreState,
-	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData,
-	Header <span class="kw">as </span>BlockHeader, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
-	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateIndex, CandidateReceipt, CollatorId,
+	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, HeadData, Header <span class="kw">as </span>BlockHeader, Id <span class="kw">as </span>ParaId, InboundDownwardMessage,
+	InboundHrmpMessage, MultiDisputeStatementSet, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex, SessionInfo,
+	SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 <span class="kw">use </span>polkadot_statement_table::v2::Misbehavior;
 <span class="kw">use </span>std::{

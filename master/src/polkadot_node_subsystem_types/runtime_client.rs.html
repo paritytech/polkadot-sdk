@@ -808,10 +808,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -830,16 +826,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>polkadot_primitives::{
-	async_backing,
-	runtime_api::ParachainHost,
-	slashing,
-	vstaging::{<span class="self">self</span>, ApprovalVotingParams},
-	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, runtime_api::ParachainHost, slashing, ApprovalVotingParams, Block, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 <span class="kw">use </span>sc_client_api::{AuxStore, HeaderBackend};
 <span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -1138,7 +1130,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// === v9 ===
 	</span><span class="doccomment">/// Get the node features.
-	</span><span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;vstaging::NodeFeatures, ApiError&gt;;
+	</span><span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;NodeFeatures, ApiError&gt;;
 
 	<span class="comment">// == v10: Approval voting params ==
 	</span><span class="doccomment">/// Approval voting configuration parameters
@@ -1400,7 +1392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.client.runtime_api().async_backing_params(at)
 	}
 
-	<span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;vstaging::NodeFeatures, ApiError&gt; {
+	<span class="kw">async fn </span>node_features(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;NodeFeatures, ApiError&gt; {
 		<span class="self">self</span>.client.runtime_api().node_features(at)
 	}
 

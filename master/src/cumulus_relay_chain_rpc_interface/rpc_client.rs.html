@@ -870,7 +870,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -905,13 +904,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
-		slashing,
-		vstaging::{ApprovalVotingParams, NodeFeatures},
-		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-		GroupRotationInfo, Hash <span class="kw">as </span>RelayHash, Header <span class="kw">as </span>RelayHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-		ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+		CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+		ExecutorParams, GroupRotationInfo, Hash <span class="kw">as </span>RelayHash, Header <span class="kw">as </span>RelayHeader,
+		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement,
+		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+		ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };

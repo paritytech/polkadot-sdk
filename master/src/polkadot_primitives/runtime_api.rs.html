@@ -437,8 +437,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -555,13 +553,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! separated from the stable primitives.
 
 </span><span class="kw">use crate</span>::{
-	async_backing, slashing,
-	vstaging::{<span class="self">self</span>, ApprovalVotingParams},
-	AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, slashing, ApprovalVotingParams, AsyncBackingParams, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 <span class="kw">use </span>polkadot_core_primitives <span class="kw">as </span>pcp;
@@ -720,7 +716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="doccomment">/// Get node features.
 		/// This is a staging method! Do not use on production runtimes!
 		</span><span class="attr">#[api_version(<span class="number">9</span>)]
-		</span><span class="kw">fn </span>node_features() -&gt; vstaging::NodeFeatures;
+		</span><span class="kw">fn </span>node_features() -&gt; NodeFeatures;
 
 		<span class="comment">/***** Added in v10 *****/
 		</span><span class="doccomment">/// Approval voting configuration parameters

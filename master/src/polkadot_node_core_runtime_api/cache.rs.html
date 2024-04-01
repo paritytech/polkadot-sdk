@@ -739,11 +739,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
 <a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
-<a href="#596" id="596">596</a>
-<a href="#597" id="597">597</a>
-<a href="#598" id="598">598</a>
-<a href="#599" id="599">599</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -766,14 +761,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_consensus_babe::Epoch;
 
 <span class="kw">use </span>polkadot_primitives::{
-	async_backing, slashing,
-	vstaging::{<span class="self">self</span>, ApprovalVotingParams},
-	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 <span class="doccomment">/// For consistency we have the same capacity for all caches. We use 128 as we&#39;ll only need that
@@ -815,7 +808,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	disabled_validators: LruMap&lt;Hash, Vec&lt;ValidatorIndex&gt;&gt;,
 	para_backing_state: LruMap&lt;(Hash, ParaId), <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;&gt;,
 	async_backing_params: LruMap&lt;Hash, async_backing::AsyncBackingParams&gt;,
-	node_features: LruMap&lt;SessionIndex, vstaging::NodeFeatures&gt;,
+	node_features: LruMap&lt;SessionIndex, NodeFeatures&gt;,
 	approval_voting_params: LruMap&lt;SessionIndex, ApprovalVotingParams&gt;,
 	claim_queue: LruMap&lt;Hash, BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;&gt;,
 }
@@ -1200,17 +1193,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>node_features(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		session_index: SessionIndex,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>vstaging::NodeFeatures&gt; {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>node_features(<span class="kw-2">&amp;mut </span><span class="self">self</span>, session_index: SessionIndex) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>NodeFeatures&gt; {
 		<span class="self">self</span>.node_features.get(<span class="kw-2">&amp;</span>session_index).map(|f| <span class="kw-2">&amp;*</span>f)
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cache_node_features(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		session_index: SessionIndex,
-		features: vstaging::NodeFeatures,
+		features: NodeFeatures,
 	) {
 		<span class="self">self</span>.node_features.insert(session_index, features);
 	}
@@ -1340,7 +1330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DisabledValidators(Hash, Vec&lt;ValidatorIndex&gt;),
 	ParaBackingState(Hash, ParaId, <span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
-	NodeFeatures(SessionIndex, vstaging::NodeFeatures),
+	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;),
 }
 </code></pre></div></section></main></body></html>

@@ -725,7 +725,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
-<a href="#581" id="581">581</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -758,12 +757,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_node_subsystem_types::UnpinHandle;
 <span class="kw">use </span>polkadot_primitives::{
-	slashing,
-	vstaging::{node_features::FeatureIndex, NodeFeatures},
-	AsyncBackingParams, CandidateEvent, CandidateHash, CoreState, EncodeAs, ExecutorParams,
-	GroupIndex, GroupRotationInfo, Hash, IndexedVec, OccupiedCore, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, Signed, SigningContext, UncheckedSigned, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features::FeatureIndex, slashing, AsyncBackingParams, CandidateEvent, CandidateHash,
+	CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, IndexedVec,
+	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, LEGACY_MIN_BACKING_VOTES,
 };
 
 <span class="kw">use crate</span>::{

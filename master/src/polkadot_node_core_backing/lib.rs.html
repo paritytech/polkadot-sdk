@@ -2428,7 +2428,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2281" id="2281">2281</a>
 <a href="#2282" id="2282">2282</a>
 <a href="#2283" id="2283">2283</a>
-<a href="#2284" id="2284">2284</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2536,12 +2535,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Validator,
 };
 <span class="kw">use </span>polkadot_primitives::{
-	vstaging::{node_features::FeatureIndex, NodeFeatures},
-	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id <span class="kw">as </span>ParaId, IndexedVec, PersistedValidationData, PvfExecKind, SessionIndex,
-	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
-	ValidityAttestation,
+	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
+	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
+	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
+	ValidatorSignature, ValidityAttestation,
 };
 <span class="kw">use </span>sp_keystore::KeystorePtr;
 <span class="kw">use </span>statement_table::{

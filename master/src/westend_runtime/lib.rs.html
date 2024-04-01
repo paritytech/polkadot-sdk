@@ -2893,10 +2893,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2746" id="2746">2746</a>
 <a href="#2747" id="2747">2747</a>
 <a href="#2748" id="2748">2748</a>
-<a href="#2749" id="2749">2749</a>
-<a href="#2750" id="2750">2750</a>
-<a href="#2751" id="2751">2751</a>
-<a href="#2752" id="2752">2752</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2944,14 +2940,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>primitives::{
-	slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
-	Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
+	slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateEvent,
+	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
+	GroupRotationInfo, Hash, Id <span class="kw">as </span>ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment,
+	NodeFeatures, Nonce, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
 };
 <span class="kw">use </span>runtime_common::{
 	assigned_slots, auctions, crowdloan,
@@ -2974,9 +2968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	initializer <span class="kw">as </span>parachains_initializer, origin <span class="kw">as </span>parachains_origin, paras <span class="kw">as </span>parachains_paras,
 	paras_inherent <span class="kw">as </span>parachains_paras_inherent, reward_points <span class="kw">as </span>parachains_reward_points,
-	runtime_api_impl::{
-		v7 <span class="kw">as </span>parachains_runtime_api_impl, vstaging <span class="kw">as </span>parachains_staging_runtime_api_impl,
-	},
+	runtime_api_impl::v10 <span class="kw">as </span>parachains_runtime_api_impl,
 	scheduler <span class="kw">as </span>parachains_scheduler, session_info <span class="kw">as </span>parachains_session_info,
 	shared <span class="kw">as </span>parachains_shared,
 };
@@ -4979,15 +4971,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>approval_voting_params() -&gt; ApprovalVotingParams {
-			parachains_staging_runtime_api_impl::approval_voting_params::&lt;Runtime&gt;()
+			parachains_runtime_api_impl::approval_voting_params::&lt;Runtime&gt;()
 		}
 
 		<span class="kw">fn </span>disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt; {
-			parachains_staging_runtime_api_impl::disabled_validators::&lt;Runtime&gt;()
+			parachains_runtime_api_impl::disabled_validators::&lt;Runtime&gt;()
 		}
 
 		<span class="kw">fn </span>node_features() -&gt; NodeFeatures {
-			parachains_staging_runtime_api_impl::node_features::&lt;Runtime&gt;()
+			parachains_runtime_api_impl::node_features::&lt;Runtime&gt;()
 		}
 	}
 

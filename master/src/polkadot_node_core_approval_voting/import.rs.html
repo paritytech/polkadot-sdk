@@ -1704,8 +1704,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::{determine_new_blocks, runtime::RuntimeInfo};
 <span class="kw">use </span>polkadot_primitives::{
-	vstaging::node_features, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt,
-	ConsensusLog, CoreIndex, GroupIndex, Hash, Header, SessionIndex,
+	node_features, BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ConsensusLog,
+	CoreIndex, GroupIndex, Hash, Header, SessionIndex,
 };
 <span class="kw">use </span>sc_keystore::LocalKeystore;
 <span class="kw">use </span>sp_consensus_slots::Slot;
@@ -2278,8 +2278,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>polkadot_node_subsystem_test_helpers::make_subsystem_context;
 	<span class="kw">use </span>polkadot_node_subsystem_util::database::Database;
 	<span class="kw">use </span>polkadot_primitives::{
-		vstaging::{node_features::FeatureIndex, NodeFeatures},
-		ExecutorParams, Id <span class="kw">as </span>ParaId, IndexedVec, SessionInfo, ValidatorId, ValidatorIndex,
+		node_features::FeatureIndex, ExecutorParams, Id <span class="kw">as </span>ParaId, IndexedVec, NodeFeatures,
+		SessionInfo, ValidatorId, ValidatorIndex,
 	};
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sp_consensus_babe::{
 		digests::{CompatibleDigestItem, PreDigest, SecondaryVRFPreDigest},

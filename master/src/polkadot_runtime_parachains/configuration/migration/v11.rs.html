@@ -582,7 +582,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -607,14 +606,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>primitives::{
-	vstaging::ApprovalVotingParams, AsyncBackingParams, ExecutorParams, SessionIndex,
+	ApprovalVotingParams, AsyncBackingParams, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 <span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">use </span>frame_support::traits::OnRuntimeUpgrade;
 <span class="kw">use </span>polkadot_core_primitives::Balance;
-<span class="kw">use </span>primitives::vstaging::NodeFeatures;
 <span class="kw">use </span>sp_arithmetic::Perbill;
 
 <span class="kw">use </span><span class="kw">super</span>::v10::V10HostConfiguration;
