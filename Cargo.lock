@@ -4049,7 +4049,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
- "docify 0.2.7",
+ "docify",
  "frame-support",
  "frame-system",
  "log",
@@ -4730,47 +4730,21 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "docify"
-version = "0.1.16"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af1b04e6ef3d21119d3eb7b032bca17f99fe041e9c072f30f32cc0e1a2b1f3c4"
+checksum = "43a2f138ad521dc4a2ced1a4576148a6a610b4c5923933b062a263130a6802ce"
 dependencies = [
- "docify_macros 0.1.16",
-]
-
-[[package]]
-name = "docify"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cc4fd38aaa9fb98ac70794c82a00360d1e165a87fbf96a8a91f9dfc602aaee2"
-dependencies = [
- "docify_macros 0.2.7",
+ "docify_macros",
 ]
 
 [[package]]
 name = "docify_macros"
-version = "0.1.16"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b5610df7f2acf89a1bb5d1a66ae56b1c7fcdcfe3948856fb3ace3f644d70eb7"
+checksum = "1a081e51fb188742f5a7a1164ad752121abcb22874b21e2c3b0dd040c515fdad"
 dependencies = [
  "common-path",
- "derive-syn-parse 0.1.5",
- "lazy_static",
- "proc-macro2",
- "quote",
- "regex",
- "syn 2.0.53",
- "termcolor",
- "walkdir",
-]
-
-[[package]]
-name = "docify_macros"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63fa215f3a0d40fb2a221b3aa90d8e1fbb8379785a990cb60d62ac71ebdc6460"
-dependencies = [
- "common-path",
- "derive-syn-parse 0.1.5",
+ "derive-syn-parse 0.2.0",
  "once_cell",
  "proc-macro2",
  "quote",
@@ -5466,7 +5440,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 name = "frame"
 version = "0.0.1-dev"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -5695,7 +5669,7 @@ dependencies = [
  "array-bytes 6.1.0",
  "assert_matches",
  "bitflags 1.3.2",
- "docify 0.2.7",
+ "docify",
  "environmental",
  "frame-metadata",
  "frame-support-procedural",
@@ -5839,7 +5813,7 @@ version = "28.0.0"
 dependencies = [
  "cfg-if",
  "criterion 0.4.0",
- "docify 0.2.7",
+ "docify",
  "frame-support",
  "log",
  "parity-scale-codec",
@@ -9228,7 +9202,7 @@ name = "pallet-bags-list"
 version = "27.0.0"
 dependencies = [
  "aquamarine 0.5.0",
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -9276,7 +9250,7 @@ dependencies = [
 name = "pallet-balances"
 version = "28.0.0"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -9895,7 +9869,7 @@ dependencies = [
 name = "pallet-example-single-block-migrations"
 version = "0.0.1"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -9961,7 +9935,7 @@ dependencies = [
 name = "pallet-fast-unstake"
 version = "27.0.0"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -10162,7 +10136,7 @@ dependencies = [
 name = "pallet-migrations"
 version = "1.0.0"
 dependencies = [
- "docify 0.1.16",
+ "docify",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -10466,7 +10440,7 @@ dependencies = [
 name = "pallet-paged-list"
 version = "0.6.0"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10508,7 +10482,7 @@ dependencies = [
 name = "pallet-parameters"
 version = "0.0.1"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10669,7 +10643,7 @@ dependencies = [
 name = "pallet-safe-mode"
 version = "9.0.0"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10726,7 +10700,7 @@ dependencies = [
 name = "pallet-scheduler"
 version = "29.0.0"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10939,7 +10913,7 @@ dependencies = [
 name = "pallet-sudo"
 version = "28.0.0"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -10969,7 +10943,7 @@ dependencies = [
 name = "pallet-timestamp"
 version = "27.0.0"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11073,7 +11047,7 @@ dependencies = [
 name = "pallet-treasury"
 version = "27.0.0"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11093,7 +11067,7 @@ dependencies = [
 name = "pallet-tx-pause"
 version = "9.0.0"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -13382,7 +13356,7 @@ version = "0.0.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
- "docify 0.2.7",
+ "docify",
  "frame",
  "frame-executive",
  "frame-support",
@@ -15646,7 +15620,7 @@ name = "sc-chain-spec"
 version = "27.0.0"
 dependencies = [
  "array-bytes 6.1.0",
- "docify 0.2.7",
+ "docify",
  "log",
  "memmap2 0.9.3",
  "parity-scale-codec",
@@ -18423,7 +18397,7 @@ name = "sp-arithmetic"
 version = "23.0.0"
 dependencies = [
  "criterion 0.4.0",
- "docify 0.2.7",
+ "docify",
  "integer-sqrt",
  "num-traits",
  "parity-scale-codec",
@@ -18973,7 +18947,7 @@ dependencies = [
 name = "sp-runtime"
 version = "31.0.1"
 dependencies = [
- "docify 0.2.7",
+ "docify",
  "either",
  "hash256-std-hasher",
  "impl-trait-for-tuples",
