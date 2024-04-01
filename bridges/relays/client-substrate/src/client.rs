@@ -264,12 +264,22 @@ impl<C: Chain> Client<C> {
 		params: &ConnectionParams,
 	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<RpcClient>)> {
 		let tokio = tokio::runtime::Runtime::new()?;
-		let uri = format!(
-			"{}://{}:{}",
-			if params.secure { "wss" } else { "ws" },
-			params.host,
-			params.port,
-		);
+
+		let uri = match params.uri {
+			Some(ref uri) => uri.clone(),
+			None => {
+				format!(
+					"{}://{}:{}{}",
+					if params.secure { "wss" } else { "ws" },
+					params.host,
+					params.port,
+					match params.path {
+						Some(ref path) => format!("/{}", path),
+						None => String::new(),
+					},
+				)
+			},
+		};
 		log::info!(target: "bridge", "Connecting to {} node at {}", C::NAME, uri);
 
 		let client = tokio
