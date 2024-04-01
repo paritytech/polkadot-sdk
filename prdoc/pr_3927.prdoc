@@ -1,9 +1,6 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
-
 title: "pallet-xcm: deprecate transfer extrinsics without weight limit"
 
-+doc:
+doc:
   - audience: Runtime Dev
     description: |
       pallet-xcm's extrinsics `teleport_assets` and `reserve_transfer_assets` have been
@@ -13,3 +10,4 @@ title: "pallet-xcm: deprecate transfer extrinsics without weight limit"
 
 crates:
 - name: pallet-xcm
+  bump: minor
