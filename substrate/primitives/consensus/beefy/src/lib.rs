@@ -178,7 +178,7 @@ pub mod bls_crypto {
 ///
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
-#[cfg(feature = "bls-experimental")]
+#[cfg(all(feature = "bls-experimental"))]
 pub mod ecdsa_bls_crypto {
 	use super::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa_bls377};
@@ -200,16 +200,23 @@ pub mod ecdsa_bls_crypto {
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
 			// We can not simply call
 			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
-			// because that invokes ECDSA default verification which performs Blake2b hash
+			// because that invokes ECDSA default verification which perfoms Blake2b hash
 			// which we don't want. This is because ECDSA signatures are meant to be verified
 			// on Ethereum network where Keccak hasher is significantly cheaper than Blake2b.
 			// See Figure 3 of [OnSc21](https://www.scitepress.org/Papers/2021/106066/106066.pdf)
 			// for comparison.
-			EcdsaBlsPair::verify_with_hasher::<H>(
-				signature.as_inner_ref(),
-				msg,
-				self.as_inner_ref(),
-			)
+
+			// TODO: I'm not actually using this currently, just doing this so it will compile..
+			false
+			// EcdsaBlsPair::verify::<H>(
+			// 	signature.as_inner_ref(),
+			// 	msg,
+			// )
+			// EcdsaBlsPair::verify_with_hasher::<H>(
+			// 	signature.as_inner_ref(),
+			// 	msg,
+			// 	self.as_inner_ref(),
+			// )
 		}
 	}
 
@@ -456,6 +463,12 @@ sp_api::decl_runtime_apis! {
 			set_id: ValidatorSetId,
 			authority_id: AuthorityId,
 		) -> Option<OpaqueKeyOwnershipProof>;
+
+		/// TODO
+		// fn submit_report_commitment_unsigned_extrinsic(value: u8) -> Option<()>;
+
+		#[cfg(feature = "etf")]
+		fn read_share(at: u8) -> Option<Vec<u8>>;
 	}
 
 }
@@ -538,7 +551,8 @@ mod tests {
 	}
 
 	#[test]
-	#[cfg(feature = "bls-experimental")]
+	// #[cfg(feature = "bls-experimental")]
+	#[cfg(all(feature = "bls-experimental", feature = "full_crypto"))]
 	fn ecdsa_bls_beefy_verify_works() {
 		let msg = &b"test-message"[..];
 		let (pair, _) = ecdsa_bls_crypto::Pair::generate();

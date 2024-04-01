@@ -34,7 +34,7 @@ primitive-types = { version = "0.12.0", default-features = false, features = ["c
 # primitives
 sp-authority-discovery = { path = "../../../primitives/authority-discovery", default-features = false, features = ["serde"] }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false, features = ["serde"] }
-sp-consensus-beefy = { path = "../../../primitives/consensus/beefy", default-features = false }
+sp-consensus-beefy = { path = "../../../primitives/consensus/beefy", default-features = false, features = ["bls-experimental", "etf"]}
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
 sp-block-builder = { path = "../../../primitives/block-builder", default-features = false }
 sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
@@ -428,3 +428,5 @@ experimental = [
 	"frame-system/experimental",
 	"pallet-example-tasks/experimental",
 ]
+
+etf = []

@@ -18,7 +18,7 @@
 
 //! Substrate chain configurations.
 
-use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
+use beefy_primitives::bls_crypto::AuthorityId as BeefyId;
 use grandpa_primitives::AuthorityId as GrandpaId;
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,

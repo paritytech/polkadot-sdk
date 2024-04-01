@@ -37,10 +37,13 @@ sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-consensus-beefy = { path = "../../../primitives/consensus/beefy" }
 sp-core = { path = "../../../primitives/core" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
-sp-keystore = { path = "../../../primitives/keystore" }
+sp-keystore = { path = "../../../primitives/keystore", features = ["bls-experimental", "etf"]}
 sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
 tokio = "1.22.0"
+etf-crypto-primitives = { path = "../../../../../etf-sdk/etf-crypto-primitives" }
+ark-serialize = { version = "0.4.0" }
+ark-bls12-377 = { version = "0.4.0", features = ["curve"], optional = true}
 
 
 [dev-dependencies]
@@ -60,4 +63,7 @@ bls-experimental = [
 	"sp-application-crypto/bls-experimental",
 	"sp-consensus-beefy/bls-experimental",
 	"sp-core/bls-experimental",
+	"ark-bls12-377",
 ]
+
+etf = []

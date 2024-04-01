@@ -21,7 +21,7 @@ use crate::LOG_TARGET;
 use codec::{Decode, Encode};
 use log::{debug, info};
 use sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId, Signature},
+	bls_crypto::{AuthorityId, Signature},
 	Commitment, EquivocationProof, SignedCommitment, ValidatorSet, ValidatorSetId, VoteMessage,
 };
 use sp_runtime::traits::{Block, NumberFor};

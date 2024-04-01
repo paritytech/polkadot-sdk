@@ -77,7 +77,7 @@ use pallet_tx_pause::RuntimeCallNameOf;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
+	bls_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -3010,6 +3010,21 @@ impl_runtime_apis! {
 			Historical::prove((sp_consensus_beefy::KEY_TYPE, authority_id))
 				.map(|p| p.encode())
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
+		}
+
+		// #[cfg(feature = "etf")]
+		// fn submit_report_commitment_unsigned_extrinsic(value: u8) -> Option<()> {
+		// 	Beefy::submit_unsigned_commitment(value)
+		// }
+
+		#[cfg(feature = "etf")]
+		fn read_share(at: u8) -> Option<Vec<u8>> {
+			let shares = pallet_beefy::Shares::<Runtime>::get();
+			if at as usize >= shares.len() {
+				return None;
+			}
+			Some(shares[at as usize].clone().into_inner())
+			// Beefy::read_share(at)
 		}
 	}
 

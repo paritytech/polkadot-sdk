@@ -26,6 +26,12 @@ sp-session = { path = "../../primitives/session", default-features = false }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
 sp-std = { path = "../../primitives/std", default-features = false }
 
+ark-serialize = { version = "0.4.0", default-features = false }
+ark-std = { version = "0.4.0", default-features = false }
+ark-bls12-377 = { version = "0.4.0", features = ["curve"], default-features = false }
+# etf-crypto-primitives = { path = "../../../../etf-sdk/etf-crypto-primitives", default-features = false }
+getrandom = { version = "0.2", features = ["js"] }
+
 [dev-dependencies]
 frame-election-provider-support = { path = "../election-provider-support" }
 pallet-balances = { path = "../balances" }
@@ -41,6 +47,10 @@ sp-state-machine = { path = "../../primitives/state-machine", default-features =
 [features]
 default = ["std"]
 std = [
+	"ark-std/std",
+	"ark-serialize/std",
+	"ark-bls12-377/std",
+	# "etf-crypto-primitives/std",
 	"codec/std",
 	"frame-election-provider-support/std",
 	"frame-support/std",

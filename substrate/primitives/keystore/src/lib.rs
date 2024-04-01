@@ -387,6 +387,13 @@ pub trait Keystore: Send + Sync {
 		msg: &[u8],
 	) -> Result<Option<ecdsa_bls377::Signature>, Error>;
 
+	#[cfg(feature = "etf")]
+	fn acss_recover(&self, 
+		key_type: KeyTypeId,
+		public: &bls377::Public,
+		pok_bytes: Vec<u8>
+	);
+
 	/// Insert a new secret key.
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()>;
 
@@ -559,7 +566,7 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 
 	fn ecdsa_sign_prehashed(
 		&self,
-		key_type: KeyTypeId,
+	key_type: KeyTypeId,
 		public: &ecdsa::Public,
 		msg: &[u8; 32],
 	) -> Result<Option<ecdsa::Signature>, Error> {
@@ -702,6 +709,16 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	) -> Result<Option<ecdsa_bls377::Signature>, Error> {
 		(**self).ecdsa_bls377_sign_with_keccak256(key_type, public, msg)
 	}
+
+	#[cfg(feature = "etf")]
+	fn acss_recover(&self, 
+		key_type: KeyTypeId,
+		public: &bls377::Public,
+		pok_bytes: Vec<u8>
+	) {
+		(**self).acss_recover(key_type, public, pok_bytes)
+	}
+
 
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {
 		(**self).insert(key_type, suri, public)

@@ -19,7 +19,7 @@ log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
-sc-consensus-beefy = { path = ".." }
+sc-consensus-beefy = { path = "..", features = ["bls-experimental", "etf"] }
 sp-consensus-beefy = { path = "../../../../primitives/consensus/beefy" }
 sc-rpc = { path = "../../../rpc" }
 sp-core = { path = "../../../../primitives/core" }

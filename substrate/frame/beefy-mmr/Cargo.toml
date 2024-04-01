@@ -23,7 +23,7 @@ frame-system = { path = "../system", default-features = false }
 pallet-beefy = { path = "../beefy", default-features = false }
 pallet-mmr = { path = "../merkle-mountain-range", default-features = false }
 pallet-session = { path = "../session", default-features = false }
-sp-consensus-beefy = { path = "../../primitives/consensus/beefy", default-features = false }
+sp-consensus-beefy = { path = "../../primitives/consensus/beefy", default-features = false, features = ["bls-experimental"]}
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }

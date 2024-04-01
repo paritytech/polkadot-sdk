@@ -45,6 +45,10 @@ use sp_consensus_beefy::{
 	ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 
+use ark_std::Zero;
+use ark_serialize::CanonicalDeserialize;
+// use etf_crypto_primitives::proofs::hashed_el_gamal_sigma::BatchPoK;
+
 mod default_weights;
 mod equivocation;
 #[cfg(test)]
@@ -55,7 +59,7 @@ mod tests;
 pub use crate::equivocation::{EquivocationOffence, EquivocationReportSystem, TimeSlot};
 pub use pallet::*;
 
-use crate::equivocation::EquivocationEvidenceFor;
+use crate::equivocation::{EquivocationEvidenceFor};
 
 const LOG_TARGET: &str = "runtime::beefy";
 
@@ -133,6 +137,18 @@ pub mod pallet {
 	pub type NextAuthorities<T: Config> =
 		StorageValue<_, BoundedVec<T::BeefyId, T::MaxAuthorities>, ValueQuery>;
 
+	/// publicly verifiable shares for the current round (a resharing)
+	/// here we assume that they follow the same order as the Authorities storage value vec
+	/// later on we need to modify this to use merkle roots so we can change the ETF authority set
+	#[pallet::storage]
+	pub type Shares<T: Config> = 
+		StorageValue<_, BoundedVec<BoundedVec<u8, ConstU32<1024>>, T::MaxAuthorities>, ValueQuery>;
+
+	/// public commitments of the outputs of ACSS recovery for the current round
+	#[pallet::storage]
+	pub type Commitments<T: Config> = 
+		StorageValue<_, BoundedVec<u8, T::MaxAuthorities>, ValueQuery>;
+
 	/// A mapping from BEEFY set ID to the index of the *most recent* session for which its
 	/// members were responsible.
 	///
@@ -162,6 +178,8 @@ pub mod pallet {
 		/// *Note:* Ideally use block number where GRANDPA authorities are changed,
 		/// to guarantee the client gets a finality notification for exactly this block.
 		pub genesis_block: Option<BlockNumberFor<T>>,
+		/// (beefy id, commitment, BatchPoK (which technically contains the commitment...))
+		pub genesis_resharing: Vec<(T::BeefyId, Vec<u8>)>
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -169,7 +187,7 @@ pub mod pallet {
 			// BEEFY genesis will be first BEEFY-MANDATORY block,
 			// use block number one instead of chain-genesis.
 			let genesis_block = Some(One::one());
-			Self { authorities: Vec::new(), genesis_block }
+			Self { authorities: Vec::new(), genesis_block, genesis_resharing: Vec::new() }
 		}
 	}
 
@@ -180,6 +198,7 @@ pub mod pallet {
 				// we panic here as runtime maintainers can simply reconfigure genesis and restart
 				// the chain easily
 				.expect("Authorities vec too big");
+			Pallet::<T>::initialize_genesis_shares(&self.genesis_resharing);
 			GenesisBlock::<T>::put(&self.genesis_block);
 		}
 	}
@@ -280,14 +299,6 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		#[cfg(feature = "try-runtime")]
-		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			Self::do_try_state()
-		}
-	}
-
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -302,61 +313,20 @@ pub mod pallet {
 	}
 }
 
-#[cfg(any(feature = "try-runtime", test))]
-impl<T: Config> Pallet<T> {
-	/// Ensure the correctness of the state of this pallet.
-	///
-	/// This should be valid before or after each state transition of this pallet.
-	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		Self::try_state_authorities()?;
-		Self::try_state_validators()?;
-
-		Ok(())
-	}
-
-	/// # Invariants
-	///
-	/// * `Authorities` should not exceed the `MaxAuthorities` capacity.
-	/// * `NextAuthorities` should not exceed the `MaxAuthorities` capacity.
-	fn try_state_authorities() -> Result<(), sp_runtime::TryRuntimeError> {
-		if let Some(authorities_len) = <Authorities<T>>::decode_len() {
-			ensure!(
-				authorities_len as u32 <= T::MaxAuthorities::get(),
-				"Authorities number exceeds what the pallet config allows."
-			);
-		} else {
-			return Err(sp_runtime::TryRuntimeError::Other(
-				"Failed to decode length of authorities",
-			));
-		}
-
-		if let Some(next_authorities_len) = <NextAuthorities<T>>::decode_len() {
-			ensure!(
-				next_authorities_len as u32 <= T::MaxAuthorities::get(),
-				"Next authorities number exceeds what the pallet config allows."
-			);
-		} else {
-			return Err(sp_runtime::TryRuntimeError::Other(
-				"Failed to decode length of next authorities",
-			));
-		}
-		Ok(())
-	}
-
-	/// # Invariants
-	///
-	/// `ValidatorSetId` must be present in `SetIdSession`
-	fn try_state_validators() -> Result<(), sp_runtime::TryRuntimeError> {
-		let validator_set_id = <ValidatorSetId<T>>::get();
-		ensure!(
-			SetIdSession::<T>::get(validator_set_id).is_some(),
-			"Validator set id must be present in SetIdSession"
-		);
-		Ok(())
-	}
-}
+use log::{error};
+use frame_system::offchain::SubmitTransaction;
 
 impl<T: Config> Pallet<T> {
+
+	// /// try to read shares at a given index
+	// pub fn read_share(at: u8) -> Option<Vec<u8>> {
+	// 	// let shares = Shares::<T>::get();
+	// 	// if at as usize >= shares.len() {
+	// 	// 	return None;
+	// 	// }
+	// 	// Some(shares[at as usize].clone().into_inner())
+	// }
+
 	/// Return the current active BEEFY validator set.
 	pub fn validator_set() -> Option<ValidatorSet<T::BeefyId>> {
 		let validators: BoundedVec<T::BeefyId, T::MaxAuthorities> = Authorities::<T>::get();
@@ -443,6 +413,33 @@ impl<T: Config> Pallet<T> {
 		SetIdSession::<T>::insert(0, 0);
 
 		Ok(())
+	}
+
+	fn initialize_genesis_shares(genesis_resharing: &Vec<(T::BeefyId, Vec<u8>)>) {
+		// TODO: we need to convert back to BatchPoks and get the pubkey commitments
+		// then we need to aggregate them and encode it onchain
+
+		// let mut round_pubkey = ark_bls12_377::G1Projective::zero();
+		let mut unbounded_shares: Vec<BoundedVec<u8, ConstU32<1024>>> = Vec::new();
+		// let mut shares:  = Vec::new();
+		genesis_resharing.iter().for_each(|(public, pok_bytes)| {
+
+			let bounded_pok =
+				BoundedVec::<u8, ConstU32<1024>>::try_from(pok_bytes.clone())
+					.expect("genesis poks should be well formatted");
+			
+			unbounded_shares.push(bounded_pok);
+
+			// let pok: BatchPoK<ark_bls12_377::G1Projective> = 
+			// 	BatchPoK::deserialize_compressed(&pok_bytes[..])
+			// 		.expect("Genesis shares should be well formatted.");
+			// we could also check the proofs here, but we can trust them on genesis for nows
+		});
+		
+		let bounded_shares =
+			BoundedVec::<BoundedVec<u8, ConstU32<1024>>, T::MaxAuthorities>::try_from(unbounded_shares)
+				.expect("There should be the correct number of genesis resharings");
+		<Shares<T>>::put(bounded_shares);
 	}
 }
 

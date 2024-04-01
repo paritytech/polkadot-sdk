@@ -52,7 +52,7 @@ rand = "0.8"
 # primitives
 sp-authority-discovery = { path = "../../../primitives/authority-discovery" }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
-beefy-primitives = { package = "sp-consensus-beefy", path = "../../../primitives/consensus/beefy" }
+beefy-primitives = { package = "sp-consensus-beefy", path = "../../../primitives/consensus/beefy", features = ["bls-experimental"]}
 grandpa-primitives = { package = "sp-consensus-grandpa", path = "../../../primitives/consensus/grandpa" }
 sp-api = { path = "../../../primitives/api" }
 sp-core = { path = "../../../primitives/core" }
@@ -81,7 +81,7 @@ sc-network-sync = { path = "../../../client/network/sync" }
 sc-network-statement = { path = "../../../client/network/statement" }
 sc-consensus-slots = { path = "../../../client/consensus/slots" }
 sc-consensus-babe = { path = "../../../client/consensus/babe" }
-beefy = { package = "sc-consensus-beefy", path = "../../../client/consensus/beefy" }
+beefy = { package = "sc-consensus-beefy", path = "../../../client/consensus/beefy", features = ["bls-experimental", "etf"]}
 grandpa = { package = "sc-consensus-grandpa", path = "../../../client/consensus/grandpa" }
 mmr-gadget = { path = "../../../client/merkle-mountain-range" }
 sc-rpc = { path = "../../../client/rpc" }
@@ -107,7 +107,7 @@ pallet-im-online = { path = "../../../frame/im-online", default-features = false
 pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false }
 
 # node-specific dependencies
-kitchensink-runtime = { path = "../runtime" }
+kitchensink-runtime = { path = "../runtime", features = ["etf"]}
 node-rpc = { path = "../rpc" }
 node-primitives = { path = "../primitives" }
 

@@ -41,7 +41,7 @@ use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_equivocation_proof,
-	ecdsa_crypto::{AuthorityId, Signature},
+	bls_crypto::{AuthorityId, Signature},
 	BeefyApi, BeefySignatureHasher, Commitment, EquivocationProof, PayloadProvider, ValidatorSet,
 	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
@@ -56,6 +56,7 @@ use std::{
 	sync::Arc,
 };
 
+use ark_serialize::CanonicalDeserialize;
 /// Bound for the number of pending justifications - use 2400 - the max number
 /// of justifications possible in a single session.
 const MAX_BUFFERED_JUSTIFICATIONS: usize = 2400;
@@ -76,13 +77,13 @@ pub(crate) enum RoundAction {
 pub(crate) struct VoterOracle<B: Block> {
 	/// Queue of known sessions. Keeps track of voting rounds (block numbers) within each session.
 	///
-	/// There are three voter states corresponding to three queue states:
+	/// There are three voter states coresponding to three queue states:
 	/// 1. voter uninitialized: queue empty,
 	/// 2. up-to-date - all mandatory blocks leading up to current GRANDPA finalized: queue has ONE
 	///    element, the 'current session' where `mandatory_done == true`,
 	/// 3. lagging behind GRANDPA: queue has [1, N] elements, where all `mandatory_done == false`.
-	///    In this state, every time a session gets its mandatory block BEEFY finalized, it's
-	///    popped off the queue, eventually getting to state `2. up-to-date`.
+	///    In this state, everytime a session gets its mandatory block BEEFY finalized, it's popped
+	///    off the queue, eventually getting to state `2. up-to-date`.
 	sessions: VecDeque<Rounds<B>>,
 	/// Min delta in block numbers between two blocks, BEEFY should vote on.
 	min_block_delta: u32,
@@ -491,6 +492,30 @@ where
 		Ok(())
 	}
 
+	// triage_incoming_resharing
+	/// Based on [VoterOracle] this vote is either processed here or discarded.
+	fn triage_incoming_resharing(
+		&mut self,
+		value: u8,
+	) -> Result<(), Error> {
+		// let block_num = vote.commitment.block_number;
+		// match self.voting_oracle().triage_round(block_num)? {
+		// 	RoundAction::Process =>
+		// 		if let Some(finality_proof) = self.handle_vote(vote)? {
+		// 			let gossip_proof = GossipMessage::<B>::FinalityProof(finality_proof);
+		// 			let encoded_proof = gossip_proof.encode();
+		// 			self.comms.gossip_engine.gossip_message(
+		// 				proofs_topic::<B>(),
+		// 				encoded_proof,
+		// 				true,
+		// 			);
+		// 		},
+		// 	RoundAction::Drop => metric_inc!(self.metrics, beefy_stale_votes),
+		// 	RoundAction::Enqueue => error!(target: LOG_TARGET, "🥩 unexpected vote: {:?}.", vote),
+		// };
+		Ok(())
+	}
+
 	/// Based on [VoterOracle] this vote is either processed here or discarded.
 	fn triage_incoming_vote(
 		&mut self,
@@ -684,6 +709,28 @@ where
 
 	/// Decide if should vote, then vote.. or don't..
 	fn try_to_vote(&mut self) -> Result<(), Error> {
+
+		// let hash = self
+		// 	.backend
+		// 	.blockchain()
+		// 	.expect_block_hash_from_id(&BlockId::Number(self.best_grandpa_block()))
+		// 	.map_err(|err| {
+		// 		let err_msg = format!(
+		// 			"Couldn't get hash for block #{:?} (error: {:?}), skipping vote..",
+		// 			self.best_grandpa_block(), err
+		// 		);
+		// 		Error::Backend(err_msg)
+		// 	}).unwrap();
+		// info!(
+		// 	target: LOG_TARGET,
+		// 	"************************ ETF: TRY TO VOTE",
+		// );
+		// self.runtime
+		// 	.runtime_api()
+		// 	.submit_report_commitment_unsigned_extrinsic(
+		// 		hash,
+		// 		1u8
+		// );
 		// Vote if there's now a new vote target.
 		if let Some(target) = self.voting_oracle().voting_target() {
 			metric_set!(self.metrics, beefy_should_vote_on, target);
@@ -824,6 +871,54 @@ where
 			"🥩 run BEEFY worker, best grandpa: #{:?}.",
 			self.best_grandpa_block()
 		);
+		
+		let hash = self
+			.backend
+			.blockchain()
+			.expect_block_hash_from_id(&BlockId::Number(self.best_grandpa_block()))
+			.map_err(|err| {
+				let err_msg = format!(
+					"Couldn't get hash for block #{:?} (error: {:?}), skipping vote..",
+					self.best_grandpa_block(), err
+				);
+				Error::Backend(err_msg)
+			}).unwrap();
+		// ok so we could just get the share here
+		// and do the recovery...
+		/// get pubkeys from the keystore...
+		let runtime_api = self.runtime.runtime_api();
+		
+		info!(
+			target: LOG_TARGET,
+			"🎲 run ACSS recovery at best grandpa: #{:?}.",
+			hash
+		);
+
+		let rounds = self.persisted_state.voting_oracle.active_rounds().unwrap();
+
+		// #[cfg(all(feature = "etf", feature = "bls-experimental"))]
+		if let Some(id) = self.key_store.authority_id(rounds.validators()) {
+			info!(target: LOG_TARGET, "🎲 Local authority id: {:?}", id);
+			if let Some(Some(validator_set)) = runtime_api.validator_set(hash).ok() {
+				let idx = validator_set.validators().iter().position(|r| r.eq(&id)).unwrap();
+				info!(target: LOG_TARGET, "🎲 Found index: {:?}", idx);
+				if let Some(Some(pok_bytes)) = runtime_api.read_share(hash, idx as u8).ok() {
+					let pok = 
+						etf_crypto_primitives::proofs::hashed_el_gamal_sigma::
+							BatchPoK::<ark_bls12_377::G1Projective>::
+								deserialize_compressed(&pok_bytes[..]).unwrap();
+					info!(target: LOG_TARGET, "🎲 Found pok: {:?}", pok);
+					// now we can try to run the ACSS recovery scheme...
+					let recovered = self.key_store.recover(&id, pok_bytes);
+					// let recovered_shares = self.key_store.recover(&id, pok);
+					info!(
+						target: LOG_TARGET, 
+						"🎲 ACSS Recovery found shares: {:?}", 
+						recovered,
+					);
+				}
+			}
+		}
 
 		let mut votes = Box::pin(
 			self.comms

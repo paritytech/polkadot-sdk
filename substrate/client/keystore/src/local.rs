@@ -113,6 +113,25 @@ impl LocalKeystore {
 		Ok(signature)
 	}
 
+	/// run the ACSS recovery algorithm
+	/// outputs the public key  (commitment) to two secrets
+	#[cfg(feature = "etf")]
+	fn acss_recover<T: CorePair>(
+		&self, 
+		key_type: KeyTypeId,
+		public: &T::Public,
+		pok_bytes: Vec<u8>
+	// ) -> std::result::Result<Option<T::Public>, TraitError>  {
+	) {
+		let recovered = self
+			.0
+			.read()
+			.key_pair_by_type::<T>(public, key_type).unwrap()
+			.map(|pair| pair.acss_recover(pok_bytes));
+		// Ok(signature)
+	}
+
+
 	fn vrf_sign<T: CorePair + VrfSecret>(
 		&self,
 		key_type: KeyTypeId,
@@ -405,7 +424,7 @@ impl Keystore for LocalKeystore {
 			self.sign::<ecdsa_bls377::Pair>(key_type, public, msg)
 		}
 
-			fn ecdsa_bls377_sign_with_keccak256(
+		fn ecdsa_bls377_sign_with_keccak256(
 			&self,
 			key_type: KeyTypeId,
 			public: &ecdsa_bls377::Public,
@@ -418,7 +437,21 @@ impl Keystore for LocalKeystore {
 			Ok(sig)
 		}
 
-
+		// #[cfg(feature = "etf")]
+		fn acss_recover(
+			&self,
+			key_type: KeyTypeId,
+			public: &bls377::Public,
+			pok: Vec<u8>,
+		// ) -> std::result::Result<Option<ecdsa_bls377::Signature>, TraitError> {
+		) {
+			#[cfg(feature = "etf")]
+			let recovered = self.0
+				.read()
+				.key_pair_by_type::<bls377::Pair>(public, key_type).unwrap()
+				.map(|pair| pair.acss_recover(pok));
+			// Ok(sig)
+		}
 	}
 }
 

@@ -359,6 +359,16 @@ impl Keystore for MemoryKeystore {
 		Ok(sig)
 	}
 
+	#[cfg(all(feature = "bls-experimental", feature = "etf"))]
+	fn acss_recover(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls377::Public,
+		pok: Vec<u8>,
+	) {
+		// TODO
+	}
+
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {
 		self.keys
 			.write()

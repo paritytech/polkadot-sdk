@@ -20,12 +20,14 @@ use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, Runti
 use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
 use sp_core::ecdsa;
 #[cfg(feature = "bls-experimental")]
+use sp_core::bls377;
+#[cfg(all(feature = "bls-experimental", feature = "full_crypto"))]
 use sp_core::ecdsa_bls377;
 use sp_crypto_hashing::keccak_256;
 use sp_keystore::KeystorePtr;
 
 use codec::Decode;
-use log::warn;
+use log::{info, warn};
 use std::marker::PhantomData;
 
 use crate::{error, LOG_TARGET};
@@ -100,6 +102,18 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 			},
 
 			#[cfg(feature = "bls-experimental")]
+			bls377::CRYPTO_ID => {
+				let public: bls377::Public =
+					bls377::Public::try_from(public.as_slice()).unwrap();
+				let sig = store
+					.bls377_sign(BEEFY_KEY_TYPE, &public, &message)
+					.map_err(|e| error::Error::Keystore(e.to_string()))?
+					.ok_or_else(|| error::Error::Signature("bls377_sign()  failed".to_string()))?;
+				let sig_ref: &[u8] = sig.as_ref();
+				sig_ref.to_vec()
+			},
+
+			#[cfg(all(feature = "bls-experimental", feature = "full_crypto"))]
 			ecdsa_bls377::CRYPTO_ID => {
 				let public: ecdsa_bls377::Public =
 					ecdsa_bls377::Public::try_from(public.as_slice()).unwrap();
@@ -146,6 +160,18 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 				}),
 
 			#[cfg(feature = "bls-experimental")]
+			bls377::CRYPTO_ID => store
+				.bls377_public_keys(BEEFY_KEY_TYPE)
+				.drain(..)
+				.map(|pk| AuthorityId::try_from(pk.as_ref()))
+				.collect::<Result<Vec<_>, _>>()
+				.or_else(|_| {
+					Err(error::Error::Keystore(
+						"unable to convert public key into authority id".into(),
+					))
+				}),
+
+			#[cfg(all(feature = "bls-experimental", feature = "full_crypto"))]
 			ecdsa_bls377::CRYPTO_ID => store
 				.ecdsa_bls377_public_keys(BEEFY_KEY_TYPE)
 				.drain(..)
@@ -173,7 +199,73 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	) -> bool {
 		BeefyAuthorityId::<BeefySignatureHasher>::verify(public, sig, message)
 	}
+
+	#[cfg(all(feature = "bls-experimental", feature = "etf"))]
+	pub fn recover(
+		&self, 
+		public: &AuthorityId,
+		// pok: BatchPoK<ark_bls12_377::G1Projective>,
+		pok: Vec<u8>
+	) -> Vec<Vec<u8>> {
+		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))
+			.map_err(|_| ())
+			.unwrap();
+
+		let mut recovered = Vec::new();
+		// bls377::CRYPTO_ID => {
+		let public: bls377::Public =
+			bls377::Public::try_from(public.as_slice()).unwrap();
+		// if let Some(commitment) = 
+			store.acss_recover(
+				BEEFY_KEY_TYPE, 
+				&public, 
+				pok
+			);
+			// {
+
+			// }
+
+		// let sk_bytes = store.key_pair::<bls377::Pair>(&public).to_raw_vec();
+		// let kp = store.read().key_pair::<bls377::Pair>(public);
+		// Q: Do I need a KDF??
+
+		// should panic...
+		// store.recover(vec![]);
+		
+		// pok.ciphertexts.iter().for_each(|ct| {
+		// if let (s, s_prime) = HighThresholdACSS::<ark_bls12_377::G1Projective>::recover(
+		// 	sk,
+		// 	pok,
+		// ) {
+		// 	info!("Recovered secrets {:?}, {:?}", s, s_prime);
+		// }
+			// we need to run the hashed el gamal decryption alg
+			// on each of the ciphertexts
+			// let message = ct.c1;
+			// let message_bytes = Vec::new();
+
+				// let sig = store
+				// 	.bls377_sign(BEEFY_KEY_TYPE, &public, &message)
+				// 	.map_err(|e| error::Error::Keystore(e.to_string()))?
+				// 	.ok_or_else(|| error::Error::Signature("bls377_sign()  failed".to_string()))?;
+			// let sig_ref: &[u8] = sig.as_ref();
+			// sig_ref.to_vec()
+			// });
+			// let sig = store
+			// 	.bls377_sign(BEEFY_KEY_TYPE, &public, &message)
+			// 	.map_err(|e| error::Error::Keystore(e.to_string()))?
+			// 	.ok_or_else(|| error::Error::Signature("bls377_sign()  failed".to_string()))?;
+			// let sig_ref: &[u8] = sig.as_ref();
+			// sig_ref.to_vec()
+		// },
+		recovered
+	}
 }
+
+use etf_crypto_primitives::{
+	proofs::hashed_el_gamal_sigma::BatchPoK,
+	dpss::acss::HighThresholdACSS
+};
 
 impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<AuthorityId>
 where
@@ -404,7 +496,7 @@ pub mod tests {
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
-		let msg = b"are you involved or committed?";
+		let msg = b"are you involved or commited?";
 
 		let sig1 = store.sign(&alice, msg).unwrap();
 		let sig2 = Keyring::<AuthorityId>::Alice.sign(msg);
@@ -440,7 +532,7 @@ pub mod tests {
 
 		let alice = Keyring::Alice.public();
 
-		let msg = b"are you involved or committed?";
+		let msg = b"are you involved or commited?";
 		let sig = store.sign(&alice, msg).err().unwrap();
 		let err = Error::Signature(expected_error_message.to_string());
 
@@ -463,7 +555,7 @@ pub mod tests {
 		let store: BeefyKeystore<ecdsa_crypto::Public> = None.into();
 
 		let alice = Keyring::Alice.public();
-		let msg = b"are you involved or committed";
+		let msg = b"are you involved or commited";
 
 		let sig = store.sign(&alice, msg).err().unwrap();
 		let err = Error::Keystore("no Keystore".to_string());
@@ -487,7 +579,7 @@ pub mod tests {
 		let alice = Keyring::Alice.public();
 
 		// `msg` and `sig` match
-		let msg = b"are you involved or committed?";
+		let msg = b"are you involved or commited?";
 		let sig = store.sign(&alice, msg).unwrap();
 		assert!(BeefyKeystore::verify(&alice, &sig, msg));
 

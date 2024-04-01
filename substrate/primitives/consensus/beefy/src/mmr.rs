@@ -26,7 +26,11 @@
 //! but we imagine they will be useful for other chains that either want to bridge with Polkadot
 //! or are completely standalone, but heavily inspired by Polkadot.
 
-use crate::{ecdsa_crypto::AuthorityId, ConsensusLog, MmrRootHash, BEEFY_ENGINE_ID};
+use crate::{ConsensusLog, MmrRootHash, BEEFY_ENGINE_ID};
+#[cfg(not(feature = "bls-experimental"))]
+use crate::ecdsa_crypto::AuthorityId;
+#[cfg(feature = "bls-experimental")]
+use crate::bls_crypto::AuthorityId;
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;

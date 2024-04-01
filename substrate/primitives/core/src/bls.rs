@@ -191,6 +191,26 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 		Self::Signature::unchecked_from(r)
 	}
 
+	// #[cfg(feature = "full_crypto")]
+	// fn sign_prehashed(&self, message: &[u8;32]) -> Self::Signature {
+	// 	let mut mutable_self = self.clone();
+	// 	let r: [u8; SIGNATURE_SERIALIZED_SIZE] =
+	// 		DoublePublicKeyScheme::sign_prehashed(&mut mutable_self.0, message)
+	// 			.to_bytes()
+	// 			.try_into()
+	// 			.expect("Signature serializer returns vectors of SIGNATURE_SERIALIZED_SIZE size");
+	// 	Self::Signature::unchecked_from(r)
+	// }
+	
+	#[cfg(feature = "etf")]
+	fn acss_recover(&self, pok_bytes: Vec<u8>) {
+		panic!("HEY WE GOT ALL THE WAY HERE, NEAT");
+		if let Some(pok) = BatchPoK::deserialize_compressed(&pok_bytes[..]) {
+			let recovered = DoublePublicKeyScheme::recover(&mut mutable_self.0, &pok_bytes);
+			panic!("recvovered keys {:?}", recovered);
+		}
+	}
+
 	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, pubkey: &Self::Public) -> bool {
 		let pubkey_array: [u8; PUBLIC_KEY_SERIALIZED_SIZE] =
 			match <[u8; PUBLIC_KEY_SERIALIZED_SIZE]>::try_from(pubkey.as_ref()) {
