@@ -25,16 +25,19 @@ use crate::{
 	},
 	CliConfiguration, PrometheusParams, RuntimeParams, TelemetryParams,
 	RPC_DEFAULT_MAX_CONNECTIONS, RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
-	RPC_DEFAULT_MAX_SUBS_PER_CONN,
+	RPC_DEFAULT_MAX_SUBS_PER_CONN, RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
 };
 use clap::Parser;
 use regex::Regex;
 use sc_service::{
-	config::{BasePath, PrometheusConfig, TransactionPoolOptions},
+	config::{BasePath, PrometheusConfig, RpcBatchRequestConfig, TransactionPoolOptions},
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::{
+	net::{IpAddr, Ipv4Addr, SocketAddr},
+	num::NonZeroU32,
+};
 
 /// The `run` command used to run a node.
 #[derive(Debug, Clone, Parser)]
@@ -59,7 +62,7 @@ pub struct RunCmd {
 	/// Not all RPC methods are safe to be exposed publicly.
 	///
 	/// Use an RPC proxy server to filter out dangerous methods. More details:
-	/// <https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs>.
+	/// <https://docs.substrate.io/build/remote-procedure-calls/#public-rpc-interfaces>.
 	///
 	/// Use `--unsafe-rpc-external` to suppress the warning if you understand the risks.
 	#[arg(long)]
@@ -82,6 +85,15 @@ pub struct RunCmd {
 	)]
 	pub rpc_methods: RpcMethods,
 
+	/// RPC rate limiting (calls/minute) for each connection.
+	///
+	/// This is disabled by default.
+	///
+	/// For example `--rpc-rate-limit 10` will maximum allow
+	/// 10 calls per minute per connection.
+	#[arg(long)]
+	pub rpc_rate_limit: Option<NonZeroU32>,
+
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
 	pub rpc_max_request_size: u32,
@@ -102,9 +114,28 @@ pub struct RunCmd {
 	#[arg(long, value_name = "COUNT", default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
 	pub rpc_max_connections: u32,
 
-	/// Specify browser *origins* allowed to access the HTTP and WS RPC servers.
+	/// The number of messages the RPC server is allowed to keep in memory.
 	///
-	/// A comma-separated list of origins (`protocol://domain` or special `null`
+	/// If the buffer becomes full then the server will not process
+	/// new messages until the connected client start reading the
+	/// underlying messages.
+	///
+	/// This applies per connection which includes both
+	/// JSON-RPC methods calls and subscriptions.
+	#[arg(long, default_value_t = RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)]
+	pub rpc_message_buffer_capacity_per_connection: u32,
+
+	/// Disable RPC batch requests
+	#[arg(long, alias = "rpc_no_batch_requests", conflicts_with_all = &["rpc_max_batch_request_len"])]
+	pub rpc_disable_batch_requests: bool,
+
+	/// Limit the max length per RPC batch request
+	#[arg(long, conflicts_with_all = &["rpc_disable_batch_requests"], value_name = "LEN")]
+	pub rpc_max_batch_request_len: Option<u32>,
+
+	/// Specify browser *origins* allowed to access the HTTP & WS RPC servers.
+	///
+	/// A comma-separated list of origins (protocol://domain or special `null`
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and <https://polkadot.js.org> origins. When running in
 	/// `--dev` mode the default is to allow all origins.
@@ -386,6 +417,26 @@ impl CliConfiguration for RunCmd {
 
 	fn rpc_max_subscriptions_per_connection(&self) -> Result<u32> {
 		Ok(self.rpc_max_subscriptions_per_connection)
+	}
+
+	fn rpc_buffer_capacity_per_connection(&self) -> Result<u32> {
+		Ok(self.rpc_message_buffer_capacity_per_connection)
+	}
+
+	fn rpc_batch_config(&self) -> Result<RpcBatchRequestConfig> {
+		let cfg = if self.rpc_disable_batch_requests {
+			RpcBatchRequestConfig::Disabled
+		} else if let Some(l) = self.rpc_max_batch_request_len {
+			RpcBatchRequestConfig::Limit(l)
+		} else {
+			RpcBatchRequestConfig::Unlimited
+		};
+
+		Ok(cfg)
+	}
+
+	fn rpc_rate_limit(&self) -> Result<Option<NonZeroU32>> {
+		Ok(self.rpc_rate_limit)
 	}
 
 	fn transaction_pool(&self, is_dev: bool) -> Result<TransactionPoolOptions> {

@@ -33,7 +33,7 @@ use sp_runtime::{
 	BuildStorage,
 };
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = InsideBoth<Everything, SafeMode>;
 	type BlockWeights = ();
@@ -82,7 +82,6 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<10>;
 	type MaxFreezes = ConstU32<0>;
 }
 

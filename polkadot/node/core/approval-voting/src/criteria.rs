@@ -55,11 +55,11 @@ pub struct OurAssignment {
 }
 
 impl OurAssignment {
-	pub(crate) fn cert(&self) -> &AssignmentCertV2 {
+	pub fn cert(&self) -> &AssignmentCertV2 {
 		&self.cert
 	}
 
-	pub(crate) fn tranche(&self) -> DelayTranche {
+	pub fn tranche(&self) -> DelayTranche {
 		self.tranche
 	}
 
@@ -148,7 +148,7 @@ fn relay_vrf_modulo_cores(
 	generate_samples(rand_chacha, num_samples as usize, max_cores as usize)
 }
 
-/// Generates `num_sumples` randomly from (0..max_cores) range
+/// Generates `num_samples` randomly from (0..max_cores) range
 ///
 /// Note! The algorithm can't change because validators on the other
 /// side won't be able to check the assignments until they update.
@@ -225,7 +225,7 @@ fn assigned_core_transcript(core_index: CoreIndex) -> Transcript {
 
 /// Information about the world assignments are being produced in.
 #[derive(Clone, Debug)]
-pub(crate) struct Config {
+pub struct Config {
 	/// The assignment public keys for validators.
 	assignment_keys: Vec<AssignmentId>,
 	/// The groups of validators assigned to each core.
@@ -321,7 +321,7 @@ impl AssignmentCriteria for RealAssignmentCriteria {
 /// different times. The idea is that most assignments are never triggered and fall by the wayside.
 ///
 /// This will not assign to anything the local validator was part of the backing group for.
-pub(crate) fn compute_assignments(
+pub fn compute_assignments(
 	keystore: &LocalKeystore,
 	relay_vrf_story: RelayVRFStory,
 	config: &Config,

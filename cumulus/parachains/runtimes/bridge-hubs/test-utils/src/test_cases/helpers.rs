@@ -31,7 +31,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
-	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf,
+	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
@@ -197,7 +197,9 @@ where
 pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 	init_data: bp_header_chain::InitializationData<BridgedHeader<Runtime, GPI>>,
 ) where
-	Runtime: BridgeGrandpaConfig<GPI>,
+	Runtime: BridgeGrandpaConfig<GPI>
+		+ cumulus_pallet_parachain_system::Config
+		+ pallet_timestamp::Config,
 {
 	pallet_bridge_grandpa::Pallet::<Runtime, GPI>::initialize(
 		RuntimeHelper::<Runtime>::root_origin(),
@@ -220,6 +222,7 @@ pub fn relayer_id_at_bridged_chain<Runtime: pallet_bridge_messages::Config<MPI>,
 /// with proofs (finality, message) independently submitted.
 pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
@@ -272,6 +275,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 				sibling_parachain_id.into(),
 				included_head,
 				&alice,
+				&slot_durations,
 			);
 
 			// set up relayer details and proofs

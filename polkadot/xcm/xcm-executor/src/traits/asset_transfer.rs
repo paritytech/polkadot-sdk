@@ -85,3 +85,12 @@ pub trait XcmAssetTransfers {
 		}
 	}
 }
+
+impl XcmAssetTransfers for () {
+	type IsReserve = ();
+	type IsTeleporter = ();
+	type AssetTransactor = ();
+	fn determine_for(_: &Asset, _: &Location) -> Result<TransferType, Error> {
+		return Err(Error::UnknownReserve);
+	}
+}

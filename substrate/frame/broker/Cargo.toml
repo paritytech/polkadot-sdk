@@ -1,6 +1,6 @@
 [package]
 name = "pallet-broker"
-version = "0.1.0"
+version = "0.6.0"
 description = "Brokerage tool for managing Polkadot Core scheduling"
 authors.workspace = true
 homepage = "https://substrate.io"

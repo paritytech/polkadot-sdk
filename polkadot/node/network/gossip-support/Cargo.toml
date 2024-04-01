@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-gossip-support"
-version = "1.0.0"
+version = "7.0.0"
 description = "Polkadot Gossip Support subsystem. Responsible for keeping track of session changes and issuing a connection request to the relevant validators on every new session."
 authors.workspace = true
 edition.workspace = true
@@ -13,6 +13,7 @@ workspace = true
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../../substrate/primitives/core" }
+sp-crypto-hashing = { path = "../../../../substrate/primitives/crypto/hashing" }
 sc-network = { path = "../../../../substrate/client/network" }
 sc-network-common = { path = "../../../../substrate/client/network/common" }
 
@@ -37,5 +38,6 @@ polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 
 assert_matches = "1.4.0"
 async-trait = "0.1.74"
+parking_lot = "0.12.1"
 lazy_static = "1.4.0"
 quickcheck = "1.0.3"

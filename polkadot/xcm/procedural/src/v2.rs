@@ -189,7 +189,7 @@ pub mod junctions {
 
 	pub fn generate_conversion_functions(input: proc_macro::TokenStream) -> Result<TokenStream> {
 		if !input.is_empty() {
-			return Err(syn::Error::new(Span::call_site(), "No arguments expected"));
+			return Err(syn::Error::new(Span::call_site(), "No arguments expected"))
 		}
 
 		let from_slice_syntax = generate_conversion_from_slice_syntax();

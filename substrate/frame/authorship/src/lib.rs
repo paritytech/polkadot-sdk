@@ -108,12 +108,12 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Authorship: pallet_authorship::{Pallet, Storage},
+			System: frame_system,
+			Authorship: pallet_authorship,
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
 	}

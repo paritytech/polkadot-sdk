@@ -161,4 +161,4 @@ See the config file for the exact rules.
 You may find useful
 
 - [Taplo VSCode extension](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
-- For NeoVim, [taplo is avaliable with Mason](https://github.com/williamboman/mason-lspconfig.nvim#available-lsp-servers)
+- For NeoVim, [taplo is available with Mason](https://github.com/williamboman/mason-lspconfig.nvim#available-lsp-servers)

@@ -56,7 +56,6 @@
 //! cannot be approved - they must proceed only to promotion prior to the offboard timeout elapsing.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "128"]
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -65,10 +64,12 @@ use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
+	defensive,
 	dispatch::DispatchResultWithPostInfo,
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
+		RankedMembersSwapHandler,
 	},
 	BoundedVec,
 };
@@ -249,6 +250,8 @@ pub mod pallet {
 		},
 		/// Pre-ranked account has been inducted at their current rank.
 		Imported { who: T::AccountId, rank: RankOf<T, I> },
+		/// A member had its AccountId swapped.
+		Swapped { who: T::AccountId, new_who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -362,8 +365,7 @@ pub mod pallet {
 		///
 		/// This resets `last_proof` to the current block, thereby delaying any automatic demotion.
 		///
-		/// If `who` is not already tracked by this pallet, then it will become tracked.
-		/// `last_promotion` will be set to zero.
+		/// `who` must already be tracked by this pallet for this to have an effect.
 		///
 		/// - `origin`: An origin which satisfies `ApproveOrigin` or root.
 		/// - `who`: A member (i.e. of non-zero rank).
@@ -382,11 +384,7 @@ pub mod pallet {
 			ensure!(at_rank > 0, Error::<T, I>::InvalidRank);
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
 			ensure!(rank == at_rank, Error::<T, I>::UnexpectedRank);
-			let mut member = if let Some(m) = Member::<T, I>::get(&who) {
-				m
-			} else {
-				Self::import_member(who.clone(), rank)
-			};
+			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
 
 			member.last_proof = frame_system::Pallet::<T>::block_number();
 			Member::<T, I>::insert(&who, &member);
@@ -522,7 +520,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
-			let _ = Self::import_member(who, rank);
+
+			let now = frame_system::Pallet::<T>::block_number();
+			Member::<T, I>::insert(
+				&who,
+				MemberStatus { is_active: true, last_promotion: 0u32.into(), last_proof: now },
+			);
+			Self::deposit_event(Event::<T, I>::Imported { who, rank });
 
 			Ok(Pays::No.into())
 		}
@@ -545,18 +549,6 @@ pub mod pallet {
 				let e = Event::<T, I>::EvidenceJudged { who, wish, evidence, old_rank, new_rank };
 				Self::deposit_event(e);
 			}
-		}
-
-		fn import_member(who: T::AccountId, rank: RankOf<T, I>) -> MemberStatusOf<T> {
-			let now = frame_system::Pallet::<T>::block_number();
-			let status = MemberStatus {
-				is_active: true,
-				last_promotion: BlockNumberFor::<T>::zero(),
-				last_proof: now,
-			};
-			Member::<T, I>::insert(&who, status.clone());
-			Self::deposit_event(Event::<T, I>::Imported { who, rank });
-			status
 		}
 	}
 
@@ -613,4 +605,39 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	impl< { T: Config<I>, I: 'static, const MIN_RANK: u16, A } >
 		EnsureOriginWithArg<T::RuntimeOrigin, A> for EnsureInducted<T, I, MIN_RANK>
 	{}
+}
+
+impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for Pallet<T, I> {
+	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
+		if old == new {
+			defensive!("Should not try to swap with self");
+			return
+		}
+		if !Member::<T, I>::contains_key(old) {
+			defensive!("Should not try to swap non-member");
+			return
+		}
+		if Member::<T, I>::contains_key(new) {
+			defensive!("Should not try to overwrite existing member");
+			return
+		}
+
+		if let Some(member) = Member::<T, I>::take(old) {
+			Member::<T, I>::insert(new, member);
+		}
+		if let Some(we) = MemberEvidence::<T, I>::take(old) {
+			MemberEvidence::<T, I>::insert(new, we);
+		}
+
+		Self::deposit_event(Event::<T, I>::Swapped { who: old.clone(), new_who: new.clone() });
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config<I>, I: 'static>
+	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
+{
+	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
+		Self::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
+	}
 }

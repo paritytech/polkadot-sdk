@@ -40,9 +40,10 @@ use polkadot_parachain_primitives::primitives::{
 use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, ConvertedConcreteId,
-	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FungibleAdapter, IsConcrete,
-	NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
+	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
+	FungibleAdapter, IsConcrete, NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -62,7 +63,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -108,7 +109,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -250,6 +250,10 @@ impl Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 #[frame_support::pallet]
@@ -457,10 +461,10 @@ type Block = frame_system::mocking::MockBlock<Runtime>;
 construct_runtime!(
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		MsgQueue: mock_msg_queue::{Pallet, Storage, Event<T>},
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin},
-		ForeignUniques: pallet_uniques::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		MsgQueue: mock_msg_queue,
+		PolkadotXcm: pallet_xcm,
+		ForeignUniques: pallet_uniques,
 	}
 );

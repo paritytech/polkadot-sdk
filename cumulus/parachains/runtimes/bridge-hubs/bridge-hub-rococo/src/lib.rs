@@ -35,10 +35,12 @@ pub mod bridge_to_westend_config;
 mod weights;
 pub mod xcm_config;
 
-use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{
-	gwei, meth, outbound::Message, AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
+	gwei, meth,
+	outbound::{Command, Fee},
+	AgentId, AllowSiblingsOnly, PricingParameters, Rewards,
 };
 use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_api::impl_runtime_apis;
@@ -69,6 +71,9 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
 };
+use testnet_parachains_constants::rococo::{
+	consensus::*, currency::*, fee::WeightToFee, snowbridge::INBOUND_QUEUE_PALLET_INDEX, time::*,
+};
 
 use bp_runtime::HeaderId;
 use bridge_hub_common::{
@@ -91,18 +96,14 @@ use xcm::latest::prelude::*;
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 use parachains_common::{
-	impls::DealWithFees,
-	rococo::{consensus::*, currency::*, fee::WeightToFee},
-	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
-	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
+	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 
 use polkadot_runtime_common::prod_or_fast;
 
 #[cfg(feature = "runtime-benchmarks")]
 use benchmark_helpers::DoNothingRouter;
-#[cfg(not(feature = "runtime-benchmarks"))]
-use bridge_hub_common::BridgeHubMessageRouter;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -149,6 +150,8 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+	// permanent
+	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.
@@ -167,12 +170,12 @@ impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
 		let mut writes = 0;
 
 		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
-			PolkadotXcm::current_storage_version().put::<PolkadotXcm>();
+			PolkadotXcm::in_code_storage_version().put::<PolkadotXcm>();
 			writes.saturating_inc();
 		}
 
 		if Balances::on_chain_storage_version() == StorageVersion::new(0) {
-			Balances::current_storage_version().put::<Balances>();
+			Balances::in_code_storage_version().put::<Balances>();
 			writes.saturating_inc();
 		}
 
@@ -201,7 +204,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-rococo"),
 	impl_name: create_runtime_str!("bridge-hub-rococo"),
 	authoring_version: 1,
-	spec_version: 1_005_002,
+	spec_version: 1_009_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 4,
@@ -241,7 +244,7 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
-#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -276,7 +279,7 @@ impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
-	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
+	type MinimumPeriod = ConstU64<0>;
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
 
@@ -304,7 +307,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -338,14 +340,16 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
-	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
-	type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
-		Runtime,
-		RELAY_CHAIN_SLOT_DURATION_MILLIS,
-		BLOCK_PROCESSING_VELOCITY,
-		UNINCLUDED_SEGMENT_CAPACITY,
-	>;
+	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
+	type ConsensusHook = ConsensusHook;
 }
+
+type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+>;
 
 impl parachain_info::Config for Runtime {}
 
@@ -360,11 +364,15 @@ parameter_types! {
 impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
+	// Use the NoopMessageProcessor exclusively for benchmarks, not for tests with the
+	// runtime-benchmarks feature as tests require the BridgeHubMessageRouter to process messages.
+	// The "test" feature flag doesn't work, hence the reliance on the "std" feature, which is
+	// enabled during tests.
+	#[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
 	type MessageProcessor =
 		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type MessageProcessor = BridgeHubMessageRouter<
+	#[cfg(not(all(not(feature = "std"), feature = "runtime-benchmarks")))]
+	type MessageProcessor = bridge_hub_common::BridgeHubMessageRouter<
 		xcm_builder::ProcessXcmMessage<
 			AggregateMessageOrigin,
 			xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
@@ -379,6 +387,7 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = MessageQueueServiceWeight;
 }
 
 impl cumulus_pallet_aura_ext::Config for Runtime {}
@@ -435,9 +444,8 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
-	#[cfg(feature = "experimental")]
-	type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
+	type AllowMultipleBlocksPerSlot = ConstBool<true>;
+	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
 parameter_types! {
@@ -488,13 +496,6 @@ impl pallet_utility::Config for Runtime {
 }
 
 // Ethereum Bridge
-
-#[cfg(not(feature = "runtime-benchmarks"))]
-parameter_types! {
-	pub storage EthereumGatewayAddress: H160 = H160::zero();
-}
-
-#[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
 }
@@ -502,11 +503,11 @@ parameter_types! {
 parameter_types! {
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
-	pub const InboundQueuePalletInstance: u8 = parachains_common::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
-		rewards: Rewards { local: 1 * UNITS, remote: meth(1) }
+		rewards: Rewards { local: 1 * UNITS, remote: meth(1) },
+		multiplier: FixedU128::from_rational(1, 1),
 	};
 }
 
@@ -563,7 +564,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type MessageConverter = MessageToXcm<
 		CreateAssetCall,
 		CreateAssetDeposit,
-		InboundQueuePalletInstance,
+		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
 		AccountId,
 		Balance,
 	>;
@@ -590,29 +591,33 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type Channels = EthereumSystem;
 }
 
-#[cfg(feature = "fast-runtime")]
+#[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [0, 0, 0, 1], // 0x00000001
+			version: [0, 0, 0, 0], // 0x00000000
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [1, 0, 0, 1], // 0x01000001
+			version: [1, 0, 0, 0], // 0x01000000
 			epoch: 0,
 		},
 		bellatrix: Fork {
-			version: [2, 0, 0, 1], // 0x02000001
+			version: [2, 0, 0, 0], // 0x02000000
 			epoch: 0,
 		},
 		capella: Fork {
-			version: [3, 0, 0, 1], // 0x03000001
+			version: [3, 0, 0, 0], // 0x03000000
 			epoch: 0,
 		},
+		deneb: Fork {
+			version: [4, 0, 0, 0], // 0x04000000
+			epoch: 0,
+		}
 	};
 }
 
-#[cfg(not(feature = "fast-runtime"))]
+#[cfg(not(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test)))]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
@@ -630,6 +635,10 @@ parameter_types! {
 		capella: Fork {
 			version: [144, 0, 0, 114], // 0x90000072
 			epoch: 56832,
+		},
+		deneb: Fork {
+			version: [144, 0, 0, 115], // 0x90000073
+			epoch: 132608,
 		},
 	};
 }
@@ -664,68 +673,66 @@ construct_runtime!(
 	pub enum Runtime
 	{
 		// System support stuff.
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 1,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 3,
+		System: frame_system = 0,
+		ParachainSystem: cumulus_pallet_parachain_system = 1,
+		Timestamp: pallet_timestamp = 2,
+		ParachainInfo: parachain_info = 3,
 
 		// Monetary stuff.
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
+		Balances: pallet_balances = 10,
+		TransactionPayment: pallet_transaction_payment = 11,
 
 		// Collator support. The order of these 4 are important and shall not change.
-		Authorship: pallet_authorship::{Pallet, Storage} = 20,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
+		Authorship: pallet_authorship = 20,
+		CollatorSelection: pallet_collator_selection = 21,
+		Session: pallet_session = 22,
+		Aura: pallet_aura = 23,
+		AuraExt: cumulus_pallet_aura_ext = 24,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 31,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
+		PolkadotXcm: pallet_xcm = 31,
+		CumulusXcm: cumulus_pallet_xcm = 32,
 
 		// Handy utilities.
-		Utility: pallet_utility::{Pallet, Call, Event} = 40,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 36,
+		Utility: pallet_utility = 40,
+		Multisig: pallet_multisig = 36,
 
 		// Bridge relayers pallet, used by several bridges here.
-		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>} = 47,
+		BridgeRelayers: pallet_bridge_relayers = 47,
 
 		// With-Westend GRANDPA bridge module.
-		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 48,
+		BridgeWestendGrandpa: pallet_bridge_grandpa::<Instance3> = 48,
 		// With-Westend parachain bridge module.
-		BridgeWestendParachains: pallet_bridge_parachains::<Instance3>::{Pallet, Call, Storage, Event<T>} = 49,
+		BridgeWestendParachains: pallet_bridge_parachains::<Instance3> = 49,
 		// With-Westend messaging bridge module.
-		BridgeWestendMessages: pallet_bridge_messages::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>} = 51,
+		BridgeWestendMessages: pallet_bridge_messages::<Instance3> = 51,
 		// With-Westend bridge hub pallet.
-		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1>::{Pallet} = 52,
+		XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::<Instance1> = 52,
 
 		// With-Rococo Bulletin GRANDPA bridge module.
 		//
-		// we can't use `BridgeRococoBulletinGrandpa` name here, because the same Bulletin runtime will be
-		// used for both Rococo and Polkadot Bulletin chains AND this name affects runtime storage keys, used
-		// by the relayer process
-		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,
+		// we can't use `BridgeRococoBulletinGrandpa` name here, because the same Bulletin runtime
+		// will be used for both Rococo and Polkadot Bulletin chains AND this name affects runtime
+		// storage keys, used by the relayer process.
+		BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::<Instance4> = 60,
 		// With-Rococo Bulletin messaging bridge module.
 		//
-		// we can't use `BridgeRococoBulletinMessages` name here, because the same Bulletin runtime will be
-		// used for both Rococo and Polkadot Bulletin chains AND this name affects runtime storage keys, used
-		// by this runtime and the relayer process
-		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4>::{Pallet, Call, Storage, Event<T>, Config<T>} = 61,
+		// we can't use `BridgeRococoBulletinMessages` name here, because the same Bulletin runtime
+		// will be used for both Rococo and Polkadot Bulletin chains AND this name affects runtime
+		// storage keys, used by this runtime and the relayer process.
+		BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4> = 61,
 		// With-Rococo Bulletin bridge hub pallet.
-		XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::<Instance2>::{Pallet} = 62,
+		XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::<Instance2> = 62,
 
-		EthereumInboundQueue: snowbridge_pallet_inbound_queue::{Pallet, Call, Storage, Event<T>} = 80,
-		EthereumOutboundQueue: snowbridge_pallet_outbound_queue::{Pallet, Call, Storage, Event<T>} = 81,
-		EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>} = 82,
-		EthereumSystem: snowbridge_pallet_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 83,
+		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
+		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client = 82,
+		EthereumSystem: snowbridge_pallet_system = 83,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 250,
+		MessageQueue: pallet_message_queue = 175,
 	}
 );
 
@@ -783,11 +790,20 @@ mod benches {
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
 		}
 
 		fn authorities() -> Vec<AuraId> {
-			Aura::authorities().into_inner()
+			pallet_aura::Authorities::<Runtime>::get().into_inner()
+		}
+	}
+
+	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
+		fn can_build_upon(
+			included_hash: <Block as BlockT>::Hash,
+			slot: cumulus_primitives_aura::Slot,
+		) -> bool {
+			ConsensusHook::can_build_upon(included_hash, slot)
 		}
 	}
 
@@ -800,7 +816,7 @@ impl_runtime_apis! {
 			Executive::execute_block(block)
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}
@@ -1010,8 +1026,8 @@ impl_runtime_apis! {
 			snowbridge_pallet_outbound_queue::api::prove_message::<Runtime>(leaf_index)
 		}
 
-		fn calculate_fee(message: Message) -> Option<Balance> {
-			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(message)
+		fn calculate_fee(command: Command, parameters: Option<PricingParameters<Balance>>) -> Fee<Balance> {
+			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(command, parameters)
 		}
 	}
 
@@ -1095,6 +1111,12 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
+				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
+					xcm_config::XcmConfig,
+					ExistentialDepositAsset,
+					xcm_config::PriceForParentDelivery,
+				>;
+
 				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
@@ -1103,7 +1125,7 @@ impl_runtime_apis! {
 					// Relay/native token can be teleported between BH and Relay.
 					Some((
 						Asset {
-							fun: Fungible(EXISTENTIAL_DEPOSIT),
+							fun: Fungible(ExistentialDeposit::get()),
 							id: AssetId(Parent.into())
 						},
 						Parent.into(),
@@ -1125,6 +1147,13 @@ impl_runtime_apis! {
 						native_location,
 						dest
 					)
+				}
+
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(Location::parent()),
+						fun: Fungible(ExistentialDeposit::get()),
+					}
 				}
 			}
 
@@ -1216,6 +1245,13 @@ impl_runtime_apis! {
 					Ok((origin, ticket, assets))
 				}
 
+				fn fee_asset() -> Result<Asset, BenchmarkError> {
+					Ok(Asset {
+						id: AssetId(TokenLocation::get()),
+						fun: Fungible(1_000_000 * UNITS),
+					})
+				}
+
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
@@ -1275,7 +1311,7 @@ impl_runtime_apis! {
 			impl BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance> for Runtime {
 				fn is_relayer_rewarded(relayer: &Self::AccountId) -> bool {
 					let bench_lane_id = <Self as BridgeMessagesConfig<bridge_to_westend_config::WithBridgeHubWestendMessagesInstance>>::bench_lane_id();
-					let bridged_chain_id = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
+					let bridged_chain_id = bridge_to_westend_config::BridgeHubWestendChainId::get();
 					pallet_bridge_relayers::Pallet::<Runtime>::relayer_reward(
 						relayer,
 						bp_relayers::RewardsAccountParams::new(

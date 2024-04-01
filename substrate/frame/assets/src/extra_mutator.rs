@@ -38,7 +38,7 @@ impl<T: Config<I>, I: 'static> Drop for ExtraMutator<T, I> {
 	}
 }
 
-impl<T: Config<I>, I: 'static> sp_std::ops::Deref for ExtraMutator<T, I> {
+impl<T: Config<I>, I: 'static> core::ops::Deref for ExtraMutator<T, I> {
 	type Target = T::Extra;
 	fn deref(&self) -> &T::Extra {
 		match self.pending {
@@ -48,7 +48,7 @@ impl<T: Config<I>, I: 'static> sp_std::ops::Deref for ExtraMutator<T, I> {
 	}
 }
 
-impl<T: Config<I>, I: 'static> sp_std::ops::DerefMut for ExtraMutator<T, I> {
+impl<T: Config<I>, I: 'static> core::ops::DerefMut for ExtraMutator<T, I> {
 	fn deref_mut(&mut self) -> &mut T::Extra {
 		if self.pending.is_none() {
 			self.pending = Some(self.original.clone());
@@ -60,7 +60,7 @@ impl<T: Config<I>, I: 'static> sp_std::ops::DerefMut for ExtraMutator<T, I> {
 impl<T: Config<I>, I: 'static> ExtraMutator<T, I> {
 	pub(super) fn maybe_new(
 		id: T::AssetId,
-		who: impl sp_std::borrow::Borrow<T::AccountId>,
+		who: impl core::borrow::Borrow<T::AccountId>,
 	) -> Option<ExtraMutator<T, I>> {
 		if let Some(a) = Account::<T, I>::get(&id, who.borrow()) {
 			Some(ExtraMutator::<T, I> {

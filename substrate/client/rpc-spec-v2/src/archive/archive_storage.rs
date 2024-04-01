@@ -28,12 +28,12 @@ use crate::common::{
 	storage::{IterQueryType, QueryIter, Storage},
 };
 
-/// Generates the events of the `chainHead_storage` method.
+/// Generates the events of the `archive_storage` method.
 pub struct ArchiveStorage<Client, Block, BE> {
 	/// Storage client.
 	client: Storage<Client, Block, BE>,
-	/// The maximum number of reported items by the `archive_storage` at a time.
-	storage_max_reported_items: usize,
+	/// The maximum number of responses the API can return for a descendant query at a time.
+	storage_max_descendant_responses: usize,
 	/// The maximum number of queried items allowed for the `archive_storage` at a time.
 	storage_max_queried_items: usize,
 }
@@ -42,10 +42,14 @@ impl<Client, Block, BE> ArchiveStorage<Client, Block, BE> {
 	/// Constructs a new [`ArchiveStorage`].
 	pub fn new(
 		client: Arc<Client>,
-		storage_max_reported_items: usize,
+		storage_max_descendant_responses: usize,
 		storage_max_queried_items: usize,
 	) -> Self {
-		Self { client: Storage::new(client), storage_max_reported_items, storage_max_queried_items }
+		Self {
+			client: Storage::new(client),
+			storage_max_descendant_responses,
+			storage_max_queried_items,
+		}
 	}
 }
 
@@ -96,7 +100,7 @@ where
 						},
 						hash,
 						child_key.as_ref(),
-						self.storage_max_reported_items,
+						self.storage_max_descendant_responses,
 					) {
 						Ok((results, _)) => storage_results.extend(results),
 						Err(error) => return ArchiveStorageResult::err(error),
@@ -111,7 +115,7 @@ where
 						},
 						hash,
 						child_key.as_ref(),
-						self.storage_max_reported_items,
+						self.storage_max_descendant_responses,
 					) {
 						Ok((results, _)) => storage_results.extend(results),
 						Err(error) => return ArchiveStorageResult::err(error),

@@ -211,7 +211,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -484,7 +484,7 @@ pub mod pallet {
 		Blacklisted { proposal_hash: T::Hash },
 		/// An account has voted in a referendum
 		Voted { voter: T::AccountId, ref_index: ReferendumIndex, vote: AccountVote<BalanceOf<T>> },
-		/// An account has secconded a proposal
+		/// An account has seconded a proposal
 		Seconded { seconder: T::AccountId, prop_index: PropIndex },
 		/// A proposal got canceled.
 		ProposalCanceled { prop_index: PropIndex },

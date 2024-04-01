@@ -323,7 +323,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: Vec<(AuthorityId, BabeAuthorityWeight)>,
-		pub epoch_config: Option<BabeEpochConfiguration>,
+		pub epoch_config: BabeEpochConfiguration,
 		#[serde(skip)]
 		pub _config: sp_std::marker::PhantomData<T>,
 	}
@@ -333,9 +333,7 @@ pub mod pallet {
 		fn build(&self) {
 			SegmentIndex::<T>::put(0);
 			Pallet::<T>::initialize_genesis_authorities(&self.authorities);
-			EpochConfig::<T>::put(
-				self.epoch_config.clone().expect("epoch_config must not be None"),
-			);
+			EpochConfig::<T>::put(&self.epoch_config);
 		}
 	}
 

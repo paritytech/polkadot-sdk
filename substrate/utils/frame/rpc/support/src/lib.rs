@@ -35,7 +35,7 @@ use sp_storage::{StorageData, StorageKey};
 /// A typed query on chain state usable from an RPC client.
 ///
 /// ```no_run
-/// # use jsonrpsee::core::Error as RpcError;
+/// # use jsonrpsee::core::ClientError as RpcError;
 /// # use jsonrpsee::ws_client::WsClientBuilder;
 /// # use codec::Encode;
 /// # use frame_support::{construct_runtime, derive_impl, traits::ConstU32};
@@ -46,14 +46,14 @@ use sp_storage::{StorageData, StorageKey};
 /// # construct_runtime!(
 /// # 	pub enum TestRuntime
 /// # 	{
-/// # 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-/// # 		Test: pallet_test::{Pallet, Storage},
+/// # 		System: frame_system,
+/// # 		Test: pallet_test,
 /// # 	}
 /// # );
 /// #
 /// # type Hash = sp_core::H256;
 /// #
-/// # #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+/// # #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 /// # impl frame_system::Config for TestRuntime {
 /// # 	type BaseCallFilter = ();
 /// # 	type BlockWeights = ();

@@ -37,7 +37,7 @@ pub mod transaction;
 pub type SubscriptionTaskExecutor = std::sync::Arc<dyn sp_core::traits::SpawnNamed>;
 
 /// The result of an RPC method.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(untagged)]
 pub enum MethodResult {
 	/// Method generated a result.

@@ -21,7 +21,7 @@ async-trait = "0.1.74"
 futures = "0.3.21"
 futures-timer = "3.0.1"
 libp2p = "0.51.4"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 rand = "0.8.5"
 sc-block-builder = { path = "../../block-builder" }

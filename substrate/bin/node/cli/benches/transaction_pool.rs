@@ -26,7 +26,7 @@ use node_primitives::AccountId;
 use sc_service::{
 	config::{
 		BlocksPruning, DatabaseSource, KeystoreConfig, NetworkConfiguration, OffchainWorkerConfig,
-		PruningMode, TransactionPoolOptions,
+		PruningMode, RpcBatchRequestConfig, TransactionPoolOptions,
 	},
 	BasePath, Configuration, Role,
 };
@@ -79,6 +79,9 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		rpc_id_provider: Default::default(),
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9944,
+		rpc_message_buffer_capacity: Default::default(),
+		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
+		rpc_rate_limit: None,
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,

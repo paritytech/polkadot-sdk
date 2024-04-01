@@ -16,8 +16,9 @@
 
 use crate::traits::{
 	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
-	FeeManager, OnResponse, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds,
-	WeightTrader,
+	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
+	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
+	VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 use frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
@@ -111,4 +112,14 @@ pub trait Config {
 	/// Use this type to explicitly whitelist calls that cannot undergo recursion. This is a
 	/// temporary measure until we properly account for proof size weights for XCM instructions.
 	type SafeCallFilter: Contains<Self::RuntimeCall>;
+
+	/// Transactional processor for XCM instructions.
+	type TransactionalProcessor: ProcessTransaction;
+
+	/// Allows optional logic execution for the `HrmpNewChannelOpenRequest` XCM notification.
+	type HrmpNewChannelOpenRequestHandler: HandleHrmpNewChannelOpenRequest;
+	/// Allows optional logic execution for the `HrmpChannelAccepted` XCM notification.
+	type HrmpChannelAcceptedHandler: HandleHrmpChannelAccepted;
+	/// Allows optional logic execution for the `HrmpChannelClosing` XCM notification.
+	type HrmpChannelClosingHandler: HandleHrmpChannelClosing;
 }

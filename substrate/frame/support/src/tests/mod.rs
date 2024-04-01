@@ -171,7 +171,7 @@ pub mod frame_system {
 		pub data: Vec<(u32, u64)>,
 		pub test_config: Vec<(u32, u32, u64)>,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -227,7 +227,7 @@ crate::construct_runtime!(
 	}
 );
 
-#[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as self::frame_system::DefaultConfig)]
 impl Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;

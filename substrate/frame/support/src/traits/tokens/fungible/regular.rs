@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! `Inspect` and `Mutate` traits for working with regular balances.
+//!
+//! See the [`crate::traits::fungible`] doc for more information about fungible traits.
 
 use crate::{
 	ensure,
@@ -321,7 +323,7 @@ where
 		let _extra = Self::can_withdraw(source, amount).into_result(preservation != Expendable)?;
 		Self::can_deposit(dest, amount, Extant).into_result()?;
 		if source == dest {
-			return Ok(amount);
+			return Ok(amount)
 		}
 
 		Self::decrease_balance(source, amount, BestEffort, preservation, Polite)?;

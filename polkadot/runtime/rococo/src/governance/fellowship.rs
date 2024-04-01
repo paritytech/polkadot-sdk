@@ -17,7 +17,7 @@
 //! Elements of governance concerning the Rococo Fellowship.
 
 use frame_support::traits::{MapSuccess, TryMapSuccess};
-use sp_runtime::traits::{CheckedReduceBy, ConstU16, Replace};
+use sp_runtime::traits::{CheckedReduceBy, ConstU16, Replace, ReplaceWithDefault};
 
 use super::*;
 use crate::{CENTS, DAYS};
@@ -315,6 +315,11 @@ pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
 impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime {
 	type WeightInfo = weights::pallet_ranked_collective::WeightInfo<Self>;
 	type RuntimeEvent = RuntimeEvent;
+	// Adding is by any of:
+	// - Root.
+	// - the FellowshipAdmin origin.
+	// - a Fellowship origin.
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
 	// Promotion is by any of:
 	// - Root can demote arbitrarily.
 	// - the FellowshipAdmin origin (i.e. token holder referendum);
@@ -326,6 +331,11 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 			TryMapSuccess<origins::EnsureFellowship, CheckedReduceBy<ConstU16<1>>>,
 		>,
 	>;
+	// Removing is by any of:
+	// - Root can remove arbitrarily.
+	// - the FellowshipAdmin origin (i.e. token holder referendum);
+	// - a vote by the rank two above the current rank.
+	type RemoveOrigin = Self::DemoteOrigin;
 	// Demotion is by any of:
 	// - Root can demote arbitrarily.
 	// - the FellowshipAdmin origin (i.e. token holder referendum);
@@ -337,7 +347,15 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 			TryMapSuccess<origins::EnsureFellowship, CheckedReduceBy<ConstU16<2>>>,
 		>,
 	>;
+	// Exchange is by any of:
+	// - Root can exchange arbitrarily.
+	// - the Fellows origin;
+	type ExchangeOrigin =
+		EitherOf<EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>, Fellows>;
 	type Polls = FellowshipReferenda;
 	type MinRankOfClass = sp_runtime::traits::Identity;
+	type MemberSwappedHandler = ();
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = ();
 }

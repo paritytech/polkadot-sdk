@@ -23,6 +23,7 @@ use crate::{
 };
 use bp_messages::LaneId;
 use bp_parachains::SingleParaStoredHeaderDataBuilder;
+use bp_runtime::Chain;
 use bridge_runtime_common::{
 	messages,
 	messages::{
@@ -62,7 +63,7 @@ parameter_types! {
 		bp_bridge_hub_westend::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_westend::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	pub const BridgeHubRococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
+	pub const BridgeHubRococoChainId: bp_runtime::ChainId = BridgeHubRococo::ID;
 	pub BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(<BridgeRococoMessages as PalletInfoAccess>::index() as u8)].into();
 	pub RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
 	pub RococoGlobalConsensusNetworkLocation: Location = Location::new(
@@ -162,10 +163,6 @@ impl MessageBridge for WithBridgeHubRococoMessageBridge {
 	>;
 }
 
-/// Message verifier for BridgeHubRococo messages sent from BridgeHubWestend
-type ToBridgeHubRococoMessageVerifier =
-	messages::source::FromThisChainMessageVerifier<WithBridgeHubRococoMessageBridge>;
-
 /// Maximal outbound payload size of BridgeHubWestend -> BridgeHubRococo messages.
 type ToBridgeHubRococoMaximalOutboundPayloadSize =
 	messages::source::FromThisChainMaximalOutboundPayloadSize<WithBridgeHubRococoMessageBridge>;
@@ -249,7 +246,6 @@ impl pallet_bridge_messages::Config<WithBridgeHubRococoMessagesInstance> for Run
 	type DeliveryPayments = ();
 
 	type TargetHeaderChain = TargetHeaderChainAdapter<WithBridgeHubRococoMessageBridge>;
-	type LaneMessageVerifier = ToBridgeHubRococoMessageVerifier;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		Runtime,
 		WithBridgeHubRococoMessagesInstance,
@@ -291,7 +287,8 @@ mod tests {
 			AssertCompleteBridgeConstants,
 		},
 	};
-	use parachains_common::{westend, Balance};
+	use parachains_common::Balance;
+	use testnet_parachains_constants::westend;
 
 	/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of
@@ -337,14 +334,14 @@ mod tests {
 		>(AssertCompleteBridgeConstants {
 			this_chain_constants: AssertChainConstants {
 				block_length: bp_bridge_hub_westend::BlockLength::get(),
-				block_weights: bp_bridge_hub_westend::BlockWeights::get(),
+				block_weights: bp_bridge_hub_westend::BlockWeightsForAsyncBacking::get(),
 			},
 			messages_pallet_constants: AssertBridgeMessagesPalletConstants {
 				max_unrewarded_relayers_in_bridged_confirmation_tx:
 					bp_bridge_hub_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 				max_unconfirmed_messages_in_bridged_confirmation_tx:
 					bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
-				bridged_chain_id: bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID,
+				bridged_chain_id: BridgeHubRococo::ID,
 			},
 			pallet_names: AssertBridgePalletNames {
 				with_this_chain_messages_pallet_name:

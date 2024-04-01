@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Pallet to queue outbound and inbound XCMP messages."
@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
@@ -34,7 +34,7 @@ cumulus-primitives-core = { path = "../../primitives/core", default-features = f
 
 # Optional import for benchmarking
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-bounded-collections = { version = "0.1.4", default-features = false }
+bounded-collections = { version = "0.2.0", default-features = false }
 
 # Bridges
 bp-xcm-bridge-hub-router = { path = "../../../bridges/primitives/xcm-bridge-hub-router", default-features = false, optional = true }

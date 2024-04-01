@@ -580,7 +580,7 @@ where
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	pub fn decode_len<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Option<usize>
 	where
@@ -598,7 +598,8 @@ where
 	///
 	/// # Warning
 	///
-	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	///  - `None` does not mean that `get()` does not return a value. The default value is
+	///    completely
 	/// ignored by this function.
 	///
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
@@ -802,7 +803,8 @@ where
 	///
 	/// By returning `None` from `f` for an element, you'll remove it from the map.
 	///
-	/// NOTE: If a value fail to decode because storage is corrupted then it is skipped.
+	/// NOTE: If a value fails to decode because storage is corrupted, then it will log an error and
+	/// be skipped in production, or panic in development.
 	pub fn translate<O: Decode, F: FnMut(Key, O) -> Option<Value>>(f: F) {
 		<Self as crate::storage::IterableStorageMap<Key, Value>>::translate(f)
 	}
