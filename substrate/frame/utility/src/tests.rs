@@ -87,7 +87,7 @@ pub mod example {
 	}
 }
 
-mod mock_democracy {
+mod mock_oligarchy {
 	pub use pallet::*;
 	#[frame_support::pallet(dev_mode)]
 	pub mod pallet {
@@ -135,7 +135,7 @@ frame_support::construct_runtime!(
 		Council: pallet_collective::<Instance1>,
 		Utility: utility,
 		Example: example,
-		Democracy: mock_democracy,
+		Oligarchy: mock_oligarchy,
 	}
 );
 
@@ -217,12 +217,12 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
 			// For tests
 			RuntimeCall::Example(_) => true,
 			// For council origin tests.
-			RuntimeCall::Democracy(_) => true,
+			RuntimeCall::Oligarchy(_) => true,
 			_ => false,
 		}
 	}
 }
-impl mock_democracy::Config for Test {
+impl mock_oligarchy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
@@ -810,7 +810,7 @@ fn batch_all_doesnt_work_with_inherents() {
 fn batch_works_with_council_origin() {
 	new_test_ext().execute_with(|| {
 		let proposal = RuntimeCall::Utility(UtilityCall::batch {
-			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
+			calls: vec![RuntimeCall::Oligarchy(mock_oligarchy::Call::external_propose_majority {})],
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().weight;
@@ -847,7 +847,7 @@ fn batch_works_with_council_origin() {
 fn force_batch_works_with_council_origin() {
 	new_test_ext().execute_with(|| {
 		let proposal = RuntimeCall::Utility(UtilityCall::force_batch {
-			calls: vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})],
+			calls: vec![RuntimeCall::Oligarchy(mock_oligarchy::Call::external_propose_majority {})],
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().weight;
@@ -885,7 +885,7 @@ fn batch_all_works_with_council_origin() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Utility::batch_all(
 			RuntimeOrigin::from(pallet_collective::RawOrigin::Members(3, 3)),
-			vec![RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {})]
+			vec![RuntimeCall::Oligarchy(mock_oligarchy::Call::external_propose_majority {})]
 		));
 	})
 }

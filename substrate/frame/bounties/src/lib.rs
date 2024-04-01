@@ -30,7 +30,7 @@
 //! curator in exchange of a deposit. Once the curator accepts the bounty, they get to close the
 //! active bounty. Closing the active bounty enacts a delayed payout to the payout address, the
 //! curator fee and the return of the curator deposit. The delay allows for intervention through
-//! regular democracy. The Council gets to unassign the curator, resulting in a new curator
+//! regular oligarchy. The Council gets to unassign the curator, resulting in a new curator
 //! election. The Council also gets to cancel the bounty if deemed necessary before assigning a
 //! curator or once the bounty is active or payout is pending, resulting in the slash of the
 //! curator's deposit.

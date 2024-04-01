@@ -18,7 +18,7 @@
 //! The crate's tests.
 
 use super::*;
-use crate as pallet_democracy;
+use crate as pallet_oligarchy;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
@@ -58,7 +58,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Preimage: pallet_preimage,
 		Scheduler: pallet_scheduler,
-		Democracy: pallet_democracy,
+		Oligarchy: pallet_oligarchy,
 	}
 );
 
@@ -183,7 +183,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	pallet_democracy::GenesisConfig::<Test>::default()
+	pallet_oligarchy::GenesisConfig::<Test>::default()
 		.assimilate_storage(&mut t)
 		.unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
@@ -194,7 +194,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[test]
 fn params_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_eq!(Democracy::referendum_count(), 0);
+		assert_eq!(Oligarchy::referendum_count(), 0);
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_eq!(Balances::total_issuance(), 210);
 	});
@@ -215,13 +215,13 @@ fn set_balance_proposal_is_correctly_filtered_out() {
 }
 
 fn propose_set_balance(who: u64, value: u64, delay: u64) -> DispatchResult {
-	Democracy::propose(RuntimeOrigin::signed(who), set_balance_proposal(value), delay)
+	Oligarchy::propose(RuntimeOrigin::signed(who), set_balance_proposal(value), delay)
 }
 
 fn next_block() {
 	System::set_block_number(System::block_number() + 1);
 	Scheduler::on_initialize(System::block_number());
-	Democracy::begin_block(System::block_number());
+	Oligarchy::begin_block(System::block_number());
 }
 
 fn fast_forward_to(n: u64) {
@@ -254,7 +254,7 @@ fn big_nay(who: u64) -> AccountVote<u64> {
 }
 
 fn tally(r: ReferendumIndex) -> Tally<u64> {
-	Democracy::referendum_status(r).unwrap().tally
+	Oligarchy::referendum_status(r).unwrap().tally
 }
 
 /// note a new preimage without registering.

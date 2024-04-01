@@ -7075,7 +7075,6 @@ dependencies = [
  "pallet-contracts",
  "pallet-conviction-voting",
  "pallet-core-fellowship",
- "pallet-democracy",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
@@ -7103,6 +7102,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-oligarchy",
  "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
@@ -9699,26 +9699,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-democracy"
-version = "28.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "pallet-preimage",
- "pallet-scheduler",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std 14.0.0",
-]
-
-[[package]]
 name = "pallet-dev-mode"
 version = "10.0.0"
 dependencies = [
@@ -10448,6 +10428,26 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+ "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-oligarchy"
+version = "28.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-preimage",
+ "pallet-scheduler",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-std 14.0.0",
 ]
 
@@ -13385,12 +13385,12 @@ dependencies = [
  "pallet-broker",
  "pallet-collective",
  "pallet-default-config-example",
- "pallet-democracy",
  "pallet-example-offchain-worker",
  "pallet-example-single-block-migrations",
  "pallet-examples",
  "pallet-multisig",
  "pallet-nfts",
+ "pallet-oligarchy",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-referenda",
@@ -15050,7 +15050,6 @@ dependencies = [
  "pallet-child-bounties",
  "pallet-collective",
  "pallet-conviction-voting",
- "pallet-democracy",
  "pallet-elections-phragmen",
  "pallet-grandpa",
  "pallet-identity",
@@ -15062,6 +15061,7 @@ dependencies = [
  "pallet-multisig",
  "pallet-nis",
  "pallet-offences",
+ "pallet-oligarchy",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-ranked-collective",
@@ -21898,7 +21898,6 @@ dependencies = [
  "pallet-beefy-mmr",
  "pallet-collective",
  "pallet-conviction-voting",
- "pallet-democracy",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
@@ -21916,6 +21915,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-oligarchy",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-recovery",

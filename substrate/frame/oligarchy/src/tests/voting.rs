@@ -24,7 +24,7 @@ fn overvoting_should_fail() {
 	new_test_ext().execute_with(|| {
 		let r = begin_referendum();
 		assert_noop!(
-			Democracy::vote(RuntimeOrigin::signed(1), r, aye(2)),
+			Oligarchy::vote(RuntimeOrigin::signed(1), r, aye(2)),
 			Error::<Test>::InsufficientFunds
 		);
 	});
@@ -36,11 +36,11 @@ fn split_voting_should_work() {
 		let r = begin_referendum();
 		let v = AccountVote::Split { aye: 40, nay: 20 };
 		assert_noop!(
-			Democracy::vote(RuntimeOrigin::signed(5), r, v),
+			Oligarchy::vote(RuntimeOrigin::signed(5), r, v),
 			Error::<Test>::InsufficientFunds
 		);
 		let v = AccountVote::Split { aye: 30, nay: 20 };
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, v));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(5), r, v));
 
 		assert_eq!(tally(r), Tally { ayes: 3, nays: 2, turnout: 50 });
 	});
@@ -51,10 +51,10 @@ fn split_vote_cancellation_should_work() {
 	new_test_ext().execute_with(|| {
 		let r = begin_referendum();
 		let v = AccountVote::Split { aye: 30, nay: 20 };
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, v));
-		assert_ok!(Democracy::remove_vote(RuntimeOrigin::signed(5), r));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(5), r, v));
+		assert_ok!(Oligarchy::remove_vote(RuntimeOrigin::signed(5), r));
 		assert_eq!(tally(r), Tally { ayes: 0, nays: 0, turnout: 0 });
-		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
+		assert_ok!(Oligarchy::unlock(RuntimeOrigin::signed(5), 5));
 		assert_eq!(Balances::locks(5), vec![]);
 	});
 }
@@ -65,15 +65,15 @@ fn single_proposal_should_work() {
 		System::set_block_number(0);
 		assert_ok!(propose_set_balance(1, 2, 1));
 		let r = 0;
-		assert!(Democracy::referendum_info(r).is_none());
+		assert!(Oligarchy::referendum_info(r).is_none());
 
 		// start of 2 => next referendum scheduled.
 		fast_forward_to(2);
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, aye(1)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(1), r, aye(1)));
 
-		assert_eq!(Democracy::referendum_count(), 1);
+		assert_eq!(Oligarchy::referendum_count(), 1);
 		assert_eq!(
-			Democracy::referendum_status(0),
+			Oligarchy::referendum_status(0),
 			Ok(ReferendumStatus {
 				end: 4,
 				proposal: set_balance_proposal(2),
@@ -86,12 +86,12 @@ fn single_proposal_should_work() {
 		fast_forward_to(3);
 
 		// referendum still running
-		assert_ok!(Democracy::referendum_status(0));
+		assert_ok!(Oligarchy::referendum_status(0));
 
 		// referendum runs during 2 and 3, ends @ start of 4.
 		fast_forward_to(4);
 
-		assert_noop!(Democracy::referendum_status(0), Error::<Test>::ReferendumInvalid);
+		assert_noop!(Oligarchy::referendum_status(0), Error::<Test>::ReferendumInvalid);
 		assert!(pallet_scheduler::Agenda::<Test>::get(6)[0].is_some());
 
 		// referendum passes and wait another two blocks for enactment.
@@ -104,19 +104,19 @@ fn single_proposal_should_work() {
 #[test]
 fn controversial_voting_should_work() {
 	new_test_ext().execute_with(|| {
-		let r = Democracy::inject_referendum(
+		let r = Oligarchy::inject_referendum(
 			2,
 			set_balance_proposal(2),
 			VoteThreshold::SuperMajorityApprove,
 			0,
 		);
 
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(1), r, big_aye(1)));
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(2), r, big_nay(2)));
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(3), r, big_nay(3)));
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(4), r, big_aye(4)));
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, big_nay(5)));
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(6), r, big_aye(6)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(1), r, big_aye(1)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(2), r, big_nay(2)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(3), r, big_nay(3)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(4), r, big_aye(4)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(5), r, big_nay(5)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(6), r, big_aye(6)));
 
 		assert_eq!(tally(r), Tally { ayes: 110, nays: 100, turnout: 210 });
 
@@ -130,14 +130,14 @@ fn controversial_voting_should_work() {
 #[test]
 fn controversial_low_turnout_voting_should_work() {
 	new_test_ext().execute_with(|| {
-		let r = Democracy::inject_referendum(
+		let r = Oligarchy::inject_referendum(
 			2,
 			set_balance_proposal(2),
 			VoteThreshold::SuperMajorityApprove,
 			0,
 		);
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, big_nay(5)));
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(6), r, big_aye(6)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(5), r, big_nay(5)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(6), r, big_aye(6)));
 
 		assert_eq!(tally(r), Tally { ayes: 60, nays: 50, turnout: 110 });
 
@@ -154,15 +154,15 @@ fn passing_low_turnout_voting_should_work() {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_eq!(Balances::total_issuance(), 210);
 
-		let r = Democracy::inject_referendum(
+		let r = Oligarchy::inject_referendum(
 			2,
 			set_balance_proposal(2),
 			VoteThreshold::SuperMajorityApprove,
 			0,
 		);
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(4), r, big_aye(4)));
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(5), r, big_nay(5)));
-		assert_ok!(Democracy::vote(RuntimeOrigin::signed(6), r, big_aye(6)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(4), r, big_aye(4)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(5), r, big_nay(5)));
+		assert_ok!(Oligarchy::vote(RuntimeOrigin::signed(6), r, big_aye(6)));
 		assert_eq!(tally(r), Tally { ayes: 100, nays: 50, turnout: 150 });
 
 		next_block();

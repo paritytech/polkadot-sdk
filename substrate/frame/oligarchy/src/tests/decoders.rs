@@ -48,10 +48,10 @@ fn len_of_deposit_of() {
 			let value: (BoundedVec<u64, _>, u64) =
 				((0..l).map(|_| Default::default()).collect::<Vec<_>>().try_into().unwrap(), 3u64);
 			DepositOf::<Test>::insert(2, value);
-			assert_eq!(Democracy::len_of_deposit_of(2), Some(l));
+			assert_eq!(Oligarchy::len_of_deposit_of(2), Some(l));
 		}
 
 		DepositOf::<Test>::remove(2);
-		assert_eq!(Democracy::len_of_deposit_of(2), None);
+		assert_eq!(Oligarchy::len_of_deposit_of(2), None);
 	})
 }

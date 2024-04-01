@@ -73,7 +73,7 @@ pallet-multisig = { path = "../../substrate/frame/multisig" }
 pallet-proxy = { path = "../../substrate/frame/proxy" }
 pallet-authorship = { path = "../../substrate/frame/authorship" }
 pallet-collective = { path = "../../substrate/frame/collective" }
-pallet-democracy = { path = "../../substrate/frame/democracy" }
+pallet-oligarchy = { path = "../../substrate/frame/oligarchy" }
 pallet-uniques = { path = "../../substrate/frame/uniques" }
 pallet-nfts = { path = "../../substrate/frame/nfts" }
 pallet-scheduler = { path = "../../substrate/frame/scheduler" }

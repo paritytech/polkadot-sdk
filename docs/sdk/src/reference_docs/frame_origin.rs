@@ -21,7 +21,7 @@
 //! example:
 //!
 //! * If the majority of token holders agreed upon this. This is more or less what the
-//!   [`pallet_democracy`] does under the hood ([reference](https://github.com/paritytech/polkadot-sdk/blob/edd95b3749754d2ed0c5738588e872c87be91624/substrate/frame/democracy/src/lib.rs#L1603-L1633)).
+//!   [`pallet_oligarchy`] does under the hood ([reference](https://github.com/paritytech/polkadot-sdk/blob/edd95b3749754d2ed0c5738588e872c87be91624/substrate/frame/oligarchy/src/lib.rs#L1603-L1633)).
 //! * If a specific ratio of an instance of [`pallet_collective`]/DAO agrees upon this.
 //! * If another consensus system, for example a bridged network or a parachain, agrees upon this.
 //! * If the majority of validator/authority set agrees upon this[^1].

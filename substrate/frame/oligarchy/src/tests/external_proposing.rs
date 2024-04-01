@@ -23,50 +23,50 @@ use super::*;
 fn veto_external_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(0);
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
 		assert!(<NextExternal<Test>>::exists());
 
 		let h = set_balance_proposal(2).hash();
-		assert_ok!(Democracy::veto_external(RuntimeOrigin::signed(3), h));
+		assert_ok!(Oligarchy::veto_external(RuntimeOrigin::signed(3), h));
 		// cancelled.
 		assert!(!<NextExternal<Test>>::exists());
 		// fails - same proposal can't be resubmitted.
 		assert_noop!(
-			Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),),
+			Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),),
 			Error::<Test>::ProposalBlacklisted
 		);
 
 		fast_forward_to(1);
 		// fails as we're still in cooloff period.
 		assert_noop!(
-			Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),),
+			Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),),
 			Error::<Test>::ProposalBlacklisted
 		);
 
 		fast_forward_to(2);
 		// works; as we're out of the cooloff period.
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
 		assert!(<NextExternal<Test>>::exists());
 
 		// 3 can't veto the same thing twice.
 		assert_noop!(
-			Democracy::veto_external(RuntimeOrigin::signed(3), h),
+			Oligarchy::veto_external(RuntimeOrigin::signed(3), h),
 			Error::<Test>::AlreadyVetoed
 		);
 
 		// 4 vetoes.
-		assert_ok!(Democracy::veto_external(RuntimeOrigin::signed(4), h));
+		assert_ok!(Oligarchy::veto_external(RuntimeOrigin::signed(4), h));
 		// cancelled again.
 		assert!(!<NextExternal<Test>>::exists());
 
 		fast_forward_to(3);
 		// same proposal fails as we're still in cooloff
 		assert_noop!(
-			Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)),
+			Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)),
 			Error::<Test>::ProposalBlacklisted
 		);
 		// different proposal works fine.
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(3),));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(3),));
 	});
 }
 
@@ -75,16 +75,16 @@ fn external_blacklisting_should_work() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(0);
 
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
 
 		let hash = set_balance_proposal(2).hash();
-		assert_ok!(Democracy::blacklist(RuntimeOrigin::root(), hash, None));
+		assert_ok!(Oligarchy::blacklist(RuntimeOrigin::root(), hash, None));
 
 		fast_forward_to(2);
-		assert_noop!(Democracy::referendum_status(0), Error::<Test>::ReferendumInvalid);
+		assert_noop!(Oligarchy::referendum_status(0), Error::<Test>::ReferendumInvalid);
 
 		assert_noop!(
-			Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)),
+			Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)),
 			Error::<Test>::ProposalBlacklisted,
 		);
 	});
@@ -95,17 +95,17 @@ fn external_referendum_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(0);
 		assert_noop!(
-			Democracy::external_propose(RuntimeOrigin::signed(1), set_balance_proposal(2),),
+			Oligarchy::external_propose(RuntimeOrigin::signed(1), set_balance_proposal(2),),
 			BadOrigin,
 		);
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2),));
 		assert_noop!(
-			Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(1),),
+			Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(1),),
 			Error::<Test>::DuplicateProposal
 		);
 		fast_forward_to(2);
 		assert_eq!(
-			Democracy::referendum_status(0),
+			Oligarchy::referendum_status(0),
 			Ok(ReferendumStatus {
 				end: 4,
 				proposal: set_balance_proposal(2),
@@ -122,16 +122,16 @@ fn external_majority_referendum_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(0);
 		assert_noop!(
-			Democracy::external_propose_majority(RuntimeOrigin::signed(1), set_balance_proposal(2)),
+			Oligarchy::external_propose_majority(RuntimeOrigin::signed(1), set_balance_proposal(2)),
 			BadOrigin,
 		);
-		assert_ok!(Democracy::external_propose_majority(
+		assert_ok!(Oligarchy::external_propose_majority(
 			RuntimeOrigin::signed(3),
 			set_balance_proposal(2)
 		));
 		fast_forward_to(2);
 		assert_eq!(
-			Democracy::referendum_status(0),
+			Oligarchy::referendum_status(0),
 			Ok(ReferendumStatus {
 				end: 4,
 				proposal: set_balance_proposal(2),
@@ -148,16 +148,16 @@ fn external_default_referendum_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(0);
 		assert_noop!(
-			Democracy::external_propose_default(RuntimeOrigin::signed(3), set_balance_proposal(2)),
+			Oligarchy::external_propose_default(RuntimeOrigin::signed(3), set_balance_proposal(2)),
 			BadOrigin,
 		);
-		assert_ok!(Democracy::external_propose_default(
+		assert_ok!(Oligarchy::external_propose_default(
 			RuntimeOrigin::signed(1),
 			set_balance_proposal(2)
 		));
 		fast_forward_to(2);
 		assert_eq!(
-			Democracy::referendum_status(0),
+			Oligarchy::referendum_status(0),
 			Ok(ReferendumStatus {
 				end: 4,
 				proposal: set_balance_proposal(2),
@@ -173,14 +173,14 @@ fn external_default_referendum_works() {
 fn external_and_public_interleaving_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(0);
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(1),));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(1),));
 		assert_ok!(propose_set_balance(6, 2, 2));
 
 		fast_forward_to(2);
 
 		// both waiting: external goes first.
 		assert_eq!(
-			Democracy::referendum_status(0),
+			Oligarchy::referendum_status(0),
 			Ok(ReferendumStatus {
 				end: 4,
 				proposal: set_balance_proposal(1),
@@ -190,13 +190,13 @@ fn external_and_public_interleaving_works() {
 			})
 		);
 		// replenish external
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(3),));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(3),));
 
 		fast_forward_to(4);
 
 		// both waiting: public goes next.
 		assert_eq!(
-			Democracy::referendum_status(1),
+			Oligarchy::referendum_status(1),
 			Ok(ReferendumStatus {
 				end: 6,
 				proposal: set_balance_proposal(2),
@@ -211,7 +211,7 @@ fn external_and_public_interleaving_works() {
 
 		// it's external "turn" again, though since public is empty that doesn't really matter
 		assert_eq!(
-			Democracy::referendum_status(2),
+			Oligarchy::referendum_status(2),
 			Ok(ReferendumStatus {
 				end: 8,
 				proposal: set_balance_proposal(3),
@@ -221,13 +221,13 @@ fn external_and_public_interleaving_works() {
 			})
 		);
 		// replenish external
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(5),));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(5),));
 
 		fast_forward_to(8);
 
 		// external goes again because there's no public waiting.
 		assert_eq!(
-			Democracy::referendum_status(3),
+			Oligarchy::referendum_status(3),
 			Ok(ReferendumStatus {
 				end: 10,
 				proposal: set_balance_proposal(5),
@@ -237,14 +237,14 @@ fn external_and_public_interleaving_works() {
 			})
 		);
 		// replenish both
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(7),));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(7),));
 		assert_ok!(propose_set_balance(6, 4, 2));
 
 		fast_forward_to(10);
 
 		// public goes now since external went last time.
 		assert_eq!(
-			Democracy::referendum_status(4),
+			Oligarchy::referendum_status(4),
 			Ok(ReferendumStatus {
 				end: 12,
 				proposal: set_balance_proposal(4),
@@ -257,13 +257,13 @@ fn external_and_public_interleaving_works() {
 		assert_ok!(propose_set_balance(6, 6, 2));
 		// cancel external
 		let h = set_balance_proposal(7).hash();
-		assert_ok!(Democracy::veto_external(RuntimeOrigin::signed(3), h));
+		assert_ok!(Oligarchy::veto_external(RuntimeOrigin::signed(3), h));
 
 		fast_forward_to(12);
 
 		// public goes again now since there's no external waiting.
 		assert_eq!(
-			Democracy::referendum_status(5),
+			Oligarchy::referendum_status(5),
 			Ok(ReferendumStatus {
 				end: 14,
 				proposal: set_balance_proposal(6),

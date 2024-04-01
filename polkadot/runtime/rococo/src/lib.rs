@@ -1511,7 +1511,7 @@ pub mod migrations {
 	}
 
 	parameter_types! {
-		pub const DemocracyPalletName: &'static str = "Democracy";
+		pub const OligarchyPalletName: &'static str = "Oligarchy";
 		pub const CouncilPalletName: &'static str = "Council";
 		pub const TechnicalCommitteePalletName: &'static str = "TechnicalCommittee";
 		pub const PhragmenElectionPalletName: &'static str = "PhragmenElection";
@@ -1524,14 +1524,14 @@ pub mod migrations {
 	// Special Config for Gov V1 pallets, allowing us to run migrations for them without
 	// implementing their configs on [`Runtime`].
 	pub struct UnlockConfig;
-	impl pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockConfig for UnlockConfig {
+	impl pallet_oligarchy::migrations::unlock_and_unreserve_all_funds::UnlockConfig for UnlockConfig {
 		type Currency = Balances;
 		type MaxVotes = ConstU32<100>;
 		type MaxDeposits = ConstU32<100>;
 		type AccountId = AccountId;
 		type BlockNumber = BlockNumberFor<Runtime>;
 		type DbWeight = <Runtime as frame_system::Config>::DbWeight;
-		type PalletName = DemocracyPalletName;
+		type PalletName = OligarchyPalletName;
 	}
 	impl pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockConfig
 		for UnlockConfig
@@ -1645,12 +1645,12 @@ pub mod migrations {
 		// Unlock & unreserve Gov1 funds
 
 		pallet_elections_phragmen::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
-		pallet_democracy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
+		pallet_oligarchy::migrations::unlock_and_unreserve_all_funds::UnlockAndUnreserveAllFunds<UnlockConfig>,
 		pallet_tips::migrations::unreserve_deposits::UnreserveDeposits<UnlockConfig, ()>,
 
 		// Delete all Gov v1 pallet storage key/values.
 
-		frame_support::migrations::RemovePallet<DemocracyPalletName, <Runtime as frame_system::Config>::DbWeight>,
+		frame_support::migrations::RemovePallet<OligarchyPalletName, <Runtime as frame_system::Config>::DbWeight>,
 		frame_support::migrations::RemovePallet<CouncilPalletName, <Runtime as frame_system::Config>::DbWeight>,
 		frame_support::migrations::RemovePallet<TechnicalCommitteePalletName, <Runtime as frame_system::Config>::DbWeight>,
 		frame_support::migrations::RemovePallet<PhragmenElectionPalletName, <Runtime as frame_system::Config>::DbWeight>,

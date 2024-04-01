@@ -393,7 +393,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			),
 			ProxyType::Governance => matches!(
 				c,
-				RuntimeCall::Democracy(..) |
+				RuntimeCall::Oligarchy(..) |
 					RuntimeCall::Council(..) |
 					RuntimeCall::Society(..) |
 					RuntimeCall::TechnicalCommittee(..) |
@@ -1048,7 +1048,7 @@ parameter_types! {
 	pub const MaxProposals: u32 = 100;
 }
 
-impl pallet_democracy::Config for Runtime {
+impl pallet_oligarchy::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type EnactmentPeriod = EnactmentPeriod;
@@ -1093,7 +1093,7 @@ impl pallet_democracy::Config for Runtime {
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
 	type MaxVotes = ConstU32<100>;
-	type WeightInfo = pallet_democracy::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = pallet_oligarchy::weights::SubstrateWeight<Runtime>;
 	type MaxProposals = MaxProposals;
 	type Preimages = Preimage;
 	type MaxDeposits = ConstU32<100>;
@@ -2244,7 +2244,7 @@ mod runtime {
 	pub type Session = pallet_session;
 
 	#[runtime::pallet_index(13)]
-	pub type Democracy = pallet_democracy;
+	pub type Oligarchy = pallet_oligarchy;
 
 	#[runtime::pallet_index(14)]
 	pub type Council = pallet_collective<Instance1>;
@@ -2549,7 +2549,7 @@ mod benches {
 		[pallet_contracts, Contracts]
 		[pallet_core_fellowship, CoreFellowship]
 		[tasks_example, TasksExample]
-		[pallet_democracy, Democracy]
+		[pallet_oligarchy, Oligarchy]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]

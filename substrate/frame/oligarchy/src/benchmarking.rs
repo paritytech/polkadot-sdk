@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Democracy pallet benchmarking.
+//! Oligarchy pallet benchmarking.
 
 use super::*;
 
@@ -27,7 +27,7 @@ use frame_support::{
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_runtime::{traits::Bounded, BoundedVec};
 
-use crate::Pallet as Democracy;
+use crate::Pallet as Oligarchy;
 
 const REFERENDUM_COUNT_HINT: u32 = 10;
 const SEED: u32 = 0;
@@ -49,7 +49,7 @@ fn add_proposal<T: Config>(n: u32) -> Result<T::Hash, &'static str> {
 	let other = funded_account::<T>("proposer", n);
 	let value = T::MinimumDeposit::get();
 	let proposal = make_proposal::<T>(n);
-	Democracy::<T>::propose(RawOrigin::Signed(other).into(), proposal.clone(), value)?;
+	Oligarchy::<T>::propose(RawOrigin::Signed(other).into(), proposal.clone(), value)?;
 	Ok(proposal.hash())
 }
 
@@ -58,7 +58,7 @@ fn add_referendum<T: Config>(n: u32) -> (ReferendumIndex, T::Hash, T::Hash) {
 	let vote_threshold = VoteThreshold::SimpleMajority;
 	let proposal = make_proposal::<T>(n);
 	let hash = proposal.hash();
-	let index = Democracy::<T>::inject_referendum(
+	let index = Oligarchy::<T>::inject_referendum(
 		T::LaunchPeriod::get(),
 		proposal,
 		vote_threshold,
@@ -108,7 +108,7 @@ benchmarks! {
 		whitelist_account!(caller);
 	}: _(RawOrigin::Signed(caller), proposal, value)
 	verify {
-		assert_eq!(Democracy::<T>::public_props().len(), p as usize, "Proposals not created.");
+		assert_eq!(Oligarchy::<T>::public_props().len(), p as usize, "Proposals not created.");
 	}
 
 	second {
@@ -119,15 +119,15 @@ benchmarks! {
 		// we must reserve one deposit for the `proposal` and one for our benchmarked `second` call.
 		for i in 0 .. T::MaxDeposits::get() - 2 {
 			let seconder = funded_account::<T>("seconder", i);
-			Democracy::<T>::second(RawOrigin::Signed(seconder).into(), 0)?;
+			Oligarchy::<T>::second(RawOrigin::Signed(seconder).into(), 0)?;
 		}
 
-		let deposits = Democracy::<T>::deposit_of(0).ok_or("Proposal not created")?;
+		let deposits = Oligarchy::<T>::deposit_of(0).ok_or("Proposal not created")?;
 		assert_eq!(deposits.0.len(), (T::MaxDeposits::get() - 1) as usize, "Seconds not recorded");
 		whitelist_account!(caller);
 	}: _(RawOrigin::Signed(caller), 0)
 	verify {
-		let deposits = Democracy::<T>::deposit_of(0).ok_or("Proposal not created")?;
+		let deposits = Oligarchy::<T>::deposit_of(0).ok_or("Proposal not created")?;
 		assert_eq!(deposits.0.len(), (T::MaxDeposits::get()) as usize, "`second` benchmark did not work");
 	}
 
@@ -138,7 +138,7 @@ benchmarks! {
 		// We need to create existing direct votes
 		for i in 0 .. T::MaxVotes::get() - 1 {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+			Oligarchy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
 		}
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
@@ -164,7 +164,7 @@ benchmarks! {
 		// We need to create existing direct votes
 		for i in 0..T::MaxVotes::get() {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+			Oligarchy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
 		}
 		let votes = match VotingOf::<T>::get(&caller) {
 			Voting::Direct { votes, .. } => votes,
@@ -175,7 +175,7 @@ benchmarks! {
 		// Change vote from aye to nay
 		let nay = Vote { aye: false, conviction: Conviction::Locked1x };
 		let new_vote = AccountVote::Standard { vote: nay, balance: 1000u32.into() };
-		let ref_index = Democracy::<T>::referendum_count() - 1;
+		let ref_index = Oligarchy::<T>::referendum_count() - 1;
 
 		// This tests when a user changes a vote
 		whitelist_account!(caller);
@@ -186,7 +186,7 @@ benchmarks! {
 			_ => return Err("Votes are not direct".into()),
 		};
 		assert_eq!(votes.len(), T::MaxVotes::get() as usize, "Vote was incorrectly added");
-		let referendum_info = Democracy::<T>::referendum_info(ref_index)
+		let referendum_info = Oligarchy::<T>::referendum_info(ref_index)
 			.ok_or("referendum doesn't exist")?;
 		let tally =  match referendum_info {
 			ReferendumInfo::Ongoing(r) => r.tally,
@@ -199,12 +199,12 @@ benchmarks! {
 		let origin =
 			T::CancellationOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (ref_index, _, preimage_hash) = add_referendum::<T>(0);
-		assert_ok!(Democracy::<T>::referendum_status(ref_index));
+		assert_ok!(Oligarchy::<T>::referendum_status(ref_index));
 	}: _<T::RuntimeOrigin>(origin, ref_index)
 	verify {
 		// Referendum has been canceled
 		assert_noop!(
-			Democracy::<T>::referendum_status(ref_index),
+			Oligarchy::<T>::referendum_status(ref_index),
 			Error::<T>::ReferendumInvalid,
 		);
 		assert_last_event::<T>(crate::Event::MetadataCleared {
@@ -222,9 +222,9 @@ benchmarks! {
 
 		// Add a referendum of our proposal.
 		let (ref_index, hash, preimage_hash) = add_referendum::<T>(0);
-		assert_ok!(Democracy::<T>::referendum_status(ref_index));
+		assert_ok!(Oligarchy::<T>::referendum_status(ref_index));
 		// Place our proposal in the external queue, too.
-		assert_ok!(Democracy::<T>::external_propose(
+		assert_ok!(Oligarchy::<T>::external_propose(
 			T::ExternalOrigin::try_successful_origin()
 				.expect("ExternalOrigin has no successful origin required for the benchmark"),
 			make_proposal::<T>(0)
@@ -235,7 +235,7 @@ benchmarks! {
 	verify {
 		// Referendum has been canceled
 		assert_noop!(
-			Democracy::<T>::referendum_status(ref_index),
+			Oligarchy::<T>::referendum_status(ref_index),
 			Error::<T>::ReferendumInvalid
 		);
 		assert_has_event::<T>(crate::Event::MetadataCleared {
@@ -289,10 +289,10 @@ benchmarks! {
 			.expect("ExternalDefaultOrigin has no successful origin required for the benchmark");
 		let proposal = make_proposal::<T>(0);
 		let proposal_hash = proposal.hash();
-		Democracy::<T>::external_propose_default(origin_propose.clone(), proposal)?;
+		Oligarchy::<T>::external_propose_default(origin_propose.clone(), proposal)?;
 		// Set metadata to the external proposal.
 		let preimage_hash = note_preimage::<T>();
-		assert_ok!(Democracy::<T>::set_metadata(
+		assert_ok!(Oligarchy::<T>::set_metadata(
 			origin_propose,
 			MetadataOwner::External,
 			Some(preimage_hash)));
@@ -303,7 +303,7 @@ benchmarks! {
 		let delay = 0u32;
 	}: _<T::RuntimeOrigin>(origin_fast_track, proposal_hash, voting_period, delay.into())
 	verify {
-		assert_eq!(Democracy::<T>::referendum_count(), 1, "referendum not created");
+		assert_eq!(Oligarchy::<T>::referendum_count(), 1, "referendum not created");
 		assert_last_event::<T>(crate::Event::MetadataTransferred {
 			prev_owner: MetadataOwner::External,
 			owner: MetadataOwner::Referendum(0),
@@ -317,10 +317,10 @@ benchmarks! {
 
 		let origin_propose = T::ExternalDefaultOrigin::try_successful_origin()
 			.expect("ExternalDefaultOrigin has no successful origin required for the benchmark");
-		Democracy::<T>::external_propose_default(origin_propose.clone(), proposal)?;
+		Oligarchy::<T>::external_propose_default(origin_propose.clone(), proposal)?;
 
 		let preimage_hash = note_preimage::<T>();
-		assert_ok!(Democracy::<T>::set_metadata(
+		assert_ok!(Oligarchy::<T>::set_metadata(
 			origin_propose,
 			MetadataOwner::External,
 			Some(preimage_hash))
@@ -350,7 +350,7 @@ benchmarks! {
 		// Add metadata to the first proposal.
 		let proposer = funded_account::<T>("proposer", 0);
 		let preimage_hash = note_preimage::<T>();
-		assert_ok!(Democracy::<T>::set_metadata(
+		assert_ok!(Oligarchy::<T>::set_metadata(
 			RawOrigin::Signed(proposer).into(),
 			MetadataOwner::Proposal(0),
 			Some(preimage_hash)));
@@ -382,7 +382,7 @@ benchmarks! {
 			add_referendum::<T>(i);
 		}
 
-		assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
+		assert_eq!(Oligarchy::<T>::referendum_count(), r, "referenda not created");
 
 		// Launch external
 		LastTabledWasExternal::<T>::put(false);
@@ -397,10 +397,10 @@ benchmarks! {
 
 		let block_number = T::LaunchPeriod::get();
 
-	}: { Democracy::<T>::on_initialize(block_number) }
+	}: { Oligarchy::<T>::on_initialize(block_number) }
 	verify {
 		// One extra because of next external
-		assert_eq!(Democracy::<T>::referendum_count(), r + 1, "referenda not created");
+		assert_eq!(Oligarchy::<T>::referendum_count(), r + 1, "referenda not created");
 		ensure!(!<NextExternal<T>>::exists(), "External wasn't taken");
 
 		// All but the new next external should be finished
@@ -422,7 +422,7 @@ benchmarks! {
 			add_referendum::<T>(i);
 		}
 
-		assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
+		assert_eq!(Oligarchy::<T>::referendum_count(), r, "referenda not created");
 
 		// Launch public
 		assert!(add_proposal::<T>(r).is_ok(), "proposal not created");
@@ -430,10 +430,10 @@ benchmarks! {
 
 		let block_number = T::LaunchPeriod::get();
 
-	}: { Democracy::<T>::on_initialize(block_number) }
+	}: { Oligarchy::<T>::on_initialize(block_number) }
 	verify {
 		// One extra because of next public
-		assert_eq!(Democracy::<T>::referendum_count(), r + 1, "proposal not accepted");
+		assert_eq!(Oligarchy::<T>::referendum_count(), r + 1, "proposal not accepted");
 
 		// All should be finished
 		for i in 0 .. r {
@@ -461,10 +461,10 @@ benchmarks! {
 			ReferendumInfoOf::<T>::insert(key, info);
 		}
 
-		assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
-		assert_eq!(Democracy::<T>::lowest_unbaked(), 0, "invalid referenda init");
+		assert_eq!(Oligarchy::<T>::referendum_count(), r, "referenda not created");
+		assert_eq!(Oligarchy::<T>::lowest_unbaked(), 0, "invalid referenda init");
 
-	}: { Democracy::<T>::on_initialize(1u32.into()) }
+	}: { Oligarchy::<T>::on_initialize(1u32.into()) }
 	verify {
 		// All should be on going
 		for i in 0 .. r {
@@ -491,12 +491,12 @@ benchmarks! {
 			ReferendumInfoOf::<T>::insert(key, info);
 		}
 
-		assert_eq!(Democracy::<T>::referendum_count(), r, "referenda not created");
-		assert_eq!(Democracy::<T>::lowest_unbaked(), 0, "invalid referenda init");
+		assert_eq!(Oligarchy::<T>::referendum_count(), r, "referenda not created");
+		assert_eq!(Oligarchy::<T>::lowest_unbaked(), 0, "invalid referenda init");
 
 		let block_number = T::LaunchPeriod::get();
 
-	}: { Democracy::<T>::on_initialize(block_number) }
+	}: { Oligarchy::<T>::on_initialize(block_number) }
 	verify {
 		// All should be on going
 		for i in 0 .. r {
@@ -519,7 +519,7 @@ benchmarks! {
 		// Caller will initially delegate to `old_delegate`
 		let old_delegate: T::AccountId = funded_account::<T>("old_delegate", r);
 		let old_delegate_lookup = T::Lookup::unlookup(old_delegate.clone());
-		Democracy::<T>::delegate(
+		Oligarchy::<T>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
 			old_delegate_lookup,
 			Conviction::Locked1x,
@@ -538,7 +538,7 @@ benchmarks! {
 		// We need to create existing direct votes for the `new_delegate`
 		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(new_delegate.clone()).into(), ref_index, account_vote)?;
+			Oligarchy::<T>::vote(RawOrigin::Signed(new_delegate.clone()).into(), ref_index, account_vote)?;
 		}
 		let votes = match VotingOf::<T>::get(&new_delegate) {
 			Voting::Direct { votes, .. } => votes,
@@ -571,7 +571,7 @@ benchmarks! {
 		// Caller will delegate
 		let the_delegate: T::AccountId = funded_account::<T>("delegate", r);
 		let the_delegate_lookup = T::Lookup::unlookup(the_delegate.clone());
-		Democracy::<T>::delegate(
+		Oligarchy::<T>::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
 			the_delegate_lookup,
 			Conviction::Locked1x,
@@ -587,7 +587,7 @@ benchmarks! {
 		let account_vote = account_vote::<T>(initial_balance);
 		for i in 0..r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(
+			Oligarchy::<T>::vote(
 				RawOrigin::Signed(the_delegate.clone()).into(),
 				ref_index,
 				account_vote
@@ -625,8 +625,8 @@ benchmarks! {
 		// Vote and immediately unvote
 		for i in 0 .. r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, small_vote)?;
-			Democracy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_index)?;
+			Oligarchy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, small_vote)?;
+			Oligarchy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_index)?;
 		}
 
 		let caller = funded_account::<T>("caller", 0);
@@ -649,13 +649,13 @@ benchmarks! {
 		let small_vote = account_vote::<T>(base_balance);
 		for i in 0 .. r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, small_vote)?;
+			Oligarchy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, small_vote)?;
 		}
 
 		// Create a big vote so lock increases
 		let big_vote = account_vote::<T>(base_balance * 10u32.into());
 		let ref_index = add_referendum::<T>(r).0;
-		Democracy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, big_vote)?;
+		Oligarchy::<T>::vote(RawOrigin::Signed(locker.clone()).into(), ref_index, big_vote)?;
 
 		let votes = match VotingOf::<T>::get(&locker) {
 			Voting::Direct { votes, .. } => votes,
@@ -666,7 +666,7 @@ benchmarks! {
 		let voting = VotingOf::<T>::get(&locker);
 		assert_eq!(voting.locked_balance(), base_balance * 10u32.into());
 
-		Democracy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_index)?;
+		Oligarchy::<T>::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_index)?;
 
 		let caller = funded_account::<T>("caller", 0);
 		whitelist_account!(caller);
@@ -691,7 +691,7 @@ benchmarks! {
 
 		for i in 0 .. r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+			Oligarchy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
 		}
 
 		let votes = match VotingOf::<T>::get(&caller) {
@@ -721,7 +721,7 @@ benchmarks! {
 
 		for i in 0 .. r {
 			let ref_index = add_referendum::<T>(i).0;
-			Democracy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
+			Oligarchy::<T>::vote(RawOrigin::Signed(caller.clone()).into(), ref_index, account_vote)?;
 		}
 
 		let votes = match VotingOf::<T>::get(&caller) {
@@ -745,7 +745,7 @@ benchmarks! {
 		let origin = T::ExternalOrigin::try_successful_origin()
 			.expect("ExternalOrigin has no successful origin required for the benchmark");
 		assert_ok!(
-			Democracy::<T>::external_propose(origin.clone(), make_proposal::<T>(0))
+			Oligarchy::<T>::external_propose(origin.clone(), make_proposal::<T>(0))
 		);
 		let owner = MetadataOwner::External;
 		let hash = note_preimage::<T>();
@@ -761,12 +761,12 @@ benchmarks! {
 		let origin = T::ExternalOrigin::try_successful_origin()
 			.expect("ExternalOrigin has no successful origin required for the benchmark");
 		assert_ok!(
-			Democracy::<T>::external_propose(origin.clone(), make_proposal::<T>(0))
+			Oligarchy::<T>::external_propose(origin.clone(), make_proposal::<T>(0))
 		);
 		let owner = MetadataOwner::External;
 		let proposer = funded_account::<T>("proposer", 0);
 		let hash = note_preimage::<T>();
-		assert_ok!(Democracy::<T>::set_metadata(origin.clone(), owner.clone(), Some(hash)));
+		assert_ok!(Oligarchy::<T>::set_metadata(origin.clone(), owner.clone(), Some(hash)));
 	}: set_metadata<T::RuntimeOrigin>(origin, owner.clone(), None)
 	verify {
 		assert_last_event::<T>(crate::Event::MetadataCleared {
@@ -799,7 +799,7 @@ benchmarks! {
 		let proposer = funded_account::<T>("proposer", 0);
 		let owner = MetadataOwner::Proposal(0);
 		let hash = note_preimage::<T>();
-		assert_ok!(Democracy::<T>::set_metadata(
+		assert_ok!(Oligarchy::<T>::set_metadata(
 			RawOrigin::Signed(proposer.clone()).into(),
 			owner.clone(),
 			Some(hash)));
@@ -847,7 +847,7 @@ benchmarks! {
 	}
 
 	impl_benchmark_test_suite!(
-		Democracy,
+		Oligarchy,
 		crate::tests::new_test_ext(),
 		crate::tests::Test
 	);

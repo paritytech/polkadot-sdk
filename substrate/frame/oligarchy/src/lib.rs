@@ -15,21 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Democracy Pallet
+//! # Oligarchy Pallet
 //!
 //! - [`Config`]
 //! - [`Call`]
 //!
 //! ## Overview
 //!
-//! The Democracy pallet handles the administration of general stakeholder voting.
+//! The Oligarchy pallet handles the administration of general stakeholder voting.
 //!
 //! There are two different queues that a proposal can be added to before it
 //! becomes a referendum, 1) the proposal queue consisting of all public proposals
 //! and 2) the external queue consisting of a single proposal that originates
 //! from one of the _external_ origins (such as a collective group).
 //!
-//! Every launch period - a length defined in the runtime - the Democracy pallet
+//! Every launch period - a length defined in the runtime - the Oligarchy pallet
 //! launches a referendum from a proposal that it takes from either the proposal
 //! queue or the external queue in turn. Any token holder in the system can vote
 //! on referenda. The voting system
@@ -194,7 +194,7 @@ pub mod benchmarking;
 
 pub mod migrations;
 
-pub(crate) const DEMOCRACY_ID: LockIdentifier = *b"democrac";
+pub(crate) const OLIGARCHY_ID: LockIdentifier = *b"democrac";
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -1313,7 +1313,7 @@ impl<T: Config> Pallet<T> {
 		// Extend the lock to `balance` (rather than setting it) since we don't know what other
 		// votes are in place.
 		T::Currency::extend_lock(
-			DEMOCRACY_ID,
+			OLIGARCHY_ID,
 			who,
 			vote.balance(),
 			WithdrawReasons::except(WithdrawReasons::RESERVE),
@@ -1464,7 +1464,7 @@ impl<T: Config> Pallet<T> {
 			// Extend the lock to `balance` (rather than setting it) since we don't know what other
 			// votes are in place.
 			T::Currency::extend_lock(
-				DEMOCRACY_ID,
+				OLIGARCHY_ID,
 				&who,
 				balance,
 				WithdrawReasons::except(WithdrawReasons::RESERVE),
@@ -1511,10 +1511,10 @@ impl<T: Config> Pallet<T> {
 			voting.locked_balance()
 		});
 		if lock_needed.is_zero() {
-			T::Currency::remove_lock(DEMOCRACY_ID, who);
+			T::Currency::remove_lock(OLIGARCHY_ID, who);
 		} else {
 			T::Currency::set_lock(
-				DEMOCRACY_ID,
+				OLIGARCHY_ID,
 				who,
 				lock_needed,
 				WithdrawReasons::except(WithdrawReasons::RESERVE),
@@ -1614,7 +1614,7 @@ impl<T: Config> Pallet<T> {
 			// Earliest it can be scheduled for is next block.
 			let when = now.saturating_add(status.delay.max(One::one()));
 			if T::Scheduler::schedule_named(
-				(DEMOCRACY_ID, index).encode_into::<_, T::Hashing>(),
+				(OLIGARCHY_ID, index).encode_into::<_, T::Hashing>(),
 				DispatchTime::At(when),
 				None,
 				63,

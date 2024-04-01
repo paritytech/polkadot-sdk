@@ -54,7 +54,7 @@ pallet-transaction-payment = { path = "../../../substrate/frame/transaction-paym
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
 pallet-collective = { path = "../../../substrate/frame/collective", default-features = false }
 pallet-conviction-voting = { path = "../../../substrate/frame/conviction-voting", default-features = false }
-pallet-democracy = { path = "../../../substrate/frame/democracy", default-features = false }
+pallet-oligarchy = { path = "../../../substrate/frame/oligarchy", default-features = false }
 pallet-elections-phragmen = { path = "../../../substrate/frame/elections-phragmen", default-features = false }
 pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
@@ -149,7 +149,7 @@ std = [
 	"pallet-child-bounties/std",
 	"pallet-collective/std",
 	"pallet-conviction-voting/std",
-	"pallet-democracy/std",
+	"pallet-oligarchy/std",
 	"pallet-elections-phragmen/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
@@ -224,7 +224,7 @@ runtime-benchmarks = [
 	"pallet-child-bounties/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
-	"pallet-democracy/runtime-benchmarks",
+	"pallet-oligarchy/runtime-benchmarks",
 	"pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
@@ -280,7 +280,7 @@ try-runtime = [
 	"pallet-child-bounties/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-conviction-voting/try-runtime",
-	"pallet-democracy/try-runtime",
+	"pallet-oligarchy/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-identity/try-runtime",

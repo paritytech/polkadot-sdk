@@ -1,18 +1,18 @@
-# Democracy Pallet
+# Oligarchy Pallet
 
-- [`democracy::Config`](https://docs.rs/pallet-democracy/latest/pallet_democracy/trait.Config.html)
-- [`Call`](https://docs.rs/pallet-democracy/latest/pallet_democracy/enum.Call.html)
+- [`oligarchy::Config`](https://docs.rs/pallet-oligarchy/latest/pallet_oligarchy/trait.Config.html)
+- [`Call`](https://docs.rs/pallet-oligarchy/latest/pallet_oligarchy/enum.Call.html)
 
 ## Overview
 
-The Democracy pallet handles the administration of general stakeholder voting.
+The Oligarchy pallet handles the administration of general stakeholder voting.
 
 There are two different queues that a proposal can be added to before it
 becomes a referendum, 1) the proposal queue consisting of all public proposals
 and 2) the external queue consisting of a single proposal that originates
 from one of the _external_ origins (such as a collective group).
 
-Every launch period - a length defined in the runtime - the Democracy pallet
+Every launch period - a length defined in the runtime - the Oligarchy pallet
 launches a referendum from a proposal that it takes from either the proposal
 queue or the external queue in turn. Any token holder in the system can vote
 on referenda. The voting system

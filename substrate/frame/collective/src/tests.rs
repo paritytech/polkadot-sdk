@@ -38,11 +38,11 @@ frame_support::construct_runtime!(
 		Collective: pallet_collective::<Instance1>,
 		CollectiveMajority: pallet_collective::<Instance2>,
 		DefaultCollective: pallet_collective,
-		Democracy: mock_democracy,
+		Oligarchy: mock_oligarchy,
 	}
 );
 
-mod mock_democracy {
+mod mock_oligarchy {
 	pub use pallet::*;
 	#[frame_support::pallet(dev_mode)]
 	pub mod pallet {
@@ -115,7 +115,7 @@ impl Config<Instance2> for Test {
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
 }
-impl mock_democracy::Config for Test {
+impl mock_oligarchy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
@@ -1045,7 +1045,7 @@ fn motions_reproposing_disapproved_works() {
 #[test]
 fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		let proposal = RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {});
+		let proposal = RuntimeCall::Oligarchy(mock_oligarchy::Call::external_propose_majority {});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().weight;
 		let hash: H256 = proposal.blake2_256().into();
@@ -1160,8 +1160,8 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 					no: 0
 				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Approved { proposal_hash: hash })),
-				record(RuntimeEvent::Democracy(
-					mock_democracy::pallet::Event::<Test>::ExternalProposed
+				record(RuntimeEvent::Oligarchy(
+					mock_oligarchy::pallet::Event::<Test>::ExternalProposed
 				)),
 				record(RuntimeEvent::Collective(CollectiveEvent::Executed {
 					proposal_hash: hash,

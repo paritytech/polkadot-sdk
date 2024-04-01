@@ -397,7 +397,7 @@ pub mod pallet {
 	///
 	/// Pallet owner has a right to halt all pallet operations and then resume it. If it is
 	/// `None`, then there are no direct ways to halt/resume pallet operations, but other
-	/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
+	/// runtime methods may still be used to do that (i.e. oligarchy::referendum to update halt
 	/// flag directly or call the `halt_operations`).
 	#[pallet::storage]
 	pub type PalletOwner<T: Config<I>, I: 'static = ()> =

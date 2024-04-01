@@ -18,7 +18,7 @@
 //! A migration that unreserves all deposit and unlocks all stake held in the context of this
 //! pallet.
 
-use crate::{PropIndex, Voting, DEMOCRACY_ID};
+use crate::{PropIndex, Voting, OLIGARCHY_ID};
 use core::iter::Sum;
 use frame_support::{
 	pallet_prelude::ValueQuery,
@@ -31,7 +31,7 @@ use sp_core::Get;
 use sp_runtime::{traits::Zero, BoundedVec, Saturating};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-const LOG_TARGET: &str = "runtime::democracy::migrations::unlock_and_unreserve_all_funds";
+const LOG_TARGET: &str = "runtime::oligarchy::migrations::unlock_and_unreserve_all_funds";
 
 type BalanceOf<T> =
 	<<T as UnlockConfig>::Currency as Currency<<T as UnlockConfig>::AccountId>>::Balance;
@@ -239,7 +239,7 @@ where
 
 		// Staked funds need to be unlocked.
 		for account in account_stakes.keys() {
-			T::Currency::remove_lock(DEMOCRACY_ID, account);
+			T::Currency::remove_lock(OLIGARCHY_ID, account);
 		}
 
 		T::DbWeight::get()
@@ -305,7 +305,7 @@ mod test {
 	use sp_core::ConstU32;
 
 	parameter_types! {
-		const PalletName: &'static str = "Democracy";
+		const PalletName: &'static str = "Oligarchy";
 	}
 
 	struct UnlockConfigImpl;
@@ -394,7 +394,7 @@ mod test {
 			}
 			VotingOf::<Test>::insert(voter, Voting::default());
 			<Test as crate::Config>::Currency::set_lock(
-				DEMOCRACY_ID,
+				OLIGARCHY_ID,
 				&voter,
 				stake,
 				WithdrawReasons::all(),
@@ -402,7 +402,7 @@ mod test {
 
 			// Sanity check: ensure initial Balance state was set up correctly.
 			let mut voter_all_locks = initial_locks.clone();
-			voter_all_locks.push((&DEMOCRACY_ID, stake));
+			voter_all_locks.push((&OLIGARCHY_ID, stake));
 			assert_eq!(
 				<Test as crate::Config>::Currency::locks(&voter)
 					.iter()

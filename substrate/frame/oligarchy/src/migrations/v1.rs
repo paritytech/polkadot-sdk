@@ -23,9 +23,9 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::H256;
 
 /// The log target.
-const TARGET: &'static str = "runtime::democracy::migration::v1";
+const TARGET: &'static str = "runtime::oligarchy::migration::v1";
 
-/// The original data layout of the democracy pallet without a specific version number.
+/// The original data layout of the oligarchy pallet without a specific version number.
 mod v0 {
 	use super::*;
 

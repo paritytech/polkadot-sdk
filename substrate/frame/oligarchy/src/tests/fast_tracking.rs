@@ -25,25 +25,25 @@ fn fast_track_referendum_works() {
 		System::set_block_number(0);
 		let h = set_balance_proposal(2).hash();
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
+			Oligarchy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
 			Error::<Test>::ProposalMissing
 		);
-		assert_ok!(Democracy::external_propose_majority(
+		assert_ok!(Oligarchy::external_propose_majority(
 			RuntimeOrigin::signed(3),
 			set_balance_proposal(2)
 		));
 		let hash = note_preimage(1);
 		assert!(<MetadataOf<Test>>::get(MetadataOwner::External).is_none());
-		assert_ok!(Democracy::set_metadata(
+		assert_ok!(Oligarchy::set_metadata(
 			RuntimeOrigin::signed(3),
 			MetadataOwner::External,
 			Some(hash),
 		),);
 		assert!(<MetadataOf<Test>>::get(MetadataOwner::External).is_some());
-		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed(1), h, 3, 2), BadOrigin);
-		assert_ok!(Democracy::fast_track(RuntimeOrigin::signed(5), h, 2, 0));
+		assert_noop!(Oligarchy::fast_track(RuntimeOrigin::signed(1), h, 3, 2), BadOrigin);
+		assert_ok!(Oligarchy::fast_track(RuntimeOrigin::signed(5), h, 2, 0));
 		assert_eq!(
-			Democracy::referendum_status(0),
+			Oligarchy::referendum_status(0),
 			Ok(ReferendumStatus {
 				end: 2,
 				proposal: set_balance_proposal(2),
@@ -64,27 +64,27 @@ fn instant_referendum_works() {
 		System::set_block_number(0);
 		let h = set_balance_proposal(2).hash();
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
+			Oligarchy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
 			Error::<Test>::ProposalMissing
 		);
-		assert_ok!(Democracy::external_propose_majority(
+		assert_ok!(Oligarchy::external_propose_majority(
 			RuntimeOrigin::signed(3),
 			set_balance_proposal(2)
 		));
-		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed(1), h, 3, 2), BadOrigin);
-		assert_noop!(Democracy::fast_track(RuntimeOrigin::signed(5), h, 1, 0), BadOrigin);
+		assert_noop!(Oligarchy::fast_track(RuntimeOrigin::signed(1), h, 3, 2), BadOrigin);
+		assert_noop!(Oligarchy::fast_track(RuntimeOrigin::signed(5), h, 1, 0), BadOrigin);
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(6), h, 1, 0),
+			Oligarchy::fast_track(RuntimeOrigin::signed(6), h, 1, 0),
 			Error::<Test>::InstantNotAllowed
 		);
 		INSTANT_ALLOWED.with(|v| *v.borrow_mut() = true);
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(6), h, 0, 0),
+			Oligarchy::fast_track(RuntimeOrigin::signed(6), h, 0, 0),
 			Error::<Test>::VotingPeriodLow
 		);
-		assert_ok!(Democracy::fast_track(RuntimeOrigin::signed(6), h, 1, 0));
+		assert_ok!(Oligarchy::fast_track(RuntimeOrigin::signed(6), h, 1, 0));
 		assert_eq!(
-			Democracy::referendum_status(0),
+			Oligarchy::referendum_status(0),
 			Ok(ReferendumStatus {
 				end: 1,
 				proposal: set_balance_proposal(2),
@@ -112,13 +112,13 @@ fn instant_next_block_referendum_backed() {
 		InstantAllowed::set(true);
 
 		// propose with majority origin
-		assert_ok!(Democracy::external_propose_majority(
+		assert_ok!(Oligarchy::external_propose_majority(
 			RuntimeOrigin::signed(majority_origin_id),
 			proposal.clone()
 		));
 
 		// fast track with instant origin and voting period pointing to the next block
-		assert_ok!(Democracy::fast_track(
+		assert_ok!(Oligarchy::fast_track(
 			RuntimeOrigin::signed(instant_origin_id),
 			proposal.hash(),
 			voting_period,
@@ -127,7 +127,7 @@ fn instant_next_block_referendum_backed() {
 
 		// fetch the status of the only referendum at index 0
 		assert_eq!(
-			Democracy::referendum_status(0),
+			Oligarchy::referendum_status(0),
 			Ok(ReferendumStatus {
 				end: start_block_number + voting_period,
 				proposal,
@@ -141,7 +141,7 @@ fn instant_next_block_referendum_backed() {
 		next_block();
 
 		// assert no active referendums
-		assert_noop!(Democracy::referendum_status(0), Error::<Test>::ReferendumInvalid);
+		assert_noop!(Oligarchy::referendum_status(0), Error::<Test>::ReferendumInvalid);
 		// the only referendum in the storage is finished and not approved
 		assert_eq!(
 			ReferendumInfoOf::<Test>::get(0).unwrap(),
@@ -155,9 +155,9 @@ fn fast_track_referendum_fails_when_no_simple_majority() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(0);
 		let h = set_balance_proposal(2).hash();
-		assert_ok!(Democracy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
+		assert_ok!(Oligarchy::external_propose(RuntimeOrigin::signed(2), set_balance_proposal(2)));
 		assert_noop!(
-			Democracy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
+			Oligarchy::fast_track(RuntimeOrigin::signed(5), h, 3, 2),
 			Error::<Test>::NotSimpleMajority
 		);
 	});
