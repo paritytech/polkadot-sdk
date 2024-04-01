@@ -313,7 +313,7 @@ where
 	}
 
 	fn nonces_to_submit(&self) -> Option<RangeInclusive<MessageNonce>> {
-		self.nonces_to_submit.as_ref().map(|(_, nonces, _)| nonces.clone())
+		self.nonces_to_submit.clone().map(|(_, nonces, _)| nonces)
 	}
 
 	fn reset_nonces_to_submit(&mut self) {
