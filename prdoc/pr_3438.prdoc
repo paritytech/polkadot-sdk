@@ -8,4 +8,6 @@ doc:
 
 crates:
   - name: pallet-nomination-pools
-  - bump: minor
+    bump: minor
+  - name pallet-nomination-pools-benchmarking
+    bump: minor
