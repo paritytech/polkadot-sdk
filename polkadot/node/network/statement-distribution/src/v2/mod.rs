@@ -2167,7 +2167,6 @@ fn determine_groups_per_para(
 					};
 
 					maybe_scheduled_core
-						.filter(|scheduled_core| scheduled_core.para_id == occupied_core.para_id())
 						.map(|scheduled_core| (scheduled_core.para_id, CoreIndex(index as u32)))
 				} else {
 					None
