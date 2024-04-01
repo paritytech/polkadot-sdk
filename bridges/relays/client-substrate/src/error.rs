@@ -18,7 +18,7 @@
 
 use crate::SimpleRuntimeVersion;
 use bp_polkadot_core::parachains::ParaId;
-use jsonrpsee::core::Error as RpcError;
+use jsonrpsee::core::ClientError as RpcError;
 use relay_utils::MaybeConnectionError;
 use sc_rpc_api::system::Health;
 use sp_core::storage::StorageKey;
