@@ -1,5 +1,5 @@
 Description: Test that a paraid acquiring multiple cores does not brick itself if ElasticScalingMVP feature is enabled in genesis
-Network: ./0012-elastic-scaling-mvp.toml
+Network: ./0002-elastic-scaling-mvp.toml
 Creds: config
 
 # Check authority status.
