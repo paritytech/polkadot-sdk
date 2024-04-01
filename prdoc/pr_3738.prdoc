@@ -11,3 +11,4 @@ doc:
 
 crates: 
   - name: pallet-alliance
+    bump: major
