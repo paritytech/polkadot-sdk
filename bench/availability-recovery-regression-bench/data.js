@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712007449127,
+  "lastUpdate": 1712014794430,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -587,6 +587,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.702944064340002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "s0me0ne-unkn0wn",
+            "username": "s0me0ne-unkn0wn",
+            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "52e103784945997cb3808cdfaaf72c468f8fc938",
+          "message": "`im-online` removal final cleanup (#3902)\n\nRejoice! Rejoice! The story is nearly over.\n\nThis PR removes stale migrations, auxiliary structures, and package\ndependencies, thus making Rococo and Westend totally free from any\n`im-online`-related stuff.\n\n`im-online` still stays a part of the Substrate node and its runtime:\nhttps://github.com/paritytech/polkadot-sdk/blob/0d9324847391e902bb42f84f0e76096b1f764efe/substrate/bin/node/runtime/src/lib.rs#L2276-L2277\nI'm not sure if it makes sense to remove it from there considering that\nwe're not removing `im-online` from FRAME. Please share your opinion.",
+          "timestamp": "2024-04-01T21:40:38Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/52e103784945997cb3808cdfaaf72c468f8fc938"
+        },
+        "date": 1712014770096,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.841901837053332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18430372197999995,
             "unit": "seconds"
           }
         ]
