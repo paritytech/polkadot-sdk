@@ -330,7 +330,7 @@ fn elastic_scaling_useful_cluster_statement_from_non_cluster_peer_rejected() {
 
 		let test_leaf = state.make_dummy_leaf_with_multiple_cores_per_para(relay_parent, 3);
 
-		// Peer A is not in our group, but it's group is assigned to same para as we are.
+		// Peer A is not in our group, but its group is assigned to same para as we are.
 		let not_our_group = GroupIndex(1);
 
 		let that_group_validators = state.group_validators(not_our_group, false);
