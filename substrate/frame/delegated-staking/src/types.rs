@@ -107,7 +107,6 @@ pub struct AgentLedger<T: Config> {
 	///
 	/// We need this register to ensure that the `Agent` does not bond funds from delegated
 	/// funds that are withdrawn and should be claimed by delegators.
-	// FIXME(ank4n): Check/test about rebond: where delegator rebond what is unlocking.
 	#[codec(compact)]
 	pub unclaimed_withdrawals: BalanceOf<T>,
 	/// Slashes that are not yet applied. This affects the effective balance of the `Agent`.
