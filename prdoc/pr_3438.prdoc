@@ -9,5 +9,5 @@ doc:
 crates:
   - name: pallet-nomination-pools
     bump: minor
-  - name pallet-nomination-pools-benchmarking
+  - name: pallet-nomination-pools-benchmarking
     bump: minor
