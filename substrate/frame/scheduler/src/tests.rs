@@ -2285,9 +2285,18 @@ fn postponed_named_task_cannot_be_rescheduled() {
 
 		// Run to a very large block.
 		run_to_block(10);
+
 		// It was not executed.
 		assert!(logger::log().is_empty());
-		assert!(Preimage::is_requested(&hash));
+
+		// Preimage was not available
+		assert_eq!(
+			System::events().last().unwrap().event,
+			crate::Event::CallUnavailable { task: (4, 0), id: Some(name) }.into()
+		);
+
+		// So it should not be requested.
+		assert!(!Preimage::is_requested(&hash));
 		// Postponing removes the lookup.
 		assert!(!Lookup::<Test>::contains_key(name));
 
