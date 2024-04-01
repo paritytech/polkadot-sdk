@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use crate::{Chain, ChainWithGrandpa, TransactionStatusOf};
 
 use jsonrpsee::{
-	core::{client::Subscription, RpcResult},
+	core::{client::Subscription, ClientError},
 	proc_macros::rpc,
 	ws_client::WsClient,
 };
@@ -110,7 +110,9 @@ pub(crate) trait SubstrateState<C> {
 #[async_trait]
 pub trait SubstrateFinalityClient<C: Chain> {
 	/// Subscribe to finality justifications.
-	async fn subscribe_justifications(client: &WsClient) -> RpcResult<Subscription<Bytes>>;
+	async fn subscribe_justifications(
+		client: &WsClient,
+	) -> Result<Subscription<Bytes>, ClientError>;
 }
 
 /// RPC methods of Substrate `grandpa` namespace, that we are using.
@@ -125,7 +127,9 @@ pub(crate) trait SubstrateGrandpa<C> {
 pub struct SubstrateGrandpaFinalityClient;
 #[async_trait]
 impl<C: ChainWithGrandpa> SubstrateFinalityClient<C> for SubstrateGrandpaFinalityClient {
-	async fn subscribe_justifications(client: &WsClient) -> RpcResult<Subscription<Bytes>> {
+	async fn subscribe_justifications(
+		client: &WsClient,
+	) -> Result<Subscription<Bytes>, ClientError> {
 		SubstrateGrandpaClient::<C>::subscribe_justifications(client).await
 	}
 }
@@ -144,7 +148,9 @@ pub struct SubstrateBeefyFinalityClient;
 // TODO: Use `ChainWithBeefy` instead of `Chain` after #1606 is merged
 #[async_trait]
 impl<C: Chain> SubstrateFinalityClient<C> for SubstrateBeefyFinalityClient {
-	async fn subscribe_justifications(client: &WsClient) -> RpcResult<Subscription<Bytes>> {
+	async fn subscribe_justifications(
+		client: &WsClient,
+	) -> Result<Subscription<Bytes>, ClientError> {
 		SubstrateBeefyClient::<C>::subscribe_justifications(client).await
 	}
 }

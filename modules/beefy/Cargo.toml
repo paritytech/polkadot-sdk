@@ -2,16 +2,17 @@
 name = "pallet-bridge-beefy"
 version = "0.1.0"
 description = "Module implementing BEEFY on-chain light client used for bridging consensus of substrate-based chains."
-authors = ["Parity Technologies <admin@parity.io>"]
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
 publish = false
 
 [lints]
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 log = { workspace = true }
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 serde = { optional = true, workspace = true }
@@ -34,7 +35,7 @@ sp-consensus-beefy = { git = "https://github.com/paritytech/polkadot-sdk", branc
 mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.3.2" }
 pallet-beefy-mmr = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 pallet-mmr = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-rand = "0.8"
+rand = "0.8.5"
 sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
 bp-test-utils = { path = "../../primitives/test-utils" }
 
