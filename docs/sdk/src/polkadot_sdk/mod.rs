@@ -43,8 +43,8 @@
 //! [![GitHub
 //! Repo](https://img.shields.io/badge/github-frame-2324CC85)](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame)
 //!
-//! [`frame`] is the framework used to create Substrate-based application logic, aka.
-//! runtimes. Learn more about the distinction of a runtime and node in
+//! [`frame`] is the framework used to create Substrate-based application logic, aka. runtimes.
+//! Learn more about the distinction of a runtime and node in
 //! [`reference_docs::wasm_meta_protocol`].
 //!
 //! #### Cumulus

@@ -39,8 +39,8 @@
 //! on this template.
 //!
 //! [`pallet::config`](frame::pallet_macros::config) and
-//! [`pallet::pallet`](frame::pallet_macros::pallet) are both mandatory parts of any
-//! pallet. Refer to the documentation of each to get an overview of what they do.
+//! [`pallet::pallet`](frame::pallet_macros::pallet) are both mandatory parts of any pallet. Refer
+//! to the documentation of each to get an overview of what they do.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", shell_pallet)]
 //!
 //! ### Storage
@@ -55,16 +55,15 @@
 //! > generic bounded type in the `Config` trait, and then specify it in the implementation.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Balance)]
 //!
-//! The definition of these two storage items, based on
-//! [`frame::pallet_macros::storage`] details, is as follows:
+//! The definition of these two storage items, based on [`frame::pallet_macros::storage`] details,
+//! is as follows:
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", TotalIssuance)]
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Balances)]
 //!
 //! ### Dispatchables
 //!
-//! Next, we will define the dispatchable functions. As per
-//! [`frame::pallet_macros::call`], these will be defined as normal `fn`s attached to
-//! `struct Pallet`.
+//! Next, we will define the dispatchable functions. As per [`frame::pallet_macros::call`], these
+//! will be defined as normal `fn`s attached to `struct Pallet`.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", impl_pallet)]
 //!
 //! The logic of the functions is self-explanatory. Instead, we will focus on the FRAME-related
@@ -88,13 +87,11 @@
 //! - The return type of all dispatchable functions is [`frame::prelude::DispatchResult`]:
 #![doc = docify::embed!("../../substrate/frame/support/src/dispatch.rs", DispatchResult)]
 //!
-//! Which is more or less a normal Rust `Result`, with a custom
-//! [`frame::prelude::DispatchError`] as the `Err` variant. We won't cover this error
-//! in detail here, but importantly you should know that there is an `impl From<&'static string> for
-//! DispatchError` provided (see [here](
-//! `frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`
-//! ). Therefore, we can use basic string literals as our error type and `.into()` them into
-//! `DispatchError`.
+//! Which is more or less a normal Rust `Result`, with a custom [`frame::prelude::DispatchError`] as
+//! the `Err` variant. We won't cover this error in detail here, but importantly you should know
+//! that there is an `impl From<&'static string> for DispatchError` provided (see
+//! [here](`frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`)). Therefore,
+//! we can use basic string literals as our error type and `.into()` them into `DispatchError`.
 //!
 //! - Why are all `get` and `mutate` functions returning an `Option`? This is the default behavior
 //!   of FRAME storage APIs. You can learn more about how to override this by looking into
@@ -104,8 +101,8 @@
 //! ### Improving Errors
 //!
 //! How we handle error in the above snippets is fairly rudimentary. Let's look at how this can be
-//! improved. First, we can use [`frame::prelude::ensure`] to express the error
-//! slightly better. This macro will call `.into()` under the hood.
+//! improved. First, we can use [`frame::prelude::ensure`] to express the error slightly better.
+//! This macro will call `.into()` under the hood.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_better)]
 //!
 //! Moreover, you will learn in the [Safe Defensive Programming
@@ -115,9 +112,9 @@
 //! ergonomic.
 //! Moreover, you will learn in the [Defensive Programming
 //! section](crate::reference_docs::defensive_programming) that it is always recommended to use
-//! safe arithmetic operations in your runtime. By using [`frame::traits::CheckedSub`],
-//! we can not only take a step in that direction, but also improve the error handing and make it
-//! slightly more ergonomic.
+//! safe arithmetic operations in your runtime. By using [`frame::traits::CheckedSub`], we can not
+//! only take a step in that direction, but also improve the error handing and make it slightly more
+//! ergonomic.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_better_checked)]
 //!
 //! This is more or less all the logic that there is this basic currency pallet!
@@ -126,13 +123,12 @@
 //!
 //! Next, we create a "test runtime" in order to test our pallet. Recall from
 //! [`crate::polkadot_sdk::frame_runtime`] that a runtime is a collection of pallets, expressed
-//! through [`frame::runtime::prelude::construct_runtime`]. All runtimes also have to
-//! include [`frame::prelude::frame_system`]. So we expect to see a runtime with two
-//! pallet, `frame_system` and the one we just wrote.
+//! through [`frame::runtime::prelude::construct_runtime`]. All runtimes also have to include
+//! [`frame::prelude::frame_system`]. So we expect to see a runtime with two pallet, `frame_system`
+//! and the one we just wrote.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", runtime)]
 //!
-//! > [`frame::pallet_macros::derive_impl`] is a FRAME feature that enables developers
-//! > to have
+//! > [`frame::pallet_macros::derive_impl`] is a FRAME feature that enables developers to have
 //! > defaults for associated types.
 //!
 //! Recall that within our pallet, (almost) all blocks of code are generic over `<T: Config>`. And,
@@ -165,8 +161,8 @@
 //!
 //! The above is all you need to execute the dispatchables of your pallet. The last thing you need
 //! to learn is that all of your pallet testing code should be wrapped in
-//! [`frame::testing_prelude::TestState`]. This is a type that provides access to an
-//! in-memory state to be used in our tests.
+//! [`frame::testing_prelude::TestState`]. This is a type that provides access to an in-memory state
+//! to be used in our tests.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", first_test)]
 //!
 //! In the first test, we simply assert that there is no total issuance, and no balance associated
@@ -266,9 +262,9 @@
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Error)]
 //!
 //! One slightly custom part of this is the [`#[pallet::generate_deposit(pub(super) fn
-//! deposit_event)]`](frame::pallet_macros::generate_deposit) part. Without going into
-//! too much detail, in order for a pallet to emit events to the rest of the system, it needs to do
-//! two things:
+//! deposit_event)]`](frame::pallet_macros::generate_deposit) part. Without going into too
+//! much detail, in order for a pallet to emit events to the rest of the system, it needs to do two
+//! things:
 //!
 //! 1. Declare a type in its `Config` that refers to the overarching event type of the runtime. In
 //! short, by doing this, the pallet is expressing an important bound: `type RuntimeEvent:
@@ -293,8 +289,8 @@
 //!
 //! In this snippet, the actual `RuntimeEvent` type (right hand side of `type RuntimeEvent =
 //! RuntimeEvent`) is generated by
-//! [`construct_runtime`](frame::runtime::prelude::construct_runtime). An interesting
-//! way to inspect this type is to see its definition in rust-docs:
+//! [`construct_runtime`](frame::runtime::prelude::construct_runtime). An interesting way to inspect
+//! this type is to see its definition in rust-docs:
 //! [`crate::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent`].
 //!
 //!

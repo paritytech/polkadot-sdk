@@ -34,8 +34,8 @@
 //! about its own responsibilities and make as few assumptions about the general runtime as
 //! possible. A pallet is analogous to a _module_ in the runtime.
 //!
-//! A pallet is defined as a `mod pallet` wrapped by the [`frame::pallet`] macro.
-//! Within this macro, pallet components/parts can be defined. Most notable of these parts are:
+//! A pallet is defined as a `mod pallet` wrapped by the [`frame::pallet`] macro. Within this macro,
+//! pallet components/parts can be defined. Most notable of these parts are:
 //!
 //! - [Config](frame::pallet_macros::config), allowing a pallet to make itself configurable and
 //!   generic over types, values and such.
@@ -116,9 +116,8 @@ pub mod pallet {
 	}
 
 	/// A mandatory struct in each pallet. All functions callable by external users (aka.
-	/// transactions) must be attached to this type (see
-	/// [`frame::pallet_macros::call`]). For convenience, internal (private) functions
-	/// can also be attached to this type.
+	/// transactions) must be attached to this type (see [`frame::pallet_macros::call`]). For
+	/// convenience, internal (private) functions can also be attached to this type.
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);
 

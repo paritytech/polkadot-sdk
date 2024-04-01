@@ -54,9 +54,9 @@
 //! #### Dispatchable:
 //!
 //! Dispatchables are [function objects](https://en.wikipedia.org/wiki/Function_object) that act as
-//! the entry points in [FRAME](frame) pallets. They can be called by internal or
-//! external entities to interact with the blockchain's state. They are a core aspect of the runtime
-//! logic, handling transactions and other state-changing operations.
+//! the entry points in [FRAME](frame) pallets. They can be called by internal or external entities
+//! to interact with the blockchain's state. They are a core aspect of the runtime logic, handling
+//! transactions and other state-changing operations.
 //!
 //! **Synonyms**: Callable
 //!
@@ -68,14 +68,13 @@
 //!
 //! #### Pallet
 //!
-//! Similar to software modules in traditional programming, [FRAME](frame) pallets in
-//! Substrate are modular components that encapsulate distinct functionalities or business logic.
-//! Just as libraries or modules are used to build and extend the capabilities of a software
-//! application, pallets are the foundational building blocks for constructing a blockchain's
-//! runtime with frame. They enable the creation of customizable and upgradeable networks, offering
-//! a composable framework for a Substrate-based blockchain. Each pallet can be thought of as a
-//! plug-and-play module, enhancing the blockchain's functionality in a cohesive and integrated
-//! manner.
+//! Similar to software modules in traditional programming, [FRAME](frame) pallets in Substrate are
+//! modular components that encapsulate distinct functionalities or business logic. Just as
+//! libraries or modules are used to build and extend the capabilities of a software application,
+//! pallets are the foundational building blocks for constructing a blockchain's runtime with frame.
+//! They enable the creation of customizable and upgradeable networks, offering a composable
+//! framework for a Substrate-based blockchain. Each pallet can be thought of as a plug-and-play
+//! module, enhancing the blockchain's functionality in a cohesive and integrated manner.
 //!
 //! #### Full Node
 //!
