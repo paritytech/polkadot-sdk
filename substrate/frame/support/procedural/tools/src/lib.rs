@@ -56,7 +56,7 @@ pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 /// We want to know if whatever the `path` takes us to, is exported from `frame` or not. In that
 /// case `path` would start with `frame`, something like `polkadot_sdk_frame::x::y:z`.
 pub fn is_using_frame_crate(path: &syn::Path) -> bool {
-	path.segments.first().map(|s| s.ident == "polkadot_sdk_frame").unwrap_or(false)
+	path.segments.first().map(|s| s.ident == "polkadot_sdk_frame" || s.ident == "frame").unwrap_or(false)
 }
 
 /// Generate the crate access for the crate using 2018 syntax.
@@ -114,7 +114,7 @@ pub fn generate_hidden_includes(unique_id: &str, def_crate: &str) -> TokenStream
 /// Generates the path to the frame crate deps.
 fn get_frame_crate_path(def_crate: &str) -> Option<syn::Path> {
 	// This does not work if the frame crate is renamed.
-	if let Ok(FoundCrate::Name(name)) = crate_name(&"polkadot-sdk-frame") {
+	if let Ok(FoundCrate::Name(name)) = crate_name(&"polkadot-sdk-frame").map_err(|_| crate_name(&"frame")){
 		let path = format!("{}::deps::{}", name, def_crate.to_string().replace("-", "_"));
 		Some(syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed"))
 	} else {

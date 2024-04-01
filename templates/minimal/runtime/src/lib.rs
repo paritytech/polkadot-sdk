@@ -21,7 +21,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use polkadot_sdk_frame::{
+use frame::{
 	deps::frame_support::{
 		genesis_builder_helper::{build_config, create_default_config},
 		weights::{FixedFee, NoFee},
@@ -111,7 +111,7 @@ impl pallet_transaction_payment::Config for Runtime {
 
 impl pallet_minimal_template::Config for Runtime {}
 
-type Block = polkadot_sdk_frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
+type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
 type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
@@ -238,10 +238,10 @@ impl_runtime_apis! {
 // https://github.com/paritytech/substrate/issues/10579#issuecomment-1600537558
 pub mod interface {
 	use super::Runtime;
-	use polkadot_sdk_frame::deps::frame_system;
+	use frame::deps::frame_system;
 
 	pub type Block = super::Block;
-	pub use polkadot_sdk_frame::runtime::types_common::OpaqueBlock;
+	pub use frame::runtime::types_common::OpaqueBlock;
 	pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 	pub type Nonce = <Runtime as frame_system::Config>::Nonce;
 	pub type Hash = <Runtime as frame_system::Config>::Hash;
