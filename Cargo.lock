@@ -5257,6 +5257,7 @@ dependencies = [
 [[package]]
 name = "etf-crypto-primitives"
 version = "0.2.4"
+source = "git+https://github.com/ideal-lab5/etf-sdk.git?branch=dpss-noscale#86a8a25b54e41e952f62329b8f69650988b8b0f1"
 dependencies = [
  "aes-gcm 0.10.3",
  "ark-bls12-381",
@@ -21893,6 +21894,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 [[package]]
 name = "w3f-bls"
 version = "0.1.3"
+source = "git+https://github.com/driemworks/bls.git?branch=etf#14561965ff7eeeb8b54c7120e11fca4fa8519ec0"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",
