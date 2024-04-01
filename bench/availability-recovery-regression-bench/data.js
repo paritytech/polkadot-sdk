@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1711953074465,
+  "lastUpdate": 1711957398587,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -377,6 +377,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19102473382666663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh",
+            "email": "49718502+alexggh@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "e0c081dbd46c1e6edca1ce2c62298f5f3622afdd",
+          "message": "network:bridge: fix peer_count metric (#3711)\n\nThe metric records the current protocol_version of the validator that\njust connected with the peer_map.len(), which contains all peers that\nconnected, that has the effect the metric will be wrong since it won't\ntell us how many peers we have connected per version because it will\nalways record the total number of peers\n\nFix this by counting by version inside peer_map, additionally because\nthat might be a bit heavier than len(), publish it only on-active\nleaves.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2024-04-01T06:29:22Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e0c081dbd46c1e6edca1ce2c62298f5f3622afdd"
+        },
+        "date": 1711957374564,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.262594899466665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.16748281709333337,
             "unit": "seconds"
           }
         ]
