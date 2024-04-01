@@ -1,6 +1,8 @@
-async function run(nodeName, networkInfo, _jsArgs) {
+async function run(nodeName, networkInfo, core) {
   const { wsUri, userDefinedTypes } = networkInfo.nodesByName[nodeName];
   const api = await zombie.connect(wsUri, userDefinedTypes);
+
+  console.log(`Assigning para 2000 to core ${core}`);
 
   await zombie.util.cryptoWaitReady();
 
@@ -10,7 +12,7 @@ async function run(nodeName, networkInfo, _jsArgs) {
 
   await new Promise(async (resolve, reject) => {
     const unsub = await api.tx.sudo
-      .sudo(api.tx.coretime.assignCore(0, 35, [[{ task: 2000 }, 57600]], null))
+      .sudo(api.tx.coretime.assignCore(Number(core), 0, [[{ task: 2000 }, 57600]], null))
       .signAndSend(alice, ({ status, isError }) => {
         if (status.isInBlock) {
           console.log(
