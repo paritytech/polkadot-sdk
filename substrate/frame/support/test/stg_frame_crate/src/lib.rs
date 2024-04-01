@@ -18,7 +18,7 @@
 // ! A basic pallet to test it compiles along with a runtime using it when `frame_system` and
 // `frame_support` are reexported by a `frame` crate.
 
-use polkadot_sdk_frame::deps::{frame_support, frame_system};
+use frame::deps::{frame_support, frame_system};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -31,7 +31,7 @@ pub mod pallet {
 	#[pallet::config]
 	// The only valid syntax here is the following or
 	// ```
-	// pub trait Config: polkadot_sdk_frame::deps::frame_system::Config {}
+	// pub trait Config: frame::deps::frame_system::Config {}
 	// ```
 	pub trait Config: frame_system::Config {}
 
