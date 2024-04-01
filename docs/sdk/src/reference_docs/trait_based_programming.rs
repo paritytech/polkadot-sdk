@@ -1,18 +1,18 @@
 //! # Trait-based Programming
 //!
 //! This document walks you over a peculiar way of using Rust's `trait` items. This pattern is
-//! abundantly used within [`polkadot_sdk_frame`] and is therefore paramount important for a smooth
+//! abundantly used within [`frame`] and is therefore paramount important for a smooth
 //! transition into it.
 //!
 //! The rest of this document assumes familiarity with the
 //! [Rust book's Advanced Traits](https://doc.rust-lang.org/book/ch19-03-advanced-traits.html)
 //! section.
-//! Moreover, we use the [`polkadot_sdk_frame::traits::Get`].
+//! Moreover, we use the [`frame::traits::Get`].
 //!
 //! First, imagine we are writing a FRAME pallet. We represent this pallet with a `struct Pallet`,
 //! and this pallet wants to implement the functionalities of that pallet, for example a simple
 //! `transfer` function. For the sake of education, we are interested in having a `MinTransfer`
-//! amount, expressed as a [`polkadot_sdk_frame::traits::Get`], which will dictate what is the
+//! amount, expressed as a [`frame::traits::Get`], which will dictate what is the
 //! minimum amount that can be transferred.
 //!
 //! We can foremost write this as simple as the following snippet:
@@ -84,7 +84,7 @@
 //! having individual `trait Configs` declare a shared `trait SystemConfig` as their
 //! [supertrait](https://doc.rust-lang.org/rust-by-example/trait/supertraits.html).
 #![doc = docify::embed!("./src/reference_docs/trait_based_programming.rs", with_system)]
-//! In FRAME, this shared supertrait is [`polkadot_sdk_frame::prelude::frame_system`].
+//! In FRAME, this shared supertrait is [`frame::prelude::frame_system`].
 //!
 //! Notice how this made no difference in the syntax of the rest of the code. `T::AccountId` is
 //! still a valid type, since `T` implements `Config` and `Config` implies `SystemConfig`, which
@@ -103,7 +103,7 @@
 //! length of fully qualified syntax is a common pattern in FRAME.
 //!
 //! The above example is almost identical to the well-known (and somewhat notorious) `type
-//! BalanceOf` that is often used in the context of [`polkadot_sdk_frame::traits::fungible`].
+//! BalanceOf` that is often used in the context of [`frame::traits::fungible`].
 #![doc = docify::embed!("../../substrate/frame/fast-unstake/src/types.rs", BalanceOf)]
 //!
 //! ## Additional Resources
@@ -113,15 +113,15 @@
 //! - <https://substrate.stackexchange.com/questions/2228/type-casting-to-trait-t-as-config>
 #![allow(unused)]
 
-use polkadot_sdk_frame::traits::Get;
+use frame::traits::Get;
 
 #[docify::export]
 mod basic {
 	struct Pallet;
 
-	type AccountId = polkadot_sdk_frame::deps::sp_runtime::AccountId32;
+	type AccountId = frame::deps::sp_runtime::AccountId32;
 	type Balance = u128;
-	type MinTransfer = polkadot_sdk_frame::traits::ConstU128<10>;
+	type MinTransfer = frame::traits::ConstU128<10>;
 
 	impl Pallet {
 		fn transfer(_from: AccountId, _to: AccountId, _amount: Balance) {
@@ -140,8 +140,8 @@ mod generic {
 
 	impl<AccountId, Balance, MinTransfer> Pallet<AccountId, Balance, MinTransfer>
 	where
-		Balance: polkadot_sdk_frame::traits::AtLeast32BitUnsigned,
-		MinTransfer: polkadot_sdk_frame::traits::Get<Balance>,
+		Balance: frame::traits::AtLeast32BitUnsigned,
+		MinTransfer: frame::traits::Get<Balance>,
 		AccountId: From<[u8; 32]>,
 	{
 		fn transfer(_from: AccountId, _to: AccountId, amount: Balance) {
@@ -157,8 +157,8 @@ mod trait_based {
 
 	trait Config {
 		type AccountId: From<[u8; 32]>;
-		type Balance: polkadot_sdk_frame::traits::AtLeast32BitUnsigned;
-		type MinTransfer: polkadot_sdk_frame::traits::Get<Self::Balance>;
+		type Balance: frame::traits::AtLeast32BitUnsigned;
+		type MinTransfer: frame::traits::Get<Self::Balance>;
 	}
 
 	struct Pallet<T: Config>(std::marker::PhantomData<T>);
@@ -179,8 +179,8 @@ mod with_system {
 	}
 
 	pub trait Config: SystemConfig {
-		type Balance: polkadot_sdk_frame::traits::AtLeast32BitUnsigned;
-		type MinTransfer: polkadot_sdk_frame::traits::Get<Self::Balance>;
+		type Balance: frame::traits::AtLeast32BitUnsigned;
+		type MinTransfer: frame::traits::Get<Self::Balance>;
 	}
 
 	pub struct Pallet<T: Config>(std::marker::PhantomData<T>);
@@ -205,7 +205,7 @@ mod fully_qualified_complicated {
 	use super::with_system::*;
 
 	trait CurrencyTrait {
-		type Balance: polkadot_sdk_frame::traits::AtLeast32BitUnsigned;
+		type Balance: frame::traits::AtLeast32BitUnsigned;
 		fn more_stuff() {}
 	}
 

@@ -1,6 +1,6 @@
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet {
-	use polkadot_sdk_frame::prelude::*;
+	use frame::prelude::*;
 
 	#[docify::export]
 	pub type Balance = u128;

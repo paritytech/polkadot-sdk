@@ -18,12 +18,12 @@
 //!
 //! The following FRAME topics are covered in this guide:
 //!
-//! - [Storage](polkadot_sdk_frame::pallet_macros::storage)
-//! - [Call](polkadot_sdk_frame::pallet_macros::call)
-//! - [Event](polkadot_sdk_frame::pallet_macros::event)
-//! - [Error](polkadot_sdk_frame::pallet_macros::error)
+//! - [Storage](frame::pallet_macros::storage)
+//! - [Call](frame::pallet_macros::call)
+//! - [Event](frame::pallet_macros::event)
+//! - [Error](frame::pallet_macros::error)
 //! - Basics of testing a pallet
-//! - [Constructing a runtime](polkadot_sdk_frame::runtime::prelude::construct_runtime)
+//! - [Constructing a runtime](frame::runtime::prelude::construct_runtime)
 //!
 //! ## Writing Your First Pallet
 //!
@@ -38,8 +38,8 @@
 //! Consider the following as a "shell pallet". We continue building the rest of this pallet based
 //! on this template.
 //!
-//! [`pallet::config`](polkadot_sdk_frame::pallet_macros::config) and
-//! [`pallet::pallet`](polkadot_sdk_frame::pallet_macros::pallet) are both mandatory parts of any
+//! [`pallet::config`](frame::pallet_macros::config) and
+//! [`pallet::pallet`](frame::pallet_macros::pallet) are both mandatory parts of any
 //! pallet. Refer to the documentation of each to get an overview of what they do.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", shell_pallet)]
 //!
@@ -56,14 +56,14 @@
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Balance)]
 //!
 //! The definition of these two storage items, based on
-//! [`polkadot_sdk_frame::pallet_macros::storage`] details, is as follows:
+//! [`frame::pallet_macros::storage`] details, is as follows:
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", TotalIssuance)]
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Balances)]
 //!
 //! ### Dispatchables
 //!
 //! Next, we will define the dispatchable functions. As per
-//! [`polkadot_sdk_frame::pallet_macros::call`], these will be defined as normal `fn`s attached to
+//! [`frame::pallet_macros::call`], these will be defined as normal `fn`s attached to
 //! `struct Pallet`.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", impl_pallet)]
 //!
@@ -71,7 +71,7 @@
 //! details:
 //!
 //! - Where do `T::AccountId` and `T::RuntimeOrigin` come from? These are both defined in
-//!  [`polkadot_sdk_frame::prelude::frame_system::Config`], therefore we can access them in `T`.
+//!  [`frame::prelude::frame_system::Config`], therefore we can access them in `T`.
 //! - What is `ensure_signed`, and what does it do with the aforementioned `T::RuntimeOrigin`? This
 //!   is outside the scope of this guide, and you can learn more about it in the origin reference
 //!   document ([`crate::reference_docs::frame_origin`]). For now, you should only know the
@@ -83,35 +83,34 @@
 //!
 //! - Where does `mutate`, `get` and `insert` and other storage APIs come from? All of them are
 //! explained in the corresponding `type`, for example, for `Balances::<T>::insert`, you can look
-//! into [`polkadot_sdk_frame::prelude::StorageMap::insert`].
+//! into [`frame::prelude::StorageMap::insert`].
 //!
-//! - The return type of all dispatchable functions is
-//!   [`polkadot_sdk_frame::prelude::DispatchResult`]:
+//! - The return type of all dispatchable functions is [`frame::prelude::DispatchResult`]:
 #![doc = docify::embed!("../../substrate/frame/support/src/dispatch.rs", DispatchResult)]
 //!
 //! Which is more or less a normal Rust `Result`, with a custom
-//! [`polkadot_sdk_frame::prelude::DispatchError`] as the `Err` variant. We won't cover this error
+//! [`frame::prelude::DispatchError`] as the `Err` variant. We won't cover this error
 //! in detail here, but importantly you should know that there is an `impl From<&'static string> for
 //! DispatchError` provided (see [here](
-//! `polkadot_sdk_frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`
+//! `frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`
 //! ). Therefore, we can use basic string literals as our error type and `.into()` them into
 //! `DispatchError`.
 //!
 //! - Why are all `get` and `mutate` functions returning an `Option`? This is the default behavior
 //!   of FRAME storage APIs. You can learn more about how to override this by looking into
-//!   [`polkadot_sdk_frame::pallet_macros::storage`], and
-//!   [`polkadot_sdk_frame::prelude::ValueQuery`]/[`polkadot_sdk_frame::prelude::OptionQuery`]
+//!   [`frame::pallet_macros::storage`], and
+//!   [`frame::prelude::ValueQuery`]/[`frame::prelude::OptionQuery`]
 //!
 //! ### Improving Errors
 //!
 //! How we handle error in the above snippets is fairly rudimentary. Let's look at how this can be
-//! improved. First, we can use [`polkadot_sdk_frame::prelude::ensure`] to express the error
+//! improved. First, we can use [`frame::prelude::ensure`] to express the error
 //! slightly better. This macro will call `.into()` under the hood.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_better)]
 //!
 //! Moreover, you will learn in the [Defensive Programming
 //! section](crate::reference_docs::defensive_programming) that it is always recommended to use
-//! safe arithmetic operations in your runtime. By using [`polkadot_sdk_frame::traits::CheckedSub`],
+//! safe arithmetic operations in your runtime. By using [`frame::traits::CheckedSub`],
 //! we can not only take a step in that direction, but also improve the error handing and make it
 //! slightly more ergonomic.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", transfer_better_checked)]
@@ -122,12 +121,12 @@
 //!
 //! Next, we create a "test runtime" in order to test our pallet. Recall from
 //! [`crate::polkadot_sdk::frame_runtime`] that a runtime is a collection of pallets, expressed
-//! through [`polkadot_sdk_frame::runtime::prelude::construct_runtime`]. All runtimes also have to
-//! include [`polkadot_sdk_frame::prelude::frame_system`]. So we expect to see a runtime with two
+//! through [`frame::runtime::prelude::construct_runtime`]. All runtimes also have to
+//! include [`frame::prelude::frame_system`]. So we expect to see a runtime with two
 //! pallet, `frame_system` and the one we just wrote.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", runtime)]
 //!
-//! > [`polkadot_sdk_frame::pallet_macros::derive_impl`] is a FRAME feature that enables developers
+//! > [`frame::pallet_macros::derive_impl`] is a FRAME feature that enables developers
 //! > to have
 //! > defaults for associated types.
 //!
@@ -161,7 +160,7 @@
 //!
 //! The above is all you need to execute the dispatchables of your pallet. The last thing you need
 //! to learn is that all of your pallet testing code should be wrapped in
-//! [`polkadot_sdk_frame::testing_prelude::TestState`]. This is a type that provides access to an
+//! [`frame::testing_prelude::TestState`]. This is a type that provides access to an
 //! in-memory state to be used in our tests.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", first_test)]
 //!
@@ -242,7 +241,7 @@
 //!   the drawbacks mentioned. In short, we use an enum to represent different variants of our
 //!   error. These variants are then mapped in an efficient way (using only `u8` indices) to
 //!   [`sp_runtime::DispatchError::Module`]. Read more about this in
-//!   [`polkadot_sdk_frame::pallet_macros::error`].
+//!   [`frame::pallet_macros::error`].
 //!
 //! - **Event**: Events are akin to the return type of dispatchables. They are mostly data blobs
 //!   emitted by the runtime to let outside world know what is happening inside the pallet. Since
@@ -256,13 +255,13 @@
 //!
 //! With the explanation out of the way, let's see how these components can be added. Both follow a
 //! fairly familiar syntax: normal Rust enums, with extra
-//! [`#[polkadot_sdk_frame::event]`](polkadot_sdk_frame::pallet_macros::event) and
-//! [`#[polkadot_sdk_frame::error]`](polkadot_sdk_frame::pallet_macros::error) attributes attached.
+//! [`#[frame::event]`](frame::pallet_macros::event) and
+//! [`#[frame::error]`](frame::pallet_macros::error) attributes attached.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Event)]
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", Error)]
 //!
 //! One slightly custom part of this is the [`#[pallet::generate_deposit(pub(super) fn
-//! deposit_event)]`](polkadot_sdk_frame::pallet_macros::generate_deposit) part. Without going into
+//! deposit_event)]`](frame::pallet_macros::generate_deposit) part. Without going into
 //! too much detail, in order for a pallet to emit events to the rest of the system, it needs to do
 //! two things:
 //!
@@ -274,7 +273,7 @@
 //!
 //! 2. But, doing this conversion and storing is too much to expect each pallet to define. FRAME
 //! provides a default way of storing events, and this is what
-//! [`pallet::generate_deposit`](polkadot_sdk_frame::pallet_macros::generate_deposit) is doing.
+//! [`pallet::generate_deposit`](frame::pallet_macros::generate_deposit) is doing.
 #![doc = docify::embed!("./src/guides/your_first_pallet/mod.rs", config_v2)]
 //!
 //! > These `Runtime*` types are better explained in
@@ -289,7 +288,7 @@
 //!
 //! In this snippet, the actual `RuntimeEvent` type (right hand side of `type RuntimeEvent =
 //! RuntimeEvent`) is generated by
-//! [`construct_runtime`](polkadot_sdk_frame::runtime::prelude::construct_runtime). An interesting
+//! [`construct_runtime`](frame::runtime::prelude::construct_runtime). An interesting
 //! way to inspect this type is to see its definition in rust-docs:
 //! [`crate::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent`].
 //!
@@ -303,14 +302,14 @@
 //! - [`crate::reference_docs::frame_origin`].
 //! - [`crate::reference_docs::frame_runtime_types`].
 //! - The pallet we wrote in this guide was using `dev_mode`, learn more in
-//!   [`polkadot_sdk_frame::pallet_macros::config`].
+//!   [`frame::pallet_macros::config`].
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
-//!   [`polkadot_sdk_frame::pallet_macros`].
+//!   [`frame::pallet_macros`].
 
 #[docify::export]
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod shell_pallet {
-	use polkadot_sdk_frame::prelude::*;
+	use frame::prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
@@ -319,9 +318,9 @@ pub mod shell_pallet {
 	pub struct Pallet<T>(_);
 }
 
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet {
-	use polkadot_sdk_frame::prelude::*;
+	use frame::prelude::*;
 
 	#[docify::export]
 	pub type Balance = u128;
@@ -423,7 +422,7 @@ pub mod pallet {
 	#[cfg(any(test, doc))]
 	pub(crate) mod tests {
 		use crate::guides::your_first_pallet::pallet::*;
-		use polkadot_sdk_frame::testing_prelude::*;
+		use frame::testing_prelude::*;
 		const ALICE: u64 = 1;
 		const BOB: u64 = 2;
 		const CHARLIE: u64 = 3;
@@ -638,10 +637,10 @@ pub mod pallet {
 	}
 }
 
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet_v2 {
 	use super::pallet::Balance;
-	use polkadot_sdk_frame::prelude::*;
+	use frame::prelude::*;
 
 	#[docify::export(config_v2)]
 	#[pallet::config]
@@ -706,7 +705,7 @@ pub mod pallet_v2 {
 	#[cfg(any(test, doc))]
 	pub mod tests {
 		use super::{super::pallet::tests::StateBuilder, *};
-		use polkadot_sdk_frame::testing_prelude::*;
+		use frame::testing_prelude::*;
 		const ALICE: u64 = 1;
 		const BOB: u64 = 2;
 
