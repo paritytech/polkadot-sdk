@@ -3801,6 +3801,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3654" id="3654">3654</a>
 <a href="#3655" id="3655">3655</a>
 <a href="#3656" id="3656">3656</a>
+<a href="#3657" id="3657">3657</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4264,19 +4265,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>PermissionlessAll,
 }
 
-<span class="kw">impl </span>ClaimPermission {
-	<span class="kw">fn </span>can_bond_extra(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="macro">matches!</span>(<span class="self">self</span>, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessCompound)
-	}
-
-	<span class="kw">fn </span>can_claim_payout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="macro">matches!</span>(<span class="self">self</span>, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessWithdraw)
+<span class="kw">impl </span>Default <span class="kw">for </span>ClaimPermission {
+	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>::PermissionlessWithdraw
 	}
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>ClaimPermission {
-	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>::Permissioned
+<span class="kw">impl </span>ClaimPermission {
+	<span class="doccomment">/// Permissionless compounding of pool rewards is allowed if the current permission is
+	/// `PermissionlessCompound`, or permissionless.
+	</span><span class="kw">fn </span>can_bond_extra(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="macro">matches!</span>(<span class="self">self</span>, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessCompound)
+	}
+
+	<span class="doccomment">/// Permissionless payout claiming is allowed if the current permission is
+	/// `PermissionlessWithdraw`, or permissionless.
+	</span><span class="kw">fn </span>can_claim_payout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="macro">matches!</span>(<span class="self">self</span>, ClaimPermission::PermissionlessAll | ClaimPermission::PermissionlessWithdraw)
 	}
 }
 
@@ -6433,7 +6438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// In the case of `origin != other`, `origin` can only bond extra pending rewards of
 		/// `other` members assuming set_claim_permission for the given member is
-		/// `PermissionlessAll` or `PermissionlessCompound`.
+		/// `PermissionlessCompound` or `PermissionlessAll`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">14</span>)]
 		#[pallet::weight(
 			T::WeightInfo::bond_extra_transfer()
@@ -6451,15 +6456,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Allows a pool member to set a claim permission to allow or disallow permissionless
 		/// bonding and withdrawing.
 		///
-		/// By default, this is `Permissioned`, which implies only the pool member themselves can
-		/// claim their pending rewards. If a pool member wishes so, they can set this to
-		/// `PermissionlessAll` to allow any account to claim their rewards and bond extra to the
-		/// pool.
-		///
 		/// # Arguments
 		///
 		/// * `origin` - Member of a pool.
-		/// * `actor` - Account to claim reward. // improve this
+		/// * `permission` - The permission to be applied.
 		</span><span class="attr">#[pallet::call_index(<span class="number">15</span>)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>))]
 		</span><span class="kw">pub fn </span>set_claim_permission(
@@ -6469,16 +6469,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="macro">ensure!</span>(PoolMembers::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>who), Error::&lt;T&gt;::PoolMemberNotFound);
+
 			ClaimPermissions::&lt;T&gt;::mutate(who, |source| {
 				<span class="kw-2">*</span>source = permission;
 			});
+
 			<span class="prelude-val">Ok</span>(())
 		}
 
 		<span class="doccomment">/// `origin` can claim payouts on some pool member `other`&#39;s behalf.
 		///
-		/// Pool member `other` must have a `PermissionlessAll` or `PermissionlessWithdraw` in order
-		/// for this call to be successful.
+		/// Pool member `other` must have a `PermissionlessWithdraw` or `PermissionlessAll` claim
+		/// permission for this call to be successful.
 		</span><span class="attr">#[pallet::call_index(<span class="number">16</span>)]
 		#[pallet::weight(T::WeightInfo::claim_payout())]
 		</span><span class="kw">pub fn </span>claim_payout_other(origin: OriginFor&lt;T&gt;, other: T::AccountId) -&gt; DispatchResult {

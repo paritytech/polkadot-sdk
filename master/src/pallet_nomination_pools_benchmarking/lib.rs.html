@@ -1794,9 +1794,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::Staking::active_stake(<span class="kw-2">&amp;</span>pool_account).unwrap(),
 			min_create_bond + min_join_bond
 		);
-	}:<span class="kw">_</span>(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::PermissionlessAll)
+	}:<span class="kw">_</span>(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::Permissioned)
 	verify {
-		<span class="macro">assert_eq!</span>(ClaimPermissions::&lt;T&gt;::get(joiner), ClaimPermission::PermissionlessAll);
+		<span class="macro">assert_eq!</span>(ClaimPermissions::&lt;T&gt;::get(joiner), ClaimPermission::Permissioned);
 	}
 
 	claim_commission {
