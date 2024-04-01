@@ -34,7 +34,9 @@ pub fn generate_crate_access() -> TokenStream {
 			quote!(#renamed_name::__private)
 		},
 		Err(e) =>
-			if let Ok(FoundCrate::Name(name)) = crate_name(&"polkadot-sdk-frame") {
+			if let Ok(FoundCrate::Name(name)) =
+				crate_name(&"polkadot-sdk-frame").map_err(|_| crate_name(&"frame"))
+			{
 				let path = format!("{}::deps::sp_api::__private", name);
 				let path = syn::parse_str::<syn::Path>(&path).expect("is a valid path; qed");
 				quote!( #path )
