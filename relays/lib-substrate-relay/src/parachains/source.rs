@@ -106,6 +106,13 @@ where
 		// parachain head - we simply return `Unavailable`
 		let best_block_number = self.client.best_finalized_header_number().await?;
 		if is_ancient_block(at_block.number(), best_block_number) {
+			log::trace!(
+				target: "bridge",
+				"{} block {:?} is ancient. Cannot prove the {} header there",
+				P::SourceRelayChain::NAME,
+				at_block,
+				P::SourceParachain::NAME,
+			);
 			return Ok(AvailableHeader::Unavailable)
 		}
 

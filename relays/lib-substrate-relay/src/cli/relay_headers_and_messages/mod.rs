@@ -425,8 +425,10 @@ mod tests {
 					},
 				},
 				left: BridgeHubKusamaConnectionParams {
+					bridge_hub_kusama_uri: None,
 					bridge_hub_kusama_host: "bridge-hub-kusama-node-collator1".into(),
 					bridge_hub_kusama_port: 9944,
+					bridge_hub_kusama_path: None,
 					bridge_hub_kusama_secure: false,
 					bridge_hub_kusama_runtime_version: BridgeHubKusamaRuntimeVersionParams {
 						bridge_hub_kusama_version_mode: RuntimeVersionType::Bundle,
@@ -442,8 +444,10 @@ mod tests {
 					bridge_hub_kusama_transactions_mortality: Some(64),
 				},
 				left_relay: KusamaConnectionParams {
+					kusama_uri: None,
 					kusama_host: "kusama-alice".into(),
 					kusama_port: 9944,
+					kusama_path: None,
 					kusama_secure: false,
 					kusama_runtime_version: KusamaRuntimeVersionParams {
 						kusama_version_mode: RuntimeVersionType::Bundle,
@@ -452,8 +456,10 @@ mod tests {
 					},
 				},
 				right: BridgeHubPolkadotConnectionParams {
+					bridge_hub_polkadot_uri: None,
 					bridge_hub_polkadot_host: "bridge-hub-polkadot-collator1".into(),
 					bridge_hub_polkadot_port: 9944,
+					bridge_hub_polkadot_path: None,
 					bridge_hub_polkadot_secure: false,
 					bridge_hub_polkadot_runtime_version: BridgeHubPolkadotRuntimeVersionParams {
 						bridge_hub_polkadot_version_mode: RuntimeVersionType::Bundle,
@@ -469,8 +475,10 @@ mod tests {
 					bridge_hub_polkadot_transactions_mortality: Some(64),
 				},
 				right_relay: PolkadotConnectionParams {
+					polkadot_uri: None,
 					polkadot_host: "polkadot-alice".into(),
 					polkadot_port: 9944,
+					polkadot_path: None,
 					polkadot_secure: false,
 					polkadot_runtime_version: PolkadotRuntimeVersionParams {
 						polkadot_version_mode: RuntimeVersionType::Bundle,
