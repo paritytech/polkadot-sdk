@@ -81,9 +81,9 @@
 //!
 //!
 //! ```
-//! #[polkadot_sdk_frame::pallet(dev_mode)]
+//! #[frame::pallet(dev_mode)]
 //! pub mod pallet {
-//! #   use polkadot_sdk_frame::prelude::*;
+//! #   use frame::prelude::*;
 //! #   #[pallet::config]
 //! #   pub trait Config: frame_system::Config {}
 //! #   #[pallet::pallet]
@@ -104,10 +104,9 @@
 //! explained in [`crate::reference_docs::frame_runtime_types`]. Build on top of this!
 //! * Then, what is `origin`? Just an account id? [`crate::reference_docs::frame_origin`].
 //! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
-//! explained in the documentation of [`polkadot_sdk_frame::prelude::DispatchResult`].
+//! explained in the documentation of [`frame::prelude::DispatchResult`].
 //! * Why is `"SomeStaticString"` a valid error? Because there is implementation for it that you can
-//!   see [here](
-//!   `polkadot_sdk_frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`).
+//!   see [here]( `frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`).
 //!
 //!
 //! All of these are examples of underlying information that a contributor should:

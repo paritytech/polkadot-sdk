@@ -35,7 +35,7 @@
 //! # Migrations
 //!
 //! It is often desirable to define logic to execute immediately after runtime upgrades (see
-//! [this diagram](polkadot_sdk_frame::traits::Hooks)).
+//! [this diagram](frame::traits::Hooks)).
 //!
 //! Self-contained pieces of logic that execute after a runtime upgrade are called "Migrations".
 //!

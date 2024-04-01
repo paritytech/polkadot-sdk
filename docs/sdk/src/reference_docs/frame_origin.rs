@@ -93,15 +93,15 @@
 //! Then, within the pallet, we can simply use this "unknown" origin check type:
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", external_origin_usage)]
 //!
-//! Finally, at the runtime, any implementation of [`polkadot_sdk_frame::traits::EnsureOrigin`] can
+//! Finally, at the runtime, any implementation of [`frame::traits::EnsureOrigin`] can
 //! be passed.
 #![doc = docify::embed!("./src/reference_docs/frame_origin.rs", external_origin_provide)]
 //!
-//! Indeed, some of these implementations of [`polkadot_sdk_frame::traits::EnsureOrigin`] are
-//! similar to the ones that we know about: [`polkadot_sdk_frame::runtime::prelude::EnsureSigned`],
-//! [`polkadot_sdk_frame::runtime::prelude::EnsureSignedBy`],
-//! [`polkadot_sdk_frame::runtime::prelude::EnsureRoot`],
-//! [`polkadot_sdk_frame::runtime::prelude::EnsureNone`], etc. But, there are also many more that
+//! Indeed, some of these implementations of [`frame::traits::EnsureOrigin`] are
+//! similar to the ones that we know about: [`frame::runtime::prelude::EnsureSigned`],
+//! [`frame::runtime::prelude::EnsureSignedBy`],
+//! [`frame::runtime::prelude::EnsureRoot`],
+//! [`frame::runtime::prelude::EnsureNone`], etc. But, there are also many more that
 //! are not known to us, and are defined in other pallets.
 //!
 //! For example, [`pallet_collective`] defines [`pallet_collective::EnsureMember`] and
@@ -109,7 +109,7 @@
 //! to earlier in this document.
 //!
 //! Make sure to check the full list of [implementors of
-//! `EnsureOrigin`](polkadot_sdk_frame::traits::EnsureOrigin#implementors) for more inspiration.
+//! `EnsureOrigin`](frame::traits::EnsureOrigin#implementors) for more inspiration.
 //!
 //! ## Obtaining Abstract Origins
 //!
@@ -130,9 +130,9 @@
 //! [^1]: Inherents are essentially unsigned extrinsics that need an [`frame_system::ensure_none`]
 //! origin check, and through the virtue of being an inherent, are agreed upon by all validators.
 
-use polkadot_sdk_frame::prelude::*;
+use frame::prelude::*;
 
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet_for_origin {
 	use super::*;
 
@@ -152,7 +152,7 @@ pub mod pallet_for_origin {
 	}
 }
 
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet_with_custom_origin {
 	use super::*;
 
@@ -197,7 +197,7 @@ pub mod pallet_with_custom_origin {
 
 pub mod runtime_for_origin {
 	use super::pallet_with_custom_origin;
-	use polkadot_sdk_frame::{runtime::prelude::*, testing_prelude::*};
+	use frame::{runtime::prelude::*, testing_prelude::*};
 
 	#[docify::export(runtime_exp)]
 	construct_runtime!(
@@ -217,7 +217,7 @@ pub mod runtime_for_origin {
 	}
 }
 
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet_with_external_origin {
 	use super::*;
 	#[docify::export(external_origin_def)]
@@ -241,7 +241,7 @@ pub mod pallet_with_external_origin {
 
 pub mod runtime_for_external_origin {
 	use super::*;
-	use polkadot_sdk_frame::{runtime::prelude::*, testing_prelude::*};
+	use frame::{runtime::prelude::*, testing_prelude::*};
 
 	construct_runtime!(
 		pub struct Runtime {

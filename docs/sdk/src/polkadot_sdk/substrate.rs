@@ -35,7 +35,7 @@
 //! > A great analogy for substrate is the following: Substrate node is a gaming console, and a WASM
 //! > runtime, possibly created with FRAME is the game being inserted into the console.
 //!
-//! [`polkadot_sdk_frame`], Substrate's default runtime development library, takes the above safety
+//! [`frame`], Substrate's default runtime development library, takes the above safety
 //! practices even further by embracing a declarative programming model whereby correctness is
 //! enhanced and the system is highly configurable through parameterization. Learn more about this
 //! in [`crate::reference_docs::trait_based_programming`].
@@ -48,7 +48,7 @@
 //!   [`crate::polkadot_sdk::templates`]) and only tweak the parameters of the runtime or node. This
 //!   allows you to launch a blockchain in minutes, but is limited in technical freedom.
 //! * Next, most developers wish to develop their custom runtime modules, for which the de-facto way
-//! is [`polkadot_sdk_frame`](crate::polkadot_sdk::frame_runtime).
+//! is [`frame`](crate::polkadot_sdk::frame_runtime).
 //! * Finally, Substrate is highly configurable at the node side as well, but this is the most
 //!   technically demanding.
 //!
@@ -71,7 +71,7 @@
 //!   framework is using for building the runtime. Notable examples are [`sp_api`] and [`sp_io`],
 //!   which form the communication bridge between the node and runtime.
 //! * `pallet-*` and `frame-*` crates, located under `./frame` folder. These are the crates related
-//!   to FRAME. See [`polkadot_sdk_frame`] for more information.
+//!   to FRAME. See [`frame`] for more information.
 //!
 //! ### WASM Build
 //!
@@ -111,9 +111,9 @@
 //! Substrate-based project typically contains the following:
 //!
 //! * Under `./runtime`, a `./runtime/src/lib.rs` which is the top level runtime amalgamator file.
-//!   This file typically contains the [`polkadot_sdk_frame::runtime::prelude::construct_runtime`]
-//!   and [`polkadot_sdk_frame::runtime::prelude::impl_runtime_apis`] macro calls, which is the
-//!   final definition of a runtime.
+//!   This file typically contains the [`frame::runtime::prelude::construct_runtime`] and
+//!   [`frame::runtime::prelude::impl_runtime_apis`] macro calls, which is the final definition of a
+//!   runtime.
 //!
 //! * Under `./node`, a `main.rs`, which is the starting point, and a `./service.rs`, which contains
 //!   all the node side components. Skimming this file yields an overview of the networking,

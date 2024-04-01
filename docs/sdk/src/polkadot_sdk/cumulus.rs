@@ -17,7 +17,7 @@
 //! A parachain runtime should use a number of pallets that are provided by Cumulus and Substrate.
 //! Notably:
 //!
-//! - [`frame-system`](polkadot_sdk_frame::prelude::frame_system), like all FRAME-based runtimes.
+//! - [`frame-system`](frame::prelude::frame_system), like all FRAME-based runtimes.
 //! - [`cumulus_pallet_parachain_system`]
 //! - [`parachain_info`]
 #![doc = docify::embed!("./src/polkadot_sdk/cumulus.rs", system_pallets)]
@@ -32,7 +32,7 @@
 //!
 //!
 //! Finally, a separate macro, similar to
-//! [`impl_runtime_api`](polkadot_sdk_frame::runtime::prelude::impl_runtime_apis), which creates the
+//! [`impl_runtime_api`](frame::runtime::prelude::impl_runtime_apis), which creates the
 //! default set of runtime APIs, will generate the parachain runtime's validation runtime API, also
 //! known as parachain validation function (PVF). Without this API, the relay chain is unable to
 //! validate blocks produced by our parachain.
@@ -48,7 +48,7 @@
 #[cfg(test)]
 mod tests {
 	mod runtime {
-		pub use polkadot_sdk_frame::{
+		pub use frame::{
 			deps::sp_consensus_aura::sr25519::AuthorityId as AuraId, prelude::*,
 			runtime::prelude::*, testing_prelude::*,
 		};
@@ -95,8 +95,7 @@ mod tests {
 					1,
 				>;
 				type WeightInfo = ();
-				type DmpQueue =
-					polkadot_sdk_frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
+				type DmpQueue = frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 			}
 
 			impl parachain_info::Config for Runtime {}

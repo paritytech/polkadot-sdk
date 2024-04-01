@@ -43,7 +43,7 @@
 //! type in each pallet, for example [`pallet_foo::Call`].
 //!
 //! [`RuntimeOrigin`]'s [`OriginCaller`] has two variants, one for system, and one for `pallet_foo`
-//! which utilized [`polkadot_sdk_frame::pallet_macros::origin`].
+//! which utilized [`frame::pallet_macros::origin`].
 //!
 //! Finally, [`RuntimeGenesisConfig`] is composed of `frame_system` and a variant for `pallet_bar`'s
 //! [`pallet_bar::GenesisConfig`].
@@ -80,7 +80,7 @@
 //! The only way to express this using Rust's associated types is for the pallet to **define its own
 //! associated type `RuntimeCall`, and further specify what it thinks `RuntimeCall` should be**.
 //!
-//! In this case, we will want to assert the existence of [`polkadot_sdk_frame::traits::IsSubType`],
+//! In this case, we will want to assert the existence of [`frame::traits::IsSubType`],
 //! which is very similar to [`TryFrom`].
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call)]
 //!
@@ -99,7 +99,7 @@
 //! is being constructed.
 //!
 //! Now, within this pallet, this new `RuntimeCall` can be used, and it can use its new trait
-//! bounds, such as being [`polkadot_sdk_frame::traits::IsSubType`]:
+//! bounds, such as being [`frame::traits::IsSubType`]:
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call_usages)]
 //!
 //! ### Asserting Equality of Multiple Runtime Composite Enums
@@ -112,8 +112,8 @@
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", assert_equality)]
 //!
 //! We leave it to the reader to further explore what
-//! [`polkadot_sdk_frame::traits::Hooks::integrity_test`] is, and what [`core::any::TypeId`] is.
-//! Another way to assert this is using [`polkadot_sdk_frame::traits::IsType`].
+//! [`frame::traits::Hooks::integrity_test`] is, and what [`core::any::TypeId`] is.
+//! Another way to assert this is using [`frame::traits::IsType`].
 //!
 //! ## Type Aliases
 //!
@@ -123,7 +123,7 @@
 //!   `System`
 //! * [`runtime::AllPalletsWithSystem`] is an alias for a tuple of all of the above. This type is
 //!   important to FRAME internals such as `executive`, as it implements traits such as
-//!   [`polkadot_sdk_frame::traits::Hooks`].
+//!   [`frame::traits::Hooks`].
 //!
 //! ## Further Details
 //!
@@ -135,7 +135,7 @@
 //! * See the corresponding lecture in the [pba-book](https://polkadot-blockchain-academy.github.io/pba-book/frame/outer-enum/page.html).
 //!
 //!
-//! [`construct_runtime`]: polkadot_sdk_frame::runtime::prelude::construct_runtime
+//! [`construct_runtime`]: frame::runtime::prelude::construct_runtime
 //! [`runtime::PalletFoo`]: crate::reference_docs::frame_runtime_types::runtime::PalletFoo
 //! [`runtime::AllPalletsWithSystem`]: crate::reference_docs::frame_runtime_types::runtime::AllPalletsWithSystem
 //! [`runtime`]: crate::reference_docs::frame_runtime_types::runtime
@@ -153,10 +153,10 @@
 //! [`RuntimeCall`]: crate::reference_docs::frame_runtime_types::runtime::RuntimeCall
 //! [`RuntimeHoldReason`]: crate::reference_docs::frame_runtime_types::runtime::RuntimeHoldReason
 
-use polkadot_sdk_frame::prelude::*;
+use frame::prelude::*;
 
 #[docify::export]
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet_foo {
 	use super::*;
 
@@ -186,7 +186,7 @@ pub mod pallet_foo {
 }
 
 #[docify::export]
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet_bar {
 	use super::*;
 
@@ -217,7 +217,7 @@ pub mod pallet_bar {
 
 pub mod runtime {
 	use super::{pallet_bar, pallet_foo};
-	use polkadot_sdk_frame::{runtime::prelude::*, testing_prelude::*};
+	use frame::{runtime::prelude::*, testing_prelude::*};
 
 	#[docify::export(runtime_exp)]
 	construct_runtime!(
@@ -237,10 +237,10 @@ pub mod runtime {
 	impl pallet_bar::Config for Runtime {}
 }
 
-#[polkadot_sdk_frame::pallet(dev_mode)]
+#[frame::pallet(dev_mode)]
 pub mod pallet_with_specific_runtime_call {
 	use super::*;
-	use polkadot_sdk_frame::traits::IsSubType;
+	use frame::traits::IsSubType;
 
 	#[docify::export(custom_runtime_call)]
 	/// A pallet that wants to further narrow down what `RuntimeCall` is.
@@ -284,7 +284,7 @@ pub mod pallet_with_specific_runtime_call {
 
 pub mod runtime_with_specific_runtime_call {
 	use super::pallet_with_specific_runtime_call;
-	use polkadot_sdk_frame::{runtime::prelude::*, testing_prelude::*};
+	use frame::{runtime::prelude::*, testing_prelude::*};
 
 	construct_runtime!(
 		pub struct Runtime {
