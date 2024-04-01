@@ -6,7 +6,7 @@ edition.workspace = true
 license = "MIT-0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "FRAME example splitted pallet"
+description = "FRAME example split pallet"
 readme = "README.md"
 
 [lints]

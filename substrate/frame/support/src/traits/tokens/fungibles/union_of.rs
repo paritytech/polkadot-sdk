@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! Type to combine two `fungibles::*` implementations into one union `fungibles::*` implementation.
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use frame_support::traits::{
 	tokens::{

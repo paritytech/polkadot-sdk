@@ -106,7 +106,7 @@ impl<B: BlockT> Stream for NeighborPacketWorker<B> {
 
 		// Make sure the underlying task is scheduled for wake-up.
 		//
-		// Note: In case poll_unpin is called after the resetted delay fires again, this
+		// Note: In case poll_unpin is called after the reset delay fires again, this
 		// will drop one tick. Deemed as very unlikely and also not critical.
 		while this.delay.poll_unpin(cx).is_ready() {}
 

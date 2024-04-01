@@ -187,7 +187,7 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// Must be at least 1.
 	pub no_show_slots: u32,
-	/// The number of delay tranches in total.
+	/// The number of delay tranches in total. Must be at least 1.
 	pub n_delay_tranches: u32,
 	/// The width of the zeroth delay tranche for approval assignments. This many delay tranches
 	/// beyond 0 are all consolidated to form a wide 0 tranche.
@@ -247,7 +247,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_validators: None,
 			dispute_period: 6,
 			dispute_post_conclusion_acceptance_period: 100.into(),
-			n_delay_tranches: Default::default(),
+			n_delay_tranches: 1,
 			zeroth_delay_tranche_width: Default::default(),
 			needed_approvals: Default::default(),
 			relay_vrf_modulo_samples: Default::default(),
@@ -315,6 +315,8 @@ pub enum InconsistentError<BlockNumber> {
 	LookaheadExceedsTTL,
 	/// Passed in queue size for on-demand was too large.
 	OnDemandQueueSizeTooLarge,
+	/// Number of delay tranches cannot be 0.
+	ZeroDelayTranches,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -410,6 +412,10 @@ where
 
 		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
 			return Err(OnDemandQueueSizeTooLarge)
+		}
+
+		if self.n_delay_tranches.is_zero() {
+			return Err(ZeroDelayTranches)
 		}
 
 		Ok(())

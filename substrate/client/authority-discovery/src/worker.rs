@@ -129,6 +129,9 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 	/// List of keys onto which addresses have been published at the latest publication.
 	/// Used to check whether they have changed.
 	latest_published_keys: HashSet<AuthorityId>,
+	/// List of the kademlia keys that have been published at the latest publication.
+	/// Used to associate DHT events with our published records.
+	latest_published_kad_keys: HashSet<KademliaKey>,
 
 	/// Same value as in the configuration.
 	publish_non_global_ips: bool,
@@ -270,6 +273,7 @@ where
 			publish_interval,
 			publish_if_changed_interval,
 			latest_published_keys: HashSet::new(),
+			latest_published_kad_keys: HashSet::new(),
 			publish_non_global_ips: config.publish_non_global_ips,
 			public_addresses,
 			strict_record_validation: config.strict_record_validation,
@@ -342,6 +346,7 @@ where
 	}
 
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
+		let local_peer_id = self.network.local_peer_id();
 		let publish_non_global_ips = self.publish_non_global_ips;
 		let addresses = self
 			.public_addresses
@@ -349,7 +354,15 @@ where
 			.into_iter()
 			.chain(self.network.external_addresses().into_iter().filter_map(|mut address| {
 				// Make sure the reported external address does not contain `/p2p/...` protocol.
-				if let Some(multiaddr::Protocol::P2p(_)) = address.iter().last() {
+				if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+					if peer_id != *local_peer_id.as_ref() {
+						error!(
+							target: LOG_TARGET,
+							"Network returned external address '{address}' with peer id \
+							 not matching the local peer id '{local_peer_id}'.",
+						);
+						debug_assert!(false);
+					}
 					address.pop();
 				}
 
@@ -375,15 +388,16 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		let peer_id = self.network.local_peer_id();
 		debug!(
 			target: LOG_TARGET,
-			"Authority DHT record peer_id='{peer_id}' addresses='{addresses:?}'",
+			"Authority DHT record peer_id='{local_peer_id}' addresses='{addresses:?}'",
 		);
 
-		// The address must include the peer id.
-		let peer_id: Multihash = peer_id.into();
-		addresses.into_iter().map(move |a| a.with(multiaddr::Protocol::P2p(peer_id)))
+		// The address must include the local peer id.
+		let local_peer_id: Multihash = local_peer_id.into();
+		addresses
+			.into_iter()
+			.map(move |a| a.with(multiaddr::Protocol::P2p(local_peer_id)))
 	}
 
 	/// Publish own public addresses.
@@ -401,8 +415,17 @@ where
 			self.client.as_ref(),
 		).await?.into_iter().collect::<HashSet<_>>();
 
-		if only_if_changed && keys == self.latest_published_keys {
-			return Ok(())
+		if only_if_changed {
+			// If the authority keys did not change and the `publish_if_changed_interval` was
+			// triggered then do nothing.
+			if keys == self.latest_published_keys {
+				return Ok(())
+			}
+
+			// We have detected a change in the authority keys, reset the timers to
+			// publish and gather data faster.
+			self.publish_interval.set_to_start();
+			self.query_interval.set_to_start();
 		}
 
 		let addresses = serialize_addresses(self.addresses_to_publish());
@@ -425,6 +448,8 @@ where
 			key_store.as_ref(),
 			keys_vec,
 		)?;
+
+		self.latest_published_kad_keys = kv_pairs.iter().map(|(k, _)| k.clone()).collect();
 
 		for (key, value) in kv_pairs.into_iter() {
 			self.network.put_value(key, value);
@@ -528,6 +553,10 @@ where
 				}
 			},
 			DhtEvent::ValuePut(hash) => {
+				if !self.latest_published_kad_keys.contains(&hash) {
+					return;
+				}
+
 				// Fast forward the exponentially increasing interval to the configured maximum. In
 				// case this was the first successful address publishing there is no need for a
 				// timely retry.
@@ -540,6 +569,11 @@ where
 				debug!(target: LOG_TARGET, "Successfully put hash '{:?}' on Dht.", hash)
 			},
 			DhtEvent::ValuePutFailed(hash) => {
+				if !self.latest_published_kad_keys.contains(&hash) {
+					// Not a value we have published or received multiple times.
+					return;
+				}
+
 				if let Some(metrics) = &self.metrics {
 					metrics.dht_event_received.with_label_values(&["value_put_failed"]).inc();
 				}
