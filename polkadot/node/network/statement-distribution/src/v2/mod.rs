@@ -1137,7 +1137,17 @@ async fn send_pending_grid_messages<Context>(
 	if messages.is_empty() {
 		return
 	}
-	ctx.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages)).await;
+	use polkadot_node_subsystem::SubsystemSender;
+	use rand::SeedableRng;
+	use futures::FutureExt;
+	use rand::Rng;
+	let mut sender = ctx.sender().clone();
+	let _ = ctx.spawn_blocking("delayed_send", async move {
+		let mut rng = rand::rngs::StdRng::from_entropy();
+		let delay = rng.gen_range(0u64..500);
+		std::thread::sleep(Duration::from_millis(delay));
+		sender.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages)).await;
+	}.boxed());
 }
 
 // Imports a locally originating statement and distributes it to peers.
@@ -2082,14 +2092,34 @@ async fn provide_candidate_to_grid<Context>(
 			"Sending manifest to v3 peers"
 		);
 
-		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			manifest_peers_v3,
-			Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
-				manifest,
+		// ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+		// 	manifest_peers_v3,
+		// 	Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
+		// 		manifest,
+		// 	))
+		// 	.into(),
+		// ))
+		// .await;
+
+		use polkadot_node_subsystem::SubsystemSender;
+		use rand::SeedableRng;
+		use futures::FutureExt;
+		use rand::Rng;
+		let mut sender = ctx.sender().clone();
+		let _ = ctx.spawn_blocking("delayed_send", async move {
+			let mut rng = rand::rngs::StdRng::from_entropy();
+			let delay = rng.gen_range(0u64..500);
+			std::thread::sleep(Duration::from_millis(delay));
+
+			sender.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+				manifest_peers_v3,
+				Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
+					manifest,
+				))
+				.into(),
 			))
-			.into(),
-		))
-		.await;
+			.await;
+		}.boxed());
 	}
 
 	let ack_peers_v2 = filter_by_peer_version(&ack_peers, ValidationVersion::V2.into());
