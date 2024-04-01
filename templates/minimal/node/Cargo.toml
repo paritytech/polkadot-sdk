@@ -1,6 +1,6 @@
 [package]
 name = "minimal-template-node"
-description = "A miniaml Substrate-based Substrate node, ready for hacking."
+description = "A minimal Substrate-based Substrate node, ready for hacking."
 version = "0.0.0"
 license = "MIT-0"
 authors.workspace = true

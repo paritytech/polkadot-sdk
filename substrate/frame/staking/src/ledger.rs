@@ -130,7 +130,7 @@ impl<T: Config> StakingLedger<T> {
 
 		// if ledger bond is in a bad state, return error to prevent applying operations that may
 		// further spoil the ledger's state. A bond is in bad state when the bonded controller is
-		// associted with a different ledger (i.e. a ledger with a different stash).
+		// associated with a different ledger (i.e. a ledger with a different stash).
 		//
 		// See <https://github.com/paritytech/polkadot-sdk/issues/3245> for more details.
 		ensure!(

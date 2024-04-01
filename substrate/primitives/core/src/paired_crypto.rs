@@ -73,7 +73,7 @@ pub mod ecdsa_bls377 {
 
 	#[cfg(feature = "full_crypto")]
 	impl Pair {
-		/// Hashes the `message` with the specified [`Hasher`] before signing sith the ECDSA secret
+		/// Hashes the `message` with the specified [`Hasher`] before signing with the ECDSA secret
 		/// component.
 		///
 		/// The hasher does not affect the BLS12-377 component. This generates BLS12-377 Signature
