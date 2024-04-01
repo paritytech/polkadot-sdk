@@ -54,7 +54,7 @@ pub fn generate_crate_access(unique_id: &str, def_crate: &str) -> TokenStream {
 ///
 /// This will usually check the output of [`generate_access_from_frame_or_crate`].
 /// We want to know if whatever the `path` takes us to, is exported from `frame` or not. In that
-/// case `path` would start with `frame`, something like `polkadot_sdk_frame::x::y:z`.
+/// case `path` would start with `frame`, something like `polkadot_sdk_frame::x::y:z` or frame::x::y:z.
 pub fn is_using_frame_crate(path: &syn::Path) -> bool {
 	path.segments
 		.first()
