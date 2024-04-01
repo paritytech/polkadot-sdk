@@ -1257,13 +1257,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1110" id="1110">1110</a>
 <a href="#1111" id="1111">1111</a>
 <a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1708,24 +1701,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The IPFS CID of the alliance rule.
 	/// Fellows can propose a new rule with a super-majority.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>rule)]
 	</span><span class="kw">pub type </span>Rule&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, Cid, OptionQuery&gt;;
 
 	<span class="doccomment">/// The current IPFS CIDs of any announcements.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>announcements)]
 	</span><span class="kw">pub type </span>Announcements&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;Cid, T::MaxAnnouncementsCount&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Maps members to their candidacy deposit.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>deposit_of)]
 	</span><span class="kw">pub type </span>DepositOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, BalanceOf&lt;T, I&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// Maps member type to members of each type.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>members)]
 	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -1737,20 +1726,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A set of members who gave a retirement notice. They can retire after the end of retirement
 	/// period stored as a future block number.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>retiring_members)]
 	</span><span class="kw">pub type </span>RetiringMembers&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, BlockNumberFor&lt;T&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// The current list of accounts deemed unscrupulous. These accounts non grata cannot submit
 	/// candidacy.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>unscrupulous_accounts)]
 	</span><span class="kw">pub type </span>UnscrupulousAccounts&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::AccountId, T::MaxUnscrupulousItems&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current list of websites deemed unscrupulous.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>unscrupulous_websites)]
 	</span><span class="kw">pub type </span>UnscrupulousWebsites&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;UrlOf&lt;T, I&gt;, T::MaxUnscrupulousItems&gt;, ValueQuery&gt;;
 
