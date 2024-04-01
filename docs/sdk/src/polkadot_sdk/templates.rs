@@ -22,9 +22,8 @@
 //! - [`frontier-parachain-template`](https://github.com/paritytech/frontier-parachain-template): A
 //!   parachain template for launching EVM-compatible parachains.
 //!
-//! [`substrate-node-template`]: https://github.com/paritytech/polkadot-sdk/blob/master/substrate/bin/node-template/
-//! [`substrate-minimal-template`]: https://github.com/paritytech/polkadot-sdk/blob/master/substrate/bin/minimal/
-//! [`cumulus-parachain-template`]: https://github.com/paritytech/polkadot-sdk/blob/master/cumulus/parachain-template/
+//! [`minimal-template`]: https://github.com/paritytech/polkadot-sdk/blob/master/templates/minimal/
+//! [`parachain-template`]: https://github.com/paritytech/polkadot-sdk/blob/master/templates/parachain/
 
 // TODO: in general, we need to make a deliberate choice here of moving a few key templates to this
 // repo (nothing stays in `substrate-developer-hub`) and the everything else should be community
