@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
-scale-info = { version = "2.11.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 # Substrate Dependencies
 frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
