@@ -47,7 +47,6 @@ use sp_consensus_beefy::{
 
 use ark_std::Zero;
 use ark_serialize::CanonicalDeserialize;
-// use etf_crypto_primitives::proofs::hashed_el_gamal_sigma::BatchPoK;
 
 mod default_weights;
 mod equivocation;
