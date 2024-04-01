@@ -22,7 +22,11 @@
 
 use codec::{DecodeAll, FullCodec, FullEncode};
 use core::marker::PhantomData;
-use frame_support::storage::generator::{StorageDoubleMap, StorageMap, StorageValue};
+use frame_support::{
+	storage::types::{StorageDoubleMap, StorageMap, StorageValue},
+	traits::StorageInstance,
+	StorageHasher,
+};
 use jsonrpsee::core::Error as RpcError;
 use sc_rpc_api::state::StateApiClient;
 use serde::{de::DeserializeOwned, Serialize};
@@ -140,23 +144,46 @@ pub struct StorageQuery<V> {
 	_spook: PhantomData<V>,
 }
 
-impl<V: FullCodec> StorageQuery<V> {
+impl<V: FullCodec + 'static> StorageQuery<V> {
 	/// Create a storage query for a StorageValue.
-	pub fn value<St: StorageValue<V>>() -> Self {
-		Self { key: StorageKey(St::storage_value_final_key().to_vec()), _spook: PhantomData }
+	pub fn value<P>() -> Self
+	where
+		P: StorageInstance,
+	{
+		Self {
+			key: StorageKey(StorageValue::<P, V>::storage_value_final_key().to_vec()),
+			_spook: PhantomData,
+		}
 	}
 
 	/// Create a storage query for a value in a StorageMap.
-	pub fn map<St: StorageMap<K, V>, K: FullEncode>(key: K) -> Self {
-		Self { key: StorageKey(St::storage_map_final_key(key)), _spook: PhantomData }
+	pub fn map<P, H, K>(key: K) -> Self
+	where
+		P: StorageInstance,
+		H: StorageHasher,
+		K: FullCodec,
+	{
+		Self {
+			key: StorageKey(StorageMap::<P, H, K, V>::storage_map_final_key(key)),
+			_spook: PhantomData,
+		}
 	}
 
 	/// Create a storage query for a value in a StorageDoubleMap.
-	pub fn double_map<St: StorageDoubleMap<K1, K2, V>, K1: FullEncode, K2: FullEncode>(
-		key1: K1,
-		key2: K2,
-	) -> Self {
-		Self { key: StorageKey(St::storage_double_map_final_key(key1, key2)), _spook: PhantomData }
+	pub fn double_map<P, H1, K1, H2, K2>(key1: K1, key2: K2) -> Self
+	where
+		P: StorageInstance,
+		H1: StorageHasher,
+		K1: FullCodec,
+		H2: StorageHasher,
+		K2: FullCodec,
+	{
+		Self {
+			key: StorageKey(
+				StorageDoubleMap::<P, H1, K1, H2, K2, V>::storage_double_map_final_key(key1, key2),
+			),
+			_spook: PhantomData,
+		}
 	}
 
 	/// Send this query over RPC, await the typed result.

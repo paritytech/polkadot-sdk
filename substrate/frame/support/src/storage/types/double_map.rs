@@ -199,7 +199,7 @@ where
 	}
 
 	/// Generate the full key used in top storage.
-	fn storage_double_map_final_key<KArg1, KArg2>(k1: KArg1, k2: KArg2) -> Vec<u8>
+	pub fn storage_double_map_final_key<KArg1, KArg2>(k1: KArg1, k2: KArg2) -> Vec<u8>
 	where
 		KArg1: EncodeLike<Key1>,
 		KArg2: EncodeLike<Key2>,
