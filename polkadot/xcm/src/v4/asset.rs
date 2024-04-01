@@ -565,8 +565,7 @@ impl Decode for Assets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
 		let bounded_instructions =
 			BoundedVec::<Asset, ConstU32<{ MAX_ITEMS_IN_ASSETS as u32 }>>::decode(input)?;
-		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
-			.map_err(|()| "Out of order".into())
+		Self::from_raw(bounded_instructions.into_inner()).map_err(|()| "Out of order".into())
 	}
 }
 
@@ -583,26 +582,13 @@ impl TryFrom<OldAssets> for Assets {
 }
 
 impl From<Vec<Asset>> for Assets {
-	fn from(mut assets: Vec<Asset>) -> Self {
+	fn from(assets: Vec<Asset>) -> Self {
 		let mut res = Vec::with_capacity(assets.len());
 		if !assets.is_empty() {
-			assets.sort();
 			let mut iter = assets.into_iter();
 			if let Some(first) = iter.next() {
 				let last = iter.fold(first, |a, b| -> Asset {
 					match (a, b) {
-						(
-							Asset { fun: Fungibility::Fungible(a_amount), id: a_id },
-							Asset { fun: Fungibility::Fungible(b_amount), id: b_id },
-						) if a_id == b_id => Asset {
-							id: a_id,
-							fun: Fungibility::Fungible(a_amount.saturating_add(b_amount)),
-						},
-						(
-							Asset { fun: Fungibility::NonFungible(a_instance), id: a_id },
-							Asset { fun: Fungibility::NonFungible(b_instance), id: b_id },
-						) if a_id == b_id && a_instance == b_instance =>
-							Asset { fun: Fungibility::NonFungible(a_instance), id: a_id },
 						(to_push, to_remember) => {
 							res.push(to_push);
 							to_remember
@@ -645,6 +631,13 @@ impl Assets {
 				Err(())
 			}
 		})?;
+		Ok(Self(r))
+	}
+
+	pub fn from_raw(r: Vec<Asset>) -> Result<Self, ()> {
+		if r.is_empty() {
+			return Ok(Self(Vec::new()))
+		}
 		Ok(Self(r))
 	}
 

@@ -116,7 +116,6 @@ snowbridge-pallet-inbound-queue = { path = "../../../../../bridges/snowbridge/pa
 snowbridge-pallet-outbound-queue = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue", default-features = false }
 snowbridge-outbound-queue-runtime-api = { path = "../../../../../bridges/snowbridge/pallets/outbound-queue/runtime-api", default-features = false }
 snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/primitives/router", default-features = false }
-snowbridge-runtime-common = { path = "../../../../../bridges/snowbridge/runtime/runtime-common", default-features = false }
 
 bridge-hub-common = { path = "../common", default-features = false }
 
@@ -198,7 +197,6 @@ std = [
 	"snowbridge-pallet-outbound-queue/std",
 	"snowbridge-pallet-system/std",
 	"snowbridge-router-primitives/std",
-	"snowbridge-runtime-common/std",
 	"snowbridge-system-runtime-api/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -255,7 +253,6 @@ runtime-benchmarks = [
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"snowbridge-router-primitives/runtime-benchmarks",
-	"snowbridge-runtime-common/runtime-benchmarks",
 	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

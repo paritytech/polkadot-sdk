@@ -111,16 +111,13 @@ use frame_support::{
 	weights::{Weight, WeightToFee},
 };
 use snowbridge_core::{
-	outbound::{Fee, GasMeter, QueuedMessage, VersionedQueuedMessage, ETHER_DECIMALS},
+	outbound::{Fee, GasMeter, QueuedMessage, VersionedQueuedMessage},
 	BasicOperatingMode, ChannelId,
 };
 use snowbridge_outbound_queue_merkle_tree::merkle_root;
 pub use snowbridge_outbound_queue_merkle_tree::MerkleProof;
 use sp_core::{H256, U256};
-use sp_runtime::{
-	traits::{CheckedDiv, Hash},
-	DigestItem, Saturating,
-};
+use sp_runtime::{traits::Hash, DigestItem, Saturating};
 use sp_std::prelude::*;
 pub use types::{CommittedMessage, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
@@ -369,27 +366,16 @@ pub mod pallet {
 			gas_used_at_most: u64,
 			params: PricingParameters<T::Balance>,
 		) -> Fee<T::Balance> {
-			// Remote fee in ether
-			let fee = Self::calculate_remote_fee(
-				gas_used_at_most,
-				params.fee_per_gas,
-				params.rewards.remote,
-			);
-
-			// downcast to u128
-			let fee: u128 = fee.try_into().defensive_unwrap_or(u128::MAX);
-
-			// multiply by multiplier and convert to local currency
-			let fee = FixedU128::from_inner(fee)
-				.saturating_mul(params.multiplier)
-				.checked_div(&params.exchange_rate)
-				.expect("exchange rate is not zero; qed")
-				.into_inner();
-
-			// adjust fixed point to match local currency
-			let fee = Self::convert_from_ether_decimals(fee);
-
-			Fee::from((Self::calculate_local_fee(), fee))
+			// Local fee in dot and Remote fee in ether
+			Fee::from((
+				Self::calculate_local_fee(),
+				Self::calculate_remote_fee(
+					gas_used_at_most,
+					params.fee_per_gas,
+					params.rewards.remote,
+					params.multiplier,
+				),
+			))
 		}
 
 		/// Calculate fee in remote currency for dispatching a message on Ethereum
@@ -397,8 +383,18 @@ pub mod pallet {
 			gas_used_at_most: u64,
 			fee_per_gas: U256,
 			reward: U256,
-		) -> U256 {
-			fee_per_gas.saturating_mul(gas_used_at_most.into()).saturating_add(reward)
+			multiplier: FixedU128,
+		) -> T::Balance {
+			FixedU128::from_inner(
+				fee_per_gas
+					.saturating_mul(gas_used_at_most.into())
+					.saturating_add(reward)
+					.try_into()
+					.defensive_unwrap_or(u128::MAX),
+			)
+			.saturating_mul(multiplier)
+			.into_inner()
+			.into()
 		}
 
 		/// The local component of the message processing fees in native currency
@@ -406,15 +402,6 @@ pub mod pallet {
 			T::WeightToFee::weight_to_fee(
 				&T::WeightInfo::do_process_message().saturating_add(T::WeightInfo::commit_single()),
 			)
-		}
-
-		// 1 DOT has 10 digits of precision
-		// 1 KSM has 12 digits of precision
-		// 1 ETH has 18 digits of precision
-		pub(crate) fn convert_from_ether_decimals(value: u128) -> T::Balance {
-			let decimals = ETHER_DECIMALS.saturating_sub(T::Decimals::get()) as u32;
-			let denom = 10u128.saturating_pow(decimals);
-			value.checked_div(denom).expect("divisor is non-zero; qed").into()
 		}
 	}
 }

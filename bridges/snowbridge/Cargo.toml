@@ -19,7 +19,6 @@ members = [
 	"primitives/core",
 	"primitives/ethereum",
 	"primitives/router",
-	"runtime/runtime-common",
 	"runtime/test-common",
 ]
 

@@ -88,7 +88,7 @@ where
 		})?;
 
 		let mut converter = XcmConverter::new(&message, &expected_network);
-		let (agent_execute_command, message_id) = converter.convert().map_err(|err|{
+		let agent_execute_command = converter.convert().map_err(|err|{
 			log::error!(target: "xcm::ethereum_blob_exporter", "unroutable due to pattern matching error '{err:?}'.");
 			SendError::Unroutable
 		})?;
@@ -105,9 +105,13 @@ where
 		let channel_id: ChannelId = ParaId::from(para_id).into();
 
 		let outbound_message = Message {
-			id: Some(message_id.into()),
+			id: Some(agent_execute_command.topic_id.into()),
 			channel_id,
-			command: Command::AgentExecute { agent_id, command: agent_execute_command },
+			command: Command::AgentExecute {
+				agent_id,
+				command: agent_execute_command.command,
+				remote_fee: agent_execute_command.remote_fee,
+			},
 		};
 
 		// validate the message
@@ -117,9 +121,9 @@ where
 		})?;
 
 		// convert fee to Asset
-		let fee = Asset::from((Location::parent(), fee.total())).into();
+		let fee = Asset::from((Location::parent(), fee.local())).into();
 
-		Ok(((ticket.encode(), message_id), fee))
+		Ok(((ticket.encode(), agent_execute_command.topic_id), fee))
 	}
 
 	fn deliver(blob: (Vec<u8>, XcmHash)) -> Result<XcmHash, SendError> {
@@ -165,6 +169,12 @@ macro_rules! match_expression {
 	};
 }
 
+pub struct CommandWithFee {
+	pub command: AgentExecuteCommand,
+	pub remote_fee: (H160, u128),
+	pub topic_id: [u8; 32],
+}
+
 struct XcmConverter<'a, Call> {
 	iter: Peekable<Iter<'a, Instruction<Call>>>,
 	ethereum_network: &'a NetworkId,
@@ -174,7 +184,7 @@ impl<'a, Call> XcmConverter<'a, Call> {
 		Self { iter: message.inner().iter().peekable(), ethereum_network }
 	}
 
-	fn convert(&mut self) -> Result<(AgentExecuteCommand, [u8; 32]), XcmConverterError> {
+	fn convert(&mut self) -> Result<CommandWithFee, XcmConverterError> {
 		// Get withdraw/deposit and make native tokens create message.
 		let result = self.native_tokens_unlock_message()?;
 
@@ -186,9 +196,7 @@ impl<'a, Call> XcmConverter<'a, Call> {
 		Ok(result)
 	}
 
-	fn native_tokens_unlock_message(
-		&mut self,
-	) -> Result<(AgentExecuteCommand, [u8; 32]), XcmConverterError> {
+	fn native_tokens_unlock_message(&mut self) -> Result<CommandWithFee, XcmConverterError> {
 		use XcmConverterError::*;
 
 		// Get the reserve assets from WithdrawAsset.
@@ -202,10 +210,18 @@ impl<'a, Call> XcmConverter<'a, Call> {
 		}
 
 		// Get the fee asset item from BuyExecution or continue parsing.
-		let fee_asset = match_expression!(self.peek(), Ok(BuyExecution { fees, .. }), fees);
-		if fee_asset.is_some() {
-			let _ = self.next();
+		let fee_asset = match_expression!(self.next(), Ok(BuyExecution { fees, .. }), fees)
+			.ok_or(InvalidFeeAsset)?;
+		let remote_fee = match fee_asset {
+			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+				match inner_location.unpack() {
+					(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
+						Some((H160(*key), *amount)),
+					_ => None,
+				},
+			_ => None,
 		}
+		.ok_or(AssetResolutionFailed)?;
 
 		let (deposit_assets, beneficiary) = match_expression!(
 			self.next()?,
@@ -233,17 +249,10 @@ impl<'a, Call> XcmConverter<'a, Call> {
 			return Err(FilterDoesNotConsumeAllAssets)
 		}
 
-		// We only support a single asset at a time.
-		ensure!(reserve_assets.len() == 1, TooManyAssets);
-		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
-
-		// If there was a fee specified verify it.
-		if let Some(fee_asset) = fee_asset {
-			// The fee asset must be the same as the reserve asset.
-			if fee_asset.id != reserve_asset.id || fee_asset.fun > reserve_asset.fun {
-				return Err(InvalidFeeAsset)
-			}
-		}
+		// There are two assets here,the first one is the fee asset and the second one is the
+		// reserved asset.
+		ensure!(reserve_assets.len() == 2, TooManyAssets);
+		let reserve_asset = reserve_assets.get(1).ok_or(AssetResolutionFailed)?;
 
 		let (token, amount) = match reserve_asset {
 			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
@@ -262,7 +271,11 @@ impl<'a, Call> XcmConverter<'a, Call> {
 		// Check if there is a SetTopic and skip over it if found.
 		let topic_id = match_expression!(self.next()?, SetTopic(id), id).ok_or(SetTopicExpected)?;
 
-		Ok((AgentExecuteCommand::TransferToken { token, recipient, amount }, *topic_id))
+		Ok(CommandWithFee {
+			command: AgentExecuteCommand::TransferToken { token, recipient, amount },
+			remote_fee,
+			topic_id: *topic_id,
+		})
 	}
 
 	fn next(&mut self) -> Result<&'a Instruction<Call>, XcmConverterError> {

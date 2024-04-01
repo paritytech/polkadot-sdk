@@ -50,7 +50,6 @@ members = [
 	"bridges/snowbridge/primitives/core",
 	"bridges/snowbridge/primitives/ethereum",
 	"bridges/snowbridge/primitives/router",
-	"bridges/snowbridge/runtime/runtime-common",
 	"bridges/snowbridge/runtime/test-common",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
@@ -500,18 +499,15 @@ members = [
 	"substrate/utils/prometheus",
 	"substrate/utils/substrate-bip39",
 	"substrate/utils/wasm-builder",
-
 	"templates/minimal/node",
 	"templates/minimal/pallets/template",
 	"templates/minimal/runtime",
-
-	"templates/solochain/node",
-	"templates/solochain/pallets/template",
-	"templates/solochain/runtime",
-
 	"templates/parachain/node",
 	"templates/parachain/pallets/template",
 	"templates/parachain/runtime",
+	"templates/solochain/node",
+	"templates/solochain/pallets/template",
+	"templates/solochain/runtime",
 ]
 default-members = ["polkadot", "substrate/bin/node/cli"]
 

@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::imports::*;
+use asset_hub_rococo_runtime::xcm_config::bridging::to_ethereum::BridgeHubToEthereumForwardFee;
 use bridge_hub_rococo_runtime::{EthereumBeaconClient, EthereumInboundQueue, RuntimeOrigin};
 use codec::{Decode, Encode};
 use emulated_integration_tests_common::xcm_emulator::ConvertLocation;
@@ -380,7 +381,6 @@ fn send_token_from_ethereum_to_penpal() {
 /// - returning the token to Ethereum
 #[test]
 fn send_weth_asset_from_asset_hub_to_ethereum() {
-	use asset_hub_rococo_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
 	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
 		1,
 		[Parachain(AssetHubRococo::para_id().into())],
@@ -396,7 +396,8 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 	BridgeHubRococo::fund_accounts(vec![(assethub_sovereign.clone(), INITIAL_FUND)]);
 	AssetHubRococo::fund_accounts(vec![(AssetHubRococoReceiver::get(), INITIAL_FUND)]);
 
-	const WETH_AMOUNT: u128 = 1_000_000_000;
+	const WETH_AMOUNT: u128 = 500_000_000_000_000_000;
+	const WETH_FEE_AMOUNT: u128 = 10_000_000_000_000_000;
 
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
@@ -435,16 +436,29 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
 			]
 		);
-		let assets = vec![Asset {
-			id: AssetId(Location::new(
-				2,
-				[
-					GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
-					AccountKey20 { network: None, key: WETH },
-				],
-			)),
-			fun: Fungible(WETH_AMOUNT),
-		}];
+
+		let assets = vec![
+			Asset {
+				id: AssetId(Location::new(
+					2,
+					[
+						GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+						AccountKey20 { network: None, key: WETH },
+					],
+				)),
+				fun: Fungible(WETH_FEE_AMOUNT),
+			},
+			Asset {
+				id: AssetId(Location::new(
+					2,
+					[
+						GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
+						AccountKey20 { network: None, key: WETH },
+					],
+				)),
+				fun: Fungible(WETH_AMOUNT),
+			},
+		];
 		let multi_assets = VersionedAssets::V4(Assets::from(assets));
 
 		let destination = VersionedLocation::V4(Location::new(
@@ -474,7 +488,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		);
 		// Assert at least DefaultBridgeHubEthereumBaseFee charged from the sender
 		let free_balance_diff = free_balance_before - free_balance_after;
-		assert!(free_balance_diff > DefaultBridgeHubEthereumBaseFee::get());
+		assert!(free_balance_diff > BridgeHubToEthereumForwardFee::get());
 	});
 
 	BridgeHubRococo::execute_with(|| {
@@ -496,15 +510,6 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 					if *who == TREASURY_ACCOUNT.into() && *amount == 16903333
 			)),
 			"Snowbridge sovereign takes local fee."
-		);
-		// Check that the remote fee was credited to the AssetHub sovereign account
-		assert!(
-			events.iter().any(|event| matches!(
-				event,
-				RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount })
-					if *who == assethub_sovereign && *amount == 2680000000000,
-			)),
-			"AssetHub sovereign takes remote fee."
 		);
 	});
 }

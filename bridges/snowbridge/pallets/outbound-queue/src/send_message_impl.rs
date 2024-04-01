@@ -12,11 +12,12 @@ use frame_support::{
 use frame_system::unique;
 use snowbridge_core::{
 	outbound::{
-		Fee, Message, QueuedMessage, SendError, SendMessage, SendMessageFeeProvider,
+		Command, Fee, Message, QueuedMessage, SendError, SendMessage, SendMessageFeeProvider,
 		VersionedQueuedMessage,
 	},
 	ChannelId, PRIMARY_GOVERNANCE_CHANNEL,
 };
+use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::H256;
 use sp_runtime::BoundedVec;
 
@@ -60,6 +61,17 @@ where
 
 		let gas_used_at_most = T::GasMeter::maximum_gas_used_at_most(&message.command);
 		let fee = Self::calculate_fee(gas_used_at_most, T::PricingParameters::get());
+
+		// Ensure the fee from source chain able to cover the cost on destination chain
+		let _ = match &message.command {
+			Command::AgentExecute { remote_fee, .. } => {
+				ensure!(
+					(*remote_fee).1 > fee.remote.saturated_into::<u128>(),
+					SendError::InsufficientFee
+				)
+			},
+			_ => {},
+		};
 
 		let queued_message: VersionedQueuedMessage = QueuedMessage {
 			id: message_id,

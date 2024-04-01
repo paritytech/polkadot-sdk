@@ -75,6 +75,8 @@ mod v1 {
 			agent_id: H256,
 			/// The sub-command to be executed
 			command: AgentExecuteCommand,
+			/// Fee in WETH
+			remote_fee: (H160, u128),
 		},
 		/// Upgrade the Gateway contract
 		Upgrade {
@@ -160,7 +162,7 @@ mod v1 {
 		/// ABI-encode the Command.
 		pub fn abi_encode(&self) -> Vec<u8> {
 			match self {
-				Command::AgentExecute { agent_id, command } =>
+				Command::AgentExecute { agent_id, command, .. } =>
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(agent_id.as_bytes().to_owned()),
 						Token::Bytes(command.abi_encode()),
@@ -250,7 +252,7 @@ mod v1 {
 		/// ABI-encode the sub-command
 		pub fn abi_encode(&self) -> Vec<u8> {
 			match self {
-				AgentExecuteCommand::TransferToken { token, recipient, amount } =>
+				AgentExecuteCommand::TransferToken { token, recipient, amount, .. } =>
 					ethabi::encode(&[
 						Token::Uint(self.index().into()),
 						Token::Bytes(ethabi::encode(&[
@@ -294,7 +296,15 @@ where
 	Balance: BaseArithmetic + Unsigned + Copy,
 {
 	pub fn total(&self) -> Balance {
-		self.local.saturating_add(self.remote)
+		self.local
+	}
+
+	pub fn local(&self) -> Balance {
+		self.local
+	}
+
+	pub fn remote(&self) -> Balance {
+		self.remote
 	}
 }
 
@@ -343,6 +353,8 @@ pub enum SendError {
 	Halted,
 	/// Invalid Channel
 	InvalidChannel,
+	/// Insufficient fee
+	InsufficientFee,
 }
 
 pub trait GasMeter {
