@@ -238,6 +238,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// The staker does not have enough tokens to perform the operation.
+		NotEnoughTokens,
 		/// An operation was attempted on a non-existent pool.
 		NonExistentPool,
 		/// An operation was attempted using a non-existent asset.
@@ -357,16 +359,21 @@ pub mod pallet {
 			// Always start by updating the pool rewards.
 			Self::update_pool_rewards(&pool_id, &caller)?;
 
+			// Check the staker has enough staked tokens.
+			let mut staker = PoolStakers::<T>::get(pool_id, &caller).unwrap_or_default();
+			ensure!(staker.amount >= amount, Error::<T>::NotEnoughTokens);
+
 			// Unfreeze staker assets.
 			// TODO: (blocked https://github.com/paritytech/polkadot-sdk/issues/3342)
 
 			// Update Pools.
 			let mut pool = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			pool.total_tokens_staked.saturating_reduce(amount);
+			Pools::<T>::insert(pool_id, pool);
 
 			// Update PoolStakers.
-			let mut staker = PoolStakers::<T>::get(pool_id, &caller).unwrap_or_default();
 			staker.amount.saturating_reduce(amount);
+			PoolStakers::<T>::insert(pool_id, &caller, staker);
 
 			Ok(())
 		}

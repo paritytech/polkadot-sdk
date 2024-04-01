@@ -55,6 +55,8 @@ fn pools() -> Vec<(u32, PoolInfo<u128, NativeOrWithId<u32>, u128, u64>)> {
 }
 
 mod create_pool {
+	use sp_runtime::traits::BadOrigin;
+
 	use super::*;
 
 	#[test]
@@ -168,7 +170,7 @@ mod create_pool {
 	}
 
 	#[test]
-	fn non_existent_asset_fails() {
+	fn fails_for_non_existent_asset() {
 		new_test_ext().execute_with(|| {
 			let valid_asset = NativeOrWithId::<u32>::WithId(1);
 			let invalid_asset = NativeOrWithId::<u32>::WithId(200);
@@ -207,6 +209,27 @@ mod create_pool {
 			);
 		})
 	}
+
+	#[test]
+	fn fails_for_not_admin() {
+		new_test_ext().execute_with(|| {
+			let user = 100;
+			let staking_asset_id = NativeOrWithId::<u32>::Native;
+			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
+			let reward_rate_per_block = 100;
+			create_tokens(user, vec![reward_asset_id.clone()]);
+			assert_err!(
+				StakingRewards::create_pool(
+					RuntimeOrigin::signed(user),
+					Box::new(staking_asset_id.clone()),
+					Box::new(reward_asset_id.clone()),
+					reward_rate_per_block,
+					Some(999)
+				),
+				BadOrigin
+			);
+		});
+	}
 }
 
 mod stake {
@@ -220,7 +243,6 @@ mod stake {
 			let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
 			let reward_asset_id = NativeOrWithId::<u32>::Native;
 			let reward_rate_per_block = 100;
-
 			create_tokens(user, vec![staking_asset_id.clone()]);
 
 			assert_ok!(StakingRewards::create_pool(
@@ -258,17 +280,14 @@ mod stake {
 	}
 
 	#[test]
-	fn non_existent_pool() {
+	fn fails_for_non_existent_pool() {
 		new_test_ext().execute_with(|| {
-			// Setup
 			let user = 1;
 			let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
-
 			create_tokens(user, vec![staking_asset_id.clone()]);
 
 			let non_existent_pool_id = 999;
 
-			// User tries to stake tokens in a non-existent pool
 			assert_err!(
 				StakingRewards::stake(RuntimeOrigin::signed(user), non_existent_pool_id, 1000),
 				Error::<MockRuntime>::NonExistentPool
@@ -277,7 +296,101 @@ mod stake {
 	}
 
 	#[test]
-	fn insufficient_balance() {
+	fn fails_for_insufficient_balance() {
 		// TODO: When we're able to freeze assets.
+	}
+}
+
+mod unstake {
+	use super::*;
+
+	#[test]
+	fn success() {
+		new_test_ext().execute_with(|| {
+			// Setup
+			let user = 1;
+			let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
+			let reward_asset_id = NativeOrWithId::<u32>::WithId(2);
+			let reward_rate_per_block = 100;
+			create_tokens(user, vec![staking_asset_id.clone(), reward_asset_id.clone()]);
+
+			assert_ok!(StakingRewards::create_pool(
+				RuntimeOrigin::signed(user),
+				Box::new(staking_asset_id.clone()),
+				Box::new(reward_asset_id.clone()),
+				reward_rate_per_block,
+				None
+			));
+
+			let pool_id = 0;
+
+			// User stakes tokens
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 1000));
+
+			// User unstakes tokens
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500));
+
+			// Check that the user's staked amount is updated
+			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, user).unwrap().amount, 500);
+
+			// Check that the pool's total tokens staked is updated
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 500);
+
+			// User unstakes remaining tokens
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500));
+
+			// Check that the user's staked amount is zero
+			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, user).unwrap().amount, 0);
+
+			// Check that the pool's total tokens staked is zero
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 0);
+		});
+	}
+
+	#[test]
+	fn fails_for_non_existent_pool() {
+		new_test_ext().execute_with(|| {
+			// Setup
+			let user = 1;
+			let non_existent_pool_id = 999;
+
+			// User tries to unstake tokens from a non-existent pool
+			assert_err!(
+				StakingRewards::unstake(RuntimeOrigin::signed(user), non_existent_pool_id, 500),
+				Error::<MockRuntime>::NonExistentPool
+			);
+		});
+	}
+
+	#[test]
+	fn fails_for_insufficient_staked_amount() {
+		new_test_ext().execute_with(|| {
+			// Setup
+			let user = 1;
+			let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
+			let reward_asset_id = NativeOrWithId::<u32>::WithId(2);
+			let reward_rate_per_block = 100;
+
+			create_tokens(user, vec![staking_asset_id.clone(), reward_asset_id.clone()]);
+
+			assert_ok!(StakingRewards::create_pool(
+				RuntimeOrigin::signed(user),
+				Box::new(staking_asset_id.clone()),
+				Box::new(reward_asset_id.clone()),
+				reward_rate_per_block,
+				None
+			));
+
+			let pool_id = 0;
+
+			// User stakes tokens
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 1000));
+
+			// User tries to unstake more tokens than they have staked
+			assert_err!(
+				StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 1500),
+				Error::<MockRuntime>::NotEnoughTokens
+			);
+		});
 	}
 }
