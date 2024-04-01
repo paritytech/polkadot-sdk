@@ -2316,11 +2316,12 @@ fn postponed_named_task_cannot_be_rescheduled() {
 		);
 
 		// Finally add the preimage.
-		assert_ok!(Preimage::note(call.encode().into()));
+		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), call.encode()));
+
 		run_to_block(1000);
 		// It did not execute.
 		assert!(logger::log().is_empty());
-		assert!(Preimage::is_requested(&hash));
+		assert!(!Preimage::is_requested(&hash));
 
 		// Manually re-schedule the call by name does not work.
 		assert_err!(
