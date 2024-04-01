@@ -118,7 +118,7 @@ pub mod pallet {
 		traits::tokens::{AssetId, Preservation},
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{AccountIdConversion, EnsureDiv, Saturating};
+	use sp_runtime::traits::{AccountIdConversion, BadOrigin, EnsureDiv, Saturating};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -228,11 +228,13 @@ pub mod pallet {
 			pool_id: PoolId,
 		},
 		/// A pool was modified by the admin.
-		PoolModifed {
+		PoolModified {
 			/// The modified pool.
 			pool_id: PoolId,
-			/// The new reward rate.
-			new_reward_rate_per_block: T::Balance,
+			/// The reward rate after the modification.
+			new_reward_rate_per_block: Option<T::Balance>,
+			/// The admin after the modification.
+			new_admin: Option<T::AccountId>,
 		},
 	}
 
@@ -345,6 +347,9 @@ pub mod pallet {
 			staker.amount.saturating_accrue(amount);
 			PoolStakers::<T>::insert(pool_id, &caller, staker);
 
+			// Emit event.
+			Self::deposit_event(Event::Staked { who: caller, pool_id, amount });
+
 			Ok(())
 		}
 
@@ -375,6 +380,9 @@ pub mod pallet {
 			staker.amount.saturating_reduce(amount);
 			PoolStakers::<T>::insert(pool_id, &caller, staker);
 
+			// Emit event.
+			Self::deposit_event(Event::Unstaked { who: caller, pool_id, amount });
+
 			Ok(())
 		}
 
@@ -398,7 +406,6 @@ pub mod pallet {
 			let mut staker_info = PoolStakers::<T>::get(pool_id, &caller).unwrap_or_default();
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			let pool_account_id = Self::pool_account_id(&pool_id)?;
-
 			T::Assets::transfer(
 				pool_info.reward_asset_id,
 				&pool_account_id,
@@ -407,19 +414,43 @@ pub mod pallet {
 				Preservation::Preserve,
 			)?;
 
-			// Reset staker unclaimed rewards.
+			// Emit event.
+			Self::deposit_event(Event::RewardsHarvested {
+				who: caller,
+				staker,
+				pool_id,
+				amount: staker_info.rewards,
+			});
+
+			// Reset staker rewards.
 			staker_info.rewards = 0u32.into();
 
 			Ok(())
 		}
 
-		/// Modify the reward rate of a pool.
+		/// Modify the parameters of a pool.
 		pub fn modify_pool(
-			_origin: OriginFor<T>,
-			_pool_id: PoolId,
-			_new_reward_rate: T::Balance,
+			origin: OriginFor<T>,
+			pool_id: PoolId,
+			new_reward_rate_per_block: Option<T::Balance>,
+			new_admin: Option<T::AccountId>,
 		) -> DispatchResult {
-			todo!()
+			let caller = ensure_signed(origin)?;
+
+			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+			ensure!(pool_info.admin == caller, BadOrigin);
+			pool_info.reward_rate_per_block =
+				new_reward_rate_per_block.unwrap_or(pool_info.reward_rate_per_block);
+			pool_info.admin = new_admin.clone().unwrap_or(pool_info.admin);
+			Pools::<T>::insert(pool_id, pool_info);
+
+			Self::deposit_event(Event::PoolModified {
+				pool_id,
+				new_reward_rate_per_block,
+				new_admin,
+			});
+
+			Ok(())
 		}
 
 		/// Convinience method to deposit reward tokens into a pool.

@@ -261,6 +261,12 @@ mod stake {
 			// Check that the user's staked amount is updated
 			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, user).unwrap().amount, 1000);
 
+			// Event is emitted.
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::Staked { who: user, amount: 1000, pool_id: 0 }
+			);
+
 			// Check that the pool's total tokens staked is updated
 			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 1000);
 
@@ -268,6 +274,12 @@ mod stake {
 
 			// User stakes more tokens
 			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(user), pool_id, 500));
+
+			// Event is emitted.
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::Staked { who: user, amount: 500, pool_id: 0 }
+			);
 
 			// Check that the user's staked amount is updated
 			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, user).unwrap().amount, 1500);
@@ -329,6 +341,12 @@ mod unstake {
 
 			// User unstakes tokens
 			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(user), pool_id, 500));
+
+			// Event is emitted.
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::Unstaked { who: user, amount: 500, pool_id: 0 }
+			);
 
 			// Check that the user's staked amount is updated
 			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, user).unwrap().amount, 500);
