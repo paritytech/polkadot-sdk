@@ -22,14 +22,13 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::ApprovalVotingParams, AsyncBackingParams, ExecutorParams, SessionIndex,
+	ApprovalVotingParams, AsyncBackingParams, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_std::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 use polkadot_core_primitives::Balance;
-use primitives::vstaging::NodeFeatures;
 use sp_arithmetic::Perbill;
 
 use super::v10::V10HostConfiguration;
