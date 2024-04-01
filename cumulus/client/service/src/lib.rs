@@ -54,6 +54,15 @@ use std::{sync::Arc, time::Duration};
 
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 
+/// Host functions that should be used in parachain nodes.
+///
+/// Contains the standard substrate host functions, as well as a
+/// host function to enable PoV-reclaim on parachain nodes.
+pub type ParachainHostFunctions = (
+	cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
+	sp_io::SubstrateHostFunctions,
+);
+
 // Given the sporadic nature of the explicit recovery operation and the
 // possibility to retry infinite times this value is more than enough.
 // In practice here we expect no more than one queued messages.

@@ -43,7 +43,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::{make_ferdie_keystore, new_leaf};
 use polkadot_primitives::{
-	vstaging::NodeFeatures, ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec,
+	ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, NodeFeatures,
 	SessionInfo, ValidationCode,
 };
 use polkadot_primitives_test_helpers::{
