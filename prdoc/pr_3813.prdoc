@@ -10,3 +10,4 @@ doc:
 
 crates:
   - name: polkadot-sdk-frame
+    bump: major
