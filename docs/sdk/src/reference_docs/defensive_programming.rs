@@ -70,8 +70,8 @@
 //!
 //! ### Defensive Traits
 //!
-//! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions,
-//! all of which provide an alternative to 'vanilla' Rust functions, e.g.,:
+//! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions, all of which
+//! provide an alternative to 'vanilla' Rust functions, e.g.,:
 //!
 //! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or) instead of
 //!   `unwrap_or()`
@@ -80,8 +80,8 @@
 //! Defensive methods use [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions), which panic in development, but in
 //! production/release, they will merely log an error (i.e., `log::error`).
 //!
-//! The [`Defensive`](frame::traits::Defensive) trait and its various implementations
-//! can be found [here](frame::traits::Defensive).
+//! The [`Defensive`](frame::traits::Defensive) trait and its various implementations can be found
+//! [here](frame::traits::Defensive).
 //!
 //! ## Integer Overflow
 //!
@@ -187,9 +187,9 @@
 //! to avoid introducing the notion of any potential-panic or wrapping behavior.
 //!
 //! There is also a series of defensive alternatives via
-//! [`DefensiveSaturating`](frame::traits::DefensiveSaturating), which introduces the
-//! same behavior of the [`Defensive`](frame::traits::Defensive) trait, only with
-//! saturating, mathematical operations:
+//! [`DefensiveSaturating`](frame::traits::DefensiveSaturating), which introduces the same behavior
+//! of the [`Defensive`](frame::traits::Defensive) trait, only with saturating, mathematical
+//! operations:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
     saturated_defensive_example

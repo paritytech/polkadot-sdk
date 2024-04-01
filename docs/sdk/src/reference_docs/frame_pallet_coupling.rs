@@ -124,8 +124,8 @@
 //! that is tightly coupled with every other pallet**. This is because it provides the fundamental
 //! system functionality that every pallet needs, such as some types like
 //! [`frame::prelude::frame_system::Config::AccountId`],
-//! [`frame::prelude::frame_system::Config::Hash`], and some functionality such as
-//! block number, etc.
+//! [`frame::prelude::frame_system::Config::Hash`], and some functionality such as block number,
+//! etc.
 //!
 //! ## Recap
 //!

@@ -80,8 +80,8 @@
 //! The only way to express this using Rust's associated types is for the pallet to **define its own
 //! associated type `RuntimeCall`, and further specify what it thinks `RuntimeCall` should be**.
 //!
-//! In this case, we will want to assert the existence of [`frame::traits::IsSubType`],
-//! which is very similar to [`TryFrom`].
+//! In this case, we will want to assert the existence of [`frame::traits::IsSubType`], which is
+//! very similar to [`TryFrom`].
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", custom_runtime_call)]
 //!
 //! And indeed, at the runtime level, this associated type would be the same `RuntimeCall` that is
@@ -111,9 +111,9 @@
 //! runtime is constructed? The following snippet exactly does that:
 #![doc = docify::embed!("./src/reference_docs/frame_runtime_types.rs", assert_equality)]
 //!
-//! We leave it to the reader to further explore what
-//! [`frame::traits::Hooks::integrity_test`] is, and what [`core::any::TypeId`] is.
-//! Another way to assert this is using [`frame::traits::IsType`].
+//! We leave it to the reader to further explore what [`frame::traits::Hooks::integrity_test`] is,
+//! and what [`core::any::TypeId`] is. Another way to assert this is using
+//! [`frame::traits::IsType`].
 //!
 //! ## Type Aliases
 //!

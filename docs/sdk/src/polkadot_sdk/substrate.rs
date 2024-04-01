@@ -35,10 +35,10 @@
 //! > A great analogy for substrate is the following: Substrate node is a gaming console, and a WASM
 //! > runtime, possibly created with FRAME is the game being inserted into the console.
 //!
-//! [`frame`], Substrate's default runtime development library, takes the above safety
-//! practices even further by embracing a declarative programming model whereby correctness is
-//! enhanced and the system is highly configurable through parameterization. Learn more about this
-//! in [`crate::reference_docs::trait_based_programming`].
+//! [`frame`], Substrate's default runtime development library, takes the above safety practices
+//! even further by embracing a declarative programming model whereby correctness is enhanced and
+//! the system is highly configurable through parameterization. Learn more about this in
+//! [`crate::reference_docs::trait_based_programming`].
 //!
 //! ## How to Get Started
 //!

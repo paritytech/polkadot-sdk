@@ -106,7 +106,7 @@
 //! * Then, what is `DispatchResult`? Why is this called *dispatch*? Probably something that can be
 //! explained in the documentation of [`frame::prelude::DispatchResult`].
 //! * Why is `"SomeStaticString"` a valid error? Because there is implementation for it that you can
-//!   see [here]( `frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError`).
+//!   see [here](frame::prelude::DispatchError#impl-From<%26'static+str>-for-DispatchError).
 //!
 //!
 //! All of these are examples of underlying information that a contributor should:

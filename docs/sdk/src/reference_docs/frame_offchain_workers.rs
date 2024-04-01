@@ -2,8 +2,7 @@
 //!
 //! This reference document explains how offchain workers work in Substrate and FRAME. The main
 //! focus is upon FRAME's implementation of this functionality. Nonetheless, offchain workers are a
-//! Substrate-provided feature and can be used with possible alternatives to [`frame`]
-//! as well.
+//! Substrate-provided feature and can be used with possible alternatives to [`frame`] as well.
 //!
 //! Offchain workers are a commonly misunderstood topic, therefore we explain them bottom-up,
 //! starting at the fundamentals and then describing the developer interface.
@@ -54,9 +53,9 @@
 //!
 //! ## FRAME's API
 //!
-//! [`frame`] provides a simple API through which pallets can define offchain worker
-//! functions. This is part of [`frame::traits::Hooks`], which is implemented as a part
-//! of [`frame::pallet_macros::hooks`].
+//! [`frame`] provides a simple API through which pallets can define offchain worker functions. This
+//! is part of [`frame::traits::Hooks`], which is implemented as a part of
+//! [`frame::pallet_macros::hooks`].
 //!
 //! ```
 //! 

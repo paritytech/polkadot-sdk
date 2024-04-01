@@ -103,6 +103,6 @@ pub mod light_nodes;
 /// [`frame`] APIs.
 pub mod frame_offchain_workers;
 
-/// Learn about the different ways through which multiple [`frame`] pallets can be
-/// combined to work together.
+/// Learn about the different ways through which multiple [`frame`] pallets can be combined to work
+/// together.
 pub mod frame_pallet_coupling;
