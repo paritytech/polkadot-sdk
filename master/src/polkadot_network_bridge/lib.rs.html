@@ -253,6 +253,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -355,6 +379,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	local_view: <span class="prelude-ty">Option</span>&lt;View&gt;,
 	validation_peers: HashMap&lt;PeerId, PeerData&gt;,
 	collation_peers: HashMap&lt;PeerId, PeerData&gt;,
+}
+
+<span class="comment">// Counts the number of peers that are connectioned using `version`
+</span><span class="kw">fn </span>count_peers_by_version(peers: <span class="kw-2">&amp;</span>HashMap&lt;PeerId, PeerData&gt;) -&gt; HashMap&lt;ProtocolVersion, usize&gt; {
+	<span class="kw">let </span><span class="kw-2">mut </span>by_version_count = HashMap::new();
+	<span class="kw">for </span>peer <span class="kw">in </span>peers.values() {
+		<span class="kw-2">*</span>(by_version_count.entry(peer.version).or_default()) += <span class="number">1</span>;
+	}
+	by_version_count
+}
+
+<span class="comment">// Notes the peer count
+</span><span class="kw">fn </span>note_peers_count(metrics: <span class="kw-2">&amp;</span>Metrics, shared: <span class="kw-2">&amp;</span>Shared) {
+	<span class="kw">let </span>guard = shared.<span class="number">0</span>.lock();
+	<span class="kw">let </span>validation_stats = count_peers_by_version(<span class="kw-2">&amp;</span>guard.validation_peers);
+	<span class="kw">let </span>collation_stats = count_peers_by_version(<span class="kw-2">&amp;</span>guard.collation_peers);
+
+	<span class="kw">for </span>(version, count) <span class="kw">in </span>validation_stats {
+		metrics.note_peer_count(PeerSet::Validation, version, count)
+	}
+
+	<span class="kw">for </span>(version, count) <span class="kw">in </span>collation_stats {
+		metrics.note_peer_count(PeerSet::Collation, version, count)
+	}
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>Mode {
