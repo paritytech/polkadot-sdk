@@ -22,11 +22,12 @@ use crate::{
 	common::connections::RpcConnections,
 	transaction::{
 		api::TransactionApiServer,
-		error::Error,
+		error::{Error, ErrorWatch},
 		event::{TransactionBlock, TransactionDropped, TransactionError, TransactionEvent},
 	},
 	SubscriptionTaskExecutor,
 };
+
 use codec::Decode;
 use futures::{StreamExt, TryFutureExt};
 use jsonrpsee::{core::async_trait, types::error::ErrorObject, PendingSubscriptionSink};
@@ -99,12 +100,7 @@ where
 		let fut = async move {
 			let Some(_reserved_connection) = rpc_connections.reserve_space(pending.connection_id())
 			else {
-				let err = ErrorObject::owned(
-					BAD_FORMAT,
-					"Reached maximum number of connections".to_string(),
-					None::<()>,
-				);
-				let _ = pending.reject(err).await;
+				let _ = pending.reject(ErrorWatch::ReachedLimits).await;
 				return
 			};
 
