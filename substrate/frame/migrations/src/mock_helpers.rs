@@ -107,7 +107,7 @@ impl SteppedMigrations for MockedMigrations {
 		cursor: Option<Vec<u8>>,
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
-		// This is a hack but should be fine. We dont need it in testing.
+		// This is a hack but should be fine. We don't need it in testing.
 		Self::nth_step(n, cursor, meter)
 	}
 

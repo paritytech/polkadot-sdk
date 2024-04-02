@@ -16,6 +16,8 @@
 // limitations under the License.
 
 //! `Inspect` and `Mutate` traits for working with regular balances.
+//!
+//! See the [`crate::traits::fungibles`] doc for more information about fungibles traits.
 
 use sp_std::marker::PhantomData;
 

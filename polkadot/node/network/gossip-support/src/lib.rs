@@ -508,7 +508,7 @@ where
 			);
 		}
 		let pretty = PrettyAuthorities(unconnected_authorities);
-		gum::info!(
+		gum::debug!(
 			target: LOG_TARGET,
 			?connected_ratio,
 			?absolute_connected,

@@ -795,9 +795,9 @@ frame_benchmarking::benchmarks! {
 			T::Staking::active_stake(&pool_account).unwrap(),
 			min_create_bond + min_join_bond
 		);
-	}:_(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::PermissionlessAll)
+	}:_(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::Permissioned)
 	verify {
-		assert_eq!(ClaimPermissions::<T>::get(joiner), ClaimPermission::PermissionlessAll);
+		assert_eq!(ClaimPermissions::<T>::get(joiner), ClaimPermission::Permissioned);
 	}
 
 	claim_commission {

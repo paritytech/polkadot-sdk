@@ -114,13 +114,11 @@
 //! separated from the stable primitives.
 
 use crate::{
-	async_backing, slashing,
-	vstaging::{self, ApprovalVotingParams},
-	AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Hash, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing, slashing, ApprovalVotingParams, AsyncBackingParams, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use polkadot_core_primitives as pcp;
@@ -279,7 +277,7 @@ sp_api::decl_runtime_apis! {
 		/// Get node features.
 		/// This is a staging method! Do not use on production runtimes!
 		#[api_version(9)]
-		fn node_features() -> vstaging::NodeFeatures;
+		fn node_features() -> NodeFeatures;
 
 		/***** Added in v10 *****/
 		/// Approval voting configuration parameters
