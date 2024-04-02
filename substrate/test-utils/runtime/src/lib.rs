@@ -732,9 +732,9 @@ impl_runtime_apis! {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(params: &Option<PresetId>) -> Option<Vec<u8>> {
-			Some(if let Some(params) = params {
-				let patch = match params.try_into() {
+		fn get_preset(name: &Option<PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(name, |name| {
+				let patch = match name.try_into() {
 					Ok("staging") => {
 						let endowed_accounts: Vec<AccountId> = vec![
 							AccountKeyring::Bob.public().into(),
@@ -756,11 +756,9 @@ impl_runtime_apis! {
 					Ok("foobar") => json!({"foo":"bar"}),
 					_ => return None,
 				};
-				serde_json::to_string(&patch)
+				Some(serde_json::to_string(&patch)
 					.expect("serialization to json is expected to work. qed.")
-					.into_bytes()
-			} else {
-				get_preset::<RuntimeGenesisConfig>(&None)?
+					.into_bytes())
 			})
 		}
 
