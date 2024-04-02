@@ -20,14 +20,12 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	async_backing, slashing,
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-	GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, Slot, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, ValidatorSignature,
+	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	Slot, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_api::ApiError;
 use sp_core::testing::TaskExecutor;
@@ -299,12 +297,12 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 #[test]
 fn requests_authorities() {
 	let (ctx, mut ctx_handle) = make_subsystem_context(TaskExecutor::new());
-	let substem_client = Arc::new(MockSubsystemClient::default());
+	let subsystem_client = Arc::new(MockSubsystemClient::default());
 	let relay_parent = [1; 32].into();
 	let spawner = sp_core::testing::TaskExecutor::new();
 
 	let subsystem =
-		RuntimeApiSubsystem::new(substem_client.clone(), Metrics(None), SpawnGlue(spawner));
+		RuntimeApiSubsystem::new(subsystem_client.clone(), Metrics(None), SpawnGlue(spawner));
 	let subsystem_task = run(ctx, subsystem).map(|x| x.unwrap());
 	let test_task = async move {
 		let (tx, rx) = oneshot::channel();
@@ -315,7 +313,7 @@ fn requests_authorities() {
 			})
 			.await;
 
-		assert_eq!(rx.await.unwrap().unwrap(), substem_client.authorities);
+		assert_eq!(rx.await.unwrap().unwrap(), subsystem_client.authorities);
 
 		ctx_handle.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
 	};
@@ -1042,7 +1040,7 @@ fn requests_submit_pvf_check_statement() {
 		let _ = rx.await.unwrap().unwrap();
 
 		assert_eq!(
-			&*subsystem_client.submitted_pvf_check_statement.lock().expect("poisened mutex"),
+			&*subsystem_client.submitted_pvf_check_statement.lock().expect("poisoned mutex"),
 			&[(stmt.clone(), sig.clone()), (stmt.clone(), sig.clone())]
 		);
 

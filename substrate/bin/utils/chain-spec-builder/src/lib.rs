@@ -243,7 +243,7 @@ pub struct DisplayPresetCmd {
 /// Verifies the provided input chain spec.
 ///
 /// Silently checks if given input chain spec can be converted to raw. It allows to check if all
-/// RuntimeGenesisConfig fiels are properly initialized and if the json does not contain invalid
+/// RuntimeGenesisConfig fields are properly initialized and if the json does not contain invalid
 /// fields.
 #[derive(Parser, Debug, Clone)]
 pub struct VerifyCmd {

@@ -33,7 +33,7 @@ use std::borrow::Cow;
 /// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
 ///
 /// `EHF` type allows to specify the extended host function required for building runtime's genesis
-/// config. The type will be compbined with default `sp_io::SubstrateHostFunctions`.
+/// config. The type will be combined with default `sp_io::SubstrateHostFunctions`.
 pub struct GenesisConfigBuilderRuntimeCaller<'a, EHF = ()>
 where
 	EHF: HostFunctions,

@@ -121,7 +121,8 @@ fn default_parachains_host_configuration(
 ) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
 {
 	use polkadot_primitives::{
-		vstaging::node_features::FeatureIndex, AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE,
+		node_features::FeatureIndex, ApprovalVotingParams, AsyncBackingParams, MAX_CODE_SIZE,
+		MAX_POV_SIZE,
 	};
 
 	polkadot_runtime_parachains::configuration::HostConfiguration {
@@ -156,7 +157,8 @@ fn default_parachains_host_configuration(
 			allowed_ancestry_len: 2,
 		},
 		node_features: bitvec::vec::BitVec::from_element(
-			1u8 << (FeatureIndex::ElasticScalingMVP as usize),
+			1u8 << (FeatureIndex::ElasticScalingMVP as usize) |
+				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize),
 		),
 		scheduler_params: SchedulerParams {
 			lookahead: 2,
@@ -164,6 +166,7 @@ fn default_parachains_host_configuration(
 			paras_availability_period: 4,
 			..Default::default()
 		},
+		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 5 },
 		..Default::default()
 	}
 }

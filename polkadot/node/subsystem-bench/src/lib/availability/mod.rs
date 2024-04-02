@@ -69,7 +69,7 @@ const LOG_TARGET: &str = "subsystem-bench::availability";
 pub struct DataAvailabilityReadOptions {
 	#[clap(short, long, default_value_t = false)]
 	/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as
-	/// we don't need to re-construct from chunks. Tipically this is only faster if nodes have
+	/// we don't need to re-construct from chunks. Typically this is only faster if nodes have
 	/// enough bandwidth.
 	pub fetch_from_backers: bool,
 }
@@ -404,7 +404,7 @@ pub async fn benchmark_availability_write(
 		let network = env.network().clone();
 		let authorities = env.authorities().clone();
 
-		// Spawn a task that will generate `n_validator` - 1 signed bitfiends and
+		// Spawn a task that will generate `n_validator` - 1 signed bitfields and
 		// send them from the emulated peers to the subsystem.
 		// TODO: Implement topology.
 		let messages = state.signed_bitfields.get(&relay_block_hash).expect("pregenerated").clone();
@@ -425,7 +425,7 @@ pub async fn benchmark_availability_write(
 
 		// Wait for all bitfields to be processed.
 		env.wait_until_metric(
-			"polkadot_parachain_received_availabilty_bitfields_total",
+			"polkadot_parachain_received_availability_bitfields_total",
 			None,
 			|value| value == (config.connected_count() * block_num) as f64,
 		)

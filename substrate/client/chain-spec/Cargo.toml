@@ -35,7 +35,7 @@ sp-state-machine = { path = "../../primitives/state-machine" }
 log = { workspace = true }
 sp-tracing = { path = "../../primitives/tracing" }
 array-bytes = { version = "6.1" }
-docify = "0.2.7"
+docify = "0.2.8"
 
 [dev-dependencies]
 substrate-test-runtime = { path = "../../test-utils/runtime" }

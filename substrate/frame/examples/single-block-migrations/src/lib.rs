@@ -20,7 +20,7 @@
 //! An example pallet demonstrating best-practices for writing single-block migrations in the
 //! context of upgrading pallet storage.
 //!
-//! ## Forwarning
+//! ## Forewarning
 //!
 //! Single block migrations **MUST** execute in a single block, therefore when executed on a
 //! parachain are only appropriate when guaranteed to not exceed block weight limits. If a
@@ -66,7 +66,7 @@
 //!
 //! ## Adding a migration module
 //!
-//! Writing a pallets migrations in a seperate module is strongly recommended.
+//! Writing a pallets migrations in a separate module is strongly recommended.
 //!
 //! Here's how the migration module is defined for this pallet:
 //!
