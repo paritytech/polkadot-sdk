@@ -28,7 +28,7 @@ sp-core = { path = "../core", default-features = false }
 sp-externalities = { path = "../externalities", default-features = false }
 sp-panic-handler = { path = "../panic-handler", optional = true }
 sp-trie = { path = "../trie", default-features = false }
-trie-db = { version = "0.28.0", default-features = false }
+trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
 
 [dev-dependencies]
 array-bytes = "6.1"

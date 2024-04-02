@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 array-bytes = { version = "6.1", optional = true }
 log = { optional = true, workspace = true }
-trie-db = { version = "0.28.0", default-features = false }
+trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
 
 [dev-dependencies]
 array-bytes = "6.1"

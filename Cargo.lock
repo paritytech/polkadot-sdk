@@ -1397,7 +1397,7 @@ dependencies = [
  "log",
  "sp-core",
  "sp-runtime",
- "trie-db",
+ "subtrie",
 ]
 
 [[package]]
@@ -1866,7 +1866,7 @@ dependencies = [
  "sp-state-machine",
  "sp-std 14.0.0",
  "sp-trie",
- "trie-db",
+ "subtrie",
 ]
 
 [[package]]
@@ -2272,7 +2272,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "static_assertions",
- "trie-db",
+ "subtrie",
 ]
 
 [[package]]
@@ -3883,7 +3883,7 @@ dependencies = [
  "sp-trie",
  "sp-version",
  "staging-xcm",
- "trie-db",
+ "subtrie",
 ]
 
 [[package]]
@@ -6293,7 +6293,7 @@ dependencies = [
 [[package]]
 name = "hash256-std-hasher"
 version = "0.15.2"
-source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#8f33c2c194e720a7d51994639b2120f2402b3798"
+source = "git+https://github.com/paritytech/subtrie.git?branch=master#61c6261ab9a0dc1314a22e012fbc8f5c61f88c97"
 dependencies = [
  "crunchy",
 ]
@@ -8603,8 +8603,8 @@ dependencies = [
  "sp-timestamp",
  "sp-tracing 16.0.0",
  "sp-trie",
+ "subtrie",
  "tempfile",
- "trie-db",
 ]
 
 [[package]]
@@ -11425,7 +11425,7 @@ checksum = "4e69bf016dc406eff7d53a7d3f7cf1c2e72c82b9088aac1118591e36dd2cd3e9"
 dependencies = [
  "bitcoin_hashes 0.13.0",
  "rand",
- "rand_core 0.6.4",
+ "rand_core 0.5.1",
  "serde",
  "unicode-normalization",
 ]
@@ -11439,7 +11439,7 @@ checksum = "16b56e3a2420138bdb970f84dfb9c774aea80fa0e7371549eedec0d80c209c67"
 [[package]]
 name = "parity-db"
 version = "0.4.13"
-source = "git+https://github.com/paritytech/parity-db.git?branch=master#c9125f876a753ea18dd18cc589b5560cc3c7cd75"
+source = "git+https://github.com/paritytech/parity-db.git?branch=master#a1982234fca6bea37dcc19a9d3744919f736c288"
 dependencies = [
  "blake2 0.10.6",
  "crc32fast",
@@ -15740,8 +15740,8 @@ dependencies = [
  "sp-state-machine",
  "sp-tracing 16.0.0",
  "sp-trie",
+ "subtrie",
  "tempfile",
- "trie-db",
 ]
 
 [[package]]
@@ -18313,8 +18313,8 @@ dependencies = [
  "sp-test-primitives",
  "sp-trie",
  "sp-version",
+ "subtrie",
  "thiserror",
- "trie-db",
 ]
 
 [[package]]
@@ -18622,9 +18622,9 @@ dependencies = [
  "sp-storage 19.0.0",
  "ss58-registry",
  "substrate-bip39",
+ "subtrie",
  "thiserror",
  "tracing",
- "trie-db",
  "w3f-bls",
  "zeroize",
 ]
@@ -18723,7 +18723,7 @@ dependencies = [
  "kvdb",
  "parity-db",
  "parking_lot 0.12.1",
- "trie-db",
+ "subtrie",
 ]
 
 [[package]]
@@ -19105,9 +19105,9 @@ dependencies = [
  "sp-panic-handler",
  "sp-runtime",
  "sp-trie",
+ "subtrie",
  "thiserror",
  "tracing",
- "trie-db",
 ]
 
 [[package]]
@@ -19249,9 +19249,9 @@ dependencies = [
  "sp-core",
  "sp-externalities 0.25.0",
  "sp-runtime",
+ "subtrie",
  "thiserror",
  "tracing",
- "trie-db",
 ]
 
 [[package]]
@@ -19857,7 +19857,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-trie",
- "trie-db",
+ "subtrie",
 ]
 
 [[package]]
@@ -19933,7 +19933,7 @@ dependencies = [
  "sp-version",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
- "trie-db",
+ "subtrie",
 ]
 
 [[package]]
@@ -20013,6 +20013,20 @@ name = "subtle-ng"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "734676eb262c623cec13c3155096e08d1f8f29adce39ba17948b18dad1e54142"
+
+[[package]]
+name = "subtrie"
+version = "0.0.1"
+source = "git+https://github.com/paritytech/subtrie.git?branch=master#61c6261ab9a0dc1314a22e012fbc8f5c61f88c97"
+dependencies = [
+ "criterion 0.5.1",
+ "hash256-std-hasher 0.15.2 (git+https://github.com/paritytech/subtrie.git?branch=master)",
+ "log",
+ "parity-scale-codec",
+ "rustc-hex",
+ "smallvec",
+ "tiny-keccak",
+]
 
 [[package]]
 name = "sval"
@@ -20885,20 +20899,6 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log 0.2.0",
-]
-
-[[package]]
-name = "trie-db"
-version = "0.28.0"
-source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#8f33c2c194e720a7d51994639b2120f2402b3798"
-dependencies = [
- "criterion 0.5.1",
- "hash256-std-hasher 0.15.2 (git+https://github.com/cheme/trie.git?branch=cheme/new-trie)",
- "log",
- "parity-scale-codec",
- "rustc-hex",
- "smallvec",
- "tiny-keccak",
 ]
 
 [[package]]
