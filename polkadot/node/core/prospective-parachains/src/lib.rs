@@ -332,6 +332,16 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 		for (para_id, fragment_tree) in &sub_view.fragment_chains {
 			live_candidates.extend(fragment_tree.candidates());
 			live_paras.insert(*para_id);
+
+			if let Some(storage) = view.candidate_storage.get(para_id) {
+				for candidate in storage.candidate_hashes() {
+					if !live_candidates.contains(candidate) {
+						if fragment_tree.check_potential(storage, candidate) {
+							live_candidates.insert(*candidate);
+						}
+					}
+				}
+			}
 		}
 
 		live_candidates.extend(sub_view.pending_availability.iter().cloned());
@@ -342,9 +352,6 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 			return false
 		}
 
-		// TODO: Here, we need to retain possible candidates which may become connected in
-		// the future, up to some limit per para.
-		// Also need to trim based on the relay parents beforehand.
 		storage.retain(|h| live_candidates.contains(&h));
 
 		// Even if `storage` is now empty, we retain.
@@ -494,22 +501,17 @@ async fn handle_introduce_seconded_candidate<Context>(
 	let mut candidate_introduced = false;
 	for leaf_data in view.active_leaves.values_mut() {
 		if let Some(tree) = leaf_data.fragment_chains.get_mut(&para) {
-			// TODO: Even if the candidate was not introduced in the fragment tree,
-			// we need to check that the relay parent would be valid.
 			tree.add_and_populate(candidate_hash, &*storage);
 			if tree.contains_candidate(&candidate_hash) {
+				candidate_introduced = true;
+			} else if tree.check_potential(&storage, &candidate_hash) {
 				candidate_introduced = true;
 			}
 		}
 	}
 
 	if !candidate_introduced {
-		// TODO: here we need to remove the candidate only if we go over the limit.
-		if true {
-			storage.remove_candidate(&candidate_hash);
-		} else {
-			candidate_introduced = true;
-		}
+		storage.remove_candidate(&candidate_hash);
 	}
 
 	let _ = tx.send(candidate_introduced);

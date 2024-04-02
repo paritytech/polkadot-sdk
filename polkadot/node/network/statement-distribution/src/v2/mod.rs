@@ -37,7 +37,7 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::{
 	messages::{
 		network_bridge_event::NewGossipTopology, CandidateBackingMessage, HypotheticalCandidate,
-		HypotheticalMembershipRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		HypotheticalMembershipRequest, MemberState, NetworkBridgeEvent, NetworkBridgeTxMessage,
 		ProspectiveParachainsMessage,
 	},
 	overseer, ActivatedLeaf,
@@ -2172,6 +2172,14 @@ async fn fragment_tree_update_inner<Context>(
 	};
 	// 3. note that they are importable under a given leaf hash.
 	for (hypo, membership) in frontier {
+		let membership = membership
+			.into_iter()
+			.filter(|(_leaf, state)| {
+				// TODO: should we also accept unconnected?
+				*state == MemberState::Potential || *state == MemberState::Present
+			})
+			.collect::<Vec<_>>();
+
 		// skip parablocks outside of the frontier
 		if membership.is_empty() {
 			continue

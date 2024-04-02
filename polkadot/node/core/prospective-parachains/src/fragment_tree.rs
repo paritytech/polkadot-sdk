@@ -226,6 +226,16 @@ impl CandidateStorage {
 		self.by_candidate_hash.contains_key(candidate_hash)
 	}
 
+	/// The number of stored candidates.
+	pub fn len(&self) -> usize {
+		self.by_candidate_hash.len()
+	}
+
+	/// Return an iterator over the stored candidate hashes.
+	pub fn candidate_hashes(&self) -> impl Iterator<Item = &CandidateHash> {
+		self.by_candidate_hash.keys()
+	}
+
 	/// Retain only candidates which pass the predicate.
 	pub(crate) fn retain(&mut self, pred: impl Fn(&CandidateHash) -> bool) {
 		self.by_candidate_hash.retain(|h, _v| pred(h));
@@ -546,25 +556,20 @@ impl FragmentChain {
 		// }
 		let mut can_be_chained = false;
 
-		// If we've got enough candidates for the configured depth.
-		if self.chain.len() + 1 > self.scope.max_depth {
-			return MemberState::None
-		}
-
-		// if out of scope.
-		let candidate_relay_parent = candidate.relay_parent();
-		let candidate_relay_parent = if self.scope.relay_parent.hash == candidate_relay_parent {
-			self.scope.relay_parent.clone()
-		} else if let Some(info) = self.scope.ancestors_by_hash.get(&candidate_relay_parent) {
-			info.clone()
-		} else {
-			return MemberState::None
-		};
-
 		// If we've already used this candidate in the chain
 		if self.candidates.contains(&candidate_hash) {
 			return MemberState::Present
 		}
+
+		if !self.check_potential(candidate_storage, &candidate_hash) {
+			return MemberState::None
+		}
+
+		let Some(candidate_relay_parent) = self.scope.ancestor_by_hash(&candidate.relay_parent())
+		else {
+			// check_potential already checked for this, but just to be safe.
+			return MemberState::None
+		};
 
 		let identity_modifications = ConstraintModifications::identity();
 		let cumulative_modifications = if let Some(last_candidate) = self.chain.last() {
@@ -572,24 +577,6 @@ impl FragmentChain {
 		} else {
 			&identity_modifications
 		};
-		let earliest_rp = if let Some(last_candidate) = self.chain.last() {
-			self.scope
-				.ancestor_by_hash(&last_candidate.relay_parent())
-				.or_else(|| {
-					// if the relay-parent is out of scope _and_ it is in the tree,
-					// it must be a candidate pending availability.
-					self.scope
-						.get_pending_availability(&candidate_hash)
-						.map(|c| c.relay_parent.clone())
-				})
-				.expect("All nodes in tree are either pending availability or within scope; qed")
-		} else {
-			self.scope.earliest_relay_parent()
-		};
-
-		if earliest_rp.number > candidate_relay_parent.number {
-			return MemberState::None
-		}
 
 		let child_constraints =
 			match self.scope.base_constraints.apply_modifications(&cumulative_modifications) {
@@ -630,8 +617,6 @@ impl FragmentChain {
 				{
 					return MemberState::None
 				}
-
-				// TODO: Sanity check that we can introduce it to candidate storage
 			}
 
 			can_be_chained = true;
@@ -642,13 +627,10 @@ impl FragmentChain {
 		} else {
 			// Check if this is already an unconnected candidate
 			if candidate_storage.contains(&candidate_hash) {
-				return MemberState::Unconnected
+				MemberState::Unconnected
+			} else {
+				MemberState::Potential
 			}
-			// Check if it can also be a potential unconnected candidate
-			// It's in scope, the depth is right.
-			// TODO: We should check the number of unconnected candidates we have so far.
-			// Sanity check that we can introduce it to candidate storage
-			MemberState::Potential
 		}
 	}
 
@@ -715,9 +697,56 @@ impl FragmentChain {
 		0
 	}
 
-	fn populate_chain(&mut self, storage: &CandidateStorage) {
-		let mut depth = self.chain.len();
+	pub fn check_potential(
+		&self,
+		storage: &CandidateStorage,
+		candidate_hash: &CandidateHash,
+	) -> bool {
+		const MAX_UNCONNECTED: usize = 5;
+		let Some(candidate) = storage.get(candidate_hash) else { return false };
 
+		let Some(unconnected_candidates) = storage.len().checked_sub(self.candidates.len()) else {
+			return false
+		};
+
+		// If we've got enough candidates for the configured depth.
+		if self.chain.len() + 1 > self.scope.max_depth {
+			return false
+		}
+
+		if unconnected_candidates >= MAX_UNCONNECTED {
+			return false
+		}
+
+		let earliest_rp = if let Some(last_candidate) = self.chain.last() {
+			self.scope
+				.ancestor_by_hash(&last_candidate.relay_parent())
+				.or_else(|| {
+					// if the relay-parent is out of scope _and_ it is in the tree,
+					// it must be a candidate pending availability.
+					self.scope
+						.get_pending_availability(&last_candidate.candidate_hash)
+						.map(|c| c.relay_parent.clone())
+				})
+				.expect("All nodes in tree are either pending availability or within scope; qed")
+		} else {
+			self.scope.earliest_relay_parent()
+		};
+
+		let Some(relay_parent) = self.scope.ancestor_by_hash(&candidate.relay_parent) else {
+			return false
+		};
+
+		let min_relay_parent_number =
+			std::cmp::max(earliest_rp.number, self.scope.earliest_relay_parent().number);
+		if relay_parent.number < min_relay_parent_number {
+			return false // relay parent moved backwards.
+		}
+
+		true
+	}
+
+	fn populate_chain(&mut self, storage: &CandidateStorage) {
 		let mut cumulative_modifications = if let Some(last_candidate) = self.chain.last() {
 			last_candidate.cumulative_modifications.clone()
 		} else {
@@ -739,7 +768,7 @@ impl FragmentChain {
 		};
 
 		loop {
-			if depth > self.scope.max_depth {
+			if self.chain.len() > self.scope.max_depth {
 				break;
 			}
 
@@ -783,7 +812,7 @@ impl FragmentChain {
 				// when the parent is a pending availability candidate as well, but
 				// only other pending candidates can have a relay parent out of scope.
 				let min_relay_parent_number = pending
-					.map(|p| match depth {
+					.map(|p| match self.chain.len() {
 						0 => p.relay_parent.number,
 						_ => earliest_rp.number,
 					})
@@ -844,8 +873,6 @@ impl FragmentChain {
 
 				self.chain.push(node);
 				self.candidates.insert(candidate.candidate_hash);
-
-				depth += 1;
 			} else {
 				break;
 			}

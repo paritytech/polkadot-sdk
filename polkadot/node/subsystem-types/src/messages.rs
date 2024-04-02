@@ -1153,7 +1153,7 @@ impl ParentHeadData {
 /// is present in.
 pub type HypotheticalMembership = Vec<(Hash, MemberState)>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 /// The possible states a candidate can be in a leaf's fragment chain.
 pub enum MemberState {
 	/// Present in the candidate storage, but not connected to the prospective chain.
