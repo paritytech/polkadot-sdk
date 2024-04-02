@@ -23,12 +23,12 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 pallet-assets = { path = "../assets", default-features = false }
-pallet-balances = { path = "../balances", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 [dev-dependencies]
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
+pallet-balances = { path = "../balances", default-features = false }
 
 [features]
 default = ["std"]
@@ -44,7 +44,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

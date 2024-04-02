@@ -45,25 +45,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
-use core::marker::PhantomData;
-use frame_support::{
-	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
-	traits::IsSubType,
-	weights::Weight,
-};
-use frame_system::ensure_signed;
-use log::info;
-use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{Bounded, DispatchInfoOf, SaturatedConversion, Saturating, SignedExtension},
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
-	},
-};
-
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
+
+mod impl_frozen_balances;
+mod impl_fungibles;
 
 #[cfg(test)]
 mod tests;
@@ -75,24 +61,43 @@ type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, storage::bounded_vec::BoundedVec, Blake2_128Concat};
-	use frame_system::pallet_prelude::*;
+	use codec::FullCodec;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{EnsureOriginWithArg, VariantCount},
+		BoundedVec,
+	};
+	// use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config<I: 'static = ()>:
-		pallet_balances::Config + frame_system::Config + pallet_assets::Config<I>
-	{
+	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_assets::Config<I> {
 		/// The overarching freeze reason.
-		type RuntimeFreezeReason: VariantCount;
+		type RuntimeFreezeReason: VariantCount
+			+ FullCodec
+			+ TypeInfo
+			+ PartialEq
+			+ MaxEncodedLen
+			+ Clone
+			+ 'static;
 
 		/// The overarching origin to allow freezing/thawing calls
-		type FreezeOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
+		// type FreezeOrigin: EnsureOriginWithArg<
+		// 	Self::RuntimeOrigin,
+		// 	Self::AccountId,
+		// 	Success = Self::AccountId,
+		// >;
 
 		/// The overarching event type.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self, I>>
+			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
+	}
+
+	#[pallet::error]
+	pub enum Error<T, I = ()> {
+		// TODO: Add errors
 	}
 
 	// Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
@@ -101,16 +106,13 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
-	impl<T: Config<I>, I: 'static = ()> Pallet<T, I> {
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// .
-		#[pallet::call_index(0)]
-		pub fn freeze(origin: OriginFor<T>, increase_by: T::Balance) -> DispatchResult {
-			let _ = T::FreezeOrigin::ensure_origin(origin)?;
-
-			todo!("Implement call");
-
-			Ok(())
-		}
+		// #[pallet::call_index(0)]
+		// pub fn freeze(origin: OriginFor<T>, increase_by: AssetBalanceOf<T, I>) -> DispatchResult {
+		// 	let _ = T::FreezeOrigin::ensure_origin(origin)?;
+		// 	Ok(())
+		// }
 	}
 
 	#[pallet::event]
@@ -119,14 +121,14 @@ pub mod pallet {
 		// A reducible balance has been increased due to a freeze action.
 		AssetBalanceFrozen {
 			who: AccountIdOf<T>,
-			asset_id: AssetIdOf<T>,
-			balance: AssetBalanceOf<T>,
+			asset_id: AssetIdOf<T, I>,
+			balance: AssetBalanceOf<T, I>,
 		},
 		// A reducible balance has been reduced due to a thaw action.
 		AssetBalanceThawed {
 			who: AccountIdOf<T>,
-			asset_id: AssetIdOf<T>,
-			balance: AssetBalanceOf<T>,
+			asset_id: AssetIdOf<T, I>,
+			balance: AssetBalanceOf<T, I>,
 		},
 	}
 
@@ -135,10 +137,11 @@ pub mod pallet {
 	pub(super) type Freezes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		AccountIdOf<T>,
-		Blake2_128Concat,
 		AssetIdOf<T, I>,
-		BoundedVec<AssetBalanceOf<T, I>, T::MaxFreezes>,
+		Blake2_128Concat,
+		AccountIdOf<T>,
+		BoundedVec<(T::RuntimeFreezeReason, AssetBalanceOf<T, I>), T::MaxFreezes>,
+		ValueQuery,
 	>;
 
 	/// A map that stores the current reducible balance for every account on a given AssetId.
@@ -146,11 +149,9 @@ pub mod pallet {
 	pub(super) type FrozenBalances<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		AccountIdOf<T>,
-		Blake2_128Concat,
 		AssetIdOf<T, I>,
+		Blake2_128Concat,
+		AccountIdOf<T>,
 		AssetBalanceOf<T, I>,
 	>;
 }
-
-// TODO: implement [`pallet_asset::types::FrozenBalances`] and [`frame_support::traits::tokens::fungibles::freezes::Inspect`] for `Pallet<T, I>`
