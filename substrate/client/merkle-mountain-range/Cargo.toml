@@ -1,6 +1,6 @@
 [package]
 name = "mmr-gadget"
-version = "4.0.0-dev"
+version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -8,12 +8,15 @@ repository.workspace = true
 description = "MMR Client gadget for substrate"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-futures = "0.3"
-log = "0.4"
+futures = "0.3.30"
+log = { workspace = true, default-features = true }
 sp-api = { path = "../../primitives/api" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sc-client-api = { path = "../api" }
@@ -29,4 +32,4 @@ parking_lot = "0.12.1"
 sc-block-builder = { path = "../block-builder" }
 sp-tracing = { path = "../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
-tokio = "1.17.0"
+tokio = "1.37"

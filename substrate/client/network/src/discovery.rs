@@ -57,8 +57,8 @@ use libp2p::{
 	kad::{
 		self,
 		record::store::{MemoryStore, RecordStore},
-		Behaviour as Kademlia, BucketInserts, Config as KademliaConfig, Event as KademliaEvent,
-		GetClosestPeersError, GetRecordOk, QueryId, QueryResult, Quorum, Record, RecordKey,
+		GetClosestPeersError, GetRecordOk, Kademlia, KademliaBucketInserts, KademliaConfig,
+		KademliaEvent, QueryId, QueryResult, Quorum, Record, RecordKey,
 	},
 	mdns::{self, tokio::Behaviour as TokioMdns},
 	multiaddr::Protocol,
@@ -72,6 +72,7 @@ use libp2p::{
 	},
 	PeerId,
 };
+use linked_hash_set::LinkedHashSet;
 use log::{debug, info, trace, warn};
 use schnellru::{ByLength, LruMap};
 use sp_core::hexdisplay::HexDisplay;
@@ -222,7 +223,7 @@ impl DiscoveryConfig {
 			// By default Kademlia attempts to insert all peers into its routing table once a
 			// dialing attempt succeeds. In order to control which peer is added, disable the
 			// auto-insertion and instead add peers manually.
-			config.set_kbucket_inserts(BucketInserts::Manual);
+			config.set_kbucket_inserts(KademliaBucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
 
 			let store = MemoryStore::new(local_peer_id);
@@ -577,14 +578,26 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 	) -> Result<Vec<Multiaddr>, ConnectionDenied> {
 		let Some(peer_id) = maybe_peer else { return Ok(Vec::new()) };
 
-		let mut list = self
+		// Collect addresses into [`LinkedHashSet`] to eliminate duplicate entries preserving the
+		// order of addresses. Give priority to `permanent_addresses` (used with reserved nodes) and
+		// `ephemeral_addresses` (used for addresses discovered from other sources, like authority
+		// discovery DHT records).
+		let mut list: LinkedHashSet<_> = self
 			.permanent_addresses
 			.iter()
 			.filter_map(|(p, a)| (*p == peer_id).then_some(a.clone()))
-			.collect::<HashSet<_>>();
+			.collect();
 
 		if let Some(ephemeral_addresses) = self.ephemeral_addresses.get(&peer_id) {
-			list.extend(ephemeral_addresses.clone());
+			ephemeral_addresses.iter().for_each(|address| {
+				list.insert_if_absent(address.clone());
+			});
+		}
+
+		if let Some(addresses) = self.aux_address_store.get(&peer_id) {
+			addresses.iter().for_each(|address| {
+				list.insert_if_absent(address.clone());
+			});
 		}
 
 		{
@@ -610,16 +623,14 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				});
 			}
 
-			if let Some(addresses) = self.aux_address_store.get(&peer_id) {
-				list.extend(addresses.iter().cloned())
-			}
-
-			list.extend(list_to_filter);
+			list_to_filter.into_iter().for_each(|address| {
+				list.insert_if_absent(address);
+			});
 		}
 
 		trace!(target: "sub-libp2p", "Addresses of {:?}: {:?}", peer_id, list);
 
-		Ok(list.into_iter().collect::<Vec<_>>())
+		Ok(list.into_iter().collect())
 	}
 
 	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {

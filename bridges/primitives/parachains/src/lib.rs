@@ -16,6 +16,7 @@
 
 //! Primitives of parachains module.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use bp_header_chain::StoredHeaderData;
@@ -173,8 +174,11 @@ pub enum BridgeParachainCall {
 	/// `pallet-bridge-parachains::Call::submit_parachain_heads`
 	#[codec(index = 0)]
 	submit_parachain_heads {
+		/// Relay chain block, for which we have submitted the `parachain_heads_proof`.
 		at_relay_block: (RelayBlockNumber, RelayBlockHash),
+		/// Parachain identifiers and their head hashes.
 		parachains: Vec<(ParaId, ParaHash)>,
+		/// Parachain heads proof.
 		parachain_heads_proof: ParaHeadsProof,
 	},
 }

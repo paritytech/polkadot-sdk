@@ -32,10 +32,14 @@ use variants::*;
 enum NemesisVariant {
 	/// Suggest a candidate with an invalid proof of validity.
 	SuggestGarbageCandidate(SuggestGarbageCandidateOptions),
+	/// Support disabled validators in backing and statement distribution.
+	SupportDisabled(SupportDisabledOptions),
 	/// Back a candidate with a specifically crafted proof of validity.
 	BackGarbageCandidate(BackGarbageCandidateOptions),
 	/// Delayed disputing of ancestors that are perfectly fine.
 	DisputeAncestor(DisputeAncestorOptions),
+	/// Delayed disputing of finalized candidates.
+	DisputeFinalizedCandidates(DisputeFinalizedCandidatesOptions),
 }
 
 #[derive(Debug, Parser)]
@@ -66,6 +70,11 @@ impl MalusCli {
 					finality_delay,
 				)?
 			},
+			NemesisVariant::SupportDisabled(opts) => {
+				let SupportDisabledOptions { cli } = opts;
+
+				polkadot_cli::run_node(cli, SupportDisabled, finality_delay)?
+			},
 			NemesisVariant::DisputeAncestor(opts) => {
 				let DisputeAncestorOptions {
 					fake_validation,
@@ -77,6 +86,15 @@ impl MalusCli {
 				polkadot_cli::run_node(
 					cli,
 					DisputeValidCandidates { fake_validation, fake_validation_error, percentage },
+					finality_delay,
+				)?
+			},
+			NemesisVariant::DisputeFinalizedCandidates(opts) => {
+				let DisputeFinalizedCandidatesOptions { dispute_offset, cli } = opts;
+
+				polkadot_cli::run_node(
+					cli,
+					DisputeFinalizedCandidates { dispute_offset },
 					finality_delay,
 				)?
 			},
@@ -182,6 +200,41 @@ mod tests {
 			..
 		} => {
 			assert!(run.cli.run.base.bob);
+		});
+	}
+
+	#[test]
+	fn dispute_finalized_candidates_works() {
+		let cli = MalusCli::try_parse_from(IntoIterator::into_iter([
+			"malus",
+			"dispute-finalized-candidates",
+			"--bob",
+		]))
+		.unwrap();
+		assert_matches::assert_matches!(cli, MalusCli {
+			variant: NemesisVariant::DisputeFinalizedCandidates(run),
+			..
+		} => {
+			assert!(run.cli.run.base.bob);
+		});
+	}
+
+	#[test]
+	fn dispute_finalized_offset_value_works() {
+		let cli = MalusCli::try_parse_from(IntoIterator::into_iter([
+			"malus",
+			"dispute-finalized-candidates",
+			"--dispute-offset",
+			"13",
+			"--bob",
+		]))
+		.unwrap();
+		assert_matches::assert_matches!(cli, MalusCli {
+			variant: NemesisVariant::DisputeFinalizedCandidates(opts),
+			..
+		} => {
+			assert_eq!(opts.dispute_offset, 13); // This line checks that dispute_offset is correctly set to 13
+			assert!(opts.cli.run.base.bob);
 		});
 	}
 }

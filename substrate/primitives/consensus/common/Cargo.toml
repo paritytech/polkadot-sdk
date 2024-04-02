@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus"
-version = "0.10.0-dev"
+version = "0.32.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -10,21 +10,24 @@ description = "Common utilities for building and using consensus engines in subs
 documentation = "https://docs.rs/sp-consensus/"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = "0.1.57"
-futures = { version = "0.3.21", features = ["thread-pool"] }
-log = "0.4.17"
-thiserror = "1.0.48"
+async-trait = "0.1.79"
+futures = { version = "0.3.30", features = ["thread-pool"] }
+log = { workspace = true, default-features = true }
+thiserror = { workspace = true }
 sp-core = { path = "../../core" }
 sp-inherents = { path = "../../inherents" }
 sp-runtime = { path = "../../runtime" }
 sp-state-machine = { path = "../../state-machine" }
 
 [dev-dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 sp-test-primitives = { path = "../../test-primitives" }
 
 [features]

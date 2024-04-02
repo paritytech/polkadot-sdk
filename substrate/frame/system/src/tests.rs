@@ -19,7 +19,7 @@ use crate::*;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::{Pays, PostDispatchInfo, WithPostDispatchInfo},
-	traits::WhitelistedStorageKeys,
+	traits::{OnRuntimeUpgrade, WhitelistedStorageKeys},
 };
 use std::collections::BTreeSet;
 
@@ -676,6 +676,68 @@ fn set_code_with_real_wasm_blob() {
 }
 
 #[test]
+fn set_code_rejects_during_mbm() {
+	Ongoing::set(true);
+
+	let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
+	let mut ext = new_test_ext();
+	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
+	ext.execute_with(|| {
+		System::set_block_number(1);
+		let res = System::set_code(
+			RawOrigin::Root.into(),
+			substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
+		);
+		assert_eq!(
+			res,
+			Err(DispatchErrorWithPostInfo::from(Error::<Test>::MultiBlockMigrationsOngoing))
+		);
+
+		assert!(System::events().is_empty());
+	});
+}
+
+#[test]
+fn set_code_via_authorization_works() {
+	let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
+	let mut ext = new_test_ext();
+	ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
+	ext.execute_with(|| {
+		System::set_block_number(1);
+		assert!(System::authorized_upgrade().is_none());
+
+		let runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
+		let hash = <mock::Test as pallet::Config>::Hashing::hash(&runtime);
+
+		// Can't apply before authorization
+		assert_noop!(
+			System::apply_authorized_upgrade(RawOrigin::None.into(), runtime.clone()),
+			Error::<Test>::NothingAuthorized,
+		);
+
+		// Can authorize
+		assert_ok!(System::authorize_upgrade(RawOrigin::Root.into(), hash));
+		System::assert_has_event(
+			SysEvent::UpgradeAuthorized { code_hash: hash, check_version: true }.into(),
+		);
+		assert!(System::authorized_upgrade().is_some());
+
+		// Can't be sneaky
+		let mut bad_runtime = substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec();
+		bad_runtime.extend(b"sneaky");
+		assert_noop!(
+			System::apply_authorized_upgrade(RawOrigin::None.into(), bad_runtime),
+			Error::<Test>::Unauthorized,
+		);
+
+		// Can apply correct runtime
+		assert_ok!(System::apply_authorized_upgrade(RawOrigin::None.into(), runtime));
+		System::assert_has_event(SysEvent::CodeUpdated.into());
+		assert!(System::authorized_upgrade().is_none());
+	});
+}
+
+#[test]
 fn runtime_upgraded_with_set_storage() {
 	let executor = substrate_test_runtime_client::new_native_or_wasm_executor();
 	let mut ext = new_test_ext();
@@ -772,4 +834,27 @@ pub fn from_actual_ref_time(ref_time: Option<u64>) -> PostDispatchInfo {
 
 pub fn from_post_weight_info(ref_time: Option<u64>, pays_fee: Pays) -> PostDispatchInfo {
 	PostDispatchInfo { actual_weight: ref_time.map(|t| Weight::from_all(t)), pays_fee }
+}
+
+#[docify::export]
+#[test]
+fn last_runtime_upgrade_spec_version_usage() {
+	struct Migration;
+
+	impl OnRuntimeUpgrade for Migration {
+		fn on_runtime_upgrade() -> Weight {
+			// Ensure to compare the spec version against some static version to prevent applying
+			// the same migration multiple times.
+			//
+			// `1337` here is the spec version of the runtime running on chain. If there is maybe
+			// a runtime upgrade in the pipeline of being applied, you should use the spec version
+			// of this upgrade.
+			if System::last_runtime_upgrade_spec_version() > 1337 {
+				return Weight::zero()
+			}
+
+			// Do the migration.
+			Weight::zero()
+		}
+	}
 }

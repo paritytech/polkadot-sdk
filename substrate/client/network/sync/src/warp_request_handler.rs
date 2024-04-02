@@ -20,7 +20,10 @@ use codec::Decode;
 use futures::{channel::oneshot, stream::StreamExt};
 use log::debug;
 
-use crate::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider};
+use crate::{
+	strategy::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider},
+	LOG_TARGET,
+};
 use sc_network::{
 	config::ProtocolId,
 	request_responses::{
@@ -54,7 +57,7 @@ pub fn generate_request_response_config<Hash: AsRef<[u8]>>(
 	}
 }
 
-/// Generate the grandpa warp sync protocol name from the genesi hash and fork id.
+/// Generate the grandpa warp sync protocol name from the genesis hash and fork id.
 fn generate_protocol_name<Hash: AsRef<[u8]>>(genesis_hash: Hash, fork_id: Option<&str>) -> String {
 	let genesis_hash = genesis_hash.as_ref();
 	if let Some(fork_id) = fork_id {
@@ -120,10 +123,10 @@ impl<TBlock: BlockT> RequestHandler<TBlock> {
 
 			match self.handle_request(payload, pending_response) {
 				Ok(()) => {
-					debug!(target: "sync", "Handled grandpa warp sync request from {}.", peer)
+					debug!(target: LOG_TARGET, "Handled grandpa warp sync request from {}.", peer)
 				},
 				Err(e) => debug!(
-					target: "sync",
+					target: LOG_TARGET,
 					"Failed to handle grandpa warp sync request from {}: {}",
 					peer, e,
 				),

@@ -46,7 +46,7 @@ use finality_grandpa::{
 	Message::{Precommit, Prevote, PrimaryPropose},
 };
 use parity_scale_codec::{Decode, DecodeAll, Encode};
-use sc_network::{NetworkBlock, NetworkSyncForkRequest, ReputationChange};
+use sc_network::{NetworkBlock, NetworkSyncForkRequest, NotificationService, ReputationChange};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 use sp_keystore::KeystorePtr;
@@ -222,13 +222,13 @@ pub(crate) struct NetworkBridge<B: BlockT, N: Network<B>, S: Syncing<B>> {
 	neighbor_sender: periodic::NeighborPacketSender<B>,
 
 	/// `NeighborPacketWorker` processing packets sent through the `NeighborPacketSender`.
-	// `NetworkBridge` is required to be cloneable, thus one needs to be able to clone its
+	// `NetworkBridge` is required to be clonable, thus one needs to be able to clone its
 	// children, thus one has to wrap `neighbor_packet_worker` with an `Arc` `Mutex`.
 	neighbor_packet_worker: Arc<Mutex<periodic::NeighborPacketWorker<B>>>,
 
 	/// Receiver side of the peer report stream populated by the gossip validator, forwarded to the
 	/// gossip engine.
-	// `NetworkBridge` is required to be cloneable, thus one needs to be able to clone its
+	// `NetworkBridge` is required to be clonable, thus one needs to be able to clone its
 	// children, thus one has to wrap gossip_validator_report_stream with an `Arc` `Mutex`. Given
 	// that it is just an `UnboundedReceiver`, one could also switch to a
 	// multi-producer-*multi*-consumer channel implementation.
@@ -247,6 +247,7 @@ impl<B: BlockT, N: Network<B>, S: Syncing<B>> NetworkBridge<B, N, S> {
 	pub(crate) fn new(
 		service: N,
 		sync: S,
+		notification_service: Box<dyn NotificationService>,
 		config: crate::Config,
 		set_state: crate::environment::SharedVoterSetState<B>,
 		prometheus_registry: Option<&Registry>,
@@ -260,6 +261,7 @@ impl<B: BlockT, N: Network<B>, S: Syncing<B>> NetworkBridge<B, N, S> {
 		let gossip_engine = Arc::new(Mutex::new(GossipEngine::new(
 			service.clone(),
 			sync.clone(),
+			notification_service,
 			protocol,
 			validator.clone(),
 			prometheus_registry,
@@ -764,7 +766,7 @@ impl<Block: BlockT> Sink<Message<Block::Header>> for OutgoingMessages<Block> {
 			)
 			.ok_or_else(|| {
 				Error::Signing(format!(
-					"Failed to sign GRANDPA vote for round {} targetting {:?}",
+					"Failed to sign GRANDPA vote for round {} targeting {:?}",
 					self.round, target_hash
 				))
 			})?;

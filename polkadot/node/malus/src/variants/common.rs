@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Implements common code for nemesis. Currently, only `FakeValidationResult`
+//! Implements common code for nemesis. Currently, only `ReplaceValidationResult`
 //! interceptor is implemented.
 use crate::{
 	interceptor::*,
@@ -23,14 +23,10 @@ use crate::{
 
 use polkadot_node_core_candidate_validation::find_validation_data;
 use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
-use polkadot_node_subsystem::{
-	messages::{CandidateValidationMessage, ValidationFailed},
-	overseer,
-};
 
 use polkadot_primitives::{
 	CandidateCommitments, CandidateDescriptor, CandidateReceipt, PersistedValidationData,
-	PvfExecTimeoutKind,
+	PvfExecKind,
 };
 
 use futures::channel::oneshot;
@@ -90,10 +86,10 @@ impl FakeCandidateValidation {
 		}
 	}
 
-	fn should_misbehave(&self, timeout: PvfExecTimeoutKind) -> bool {
+	fn should_misbehave(&self, timeout: PvfExecKind) -> bool {
 		match timeout {
-			PvfExecTimeoutKind::Backing => self.includes_backing(),
-			PvfExecTimeoutKind::Approval => self.includes_approval(),
+			PvfExecKind::Backing => self.includes_backing(),
+			PvfExecKind::Approval => self.includes_approval(),
 		}
 	}
 }
@@ -279,13 +275,13 @@ where
 						candidate_receipt,
 						pov,
 						executor_params,
-						exec_timeout_kind,
+						exec_kind,
 						response_sender,
 						..
 					},
 			} => {
 				match self.fake_validation {
-					x if x.misbehaves_valid() && x.should_misbehave(exec_timeout_kind) => {
+					x if x.misbehaves_valid() && x.should_misbehave(exec_kind) => {
 						// Behave normally if the `PoV` is not known to be malicious.
 						if pov.block_data.0.as_slice() != MALICIOUS_POV {
 							return Some(FromOrchestra::Communication {
@@ -295,7 +291,7 @@ where
 									candidate_receipt,
 									pov,
 									executor_params,
-									exec_timeout_kind,
+									exec_kind,
 									response_sender,
 								},
 							})
@@ -333,14 +329,14 @@ where
 										candidate_receipt,
 										pov,
 										executor_params,
-										exec_timeout_kind,
+										exec_kind,
 										response_sender,
 									},
 								})
 							},
 						}
 					},
-					x if x.misbehaves_invalid() && x.should_misbehave(exec_timeout_kind) => {
+					x if x.misbehaves_invalid() && x.should_misbehave(exec_kind) => {
 						// Set the validation result to invalid with probability `p` and trigger a
 						// dispute
 						let behave_maliciously = self.distribution.sample(&mut rand::thread_rng());
@@ -373,7 +369,7 @@ where
 										candidate_receipt,
 										pov,
 										executor_params,
-										exec_timeout_kind,
+										exec_kind,
 										response_sender,
 									},
 								})
@@ -388,7 +384,7 @@ where
 							candidate_receipt,
 							pov,
 							executor_params,
-							exec_timeout_kind,
+							exec_kind,
 							response_sender,
 						},
 					}),
@@ -401,13 +397,13 @@ where
 						candidate_receipt,
 						pov,
 						executor_params,
-						exec_timeout_kind,
+						exec_kind,
 						response_sender,
 						..
 					},
 			} => {
 				match self.fake_validation {
-					x if x.misbehaves_valid() && x.should_misbehave(exec_timeout_kind) => {
+					x if x.misbehaves_valid() && x.should_misbehave(exec_kind) => {
 						// Behave normally if the `PoV` is not known to be malicious.
 						if pov.block_data.0.as_slice() != MALICIOUS_POV {
 							return Some(FromOrchestra::Communication {
@@ -415,7 +411,7 @@ where
 									candidate_receipt,
 									pov,
 									executor_params,
-									exec_timeout_kind,
+									exec_kind,
 									response_sender,
 								},
 							})
@@ -445,13 +441,13 @@ where
 									candidate_receipt,
 									pov,
 									executor_params,
-									exec_timeout_kind,
+									exec_kind,
 									response_sender,
 								},
 							}),
 						}
 					},
-					x if x.misbehaves_invalid() && x.should_misbehave(exec_timeout_kind) => {
+					x if x.misbehaves_invalid() && x.should_misbehave(exec_kind) => {
 						// Maliciously set the validation result to invalid for a valid candidate
 						// with probability `p`
 						let behave_maliciously = self.distribution.sample(&mut rand::thread_rng());
@@ -479,7 +475,7 @@ where
 										candidate_receipt,
 										pov,
 										executor_params,
-										exec_timeout_kind,
+										exec_kind,
 										response_sender,
 									},
 								})
@@ -491,7 +487,7 @@ where
 							candidate_receipt,
 							pov,
 							executor_params,
-							exec_timeout_kind,
+							exec_kind,
 							response_sender,
 						},
 					}),

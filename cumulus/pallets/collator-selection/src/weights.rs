@@ -30,9 +30,11 @@ pub trait WeightInfo {
 	fn add_invulnerable(_b: u32, _c: u32) -> Weight;
 	fn remove_invulnerable(_b: u32) -> Weight;
 	fn set_desired_candidates() -> Weight;
-	fn set_candidacy_bond() -> Weight;
+	fn set_candidacy_bond(_c: u32, _k: u32) -> Weight;
 	fn register_as_candidate(_c: u32) -> Weight;
 	fn leave_intent(_c: u32) -> Weight;
+	fn update_bond(_c: u32) -> Weight;
+	fn take_candidate_slot(_c: u32) -> Weight;
 	fn note_author() -> Weight;
 	fn new_session(_c: u32, _r: u32) -> Weight;
 }
@@ -49,7 +51,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_desired_candidates() -> Weight {
 		Weight::from_parts(16_363_000_u64, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	fn set_candidacy_bond() -> Weight {
+	fn set_candidacy_bond(_c: u32, _k: u32) -> Weight {
 		Weight::from_parts(16_840_000_u64, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn register_as_candidate(c: u32) -> Weight {
@@ -64,6 +66,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 0
 			.saturating_add(Weight::from_parts(151_000_u64, 0).saturating_mul(c as u64))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	fn update_bond(c: u32) -> Weight {
+		Weight::from_parts(55_336_000_u64, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(151_000_u64, 0).saturating_mul(c as u64))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	fn take_candidate_slot(c: u32) -> Weight {
+		Weight::from_parts(71_196_000_u64, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(198_000_u64, 0).saturating_mul(c as u64))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	fn note_author() -> Weight {
@@ -136,7 +152,7 @@ impl WeightInfo for () {
 	fn set_desired_candidates() -> Weight {
 		Weight::from_parts(16_363_000_u64, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	fn set_candidacy_bond() -> Weight {
+	fn set_candidacy_bond(_c: u32, _k: u32) -> Weight {
 		Weight::from_parts(16_840_000_u64, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn register_as_candidate(c: u32) -> Weight {
@@ -155,6 +171,20 @@ impl WeightInfo for () {
 	}
 	fn note_author() -> Weight {
 		Weight::from_parts(71_461_000_u64, 0)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	fn update_bond(c: u32) -> Weight {
+		Weight::from_parts(55_336_000_u64, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(151_000_u64, 0).saturating_mul(c as u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	fn take_candidate_slot(c: u32) -> Weight {
+		Weight::from_parts(71_196_000_u64, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(198_000_u64, 0).saturating_mul(c as u64))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}

@@ -23,7 +23,7 @@ use sp_runtime::{bounded_btree_map, traits::Dispatchable, FixedU128};
 
 macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
-		use sp_std::iter::{Iterator, IntoIterator};
+		use ::core::iter::{Iterator, IntoIterator};
 		let not_bounded: BTreeMap<_, _> = Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]));
 		BoundedBTreeMap::<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>::try_from(not_bounded).unwrap()
 	}};
@@ -291,6 +291,28 @@ mod bonded_pool {
 			);
 			assert_ok!(pool.ok_to_join());
 		});
+	}
+
+	#[test]
+	fn points_and_balance_conversions_are_safe() {
+		ExtBuilder::default().build_and_execute(|| {
+			let bonded_pool = BondedPool::<Runtime> {
+				id: 123123,
+				inner: BondedPoolInner {
+					commission: Commission::default(),
+					member_counter: 1,
+					points: u128::MAX,
+					roles: DEFAULT_ROLES,
+					state: PoolState::Open,
+				},
+			};
+			StakingMock::set_bonded_balance(bonded_pool.bonded_account(), u128::MAX);
+
+			// Max out the points and balance of the pool and make sure the conversion works as
+			// expected and does not overflow.
+			assert_eq!(bonded_pool.balance_to_point(u128::MAX), u128::MAX);
+			assert_eq!(bonded_pool.points_to_balance(u128::MAX), u128::MAX);
+		})
 	}
 }
 
@@ -1160,6 +1182,12 @@ mod claim_payout {
 			assert_eq!(payout, 0);
 			assert_eq!(member, del(0.0));
 			assert_eq!(reward_pool, rew(0, 0, 0));
+			Pools::put_member_with_pools(
+				&10,
+				member.clone(),
+				bonded_pool.clone(),
+				reward_pool.clone(),
+			);
 
 			// Given the pool has earned some rewards for the first time
 			deposit_rewards(5);
@@ -1181,6 +1209,12 @@ mod claim_payout {
 			assert_eq!(payout, 5);
 			assert_eq!(reward_pool, rew(0, 0, 5));
 			assert_eq!(member, del(0.5));
+			Pools::put_member_with_pools(
+				&10,
+				member.clone(),
+				bonded_pool.clone(),
+				reward_pool.clone(),
+			);
 
 			// Given the pool has earned rewards again
 			deposit_rewards(10);
@@ -1198,6 +1232,12 @@ mod claim_payout {
 			assert_eq!(payout, 10);
 			assert_eq!(reward_pool, rew(0, 0, 15));
 			assert_eq!(member, del(1.5));
+			Pools::put_member_with_pools(
+				&10,
+				member.clone(),
+				bonded_pool.clone(),
+				reward_pool.clone(),
+			);
 
 			// Given the pool has earned no new rewards
 			Currency::set_balance(&default_reward_account(), ed);
@@ -1212,6 +1252,12 @@ mod claim_payout {
 			assert_eq!(payout, 0);
 			assert_eq!(reward_pool, rew(0, 0, 15));
 			assert_eq!(member, del(1.5));
+			Pools::put_member_with_pools(
+				&10,
+				member.clone(),
+				bonded_pool.clone(),
+				reward_pool.clone(),
+			);
 		});
 	}
 
@@ -1257,6 +1303,12 @@ mod claim_payout {
 				assert_eq!(payout, 10);
 				assert_eq!(del_10, del(10, 1));
 				assert_eq!(reward_pool, rew(0, 0, 10));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1271,6 +1323,12 @@ mod claim_payout {
 				assert_eq!(payout, 40);
 				assert_eq!(del_40, del(40, 1));
 				assert_eq!(reward_pool, rew(0, 0, 50));
+				Pools::put_member_with_pools(
+					&40,
+					del_40.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1285,6 +1343,12 @@ mod claim_payout {
 				assert_eq!(payout, 50);
 				assert_eq!(del_50, del(50, 1));
 				assert_eq!(reward_pool, rew(0, 0, 100));
+				Pools::put_member_with_pools(
+					&50,
+					del_50.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// Given the reward pool has some new rewards
 				deposit_rewards(50);
@@ -1302,6 +1366,12 @@ mod claim_payout {
 				assert_eq!(payout, 5);
 				assert_eq!(del_10, del_float(10, 1.5));
 				assert_eq!(reward_pool, rew(0, 0, 105));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1316,6 +1386,12 @@ mod claim_payout {
 				assert_eq!(payout, 20);
 				assert_eq!(del_40, del_float(40, 1.5));
 				assert_eq!(reward_pool, rew(0, 0, 125));
+				Pools::put_member_with_pools(
+					&40,
+					del_40.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// Given del_50 hasn't claimed and the reward pools has just earned 50
 				deposit_rewards(50);
@@ -1333,6 +1409,12 @@ mod claim_payout {
 				assert_eq!(payout, 50);
 				assert_eq!(del_50, del_float(50, 2.0));
 				assert_eq!(reward_pool, rew(0, 0, 175));
+				Pools::put_member_with_pools(
+					&50,
+					del_50.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1347,6 +1429,12 @@ mod claim_payout {
 				assert_eq!(payout, 5);
 				assert_eq!(del_10, del_float(10, 2.0));
 				assert_eq!(reward_pool, rew(0, 0, 180));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// Given del_40 hasn't claimed and the reward pool has just earned 400
 				deposit_rewards(400);
@@ -1364,6 +1452,12 @@ mod claim_payout {
 				assert_eq!(payout, 40);
 				assert_eq!(del_10, del_float(10, 6.0));
 				assert_eq!(reward_pool, rew(0, 0, 220));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// Given del_40 + del_50 haven't claimed and the reward pool has earned 20
 				deposit_rewards(20);
@@ -1377,6 +1471,12 @@ mod claim_payout {
 				assert_eq!(payout, 2);
 				assert_eq!(del_10, del_float(10, 6.2));
 				assert_eq!(reward_pool, rew(0, 0, 222));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1387,6 +1487,12 @@ mod claim_payout {
 				assert_eq!(payout, 188); // 20 (from the 50) + 160 (from the 400) + 8 (from the 20)
 				assert_eq!(del_40, del_float(40, 6.2));
 				assert_eq!(reward_pool, rew(0, 0, 410));
+				Pools::put_member_with_pools(
+					&40,
+					del_40.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1397,6 +1503,12 @@ mod claim_payout {
 				assert_eq!(payout, 210); // 200 (from the 400) + 10 (from the 20)
 				assert_eq!(del_50, del_float(50, 6.2));
 				assert_eq!(reward_pool, rew(0, 0, 620));
+				Pools::put_member_with_pools(
+					&50,
+					del_50.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 			});
 	}
 
@@ -2329,16 +2441,10 @@ mod claim_payout {
 			// given
 			assert_eq!(Currency::free_balance(&10), 35);
 
-			// Permissioned by default
-			assert_noop!(
-				Pools::claim_payout_other(RuntimeOrigin::signed(80), 10),
-				Error::<Runtime>::DoesNotHavePermission
-			);
+			// when
 
-			assert_ok!(Pools::set_claim_permission(
-				RuntimeOrigin::signed(10),
-				ClaimPermission::PermissionlessWithdraw
-			));
+			// NOTE: Claim permission of `PermissionlessWithdraw` allows payout claiming as default,
+			// so a claim permission does not need to be set for non-pool members prior to claiming.
 			assert_ok!(Pools::claim_payout_other(RuntimeOrigin::signed(80), 10));
 
 			// then
@@ -2377,7 +2483,6 @@ mod unbond {
 				);
 
 				// Make permissionless
-				assert_eq!(ClaimPermissions::<Runtime>::get(10), ClaimPermission::Permissioned);
 				assert_ok!(Pools::set_claim_permission(
 					RuntimeOrigin::signed(20),
 					ClaimPermission::PermissionlessAll
@@ -2465,6 +2570,38 @@ mod unbond {
 				assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 20, 18));
 				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().active_points(), 0);
 				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().unbonding_points(), 20);
+			})
+	}
+
+	#[test]
+	fn member_unbond_destroying_with_pending_rewards() {
+		ExtBuilder::default()
+			.min_join_bond(10)
+			.add_members(vec![(20, 20)])
+			.build_and_execute(|| {
+				unsafe_set_state(1, PoolState::Destroying);
+				let random = 123;
+
+				// given the pool some pending rewards.
+				assert_eq!(pending_rewards_for_delegator(20), 0);
+				deposit_rewards(10);
+				assert_eq!(pending_rewards_for_delegator(20), 6);
+
+				// any random user can unbond 20 now.
+				assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 20, 20));
+				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().active_points(), 0);
+				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().unbonding_points(), 20);
+
+				assert_eq!(
+					pool_events_since_last_call(),
+					vec![
+						Event::Created { depositor: 10, pool_id: 1 },
+						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
+						Event::PaidOut { member: 20, pool_id: 1, payout: 6 },
+						Event::Unbonded { member: 20, pool_id: 1, balance: 20, points: 20, era: 3 }
+					]
+				);
 			})
 	}
 
@@ -4419,12 +4556,11 @@ mod withdraw_unbonded {
 			CurrentEra::set(1);
 			assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().points, 20);
 
-			assert_ok!(Pools::set_claim_permission(
-				RuntimeOrigin::signed(20),
-				ClaimPermission::PermissionlessAll
-			));
 			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 20));
-			assert_eq!(ClaimPermissions::<Runtime>::get(20), ClaimPermission::PermissionlessAll);
+			assert_eq!(
+				ClaimPermissions::<Runtime>::get(20),
+				ClaimPermission::PermissionlessWithdraw
+			);
 
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -4648,7 +4784,7 @@ mod create {
 }
 
 #[test]
-fn set_claimable_actor_works() {
+fn set_claim_permission_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
 		Currency::set_balance(&11, ExistentialDeposit::get() + 2);
@@ -4667,22 +4803,19 @@ fn set_claimable_actor_works() {
 			]
 		);
 
-		// Make permissionless
-		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::Permissioned);
+		// Make permissioned
+		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::PermissionlessWithdraw);
 		assert_noop!(
-			Pools::set_claim_permission(
-				RuntimeOrigin::signed(12),
-				ClaimPermission::PermissionlessAll
-			),
+			Pools::set_claim_permission(RuntimeOrigin::signed(12), ClaimPermission::Permissioned),
 			Error::<T>::PoolMemberNotFound
 		);
 		assert_ok!(Pools::set_claim_permission(
 			RuntimeOrigin::signed(11),
-			ClaimPermission::PermissionlessAll
+			ClaimPermission::Permissioned
 		));
 
 		// then
-		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::PermissionlessAll);
+		assert_eq!(ClaimPermissions::<Runtime>::get(11), ClaimPermission::Permissioned);
 	});
 }
 
@@ -4703,6 +4836,18 @@ mod nominate {
 				Pools::nominate(RuntimeOrigin::signed(902), 1, vec![21]),
 				Error::<Runtime>::NotNominator
 			);
+
+			// if `depositor` stake is less than the `MinimumNominatorBond`, they can't nominate
+			StakingMinBond::set(20);
+
+			// Can't nominate if depositor's stake is less than the `MinimumNominatorBond`
+			assert_noop!(
+				Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]),
+				Error::<Runtime>::MinimumBondNotMet
+			);
+
+			// restore `MinimumNominatorBond`
+			StakingMinBond::set(10);
 
 			// Root can nominate
 			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![21]));
@@ -5068,7 +5213,7 @@ mod bond_extra {
 
 			assert_ok!(Pools::set_claim_permission(
 				RuntimeOrigin::signed(10),
-				ClaimPermission::PermissionlessAll
+				ClaimPermission::PermissionlessCompound
 			));
 			assert_ok!(Pools::bond_extra_other(RuntimeOrigin::signed(50), 10, BondExtra::Rewards));
 			assert_eq!(Currency::free_balance(&default_reward_account()), 7);
@@ -5761,7 +5906,13 @@ mod commission {
 			// Then:
 			assert_eq!(
 				BondedPool::<Runtime>::get(1).unwrap().commission,
-				Commission { current: None, max: None, change_rate: None, throttle_from: Some(1) }
+				Commission {
+					current: None,
+					max: None,
+					change_rate: None,
+					throttle_from: Some(1),
+					claim_permission: None,
+				}
 			);
 			assert_eq!(
 				pool_events_since_last_call(),
@@ -5956,6 +6107,7 @@ mod commission {
 						min_delay: 2_u64
 					}),
 					throttle_from: Some(1_u64),
+					claim_permission: None,
 				}
 			);
 			assert_eq!(
@@ -6007,6 +6159,7 @@ mod commission {
 						min_delay: 2_u64
 					}),
 					throttle_from: Some(3_u64),
+					claim_permission: None,
 				}
 			);
 			assert_eq!(
@@ -6082,7 +6235,8 @@ mod commission {
 						max_increase: Perbill::from_percent(1),
 						min_delay: 2
 					}),
-					throttle_from: Some(7)
+					throttle_from: Some(7),
+					claim_permission: None,
 				}
 			);
 			assert_eq!(
@@ -6183,6 +6337,7 @@ mod commission {
 					max: Some(Perbill::from_percent(50)),
 					change_rate: None,
 					throttle_from: Some(1),
+					claim_permission: None,
 				}
 			);
 
@@ -6409,6 +6564,7 @@ mod commission {
 						min_delay: 10_u64
 					}),
 					throttle_from: Some(11),
+					claim_permission: None,
 				}
 			);
 
@@ -6502,7 +6658,8 @@ mod commission {
 						max_increase: Perbill::from_percent(1),
 						min_delay: 0
 					}),
-					throttle_from: Some(1)
+					throttle_from: Some(1),
+					claim_permission: None,
 				}
 			);
 
@@ -6885,6 +7042,13 @@ mod commission {
 	#[test]
 	fn claim_commission_works() {
 		ExtBuilder::default().build_and_execute(|| {
+			/// Deposit rewards into the pool and claim payout. This will set up pending commission
+			/// to be tested in various scenarios.
+			fn deposit_rewards_and_claim_payout(caller: AccountId, points: u128) {
+				deposit_rewards(points);
+				assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(caller)));
+			}
+
 			let pool_id = 1;
 
 			let _ = Currency::set_balance(&900, 5);
@@ -6905,21 +7069,9 @@ mod commission {
 				]
 			);
 
-			// Pool earns 80 points, payout is triggered.
-			deposit_rewards(80);
-			assert_eq!(
-				PoolMembers::<Runtime>::get(10).unwrap(),
-				PoolMember::<Runtime> { pool_id, points: 10, ..Default::default() }
-			);
-
-			assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
-			assert_eq!(
-				pool_events_since_last_call(),
-				vec![Event::PaidOut { member: 10, pool_id, payout: 40 }]
-			);
-
 			// Given:
-			assert_eq!(RewardPool::<Runtime>::current_balance(pool_id), 40);
+			deposit_rewards_and_claim_payout(10, 100);
+			assert_eq!(RewardPool::<Runtime>::current_balance(pool_id), 50);
 
 			// Pool does not exist
 			assert_noop!(
@@ -6943,6 +7095,176 @@ mod commission {
 			assert_noop!(
 				Pools::claim_commission(RuntimeOrigin::signed(900), pool_id,),
 				Error::<Runtime>::NoPendingCommission
+			);
+
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 }
+				]
+			);
+
+			// The pool commission's claim_permission field is updated to `Permissionless` by the
+			// root member, which means anyone can now claim commission for the pool.
+
+			// Given:
+			// Some random non-pool member to claim commission.
+			let non_pool_member = 1001;
+			let _ = Currency::set_balance(&non_pool_member, 5);
+
+			// Set up pending commission.
+			deposit_rewards_and_claim_payout(10, 100);
+			assert_ok!(Pools::set_commission_claim_permission(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Some(CommissionClaimPermission::Permissionless)
+			));
+
+			// When:
+			assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(non_pool_member), pool_id));
+
+			// Then:
+			assert_eq!(RewardPool::<Runtime>::current_balance(pool_id), 0);
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimPermissionUpdated {
+						pool_id: 1,
+						permission: Some(CommissionClaimPermission::Permissionless)
+					},
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 },
+				]
+			);
+
+			// The pool commission's claim_permission is updated to an adhoc account by the root
+			// member, which means now only that account (in addition to the root role) can claim
+			// commission for the pool.
+
+			// Given:
+			// The account designated to claim commission.
+			let designated_commission_claimer = 2001;
+			let _ = Currency::set_balance(&designated_commission_claimer, 5);
+
+			// Set up pending commission.
+			deposit_rewards_and_claim_payout(10, 100);
+			assert_ok!(Pools::set_commission_claim_permission(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				Some(CommissionClaimPermission::Account(designated_commission_claimer))
+			));
+
+			// When:
+			// Previous claimer can no longer claim commission.
+			assert_noop!(
+				Pools::claim_commission(RuntimeOrigin::signed(1001), pool_id,),
+				Error::<Runtime>::DoesNotHavePermission
+			);
+			// Designated claimer can claim commission.
+			assert_ok!(Pools::claim_commission(
+				RuntimeOrigin::signed(designated_commission_claimer),
+				pool_id
+			));
+
+			// Then:
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimPermissionUpdated {
+						pool_id: 1,
+						permission: Some(CommissionClaimPermission::Account(2001))
+					},
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 },
+				]
+			);
+
+			// Even with an Account claim permission set, the `root` role of the pool can still
+			// claim commission.
+
+			// Given:
+			deposit_rewards_and_claim_payout(10, 100);
+
+			// When:
+			assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(900), pool_id));
+
+			// Then:
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 },
+				]
+			);
+
+			// The root role updates commission's claim_permission back to `None`, which results in
+			// only the root member being able to claim commission for the pool.
+
+			// Given:
+			deposit_rewards_and_claim_payout(10, 100);
+
+			// When:
+			assert_ok!(Pools::set_commission_claim_permission(
+				RuntimeOrigin::signed(900),
+				pool_id,
+				None
+			));
+			// Previous claimer can no longer claim commission.
+			assert_noop!(
+				Pools::claim_commission(
+					RuntimeOrigin::signed(designated_commission_claimer),
+					pool_id,
+				),
+				Error::<Runtime>::DoesNotHavePermission
+			);
+			// Root can claim commission.
+			assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(900), pool_id));
+
+			// Then:
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::PaidOut { member: 10, pool_id, payout: 50 },
+					Event::PoolCommissionClaimPermissionUpdated { pool_id: 1, permission: None },
+					Event::PoolCommissionClaimed { pool_id: 1, commission: 50 },
+				]
+			);
+		})
+	}
+
+	#[test]
+	fn set_commission_claim_permission_handles_errors() {
+		ExtBuilder::default().build_and_execute(|| {
+			let pool_id = 1;
+
+			let _ = Currency::set_balance(&900, 5);
+			assert_eq!(
+				pool_events_since_last_call(),
+				vec![
+					Event::Created { depositor: 10, pool_id },
+					Event::Bonded { member: 10, pool_id, bonded: 10, joined: true },
+				]
+			);
+
+			// Cannot operate on a non-existing pool.
+			assert_noop!(
+				Pools::set_commission_claim_permission(
+					RuntimeOrigin::signed(10),
+					90,
+					Some(CommissionClaimPermission::Permissionless)
+				),
+				Error::<Runtime>::PoolNotFound
+			);
+
+			// Only the root role can change the commission claim permission.
+			assert_noop!(
+				Pools::set_commission_claim_permission(
+					RuntimeOrigin::signed(10),
+					pool_id,
+					Some(CommissionClaimPermission::Permissionless)
+				),
+				Error::<Runtime>::DoesNotHavePermission
 			);
 		})
 	}
@@ -7015,5 +7337,35 @@ mod slash {
 			);
 			assert_eq!(BondedPool::<Runtime>::get(1).unwrap(), bonded(12 + 24, 3));
 		});
+	}
+}
+
+mod chill {
+	use super::*;
+
+	#[test]
+	fn chill_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// only nominator or root can chill
+			assert_noop!(
+				Pools::chill(RuntimeOrigin::signed(10), 1),
+				Error::<Runtime>::NotNominator
+			);
+
+			// root can chill and re-nominate
+			assert_ok!(Pools::chill(RuntimeOrigin::signed(900), 1));
+			assert_ok!(Pools::nominate(RuntimeOrigin::signed(900), 1, vec![31]));
+
+			// nominator can chill and re-nominate
+			assert_ok!(Pools::chill(RuntimeOrigin::signed(901), 1));
+			assert_ok!(Pools::nominate(RuntimeOrigin::signed(901), 1, vec![31]));
+
+			// if `depositor` stake is less than the `MinimumNominatorBond`, then this call
+			// becomes permissionless;
+			StakingMinBond::set(20);
+
+			// any account can chill
+			assert_ok!(Pools::chill(RuntimeOrigin::signed(10), 1));
+		})
 	}
 }

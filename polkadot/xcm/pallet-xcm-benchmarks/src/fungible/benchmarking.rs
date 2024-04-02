@@ -24,7 +24,7 @@ use frame_support::{
 };
 use sp_runtime::traits::{Bounded, Zero};
 use sp_std::{prelude::*, vec};
-use xcm::latest::{prelude::*, MAX_ITEMS_IN_MULTIASSETS};
+use xcm::latest::{prelude::*, MAX_ITEMS_IN_ASSETS};
 use xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
 benchmarks_instance_pallet! {
@@ -43,7 +43,7 @@ benchmarks_instance_pallet! {
 	withdraw_asset {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let worst_case_holding = T::worst_case_holding(0);
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
 		// check the assets of origin.
@@ -63,14 +63,17 @@ benchmarks_instance_pallet! {
 
 	transfer_asset {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
-		let asset = T::get_multi_asset();
-		let assets: MultiAssets = vec![ asset.clone() ].into();
+		let asset = T::get_asset();
+		let assets: Assets = vec![asset.clone()].into();
 		// this xcm doesn't use holding
 
 		let dest_location = T::valid_destination()?;
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
 
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
+		// We deposit the asset twice so we have enough for ED after transferring
+		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		let mut executor = new_executor::<T>(sender_location);
@@ -79,7 +82,7 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		assert!(T::TransactAsset::balance(&sender_account).is_zero());
+		assert!(T::TransactAsset::balance(&sender_account) < sender_account_balance_before);
 		assert!(!T::TransactAsset::balance(&dest_account).is_zero());
 	}
 
@@ -93,12 +96,13 @@ benchmarks_instance_pallet! {
 			&dest_location,
 			FeeReason::TransferReserveAsset
 		);
-		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
-		assert!(T::TransactAsset::balance(&sender_account) > sender_account_balance_before);
-		let assets: MultiAssets = vec![ asset ].into();
+		// We deposit the asset twice so we have enough for ED after transferring
+		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+		let assets: Assets = vec![asset].into();
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		let mut executor = new_executor::<T>(sender_location);
@@ -129,7 +133,7 @@ benchmarks_instance_pallet! {
 				BenchmarkResult::from_weight(Weight::MAX)
 			))?;
 
-		let assets: MultiAssets = vec![ transferable_reserve_asset ].into();
+		let assets: Assets = vec![ transferable_reserve_asset ].into();
 
 		let mut executor = new_executor::<T>(trusted_reserve);
 		let instruction = Instruction::ReserveAssetDeposited(assets.clone());
@@ -143,7 +147,7 @@ benchmarks_instance_pallet! {
 	initiate_reserve_withdraw {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let holding = T::worst_case_holding(1);
-		let assets_filter = MultiAssetFilter::Definite(holding.clone().into_inner().into_iter().take(MAX_ITEMS_IN_MULTIASSETS).collect::<Vec<_>>().into());
+		let assets_filter = AssetFilter::Definite(holding.clone().into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::<Vec<_>>().into());
 		let reserve = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
 
 		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
@@ -188,7 +192,7 @@ benchmarks_instance_pallet! {
 			)?;
 		}
 
-		let assets: MultiAssets = vec![ teleportable_asset ].into();
+		let assets: Assets = vec![ teleportable_asset ].into();
 
 		let mut executor = new_executor::<T>(trusted_teleporter);
 		let instruction = Instruction::ReceiveTeleportedAsset(assets.clone());
@@ -204,7 +208,7 @@ benchmarks_instance_pallet! {
 	}
 
 	deposit_asset {
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(1);
 
 		// Add our asset to the holding.
@@ -230,7 +234,7 @@ benchmarks_instance_pallet! {
 	}
 
 	deposit_reserve_asset {
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(1);
 
 		// Add our asset to the holding.
@@ -257,7 +261,7 @@ benchmarks_instance_pallet! {
 	}
 
 	initiate_teleport {
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(0);
 
 		// Add our asset to the holding.

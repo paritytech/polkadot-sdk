@@ -19,18 +19,15 @@ workflows:
         '--left-side-outside-workspace=ignore',
         # Some features imply that they activate a specific dependency as non-optional. Otherwise the default behaviour with a `?` is used.
         '--feature-enables-dep=try-runtime:frame-try-runtime,runtime-benchmarks:frame-benchmarking',
-        # Actually modify the files and not just report the issues:
+        # Auxillary flags:
         '--offline',
         '--locked',
         '--show-path',
         '--quiet',
       ]
-      # Format the features into canonical format:
-    - ['format', 'features', '--offline', '--locked', '--quiet']
   # Same as `check`, but with the `--fix` flag.
   default:
     - [ $check.0, '--fix' ]
-    - [ $check.1, '--fix' ]
 
 # Will be displayed when any workflow fails:
 help:

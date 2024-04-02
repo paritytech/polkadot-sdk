@@ -1,6 +1,6 @@
 [package]
 name = "sc-proposer-metrics"
-version = "0.10.0-dev"
+version = "0.17.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -9,9 +9,12 @@ repository.workspace = true
 description = "Basic metrics for block production."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }

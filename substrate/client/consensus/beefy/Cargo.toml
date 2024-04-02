@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-beefy"
-version = "4.0.0-dev"
+version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -8,16 +8,19 @@ repository.workspace = true
 description = "BEEFY Client gadget for substrate"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
 array-bytes = "6.1"
 async-channel = "1.8.0"
-async-trait = "0.1.57"
+async-trait = "0.1.79"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 fnv = "1.0.6"
-futures = "0.3"
-log = "0.4"
+futures = "0.3.30"
+log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
-thiserror = "1.0"
+thiserror = { workspace = true }
 wasm-timer = "0.2.5"
 prometheus = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }
@@ -33,17 +36,28 @@ sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-consensus-beefy = { path = "../../../primitives/consensus/beefy" }
 sp-core = { path = "../../../primitives/core" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
+tokio = "1.37"
+
 
 [dev-dependencies]
-serde = "1.0.188"
+serde = { workspace = true, default-features = true }
 tempfile = "3.1.0"
-tokio = "1.22.0"
 sc-block-builder = { path = "../../block-builder" }
 sc-network-test = { path = "../../network/test" }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-tracing = { path = "../../../primitives/tracing" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+
+[features]
+# This feature adds BLS crypto primitives. It should not be used in production since
+# the BLS implementation and interface may still be subject to significant change.
+bls-experimental = [
+	"sp-application-crypto/bls-experimental",
+	"sp-consensus-beefy/bls-experimental",
+	"sp-core/bls-experimental",
+]

@@ -22,6 +22,7 @@ use crate::{
 	peer_store::PeerStore,
 	protocol::notifications::{Notifications, NotificationsOut, ProtocolConfig},
 	protocol_controller::{ProtoSetConfig, ProtocolController, SetId},
+	service::traits::{NotificationEvent, ValidationResult},
 };
 
 use futures::{future::BoxFuture, prelude::*};
@@ -30,7 +31,8 @@ use libp2p::{
 	identity, noise,
 	swarm::{
 		behaviour::FromSwarm, ConnectionDenied, ConnectionId, Executor, NetworkBehaviour,
-		PollParameters, Swarm, SwarmEvent, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
+		PollParameters, Swarm, SwarmBuilder, SwarmEvent, THandler, THandlerInEvent,
+		THandlerOutEvent, ToSwarm,
 	},
 	yamux, Multiaddr, PeerId, Transport,
 };
@@ -69,6 +71,8 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			.timeout(Duration::from_secs(20))
 			.boxed();
 
+		let (protocol_handle_pair, mut notif_service) =
+			crate::protocol::notifications::service::notification_service("/foo".into());
 		let peer_store = PeerStore::new(if index == 0 {
 			keypairs.iter().skip(1).map(|keypair| keypair.public().to_peer_id()).collect()
 		} else {
@@ -90,16 +94,22 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 			Box::new(peer_store.handle()),
 		);
 
+		let (notif_handle, command_stream) = protocol_handle_pair.split();
 		let behaviour = CustomProtoWithAddr {
 			inner: Notifications::new(
 				vec![controller_handle],
 				from_controller,
-				iter::once(ProtocolConfig {
-					name: "/foo".into(),
-					fallback_names: Vec::new(),
-					handshake: Vec::new(),
-					max_notification_size: 1024 * 1024,
-				}),
+				None,
+				iter::once((
+					ProtocolConfig {
+						name: "/foo".into(),
+						fallback_names: Vec::new(),
+						handshake: Vec::new(),
+						max_notification_size: 1024 * 1024,
+					},
+					notif_handle,
+					command_stream,
+				)),
 			),
 			peer_store_future: peer_store.run().boxed(),
 			protocol_controller_future: controller.run().boxed(),
@@ -117,8 +127,17 @@ fn build_nodes() -> (Swarm<CustomProtoWithAddr>, Swarm<CustomProtoWithAddr>) {
 		};
 
 		let runtime = tokio::runtime::Runtime::new().unwrap();
-		#[allow(deprecated)]
-		let mut swarm = libp2p::swarm::SwarmBuilder::with_executor(
+		runtime.spawn(async move {
+			loop {
+				if let NotificationEvent::ValidateInboundSubstream { result_tx, .. } =
+					notif_service.next_event().await.unwrap()
+				{
+					result_tx.send(ValidationResult::Accept).unwrap();
+				}
+			}
+		});
+
+		let mut swarm = SwarmBuilder::with_executor(
 			transport,
 			behaviour,
 			keypairs[index].public().to_peer_id(),

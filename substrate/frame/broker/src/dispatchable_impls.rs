@@ -37,6 +37,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_notify_core_count(core_count: CoreIndex) -> DispatchResult {
+		CoreCountInbox::<T>::put(core_count);
+		Ok(())
+	}
+
 	pub(crate) fn do_reserve(workload: Schedule) -> DispatchResult {
 		let mut r = Reservations::<T>::get();
 		let index = r.len() as u32;
@@ -228,6 +233,9 @@ impl<T: Config> Pallet<T> {
 		ensure!((pivot & !region_id.mask).is_void(), Error::<T>::ExteriorPivot);
 		ensure!(!pivot.is_void(), Error::<T>::VoidPivot);
 		ensure!(pivot != region_id.mask, Error::<T>::CompletePivot);
+
+		// The old region should be removed.
+		Regions::<T>::remove(&region_id);
 
 		let one = RegionId { mask: pivot, ..region_id };
 		Regions::<T>::insert(&one, &region);
@@ -427,6 +435,24 @@ impl<T: Config> Pallet<T> {
 		ensure!(AllowedRenewals::<T>::contains_key(id), Error::<T>::UnknownRenewal);
 		AllowedRenewals::<T>::remove(id);
 		Self::deposit_event(Event::AllowedRenewalDropped { core, when });
+		Ok(())
+	}
+
+	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
+		let mut id_leases_count = 0;
+		let mut other_leases_count = 0;
+		Leases::<T>::mutate(|leases| {
+			leases.iter_mut().for_each(|lease| {
+				if lease.task == id {
+					lease.task = other;
+					id_leases_count += 1;
+				} else if lease.task == other {
+					lease.task = id;
+					other_leases_count += 1;
+				}
+			})
+		});
+
 		Ok(())
 	}
 }

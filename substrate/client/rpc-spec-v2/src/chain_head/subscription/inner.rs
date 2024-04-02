@@ -22,7 +22,7 @@ use sc_client_api::Backend;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::{atomic::AtomicBool, Arc},
 	time::{Duration, Instant},
 };
@@ -750,22 +750,52 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		}
 	}
 
-	pub fn unpin_block(
+	/// Ensure the provided hashes are unique.
+	fn ensure_hash_uniqueness(
+		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
+	) -> Result<(), SubscriptionManagementError> {
+		let mut set = HashSet::new();
+		hashes.into_iter().try_for_each(|hash| {
+			if !set.insert(hash) {
+				Err(SubscriptionManagementError::DuplicateHashes)
+			} else {
+				Ok(())
+			}
+		})
+	}
+
+	pub fn unpin_blocks(
 		&mut self,
 		sub_id: &str,
-		hash: Block::Hash,
+		hashes: impl IntoIterator<Item = Block::Hash> + Clone,
 	) -> Result<(), SubscriptionManagementError> {
+		Self::ensure_hash_uniqueness(hashes.clone())?;
+
 		let Some(sub) = self.subs.get_mut(sub_id) else {
 			return Err(SubscriptionManagementError::SubscriptionAbsent)
 		};
 
-		// Check that unpin was not called before and the block was pinned
-		// for this subscription.
-		if !sub.unregister_block(hash) {
-			return Err(SubscriptionManagementError::BlockHashAbsent)
+		// Ensure that all blocks are part of the subscription before removing individual
+		// blocks.
+		for hash in hashes.clone() {
+			if !sub.contains_block(hash) {
+				return Err(SubscriptionManagementError::BlockHashAbsent)
+			}
 		}
 
-		self.global_unregister_block(hash);
+		// Note: this needs to be separate from the global mappings to avoid barrow checker
+		// thinking we borrow `&mut self` twice: once from `self.subs.get_mut` and once from
+		// `self.global_unregister_block`. Although the borrowing is correct, since different
+		// fields of the structure are borrowed, one at a time.
+		for hash in hashes.clone() {
+			sub.unregister_block(hash);
+		}
+
+		// Block have been removed from the subscription. Remove them from the global tracking.
+		for hash in hashes {
+			self.global_unregister_block(hash);
+		}
+
 		Ok(())
 	}
 
@@ -972,6 +1002,76 @@ mod tests {
 	}
 
 	#[test]
+	fn unpin_duplicate_hashes() {
+		let (backend, mut client) = init_backend();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_1 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_1)
+			.with_parent_block_number(1)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_2 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(hash_2)
+			.with_parent_block_number(2)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash_3 = block.header.hash();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
+		let id_1 = "abc".to_string();
+		let id_2 = "abcd".to_string();
+
+		// Pin all blocks for the first subscription.
+		let _stop = subs.insert_subscription(id_1.clone(), true).unwrap();
+		assert_eq!(subs.pin_block(&id_1, hash_1).unwrap(), true);
+		assert_eq!(subs.pin_block(&id_1, hash_2).unwrap(), true);
+		assert_eq!(subs.pin_block(&id_1, hash_3).unwrap(), true);
+
+		// Pin only block 2 for the second subscription.
+		let _stop = subs.insert_subscription(id_2.clone(), true).unwrap();
+		assert_eq!(subs.pin_block(&id_2, hash_2).unwrap(), true);
+
+		// Check reference count.
+		assert_eq!(*subs.global_blocks.get(&hash_1).unwrap(), 1);
+		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 2);
+		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
+
+		// Unpin the same block twice.
+		let err = subs.unpin_blocks(&id_1, vec![hash_1, hash_1, hash_2, hash_2]).unwrap_err();
+		assert_eq!(err, SubscriptionManagementError::DuplicateHashes);
+
+		// Check reference count must be unaltered.
+		assert_eq!(*subs.global_blocks.get(&hash_1).unwrap(), 1);
+		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 2);
+		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
+
+		// Unpin the blocks correctly.
+		subs.unpin_blocks(&id_1, vec![hash_1, hash_2]).unwrap();
+		assert_eq!(subs.global_blocks.get(&hash_1), None);
+		assert_eq!(*subs.global_blocks.get(&hash_2).unwrap(), 1);
+		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
+	}
+
+	#[test]
 	fn subscription_lock_block() {
 		let builder = TestClientBuilder::new();
 		let backend = builder.backend();
@@ -1029,11 +1129,11 @@ mod tests {
 		assert_eq!(block.has_runtime(), true);
 
 		let invalid_id = "abc-invalid".to_string();
-		let err = subs.unpin_block(&invalid_id, hash).unwrap_err();
+		let err = subs.unpin_blocks(&invalid_id, vec![hash]).unwrap_err();
 		assert_eq!(err, SubscriptionManagementError::SubscriptionAbsent);
 
 		// Unpin the block.
-		subs.unpin_block(&id, hash).unwrap();
+		subs.unpin_blocks(&id, vec![hash]).unwrap();
 		let err = subs.lock_block(&id, hash, 1).unwrap_err();
 		assert_eq!(err, SubscriptionManagementError::BlockHashAbsent);
 	}
@@ -1077,13 +1177,13 @@ mod tests {
 		// Ensure the block propagated to the subscription.
 		subs.subs.get(&id_second).unwrap().blocks.get(&hash).unwrap();
 
-		subs.unpin_block(&id, hash).unwrap();
+		subs.unpin_blocks(&id, vec![hash]).unwrap();
 		assert_eq!(*subs.global_blocks.get(&hash).unwrap(), 1);
 		// Cannot unpin a block twice for the same subscription.
-		let err = subs.unpin_block(&id, hash).unwrap_err();
+		let err = subs.unpin_blocks(&id, vec![hash]).unwrap_err();
 		assert_eq!(err, SubscriptionManagementError::BlockHashAbsent);
 
-		subs.unpin_block(&id_second, hash).unwrap();
+		subs.unpin_blocks(&id_second, vec![hash]).unwrap();
 		// Block unregistered from the memory.
 		assert!(subs.global_blocks.get(&hash).is_none());
 	}
@@ -1354,5 +1454,58 @@ mod tests {
 		// Can reserve again
 		let permit_three = ops.reserve_at_most(1).unwrap();
 		assert_eq!(permit_three.num_ops, 1);
+	}
+
+	#[test]
+	fn reserved_subscription_cleans_resources() {
+		let builder = TestClientBuilder::new();
+		let backend = builder.backend();
+		let subs = Arc::new(parking_lot::RwLock::new(SubscriptionsInner::new(
+			10,
+			Duration::from_secs(10),
+			MAX_OPERATIONS_PER_SUB,
+			backend,
+		)));
+
+		// Maximum 2 subscriptions per connection.
+		let rpc_connections = crate::common::connections::RpcConnections::new(2);
+
+		let subscription_management =
+			crate::chain_head::subscription::SubscriptionManagement::_from_inner(
+				subs.clone(),
+				rpc_connections.clone(),
+			);
+
+		let reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+		let mut reserved_sub_second = subscription_management.reserve_subscription(1).unwrap();
+		// Subscriptions reserved but not yet populated.
+		assert_eq!(subs.read().subs.len(), 0);
+
+		// Cannot reserve anymore.
+		assert!(subscription_management.reserve_subscription(1).is_none());
+		// Drop the first subscription.
+		drop(reserved_sub_first);
+		// Space is freed-up for the rpc connections.
+		let mut reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+
+		// Insert subscriptions.
+		let _sub_data_first =
+			reserved_sub_first.insert_subscription("sub1".to_string(), true).unwrap();
+		let _sub_data_second =
+			reserved_sub_second.insert_subscription("sub2".to_string(), true).unwrap();
+		// Check we have 2 subscriptions under management.
+		assert_eq!(subs.read().subs.len(), 2);
+
+		// Drop first reserved subscription.
+		drop(reserved_sub_first);
+		// Check that the subscription is removed.
+		assert_eq!(subs.read().subs.len(), 1);
+		// Space is freed-up for the rpc connections.
+		let reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+
+		// Drop all subscriptions.
+		drop(reserved_sub_first);
+		drop(reserved_sub_second);
+		assert_eq!(subs.read().subs.len(), 0);
 	}
 }

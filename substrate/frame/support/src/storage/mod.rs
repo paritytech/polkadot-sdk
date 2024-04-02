@@ -159,7 +159,7 @@ pub trait StorageValue<T: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len() -> Option<usize>
 	where
@@ -363,7 +363,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len<KeyArg: EncodeLike<K>>(key: KeyArg) -> Option<usize>
 	where
@@ -381,7 +381,8 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	///  - `None` does not mean that `get()` does not return a value. The default value is
+	///    completely
 	/// ignored by this function.
 	///
 	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
@@ -410,7 +411,7 @@ pub trait StorageMap<K: FullEncode, V: FullCodec> {
 pub trait IterableStorageMap<K: FullEncode, V: FullCodec>: StorageMap<K, V> {
 	/// The type that iterates over all `(key, value)`.
 	type Iterator: Iterator<Item = (K, V)>;
-	/// The type that itereates over all `key`s.
+	/// The type that iterates over all `key`s.
 	type KeyIterator: Iterator<Item = K>;
 
 	/// Enumerate all elements in the map in lexicographical order of the encoded key. If you
@@ -777,7 +778,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
 	where
@@ -798,7 +799,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_non_dedup_len<KArg1, KArg2>(key1: KArg1, key2: KArg2) -> Option<usize>
 	where
@@ -980,7 +981,7 @@ pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	///
 	/// # Warning
 	///
-	/// `None` does not mean that `get()` does not return a value. The default value is completly
+	/// `None` does not mean that `get()` does not return a value. The default value is completely
 	/// ignored by this function.
 	fn decode_len<KArg: EncodeLikeTuple<K::KArg> + TupleToEncodedIter>(key: KArg) -> Option<usize>
 	where
@@ -1488,8 +1489,8 @@ pub trait StorageDecodeLength: private::Sealed + codec::DecodeLength {
 	}
 }
 
-/// It is expected that the length is at the beginning of the encoded objectand that the length is a
-/// `Compact<u32>`.
+/// It is expected that the length is at the beginning of the encoded object and that the length is
+/// a `Compact<u32>`.
 ///
 /// # Note
 /// The length returned by this trait is not deduplicated, i.e. it is the length of the underlying
@@ -1583,7 +1584,7 @@ pub trait StorageTryAppend<Item>: StorageDecodeLength + private::Sealed {
 	fn bound() -> usize;
 }
 
-/// Storage value that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+/// Storage value that is capable of [`StorageTryAppend`].
 pub trait TryAppendValue<T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage item.
 	///
@@ -1612,7 +1613,7 @@ where
 	}
 }
 
-/// Storage map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+/// Storage map that is capable of [`StorageTryAppend`].
 pub trait TryAppendMap<K: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage map at the given `key`.
 	///
@@ -1646,7 +1647,7 @@ where
 	}
 }
 
-/// Storage double map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+/// Storage double map that is capable of [`StorageTryAppend`].
 pub trait TryAppendDoubleMap<K1: Encode, K2: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage double map at the given `key`.
 	///
@@ -1712,7 +1713,7 @@ mod test {
 	use bounded_vec::BoundedVec;
 	use frame_support::traits::ConstU32;
 	use generator::StorageValue as _;
-	use sp_core::hashing::twox_128;
+	use sp_crypto_hashing::twox_128;
 	use sp_io::TestExternalities;
 	use weak_bounded_vec::WeakBoundedVec;
 
@@ -1790,7 +1791,7 @@ mod test {
 		});
 	}
 
-	// This test ensures that the Digest encoding does not change without being noticied.
+	// This test ensures that the Digest encoding does not change without being noticed.
 	#[test]
 	fn digest_storage_append_works_as_expected() {
 		TestExternalities::default().execute_with(|| {

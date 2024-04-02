@@ -1,0 +1,9 @@
+title: Expose internal functions used by `spawn_tasks`
+
+doc:
+  - audience: Node Dev
+    description: |
+      This allows to build a custom version of `spawn_tasks` with less copy-paste required
+
+crates:
+  - name: sc-service

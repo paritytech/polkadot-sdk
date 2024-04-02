@@ -58,9 +58,12 @@
 //! [`NotifsHandlerIn::Open`] has gotten an answer.
 
 use crate::{
-	protocol::notifications::upgrade::{
-		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
-		UpgradeCollec,
+	protocol::notifications::{
+		service::metrics,
+		upgrade::{
+			NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
+			UpgradeCollec,
+		},
 	},
 	types::ProtocolName,
 };
@@ -92,7 +95,7 @@ use std::{
 
 /// Number of pending notifications in asynchronous contexts.
 /// See [`NotificationsSink::reserve_notification`] for context.
-const ASYNC_NOTIFICATIONS_BUFFER_SIZE: usize = 8;
+pub(crate) const ASYNC_NOTIFICATIONS_BUFFER_SIZE: usize = 8;
 
 /// Number of pending notifications in synchronous contexts.
 const SYNC_NOTIFICATIONS_BUFFER_SIZE: usize = 2048;
@@ -126,11 +129,19 @@ pub struct NotifsHandler {
 	events_queue: VecDeque<
 		ConnectionHandlerEvent<NotificationsOut, usize, NotifsHandlerOut, NotifsHandlerError>,
 	>,
+
+	/// Metrics.
+	metrics: Option<Arc<metrics::Metrics>>,
 }
 
 impl NotifsHandler {
 	/// Creates new [`NotifsHandler`].
-	pub fn new(peer_id: PeerId, endpoint: ConnectedPoint, protocols: Vec<ProtocolConfig>) -> Self {
+	pub fn new(
+		peer_id: PeerId,
+		endpoint: ConnectedPoint,
+		protocols: Vec<ProtocolConfig>,
+		metrics: Option<metrics::Metrics>,
+	) -> Self {
 		Self {
 			protocols: protocols
 				.into_iter()
@@ -148,6 +159,7 @@ impl NotifsHandler {
 			endpoint,
 			when_connection_open: Instant::now(),
 			events_queue: VecDeque::with_capacity(16),
+			metrics: metrics.map_or(None, |metrics| Some(Arc::new(metrics))),
 		}
 	}
 }
@@ -199,7 +211,7 @@ enum State {
 	/// consequently trying to open the various notifications substreams.
 	///
 	/// A [`NotifsHandlerOut::OpenResultOk`] or a [`NotifsHandlerOut::OpenResultErr`] event must
-	/// be emitted when transitionning to respectively [`State::Open`] or [`State::Closed`].
+	/// be emitted when transitioning to respectively [`State::Open`] or [`State::Closed`].
 	Opening {
 		/// Substream opened by the remote. If `Some`, has been accepted.
 		in_substream: Option<NotificationsInSubstream<Stream>>,
@@ -303,6 +315,8 @@ pub enum NotifsHandlerOut {
 	OpenDesiredByRemote {
 		/// Index of the protocol in the list of protocols passed at initialization.
 		protocol_index: usize,
+		/// Received handshake.
+		handshake: Vec<u8>,
 	},
 
 	/// The remote would like the substreams to be closed. Send a [`NotifsHandlerIn::Close`] in
@@ -331,6 +345,36 @@ pub enum NotifsHandlerOut {
 #[derive(Debug, Clone)]
 pub struct NotificationsSink {
 	inner: Arc<NotificationsSinkInner>,
+	metrics: Option<Arc<metrics::Metrics>>,
+}
+
+impl NotificationsSink {
+	/// Create new [`NotificationsSink`].
+	/// NOTE: only used for testing but must be `pub` as other crates in `client/network` use this.
+	pub fn new(
+		peer_id: PeerId,
+	) -> (Self, mpsc::Receiver<NotificationsSinkMessage>, mpsc::Receiver<NotificationsSinkMessage>)
+	{
+		let (async_tx, async_rx) = mpsc::channel(ASYNC_NOTIFICATIONS_BUFFER_SIZE);
+		let (sync_tx, sync_rx) = mpsc::channel(SYNC_NOTIFICATIONS_BUFFER_SIZE);
+		(
+			NotificationsSink {
+				inner: Arc::new(NotificationsSinkInner {
+					peer_id,
+					async_channel: FuturesMutex::new(async_tx),
+					sync_channel: Mutex::new(Some(sync_tx)),
+				}),
+				metrics: None,
+			},
+			async_rx,
+			sync_rx,
+		)
+	}
+
+	/// Get reference to metrics.
+	pub fn metrics(&self) -> &Option<Arc<metrics::Metrics>> {
+		&self.metrics
+	}
 }
 
 #[derive(Debug)]
@@ -350,8 +394,8 @@ struct NotificationsSinkInner {
 
 /// Message emitted through the [`NotificationsSink`] and processed by the background task
 /// dedicated to the peer.
-#[derive(Debug)]
-enum NotificationsSinkMessage {
+#[derive(Debug, PartialEq, Eq)]
+pub enum NotificationsSinkMessage {
 	/// Message emitted by [`NotificationsSink::reserve_notification`] and
 	/// [`NotificationsSink::write_notification_now`].
 	Notification { message: Vec<u8> },
@@ -379,8 +423,8 @@ impl NotificationsSink {
 		let mut lock = self.inner.sync_channel.lock();
 
 		if let Some(tx) = lock.as_mut() {
-			let result =
-				tx.try_send(NotificationsSinkMessage::Notification { message: message.into() });
+			let message = message.into();
+			let result = tx.try_send(NotificationsSinkMessage::Notification { message });
 
 			if result.is_err() {
 				// Cloning the `mpsc::Sender` guarantees the allocation of an extra spot in the
@@ -476,7 +520,10 @@ impl ConnectionHandler for NotifsHandler {
 				match protocol_info.state {
 					State::Closed { pending_opening } => {
 						self.events_queue.push_back(ConnectionHandlerEvent::NotifyBehaviour(
-							NotifsHandlerOut::OpenDesiredByRemote { protocol_index },
+							NotifsHandlerOut::OpenDesiredByRemote {
+								protocol_index,
+								handshake: in_substream_open.handshake,
+							},
 						));
 
 						protocol_info.state = State::OpenDesiredByRemote {
@@ -531,6 +578,7 @@ impl ConnectionHandler for NotifsHandler {
 								async_channel: FuturesMutex::new(async_tx),
 								sync_channel: Mutex::new(Some(sync_tx)),
 							}),
+							metrics: self.metrics.clone(),
 						};
 
 						self.protocols[protocol_index].state = State::Open {
@@ -833,6 +881,9 @@ impl ConnectionHandler for NotifsHandler {
 #[cfg(test)]
 pub mod tests {
 	use super::*;
+	// use crate::protocol::notifications::{
+	// 	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
+	// };
 	use std::collections::HashMap;
 	use tokio::sync::mpsc;
 
@@ -875,6 +926,7 @@ pub mod tests {
 					async_channel: FuturesMutex::new(async_tx),
 					sync_channel: Mutex::new(Some(sync_tx)),
 				}),
+				metrics: None,
 			};
 			let (in_substream, out_substream) = MockSubstream::new();
 
@@ -935,678 +987,681 @@ pub mod tests {
 				Self { _rx: rx2, _tx: tx1, _rx_buffer: BytesMut::with_capacity(512) },
 			)
 		}
+
+		/*
+		/// Create new negotiated substream pair.
+		pub async fn negotiated() -> (Negotiated<SubstreamBox>, Negotiated<SubstreamBox>) {
+			let (socket1, socket2) = Self::new();
+			let socket1 = SubstreamBox::new(socket1);
+			let socket2 = SubstreamBox::new(socket2);
+
+			let protos = vec![b"/echo/1.0.0", b"/echo/2.5.0"];
+			let (res1, res2) = tokio::join!(
+				dialer_select_proto(socket1, protos.clone(), Version::V1),
+				listener_select_proto(socket2, protos),
+			);
+
+			(res1.unwrap().1, res2.unwrap().1)
+		}
+		*/
 	}
+
+	/*
+	impl AsyncWrite for MockSubstream {
+		fn poll_write<'a>(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'a>,
+			buf: &[u8],
+		) -> Poll<Result<usize, Error>> {
+			match self.tx.try_send(buf.to_vec()) {
+				Ok(_) => Poll::Ready(Ok(buf.len())),
+				Err(_) => Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into())),
+			}
+		}
+
+		fn poll_flush<'a>(self: Pin<&mut Self>, _cx: &mut Context<'a>) -> Poll<Result<(), Error>> {
+			Poll::Ready(Ok(()))
+		}
+
+		fn poll_close<'a>(self: Pin<&mut Self>, _cx: &mut Context<'a>) -> Poll<Result<(), Error>> {
+			Poll::Ready(Ok(()))
+		}
+
+		fn poll_write_vectored<'a, 'b>(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'a>,
+			_bufs: &[IoSlice<'b>],
+		) -> Poll<Result<usize, Error>> {
+			unimplemented!();
+		}
+	}
+
+	impl AsyncRead for MockSubstream {
+		fn poll_read<'a>(
+			mut self: Pin<&mut Self>,
+			cx: &mut Context<'a>,
+			buf: &mut [u8],
+		) -> Poll<Result<usize, Error>> {
+			match self.rx.poll_recv(cx) {
+				Poll::Ready(Some(data)) => self.rx_buffer.extend_from_slice(&data),
+				Poll::Ready(None) =>
+					return Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into())),
+				_ => {},
+			}
+
+			let nsize = std::cmp::min(self.rx_buffer.len(), buf.len());
+			let data = self.rx_buffer.split_to(nsize);
+			buf[..nsize].copy_from_slice(&data[..]);
+
+			if nsize > 0 {
+				return Poll::Ready(Ok(nsize))
+			}
+
+			Poll::Pending
+		}
+
+		fn poll_read_vectored<'a, 'b>(
+			self: Pin<&mut Self>,
+			_cx: &mut Context<'a>,
+			_bufs: &mut [IoSliceMut<'b>],
+		) -> Poll<Result<usize, Error>> {
+			unimplemented!();
+		}
+	}
+
+	/// Create new [`NotifsHandler`].
+	fn notifs_handler() -> NotifsHandler {
+		let proto = Protocol {
+			config: ProtocolConfig {
+				name: "/foo".into(),
+				fallback_names: vec![],
+				handshake: Arc::new(RwLock::new(b"hello, world".to_vec())),
+				max_notification_size: u64::MAX,
+			},
+			in_upgrade: NotificationsIn::new("/foo", Vec::new(), u64::MAX),
+			state: State::Closed { pending_opening: false },
+		};
+
+		NotifsHandler {
+			protocols: vec![proto],
+			when_connection_open: Instant::now(),
+			endpoint: ConnectedPoint::Listener {
+				local_addr: Multiaddr::empty(),
+				send_back_addr: Multiaddr::empty(),
+			},
+			peer_id: PeerId::random(),
+			events_queue: VecDeque::new(),
+			metrics: None,
+		}
+	}
+
+	// verify that if another substream is attempted to be opened by remote while an inbound
+	// substream already exists, the new inbound stream is rejected and closed by the local node.
+	#[tokio::test]
+	async fn second_open_desired_by_remote_rejected() {
+		let mut handler = notifs_handler();
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the substream is in (partly) opened state
+		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
+			Poll::Ready(())
+		})
+		.await;
+
+		// attempt to open another inbound substream and verify that it is rejected
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the new substream is rejected and closed
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+
+			if let Poll::Ready(Err(err)) = Pin::new(&mut io2).poll_read(cx, &mut buf) {
+				assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof,);
+			}
+
+			Poll::Ready(())
+		})
+		.await;
+	}
+
+	#[tokio::test]
+	async fn open_rejected_if_substream_is_opening() {
+		let mut handler = notifs_handler();
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the substream is in (partly) opened state
+		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
+			Poll::Ready(())
+		})
+		.await;
+
+		// move the handler state to 'Opening'
+		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Opening { in_substream: Some(_), .. }
+		));
+
+		// remote now tries to open another substream, verify that it is rejected and closed
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the new substream is rejected and closed but that the first substream is
+		// still in correct state
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+
+			if let Poll::Ready(Err(err)) = Pin::new(&mut io2).poll_read(cx, &mut buf) {
+				assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof,);
+			} else {
+				panic!("unexpected result");
+			}
+
+			Poll::Ready(())
+		})
+		.await;
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Opening { in_substream: Some(_), .. }
+		));
+	}
+
+	#[tokio::test]
+	async fn open_rejected_if_substream_already_open() {
+		let mut handler = notifs_handler();
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the substream is in (partly) opened state
+		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
+			Poll::Ready(())
+		})
+		.await;
+
+		// move the handler state to 'Opening'
+		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Opening { in_substream: Some(_), .. }
+		));
+
+		// accept the substream and move its state to `Open`
+		let (io, _io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_out = NotificationsOutOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsOutSubstream::new(Framed::new(io, codec)),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedOutbound(
+			handler::FullyNegotiatedOutbound { protocol: notif_out, info: 0 },
+		));
+
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Open { in_substream: Some(_), .. }
+		));
+
+		// remote now tries to open another substream, verify that it is rejected and closed
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the new substream is rejected and closed but that the first substream is
+		// still in correct state
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+
+			if let Poll::Ready(Err(err)) = Pin::new(&mut io2).poll_read(cx, &mut buf) {
+				assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
+			} else {
+				panic!("unexpected result");
+			}
+
+			Poll::Ready(())
+		})
+		.await;
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Open { in_substream: Some(_), .. }
+		));
+	}
+
+	#[tokio::test]
+	async fn fully_negotiated_resets_state_for_closed_substream() {
+		let mut handler = notifs_handler();
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the substream is in (partly) opened state
+		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
+			Poll::Ready(())
+		})
+		.await;
+
+		// first instruct the handler to open a connection and then close it right after
+		// so the handler is in state `Closed { pending_opening: true }`
+		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Opening { in_substream: Some(_), .. }
+		));
+
+		handler.on_behaviour_event(NotifsHandlerIn::Close { protocol_index: 0 });
+		assert!(std::matches!(handler.protocols[0].state, State::Closed { pending_opening: true }));
+
+		// verify that if the the outbound substream is successfully negotiated, the state is not
+		// changed as the substream was commanded to be closed by the handler.
+		let (io, _io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_out = NotificationsOutOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsOutSubstream::new(Framed::new(io, codec)),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedOutbound(
+			handler::FullyNegotiatedOutbound { protocol: notif_out, info: 0 },
+		));
+
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Closed { pending_opening: false }
+		));
+	}
+
+	#[tokio::test]
+	async fn fully_negotiated_resets_state_for_open_desired_substream() {
+		let mut handler = notifs_handler();
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the substream is in (partly) opened state
+		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
+			Poll::Ready(())
+		})
+		.await;
+
+		// first instruct the handler to open a connection and then close it right after
+		// so the handler is in state `Closed { pending_opening: true }`
+		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Opening { in_substream: Some(_), .. }
+		));
+
+		handler.on_behaviour_event(NotifsHandlerIn::Close { protocol_index: 0 });
+		assert!(std::matches!(handler.protocols[0].state, State::Closed { pending_opening: true }));
+
+		// attempt to open another inbound substream and verify that it is rejected
+		let (io, _io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::OpenDesiredByRemote { pending_opening: true, .. }
+		));
+
+		// verify that if the the outbound substream is successfully negotiated, the state is not
+		// changed as the substream was commanded to be closed by the handler.
+		let (io, _io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_out = NotificationsOutOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsOutSubstream::new(Framed::new(io, codec)),
+		};
+
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedOutbound(
+			handler::FullyNegotiatedOutbound { protocol: notif_out, info: 0 },
+		));
+
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::OpenDesiredByRemote { pending_opening: false, .. }
+		));
+	}
+
+	#[tokio::test]
+	async fn dial_upgrade_error_resets_closed_outbound_state() {
+		let mut handler = notifs_handler();
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the substream is in (partly) opened state
+		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
+			Poll::Ready(())
+		})
+		.await;
+
+		// first instruct the handler to open a connection and then close it right after
+		// so the handler is in state `Closed { pending_opening: true }`
+		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Opening { in_substream: Some(_), .. }
+		));
+
+		handler.on_behaviour_event(NotifsHandlerIn::Close { protocol_index: 0 });
+		assert!(std::matches!(handler.protocols[0].state, State::Closed { pending_opening: true }));
+
+		// inject dial failure to an already closed substream and verify outbound state is reset
+		handler.on_connection_event(handler::ConnectionEvent::DialUpgradeError(
+			handler::DialUpgradeError { info: 0, error: ConnectionHandlerUpgrErr::Timeout },
+		));
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Closed { pending_opening: false }
+		));
+	}
+
+	#[tokio::test]
+	async fn dial_upgrade_error_resets_open_desired_state() {
+		let mut handler = notifs_handler();
+		let (io, mut io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		// verify that the substream is in (partly) opened state
+		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
+		futures::future::poll_fn(|cx| {
+			let mut buf = Vec::with_capacity(512);
+			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
+			Poll::Ready(())
+		})
+		.await;
+
+		// first instruct the handler to open a connection and then close it right after
+		// so the handler is in state `Closed { pending_opening: true }`
+		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::Opening { in_substream: Some(_), .. }
+		));
+
+		handler.on_behaviour_event(NotifsHandlerIn::Close { protocol_index: 0 });
+		assert!(std::matches!(handler.protocols[0].state, State::Closed { pending_opening: true }));
+
+		let (io, _io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::NotSent,
+			),
+		};
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::OpenDesiredByRemote { pending_opening: true, .. }
+		));
+
+		// inject dial failure to an already closed substream and verify outbound state is reset
+		handler.on_connection_event(handler::ConnectionEvent::DialUpgradeError(
+			handler::DialUpgradeError { info: 0, error: ConnectionHandlerUpgrErr::Timeout },
+		));
+		assert!(std::matches!(
+			handler.protocols[0].state,
+			State::OpenDesiredByRemote { pending_opening: false, .. }
+		));
+	}
+
+	#[tokio::test]
+	async fn sync_notifications_clogged() {
+		let mut handler = notifs_handler();
+		let (io, _) = MockSubstream::negotiated().await;
+		let codec = UviBytes::default();
+
+		let (async_tx, async_rx) = futures::channel::mpsc::channel(ASYNC_NOTIFICATIONS_BUFFER_SIZE);
+		let (sync_tx, sync_rx) = futures::channel::mpsc::channel(1);
+		let notifications_sink = NotificationsSink {
+			inner: Arc::new(NotificationsSinkInner {
+				peer_id: PeerId::random(),
+				async_channel: FuturesMutex::new(async_tx),
+				sync_channel: Mutex::new(Some(sync_tx)),
+			}),
+			metrics: None,
+		};
+
+		handler.protocols[0].state = State::Open {
+			notifications_sink_rx: stream::select(async_rx.fuse(), sync_rx.fuse()).peekable(),
+			out_substream: Some(NotificationsOutSubstream::new(Framed::new(io, codec))),
+			in_substream: None,
+		};
+
+		notifications_sink.send_sync_notification(vec![1, 3, 3, 7]);
+		notifications_sink.send_sync_notification(vec![1, 3, 3, 8]);
+		notifications_sink.send_sync_notification(vec![1, 3, 3, 9]);
+		notifications_sink.send_sync_notification(vec![1, 3, 4, 0]);
+
+		futures::future::poll_fn(|cx| {
+			assert!(std::matches!(
+				handler.poll(cx),
+				Poll::Ready(ConnectionHandlerEvent::Close(
+					NotifsHandlerError::SyncNotificationsClogged,
+				))
+			));
+			Poll::Ready(())
+		})
+		.await;
+	}
+
+	#[tokio::test]
+	async fn close_desired_by_remote() {
+		let mut handler = notifs_handler();
+		let (io, io2) = MockSubstream::negotiated().await;
+		let mut codec = UviBytes::default();
+		codec.set_max_len(usize::MAX);
+
+		let notif_in = NotificationsInOpen {
+			handshake: b"hello, world".to_vec(),
+			negotiated_fallback: None,
+			substream: NotificationsInSubstream::new(
+				Framed::new(io, codec),
+				NotificationsInSubstreamHandshake::PendingSend(vec![1, 2, 3, 4]),
+			),
+		};
+
+		// add new inbound substream but close it immediately and verify that correct events are
+		// emitted
+		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
+			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
+		));
+		drop(io2);
+
+		futures::future::poll_fn(|cx| {
+			assert!(std::matches!(
+				handler.poll(cx),
+				Poll::Ready(ConnectionHandlerEvent::Custom(
+					NotifsHandlerOut::OpenDesiredByRemote { protocol_index: 0, .. },
+				))
+			));
+			assert!(std::matches!(
+				handler.poll(cx),
+				Poll::Ready(ConnectionHandlerEvent::Custom(NotifsHandlerOut::CloseDesired {
+					protocol_index: 0
+				},))
+			));
+			Poll::Ready(())
+		})
+		.await;
+	}
+	*/
 }
-
-// 	}
-// 		/// Create new negotiated substream pair.
-// 		pub async fn negotiated() -> (Negotiated<SubstreamBox>, Negotiated<SubstreamBox>) {
-// 			let (socket1, socket2) = Self::new();
-// 			let socket1 = SubstreamBox::new(socket1);
-// 			let socket2 = SubstreamBox::new(socket2);
-
-// 			let protos = vec![b"/echo/1.0.0", b"/echo/2.5.0"];
-// 			let (res1, res2) = tokio::join!(
-// 				dialer_select_proto(socket1, protos.clone(), Version::V1),
-// 				listener_select_proto(socket2, protos),
-// 			);
-
-// 			(res1.unwrap().1, res2.unwrap().1)
-// 		}
-// 	}
-
-// 	impl AsyncWrite for MockSubstream {
-// 		fn poll_write<'a>(
-// 			self: Pin<&mut Self>,
-// 			_cx: &mut Context<'a>,
-// 			buf: &[u8],
-// 		) -> Poll<Result<usize, Error>> {
-// 			match self.tx.try_send(buf.to_vec()) {
-// 				Ok(_) => Poll::Ready(Ok(buf.len())),
-// 				Err(_) => Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into())),
-// 			}
-// 		}
-
-// 		fn poll_flush<'a>(self: Pin<&mut Self>, _cx: &mut Context<'a>) -> Poll<Result<(), Error>> {
-// 			Poll::Ready(Ok(()))
-// 		}
-
-// 		fn poll_close<'a>(self: Pin<&mut Self>, _cx: &mut Context<'a>) -> Poll<Result<(), Error>> {
-// 			Poll::Ready(Ok(()))
-// 		}
-
-// 		fn poll_write_vectored<'a, 'b>(
-// 			self: Pin<&mut Self>,
-// 			_cx: &mut Context<'a>,
-// 			_bufs: &[IoSlice<'b>],
-// 		) -> Poll<Result<usize, Error>> {
-// 			unimplemented!();
-// 		}
-// 	}
-
-// 	impl AsyncRead for MockSubstream {
-// 		fn poll_read<'a>(
-// 			mut self: Pin<&mut Self>,
-// 			cx: &mut Context<'a>,
-// 			buf: &mut [u8],
-// 		) -> Poll<Result<usize, Error>> {
-// 			match self.rx.poll_recv(cx) {
-// 				Poll::Ready(Some(data)) => self.rx_buffer.extend_from_slice(&data),
-// 				Poll::Ready(None) =>
-// 					return Poll::Ready(Err(std::io::ErrorKind::UnexpectedEof.into())),
-// 				_ => {},
-// 			}
-
-// 			let nsize = std::cmp::min(self.rx_buffer.len(), buf.len());
-// 			let data = self.rx_buffer.split_to(nsize);
-// 			buf[..nsize].copy_from_slice(&data[..]);
-
-// 			if nsize > 0 {
-// 				return Poll::Ready(Ok(nsize))
-// 			}
-
-// 			Poll::Pending
-// 		}
-
-// 		fn poll_read_vectored<'a, 'b>(
-// 			self: Pin<&mut Self>,
-// 			_cx: &mut Context<'a>,
-// 			_bufs: &mut [IoSliceMut<'b>],
-// 		) -> Poll<Result<usize, Error>> {
-// 			unimplemented!();
-// 		}
-// 	}
-
-// 	/// Create new [`NotifsHandler`].
-// 	fn notifs_handler() -> NotifsHandler {
-// 		let proto = Protocol {
-// 			config: ProtocolConfig {
-// 				name: "/foo".into(),
-// 				fallback_names: vec![],
-// 				handshake: Arc::new(RwLock::new(b"hello, world".to_vec())),
-// 				max_notification_size: u64::MAX,
-// 			},
-// 			in_upgrade: NotificationsIn::new("/foo", Vec::new(), u64::MAX),
-// 			state: State::Closed { pending_opening: false },
-// 		};
-
-// 		NotifsHandler {
-// 			protocols: vec![proto],
-// 			when_connection_open: Instant::now(),
-// 			endpoint: ConnectedPoint::Listener {
-// 				local_addr: Multiaddr::empty(),
-// 				send_back_addr: Multiaddr::empty(),
-// 			},
-// 			peer_id: PeerId::random(),
-// 			events_queue: VecDeque::new(),
-// 		}
-// 	}
-
-// 	// verify that if another substream is attempted to be opened by remote while an inbound
-// 	// substream already exists, the new inbound stream is rejected and closed by the local node.
-// 	#[tokio::test]
-// 	async fn second_open_desired_by_remote_rejected() {
-// 		let mut handler = notifs_handler();
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the substream is in (partly) opened state
-// 		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-// 			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-
-// 		// attempt to open another inbound substream and verify that it is rejected
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the new substream is rejected and closed
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-
-// 			if let Poll::Ready(Err(err)) = Pin::new(&mut io2).poll_read(cx, &mut buf) {
-// 				assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof,);
-// 			}
-
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-// 	}
-
-// 	#[tokio::test]
-// 	async fn open_rejected_if_substream_is_opening() {
-// 		let mut handler = notifs_handler();
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the substream is in (partly) opened state
-// 		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-// 			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-
-// 		// move the handler state to 'Opening'
-// 		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Opening { in_substream: Some(_), .. }
-// 		));
-
-// 		// remote now tries to open another substream, verify that it is rejected and closed
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the new substream is rejected and closed but that the first substream is
-// 		// still in correct state
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-
-// 			if let Poll::Ready(Err(err)) = Pin::new(&mut io2).poll_read(cx, &mut buf) {
-// 				assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof,);
-// 			} else {
-// 				panic!("unexpected result");
-// 			}
-
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Opening { in_substream: Some(_), .. }
-// 		));
-// 	}
-
-// 	#[tokio::test]
-// 	async fn open_rejected_if_substream_already_open() {
-// 		let mut handler = notifs_handler();
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the substream is in (partly) opened state
-// 		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-// 			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-
-// 		// move the handler state to 'Opening'
-// 		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Opening { in_substream: Some(_), .. }
-// 		));
-
-// 		// accept the substream and move its state to `Open`
-// 		let (io, _io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_out = NotificationsOutOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsOutSubstream::new(Framed::new(io, codec)),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedOutbound(
-// 			handler::FullyNegotiatedOutbound { protocol: notif_out, info: 0 },
-// 		));
-
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Open { in_substream: Some(_), .. }
-// 		));
-
-// 		// remote now tries to open another substream, verify that it is rejected and closed
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the new substream is rejected and closed but that the first substream is
-// 		// still in correct state
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-
-// 			if let Poll::Ready(Err(err)) = Pin::new(&mut io2).poll_read(cx, &mut buf) {
-// 				assert_eq!(err.kind(), std::io::ErrorKind::UnexpectedEof);
-// 			} else {
-// 				panic!("unexpected result");
-// 			}
-
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Open { in_substream: Some(_), .. }
-// 		));
-// 	}
-
-// 	#[tokio::test]
-// 	async fn fully_negotiated_resets_state_for_closed_substream() {
-// 		let mut handler = notifs_handler();
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the substream is in (partly) opened state
-// 		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-// 			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-
-// 		// first instruct the handler to open a connection and then close it right after
-// 		// so the handler is in state `Closed { pending_opening: true }`
-// 		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Opening { in_substream: Some(_), .. }
-// 		));
-
-// 		handler.on_behaviour_event(NotifsHandlerIn::Close { protocol_index: 0 });
-// 		assert!(std::matches!(handler.protocols[0].state, State::Closed { pending_opening: true }));
-
-// 		// verify that if the the outbound substream is successfully negotiated, the state is not
-// 		// changed as the substream was commanded to be closed by the handler.
-// 		let (io, _io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_out = NotificationsOutOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsOutSubstream::new(Framed::new(io, codec)),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedOutbound(
-// 			handler::FullyNegotiatedOutbound { protocol: notif_out, info: 0 },
-// 		));
-
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Closed { pending_opening: false }
-// 		));
-// 	}
-
-// 	#[tokio::test]
-// 	async fn fully_negotiated_resets_state_for_open_desired_substream() {
-// 		let mut handler = notifs_handler();
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the substream is in (partly) opened state
-// 		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-// 			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-
-// 		// first instruct the handler to open a connection and then close it right after
-// 		// so the handler is in state `Closed { pending_opening: true }`
-// 		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Opening { in_substream: Some(_), .. }
-// 		));
-
-// 		handler.on_behaviour_event(NotifsHandlerIn::Close { protocol_index: 0 });
-// 		assert!(std::matches!(handler.protocols[0].state, State::Closed { pending_opening: true }));
-
-// 		// attempt to open another inbound substream and verify that it is rejected
-// 		let (io, _io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::OpenDesiredByRemote { pending_opening: true, .. }
-// 		));
-
-// 		// verify that if the the outbound substream is successfully negotiated, the state is not
-// 		// changed as the substream was commanded to be closed by the handler.
-// 		let (io, _io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_out = NotificationsOutOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsOutSubstream::new(Framed::new(io, codec)),
-// 		};
-
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedOutbound(
-// 			handler::FullyNegotiatedOutbound { protocol: notif_out, info: 0 },
-// 		));
-
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::OpenDesiredByRemote { pending_opening: false, .. }
-// 		));
-// 	}
-
-// 	#[tokio::test]
-// 	async fn dial_upgrade_error_resets_closed_outbound_state() {
-// 		let mut handler = notifs_handler();
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the substream is in (partly) opened state
-// 		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-// 			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-
-// 		// first instruct the handler to open a connection and then close it right after
-// 		// so the handler is in state `Closed { pending_opening: true }`
-// 		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Opening { in_substream: Some(_), .. }
-// 		));
-
-// 		handler.on_behaviour_event(NotifsHandlerIn::Close { protocol_index: 0 });
-// 		assert!(std::matches!(handler.protocols[0].state, State::Closed { pending_opening: true }));
-
-// 		// inject dial failure to an already closed substream and verify outbound state is reset
-// 		handler.on_connection_event(handler::ConnectionEvent::DialUpgradeError(
-// 			handler::DialUpgradeError { info: 0, error: ConnectionHandlerUpgrErr::Timeout },
-// 		));
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Closed { pending_opening: false }
-// 		));
-// 	}
-
-// 	#[tokio::test]
-// 	async fn dial_upgrade_error_resets_open_desired_state() {
-// 		let mut handler = notifs_handler();
-// 		let (io, mut io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		// verify that the substream is in (partly) opened state
-// 		assert!(std::matches!(handler.protocols[0].state, State::OpenDesiredByRemote { .. }));
-// 		futures::future::poll_fn(|cx| {
-// 			let mut buf = Vec::with_capacity(512);
-// 			assert!(std::matches!(Pin::new(&mut io2).poll_read(cx, &mut buf), Poll::Pending));
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-
-// 		// first instruct the handler to open a connection and then close it right after
-// 		// so the handler is in state `Closed { pending_opening: true }`
-// 		handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: 0 });
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::Opening { in_substream: Some(_), .. }
-// 		));
-
-// 		handler.on_behaviour_event(NotifsHandlerIn::Close { protocol_index: 0 });
-// 		assert!(std::matches!(handler.protocols[0].state, State::Closed { pending_opening: true }));
-
-// 		let (io, _io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::NotSent,
-// 			),
-// 		};
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::OpenDesiredByRemote { pending_opening: true, .. }
-// 		));
-
-// 		// inject dial failure to an already closed substream and verify outbound state is reset
-// 		handler.on_connection_event(handler::ConnectionEvent::DialUpgradeError(
-// 			handler::DialUpgradeError { info: 0, error: ConnectionHandlerUpgrErr::Timeout },
-// 		));
-// 		assert!(std::matches!(
-// 			handler.protocols[0].state,
-// 			State::OpenDesiredByRemote { pending_opening: false, .. }
-// 		));
-// 	}
-
-// 	#[tokio::test]
-// 	async fn sync_notifications_clogged() {
-// 		let mut handler = notifs_handler();
-// 		let (io, _) = MockSubstream::negotiated().await;
-// 		let codec = UviBytes::default();
-
-// 		let (async_tx, async_rx) = futures::channel::mpsc::channel(ASYNC_NOTIFICATIONS_BUFFER_SIZE);
-// 		let (sync_tx, sync_rx) = futures::channel::mpsc::channel(1);
-// 		let notifications_sink = NotificationsSink {
-// 			inner: Arc::new(NotificationsSinkInner {
-// 				peer_id: PeerId::random(),
-// 				async_channel: FuturesMutex::new(async_tx),
-// 				sync_channel: Mutex::new(Some(sync_tx)),
-// 			}),
-// 		};
-
-// 		handler.protocols[0].state = State::Open {
-// 			notifications_sink_rx: stream::select(async_rx.fuse(), sync_rx.fuse()).peekable(),
-// 			out_substream: Some(NotificationsOutSubstream::new(Framed::new(io, codec))),
-// 			in_substream: None,
-// 		};
-
-// 		notifications_sink.send_sync_notification(vec![1, 3, 3, 7]);
-// 		notifications_sink.send_sync_notification(vec![1, 3, 3, 8]);
-// 		notifications_sink.send_sync_notification(vec![1, 3, 3, 9]);
-// 		notifications_sink.send_sync_notification(vec![1, 3, 4, 0]);
-
-// 		futures::future::poll_fn(|cx| {
-// 			assert!(std::matches!(
-// 				handler.poll(cx),
-// 				Poll::Ready(ConnectionHandlerEvent::Close(
-// 					NotifsHandlerError::SyncNotificationsClogged,
-// 				))
-// 			));
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-// 	}
-
-// 	#[tokio::test]
-// 	async fn close_desired_by_remote() {
-// 		let mut handler = notifs_handler();
-// 		let (io, io2) = MockSubstream::negotiated().await;
-// 		let mut codec = UviBytes::default();
-// 		codec.set_max_len(usize::MAX);
-
-// 		let notif_in = NotificationsInOpen {
-// 			handshake: b"hello, world".to_vec(),
-// 			negotiated_fallback: None,
-// 			substream: NotificationsInSubstream::new(
-// 				Framed::new(io, codec),
-// 				NotificationsInSubstreamHandshake::PendingSend(vec![1, 2, 3, 4]),
-// 			),
-// 		};
-
-// 		// add new inbound substream but close it immediately and verify that correct events are
-// 		// emitted
-// 		handler.on_connection_event(handler::ConnectionEvent::FullyNegotiatedInbound(
-// 			handler::FullyNegotiatedInbound { protocol: (notif_in, 0), info: () },
-// 		));
-// 		drop(io2);
-
-// 		futures::future::poll_fn(|cx| {
-// 			assert!(std::matches!(
-// 				handler.poll(cx),
-// 				Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
-// 					NotifsHandlerOut::OpenDesiredByRemote { protocol_index: 0 },
-// 				))
-// 			));
-// 			assert!(std::matches!(
-// 				handler.poll(cx),
-// 				Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(
-// 					NotifsHandlerOut::CloseDesired { protocol_index: 0 },
-// 				))
-// 			));
-// 			Poll::Ready(())
-// 		})
-// 		.await;
-// 	}
-// }

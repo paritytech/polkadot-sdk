@@ -14,46 +14,62 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::prepare::PrepareStats;
+use crate::prepare::{PrepareSuccess, PrepareWorkerSuccess};
 use parity_scale_codec::{Decode, Encode};
-use std::fmt;
+pub use sc_executor_common::error::Error as ExecuteError;
 
-/// Result of PVF preparation performed by the validation host. Contains stats about the preparation
-/// if successful
-pub type PrepareResult = Result<PrepareStats, PrepareError>;
+/// Result of PVF preparation from a worker, with checksum of the compiled PVF and stats of the
+/// preparation if successful.
+pub type PrepareWorkerResult = Result<PrepareWorkerSuccess, PrepareError>;
+
+/// Result of PVF preparation propagated all the way back to the host, with path to the concluded
+/// artifact and stats of the preparation if successful.
+pub type PrepareResult = Result<PrepareSuccess, PrepareError>;
+
+/// Result of prechecking PVF performed by the validation host. Contains stats about the preparation
+/// if successful.
+pub type PrecheckResult = Result<(), PrepareError>;
 
 /// An error that occurred during the prepare part of the PVF pipeline.
-// Codec indexes are intended to stabilize pre-encoded payloads (see `OOM_PAYLOAD` below)
-#[derive(Debug, Clone, Encode, Decode)]
+// Codec indexes are intended to stabilize pre-encoded payloads (see `OOM_PAYLOAD`)
+#[derive(thiserror::Error, Debug, Clone, Encode, Decode)]
 pub enum PrepareError {
 	/// During the prevalidation stage of preparation an issue was found with the PVF.
 	#[codec(index = 0)]
+	#[error("prepare: prevalidation error: {0}")]
 	Prevalidation(String),
 	/// Compilation failed for the given PVF.
 	#[codec(index = 1)]
+	#[error("prepare: preparation error: {0}")]
 	Preparation(String),
 	/// Instantiation of the WASM module instance failed.
 	#[codec(index = 2)]
+	#[error("prepare: runtime construction: {0}")]
 	RuntimeConstruction(String),
-	/// An unexpected panic has occurred in the preparation worker.
+	/// An unexpected error has occurred in the preparation job.
 	#[codec(index = 3)]
-	Panic(String),
+	#[error("prepare: job error: {0}")]
+	JobError(String),
 	/// Failed to prepare the PVF due to the time limit.
 	#[codec(index = 4)]
+	#[error("prepare: timeout")]
 	TimedOut,
 	/// An IO error occurred. This state is reported by either the validation host or by the
 	/// worker.
 	#[codec(index = 5)]
+	#[error("prepare: io error while receiving response: {0}")]
 	IoErr(String),
 	/// The temporary file for the artifact could not be created at the given cache path. This
 	/// state is reported by the validation host (not by the worker).
 	#[codec(index = 6)]
-	CreateTmpFileErr(String),
+	#[error("prepare: error creating tmp file: {0}")]
+	CreateTmpFile(String),
 	/// The response from the worker is received, but the file cannot be renamed (moved) to the
 	/// final destination location. This state is reported by the validation host (not by the
 	/// worker).
 	#[codec(index = 7)]
-	RenameTmpFileErr {
+	#[error("prepare: error renaming tmp file ({src:?} -> {dest:?}): {err}")]
+	RenameTmpFile {
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
@@ -62,16 +78,23 @@ pub enum PrepareError {
 	},
 	/// Memory limit reached
 	#[codec(index = 8)]
+	#[error("prepare: out of memory")]
 	OutOfMemory,
 	/// The response from the worker is received, but the worker cache could not be cleared. The
 	/// worker has to be killed to avoid jobs having access to data from other jobs. This state is
 	/// reported by the validation host (not by the worker).
 	#[codec(index = 9)]
+	#[error("prepare: error clearing worker cache: {0}")]
 	ClearWorkerDir(String),
+	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
+	#[codec(index = 10)]
+	#[error("prepare: prepare job with pid {job_pid} died: {err}")]
+	JobDied { err: String, job_pid: i32 },
+	/// Some error occurred when interfacing with the kernel.
+	#[codec(index = 11)]
+	#[error("prepare: error interfacing with the kernel: {0}")]
+	Kernel(String),
 }
-
-/// Pre-encoded length-prefixed `PrepareResult::Err(PrepareError::OutOfMemory)`
-pub const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 
 impl PrepareError {
 	/// Returns whether this is a deterministic error, i.e. one that should trigger reliably. Those
@@ -83,33 +106,17 @@ impl PrepareError {
 	pub fn is_deterministic(&self) -> bool {
 		use PrepareError::*;
 		match self {
-			Prevalidation(_) | Preparation(_) | Panic(_) | OutOfMemory => true,
-			TimedOut |
+			Prevalidation(_) | Preparation(_) | JobError(_) | OutOfMemory => true,
 			IoErr(_) |
-			CreateTmpFileErr(_) |
-			RenameTmpFileErr { .. } |
-			ClearWorkerDir(_) => false,
+			JobDied { .. } |
+			CreateTmpFile(_) |
+			RenameTmpFile { .. } |
+			ClearWorkerDir(_) |
+			Kernel(_) => false,
+			// Can occur due to issues with the PVF, but also due to factors like local load.
+			TimedOut => false,
 			// Can occur due to issues with the PVF, but also due to local errors.
 			RuntimeConstruction(_) => false,
-		}
-	}
-}
-
-impl fmt::Display for PrepareError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		use PrepareError::*;
-		match self {
-			Prevalidation(err) => write!(f, "prevalidation: {}", err),
-			Preparation(err) => write!(f, "preparation: {}", err),
-			RuntimeConstruction(err) => write!(f, "runtime construction: {}", err),
-			Panic(err) => write!(f, "panic: {}", err),
-			TimedOut => write!(f, "prepare: timeout"),
-			IoErr(err) => write!(f, "prepare: io error while receiving response: {}", err),
-			CreateTmpFileErr(err) => write!(f, "prepare: error creating tmp file: {}", err),
-			RenameTmpFileErr { err, src, dest } =>
-				write!(f, "prepare: error renaming tmp file ({:?} -> {:?}): {}", src, dest, err),
-			OutOfMemory => write!(f, "prepare: out of memory"),
-			ClearWorkerDir(err) => write!(f, "prepare: error clearing worker cache: {}", err),
 		}
 	}
 }
@@ -118,57 +125,29 @@ impl fmt::Display for PrepareError {
 ///
 /// Should only ever be used for validation errors independent of the candidate and PVF, or for
 /// errors we ruled out during pre-checking (so preparation errors are fine).
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(thiserror::Error, Debug, Clone, Encode, Decode)]
 pub enum InternalValidationError {
 	/// Some communication error occurred with the host.
+	#[error("validation: some communication error occurred with the host: {0}")]
 	HostCommunication(String),
 	/// Host could not create a hard link to the artifact path.
+	#[error("validation: host could not create a hard link to the artifact path: {0}")]
 	CouldNotCreateLink(String),
 	/// Could not find or open compiled artifact file.
+	#[error("validation: could not find or open compiled artifact file: {0}")]
 	CouldNotOpenFile(String),
 	/// Host could not clear the worker cache after a job.
+	#[error("validation: host could not clear the worker cache ({path:?}) after a job: {err}")]
 	CouldNotClearWorkerDir {
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
 		path: Option<String>,
 	},
-	/// An error occurred in the CPU time monitor thread. Should be totally unrelated to
-	/// validation.
-	CpuTimeMonitorThread(String),
+	/// Some error occurred when interfacing with the kernel.
+	#[error("validation: error interfacing with the kernel: {0}")]
+	Kernel(String),
 	/// Some non-deterministic preparation error occurred.
+	#[error("validation: prepare: {0}")]
 	NonDeterministicPrepareError(PrepareError),
-}
-
-impl fmt::Display for InternalValidationError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		use InternalValidationError::*;
-		match self {
-			HostCommunication(err) =>
-				write!(f, "validation: some communication error occurred with the host: {}", err),
-			CouldNotCreateLink(err) => write!(
-				f,
-				"validation: host could not create a hard link to the artifact path: {}",
-				err
-			),
-			CouldNotOpenFile(err) =>
-				write!(f, "validation: could not find or open compiled artifact file: {}", err),
-			CouldNotClearWorkerDir { err, path } => write!(
-				f,
-				"validation: host could not clear the worker cache ({:?}) after a job: {}",
-				path, err
-			),
-			CpuTimeMonitorThread(err) =>
-				write!(f, "validation: an error occurred in the CPU time monitor thread: {}", err),
-			NonDeterministicPrepareError(err) => write!(f, "validation: prepare: {}", err),
-		}
-	}
-}
-
-#[test]
-fn pre_encoded_payloads() {
-	let oom_enc = PrepareResult::Err(PrepareError::OutOfMemory).encode();
-	let mut oom_payload = oom_enc.len().to_le_bytes().to_vec();
-	oom_payload.extend(oom_enc);
-	assert_eq!(oom_payload, OOM_PAYLOAD);
 }

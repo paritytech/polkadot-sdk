@@ -35,9 +35,9 @@ use frame_support::{
 use frame_system::RawOrigin as RuntimeOrigin;
 use pallet_nomination_pools::{
 	BalanceOf, BondExtra, BondedPoolInner, BondedPools, ClaimPermission, ClaimPermissions,
-	Commission, CommissionChangeRate, ConfigOp, GlobalMaxCommission, MaxPoolMembers,
-	MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond, MinJoinBond, Pallet as Pools,
-	PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
+	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp, GlobalMaxCommission,
+	MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond, MinJoinBond,
+	Pallet as Pools, PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
 };
 use pallet_staking::MaxNominationsOf;
 use sp_runtime::{
@@ -706,17 +706,24 @@ frame_benchmarking::benchmarks! {
 			max_increase: Perbill::from_percent(20),
 			min_delay: 0u32.into(),
 		}).unwrap();
+		// set a claim permission to an account.
+		Pools::<T>::set_commission_claim_permission(
+			RuntimeOrigin::Signed(depositor.clone()).into(),
+			1u32.into(),
+			Some(CommissionClaimPermission::Account(depositor.clone()))
+		).unwrap();
 
 	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into(), Some((Perbill::from_percent(20), depositor.clone())))
 	verify {
 		assert_eq!(BondedPools::<T>::get(1).unwrap().commission, Commission {
-			current: Some((Perbill::from_percent(20), depositor)),
+			current: Some((Perbill::from_percent(20), depositor.clone())),
 			max: Some(Perbill::from_percent(50)),
 			change_rate: Some(CommissionChangeRate {
 					max_increase: Perbill::from_percent(20),
 					min_delay: 0u32.into()
 			}),
 			throttle_from: Some(1u32.into()),
+			claim_permission: Some(CommissionClaimPermission::Account(depositor)),
 		});
 	}
 
@@ -731,6 +738,7 @@ frame_benchmarking::benchmarks! {
 			max: Some(Perbill::from_percent(50)),
 			change_rate: None,
 			throttle_from: Some(0u32.into()),
+			claim_permission: None,
 		});
 	}
 
@@ -751,8 +759,24 @@ frame_benchmarking::benchmarks! {
 				min_delay: 1000u32.into(),
 			}),
 			throttle_from: Some(1_u32.into()),
+			claim_permission: None,
 		});
   }
+
+	set_commission_claim_permission {
+		// Create a pool.
+		let (depositor, pool_account) = create_pool_account::<T>(0, Pools::<T>::depositor_min_bond() * 2u32.into(), None);
+	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into(), Some(CommissionClaimPermission::Account(depositor.clone())))
+	verify {
+		assert_eq!(
+			BondedPools::<T>::get(1).unwrap().commission, Commission {
+			current: None,
+			max: None,
+			change_rate: None,
+			throttle_from: None,
+			claim_permission: Some(CommissionClaimPermission::Account(depositor)),
+		});
+	}
 
 	set_claim_permission {
 		// Create a pool
@@ -771,9 +795,9 @@ frame_benchmarking::benchmarks! {
 			T::Staking::active_stake(&pool_account).unwrap(),
 			min_create_bond + min_join_bond
 		);
-	}:_(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::PermissionlessAll)
+	}:_(RuntimeOrigin::Signed(joiner.clone()), ClaimPermission::Permissioned)
 	verify {
-		assert_eq!(ClaimPermissions::<T>::get(joiner), ClaimPermission::PermissionlessAll);
+		assert_eq!(ClaimPermissions::<T>::get(joiner), ClaimPermission::Permissioned);
 	}
 
 	claim_commission {
@@ -786,8 +810,13 @@ frame_benchmarking::benchmarks! {
 		CurrencyOf::<T>::set_balance(&reward_account, ed + origin_weight);
 
 		// member claims a payout to make some commission available.
-		let _ = Pools::<T>::claim_payout(RuntimeOrigin::Signed(claimer).into());
-
+		let _ = Pools::<T>::claim_payout(RuntimeOrigin::Signed(claimer.clone()).into());
+		// set a claim permission to an account.
+		let _ = Pools::<T>::set_commission_claim_permission(
+			RuntimeOrigin::Signed(depositor.clone()).into(),
+			1u32.into(),
+			Some(CommissionClaimPermission::Account(claimer))
+		);
 		whitelist_account!(depositor);
 	}:_(RuntimeOrigin::Signed(depositor.clone()), 1u32.into())
 	verify {

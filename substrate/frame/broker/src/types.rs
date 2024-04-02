@@ -16,7 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, TaskId, CORE_MASK_BITS,
+	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, RCBlockNumberOf, TaskId,
+	CORE_MASK_BITS,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
@@ -28,7 +29,7 @@ use sp_runtime::BoundedVec;
 
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::AccountId>>::Balance;
 pub type RelayBalanceOf<T> = <<T as Config>::Coretime as CoretimeInterface>::Balance;
-pub type RelayBlockNumberOf<T> = <<T as Config>::Coretime as CoretimeInterface>::BlockNumber;
+pub type RelayBlockNumberOf<T> = RCBlockNumberOf<<T as Config>::Coretime>;
 pub type RelayAccountIdOf<T> = <<T as Config>::Coretime as CoretimeInterface>::AccountId;
 
 /// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
@@ -54,7 +55,7 @@ pub enum Finality {
 pub struct RegionId {
 	/// The timeslice at which this Region begins.
 	pub begin: Timeslice,
-	/// The index of the Polakdot Core on which this Region will be scheduled.
+	/// The index of the Polkadot Core on which this Region will be scheduled.
 	pub core: CoreIndex,
 	/// The regularity parts in which this Region will be scheduled.
 	pub mask: CoreMask,
@@ -197,7 +198,7 @@ pub struct PoolIoRecord {
 	/// The total change of the portion of the pool supplied by purchased Bulk Coretime, measured
 	/// in Core Mask Bits.
 	pub private: SignedCoreMaskBitCount,
-	/// The total change of the portion of the pool supplied by the Polkaot System, measured in
+	/// The total change of the portion of the pool supplied by the Polkadot System, measured in
 	/// Core Mask Bits.
 	pub system: SignedCoreMaskBitCount,
 }

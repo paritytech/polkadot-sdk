@@ -1,0 +1,92 @@
+[package]
+name = "polkadot-subsystem-bench"
+description = "Subsystem performance benchmark client"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+readme = "README.md"
+publish = false
+
+[lib]
+name = "polkadot_subsystem_bench"
+path = "src/lib/lib.rs"
+
+[[bin]]
+name = "subsystem-bench"
+path = "src/cli/subsystem-bench.rs"
+
+# Prevent rustdoc error. Already documented from top-level Cargo.toml.
+doc = false
+
+[dependencies]
+polkadot-node-subsystem = { path = "../subsystem" }
+polkadot-node-subsystem-util = { path = "../subsystem-util" }
+polkadot-node-subsystem-types = { path = "../subsystem-types" }
+polkadot-node-primitives = { path = "../primitives" }
+polkadot-primitives = { path = "../../primitives" }
+polkadot-node-network-protocol = { path = "../network/protocol" }
+polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks"] }
+polkadot-availability-distribution = { path = "../network/availability-distribution" }
+polkadot-node-core-av-store = { path = "../core/av-store" }
+polkadot-node-core-chain-api = { path = "../core/chain-api" }
+polkadot-availability-bitfield-distribution = { path = "../network/bitfield-distribution" }
+color-eyre = { version = "0.6.1", default-features = false }
+polkadot-overseer = { path = "../overseer" }
+colored = "2.0.4"
+assert_matches = "1.5"
+async-trait = "0.1.79"
+sp-keystore = { path = "../../../substrate/primitives/keystore" }
+sc-keystore = { path = "../../../substrate/client/keystore" }
+sp-core = { path = "../../../substrate/primitives/core" }
+clap = { version = "4.5.3", features = ["derive"] }
+futures = "0.3.30"
+futures-timer = "3.0.2"
+bincode = "1.3.3"
+sha1 = "0.10.6"
+hex = "0.4.3"
+gum = { package = "tracing-gum", path = "../gum" }
+polkadot-erasure-coding = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
+log = { workspace = true, default-features = true }
+env_logger = "0.11"
+rand = "0.8.5"
+# `rand` only supports uniform distribution, we need normal distribution for latency.
+rand_distr = "0.4.3"
+bitvec = "1.0.1"
+kvdb-memorydb = "0.13.0"
+
+parity-scale-codec = { version = "3.6.1", features = ["derive", "std"] }
+tokio = { version = "1.24.2", features = ["parking_lot", "rt-multi-thread"] }
+clap-num = "1.0.2"
+polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
+sp-keyring = { path = "../../../substrate/primitives/keyring" }
+sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
+sc-network = { path = "../../../substrate/client/network" }
+sc-service = { path = "../../../substrate/client/service" }
+sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
+polkadot-node-metrics = { path = "../metrics" }
+itertools = "0.11.0"
+polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
+prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
+prometheus = { version = "0.13.0", default-features = false }
+serde = { workspace = true, default-features = true }
+serde_yaml = { workspace = true }
+serde_json = { workspace = true }
+
+polkadot-node-core-approval-voting = { path = "../core/approval-voting" }
+polkadot-approval-distribution = { path = "../network/approval-distribution" }
+sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
+
+schnorrkel = { version = "0.11.4", default-features = false }
+# rand_core should match schnorrkel
+rand_core = "0.6.2"
+rand_chacha = { version = "0.3.1" }
+paste = "1.0.14"
+orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
+pyroscope = "0.5.7"
+pyroscope_pprofrs = "0.2.7"
+
+[features]
+default = []

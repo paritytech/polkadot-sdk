@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![allow(missing_docs)]
+
 //! Std setup helpers for testing and benchmarking.
 //!
 //! Cannot be put into mock.rs since benchmarks require no-std and mock.rs is std.
@@ -88,10 +90,12 @@ pub fn page<T: Config>(msg: &[u8]) -> PageOf<T> {
 	PageOf::<T>::from_message::<T>(msg.try_into().unwrap())
 }
 
+/// Create a book with a single message of one byte.
 pub fn single_page_book<T: Config>() -> BookStateOf<T> {
 	BookState { begin: 0, end: 1, count: 1, message_count: 1, size: 1, ..Default::default() }
 }
 
+/// Create an empty book.
 pub fn empty_book<T: Config>() -> BookStateOf<T> {
 	BookState { begin: 0, end: 1, count: 1, ..Default::default() }
 }

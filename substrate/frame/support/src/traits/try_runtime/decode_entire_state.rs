@@ -67,7 +67,7 @@ impl TryDecodeEntireStorage for Tuple {
 }
 
 /// A value could not be decoded.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct TryDecodeEntireStorageError {
 	/// The key of the undecodable value.
 	pub key: Vec<u8>,
@@ -81,9 +81,22 @@ impl core::fmt::Display for TryDecodeEntireStorageError {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(
 			f,
-			"Failed to decode storage item `{}::{}`",
+			"`{}::{}` key `{}` is undecodable",
 			&sp_std::str::from_utf8(&self.info.pallet_name).unwrap_or("<invalid>"),
 			&sp_std::str::from_utf8(&self.info.storage_name).unwrap_or("<invalid>"),
+			array_bytes::bytes2hex("0x", &self.key)
+		)
+	}
+}
+
+impl core::fmt::Debug for TryDecodeEntireStorageError {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(
+			f,
+			"key: {} value: {} info: {:?}",
+			array_bytes::bytes2hex("0x", &self.key),
+			array_bytes::bytes2hex("0x", self.raw.clone().unwrap_or_default()),
+			self.info
 		)
 	}
 }
@@ -96,7 +109,6 @@ impl core::fmt::Display for TryDecodeEntireStorageError {
 fn decode_storage_info<V: Decode>(
 	info: StorageInfo,
 ) -> Result<usize, Vec<TryDecodeEntireStorageError>> {
-	let mut next_key = info.prefix.clone();
 	let mut decoded = 0;
 
 	let decode_key = |key: &[u8]| match sp_io::storage::get(key) {
@@ -104,29 +116,39 @@ fn decode_storage_info<V: Decode>(
 		Some(bytes) => {
 			let len = bytes.len();
 			let _ = <V as DecodeAll>::decode_all(&mut bytes.as_ref()).map_err(|_| {
-				vec![TryDecodeEntireStorageError {
+				TryDecodeEntireStorageError {
 					key: key.to_vec(),
 					raw: Some(bytes.to_vec()),
 					info: info.clone(),
-				}]
+				}
 			})?;
 
-			Ok::<usize, Vec<_>>(len)
+			Ok::<usize, _>(len)
 		},
 	};
 
-	decoded += decode_key(&next_key)?;
+	let mut errors = vec![];
+	let mut next_key = Some(info.prefix.clone());
 	loop {
-		match sp_io::storage::next_key(&next_key) {
+		match next_key {
 			Some(key) if key.starts_with(&info.prefix) => {
-				decoded += decode_key(&key)?;
-				next_key = key;
+				match decode_key(&key) {
+					Ok(bytes) => {
+						decoded += bytes;
+					},
+					Err(e) => errors.push(e),
+				};
+				next_key = sp_io::storage::next_key(&key);
 			},
 			_ => break,
 		}
 	}
 
-	Ok(decoded)
+	if errors.is_empty() {
+		Ok(decoded)
+	} else {
+		Err(errors)
+	}
 }
 
 impl<Prefix, Value, QueryKind, OnEmpty> TryDecodeEntireStorage
@@ -353,6 +375,12 @@ mod tests {
 			// two bytes, cannot be decoded into u32.
 			sp_io::storage::set(&Map::hashed_key_for(2), &[0u8, 1]);
 			assert!(Map::try_decode_entire_state().is_err());
+			assert_eq!(Map::try_decode_entire_state().unwrap_err().len(), 1);
+
+			// multiple errs in the same map are be detected
+			sp_io::storage::set(&Map::hashed_key_for(3), &[0u8, 1]);
+			assert!(Map::try_decode_entire_state().is_err());
+			assert_eq!(Map::try_decode_entire_state().unwrap_err().len(), 2);
 		})
 	}
 

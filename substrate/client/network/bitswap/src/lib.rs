@@ -301,7 +301,7 @@ mod tests {
 	use substrate_test_runtime_client::{self, prelude::*, TestClientBuilder};
 
 	#[tokio::test]
-	async fn undecodeable_message() {
+	async fn undecodable_message() {
 		let client = substrate_test_runtime_client::new();
 		let (bitswap, config) = BitswapRequestHandler::new(Arc::new(client));
 
@@ -500,7 +500,7 @@ mod tests {
 								0x70,
 								cid::multihash::Multihash::wrap(
 									u64::from(cid::multihash::Code::Blake2b256),
-									&sp_core::hashing::blake2_256(&ext.encode()[pattern_index..]),
+									&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
 								)
 								.unwrap(),
 							)

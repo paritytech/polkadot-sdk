@@ -14,18 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::btree_map::BTreeMap;
+use std::collections::{btree_map::BTreeMap, VecDeque};
 
 use schnellru::{ByLength, LruMap};
 use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
-	async_backing, slashing, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing, slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
+	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that
@@ -67,6 +67,9 @@ pub(crate) struct RequestResultCache {
 	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
 	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
+	node_features: LruMap<SessionIndex, NodeFeatures>,
+	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
+	claim_queue: LruMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 }
 
 impl Default for RequestResultCache {
@@ -97,9 +100,12 @@ impl Default for RequestResultCache {
 			unapplied_slashes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			key_ownership_proof: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			minimum_backing_votes: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			approval_voting_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			disabled_validators: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			para_backing_state: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			async_backing_params: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			node_features: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			claim_queue: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -446,6 +452,18 @@ impl RequestResultCache {
 		self.minimum_backing_votes.insert(session_index, minimum_backing_votes);
 	}
 
+	pub(crate) fn node_features(&mut self, session_index: SessionIndex) -> Option<&NodeFeatures> {
+		self.node_features.get(&session_index).map(|f| &*f)
+	}
+
+	pub(crate) fn cache_node_features(
+		&mut self,
+		session_index: SessionIndex,
+		features: NodeFeatures,
+	) {
+		self.node_features.insert(session_index, features);
+	}
+
 	pub(crate) fn disabled_validators(
 		&mut self,
 		relay_parent: &Hash,
@@ -489,6 +507,36 @@ impl RequestResultCache {
 		value: async_backing::AsyncBackingParams,
 	) {
 		self.async_backing_params.insert(key, value);
+	}
+
+	pub(crate) fn approval_voting_params(
+		&mut self,
+		key: (Hash, SessionIndex),
+	) -> Option<&ApprovalVotingParams> {
+		self.approval_voting_params.get(&key.1).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_approval_voting_params(
+		&mut self,
+		session_index: SessionIndex,
+		value: ApprovalVotingParams,
+	) {
+		self.approval_voting_params.insert(session_index, value);
+	}
+
+	pub(crate) fn claim_queue(
+		&mut self,
+		relay_parent: &Hash,
+	) -> Option<&BTreeMap<CoreIndex, VecDeque<ParaId>>> {
+		self.claim_queue.get(relay_parent).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_claim_queue(
+		&mut self,
+		relay_parent: Hash,
+		value: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	) {
+		self.claim_queue.insert(relay_parent, value);
 	}
 }
 
@@ -537,7 +585,10 @@ pub(crate) enum RequestResult {
 		slashing::OpaqueKeyOwnershipProof,
 		Option<()>,
 	),
+	ApprovalVotingParams(Hash, SessionIndex, ApprovalVotingParams),
 	DisabledValidators(Hash, Vec<ValidatorIndex>),
 	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
+	NodeFeatures(SessionIndex, NodeFeatures),
+	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
 }

@@ -60,7 +60,7 @@ use frame_support::{
 	pallet_prelude::{DispatchResult, Weight},
 	storage::{child, ChildTriePrefixIterator},
 	traits::{
-		Currency,
+		Currency, Defensive,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
 		Get, ReservableCurrency,
 	},
@@ -180,7 +180,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
@@ -563,6 +563,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			let fund = Self::funds(index).ok_or(Error::<T>::InvalidParaId)?;
+			let pot = Self::fund_account_id(fund.fund_index);
 			let now = frame_system::Pallet::<T>::block_number();
 
 			// Only allow dissolution when the raised funds goes to zero,
@@ -576,7 +577,10 @@ pub mod pallet {
 			// can take care of that.
 			debug_assert!(Self::contribution_iterator(fund.fund_index).count().is_zero());
 
-			frame_system::Pallet::<T>::dec_providers(&Self::fund_account_id(fund.fund_index))?;
+			// Crowdloan over, burn all funds.
+			let _imba = CurrencyOf::<T>::make_free_balance_be(&pot, Zero::zero());
+			let _ = frame_system::Pallet::<T>::dec_providers(&pot).defensive();
+
 			CurrencyOf::<T>::unreserve(&fund.depositor, fund.deposit);
 			Funds::<T>::remove(index);
 			Self::deposit_event(Event::<T>::Dissolved { para_id: index });
@@ -863,7 +867,7 @@ mod tests {
 	use super::*;
 
 	use frame_support::{
-		assert_noop, assert_ok, parameter_types,
+		assert_noop, assert_ok, derive_impl, parameter_types,
 		traits::{ConstU32, OnFinalize, OnInitialize},
 	};
 	use primitives::Id as ParaId;
@@ -888,9 +892,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Crowdloan: crowdloan,
 		}
 	);
 
@@ -900,6 +904,7 @@ mod tests {
 
 	type BlockNumber = u64;
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -943,7 +948,6 @@ mod tests {
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 
@@ -1609,6 +1613,7 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			let para = new_para();
 			let index = NextFundIndex::<Test>::get();
+			let issuance = Balances::total_issuance();
 
 			// Set up a crowdloan
 			assert_ok!(Crowdloan::create(RuntimeOrigin::signed(1), para, 1000, 1, 1, 9, None));
@@ -1629,9 +1634,10 @@ mod tests {
 
 			// Some funds are left over
 			assert_eq!(Balances::free_balance(&account_id), 10);
-			// They wil be left in the account at the end
+			// Remaining funds will be burned
 			assert_ok!(Crowdloan::dissolve(RuntimeOrigin::signed(1), para));
-			assert_eq!(Balances::free_balance(&account_id), 10);
+			assert_eq!(Balances::free_balance(&account_id), 0);
+			assert_eq!(Balances::total_issuance(), issuance - 10);
 		});
 	}
 
@@ -1733,6 +1739,41 @@ mod tests {
 
 			// Now that `fund.raised` is zero, it can be dissolved.
 			assert_ok!(Crowdloan::dissolve(RuntimeOrigin::signed(1), para));
+			assert_eq!(Balances::free_balance(1), 1000);
+			assert_eq!(Balances::free_balance(2), 2000);
+			assert_eq!(Balances::free_balance(3), 3000);
+			assert_eq!(Balances::total_issuance(), issuance);
+		});
+	}
+
+	// Regression test to check that a pot account with just one provider can be dissolved.
+	#[test]
+	fn dissolve_provider_refs_total_issuance_works() {
+		new_test_ext().execute_with(|| {
+			let para = new_para();
+			let issuance = Balances::total_issuance();
+
+			// Set up a crowdloan
+			assert_ok!(Crowdloan::create(RuntimeOrigin::signed(1), para, 1000, 1, 1, 9, None));
+			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(2), para, 100, None));
+			assert_ok!(Crowdloan::contribute(RuntimeOrigin::signed(3), para, 50, None));
+
+			run_to_block(10);
+
+			// We test the historic case where crowdloan accounts only have one provider:
+			{
+				let fund = Crowdloan::funds(para).unwrap();
+				let pot = Crowdloan::fund_account_id(fund.fund_index);
+				System::dec_providers(&pot).unwrap();
+				assert_eq!(System::providers(&pot), 1);
+			}
+
+			// All funds are refunded
+			assert_ok!(Crowdloan::refund(RuntimeOrigin::signed(2), para));
+
+			// Now that `fund.raised` is zero, it can be dissolved.
+			assert_ok!(Crowdloan::dissolve(RuntimeOrigin::signed(1), para));
+
 			assert_eq!(Balances::free_balance(1), 1000);
 			assert_eq!(Balances::free_balance(2), 2000);
 			assert_eq!(Balances::free_balance(3), 3000);

@@ -1,0 +1,9 @@
+title: Add fallback request for req-response protocols
+
+doc:
+  - audience: Node Dev
+    description: |
+      Enable better req-response protocol versioning, by allowing for fallback requests on different protocols.
+
+crates:
+  - name: sc-network

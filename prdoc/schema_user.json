@@ -1,0 +1,253 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema#",
+    "$id": "https://raw.githubusercontent.com/paritytech/prdoc/master/prdoc_schema_user.json",
+    "version": {
+      "major": 1,
+      "minor": 1,
+      "patch": 0
+    },
+    "title": "Polkadot SDK PRDoc Schema",
+    "description": "JSON Schema definition for the Polkadot SDK PR documentation",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "title": {
+        "title": "Title of the change",
+        "type": "string",
+        "description": "Title for the PR. This is what will show up in the release notes.\nif needed, you may provide a different title override for each audience in the `doc` property."
+      },
+      "author": {
+        "title": "Author handle",
+        "type": "string",
+        "description": "Author handle"
+      },
+      "topic": {
+        "title": "Topic",
+        "type": "string",
+        "description": "Topic"
+      },
+
+      "doc": {
+        "type": "array",
+        "title": "Documentation adapted to the audience(s)",
+        "description": "Description of the PR. Provide a description for each relevant audience.\nSee the `audience` property for more documentation about audiences",
+        "items": {
+          "$ref": "#/$defs/doc"
+        },
+        "minItems": 1
+      },
+
+      "crates": {
+        "title": "Crates",
+        "description": "You have the option to provide a hint about the crates that have noticeable changes.\n This is used during the crate publishing to crates.io and to help users understand the impact of the changes introduced in your PR.",
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/crate"
+        }
+      },
+
+      "migrations": {
+        "title": "Migrations (DB & Runtime)",
+        "description": "It is important for users to be aware of migrations.\nMake sure to mention any migrations in the appropriate sub-properties:\n- db\n- runtime",
+        "type": "object",
+        "properties": {
+          "db": {
+            "type": "array",
+            "nullable": false,
+            "title": "Database Migration",
+            "description": "List of the Database Migrations or empty array: []",
+            "items": {
+              "$ref": "#/$defs/migration_db"
+            },
+            "minItems": 0,
+            "required": [
+              "name",
+              "description"
+            ]
+          },
+          "runtime": {
+            "type": "array",
+            "title": "Runtime Migration",
+            "nullable": false,
+            "description": "List of the Runtime Migrations or empty array: []",
+            "minItems": 0,
+            "items": {
+              "$ref": "#/$defs/migration_runtime"
+            },
+            "required": [
+              "db",
+              "runtime"
+            ]
+          }
+        }
+      },
+      "host_functions": {
+        "title": "Host Functions",
+        "description": "List of the host functions involved in this PR.",
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/host_function"
+        }
+      }
+    },
+    "required": [
+      "title",
+      "doc",
+      "crates"
+    ],
+    "$defs": {
+      "audience": {
+        "description": "You may pick one or more audiences and address those users with appropriate documentation, information and warning related to the PR.",
+        "oneOf": [
+          {"const": "Node Dev",
+          "title": "Node Dev",
+          "description": "Those who build around the client side code. Alternative client builders, SMOLDOT, those who consume RPCs. These are people who are oblivious to the runtime changes. They only care about the meta-protocol, not the protocol itself."},
+
+          {"const": "Runtime Dev",
+          "title": "Runtime Dev",
+          "description": "All of those who rely on the runtime. A parachain team that is using a pallet. A DApp that is using a pallet. These are people who care about the protocol (WASM), not the meta-protocol (client)."},
+
+          {"const": "Node Operator",
+          "title": "Node Operator",
+          "description": "Those who don't write any code and only run code."},
+
+          {"const": "Runtime User",
+          "title": "Runtime User",
+          "description": "Anyone using the runtime. This can be a token holder or a dev writing a front end for a chain."}
+        ]
+      },
+      "crate": {
+        "type": "object",
+        "description": "You have the option here to provide a hint about a crate that has changed to help with the publishing of crates.",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "bump": {
+            "$ref": "#/$defs/semver_bump"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "bump"
+        ]
+      },
+      "migration_db": {
+        "type": "object",
+        "description": "This property allows the documentation of database migrations.",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description"
+        ]
+      },
+      "migration_runtime": {
+        "type": "object",
+        "description": "This property allows the documentation of runtime migrations.",
+        "properties": {
+          "reference": {
+            "title": "Migration reference",
+            "description": "Reference to the runtime migration",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "description"
+        ]
+      },
+      "semver_bump": {
+        "description": "The type of bump to apply to the crate version according to Cargo SemVer: https://doc.rust-lang.org/cargo/reference/semver.html. Please check docs/RELEASE.md for more information.",
+        "oneOf": [
+          {
+            "const": "major",
+            "title": "Major",
+            "description": "A bump to the leftmost non-zero digit of the version number."
+          },
+          {
+            "const": "minor",
+            "title": "Minor",
+            "description": "A bump to the second leftmost non-zero digit of the version number."
+          },
+          {
+            "const": "patch",
+            "title": "Patch",
+            "description": "A bump to the third leftmost non-zero digit of the version number."
+          },
+          {
+            "const": "none",
+            "title": "None",
+            "description": "This change requires no SemVer bump (e.g. change was a test or benchmark)."
+          }
+        ]
+      },
+      "doc": {
+        "type": "object",
+        "description": "You have the the option to provide different description of your PR for different audiences.",
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "description": "The selected audience",
+            "$ref": "#/$defs/audience"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title for the audience",
+            "description": "Optional title override for the PR and for the current audience"
+          },
+          "description": {
+            "title": "Description for the audience",
+            "description": "Description of the change",
+            "type": "string"
+          }
+        }
+      },
+      "array_of_strings": {
+        "description": "An array of strings that can be empty",
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "host_function": {
+        "type": "object",
+        "additionalProperties": false,
+        "title": "Host Functions",
+        "description": "List of host functions and their descriptions",
+        "properties": {
+          "name": {
+            "title": "Host function name",
+            "description": "Name or identifier to find the host function in the codebase",
+            "type": "string"
+          },
+          "description": {
+            "title": "Host function description",
+            "description": "Short description of the host function",
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ]
+      }
+    }
+  }

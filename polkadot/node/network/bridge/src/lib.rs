@@ -83,6 +83,7 @@ pub(crate) enum WireMessage<M> {
 	ViewUpdate(View),
 }
 
+#[derive(Debug)]
 pub(crate) struct PeerData {
 	/// The Latest view sent by the peer.
 	view: View,
@@ -99,6 +100,30 @@ struct SharedInner {
 	local_view: Option<View>,
 	validation_peers: HashMap<PeerId, PeerData>,
 	collation_peers: HashMap<PeerId, PeerData>,
+}
+
+// Counts the number of peers that are connectioned using `version`
+fn count_peers_by_version(peers: &HashMap<PeerId, PeerData>) -> HashMap<ProtocolVersion, usize> {
+	let mut by_version_count = HashMap::new();
+	for peer in peers.values() {
+		*(by_version_count.entry(peer.version).or_default()) += 1;
+	}
+	by_version_count
+}
+
+// Notes the peer count
+fn note_peers_count(metrics: &Metrics, shared: &Shared) {
+	let guard = shared.0.lock();
+	let validation_stats = count_peers_by_version(&guard.validation_peers);
+	let collation_stats = count_peers_by_version(&guard.collation_peers);
+
+	for (version, count) in validation_stats {
+		metrics.note_peer_count(PeerSet::Validation, version, count)
+	}
+
+	for (version, count) in collation_stats {
+		metrics.note_peer_count(PeerSet::Collation, version, count)
+	}
 }
 
 pub(crate) enum Mode {

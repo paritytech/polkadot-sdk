@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! BEEFY + MMR utilties.
+//! BEEFY + MMR utilities.
 //!
 //! While BEEFY can be used completely independently as an additional consensus gadget,
 //! it is designed around a main use case of bridging standalone networks together.
@@ -26,7 +26,8 @@
 //! but we imagine they will be useful for other chains that either want to bridge with Polkadot
 //! or are completely standalone, but heavily inspired by Polkadot.
 
-use crate::{ecdsa_crypto::AuthorityId, ConsensusLog, MmrRootHash, Vec, BEEFY_ENGINE_ID};
+use crate::{ecdsa_crypto::AuthorityId, ConsensusLog, MmrRootHash, BEEFY_ENGINE_ID};
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -66,7 +67,7 @@ pub struct MmrLeaf<BlockNumber, Hash, MerkleRoot, ExtraData> {
 
 /// An MMR leaf versioning scheme.
 ///
-/// Version is a single byte that constist of two components:
+/// Version is a single byte that consists of two components:
 /// - `major` - 3 bits
 /// - `minor` - 5 bits
 ///
@@ -76,7 +77,7 @@ pub struct MmrLeaf<BlockNumber, Hash, MerkleRoot, ExtraData> {
 ///
 /// Given that adding new struct elements in SCALE is backward compatible (i.e. old format can be
 /// still decoded, the new fields will simply be ignored). We expect the major version to be bumped
-/// very rarely (hopefuly never).
+/// very rarely (hopefully never).
 #[derive(Debug, Default, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]
 pub struct MmrLeafVersion(u8);
 impl MmrLeafVersion {
@@ -150,9 +151,11 @@ pub use mmr_root_provider::MmrRootProvider;
 mod mmr_root_provider {
 	use super::*;
 	use crate::{known_payloads, payload::PayloadProvider, Payload};
-	use sp_api::{NumberFor, ProvideRuntimeApi};
+	use alloc::sync::Arc;
+	use core::marker::PhantomData;
+	use sp_api::ProvideRuntimeApi;
 	use sp_mmr_primitives::MmrApi;
-	use sp_std::{marker::PhantomData, sync::Arc};
+	use sp_runtime::traits::NumberFor;
 
 	/// A [`crate::Payload`] provider where payload is Merkle Mountain Range root hash.
 	///

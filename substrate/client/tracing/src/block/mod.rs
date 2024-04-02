@@ -25,6 +25,7 @@ use std::{
 	time::Instant,
 };
 
+use codec::Encode;
 use parking_lot::Mutex;
 use tracing::{
 	dispatcher,
@@ -34,7 +35,7 @@ use tracing::{
 
 use crate::{SpanDatum, TraceEvent, Values};
 use sc_client_api::BlockBackend;
-use sp_api::{Core, Encode, Metadata, ProvideRuntimeApi};
+use sp_api::{Core, Metadata, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::hexdisplay::HexDisplay;
 use sp_rpc::tracing::{BlockTrace, Span, TraceBlockResponse};

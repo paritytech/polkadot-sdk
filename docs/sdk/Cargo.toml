@@ -1,0 +1,98 @@
+[package]
+name = "polkadot-sdk-docs"
+description = "The one stop shop for developers of the polkadot-sdk"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage = "paritytech.github.io"
+repository.workspace = true
+authors.workspace = true
+edition.workspace = true
+# This crate is not publish-able to crates.io for now because of docify.
+publish = false
+version = "0.0.1"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Needed for all FRAME-based code
+parity-scale-codec = { version = "3.0.0", default-features = false }
+scale-info = { version = "2.6.0", default-features = false }
+frame = { path = "../../substrate/frame", features = [
+	"experimental",
+	"runtime",
+] }
+pallet-examples = { path = "../../substrate/frame/examples" }
+pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
+pallet-example-offchain-worker = { path = "../../substrate/frame/examples/offchain-worker" }
+
+# How we build docs in rust-docs
+simple-mermaid = "0.1.1"
+docify = "0.2.8"
+
+# Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
+node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
+kitchensink-runtime = { path = "../../substrate/bin/node/runtime" }
+chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder" }
+subkey = { path = "../../substrate/bin/utils/subkey" }
+frame-system = { path = "../../substrate/frame/system", default-features = false }
+frame-support = { path = "../../substrate/frame/support", default-features = false }
+frame-executive = { path = "../../substrate/frame/executive", default-features = false }
+pallet-example-single-block-migrations = { path = "../../substrate/frame/examples/single-block-migrations" }
+
+# Substrate Client
+sc-network = { path = "../../substrate/client/network" }
+sc-rpc-api = { path = "../../substrate/client/rpc-api" }
+sc-rpc = { path = "../../substrate/client/rpc" }
+sc-client-db = { path = "../../substrate/client/db" }
+sc-cli = { path = "../../substrate/client/cli" }
+sc-consensus-aura = { path = "../../substrate/client/consensus/aura" }
+sc-consensus-babe = { path = "../../substrate/client/consensus/babe" }
+sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa" }
+sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }
+sc-consensus-manual-seal = { path = "../../substrate/client/consensus/manual-seal" }
+sc-consensus-pow = { path = "../../substrate/client/consensus/pow" }
+
+substrate-wasm-builder = { path = "../../substrate/utils/wasm-builder" }
+
+# Cumulus
+cumulus-pallet-aura-ext = { path = "../../cumulus/pallets/aura-ext" }
+cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-system", features = [
+	"parameterized-consensus-hook",
+] }
+parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info" }
+pallet-aura = { path = "../../substrate/frame/aura", default-features = false }
+
+# Pallets and FRAME internals
+pallet-timestamp = { path = "../../substrate/frame/timestamp" }
+pallet-balances = { path = "../../substrate/frame/balances" }
+pallet-assets = { path = "../../substrate/frame/assets" }
+pallet-preimage = { path = "../../substrate/frame/preimage" }
+pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
+pallet-utility = { path = "../../substrate/frame/utility" }
+pallet-multisig = { path = "../../substrate/frame/multisig" }
+pallet-proxy = { path = "../../substrate/frame/proxy" }
+pallet-authorship = { path = "../../substrate/frame/authorship" }
+pallet-collective = { path = "../../substrate/frame/collective" }
+pallet-democracy = { path = "../../substrate/frame/democracy" }
+pallet-uniques = { path = "../../substrate/frame/uniques" }
+pallet-nfts = { path = "../../substrate/frame/nfts" }
+pallet-scheduler = { path = "../../substrate/frame/scheduler" }
+
+# Primitives
+sp-io = { path = "../../substrate/primitives/io" }
+sp-api = { path = "../../substrate/primitives/api" }
+sp-core = { path = "../../substrate/primitives/core" }
+sp-keyring = { path = "../../substrate/primitives/keyring" }
+sp-runtime = { path = "../../substrate/primitives/runtime" }
+sp-arithmetic = { path = "../../substrate/primitives/arithmetic" }
+
+# Misc pallet dependencies
+pallet-referenda = { path = "../../substrate/frame/referenda" }
+pallet-broker = { path = "../../substrate/frame/broker" }
+pallet-babe = { path = "../../substrate/frame/babe" }
+
+sp-offchain = { path = "../../substrate/primitives/offchain" }
+sp-version = { path = "../../substrate/primitives/version" }
+
+# XCM
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }

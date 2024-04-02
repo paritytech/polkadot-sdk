@@ -185,7 +185,7 @@ fn check_primary_header<B: BlockT + Sized>(
 		.make_bytes::<AUTHORING_SCORE_LENGTH>(
 			AUTHORING_SCORE_VRF_CONTEXT,
 			&data.as_ref(),
-			&pre_digest.vrf_signature.output,
+			&pre_digest.vrf_signature.pre_output,
 		)
 		.map(u128::from_le_bytes)
 		.map_err(|_| babe_err(Error::VrfVerificationFailed))?;
