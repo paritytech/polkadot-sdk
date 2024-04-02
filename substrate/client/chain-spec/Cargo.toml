@@ -34,7 +34,7 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
 log = { workspace = true }
 array-bytes = { version = "6.1" }
-docify = "0.2.7"
+docify = "0.2.8"
 
 [dev-dependencies]
 substrate-test-runtime = { path = "../../test-utils/runtime" }
