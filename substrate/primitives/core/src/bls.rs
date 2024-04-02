@@ -190,25 +190,18 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 				.expect("Signature serializer returns vectors of SIGNATURE_SERIALIZED_SIZE size");
 		Self::Signature::unchecked_from(r)
 	}
-
-	// #[cfg(feature = "full_crypto")]
-	// fn sign_prehashed(&self, message: &[u8;32]) -> Self::Signature {
-	// 	let mut mutable_self = self.clone();
-	// 	let r: [u8; SIGNATURE_SERIALIZED_SIZE] =
-	// 		DoublePublicKeyScheme::sign_prehashed(&mut mutable_self.0, message)
-	// 			.to_bytes()
-	// 			.try_into()
-	// 			.expect("Signature serializer returns vectors of SIGNATURE_SERIALIZED_SIZE size");
-	// 	Self::Signature::unchecked_from(r)
-	// }
 	
 	#[cfg(feature = "etf")]
-	fn acss_recover(&self, pok_bytes: Vec<u8>) {
-		panic!("HEY WE GOT ALL THE WAY HERE, NEAT");
+	fn acss_recover(&self, pok_bytes: Vec<u8>) -> Option<Self> {
 		if let Some(pok) = BatchPoK::deserialize_compressed(&pok_bytes[..]) {
-			let recovered = DoublePublicKeyScheme::recover(&mut mutable_self.0, &pok_bytes);
-			panic!("recvovered keys {:?}", recovered);
+			if let Some(recovered) = DoublePublicKeyScheme::recover(
+				&mut mutable_self.0, 
+				&pok_bytes
+			) {
+				return Some(Pair(w3f_bls::SecretKey::from(recovered.0)));
+			}
 		}
+		None
 	}
 
 	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, pubkey: &Self::Public) -> bool {

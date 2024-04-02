@@ -204,60 +204,23 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	pub fn recover(
 		&self, 
 		public: &AuthorityId,
-		// pok: BatchPoK<ark_bls12_377::G1Projective>,
 		pok: Vec<u8>
 	) -> Vec<Vec<u8>> {
+		info!("ETF: trying to run acss recovery");
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))
 			.map_err(|_| ())
 			.unwrap();
 
 		let mut recovered = Vec::new();
-		// bls377::CRYPTO_ID => {
+		
 		let public: bls377::Public =
 			bls377::Public::try_from(public.as_slice()).unwrap();
-		// if let Some(commitment) = 
-			store.acss_recover(
-				BEEFY_KEY_TYPE, 
-				&public, 
-				pok
-			);
-			// {
-
-			// }
-
-		// let sk_bytes = store.key_pair::<bls377::Pair>(&public).to_raw_vec();
-		// let kp = store.read().key_pair::<bls377::Pair>(public);
-		// Q: Do I need a KDF??
-
-		// should panic...
-		// store.recover(vec![]);
 		
-		// pok.ciphertexts.iter().for_each(|ct| {
-		// if let (s, s_prime) = HighThresholdACSS::<ark_bls12_377::G1Projective>::recover(
-		// 	sk,
-		// 	pok,
-		// ) {
-		// 	info!("Recovered secrets {:?}, {:?}", s, s_prime);
-		// }
-			// we need to run the hashed el gamal decryption alg
-			// on each of the ciphertexts
-			// let message = ct.c1;
-			// let message_bytes = Vec::new();
-
-				// let sig = store
-				// 	.bls377_sign(BEEFY_KEY_TYPE, &public, &message)
-				// 	.map_err(|e| error::Error::Keystore(e.to_string()))?
-				// 	.ok_or_else(|| error::Error::Signature("bls377_sign()  failed".to_string()))?;
-			// let sig_ref: &[u8] = sig.as_ref();
-			// sig_ref.to_vec()
-			// });
-			// let sig = store
-			// 	.bls377_sign(BEEFY_KEY_TYPE, &public, &message)
-			// 	.map_err(|e| error::Error::Keystore(e.to_string()))?
-			// 	.ok_or_else(|| error::Error::Signature("bls377_sign()  failed".to_string()))?;
-			// let sig_ref: &[u8] = sig.as_ref();
-			// sig_ref.to_vec()
-		// },
+		store.acss_recover(
+			BEEFY_KEY_TYPE, 
+			&public, 
+			pok
+		);
 		recovered
 	}
 }
