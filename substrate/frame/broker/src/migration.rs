@@ -27,19 +27,19 @@ use frame_support::ensure;
 #[cfg(feature = "try-runtime")]
 use sp_std::vec::Vec;
 
-/// V0 region record.
-#[derive(Encode, Decode)]
-pub struct RegionRecordV0<AccountId, Balance> {
-	/// The end of the Region.
-	pub end: Timeslice,
-	/// The owner of the Region.
-	pub owner: AccountId,
-	/// The amount paid to Polkadot for this Region, or `None` if renewal is not allowed.
-	pub paid: Option<Balance>,
-}
-
 mod v1 {
 	use super::*;
+
+	/// V0 region record.
+	#[derive(Encode, Decode)]
+	struct RegionRecordV0<AccountId, Balance> {
+		/// The end of the Region.
+		pub end: Timeslice,
+		/// The owner of the Region.
+		pub owner: AccountId,
+		/// The amount paid to Polkadot for this Region, or `None` if renewal is not allowed.
+		pub paid: Option<Balance>,
+	}
 
 	pub struct MigrateToV1Impl<T>(PhantomData<T>);
 
