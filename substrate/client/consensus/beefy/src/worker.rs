@@ -352,15 +352,7 @@ impl<B: Block> PersistedState<B> {
 
 		// verify we're not using BEEFY dummy key when role is authority.
 		if is_authority {
-			let mut beefy_key_present = false;
-			for key in key_store.public_keys().unwrap_or_default() {
-				let id_raw: &[u8] = key.as_slice();
-				if id_raw[0..4] != *b"beef" {
-					// Non-dummy key found.
-					beefy_key_present = true;
-				}
-			}
-			if !beefy_key_present {
+			if key_store.public_keys().map_or(false, |k| k.is_empty()) {
 				error!(
 					target: LOG_TARGET,
 					"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
