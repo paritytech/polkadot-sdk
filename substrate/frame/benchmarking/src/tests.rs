@@ -263,7 +263,7 @@ mod benchmarks {
 		assert_eq!(components, vec![(BenchmarkParameter::b, 1, 1000)]);
 
 		new_test_ext().execute_with(|| {
-			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::test_instance(
+			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
 				&selected,
 				&[(BenchmarkParameter::b, 1)],
 			));
@@ -278,7 +278,7 @@ mod benchmarks {
 		assert_eq!(components, vec![(BenchmarkParameter::b, 1, 1000)]);
 
 		new_test_ext().execute_with(|| {
-			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::test_instance(
+			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
 				&selected,
 				&[(BenchmarkParameter::b, 1)],
 			));
@@ -293,7 +293,7 @@ mod benchmarks {
 		assert_eq!(components, vec![(BenchmarkParameter::x, 1, 10000)]);
 
 		new_test_ext().execute_with(|| {
-			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::test_instance(
+			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
 				&selected,
 				&[(BenchmarkParameter::x, 1)],
 			));
@@ -306,7 +306,7 @@ mod benchmarks {
 		let selected = SelectedBenchmark::set_value;
 
 		new_test_ext().execute_with(|| {
-			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::test_instance(
+			assert_ok!(<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
 				&selected,
 				&[(BenchmarkParameter::b, 1)],
 			));
@@ -317,7 +317,7 @@ mod benchmarks {
 
 		new_test_ext().execute_with(|| {
 			assert_err!(
-				<SelectedBenchmark as BenchmarkingSetup<Test>>::test_instance(
+				<SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
 					&selected,
 					&[(BenchmarkParameter::x, 10000)],
 				),
@@ -331,7 +331,7 @@ mod benchmarks {
 		let selected = SelectedBenchmark::override_benchmark;
 
 		new_test_ext().execute_with(|| {
-			let result = <SelectedBenchmark as BenchmarkingSetup<Test>>::test_instance(
+			let result = <SelectedBenchmark as BenchmarkingSetup<Test>>::unit_test_instance(
 				&selected,
 				&[(BenchmarkParameter::b, 1)],
 			);

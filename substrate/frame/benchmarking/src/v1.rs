@@ -1078,10 +1078,6 @@ macro_rules! impl_benchmark {
 					// Always reset the state after the benchmark.
 					$crate::__private::defer!($crate::benchmarking::wipe_db());
 
-					// Set the block number to at least 1 so events are deposited.
-					if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
-						frame_system::Pallet::<T>::set_block_number(1u32.into());
-					}
 
 					$crate::__private::log::trace!(
 						target: "benchmark",
@@ -1095,6 +1091,11 @@ macro_rules! impl_benchmark {
 					// benchmark.
 					let whitelist = whitelist.clone();
 					let mut recording = $crate::BenchmarkRecording::new($crate::__private::Box::new(move || {
+						// Set the block number to at least 1 so events are deposited.
+						if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
+							frame_system::Pallet::<T>::set_block_number(1u32.into());
+						}
+
 						// Commit the externalities to the database, flushing the DB cache.
 						// This will enable worst case scenario for reading from the database.
 						$crate::benchmarking::commit_db();

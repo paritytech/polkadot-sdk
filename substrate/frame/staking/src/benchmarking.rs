@@ -1079,7 +1079,7 @@ mod tests {
 			];
 
 			assert_ok!(
-				<SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::test_instance(
+				<SelectedBenchmark as frame_benchmarking::BenchmarkingSetup<Test>>::unit_test_instance(
 					&selected_benchmark,
 					&c,
 				)

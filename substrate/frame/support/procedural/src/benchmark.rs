@@ -739,10 +739,6 @@ pub fn benchmarks(
 						#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
 						// Set the block number to at least 1 so events are deposited.
-						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
-							#frame_system::Pallet::<T>::set_block_number(1u32.into());
-						}
-
 						#krate::__private::log::trace!(
 							target: "benchmark",
 							"Start Benchmark: {} ({:?})",
@@ -752,6 +748,10 @@ pub fn benchmarks(
 
 						let whitelist = whitelist.clone();
 						let mut recording = #krate::BenchmarkRecording::new(#krate::__private::Box::new(move || {
+							if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
+								#frame_system::Pallet::<T>::set_block_number(1u32.into());
+							}
+
 							// Commit the externalities to the database, flushing the DB cache.
 							// This will enable worst case scenario for reading from the database.
 							#krate::benchmarking::commit_db();
@@ -1114,13 +1114,15 @@ fn expand_benchmark(
 					// Always reset the state after the benchmark.
 					#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
-					// Set the block number to at least 1 so events are deposited.
-					if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
-						#frame_system::Pallet::<T>::set_block_number(1u32.into());
-					}
+					let on_before_start = Box::new(|| {
+						// Set the block number to at least 1 so events are deposited.
+						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
+							#frame_system::Pallet::<T>::set_block_number(1u32.into());
+						}
+					});
 
 					// Run execution + verification
-					< SelectedBenchmark as #krate::BenchmarkingSetup<T, _> >::test_instance(&selected_benchmark, &c)
+					<SelectedBenchmark as #krate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark,  &c, on_before_start)
 				};
 
 				if components.is_empty() {

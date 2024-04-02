@@ -351,9 +351,30 @@ pub trait Recording {
 	fn stop(&mut self) {}
 }
 
-/// A no-op recording, used when instantiating the benchmark test instance.
-pub struct NoopRecording;
+/// A no-op recording, used for unit test.
+struct NoopRecording;
 impl Recording for NoopRecording {}
+
+/// A no-op recording, used for tests that should setup some state before running the benchmark.
+struct TestRecording {
+	on_before_start: Option<Box<dyn FnOnce()>>,
+}
+
+impl TestRecording {
+	fn new(on_before_start: Box<dyn FnOnce()>) -> Self {
+		Self { on_before_start: Some(on_before_start) }
+	}
+}
+
+impl Recording for TestRecording {
+	fn start(&mut self) {
+		let on_before_start = self
+			.on_before_start
+			.take()
+			.expect("on_before_start is always set by `new`; qed");
+		(on_before_start)();
+	}
+}
 
 /// Records the time and proof size of a single benchmark iteration.
 pub struct BenchmarkRecording {
@@ -430,8 +451,17 @@ pub trait BenchmarkingSetup<T, I = ()> {
 		verify: bool,
 	) -> Result<(), BenchmarkError>;
 
-	/// Same as `instance` but passing a no-op recording.
+	/// Same as `instance` but passing a closure to run before the benchmark starts.
 	fn test_instance(
+		&self,
+		components: &[(BenchmarkParameter, u32)],
+		on_before_start: Box<dyn FnOnce()>,
+	) -> Result<(), BenchmarkError> {
+		return self.instance(&mut TestRecording::new(on_before_start), components, true);
+	}
+
+	/// Same as `instance` but passing a no-op recording for unit tests.
+	fn unit_test_instance(
 		&self,
 		components: &[(BenchmarkParameter, u32)],
 	) -> Result<(), BenchmarkError> {
