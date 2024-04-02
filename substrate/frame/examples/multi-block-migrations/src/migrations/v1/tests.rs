@@ -36,7 +36,7 @@ fn lazy_migration_works() {
 		frame_support::__private::sp_tracing::try_init_simple();
 		// Insert some values into the old storage map.
 		for i in 0..1024 {
-			v1::old::MyMap::<T>::insert(i, i);
+			v1::v0::MyMap::<T>::insert(i, i);
 		}
 
 		// Give it enough weight do do exactly 16 iterations:

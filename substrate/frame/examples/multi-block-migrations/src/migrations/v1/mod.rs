@@ -18,7 +18,7 @@
 //! # Multi-Block Migration v1
 //!
 //! This module showcases a simple migration that iterates over the values in the
-//! [`old::MyMap`](`crate::migrations::v1::old::MyMap`) storage map, transforms them,
+//! [`v1::MyMap`](`crate::migrations::v1::v1::MyMap`) storage map, transforms them,
 //! and inserts them into the [`MyMap`](`crate::pallet::MyMap`) storage map.
 
 use super::PALLET_MIGRATIONS_ID;
@@ -33,13 +33,13 @@ mod benchmarks;
 mod tests;
 pub mod weights;
 
-/// Module containing the OLD storage items.
+/// Module containing the OLD (v0) storage items.
 ///
 /// Before running this migration, the storage alias defined here represents the
 /// `on_chain` storage.
 // This module is public only for the purposes of linking it in the documentation. It is not
 // intended to be used by any other code.
-pub mod old {
+pub mod v0 {
 	use super::Config;
 	use crate::pallet::Pallet;
 	use frame_support::{storage_alias, Blake2_128Concat};
@@ -92,16 +92,20 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 			let mut iter = if let Some(last_key) = cursor {
 				// If a cursor is provided, start iterating from the stored value
 				// corresponding to the last key processed in the previous step.
-				old::MyMap::<T>::iter_from(old::MyMap::<T>::hashed_key_for(last_key))
+				// Note that this only works if the old and the new map use the same way to hash
+				// storage keys.
+				v0::MyMap::<T>::iter_from(v0::MyMap::<T>::hashed_key_for(last_key))
 			} else {
 				// If no cursor is provided, start iterating from the beginning.
-				old::MyMap::<T>::iter()
+				v0::MyMap::<T>::iter()
 			};
 
 			// If there's a next item in the iterator, perform the migration.
 			if let Some((last_key, value)) = iter.next() {
 				// Migrate the inner value: u32 -> u64.
 				let value = value as u64;
+				// We can just insert here since the old and the new map share the same key-space.
+				// Otherwise it would have to invert the concat hash function and re-hash it.
 				MyMap::<T>::insert(last_key, value);
 				cursor = Some(last_key) // Return the processed key as the new cursor.
 			} else {

@@ -36,7 +36,7 @@ mod benches {
 	/// Benchmark a single step of the `v1::LazyMigrationV1` migration.
 	#[benchmark]
 	fn step() {
-		v1::old::MyMap::<T>::insert(0, 0);
+		v1::v0::MyMap::<T>::insert(0, 0);
 		let mut meter = WeightMeter::new();
 
 		#[block]

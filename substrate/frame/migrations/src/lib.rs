@@ -356,7 +356,7 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
 			#[cfg(feature = "runtime-benchmarks")]
-			type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+			type Migrations = crate::mock_helpers::MockedMigrations;
 			type CursorMaxLen = ConstU32<{ 1 << 16 }>;
 			type IdentifierMaxLen = ConstU32<{ 256 }>;
 			type MigrationStatusHandler = ();

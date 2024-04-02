@@ -65,9 +65,6 @@
 //! [`try-runtime-cli`](https://github.com/paritytech/try-runtime-cli). Support will be added to
 //! dry-run MBMs once they are stable
 //! (tracked: <https://github.com/paritytech/try-runtime-cli/issues/17>).
-//!
-//! You can also consider using [`Chopsticks`](https://github.com/AcalaNetwork/chopsticks) for testing
-//! your migrations in addition to `try-runtime-cli`.
 
 pub mod migrations;
 mod mock;
