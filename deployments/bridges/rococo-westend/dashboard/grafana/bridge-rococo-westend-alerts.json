@@ -1,0 +1,1974 @@
+{
+  "name": "Bridge Rococo <> Westend",
+  "interval": "1m",
+  "rules": [
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "tkgc6_bnk",
+        "__panelId__": "12",
+        "summary": "Messages from RococoBridgeHub to WestendBridgeHub (00000002) are either not delivered, or are delivered with lags"
+      },
+      "grafana_alert": {
+        "id": 51,
+        "orgId": 1,
+        "title": "RococoBridgeHub -> WestendBridgeHub delivery lags (00000002)",
+        "condition": "A",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "((vector(0) and ((BridgeHubRococo_to_BridgeHubWestend_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"source_latest_generated\"} > on () BridgeHubRococo_to_BridgeHubWestend_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_received\"}))) or vector(1)) + on () increase(BridgeHubRococo_to_BridgeHubWestend_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_received\"}[10m]) * on () ((vector(1) and ((BridgeHubRococo_to_BridgeHubWestend_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"source_latest_generated\"} > on () BridgeHubRococo_to_BridgeHubWestend_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_received\"}))) or vector(0))",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Undelivered messages",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      1
+                    ],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "max"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "B",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 130,
+        "uid": "r41otJp4k",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "zqjpgXxnk",
+        "__panelId__": "14",
+        "summary": "Messages from WestendBridgeHub to RococoBridgeHub (00000002) are either not delivered, or are delivered with lags"
+      },
+      "grafana_alert": {
+        "id": 55,
+        "orgId": 1,
+        "title": "WestendBridgeHub -> RococoBridgeHub delivery lags (00000002)",
+        "condition": "B",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 300,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "((vector(0) and ((BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"source_latest_generated\"} > on () BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_received\"}))) or vector(1)) + on () increase(BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_received\"}[10m]) * on () ((vector(1) and ((BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"source_latest_generated\"} > on () BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_received\"}))) or vector(0))",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Undelivered messages",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 300,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      1
+                    ],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "max"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "B",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 128,
+        "uid": "wqmPtJpVz",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "tkgc6_bnk",
+        "__panelId__": "14",
+        "summary": "Messages from RococoBridgeHub to WestendBridgeHub (00000002) are either not confirmed, or are confirmed with lags"
+      },
+      "grafana_alert": {
+        "id": 56,
+        "orgId": 1,
+        "title": "RococoBridgeHub -> WestendBridgeHub confirmation lags (00000002)",
+        "condition": "B",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "scalar(max_over_time(RococoBridgeHub_to_WestendBridgeHub_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_received\"}[2m]) OR on() vector(0)) - scalar(max_over_time(RococoBridgeHub_to_WestendBridgeHub_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"source_latest_confirmed\"}[2m]) OR on() vector(0))",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Unconfirmed messages",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      50
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "min"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "B",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 124,
+        "uid": "z4h3pJtVz",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "zqjpgXxnk",
+        "__panelId__": "16",
+        "summary": "Messages from WestendBridgeHub to RococoBridgeHub (00000002) are either not confirmed, or are confirmed with lags"
+      },
+      "grafana_alert": {
+        "id": 57,
+        "orgId": 1,
+        "title": "WestendBridgeHub -> RococoBridgeHub confirmation lags (00000002)",
+        "condition": "B",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 300,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "scalar(max_over_time(BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_received\"}[2m]) OR on() vector(0)) - scalar(max_over_time(BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"source_latest_confirmed\"}[2m]) OR on() vector(0))",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Unconfirmed messages",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 300,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      50
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "min"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "B",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 123,
+        "uid": "Kj_z21t4k",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "zqjpgXxnk",
+        "__panelId__": "18",
+        "summary": "Rewards for messages from WestendBridgeHub to RococoBridgeHub (00000002) are either not confirmed, or are confirmed with lags"
+      },
+      "grafana_alert": {
+        "id": 58,
+        "orgId": 1,
+        "title": "WestendBridgeHub -> RococoBridgeHub reward lags (00000002)",
+        "condition": "C",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "scalar(max_over_time(BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"source_latest_confirmed\"}[2m]) OR on() vector(0)) - scalar(max_over_time(BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_confirmed\"}[2m]) OR on() vector(0))",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Unconfirmed rewards",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 300,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      10
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "when"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "min"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "C",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 118,
+        "uid": "hw_a21pVk",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "tkgc6_bnk",
+        "__panelId__": "15",
+        "summary": "Rewards for messages from RococoBridgeHub to WestendBridgeHub (00000002) are either not confirmed, or are confirmed with lags"
+      },
+      "grafana_alert": {
+        "id": 59,
+        "orgId": 1,
+        "title": "RococoBridgeHub -> WestendBridgeHub reward lags (00000002)",
+        "condition": "C",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "scalar(max_over_time(BridgeHubRococo_to_BridgeHubWestend_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"source_latest_confirmed\"}[2m]) OR on() vector(0)) - scalar(max_over_time(BridgeHubRococo_to_BridgeHubWestend_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\",type=\"target_latest_confirmed\"}[2m]) OR on() vector(0))",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Unconfirmed rewards",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      10
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "min"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "C",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 117,
+        "uid": "daN62Jt4z",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "UFsgbJtVz",
+        "__panelId__": "2",
+        "summary": "Best BridgeHubRococo header at BridgeHubWestend (00000002) doesn't match the same header at BridgeHubRococo"
+      },
+      "grafana_alert": {
+        "id": 60,
+        "orgId": 1,
+        "title": "BridgeHubRococo header mismatch (00000002)",
+        "condition": "B",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "BridgeHubRococo_to_BridgeHubWestend_MessageLane_00000002_is_source_and_source_at_target_using_different_forks{domain=\"parity-testnet\"}",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Best BridgeHubRococo header at BridgeHubWestend doesn't match the same header of BridgeHubRococo",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      0
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "max"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "B",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 114,
+        "uid": "BzBDb1pVz",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "UFsgbJtVz",
+        "__panelId__": "3",
+        "summary": "Best BridgeHubWestend header at BridgeHubRococo (00000002) doesn't match the same header at BridgeHubWestend"
+      },
+      "grafana_alert": {
+        "id": 61,
+        "orgId": 1,
+        "title": "BridgeHubWestend header mismatch (00000002)",
+        "condition": "B",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "BridgeHubWestend_to_BridgeHubRococo_MessageLane_00000002_is_source_and_source_at_target_using_different_forks{domain=\"parity-testnet\"}",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Best BridgeHubRococo header at BridgeHubWestend doesn't match the same header of BridgeHubRococo",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      0
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "max"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "B",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 113,
+        "uid": "1W6lb1p4z",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "UFsgbJtVz",
+        "__panelId__": "5",
+        "summary": "With-WestendBridgeHub messages relay balance at RococoBridgeHub (00000002) is too low"
+      },
+      "grafana_alert": {
+        "id": 62,
+        "orgId": 1,
+        "title": "With-WestendBridgeHub messages relay balance at RococoBridgeHub (00000002) is too low",
+        "condition": "B",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 300,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "last_over_time(at_BridgeHubRococo_relay_BridgeHubWestendMessages_balance{domain=\"parity-testnet\"}[1h])",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Messages Relay Balance",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 300,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      10
+                    ],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "B",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 112,
+        "uid": "Y5Dm-1tVz",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "UFsgbJtVz",
+        "__panelId__": "6",
+        "summary": "With-RococoBridgeHub messages relay balance at WestendBridgeHub (00000002) is too low"
+      },
+      "grafana_alert": {
+        "id": 63,
+        "orgId": 1,
+        "title": "With-RococoBridgeHub messages relay balance at WestendBridgeHub (00000002) is too low",
+        "condition": "B",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 300,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "last_over_time(at_BridgeHubWestend_relay_BridgeHubRococoMessages_balance{domain=\"parity-testnet\"}[1h])",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Messages Relay Balance",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 300,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      10
+                    ],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "A"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "B",
+              "type": "classic_conditions"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 111,
+        "uid": "yUl4a1tVz",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "5m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "tkgc6_bnk",
+        "__panelId__": "6",
+        "summary": "Less than 500 Rococo headers have been synced to WestendBridgeHub in last 120 minutes. Relay is not running?"
+      },
+      "grafana_alert": {
+        "id": 65,
+        "orgId": 1,
+        "title": "Rococo -> WestendBridgeHub finality sync lags (00000002)",
+        "condition": "D",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "max(increase(Rococo_to_BridgeHubWestend_Sync_best_source_at_target_block_number{domain=\"parity-testnet\"}[120m]))",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "At Rococo",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "C"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "reducer": "last",
+              "refId": "C",
+              "type": "reduce"
+            }
+          },
+          {
+            "refId": "D",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      500
+                    ],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "D"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "C",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "D",
+              "type": "threshold"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 80,
+        "uid": "R6GKwNA4z",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "5m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "zqjpgXxnk",
+        "__panelId__": "2",
+        "summary": "Less than 500 Westend headers have been synced to RococoBridgeHub in last 390 minutes. Relay is not running?"
+      },
+      "grafana_alert": {
+        "id": 66,
+        "orgId": 1,
+        "title": "Westend -> RococoBridgeHub finality sync lags (00000002)",
+        "condition": "D",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "max(increase(Westend_to_BridgeHubRococo_Sync_best_source_at_target_block_number{domain=\"parity-testnet\"}[390m]))",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "At Westend",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "C"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "reducer": "last",
+              "refId": "C",
+              "type": "reduce"
+            }
+          },
+          {
+            "refId": "D",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      500
+                    ],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "D"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "C",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "D",
+              "type": "threshold"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 78,
+        "uid": "rAM1QHAVk",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "0s",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "UFsgbJtVz",
+        "__panelId__": "11",
+        "summary": "The RococoBridgeHub <> WestendBridgeHub relay (00000002) has been aborted by version guard - i.e. one of chains has been upgraded and relay wasn't redeployed"
+      },
+      "grafana_alert": {
+        "id": 67,
+        "orgId": 1,
+        "title": "Version guard has aborted RococoBridgeHub <> WestendBridgeHub relay (00000002)",
+        "condition": "B",
+        "data": [
+          {
+            "refId": "B",
+            "queryType": "instant",
+            "relativeTimeRange": {
+              "from": 600,
+              "to": 0
+            },
+            "datasourceUid": "P3572579027B246FE",
+            "model": {
+              "datasource": {
+                "type": "loki",
+                "uid": "P3572579027B246FE"
+              },
+              "editorMode": "code",
+              "expr": "count_over_time({container=\"bridges-common-relay\"} |= `Aborting relay` [1m])",
+              "hide": false,
+              "intervalMs": 1000,
+              "legendFormat": "Aborts per minute",
+              "maxDataPoints": 43200,
+              "queryType": "instant",
+              "refId": "B"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "C"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "B",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "reducer": "max",
+              "refId": "C",
+              "type": "reduce"
+            }
+          },
+          {
+            "refId": "D",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      0
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "D"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "C",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "D",
+              "type": "threshold"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 77,
+        "uid": "TwWPeN04z",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "UFsgbJtVz",
+        "__panelId__": "12",
+        "summary": "Best Rococo header at BridgeHubWestend (00000002) doesn't match the same header at Rococo"
+      },
+      "grafana_alert": {
+        "id": 69,
+        "orgId": 1,
+        "title": "Rococo headers mismatch",
+        "condition": "C",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "Rococo_to_BridgeHubWestend_Sync_is_source_and_source_at_target_using_different_forks{domain=\"parity-testnet\"}",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Best BridgeHubRococo header at BridgeHubWestend doesn't match the same header of BridgeHubRococo",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 0,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "B"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "reducer": "last",
+              "refId": "B",
+              "type": "reduce"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 0,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      0
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "C"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "B",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "C",
+              "type": "threshold"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 72,
+        "uid": "08-5gv04k",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "10m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "UFsgbJtVz",
+        "__panelId__": "13",
+        "summary": "Best Westend header at BridgeHubRococo (00000002) doesn't match the same header at Westend"
+      },
+      "grafana_alert": {
+        "id": 70,
+        "orgId": 1,
+        "title": "Westend headers mismatch",
+        "condition": "C",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "Westend_to_BridgeHubRococo_Sync_is_source_and_source_at_target_using_different_forks{domain=\"parity-testnet\"}",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Best BridgeHubRococo header at BridgeHubWestend doesn't match the same header of BridgeHubRococo",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 0,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "B"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "reducer": "last",
+              "refId": "B",
+              "type": "reduce"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 0,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      0
+                    ],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "C"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "B",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "C",
+              "type": "threshold"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 71,
+        "uid": "Esj2gD0Vk",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "5m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "tkgc6_bnk",
+        "__panelId__": "9",
+        "summary": "Test messages from RococoBridgeHub to WestendBridgeHub are not generated. Our cronjob has died?"
+      },
+      "grafana_alert": {
+        "id": 73,
+        "orgId": 1,
+        "title": "Test messages from RococoBridgeHub to WestendBridgeHub are not generated.",
+        "condition": "D",
+        "data": [
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 21600,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "expr": "max by(container) (increase(BridgeHubRococo_to_BridgeHubWestend_MessageLane_00000002_lane_state_nonces{domain=\"parity-testnet\", type=~\"source_latest_generated\"}[24h]))",
+              "hide": true,
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Messages generated in last 24h",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "B"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "C"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "B",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "reducer": "max",
+              "refId": "C",
+              "type": "reduce"
+            }
+          },
+          {
+            "refId": "D",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 600,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      1
+                    ],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "D"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "C",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "D",
+              "type": "threshold"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 43,
+        "uid": "ry1K5SB4k",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    },
+    {
+      "expr": "",
+      "for": "5m",
+      "labels": {
+        "matrix_room": "XyVkmRJgIkjcvIBPsP"
+      },
+      "annotations": {
+        "__dashboardUid__": "UFsgbJtVz",
+        "__panelId__": "16",
+        "summary": "RococoBridgeHub <> WestendBridgeHub relay (00000002) node is down"
+      },
+      "grafana_alert": {
+        "id": 74,
+        "orgId": 1,
+        "title": "RococoBridgeHub <> WestendBridgeHub relay (00000002) node is down",
+        "condition": "C",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 900,
+              "to": 0
+            },
+            "datasourceUid": "PC96415006F908B67",
+            "model": {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PC96415006F908B67"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "up{domain=\"parity-testnet\",container=\"bridges-common-relay\"}",
+              "instant": false,
+              "interval": "",
+              "intervalMs": 30000,
+              "legendFormat": "Is relay running",
+              "maxDataPoints": 43200,
+              "range": true,
+              "refId": "A"
+            }
+          },
+          {
+            "refId": "B",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 0,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [],
+                    "type": "gt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "B"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "A",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "reducer": "max",
+              "refId": "B",
+              "type": "reduce"
+            }
+          },
+          {
+            "refId": "C",
+            "queryType": "",
+            "relativeTimeRange": {
+              "from": 0,
+              "to": 0
+            },
+            "datasourceUid": "-100",
+            "model": {
+              "conditions": [
+                {
+                  "evaluator": {
+                    "params": [
+                      1
+                    ],
+                    "type": "lt"
+                  },
+                  "operator": {
+                    "type": "and"
+                  },
+                  "query": {
+                    "params": [
+                      "C"
+                    ]
+                  },
+                  "reducer": {
+                    "params": [],
+                    "type": "last"
+                  },
+                  "type": "query"
+                }
+              ],
+              "datasource": {
+                "type": "__expr__",
+                "uid": "-100"
+              },
+              "expression": "B",
+              "hide": false,
+              "intervalMs": 1000,
+              "maxDataPoints": 43200,
+              "refId": "C",
+              "type": "threshold"
+            }
+          }
+        ],
+        "updated": "2023-12-08T06:04:42Z",
+        "intervalSeconds": 60,
+        "version": 41,
+        "uid": "9YAdEUB4z",
+        "namespace_uid": "eblDiw17z",
+        "namespace_id": 140,
+        "rule_group": "Bridge Rococo <> Westend",
+        "no_data_state": "OK",
+        "exec_err_state": "OK",
+        "is_paused": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+[package]
+name = "relay-polkadot-client"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+subxt = { version = "0.32.1", default-features = false, features = ["native"] }
+
+# Bridge dependencies
+
+bp-polkadot = { path = "../../chains/chain-polkadot" }
+bp-polkadot-core = { path = "../../primitives/polkadot-core" }
+bp-runtime = { path = "../../primitives/runtime" }
+
+relay-substrate-client = { path = "../../relays/client-substrate" }
+relay-utils = { path = "../../relays/utils" }
+
+# Substrate Dependencies
+
+sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-session = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-weights = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
