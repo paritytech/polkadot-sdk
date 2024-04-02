@@ -342,12 +342,12 @@ pub trait Benchmarking {
 	) -> Result<Vec<BenchmarkResult>, BenchmarkError>;
 }
 
-/// The recording trait used to record the time and proof size of a benchmark iteration.
+/// The recording trait used to mark the start and end of a benchmark.
 pub trait Recording {
-	/// Start the recording.
+	/// Start the benchmark.
 	fn start(&mut self) {}
 
-	// Stop the recording.
+	// Stop the benchmark.
 	fn stop(&mut self) {}
 }
 
