@@ -160,7 +160,7 @@ sp-externalities = { path = "../../../primitives/externalities" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-runtime = { path = "../../../primitives/runtime" }
 serde_json = { workspace = true, default-features = true }
-scale-info = { version = "2.10.0", features = ["derive", "serde"] }
+scale-info = { version = "2.11.1", features = ["derive", "serde"] }
 sp-trie = { path = "../../../primitives/trie" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 
