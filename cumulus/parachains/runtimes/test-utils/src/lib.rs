@@ -425,12 +425,13 @@ impl<
 		}
 
 		// do teleport
-		<pallet_xcm::Pallet<Runtime>>::teleport_assets(
+		<pallet_xcm::Pallet<Runtime>>::limited_teleport_assets(
 			origin,
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new((AssetId(asset), amount).into()),
 			0,
+			Unlimited,
 		)
 	}
 }
