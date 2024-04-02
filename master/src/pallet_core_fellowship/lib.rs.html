@@ -788,6 +788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
 <a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -939,7 +940,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>frame_system::{ensure_root, pallet_prelude::<span class="kw-2">*</span>};
 
-	<span class="kw">const </span>RANK_COUNT: usize = <span class="number">9</span>;
+	<span class="doccomment">/// Number of available ranks.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>RANK_COUNT: usize = <span class="number">9</span>;
 
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
