@@ -76,9 +76,9 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		let required = W::step();
-		// If there is not enough weight to do even a single step, then we are in a really bad spot
-		// and the chain is bricked. But we can do nothing about it, so just return the proper
-		// error.
+		// If there is not enough weight for a single step, return an error. This case can be
+		// problematic if it is the first migration that ran in this block. But there is nothing
+		// that we can do about it here.
 		if meter.remaining().any_lt(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
