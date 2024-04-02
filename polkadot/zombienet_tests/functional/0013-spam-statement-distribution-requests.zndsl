@@ -1,5 +1,5 @@
 Description: Test if parachains progress when group is getting spammed by statement distribution requests.
-Network: ./0012-spam-statement-distribution-requests.toml
+Network: ./0013-spam-statement-distribution-requests.toml
 Creds: config
 
 # Check authority status and peers.
