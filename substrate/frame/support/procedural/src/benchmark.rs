@@ -633,7 +633,7 @@ pub fn benchmarks(
 
 				fn instance(
 					&self,
-					recording: &mut #krate::BenchmarkRecording,
+					recording: &mut impl #krate::Recording,
 					components: &[(#krate::BenchmarkParameter, u32)],
 					verify: bool,
 				) -> Result<(), #krate::BenchmarkError> {
@@ -1070,7 +1070,7 @@ fn expand_benchmark(
 
 			fn instance(
 				&self,
-				recording: &mut #krate::BenchmarkRecording,
+				recording: &mut impl #krate::Recording,
 				components: &[(#krate::BenchmarkParameter, u32)],
 				verify: bool
 			) -> Result<(), #krate::BenchmarkError> {
@@ -1113,15 +1113,13 @@ fn expand_benchmark(
 					// Always reset the state after the benchmark.
 					#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
-
 					// Set the block number to at least 1 so events are deposited.
 					if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
 						#frame_system::Pallet::<T>::set_block_number(1u32.into());
 					}
 
 					// Run execution + verification
-					let mut recording = #krate::BenchmarkRecording::default();
-					< SelectedBenchmark as #krate::BenchmarkingSetup<T, _> >::instance(&mut recording, &selected_benchmark, &c, true)?;
+					< SelectedBenchmark as #krate::BenchmarkingSetup<T, _> >::test_instance(&selected_benchmark, &c)
 				};
 
 				if components.is_empty() {

@@ -786,7 +786,7 @@ macro_rules! benchmark_backend {
 
 			fn instance(
 				&self,
-				recording: &mut $crate::BenchmarkRecording,
+				recording: &mut impl $crate::Recording,
 				components: &[($crate::BenchmarkParameter, u32)],
 				verify: bool
 			) -> Result<(), $crate::BenchmarkError> {
@@ -962,7 +962,7 @@ macro_rules! selected_benchmark {
 
 			fn instance(
 				&self,
-				recording: &mut $crate::BenchmarkRecording,
+				recording: &mut impl $crate::Recording,
 				components: &[($crate::BenchmarkParameter, u32)],
 				verify: bool
 			) -> Result<(), $crate::BenchmarkError> {
@@ -1221,18 +1221,13 @@ macro_rules! impl_benchmark_test {
 						// Always reset the state after the benchmark.
 						$crate::__private::defer!($crate::benchmarking::wipe_db());
 
-						// Set up the benchmark, return execution + verification function.
-						let closure_to_verify = <
-							SelectedBenchmark as $crate::BenchmarkingSetup<T, _>
-						>::instance(&selected_benchmark, &c, true)?;
-
 						// Set the block number to at least 1 so events are deposited.
 						if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
 							frame_system::Pallet::<T>::set_block_number(1u32.into());
 						}
 
 						// Run execution + verification
-						closure_to_verify()
+						<SelectedBenchmark as $crate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark, &c)
 					};
 
 					if components.is_empty() {

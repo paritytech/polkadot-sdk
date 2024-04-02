@@ -342,6 +342,20 @@ pub trait Benchmarking {
 	) -> Result<Vec<BenchmarkResult>, BenchmarkError>;
 }
 
+/// The recording trait used to record the time and proof size of a benchmark iteration.
+pub trait Recording {
+	/// Start the recording.
+	fn start(&mut self) {}
+
+	// Stop the recording.
+	fn stop(&mut self) {}
+}
+
+/// A no-op recording, used when instantiating the benchmark test instance.
+pub struct NoopRecording;
+impl Recording for NoopRecording {}
+
+/// Records the time and proof size of a single benchmark iteration.
 #[derive(Default)]
 pub struct BenchmarkRecording {
 	start_extrinsic: u128,
@@ -350,17 +364,19 @@ pub struct BenchmarkRecording {
 	end_pov: Option<u32>,
 }
 
-impl BenchmarkRecording {
-	pub fn start(&mut self) {
+impl Recording for BenchmarkRecording {
+	fn start(&mut self) {
 		self.start_pov = crate::benchmarking::proof_size();
 		self.start_extrinsic = crate::benchmarking::current_time();
 	}
 
-	pub fn stop(&mut self) {
+	fn stop(&mut self) {
 		self.finish_extrinsic = crate::benchmarking::current_time();
 		self.end_pov = crate::benchmarking::proof_size();
 	}
+}
 
+impl BenchmarkRecording {
 	pub fn elapsed_extrinsic(&self) -> u128 {
 		self.finish_extrinsic.saturating_sub(self.start_extrinsic)
 	}
@@ -368,6 +384,7 @@ impl BenchmarkRecording {
 	pub fn start_pov(&self) -> Option<u32> {
 		self.start_pov
 	}
+
 	pub fn end_pov(&self) -> Option<u32> {
 		self.end_pov
 	}
@@ -391,10 +408,18 @@ pub trait BenchmarkingSetup<T, I = ()> {
 	/// Set up the storage, and prepare a closure to run the benchmark.
 	fn instance(
 		&self,
-		recording: &mut BenchmarkRecording,
+		recording: &mut impl Recording,
 		components: &[(BenchmarkParameter, u32)],
 		verify: bool,
 	) -> Result<(), BenchmarkError>;
+
+	/// Same as `instance` but passing a no-op recording.
+	fn test_instance(
+		&self,
+		components: &[(BenchmarkParameter, u32)],
+	) -> Result<(), BenchmarkError> {
+		return self.instance(&mut NoopRecording {}, components, true);
+	}
 }
 
 /// Grab an account, seeded by a name and index.
