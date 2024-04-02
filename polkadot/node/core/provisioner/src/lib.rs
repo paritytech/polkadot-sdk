@@ -42,9 +42,9 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::{node_features::FeatureIndex, NodeFeatures},
-	BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, CoreState, Hash,
-	Id as ParaId, OccupiedCoreAssumption, SessionIndex, SignedAvailabilityBitfield, ValidatorIndex,
+	node_features::FeatureIndex, BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt,
+	CoreIndex, CoreState, Hash, Id as ParaId, NodeFeatures, OccupiedCoreAssumption, SessionIndex,
+	SignedAvailabilityBitfield, ValidatorIndex,
 };
 use std::collections::{BTreeMap, HashMap};
 

@@ -13,7 +13,7 @@ name = "test-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 clap = { version = "4.5.3", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 criterion = { version = "0.5.1", features = ["async_tokio"] }
@@ -93,7 +93,6 @@ pallet-timestamp = { path = "../../../substrate/frame/timestamp" }
 futures = "0.3.28"
 portpicker = "0.1.1"
 rococo-parachain-runtime = { path = "../../parachains/runtimes/testing/rococo-parachain" }
-pallet-im-online = { path = "../../../substrate/frame/im-online" }
 sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
 sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
 cumulus-test-client = { path = "../client" }
@@ -111,7 +110,6 @@ runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"cumulus-test-client/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-im-online/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
