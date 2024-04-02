@@ -22,12 +22,12 @@ use crate::{
 		v1,
 		v1::{weights, weights::WeightInfo as _},
 	},
-	mock::{new_test_ext, AllPalletsWithSystem, MigratorServiceWeight, Runtime as T, System},
+	mock::{
+		new_test_ext, run_to_block, AllPalletsWithSystem, MigratorServiceWeight, Runtime as T,
+		System,
+	},
 };
-use frame_support::{
-	migrations::MultiStepMigrator,
-	traits::{OnFinalize, OnInitialize, OnRuntimeUpgrade},
-};
+use frame_support::traits::OnRuntimeUpgrade;
 use pallet_migrations::WeightInfo as _;
 
 #[test]
@@ -67,16 +67,4 @@ fn lazy_migration_works() {
 			assert_eq!(crate::MyMap::<T>::get(i), Some(i as u64));
 		}
 	});
-}
-
-fn run_to_block(n: u64) {
-	assert!(System::block_number() < n);
-	while System::block_number() < n {
-		let b = System::block_number();
-		AllPalletsWithSystem::on_finalize(b);
-		// Done by Executive:
-		<T as frame_system::Config>::MultiBlockMigrator::step();
-		System::set_block_number(b + 1);
-		AllPalletsWithSystem::on_initialize(b + 1);
-	}
 }

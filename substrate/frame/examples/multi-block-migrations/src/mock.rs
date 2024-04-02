@@ -35,8 +35,10 @@
 
 use crate::migrations::{v1, v1::weights::SubstrateWeight};
 use frame_support::{
-	construct_runtime, derive_impl, migrations::FreezeChainOnFailedMigration,
-	pallet_prelude::Weight, traits::ConstU32,
+	construct_runtime, derive_impl,
+	migrations::{FreezeChainOnFailedMigration, MultiStepMigrator},
+	pallet_prelude::Weight,
+	traits::{ConstU32, OnFinalize, OnInitialize},
 };
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -83,4 +85,16 @@ construct_runtime! {
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_io::TestExternalities::new(Default::default())
+}
+
+pub fn run_to_block(n: u64) {
+	assert!(System::block_number() < n);
+	while System::block_number() < n {
+		let b = System::block_number();
+		AllPalletsWithSystem::on_finalize(b);
+		// Done by Executive:
+		<Runtime as frame_system::Config>::MultiBlockMigrator::step();
+		System::set_block_number(b + 1);
+		AllPalletsWithSystem::on_initialize(b + 1);
+	}
 }
