@@ -83,9 +83,9 @@ where
 				Err(e) => {
 					log::debug!(target: LOG_TARGET, "Extrinsic bytes cannot be decoded: {:?}", e);
 
-					// The transaction is invalid.
 					let Ok(sink) = pending.accept().await else { return };
 
+					// The transaction is invalid.
 					let msg = to_sub_message(
 						&sink,
 						&TransactionEvent::Invalid::<BlockHash<Pool>>(TransactionError {
