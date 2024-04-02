@@ -41,7 +41,7 @@ substrate-prometheus-endpoint = { path = "../../../../substrate/utils/prometheus
 cumulus-client-consensus-common = { path = "../common" }
 cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
 cumulus-client-consensus-proposer = { path = "../proposer" }
-cumulus-client-parachain-inherent = { path = "../../../client/parachain-inherent" }
+cumulus-client-parachain-inherent = { path = "../../parachain-inherent" }
 cumulus-primitives-aura = { path = "../../../primitives/aura" }
 cumulus-primitives-core = { path = "../../../primitives/core" }
 cumulus-client-collator = { path = "../../collator" }

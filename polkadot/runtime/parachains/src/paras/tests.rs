@@ -17,7 +17,7 @@
 use super::*;
 use frame_support::{assert_err, assert_ok, assert_storage_noop};
 use keyring::Sr25519Keyring;
-use primitives::{BlockNumber, PARACHAIN_KEY_TYPE_ID};
+use primitives::{vstaging::SchedulerParams, BlockNumber, PARACHAIN_KEY_TYPE_ID};
 use sc_keystore::LocalKeystore;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
@@ -909,7 +909,10 @@ fn full_parachain_cleanup_storage() {
 				minimum_validation_upgrade_delay: 2,
 				// Those are not relevant to this test. However, HostConfiguration is still a
 				// subject for the consistency check.
-				paras_availability_period: 1,
+				scheduler_params: SchedulerParams {
+					paras_availability_period: 1,
+					..Default::default()
+				},
 				..Default::default()
 			},
 		},
@@ -1207,7 +1210,7 @@ fn code_hash_at_returns_up_to_end_of_code_retention_period() {
 		assert_eq!(Paras::past_code_meta(&para_id).upgrade_times, vec![upgrade_at(4, 10)]);
 		assert_eq!(Paras::current_code(&para_id), Some(new_code.clone()));
 
-		// Make sure that the old code is available **before** the code retion period passes.
+		// Make sure that the old code is available **before** the code retention period passes.
 		run_to_block(10 + code_retention_period, None);
 		assert_eq!(Paras::code_by_hash(&old_code.hash()), Some(old_code.clone()));
 		assert_eq!(Paras::code_by_hash(&new_code.hash()), Some(new_code.clone()));
@@ -1714,7 +1717,7 @@ fn poke_unused_validation_code_doesnt_remove_code_with_users() {
 
 #[test]
 fn increase_code_ref_doesnt_have_allergy_on_add_trusted_validation_code() {
-	// Verify that accidential calling of increase_code_ref or decrease_code_ref does not lead
+	// Verify that accidental calling of increase_code_ref or decrease_code_ref does not lead
 	// to a disaster.
 	// NOTE that this test is extra paranoid, as it is not really possible to hit
 	// `decrease_code_ref` without calling `increase_code_ref` first.

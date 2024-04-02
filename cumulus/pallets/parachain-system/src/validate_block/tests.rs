@@ -59,7 +59,7 @@ fn call_validate_block(
 }
 
 fn create_test_client() -> (Client, Header) {
-	let client = TestClientBuilder::new().build();
+	let client = TestClientBuilder::new().enable_import_proof_recording().build();
 
 	let genesis_header = client
 		.header(client.chain_info().genesis_hash)

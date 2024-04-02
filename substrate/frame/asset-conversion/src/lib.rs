@@ -205,7 +205,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A successful call of the `CretaPool` extrinsic will create this event.
+		/// A successful call of the `CreatePool` extrinsic will create this event.
 		PoolCreated {
 			/// The account that created the pool.
 			creator: T::AccountId,
@@ -412,6 +412,11 @@ pub mod pallet {
 		/// thus you should provide the min amount you're happy to provide.
 		/// Params `amount1_min`/`amount2_min` represent that.
 		/// `mint_to` will be sent the liquidity tokens that represent this share of the pool.
+		///
+		/// NOTE: when encountering an incorrect exchange rate and non-withdrawable pool liquidity,
+		/// batch an atomic call with [`Pallet::add_liquidity`] and
+		/// [`Pallet::swap_exact_tokens_for_tokens`] or [`Pallet::swap_tokens_for_exact_tokens`]
+		/// calls to render the liquidity withdrawable and rectify the exchange rate.
 		///
 		/// Once liquidity is added, someone may successfully call
 		/// [`Pallet::swap_exact_tokens_for_tokens`] successfully.

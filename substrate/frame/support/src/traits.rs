@@ -22,8 +22,8 @@
 pub mod tokens;
 pub use tokens::{
 	currency::{
-		ActiveIssuanceOf, Currency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
-		ReservableCurrency, TotalIssuanceOf, VestingSchedule,
+		ActiveIssuanceOf, Currency, InspectLockableCurrency, LockIdentifier, LockableCurrency,
+		NamedReservableCurrency, ReservableCurrency, TotalIssuanceOf, VestingSchedule,
 	},
 	fungible, fungibles,
 	imbalance::{Imbalance, OnUnbalanced, SignedImbalance},
@@ -59,10 +59,10 @@ pub use misc::{
 	AccountTouch, Backing, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
 	ConstU16, ConstU32, ConstU64, ConstU8, DefensiveMax, DefensiveMin, DefensiveSaturating,
 	DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly, EstimateCallFee,
-	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, IsSubType, IsType,
-	Len, OffchainWorker, OnKilledAccount, OnNewAccount, PrivilegeCmp, SameOrOther, Time,
-	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque,
-	WrapperOpaque,
+	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, IsInherent,
+	IsSubType, IsType, Len, OffchainWorker, OnKilledAccount, OnNewAccount, PrivilegeCmp,
+	SameOrOther, Time, TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf,
+	WrapperKeepOpaque, WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};
@@ -86,7 +86,8 @@ mod hooks;
 pub use hooks::GenesisBuild;
 pub use hooks::{
 	BeforeAllRuntimeMigrations, BuildGenesisConfig, Hooks, IntegrityTest, OnFinalize, OnGenesis,
-	OnIdle, OnInitialize, OnRuntimeUpgrade, OnTimestampSet,
+	OnIdle, OnInitialize, OnPoll, OnRuntimeUpgrade, OnTimestampSet, PostInherents,
+	PostTransactions, PreInherents,
 };
 
 pub mod schedule;

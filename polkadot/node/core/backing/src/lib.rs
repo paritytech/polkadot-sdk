@@ -70,7 +70,7 @@ use std::{
 	sync::Arc,
 };
 
-use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+use bitvec::vec::BitVec;
 use futures::{
 	channel::{mpsc, oneshot},
 	future::BoxFuture,
@@ -105,12 +105,11 @@ use polkadot_node_subsystem_util::{
 	Validator,
 };
 use polkadot_primitives::{
-	vstaging::{node_features::FeatureIndex, NodeFeatures},
-	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id as ParaId, IndexedVec, PersistedValidationData, PvfExecKind, SessionIndex,
-	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
-	ValidityAttestation,
+	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
+	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
+	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
+	ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
 use statement_table::{
@@ -292,7 +291,7 @@ struct State {
 	/// Cache the per-session Validator->Group mapping.
 	validator_to_group_cache:
 		LruMap<SessionIndex, Arc<IndexedVec<ValidatorIndex, Option<GroupIndex>>>>,
-	/// A cloneable sender which is dispatched to background candidate validation tasks to inform
+	/// A clonable sender which is dispatched to background candidate validation tasks to inform
 	/// the main task of the result.
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	/// The handle to the keystore used for signing.
@@ -494,20 +493,15 @@ fn table_attested_to_backed(
 	}
 	vote_positions.sort_by_key(|(_orig, pos_in_group)| *pos_in_group);
 
-	if inject_core_index {
-		let core_index_to_inject: BitVec<u8, BitOrderLsb0> =
-			BitVec::from_vec(vec![core_index.0 as u8]);
-		validator_indices.extend(core_index_to_inject);
-	}
-
-	Some(BackedCandidate {
+	Some(BackedCandidate::new(
 		candidate,
-		validity_votes: vote_positions
+		vote_positions
 			.into_iter()
 			.map(|(pos_in_votes, _pos_in_group)| validity_votes[pos_in_votes].clone())
 			.collect(),
 		validator_indices,
-	})
+		inject_core_index.then_some(core_index),
+	))
 }
 
 async fn store_available_data(
@@ -916,7 +910,7 @@ async fn handle_active_leaves_update<Context>(
 			}
 
 			let mut seconded_at_depth = HashMap::new();
-			if let Some(response) = membership_answers.next().await {
+			while let Some(response) = membership_answers.next().await {
 				match response {
 					Err(oneshot::Canceled) => {
 						gum::warn!(
@@ -1775,7 +1769,7 @@ async fn post_import_statement_actions<Context>(
 				&rp_state.table_context,
 				rp_state.inject_core_index,
 			) {
-				let para_id = backed.candidate.descriptor.para_id;
+				let para_id = backed.candidate().descriptor.para_id;
 				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?candidate_hash,
@@ -1796,7 +1790,7 @@ async fn post_import_statement_actions<Context>(
 					// notify collator protocol.
 					ctx.send_message(CollatorProtocolMessage::Backed {
 						para_id,
-						para_head: backed.candidate.descriptor.para_head,
+						para_head: backed.candidate().descriptor.para_head,
 					})
 					.await;
 					// Notify statement distribution of backed candidate.
@@ -1887,18 +1881,20 @@ async fn background_validate_and_make_available<Context>(
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(e) = validate_and_make_available(params).await {
-				if let Error::BackgroundValidationMpsc(error) = e {
+			if let Err(error) = validate_and_make_available(params).await {
+				if let Error::BackgroundValidationMpsc(error) = error {
 					gum::debug!(
 						target: LOG_TARGET,
+						?candidate_hash,
 						?error,
 						"Mpsc background validation mpsc died during validation- leaf no longer active?"
 					);
 				} else {
 					gum::error!(
 						target: LOG_TARGET,
-						"Failed to validate and make available: {:?}",
-						e
+						?candidate_hash,
+						?error,
+						"Failed to validate and make available",
 					);
 				}
 			}
@@ -2234,15 +2230,16 @@ async fn handle_statement_message<Context>(
 
 fn handle_get_backed_candidates_message(
 	state: &State,
-	requested_candidates: Vec<(CandidateHash, Hash)>,
-	tx: oneshot::Sender<Vec<BackedCandidate>>,
+	requested_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>>,
+	tx: oneshot::Sender<HashMap<ParaId, Vec<BackedCandidate>>>,
 	metrics: &Metrics,
 ) -> Result<(), Error> {
 	let _timer = metrics.time_get_backed_candidates();
 
-	let backed = requested_candidates
-		.into_iter()
-		.filter_map(|(candidate_hash, relay_parent)| {
+	let mut backed = HashMap::with_capacity(requested_candidates.len());
+
+	for (para_id, para_candidates) in requested_candidates {
+		for (candidate_hash, relay_parent) in para_candidates.iter() {
 			let rp_state = match state.per_relay_parent.get(&relay_parent) {
 				Some(rp_state) => rp_state,
 				None => {
@@ -2252,13 +2249,13 @@ fn handle_get_backed_candidates_message(
 						?candidate_hash,
 						"Requested candidate's relay parent is out of view",
 					);
-					return None
+					break
 				},
 			};
-			rp_state
+			let maybe_backed_candidate = rp_state
 				.table
 				.attested_candidate(
-					&candidate_hash,
+					candidate_hash,
 					&rp_state.table_context,
 					rp_state.minimum_backing_votes,
 				)
@@ -2268,9 +2265,18 @@ fn handle_get_backed_candidates_message(
 						&rp_state.table_context,
 						rp_state.inject_core_index,
 					)
-				})
-		})
-		.collect();
+				});
+
+			if let Some(backed_candidate) = maybe_backed_candidate {
+				backed
+					.entry(para_id)
+					.or_insert_with(|| Vec::with_capacity(para_candidates.len()))
+					.push(backed_candidate);
+			} else {
+				break
+			}
+		}
+	}
 
 	tx.send(backed).map_err(|data| Error::Send(data))?;
 	Ok(())

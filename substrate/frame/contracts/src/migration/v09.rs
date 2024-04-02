@@ -28,7 +28,7 @@ use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound, Identity};
 use sp_runtime::TryRuntimeError;
 use sp_std::prelude::*;
 
-mod old {
+mod v8 {
 	use super::*;
 
 	#[derive(Encode, Decode)]
@@ -50,14 +50,14 @@ mod old {
 #[cfg(feature = "runtime-benchmarks")]
 pub fn store_old_dummy_code<T: Config>(len: usize) {
 	use sp_runtime::traits::Hash;
-	let module = old::PrefabWasmModule {
+	let module = v8::PrefabWasmModule {
 		instruction_weights_version: 0,
 		initial: 0,
 		maximum: 0,
 		code: vec![42u8; len],
 	};
 	let hash = T::Hashing::hash(&module.code);
-	old::CodeStorage::<T>::insert(hash, module);
+	v8::CodeStorage::<T>::insert(hash, module);
 }
 
 #[derive(Encode, Decode)]
@@ -89,9 +89,9 @@ impl<T: Config> MigrationStep for Migration<T> {
 
 	fn step(&mut self) -> (IsFinished, Weight) {
 		let mut iter = if let Some(last_key) = self.last_code_hash.take() {
-			old::CodeStorage::<T>::iter_from(old::CodeStorage::<T>::hashed_key_for(last_key))
+			v8::CodeStorage::<T>::iter_from(v8::CodeStorage::<T>::hashed_key_for(last_key))
 		} else {
-			old::CodeStorage::<T>::iter()
+			v8::CodeStorage::<T>::iter()
 		};
 
 		if let Some((key, old)) = iter.next() {
@@ -115,7 +115,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
-		let sample: Vec<_> = old::CodeStorage::<T>::iter().take(100).collect();
+		let sample: Vec<_> = v8::CodeStorage::<T>::iter().take(100).collect();
 
 		log::debug!(target: LOG_TARGET, "Taking sample of {} contract codes", sample.len());
 		Ok(sample.encode())
@@ -123,7 +123,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade_step(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		let sample = <Vec<(CodeHash<T>, old::PrefabWasmModule)> as Decode>::decode(&mut &state[..])
+		let sample = <Vec<(CodeHash<T>, v8::PrefabWasmModule)> as Decode>::decode(&mut &state[..])
 			.expect("pre_upgrade_step provides a valid state; qed");
 
 		log::debug!(target: LOG_TARGET, "Validating sample of {} contract codes", sample.len());
@@ -131,7 +131,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 			let module = CodeStorage::<T>::get(&code_hash).unwrap();
 			ensure!(
 				module.instruction_weights_version == old.instruction_weights_version,
-				"invalid isntruction weights version"
+				"invalid instruction weights version"
 			);
 			ensure!(module.determinism == Determinism::Enforced, "invalid determinism");
 			ensure!(module.initial == old.initial, "invalid initial");

@@ -23,6 +23,7 @@ use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
 use sp_core::bounded::bounded_vec::TruncateFrom;
+
 #[doc(hidden)]
 pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16, ConstU32,
@@ -895,11 +896,21 @@ pub trait GetBacking {
 /// A trait to ensure the inherent are before non-inherent in a block.
 ///
 /// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block> {
+pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
+	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
+{
 	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
 	///
-	/// On error return the index of the inherent with invalid position (counting from 0).
-	fn ensure_inherents_are_first(block: &Block) -> Result<(), u32>;
+	/// On error return the index of the inherent with invalid position (counting from 0). On
+	/// success it returns the index of the last inherent. `0` therefore means that there are no
+	/// inherents.
+	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
+}
+
+/// A trait to check if an extrinsic is an inherent.
+pub trait IsInherent<Extrinsic> {
+	/// Whether this extrinsic is an inherent.
+	fn is_inherent(ext: &Extrinsic) -> bool;
 }
 
 /// An extrinsic on which we can get access to call.
@@ -1413,7 +1424,7 @@ mod test {
 		assert_eq!(<WrapperOpaque<[u8; 2usize.pow(14)]>>::max_encoded_len(), 2usize.pow(14) + 4);
 
 		let data = 4u64;
-		// Ensure that we check that the `Vec<u8>` is consumed completly on decode.
+		// Ensure that we check that the `Vec<u8>` is consumed completely on decode.
 		assert!(WrapperOpaque::<u32>::decode(&mut &data.encode().encode()[..]).is_err());
 	}
 

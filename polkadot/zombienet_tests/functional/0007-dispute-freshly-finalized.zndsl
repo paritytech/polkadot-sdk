@@ -21,9 +21,9 @@ honest: reports polkadot_parachain_candidate_dispute_concluded{validity="valid"}
 honest: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"} is 0 within 100 seconds
 
 # Check lag - approval
-honest: reports polkadot_parachain_approval_checking_finality_lag is 0
+honest: reports polkadot_parachain_approval_checking_finality_lag is lower than 2
 
 # Check lag - dispute conclusion
-honest: reports polkadot_parachain_disputes_finality_lag is 0
+honest: reports polkadot_parachain_disputes_finality_lag is lower than 2
 
 

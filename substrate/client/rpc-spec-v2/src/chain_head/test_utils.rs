@@ -63,7 +63,7 @@ impl<Client> ChainHeadMockClient<Client> {
 			BlockImportNotification::new(header.hash(), BlockOrigin::Own, header, true, None, sink);
 
 		for sink in self.import_sinks.lock().iter_mut() {
-			sink.unbounded_send(notification.clone()).unwrap();
+			let _ = sink.unbounded_send(notification.clone());
 		}
 	}
 
@@ -83,7 +83,7 @@ impl<Client> ChainHeadMockClient<Client> {
 		let notification = FinalityNotification::from_summary(summary, sink);
 
 		for sink in self.finality_sinks.lock().iter_mut() {
-			sink.unbounded_send(notification.clone()).unwrap();
+			let _ = sink.unbounded_send(notification.clone());
 		}
 	}
 }
