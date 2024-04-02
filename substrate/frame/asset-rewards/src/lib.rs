@@ -502,8 +502,6 @@ pub mod pallet {
 		}
 
 		/// Modify a expiry block.
-		///
-		/// TODO: Actually handle this in code
 		pub fn set_pool_expiry_block(
 			origin: OriginFor<T>,
 			pool_id: PoolId,
