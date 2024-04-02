@@ -25,7 +25,7 @@ requests = { memory = "2G", cpu = "1" }
   [[relaychain.node_groups]]
   name = "validator"
   count = 3
-  args = [ "-lparachain=debug,runtime=debug"]
+  args = [ "-lparachain::prospective-parachains=debug,parachain::provisioner=trace,parachain::candidate-backing,parachain=debug,runtime=debug"]
 
 [[parachains]]
 id = 2000

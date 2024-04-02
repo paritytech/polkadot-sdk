@@ -336,7 +336,12 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 			if let Some(storage) = view.candidate_storage.get(para_id) {
 				for candidate in storage.candidate_hashes() {
 					if !live_candidates.contains(candidate) {
-						if fragment_tree.check_potential(storage, candidate) {
+						if fragment_tree.check_potential(
+							storage,
+							&storage
+								.relay_parent_by_candidate_hash(candidate)
+								.expect("Candidate hash is taken from the storage iterator"),
+						) {
 							live_candidates.insert(*candidate);
 						}
 					}
@@ -451,6 +456,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 		Some(storage) => storage,
 	};
 
+	let relay_parent = candidate.descriptor.relay_parent;
 	let candidate_hash = match storage.add_candidate(candidate, pvd, CandidateState::Seconded) {
 		Ok(c) => c,
 		Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
@@ -504,7 +510,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 			tree.add_and_populate(candidate_hash, &*storage);
 			if tree.contains_candidate(&candidate_hash) {
 				candidate_introduced = true;
-			} else if tree.check_potential(&storage, &candidate_hash) {
+			} else if tree.check_potential(&storage, &relay_parent) {
 				candidate_introduced = true;
 			}
 		}
@@ -623,6 +629,8 @@ fn answer_get_backable_candidates(
 		.filter_map(|child_hash| {
 			storage.relay_parent_by_candidate_hash(&child_hash).map_or_else(
 				|| {
+					// TODO: Here, we actually need to trim all of the candidates that follow. or
+					// not, the runtime will do this. Impossible scenario anyway
 					gum::error!(
 						target: LOG_TARGET,
 						?child_hash,

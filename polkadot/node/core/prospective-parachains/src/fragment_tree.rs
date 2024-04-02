@@ -140,6 +140,34 @@ impl CandidateStorage {
 		}
 	}
 
+	/// Check if we could add a candidate
+	pub fn can_add_candidate(
+		&self,
+		candidate_hash: &CandidateHash,
+		parent_head_hash: &Hash,
+		output_head_hash: Option<&Hash>,
+	) -> Result<(), CandidateStorageInsertionError> {
+		if self.by_candidate_hash.contains_key(candidate_hash) {
+			return Err(CandidateStorageInsertionError::CandidateAlreadyKnown(*candidate_hash))
+		}
+
+		if self.by_parent_head.contains_key(parent_head_hash) {
+			return Err(CandidateStorageInsertionError::CandidateWithDuplicateParentHeadHash(
+				*parent_head_hash,
+			));
+		}
+
+		if let Some(output_head_hash) = output_head_hash {
+			if self.by_output_head.contains_key(output_head_hash) {
+				return Err(CandidateStorageInsertionError::CandidateWithDuplicateOutputHeadHash(
+					*output_head_hash,
+				));
+			}
+		}
+
+		Ok(())
+	}
+
 	/// Introduce a new candidate.
 	pub fn add_candidate(
 		&mut self,
@@ -148,28 +176,13 @@ impl CandidateStorage {
 		state: CandidateState,
 	) -> Result<CandidateHash, CandidateStorageInsertionError> {
 		let candidate_hash = candidate.hash();
-
-		if self.by_candidate_hash.contains_key(&candidate_hash) {
-			return Err(CandidateStorageInsertionError::CandidateAlreadyKnown(candidate_hash))
-		}
-
-		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash {
-			return Err(CandidateStorageInsertionError::PersistedValidationDataMismatch)
-		}
-
 		let parent_head_hash = persisted_validation_data.parent_head.hash();
 		let output_head_hash = candidate.commitments.head_data.hash();
 
-		if self.by_parent_head.contains_key(&parent_head_hash) {
-			return Err(CandidateStorageInsertionError::CandidateWithDuplicateParentHeadHash(
-				parent_head_hash,
-			));
-		}
+		self.can_add_candidate(&candidate_hash, &parent_head_hash, Some(&output_head_hash))?;
 
-		if self.by_output_head.contains_key(&output_head_hash) {
-			return Err(CandidateStorageInsertionError::CandidateWithDuplicateOutputHeadHash(
-				output_head_hash,
-			));
+		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash {
+			return Err(CandidateStorageInsertionError::PersistedValidationDataMismatch)
 		}
 
 		let entry = CandidateEntry {
@@ -449,6 +462,14 @@ impl<'a> HypotheticalCandidate<'a> {
 		}
 	}
 
+	fn output_head_data_hash(&self) -> Option<Hash> {
+		match *self {
+			HypotheticalCandidate::Complete { ref receipt, .. } =>
+				Some(receipt.descriptor.para_head),
+			HypotheticalCandidate::Incomplete { .. } => None,
+		}
+	}
+
 	fn relay_parent(&self) -> Hash {
 		match *self {
 			HypotheticalCandidate::Complete { ref receipt, .. } =>
@@ -561,12 +582,32 @@ impl FragmentChain {
 			return MemberState::Present
 		}
 
-		if !self.check_potential(candidate_storage, &candidate_hash) {
+		if candidate_storage
+			.can_add_candidate(
+				&candidate_hash,
+				&candidate.parent_head_data_hash(),
+				candidate.output_head_data_hash().as_ref(),
+			)
+			.is_err()
+		{
+			// This would mean a fork or a cycle.
+			return MemberState::None
+		}
+
+		if !self.check_potential(candidate_storage, &candidate.relay_parent()) {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Check potential returned false",
+			);
 			return MemberState::None
 		}
 
 		let Some(candidate_relay_parent) = self.scope.ancestor_by_hash(&candidate.relay_parent())
 		else {
+			gum::debug!(
+				target: LOG_TARGET,
+				"check_potential already checked for this, but just to be safe.",
+			);
 			// check_potential already checked for this, but just to be safe.
 			return MemberState::None
 		};
@@ -615,6 +656,10 @@ impl FragmentChain {
 				)
 				.is_err()
 				{
+					gum::debug!(
+						target: LOG_TARGET,
+						"Fragment::new() returned error",
+					);
 					return MemberState::None
 				}
 			}
@@ -697,24 +742,31 @@ impl FragmentChain {
 		0
 	}
 
-	pub fn check_potential(
-		&self,
-		storage: &CandidateStorage,
-		candidate_hash: &CandidateHash,
-	) -> bool {
+	pub fn check_potential(&self, storage: &CandidateStorage, relay_parent: &Hash) -> bool {
 		const MAX_UNCONNECTED: usize = 5;
-		let Some(candidate) = storage.get(candidate_hash) else { return false };
 
 		let Some(unconnected_candidates) = storage.len().checked_sub(self.candidates.len()) else {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Underflow",
+			);
 			return false
 		};
 
 		// If we've got enough candidates for the configured depth.
 		if self.chain.len() + 1 > self.scope.max_depth {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Enough candidates for the configured depth",
+			);
 			return false
 		}
 
 		if unconnected_candidates >= MAX_UNCONNECTED {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Too many unconnected candidates",
+			);
 			return false
 		}
 
@@ -733,13 +785,21 @@ impl FragmentChain {
 			self.scope.earliest_relay_parent()
 		};
 
-		let Some(relay_parent) = self.scope.ancestor_by_hash(&candidate.relay_parent) else {
+		let Some(relay_parent) = self.scope.ancestor_by_hash(relay_parent) else {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Ancestor by hash not fouund",
+			);
 			return false
 		};
 
 		let min_relay_parent_number =
 			std::cmp::max(earliest_rp.number, self.scope.earliest_relay_parent().number);
 		if relay_parent.number < min_relay_parent_number {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Relay parent moved backwards",
+			);
 			return false // relay parent moved backwards.
 		}
 
