@@ -51,14 +51,17 @@ frame_support::parameter_types! {
 	pub const MaxServiceWeight: Weight = Weight::MAX.div(10);
 }
 
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = crate::mock_helpers::MockedMigrations;
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = MockedMigrations;
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
 	type MigrationStatusHandler = MockedMigrationStatusHandler;
 	type FailedMigrationHandler = MockedFailedMigrationHandler;
-	type MaxServiceWeight = MaxServiceWeight;
 	type WeightInfo = ();
 }
 

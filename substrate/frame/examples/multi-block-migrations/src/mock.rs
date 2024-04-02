@@ -17,12 +17,12 @@
 
 #![cfg(test)]
 
-//! # Minimal Example Runtime Using Multi-Block Migrations Framework.
+//! # Mock runtime for testing Multi-Block-Migrations
 //!
-//! This runtime provides a minimal example of how to use the
-//! [Multi-Block Migrations Framework](frame_support::migrations) and the [`pallet_migrations`].
-//! The core part of this runtime is the [`pallet_migrations::Config`] implementation, where you
-//! define the migrations you want to run using the [`Migrations`] type.
+//! This runtime is for testing only and should *never* be used in production. Please see the
+//! comments on the specific config items. The core part of this runtime is the
+//! [`pallet_migrations::Config`] implementation, where you define the migrations you want to run
+//! using the [`Migrations`] type.
 //!
 //! ## How to Read the Documentation
 //!
@@ -33,6 +33,7 @@
 //! This documentation is organized to help you understand how this runtime is configured and how
 //! it uses the Multi-Block Migrations Framework.
 
+use crate::migrations::{v1, v1::weights::SubstrateWeight};
 use frame_support::{
 	construct_runtime, derive_impl, migrations::FreezeChainOnFailedMigration,
 	pallet_prelude::Weight, traits::ConstU32,
@@ -44,21 +45,14 @@ impl crate::Config for Runtime {}
 
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	/// The type that implements
-	/// [`SteppedMigrations`](`frame_support::migrations::SteppedMigrations`).
-	///
-	/// In this tuple, you list the migrations to run. In this example, we have a single migration,
-	/// [`v1::LazyMigrationV1`], which is the second version of the storage migration from the
-	/// [`pallet-example-mbm`](`pallet_example_mbm`) crate.
-	///
-	/// # Example
-	/// ```ignore
-	/// type Migrations = (v1::Migration<Runtime>, v2::Migration<Runtime>, v3::Migration<Runtime>);
-	/// ```
+	// Here we inject the actual MBMs. Currently there is just one, but it accepts a tuple.
+	//
+	// # Example
+	// ```ignore
+	// type Migrations = (v1::Migration<Runtime>, v2::Migration<Runtime>, v3::Migration<Runtime>);
+	// ```
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = (v1::LazyMigrationV1<Runtime, SubstrateWeight<Runtime>>,);
-	#[cfg(feature = "runtime-benchmarks")]
-	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
 	type MigrationStatusHandler = ();

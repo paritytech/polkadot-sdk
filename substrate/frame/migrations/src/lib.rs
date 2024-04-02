@@ -276,9 +276,10 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type of the runtime.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// All the multi-block migrations to run.
@@ -286,6 +287,7 @@ pub mod pallet {
 		/// Should only be updated in a runtime-upgrade once all the old migrations have completed.
 		/// (Check that [`Cursor`] is `None`).
 		#[cfg(not(feature = "runtime-benchmarks"))]
+		#[pallet::no_default]
 		type Migrations: SteppedMigrations;
 
 		/// Mocked migrations for benchmarking only.
@@ -321,6 +323,47 @@ pub mod pallet {
 
 		/// Weight information for the calls and functions of this pallet.
 		type WeightInfo: WeightInfo;
+	}
+
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	pub mod config_preludes {
+		use super::{inject_runtime_type, DefaultConfig};
+		use frame_support::{
+			derive_impl,
+			migrations::FreezeChainOnFailedMigration,
+			pallet_prelude::{ConstU32, *},
+		};
+		use frame_system::limits::BlockWeights;
+
+		/// Provides a viable default config that can be used with
+		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
+		/// based on this one.
+		///
+		/// See `Test` in the `default-config` example pallet's `test.rs` for an example of
+		/// a downstream user of this particular `TestDefaultConfig`
+		pub struct TestDefaultConfig;
+
+		frame_support::parameter_types! {
+			/// Maximal weight per block that can be spent on migrations in tests.
+			pub storage TestMaxServiceWeight: Weight = { <<TestDefaultConfig as frame_system::DefaultConfig>::BlockWeights as Get<BlockWeights>>::get().max_block.div(2) };
+		}
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[cfg(feature = "runtime-benchmarks")]
+			type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
+			type CursorMaxLen = ConstU32<{ 1 << 16 }>;
+			type IdentifierMaxLen = ConstU32<{ 256 }>;
+			type MigrationStatusHandler = ();
+			type FailedMigrationHandler = FreezeChainOnFailedMigration;
+			type MaxServiceWeight = TestMaxServiceWeight;
+			type WeightInfo = ();
+		}
 	}
 
 	/// The currently active migration to run and its cursor.

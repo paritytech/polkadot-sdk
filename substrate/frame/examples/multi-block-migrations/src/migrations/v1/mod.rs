@@ -50,6 +50,10 @@ pub mod old {
 }
 
 /// Migrates the items of the [`crate::MyMap`] map from `u32` to `u64`.
+///
+/// The `step` function will be called once per block. It is very important that this function
+/// *never* panics and never uses more weight than it got in its meter. The migrations should also
+/// try to make maximal progress per step, so that the total time it takes to migrate stays low.
 pub struct LazyMigrationV1<T: Config, W: weights::WeightInfo>(PhantomData<(T, W)>);
 impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, W> {
 	type Cursor = u32;
@@ -65,17 +69,21 @@ impl<T: Config, W: weights::WeightInfo> SteppedMigration for LazyMigrationV1<T, 
 	///
 	/// This function is called repeatedly until it returns `Ok(None)`, indicating that the
 	/// migration is complete. Ideally, the migration should be designed in such a way that each
-	/// step consumes as much weight as possible. However, this is simplified to perform one
-	/// stored value mutation per block.
+	/// step consumes as much weight as possible. However, this is simplified to perform one stored
+	/// value mutation per block.
 	fn step(
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		let required = W::step();
+		// If there is not enough weight to do even a single step, then we are in a really bad spot
+		// and the chain is bricked. But we can do nothing about it, so just return the proper
+		// error.
 		if meter.remaining().any_lt(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
+		// We loop here to do as much progress as possible per step.
 		loop {
 			if meter.try_consume(required).is_err() {
 				break;
