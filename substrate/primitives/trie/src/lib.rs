@@ -517,7 +517,7 @@ pub fn read_child_trie_hash<L: TrieConfiguration>(
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided child key.
-pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
+pub fn read_child_trie_first_descendant_value<L: TrieConfiguration, DB>(
 	keyspace: &[u8],
 	db: &DB,
 	root: &Root<L>,

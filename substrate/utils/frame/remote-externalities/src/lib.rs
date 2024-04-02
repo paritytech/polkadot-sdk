@@ -762,7 +762,7 @@ where
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Inserting keys into DB...".into());
 		let start = Instant::now();
 		pending_ext.batch_insert(key_values.clone().into_iter().filter_map(|(k, v)| {
-			// Don't insert the child keys here, they need to be inserted seperately with all their
+			// Don't insert the child keys here, they need to be inserted separately with all their
 			// data in the load_child_remote function.
 			match is_default_child_storage_key(&k.0) {
 				true => None,

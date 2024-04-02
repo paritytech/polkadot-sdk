@@ -82,7 +82,7 @@ pub enum CompatibilityMode<N> {
 	None,
 	/// Call `initialize_block` before doing any runtime calls.
 	///
-	/// Previously the node would execute `initialize_block` before fetchting the authorities
+	/// Previously the node would execute `initialize_block` before fetching the authorities
 	/// from the runtime. This behaviour changed in: <https://github.com/paritytech/substrate/pull/9132>
 	///
 	/// By calling `initialize_block` before fetching the authorities, on a block that

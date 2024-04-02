@@ -16,61 +16,26 @@
 
 //! Test utils
 
-use crate::usage::BenchmarkUsage;
-use std::io::{stdout, Write};
+use std::{fs::File, io::Write};
 
-pub struct WarmUpOptions<'a> {
-	/// The maximum number of runs considered for marming up.
-	pub warm_up: usize,
-	/// The number of runs considered for benchmarking.
-	pub bench: usize,
-	/// The difference in CPU usage between runs considered as normal
-	pub precision: f64,
-	/// The subsystems whose CPU usage is checked during warm-up cycles
-	pub subsystems: &'a [&'a str],
-}
-
-impl<'a> WarmUpOptions<'a> {
-	pub fn new(subsystems: &'a [&'a str]) -> Self {
-		Self { warm_up: 100, bench: 3, precision: 0.02, subsystems }
+// Saves a given string to a file
+pub fn save_to_file(path: &str, value: String) -> color_eyre::eyre::Result<()> {
+	let output = std::process::Command::new(env!("CARGO"))
+		.arg("locate-project")
+		.arg("--workspace")
+		.arg("--message-format=plain")
+		.output()
+		.unwrap()
+		.stdout;
+	let workspace_dir = std::path::Path::new(std::str::from_utf8(&output).unwrap().trim())
+		.parent()
+		.unwrap();
+	let path = workspace_dir.join(path);
+	if let Some(dir) = path.parent() {
+		std::fs::create_dir_all(dir)?;
 	}
-}
+	let mut file = File::create(path)?;
+	file.write_all(value.as_bytes())?;
 
-pub fn warm_up_and_benchmark(
-	options: WarmUpOptions,
-	run: impl Fn() -> BenchmarkUsage,
-) -> Result<BenchmarkUsage, String> {
-	println!("Warming up...");
-	let mut usages = Vec::with_capacity(options.bench);
-
-	for n in 1..=options.warm_up {
-		let curr = run();
-		if let Some(prev) = usages.last() {
-			let diffs = options
-				.subsystems
-				.iter()
-				.map(|&v| {
-					curr.cpu_usage_diff(prev, v)
-						.ok_or(format!("{} not found in benchmark {:?}", v, prev))
-				})
-				.collect::<Result<Vec<f64>, String>>()?;
-			if !diffs.iter().all(|&v| v < options.precision) {
-				usages.clear();
-			}
-		}
-		usages.push(curr);
-		print!("\r{}%", n * 100 / options.warm_up);
-		if usages.len() == options.bench {
-			println!("\rTook {} runs to warm up", n.saturating_sub(options.bench));
-			break;
-		}
-		stdout().flush().unwrap();
-	}
-
-	if usages.len() != options.bench {
-		println!("Didn't warm up after {} runs", options.warm_up);
-		return Err("Can't warm up".to_string())
-	}
-
-	Ok(BenchmarkUsage::average(&usages))
+	Ok(())
 }

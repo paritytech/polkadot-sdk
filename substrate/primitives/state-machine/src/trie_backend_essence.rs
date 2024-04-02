@@ -33,7 +33,7 @@ use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
-	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
+	read_child_trie_first_descendant_value, read_child_trie_hash, read_child_trie_value,
 	read_trie_first_descendant_value, read_trie_value, read_trie_value_with_location,
 	trie_types::{TrieDBBuilder, TrieError},
 	ChildChangeset, DBValue, KeySpacedDB, MerkleValue, NodeCodec, Trie, TrieCache,
@@ -614,7 +614,7 @@ where
 		let map_e = |e| format!("Trie lookup error: {}", e);
 
 		self.with_recorder_and_cache(Some(child_root.0), |recorder, cache| {
-			read_child_trie_first_descedant_value::<Layout<H, DBLocation>, _>(
+			read_child_trie_first_descendant_value::<Layout<H, DBLocation>, _>(
 				child_info.keyspace(),
 				self,
 				&child_root,

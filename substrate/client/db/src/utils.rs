@@ -309,7 +309,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(path: &Path, create: bool, cache_size: usize
 	db_config.memory_budget = memory_budget;
 
 	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
-	// write database version only after the database is succesfully opened
+	// write database version only after the database is successfully opened
 	crate::upgrade::update_version(path)?;
 	Ok(sp_database::as_database(db))
 }
