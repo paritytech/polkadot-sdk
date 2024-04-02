@@ -18,7 +18,10 @@
 
 use crate::*;
 use cumulus_primitives_core::ListChannelInfos;
-use frame_support::{pallet_prelude::*, traits::OnRuntimeUpgrade};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
+};
 
 /// Configs needed to run the V5 migration.
 pub trait V5Config: Config {
@@ -68,7 +71,7 @@ mod unversioned {
 	pub struct UncheckedMigrateV4ToV5<T: super::V5Config>(core::marker::PhantomData<T>);
 }
 
-impl<T: V5Config> OnRuntimeUpgrade for unversioned::UncheckedMigrateV4ToV5<T> {
+impl<T: V5Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV4ToV5<T> {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		Default::default()
 	}
