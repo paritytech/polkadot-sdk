@@ -25,7 +25,9 @@ scale-info = { version = "2.10.0", default-features = false, features = [
 ] }
 
 # frame
-frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["experimental"] }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, features = [
+	"experimental",
+] }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
@@ -74,6 +76,8 @@ frame-system-benchmarking = { path = "../../../substrate/frame/system/benchmarki
 
 # The pallet in this template.
 pallet-template = { path = "../pallets/template", default-features = false }
+
+docify = { version = "0.2.7" }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder", optional = true }

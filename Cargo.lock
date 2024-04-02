@@ -791,9 +791,9 @@ dependencies = [
 
 [[package]]
 name = "assert_cmd"
-version = "2.0.12"
+version = "2.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88903cb14723e4d4003335bb7f8a14f27691649105346a0f0957466c096adfe6"
+checksum = "ed72493ac66d5804837f480ab3766c72bdfab91a65e565fc54fa9e42db0073a8"
 dependencies = [
  "anstyle",
  "bstr",
@@ -7237,9 +7237,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.152"
+version = "0.2.153"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
+checksum = "9c198f91728a82281a64e1f4f9eeb25d82cb32a5de251c6bd1b5154d63a8e7bd"
 
 [[package]]
 name = "libflate"
@@ -8578,6 +8578,18 @@ checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
 dependencies = [
  "bitflags 2.4.0",
  "cfg-if",
+ "libc",
+]
+
+[[package]]
+name = "nix"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
+dependencies = [
+ "bitflags 2.4.0",
+ "cfg-if",
+ "cfg_aliases",
  "libc",
 ]
 
@@ -13370,6 +13382,7 @@ dependencies = [
 name = "polkadot-sdk-docs"
 version = "0.0.1"
 dependencies = [
+ "assert_cmd",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "docify 0.2.7",
@@ -13378,6 +13391,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "kitchensink-runtime",
+ "minimal-template-runtime",
+ "nix 0.28.0",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",
@@ -13390,6 +13405,7 @@ dependencies = [
  "pallet-example-offchain-worker",
  "pallet-example-single-block-migrations",
  "pallet-examples",
+ "pallet-grandpa",
  "pallet-multisig",
  "pallet-proxy",
  "pallet-referenda",
@@ -13397,9 +13413,11 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-utility",
+ "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-sdk-docs-packages-guides-first-pallet",
  "polkadot-sdk-docs-packages-guides-first-runtime",
+ "sc-chain-spec",
  "sc-cli",
  "sc-client-db",
  "sc-consensus-aura",
@@ -13413,6 +13431,7 @@ dependencies = [
  "sc-rpc-api",
  "scale-info",
  "simple-mermaid",
+ "solochain-template-runtime",
  "sp-api",
  "sp-arithmetic",
  "sp-core",
@@ -13453,6 +13472,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-docs-packages-guides-first-pallet",
  "scale-info",
+ "sp-keyring",
  "substrate-wasm-builder",
 ]
 
@@ -18318,6 +18338,7 @@ dependencies = [
 name = "solochain-template-runtime"
 version = "0.0.0"
 dependencies = [
+ "docify 0.2.7",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",

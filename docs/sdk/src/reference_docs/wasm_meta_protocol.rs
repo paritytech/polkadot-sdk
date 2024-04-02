@@ -107,7 +107,6 @@
 //!
 //! TODO
 //!
-//!
 //! ## Example: Block Execution.
 //!
 //! TODO

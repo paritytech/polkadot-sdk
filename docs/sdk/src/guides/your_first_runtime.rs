@@ -17,7 +17,7 @@
 //! * a `build.rs` that uses [`substrate_wasm_builder`]. This entails declaring
 //!   `[build-dependencies]` in the Cargo manifest file:
 //!
-//! ```
+//! ```ignore
 //! [build-dependencies]
 //! substrate-wasm-builder = { ... }
 //! ```
@@ -76,7 +76,7 @@
 //! logic. Given that the implementation block is somewhat large, we won't repeat it here. You can
 //! look for `impl_runtime_apis!` in [`polkadot_sdk_docs_packages_guides_first_runtime`].
 //!
-//! ```
+//! ```ignore
 //! impl_runtime_apis! {
 //! 	impl apis::Core<Block> for Runtime {
 //! 		fn version() -> RuntimeVersion {

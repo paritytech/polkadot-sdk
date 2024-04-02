@@ -29,6 +29,9 @@ pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-
 pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
 
+# other polkadot-sdk-deps
+sp-keyring = { path = "../../../../../substrate/primitives/keyring", default-features = false }
+
 # local pallet templates
 first-pallet = { package = "polkadot-sdk-docs-packages-guides-first-pallet", path = "../first-pallet", default-features = false }
 
@@ -52,6 +55,7 @@ std = [
 	"pallet-transaction-payment/std",
 
 	"first-pallet/std",
+	"sp-keyring/std",
 
 	"substrate-wasm-builder",
 ]

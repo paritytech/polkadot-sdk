@@ -18,7 +18,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame::{
-	deps::frame_support::genesis_builder_helper::{build_config, create_default_config},
 	prelude::*,
 	runtime::{
 		apis::{self, *},
@@ -224,11 +223,27 @@ impl_runtime_apis! {
 
 	impl apis::GenesisBuilder<Block> for Runtime {
 		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
+			frame::deps::frame_support::genesis_builder_helper::create_default_config::<RuntimeGenesisConfig>()
 		}
 
-		fn build_config(config: Vec<u8>) -> apis::GenesisBuildResult {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn build_config(_config: Vec<u8>) -> apis::GenesisBuildResult {
+			// This is a temporary solution to set some initial state, please keep an eye on
+			// https://github.com/paritytech/substrate/pull/14562 for the next steps.
+			use sp_keyring::AccountKeyring;
+			use frame::traits::{BuildGenesisConfig, fungible::Inspect};
+			frame::log::info!(target: "runtime", "Building genesis config, ignoring any input config.");
+			let endowment = Balances::minimum_balance().max(1) * 10_000;
+			let balances = AccountKeyring::iter()
+				.map(|a| (a.to_account_id(), endowment))
+				.collect::<Vec<_>>();
+			let rg = RuntimeGenesisConfig {
+				balances: BalancesConfig { balances },
+				sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
+				..Default::default()
+			};
+			rg.build();
+			Ok(())
+
 		}
 	}
 

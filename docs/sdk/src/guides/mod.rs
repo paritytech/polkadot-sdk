@@ -5,17 +5,19 @@
 //!
 //! The main user-journey covered by these guides is:
 //!
-//! 1. [`your_first_pallet`], where you learn what a FRAME pallet is, and write your first
-//!    application logic.
-//! 2. [`your_first_runtime`], where you learn how to compile your pallets into a WASM runtime.
-//! 3. [`your_first_node`], where you learn how to run a node with your runtime.
+//! * [`your_first_pallet`], where you learn what a FRAME pallet is, and write your first
+//!   application logic.
+//! * [`your_first_runtime`], where you learn how to compile your pallets into a WASM runtime.
+//! * [`your_first_node`], where you learn how to run a node with your runtime.
 //!
 //! > By this step, you have already launched a full blockchain!
 //!
+//! * [`your_first_parachain`], where you convert an exiting blockchain to a parachain.
 //!
 //! [`your_first_pallet`]: crate::guides::your_first_pallet
 //! [`your_first_runtime`]: crate::guides::your_first_runtime
 //! [`your_first_node`]: crate::guides::your_first_node
+//! [`your_first_parachain`]: crate::guides::your_first_parachain
 
 /// Write your first simple pallet, learning the most most basic features of FRAME along the way.
 pub mod your_first_pallet;
@@ -32,7 +34,7 @@ pub mod changing_consensus;
 
 /// How to enhance a given runtime and node to be cumulus-enabled, run it as a parachain and connect
 /// it to a relay-chain.
-pub mod cumulus_enabled_parachain;
+pub mod your_first_parachain;
 
 /// How to make a given runtime XCM-enabled, capable of sending messages (`Transact`) between itself
 /// and the relay chain to which it is connected.
