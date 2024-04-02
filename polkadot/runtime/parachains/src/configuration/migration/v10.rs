@@ -20,7 +20,7 @@ use crate::configuration::{Config, Pallet};
 use frame_support::{pallet_prelude::*, traits::Defensive, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{
-	vstaging::NodeFeatures, AsyncBackingParams, Balance, ExecutorParams, SessionIndex,
+	AsyncBackingParams, Balance, ExecutorParams, NodeFeatures, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::Perbill;
