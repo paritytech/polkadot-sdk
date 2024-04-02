@@ -1023,7 +1023,7 @@ impl<T: Config> FeeTracker for Pallet<T> {
 
 impl<T: Config> ListChannelInfos for Pallet<T> {
 	fn outgoing_channels() -> Vec<ParaId> {
-		let Some(state) = Self::relevant_messaging_state() else { return Vec::new() };
+		let Some(state) = RelevantMessagingState::<T>::get() else { return Vec::new() };
 		state.egress_channels.into_iter().map(|(id, _)| id).collect()
 	}
 }
