@@ -22,7 +22,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 
 cumulus-primitives-core = { path = "../core", default-features = false }
 cumulus-primitives-proof-size-hostfunction = { path = "../proof-size-hostfunction", default-features = false }
-docify = "0.2.7"
+docify = "0.2.8"
 
 [dev-dependencies]
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
