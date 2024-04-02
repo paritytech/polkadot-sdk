@@ -40,7 +40,7 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-session = { path = "../../primitives/session" }
 sp-version = { path = "../../primitives/version" }
 sp-statement-store = { path = "../../primitives/statement-store" }
-tokio = "1.22.0"
+tokio = "1.37"
 
 [dev-dependencies]
 env_logger = "0.9"
@@ -51,7 +51,7 @@ sc-network-common = { path = "../network/common" }
 sc-transaction-pool = { path = "../transaction-pool" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
-tokio = "1.22.0"
+tokio = "1.37"
 sp-io = { path = "../../primitives/io" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 pretty_assertions = "1.2.1"

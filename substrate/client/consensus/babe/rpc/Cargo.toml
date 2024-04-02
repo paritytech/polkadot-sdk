@@ -34,7 +34,7 @@ sp-runtime = { path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
 serde_json = { workspace = true, default-features = true }
-tokio = "1.22.0"
+tokio = "1.37"
 sc-consensus = { path = "../../common" }
 sc-keystore = { path = "../../../keystore" }
 sc-transaction-pool-api = { path = "../../../transaction-pool/api" }
