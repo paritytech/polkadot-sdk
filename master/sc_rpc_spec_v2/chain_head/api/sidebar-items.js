@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["ChainHeadApiClient","ChainHeadApiServer"]};
+window.SIDEBAR_ITEMS = {"enum":["ListOrValue"],"trait":["ChainHeadApiClient","ChainHeadApiServer"]};

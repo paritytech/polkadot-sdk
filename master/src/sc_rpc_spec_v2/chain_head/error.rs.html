@@ -232,6 +232,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -257,6 +264,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// ChainHead RPC errors.
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>Error {
+	<span class="doccomment">/// Maximum number of chainHead_follow has been reached.
+	</span><span class="attr">#[error(<span class="string">&quot;Maximum number of chainHead_follow has been reached&quot;</span>)]
+	</span>ReachedLimits,
 	<span class="doccomment">/// The provided block hash is invalid.
 	</span><span class="attr">#[error(<span class="string">&quot;Invalid block hash&quot;</span>)]
 	</span>InvalidBlock,
@@ -280,6 +290,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Errors for `chainHead` RPC module, as defined in
 /// &lt;https://github.com/paritytech/json-rpc-interface-spec&gt;.
 </span><span class="kw">pub mod </span>rpc_spec_v2 {
+	<span class="doccomment">/// Maximum number of chainHead_follow has been reached.
+	</span><span class="kw">pub const </span>REACHED_LIMITS: i32 = -<span class="number">32800</span>;
 	<span class="doccomment">/// The provided block hash is invalid.
 	</span><span class="kw">pub const </span>INVALID_BLOCK_ERROR: i32 = -<span class="number">32801</span>;
 	<span class="doccomment">/// The follow subscription was started with `withRuntime` set to `false`.
@@ -304,6 +316,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>msg = e.to_string();
 
 		<span class="kw">match </span>e {
+			Error::ReachedLimits =&gt;
+				ErrorObject::owned(rpc_spec_v2::REACHED_LIMITS, msg, <span class="prelude-val">None</span>::&lt;()&gt;),
 			Error::InvalidBlock =&gt;
 				ErrorObject::owned(rpc_spec_v2::INVALID_BLOCK_ERROR, msg, <span class="prelude-val">None</span>::&lt;()&gt;),
 			Error::InvalidRuntimeCall(<span class="kw">_</span>) =&gt;

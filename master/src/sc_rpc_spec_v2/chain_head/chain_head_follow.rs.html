@@ -793,6 +793,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -855,7 +862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Backend of the chain.
 	</span>backend: Arc&lt;BE&gt;,
 	<span class="doccomment">/// Subscriptions handle.
-	</span>sub_handle: Arc&lt;SubscriptionManagement&lt;Block, BE&gt;&gt;,
+	</span>sub_handle: SubscriptionManagement&lt;Block, BE&gt;,
 	<span class="doccomment">/// Subscription was started with the runtime updates flag.
 	</span>with_runtime: bool,
 	<span class="doccomment">/// Subscription ID.
@@ -869,7 +876,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>new(
 		client: Arc&lt;Client&gt;,
 		backend: Arc&lt;BE&gt;,
-		sub_handle: Arc&lt;SubscriptionManagement&lt;Block, BE&gt;&gt;,
+		sub_handle: SubscriptionManagement&lt;Block, BE&gt;,
 		with_runtime: bool,
 		sub_id: String,
 	) -&gt; <span class="self">Self </span>{
@@ -1341,7 +1348,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>EventStream: Stream&lt;Item = NotificationType&lt;Block&gt;&gt; + Unpin,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>stream_item = stream.next();
-		<span class="kw">let </span><span class="kw-2">mut </span>stop_event = rx_stop;
+
+		<span class="comment">// The stop event can be triggered by the chainHead logic when the pinned
+		// block guarantee cannot be hold. Or when the client is disconnected.
+		</span><span class="kw">let </span>connection_closed = sink.closed();
+		<span class="macro">tokio::pin!</span>(connection_closed);
+		<span class="kw">let </span><span class="kw-2">mut </span>stop_event = futures_util::future::select(rx_stop, connection_closed);
 
 		<span class="kw">while let </span>Either::Left((<span class="prelude-val">Some</span>(event), next_stop_event)) =
 			futures_util::future::select(stream_item, stop_event).<span class="kw">await
@@ -1389,8 +1401,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			stop_event = next_stop_event;
 		}
 
-		<span class="comment">// If we got here either the substrate streams have closed
-		// or the `Stop` receiver was triggered.
+		<span class="comment">// If we got here either:
+		// - the substrate streams have closed
+		// - the `Stop` receiver was triggered internally (cannot hold the pinned block guarantee)
+		// - the client disconnected.
 		</span><span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
 		<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
 	}

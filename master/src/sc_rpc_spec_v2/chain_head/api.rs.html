@@ -328,7 +328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	common::events::StorageQuery,
 };
 <span class="kw">use </span>jsonrpsee::{proc_macros::rpc, server::ResponsePayload};
-<span class="kw">use </span>sp_rpc::list::ListOrValue;
+<span class="kw">pub use </span>sp_rpc::list::ListOrValue;
 
 <span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>ChainHeadApi&lt;Hash&gt; {
@@ -355,8 +355,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_body&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>chain_head_unstable_body(
+	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_body&quot;</span>, raw_method)]
+	</span><span class="kw">async fn </span>chain_head_unstable_body(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Hash,
@@ -374,8 +374,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_header&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>chain_head_unstable_header(
+	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_header&quot;</span>, raw_method)]
+	</span><span class="kw">async fn </span>chain_head_unstable_header(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Hash,
@@ -386,8 +386,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_storage&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>chain_head_unstable_storage(
+	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_storage&quot;</span>, raw_method)]
+	</span><span class="kw">async fn </span>chain_head_unstable_storage(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Hash,
@@ -400,8 +400,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_call&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>chain_head_unstable_call(
+	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_call&quot;</span>, raw_method)]
+	</span><span class="kw">async fn </span>chain_head_unstable_call(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Hash,
@@ -419,8 +419,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_unpin&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>chain_head_unstable_unpin(
+	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_unpin&quot;</span>, raw_method)]
+	</span><span class="kw">async fn </span>chain_head_unstable_unpin(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash_or_hashes: ListOrValue&lt;Hash&gt;,
@@ -432,8 +432,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_continue&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>chain_head_unstable_continue(
+	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_continue&quot;</span>, raw_method)]
+	</span><span class="kw">async fn </span>chain_head_unstable_continue(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		operation_id: String,
@@ -446,8 +446,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_stopOperation&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>chain_head_unstable_stop_operation(
+	</span><span class="attr">#[method(name = <span class="string">&quot;chainHead_unstable_stopOperation&quot;</span>, raw_method)]
+	</span><span class="kw">async fn </span>chain_head_unstable_stop_operation(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		operation_id: String,
