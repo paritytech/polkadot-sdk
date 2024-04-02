@@ -1114,7 +1114,7 @@ fn expand_benchmark(
 					// Always reset the state after the benchmark.
 					#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
-					let on_before_start = Box::new(|| {
+					let on_before_start = #krate::__private::Box::new(|| {
 						// Set the block number to at least 1 so events are deposited.
 						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
 							#frame_system::Pallet::<T>::set_block_number(1u32.into());
