@@ -796,6 +796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#649" id="649">649</a>
 <a href="#650" id="650">650</a>
 <a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1223,12 +1224,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// do teleport
-		</span>&lt;pallet_xcm::Pallet&lt;Runtime&gt;&gt;::teleport_assets(
+		</span>&lt;pallet_xcm::Pallet&lt;Runtime&gt;&gt;::limited_teleport_assets(
 			origin,
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
 			Box::new((AssetId(asset), amount).into()),
 			<span class="number">0</span>,
+			Unlimited,
 		)
 	}
 }

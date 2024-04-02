@@ -154,7 +154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Teleport some assets from the local chain to some destination chain.</p>
 <p>Fee payment on the destination side is made from the asset in the <code>assets</code> vector of
 index <code>fee_asset_item</code>, up to enough to pay for <code>weight_limit</code> of weight. If more weight
-is needed than <code>weight_limit</code>, then the operation will fail and the assets send may be
+is needed than <code>weight_limit</code>, then the operation will fail and the sent assets may be
 at risk.</p>
 <ul>
 <li><code>origin</code>: Must be capable of withdrawing the <code>assets</code> and executing XCM.</li>

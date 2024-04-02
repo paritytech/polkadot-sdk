@@ -797,6 +797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#650" id="650">650</a>
 <a href="#651" id="651">651</a>
 <a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1049,12 +1050,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>withdraw_amount = <span class="number">123</span>;
 
 		Relay::execute_with(|| {
-			<span class="macro">assert_ok!</span>(RelayChainPalletXcm::reserve_transfer_assets(
+			<span class="macro">assert_ok!</span>(RelayChainPalletXcm::limited_reserve_transfer_assets(
 				relay_chain::RuntimeOrigin::signed(ALICE),
 				Box::new(Parachain(<span class="number">1</span>).into()),
 				Box::new(AccountId32 { network: <span class="prelude-val">None</span>, id: ALICE.into() }.into()),
 				Box::new((Here, withdraw_amount).into()),
 				<span class="number">0</span>,
+				Unlimited,
 			));
 			<span class="macro">assert_eq!</span>(
 				relay_chain::Balances::free_balance(<span class="kw-2">&amp;</span>child_account_id(<span class="number">1</span>)),
