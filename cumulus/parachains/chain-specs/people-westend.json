@@ -18,7 +18,9 @@
     "/dns/boot.stake.plus/tcp/46333/p2p/12D3KooWLNWUF4H5WE3dy2rPB56gVcR48XY2rHwEaZ6pGTK6HYFi",
     "/dns/boot.stake.plus/tcp/46334/wss/p2p/12D3KooWLNWUF4H5WE3dy2rPB56gVcR48XY2rHwEaZ6pGTK6HYFi",
     "/dns/boot.gatotech.network/tcp/33340/p2p/12D3KooWHwURYtEHpexfrZa8k8hVgVi5FTFr4N8HBnn9kPDsWfgA",
-    "/dns/boot.gatotech.network/tcp/35340/wss/p2p/12D3KooWHwURYtEHpexfrZa8k8hVgVi5FTFr4N8HBnn9kPDsWfgA"
+    "/dns/boot.gatotech.network/tcp/35340/wss/p2p/12D3KooWHwURYtEHpexfrZa8k8hVgVi5FTFr4N8HBnn9kPDsWfgA",
+    "/dns/people-westend.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWQrMQFAXxJJJCtVr8nViBR6EDsuT1RyqU3eoCMebRQxTf",
+    "/dns/people-westend.bootnode.amforc.com/tcp/30346/p2p/12D3KooWQrMQFAXxJJJCtVr8nViBR6EDsuT1RyqU3eoCMebRQxTf"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
