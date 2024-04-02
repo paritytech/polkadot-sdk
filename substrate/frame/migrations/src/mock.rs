@@ -28,7 +28,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EventRecord;
-use sp_core::{ConstU32, H256};
+use sp_core::H256;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
