@@ -41,21 +41,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	state_version: 1,
 };
 
-#[docify::export_content]
-#[cfg(feature = "std")]
-mod native_only_setup {
-	use super::*;
-	/// The version information used to identify this runtime when compiled natively.
-	pub fn native_version() -> NativeVersion {
-		NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-	}
-
-	// Make the WASM binary available.
-	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-}
-#[cfg(feature = "std")]
-pub use native_only_setup::*;
-
 #[docify::export(cr)]
 construct_runtime!(
 	pub struct Runtime {
