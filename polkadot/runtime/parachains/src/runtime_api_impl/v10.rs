@@ -14,7 +14,7 @@
 //! A module exporting runtime API implementation functions for all runtime APIs using `v5`
 //! primitives.
 //!
-//! Runtimes implementing the v2 runtime API are recommended to forward directly to these
+//! Runtimes implementing the v10 runtime API are recommended to forward directly to these
 //! functions.
 
 use crate::{
@@ -29,11 +29,12 @@ use primitives::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
-	slashing, AuthorityDiscoveryId, CandidateEvent, CandidateHash, CommittedCandidateReceipt,
-	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, OccupiedCore, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	NodeFeatures, OccupiedCore, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -516,4 +517,25 @@ pub fn backing_state<T: initializer::Config>(
 /// Implementation for `AsyncBackingParams` function from the runtime API
 pub fn async_backing_params<T: configuration::Config>() -> AsyncBackingParams {
 	<configuration::Pallet<T>>::config().async_backing_params
+}
+
+/// Implementation for `DisabledValidators`
+// CAVEAT: this should only be called on the node side
+// as it might produce incorrect results on session boundaries
+pub fn disabled_validators<T>() -> Vec<ValidatorIndex>
+where
+	T: shared::Config,
+{
+	<shared::Pallet<T>>::disabled_validators()
+}
+
+/// Returns the current state of the node features.
+pub fn node_features<T: initializer::Config>() -> NodeFeatures {
+	<configuration::Pallet<T>>::config().node_features
+}
+
+/// Approval voting subsystem configuration parameters
+pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
+	let config = <configuration::Pallet<T>>::config();
+	config.approval_voting_params
 }
