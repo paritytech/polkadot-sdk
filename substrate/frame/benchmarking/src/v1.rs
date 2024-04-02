@@ -1083,20 +1083,6 @@ macro_rules! impl_benchmark {
 						frame_system::Pallet::<T>::set_block_number(1u32.into());
 					}
 
-					// Commit the externalities to the database, flushing the DB cache.
-					// This will enable worst case scenario for reading from the database.
-					$crate::benchmarking::commit_db();
-
-					// Access all whitelisted keys to get them into the proof recorder since the
-					// recorder does now have a whitelist.
-					for key in &whitelist {
-						$crate::__private::storage::unhashed::get_raw(&key.key);
-					}
-
-					// Reset the read/write counter so we don't count operations in the setup process.
-					$crate::benchmarking::reset_read_write_count();
-
-					// Time the extrinsic logic.
 					$crate::__private::log::trace!(
 						target: "benchmark",
 						"Start Benchmark: {} ({:?}) verify {}",
@@ -1107,7 +1093,22 @@ macro_rules! impl_benchmark {
 
 					// Set up the externalities environment for the setup we want to
 					// benchmark.
-					let mut recording = $crate::BenchmarkRecording::default();
+					let whitelist = whitelist.clone();
+					let mut recording = $crate::BenchmarkRecording::new($crate::__private::Box::new(move || {
+						// Commit the externalities to the database, flushing the DB cache.
+						// This will enable worst case scenario for reading from the database.
+						$crate::benchmarking::commit_db();
+
+						// Access all whitelisted keys to get them into the proof recorder since the
+						// recorder does now have a whitelist.
+						for key in whitelist {
+							$crate::__private::storage::unhashed::get_raw(&key.key);
+						}
+
+						// Reset the read/write counter so we don't count operations in the setup process.
+						$crate::benchmarking::reset_read_write_count();
+					}));
+
 					<SelectedBenchmark as $crate::BenchmarkingSetup<T $(, $instance)?>>::instance(&selected_benchmark, &mut recording, c, verify)?;
 
 					// Calculate the diff caused by the benchmark.

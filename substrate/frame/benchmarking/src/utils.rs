@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::TrailingZeroInput, DispatchError};
-use sp_std::vec::Vec;
+use sp_std::{prelude::Box, vec::Vec};
 use sp_storage::TrackedStorageKey;
 
 /// An alphabet of possible parameters to use for benchmarking.
@@ -356,16 +356,33 @@ pub struct NoopRecording;
 impl Recording for NoopRecording {}
 
 /// Records the time and proof size of a single benchmark iteration.
-#[derive(Default)]
 pub struct BenchmarkRecording {
+	on_before_start: Option<Box<dyn FnOnce()>>,
 	start_extrinsic: u128,
 	finish_extrinsic: u128,
 	start_pov: Option<u32>,
 	end_pov: Option<u32>,
 }
 
+impl BenchmarkRecording {
+	pub fn new(on_before_start: Box<dyn FnOnce()>) -> Self {
+		Self {
+			on_before_start: Some(on_before_start),
+			start_extrinsic: 0,
+			finish_extrinsic: 0,
+			start_pov: None,
+			end_pov: None,
+		}
+	}
+}
+
 impl Recording for BenchmarkRecording {
 	fn start(&mut self) {
+		let on_before_start = self
+			.on_before_start
+			.take()
+			.expect("on_before_start is always set by `new`; qed");
+		(on_before_start)();
 		self.start_pov = crate::benchmarking::proof_size();
 		self.start_extrinsic = crate::benchmarking::current_time();
 	}
