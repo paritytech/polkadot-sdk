@@ -3386,7 +3386,7 @@ pub(crate) async fn respond_task(
 
 				// Start serving the request
 				let (pending_sent_tx, pending_sent_rx) = oneshot::channel();
-				let peer = request.peer.clone();
+				let peer = request.peer;
 				if let Err(err) = sender
 					.feed(ResponderMessage { request: request, sent_feedback: pending_sent_tx })
 					.await

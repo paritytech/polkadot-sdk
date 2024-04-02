@@ -1368,7 +1368,7 @@ mod tests {
 			.add_peer(requested_peer_1);
 
 		// Add request for candidate 3 from peer 2 (this one can be served in parallel)
-		let identifier3 = request_manager
+		let _identifier3 = request_manager
 			.get_or_insert(relay_parent, candidate_3, 1.into())
 			.identifier
 			.clone();
@@ -1388,7 +1388,7 @@ mod tests {
 		assert_eq!(request_manager.requests.len(), 2);
 
 		// Add request for candidate 2 from peer 1
-		let identifier2 = request_manager
+		let _identifier2 = request_manager
 			.get_or_insert(relay_parent, candidate_2, 1.into())
 			.identifier
 			.clone();
@@ -1427,7 +1427,7 @@ mod tests {
 			};
 			let validator_key_lookup = |_v| None;
 			let allowed_para_lookup = |_para, _g_index| true;
-			let output = response.validate_response(
+			let _output = response.validate_response(
 				&mut request_manager,
 				group,
 				0,
