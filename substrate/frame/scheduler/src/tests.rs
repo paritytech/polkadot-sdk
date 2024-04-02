@@ -2285,9 +2285,18 @@ fn postponed_named_task_cannot_be_rescheduled() {
 
 		// Run to a very large block.
 		run_to_block(10);
+
 		// It was not executed.
 		assert!(logger::log().is_empty());
-		assert!(Preimage::is_requested(&hash));
+
+		// Preimage was not available
+		assert_eq!(
+			System::events().last().unwrap().event,
+			crate::Event::CallUnavailable { task: (4, 0), id: Some(name) }.into()
+		);
+
+		// So it should not be requested.
+		assert!(!Preimage::is_requested(&hash));
 		// Postponing removes the lookup.
 		assert!(!Lookup::<Test>::contains_key(name));
 
@@ -2307,11 +2316,12 @@ fn postponed_named_task_cannot_be_rescheduled() {
 		);
 
 		// Finally add the preimage.
-		assert_ok!(Preimage::note(call.encode().into()));
+		assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(0), call.encode()));
+
 		run_to_block(1000);
 		// It did not execute.
 		assert!(logger::log().is_empty());
-		assert!(Preimage::is_requested(&hash));
+		assert!(!Preimage::is_requested(&hash));
 
 		// Manually re-schedule the call by name does not work.
 		assert_err!(
@@ -3008,6 +3018,8 @@ fn unavailable_call_is_detected() {
 
 		// Ensure the preimage isn't available
 		assert!(!Preimage::have(&bound));
+		// But we have requested it
+		assert!(Preimage::is_requested(&hash));
 
 		// Executes in block 4.
 		run_to_block(4);
@@ -3016,5 +3028,7 @@ fn unavailable_call_is_detected() {
 			System::events().last().unwrap().event,
 			crate::Event::CallUnavailable { task: (4, 0), id: Some(name) }.into()
 		);
+		// It should not be requested anymore.
+		assert!(!Preimage::is_requested(&hash));
 	});
 }
