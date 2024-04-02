@@ -245,16 +245,6 @@ fn relay_limited_teleport_assets(t: RelayToSystemParaTest) -> DispatchResult {
 	)
 }
 
-fn relay_teleport_assets(t: RelayToSystemParaTest) -> DispatchResult {
-	<Rococo as RococoPallet>::XcmPallet::teleport_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
-	)
-}
-
 fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResult {
 	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::limited_teleport_assets(
 		t.signed_origin,
@@ -263,16 +253,6 @@ fn system_para_limited_teleport_assets(t: SystemParaToRelayTest) -> DispatchResu
 		bx!(t.args.assets.into()),
 		t.args.fee_asset_item,
 		t.args.weight_limit,
-	)
-}
-
-fn system_para_teleport_assets(t: SystemParaToRelayTest) -> DispatchResult {
-	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::teleport_assets(
-		t.signed_origin,
-		bx!(t.args.dest.into()),
-		bx!(t.args.beneficiary.into()),
-		bx!(t.args.assets.into()),
-		t.args.fee_asset_item,
 	)
 }
 
@@ -414,129 +394,6 @@ fn limited_teleport_native_assets_from_system_para_to_relay_fails() {
 			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
 		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
 	});
-
-	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	// Receiver's balance does not change
-	assert_eq!(receiver_balance_after, receiver_balance_before);
-}
-
-/// Teleport of native asset from Relay Chain to the System Parachain should work
-#[test]
-fn teleport_native_assets_from_relay_to_system_para_works() {
-	// Init values for Relay Chain
-	let amount_to_send: Balance = ROCOCO_ED * 1000;
-	let dest = Rococo::child_location_of(AssetHubRococo::para_id());
-	let beneficiary_id = AssetHubRococoReceiver::get();
-	let test_args = TestContext {
-		sender: RococoSender::get(),
-		receiver: AssetHubRococoReceiver::get(),
-		args: TestArgs::new_relay(dest, beneficiary_id, amount_to_send),
-	};
-
-	let mut test = RelayToSystemParaTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<Rococo>(relay_origin_assertions);
-	test.set_assertion::<AssetHubRococo>(para_dest_assertions);
-	test.set_dispatchable::<Rococo>(relay_teleport_assets);
-	test.assert();
-
-	let delivery_fees = Rococo::execute_with(|| {
-		xcm_helpers::teleport_assets_delivery_fees::<
-			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	// Receiver's balance is increased
-	assert!(receiver_balance_after > receiver_balance_before);
-}
-
-/// Teleport of native asset from System Parachains to the Relay Chain
-/// should work when there is enough balance in Relay Chain's `CheckAccount`
-#[test]
-fn teleport_native_assets_back_from_system_para_to_relay_works() {
-	// Dependency - Relay Chain's `CheckAccount` should have enough balance
-	teleport_native_assets_from_relay_to_system_para_works();
-
-	// Init values for Relay Chain
-	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
-	let destination = AssetHubRococo::parent_location();
-	let beneficiary_id = RococoReceiver::get();
-	let assets = (Parent, amount_to_send).into();
-
-	let test_args = TestContext {
-		sender: AssetHubRococoSender::get(),
-		receiver: RococoReceiver::get(),
-		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
-	};
-
-	let mut test = SystemParaToRelayTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<AssetHubRococo>(para_origin_assertions);
-	test.set_assertion::<Rococo>(relay_dest_assertions);
-	test.set_dispatchable::<AssetHubRococo>(system_para_teleport_assets);
-	test.assert();
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
-
-	let delivery_fees = AssetHubRococo::execute_with(|| {
-		xcm_helpers::teleport_assets_delivery_fees::<
-			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
-	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
-	// Receiver's balance is increased
-	assert!(receiver_balance_after > receiver_balance_before);
-}
-
-/// Teleport of native asset from System Parachain to Relay Chain
-/// shouldn't work when there is not enough balance in Relay Chain's `CheckAccount`
-#[test]
-fn teleport_native_assets_from_system_para_to_relay_fails() {
-	// Init values for Relay Chain
-	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
-	let destination = AssetHubRococo::parent_location();
-	let beneficiary_id = RococoReceiver::get();
-	let assets = (Parent, amount_to_send).into();
-
-	let test_args = TestContext {
-		sender: AssetHubRococoSender::get(),
-		receiver: RococoReceiver::get(),
-		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
-	};
-
-	let mut test = SystemParaToRelayTest::new(test_args);
-
-	let sender_balance_before = test.sender.balance;
-	let receiver_balance_before = test.receiver.balance;
-
-	test.set_assertion::<AssetHubRococo>(para_origin_assertions);
-	test.set_assertion::<Rococo>(relay_dest_assertions_fail);
-	test.set_dispatchable::<AssetHubRococo>(system_para_teleport_assets);
-	test.assert();
-
-	let delivery_fees = AssetHubRococo::execute_with(|| {
-		xcm_helpers::teleport_assets_delivery_fees::<
-			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
-	let sender_balance_after = test.sender.balance;
-	let receiver_balance_after = test.receiver.balance;
 
 	// Sender's balance is reduced
 	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
