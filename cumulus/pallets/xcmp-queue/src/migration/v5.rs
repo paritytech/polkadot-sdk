@@ -18,10 +18,7 @@
 
 use crate::*;
 use cumulus_primitives_core::ListChannelInfos;
-use frame_support::{
-	pallet_prelude::*,
-	traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
-};
+use frame_support::{pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade};
 
 /// Configs needed to run the V5 migration.
 pub trait V5Config: Config {
