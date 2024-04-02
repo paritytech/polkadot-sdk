@@ -37,11 +37,14 @@
 //! This pallet provides the following functionality:
 //!
 //! - Pallet hooks that implement custom logic to let `pallet-assets` know whether an balance is
-//!   frozen for an account on a given asset (see: [`pallet_assets::types::FrozenBalance`]).
-//! - An implementation of fungibles [freezer mutation API]
-//!   [`frame_supoprt:traits::tokens::fungibles::MutateFreeze`].
+//!   frozen for an account on a given asset (see: [`pallet_assets::FrozenBalance`]).
+//! - An implementation of fungibles [inspect][docs:inspect_freeze] and
+//!   [mutation][docs:mutate_freeze] APIs.
 //! - Support for force freezing and thawing assets, given a Freezer ID
-//!   (see [`pallet_assets_freezer::Config::FreezerId`]).
+//!   (see [`Config::RuntimeFreezeReason`]).
+//!
+//! [docs:inspect_freeze]: `frame_support::traits::fungibles::InspectFreeze`
+//! [docs:mutate_freeze]: `frame_support::traits::fungibles::MutateFreeze`
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

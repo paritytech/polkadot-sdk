@@ -36,7 +36,7 @@ use crate as pallet_assets_freezer;
 
 pub type AccountId = u64;
 type Balance = u64;
-pub type AssetId = u64;
+pub type AssetId = u32;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // For testing the pallet, we construct a mock runtime.
@@ -113,6 +113,8 @@ impl pallet_assets::Config for Test {
 	type Freezer = AssetsFreezer;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 #[derive(Decode, Encode, MaxEncodedLen, PartialEq, Eq, Ord, PartialOrd, TypeInfo, Debug, Clone)]
