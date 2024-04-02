@@ -154,19 +154,18 @@ pub mod pallet {
 
 			#[runtime::pallet_index(1)]
 			pub type Currency = pallet_currency;
-
-			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-			impl frame_system::Config for Runtime {
-				type Block = MockBlock<Runtime>;
-				// within pallet we just said `<T as frame_system::Config>::AccountId`, now we
-				// finally specified it.
-				type AccountId = u64;
-			}
-
-			// our simple pallet has nothing to be configured.
-			impl pallet_currency::Config for Runtime {}
 		}
 
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+		impl frame_system::Config for Runtime {
+			type Block = MockBlock<Runtime>;
+			// within pallet we just said `<T as frame_system::Config>::AccountId`, now we
+			// finally specified it.
+			type AccountId = u64;
+		}
+
+		// our simple pallet has nothing to be configured.
+		impl pallet_currency::Config for Runtime {}
 
 		#[allow(unused)]
 		#[docify::export]
