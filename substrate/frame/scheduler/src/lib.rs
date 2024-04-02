@@ -1269,7 +1269,9 @@ impl<T: Config> Pallet<T> {
 
 				// It was not available when we needed it, so we don't need to have requested it
 				// anymore.
-				T::Preimages::drop(&task.call);
+				if task.call.lookup_hash().map_or(false, |h| T::Preimages::is_requested(&h)) {
+					T::Preimages::drop(&task.call);
+				}
 
 				// We don't know why `peek` failed, thus we most account here for the "full weight".
 				let _ = weight.try_consume(T::WeightInfo::service_task(
