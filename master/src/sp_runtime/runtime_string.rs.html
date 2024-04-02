@@ -300,6 +300,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -360,6 +373,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; <span class="kw">for </span>RuntimeString {
 	<span class="kw">fn </span>from(data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::Borrowed(data)
+	}
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>RuntimeString&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str {
+	<span class="kw">type </span>Error = core::str::Utf8Error;
+	<span class="kw">fn </span>try_from(from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>RuntimeString) -&gt; core::result::Result&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, <span class="self">Self</span>::Error&gt; {
+		<span class="kw">match </span>from {
+			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+			</span>RuntimeString::Owned(string) =&gt; <span class="prelude-val">Ok</span>(string.as_str()),
+			<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+			</span>RuntimeString::Owned(vec) =&gt; core::str::from_utf8(<span class="kw-2">&amp;</span>vec),
+			RuntimeString::Borrowed(str) =&gt; <span class="prelude-val">Ok</span>(str),
+		}
 	}
 }
 
