@@ -51,6 +51,8 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+      - name: Display structure of downloaded files
+        run: pwd; ls -lR
 
       - name: Prepare draft
         id: draft
@@ -82,6 +84,7 @@ jobs:
           ./scripts/release/build-changelogs.sh
 
           echo "Checking the folder state"
+          pwd
           ls -la
 
       - name: Archive artifact context.json
