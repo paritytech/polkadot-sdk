@@ -132,7 +132,7 @@ mod test {
 	use self::InnerMigrateV0ToV1;
 	use super::*;
 	use crate::mock::{new_test_ext, MockRuntime};
-	use frame_support::{assert_ok, traits::OnRuntimeUpgrade};
+	use frame_support::assert_ok;
 
 	#[test]
 	fn handles_no_existing_value() {
