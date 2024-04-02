@@ -1,7 +1,7 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Snowbridge Ethereum client improvements and prevent relayer rewards from message processing to fail
+title: Snowbridge: Synchronize from Snowfork repository
 
 doc:
   - audience: Runtime Dev
@@ -11,4 +11,18 @@ doc:
 
 crates:
   - name: snowbridge-pallet-ethereum-client
+    bump: major
   - name: snowbridge-pallet-inbound-queue
+    bump: major
+  - name: snowbridge-beacon-primitives
+    bump: major
+  - name: snowbridge-core
+    bump: major
+  - name: snowbridge-runtime-test-common
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-rococo-integration-tests
+    bump: minor
