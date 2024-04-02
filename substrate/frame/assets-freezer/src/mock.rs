@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for pallet-example-basic.
+//! Tests mock for pallet-assets-freezer.
 
 pub use crate::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
@@ -23,7 +23,6 @@ use frame_support::{
 	derive_impl,
 	traits::{AsEnsureOriginWithArg, ConstU64},
 };
-use frame_system::{EnsureRoot, EnsureRootWithSuccess};
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, H256};
 // The testing primitives are very useful for avoiding having to work with signatures
@@ -35,9 +34,9 @@ use sp_runtime::{
 // Reexport crate as its pallet name for construct_runtime.
 use crate as pallet_assets_freezer;
 
-type AccountId = u64;
+pub type AccountId = u64;
 type Balance = u64;
-type AssetId = u64;
+pub type AssetId = u64;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // For testing the pallet, we construct a mock runtime.
@@ -140,11 +139,20 @@ impl Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {
 		// We use default for brevity, but you can configure as desired if needed.
-		assets: Default::default(),
+		assets: pallet_assets::GenesisConfig {
+			assets: vec![(1, 0, true, 1)],
+			metadata: vec![],
+			accounts: vec![(1, 1, 100)],
+		},
 		system: Default::default(),
 		balances: Default::default(),
 	}
 	.build_storage()
 	.unwrap();
-	t.into()
+	let mut ext: sp_io::TestExternalities = t.into();
+	ext.execute_with(|| {
+		System::set_block_number(1);
+	});
+
+	ext
 }

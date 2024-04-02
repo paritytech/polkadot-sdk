@@ -26,6 +26,7 @@ pallet-assets = { path = "../assets", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 [dev-dependencies]
+env_logger = "0.9"
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 pallet-balances = { path = "../balances", default-features = false }

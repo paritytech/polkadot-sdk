@@ -45,6 +45,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::Encode;
+use frame_support::pallet_prelude::*;
+use scale_info::prelude::fmt::Debug;
+use sp_runtime::{
+	traits::{Saturating, Zero},
+	BoundedSlice,
+};
+
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
@@ -52,21 +60,18 @@ mod impl_frozen_balances;
 mod impl_fungibles;
 
 #[cfg(test)]
+mod mock;
+#[cfg(test)]
 mod tests;
 
-type AssetIdOf<T, I> = <T as pallet_assets::Config<I>>::AssetId;
-type AssetBalanceOf<T, I> = <T as pallet_assets::Config<I>>::Balance;
-type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+mod types;
+pub use types::*;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use codec::FullCodec;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{EnsureOriginWithArg, VariantCount},
-		BoundedVec,
-	};
+	use frame_support::{traits::VariantCount, BoundedVec};
 	// use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
@@ -78,14 +83,8 @@ pub mod pallet {
 			+ PartialEq
 			+ MaxEncodedLen
 			+ Clone
+			+ Debug
 			+ 'static;
-
-		/// The overarching origin to allow freezing/thawing calls
-		// type FreezeOrigin: EnsureOriginWithArg<
-		// 	Self::RuntimeOrigin,
-		// 	Self::AccountId,
-		// 	Success = Self::AccountId,
-		// >;
 
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self, I>>
@@ -97,7 +96,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		// TODO: Add errors
+		/// Number of freezes exceed `MaxFreezes`.
+		TooManyFreezes,
 	}
 
 	// Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
@@ -106,30 +106,15 @@ pub mod pallet {
 	pub struct Pallet<T, I = ()>(_);
 
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		// .
-		// #[pallet::call_index(0)]
-		// pub fn freeze(origin: OriginFor<T>, increase_by: AssetBalanceOf<T, I>) -> DispatchResult {
-		// 	let _ = T::FreezeOrigin::ensure_origin(origin)?;
-		// 	Ok(())
-		// }
-	}
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		// A reducible balance has been increased due to a freeze action.
-		AssetBalanceFrozen {
-			who: AccountIdOf<T>,
-			asset_id: AssetIdOf<T, I>,
-			balance: AssetBalanceOf<T, I>,
-		},
+		AssetFrozen { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
 		// A reducible balance has been reduced due to a thaw action.
-		AssetBalanceThawed {
-			who: AccountIdOf<T>,
-			asset_id: AssetIdOf<T, I>,
-			balance: AssetBalanceOf<T, I>,
-		},
+		AssetThawed { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
 	}
 
 	/// A map that stores all the current freezes applied on an account for a given AssetId.
@@ -140,7 +125,7 @@ pub mod pallet {
 		AssetIdOf<T, I>,
 		Blake2_128Concat,
 		AccountIdOf<T>,
-		BoundedVec<(T::RuntimeFreezeReason, AssetBalanceOf<T, I>), T::MaxFreezes>,
+		BoundedVec<IdAmount<T::RuntimeFreezeReason, AssetBalanceOf<T, I>>, T::MaxFreezes>,
 		ValueQuery,
 	>;
 
@@ -154,4 +139,35 @@ pub mod pallet {
 		AccountIdOf<T>,
 		AssetBalanceOf<T, I>,
 	>;
+}
+
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	fn update_freezes(
+		asset: AssetIdOf<T, I>,
+		who: &AccountIdOf<T>,
+		freezes: BoundedSlice<
+			IdAmount<T::RuntimeFreezeReason, AssetBalanceOf<T, I>>,
+			T::MaxFreezes,
+		>,
+	) -> DispatchResult {
+		let prev_frozen = FrozenBalances::<T, I>::get(asset.clone(), who).unwrap_or_default();
+		let mut after_frozen: AssetBalanceOf<T, I> = Zero::zero();
+		for f in freezes.iter() {
+			after_frozen = after_frozen.max(f.amount);
+		}
+		FrozenBalances::<T, I>::set(asset.clone(), who, Some(after_frozen));
+		if freezes.is_empty() {
+			Freezes::<T, I>::remove(asset.clone(), who);
+		} else {
+			Freezes::<T, I>::insert(asset.clone(), who, freezes);
+		}
+		if prev_frozen > after_frozen {
+			let amount = prev_frozen.saturating_sub(after_frozen);
+			Self::deposit_event(Event::AssetThawed { asset_id: asset, who: who.clone(), amount });
+		} else if after_frozen > prev_frozen {
+			let amount = after_frozen.saturating_sub(prev_frozen);
+			Self::deposit_event(Event::AssetFrozen { asset_id: asset, who: who.clone(), amount });
+		}
+		Ok(())
+	}
 }

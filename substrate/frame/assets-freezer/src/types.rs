@@ -15,22 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::traits::fungibles::Inspect;
 use super::*;
 
-use pallet_assets::FrozenBalance;
+pub type AssetIdOf<T, I> = <pallet_assets::Pallet<T, I> as Inspect<AccountIdOf<T>>>::AssetId;
+pub type AssetBalanceOf<T, I> = <pallet_assets::Pallet<T, I> as Inspect<AccountIdOf<T>>>::Balance;
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, AssetBalanceOf<T, I>>
-	for Pallet<T, I>
-{
-	fn frozen_balance(
-		asset: AssetIdOf<T, I>,
-		who: &AccountIdOf<T>,
-	) -> Option<AssetBalanceOf<T, I>> {
-		FrozenBalances::<T, I>::get(asset, who)
-	}
-
-	fn died(asset: AssetIdOf<T, I>, who: &AccountIdOf<T>) {
-		FrozenBalances::<T, I>::remove(asset.clone(), who);
-		Freezes::<T, I>::remove(asset, who);
-	}
+/// An identifier and balance.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub struct IdAmount<Id, Balance> {
+	/// An identifier for this item.
+	pub id: Id,
+	/// Some amount for this item.
+	pub amount: Balance,
 }

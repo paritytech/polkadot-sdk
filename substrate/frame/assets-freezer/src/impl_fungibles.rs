@@ -1,7 +1,25 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use super::*;
 
-use frame_support::traits::fungibles::{Inspect, InspectFreeze};
+use frame_support::traits::fungibles::{Inspect, InspectFreeze, MutateFreeze};
 use sp_core::Get;
+use sp_runtime::traits::Zero;
 
 // Implement fungibles::Inspect as it is required. To do so, we'll re-export
 // all of `pallet-assets`' implementation of the same trait.
@@ -60,12 +78,11 @@ impl<T: Config<I>, I: 'static> InspectFreeze<AccountIdOf<T>> for Pallet<T, I> {
 	type Id = T::RuntimeFreezeReason;
 
 	fn balance_frozen(asset: Self::AssetId, id: &Self::Id, who: &AccountIdOf<T>) -> Self::Balance {
-		let (_, balance) = Freezes::<T, I>::get(asset, who)
-			.into_iter()
-			.find(|(freeze_id, _)| freeze_id == id)
-			.unwrap_or((id.clone(), Default::default()));
-
-		balance.clone()
+		if let Some(i) = Freezes::<T, I>::get(asset, who).iter().find(|i| i.id == *id) {
+			i.amount
+		} else {
+			Zero::zero()
+		}
 	}
 
 	fn can_freeze(asset: Self::AssetId, id: &Self::Id, who: &AccountIdOf<T>) -> bool {
@@ -74,6 +91,58 @@ impl<T: Config<I>, I: 'static> InspectFreeze<AccountIdOf<T>> for Pallet<T, I> {
 			< T::MaxFreezes::get()
 				.try_into()
 				.expect("MaxFreezes is the same type as S within Freezes<S>; qed")
-			|| freezes.iter().any(|(freeze_id, _)| freeze_id == id)
+			|| freezes.into_iter().any(|i| i.id == *id)
+	}
+}
+
+impl<T: Config<I>, I: 'static> MutateFreeze<AccountIdOf<T>> for Pallet<T, I> {
+	fn set_freeze(
+		asset: Self::AssetId,
+		id: &Self::Id,
+		who: &AccountIdOf<T>,
+		amount: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		if amount.is_zero() {
+			return Self::thaw(asset, id, who);
+		}
+		let mut freezes = Freezes::<T, I>::get(asset.clone(), who);
+		if let Some(i) = freezes.iter_mut().find(|i| &i.id == id) {
+			i.amount = amount;
+		} else {
+			freezes
+				.try_push(IdAmount { id: id.clone(), amount })
+				.map_err(|_| Error::<T, I>::TooManyFreezes)?;
+		}
+		Self::update_freezes(asset, who, freezes.as_bounded_slice())
+	}
+
+	fn extend_freeze(
+		asset: Self::AssetId,
+		id: &Self::Id,
+		who: &AccountIdOf<T>,
+		amount: Self::Balance,
+	) -> sp_runtime::DispatchResult {
+		if amount.is_zero() {
+			return Ok(());
+		}
+		let mut freezes = Freezes::<T, I>::get(asset.clone(), who);
+		if let Some(i) = freezes.iter_mut().find(|x| &x.id == id) {
+			i.amount = i.amount.max(amount);
+		} else {
+			freezes
+				.try_push(IdAmount { id: id.clone(), amount })
+				.map_err(|_| Error::<T, I>::TooManyFreezes)?;
+		}
+		Self::update_freezes(asset, who, freezes.as_bounded_slice())
+	}
+
+	fn thaw(
+		asset: Self::AssetId,
+		id: &Self::Id,
+		who: &AccountIdOf<T>,
+	) -> sp_runtime::DispatchResult {
+		let mut freezes = Freezes::<T, I>::get(asset.clone(), who);
+		freezes.retain(|f| &f.id != id);
+		Self::update_freezes(asset, who, freezes.as_bounded_slice())
 	}
 }

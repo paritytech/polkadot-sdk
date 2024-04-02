@@ -9099,6 +9099,7 @@ dependencies = [
 name = "pallet-assets-freezer"
 version = "1.0.0"
 dependencies = [
+ "env_logger 0.9.3",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
