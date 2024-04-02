@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use frame_support::traits::fungibles::Inspect;
-use super::*;
+use frame_support::pallet_prelude::{Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo};
 
 pub type AssetIdOf<T, I> = <pallet_assets::Pallet<T, I> as Inspect<AccountIdOf<T>>>::AssetId;
 pub type AssetBalanceOf<T, I> = <pallet_assets::Pallet<T, I> as Inspect<AccountIdOf<T>>>::Balance;

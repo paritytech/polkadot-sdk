@@ -38,25 +38,14 @@
 //!
 //! - Pallet hooks that implement custom logic to let `pallet-assets` know whether an balance is
 //!   frozen for an account on a given asset (see: [`pallet_assets::FrozenBalance`]).
-//! - An implementation of fungibles [inspect][docs:inspect_freeze] and
-//!   [mutation][docs:mutate_freeze] APIs.
-//! - Support for force freezing and thawing assets, given a Freezer ID
-//!   (see [`Config::RuntimeFreezeReason`]).
+//! - An implementation of the fungibles [inspect][docs:inspect_freeze] and the [mutation][docs:mutate_freeze]
+//!   APIs for freezes.
 //!
 //! [docs:inspect_freeze]: `frame_support::traits::fungibles::InspectFreeze`
 //! [docs:mutate_freeze]: `frame_support::traits::fungibles::MutateFreeze`
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
-use frame_support::pallet_prelude::*;
-use scale_info::prelude::fmt::Debug;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	BoundedSlice,
-};
-
-// Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
 #[cfg(test)]
@@ -71,9 +60,10 @@ pub use types::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+
 	use codec::FullCodec;
-	use frame_support::{traits::VariantCount, BoundedVec};
-	// use frame_system::pallet_prelude::*;
+	use core::fmt::Debug;
+	use frame_support::{pallet_prelude::*, traits::VariantCount, BoundedVec};
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_assets::Config<I> {
@@ -91,6 +81,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
 	}
@@ -101,13 +92,8 @@ pub mod pallet {
 		TooManyFreezes,
 	}
 
-	// Simple declaration of the `Pallet` type. It is placeholder we use to implement traits and
-	// method.
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(_);
-
-	#[pallet::call(weight(<T as Config>::WeightInfo))]
-	impl<T: Config<I>, I: 'static> Pallet<T, I> {}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -141,6 +127,12 @@ pub mod pallet {
 		AssetBalanceOf<T, I>,
 	>;
 }
+
+use frame_support::pallet_prelude::DispatchResult;
+use sp_runtime::{
+	traits::{Saturating, Zero},
+	BoundedSlice,
+};
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn update_freezes(

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests mock for pallet-assets-freezer.
+//! Tests mock for `pallet-assets-freezer`.
 
 pub use crate::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
@@ -25,13 +25,10 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::{ConstU32, H256};
-// The testing primitives are very useful for avoiding having to work with signatures
-// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-// Reexport crate as its pallet name for construct_runtime.
 use crate as pallet_assets_freezer;
 
 pub type AccountId = u64;
@@ -39,7 +36,6 @@ type Balance = u64;
 pub type AssetId = u32;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-// For testing the pallet, we construct a mock runtime.
 frame_support::construct_runtime!(
 	pub enum Test
 	{
@@ -130,17 +126,12 @@ impl frame_support::traits::VariantCount for DummyFreezeReason {
 
 impl Config for Test {
 	type RuntimeFreezeReason = DummyFreezeReason;
-	// type FreezeOrigin =
-	// 	AsEnsureOriginWithArg<EnsureRootWithSuccess<EnsureRoot<AccountId>, ConstU64<0>>>;
 	type RuntimeEvent = RuntimeEvent;
 	type MaxFreezes = ConstU32<2>;
 }
 
-// This function basically just builds a genesis storage key/value store according to
-// our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {
-		// We use default for brevity, but you can configure as desired if needed.
 		assets: pallet_assets::GenesisConfig {
 			assets: vec![(1, 0, true, 1)],
 			metadata: vec![],
