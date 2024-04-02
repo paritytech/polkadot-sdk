@@ -31,7 +31,7 @@ use polkadot_cli::{
 };
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, SpawnGlue};
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
-use polkadot_node_network_protocol::request_response::outgoing::Requests;
+use polkadot_node_network_protocol::request_response::{outgoing::Requests, OutgoingRequest};
 use sp_core::traits::SpawnNamed;
 
 // Filter wrapping related types.
@@ -56,27 +56,38 @@ where
 	/// Intercept NetworkBridgeTxMessage::SendRequests with Requests::AttestedCandidateV2 inside and duplicate that request
 	fn intercept_incoming(
 		&self,
-		subsystem_sender: &mut Sender,
+		_subsystem_sender: &mut Sender,
 		msg: FromOrchestra<Self::Message>,
 	) -> Option<FromOrchestra<Self::Message>> {
 		match msg {
 			FromOrchestra::Communication {
-				msg: NetworkBridgeTxMessage::SendRequests (requests, IfDisconnected),
+				msg: NetworkBridgeTxMessage::SendRequests (mut requests, if_disconnected),
 			} => {
-				if let Some(request) = requests.get(0) {
-					if let Requests::AttestedCandidateV2(_) = request {
-						// Duplicate the first request spam_factor times and put it into requests to be sent over the wire
-						todo!("Duplicate request");
+				// AttestedCandidateV2 requests arrive 1 by 1
+				if requests.len() == 1 {
+					// Check if the request is of the type AttestedCandidateV2
+					if let Requests::AttestedCandidateV2(req) = &requests[0] {
+						// Temporarily store peer and payload for duplication
+						let peer_to_duplicate = req.peer.clone();
+						let payload_to_duplicate = req.payload.clone();
+
+						// Duplicate the request spam_factor times and append to the list
+						for _ in 0..self.spam_factor-1 {
+							let (new_outgoing_request, _) = OutgoingRequest::new(peer_to_duplicate.clone(), payload_to_duplicate.clone());
+							let new_request = Requests::AttestedCandidateV2(new_outgoing_request);
+							requests.push(new_request);
+						}
+
 						gum::info!(
 							target: MALUS,
-							"😈 Duplicating AttestedCandidateV2 request extra {:?} times.", self.spam_factor,
+							"😈 Duplicating AttestedCandidateV2 request extra {:?} times to peer: {:?}.", self.spam_factor, peer_to_duplicate,
 						);
 					}
 				}
 
 				// Passthrough the message with a potentially modified number of requests
 				Some(FromOrchestra::Communication {
-					msg: NetworkBridgeTxMessage::SendRequests(requests, IfDisconnected),
+					msg: NetworkBridgeTxMessage::SendRequests(requests, if_disconnected),
 				})
 			},
 			FromOrchestra::Communication { msg } => Some(FromOrchestra::Communication { msg }),
@@ -92,7 +103,7 @@ where
 #[allow(missing_docs)]
 pub struct SpamStatementRequestsOptions {
 /// How many statement distribution requests to send.
-	#[clap(long, ignore_case = true, default_value_t = 1000, value_parser = clap::value_parser!(u32).range(0..=50000))]
+	#[clap(long, ignore_case = true, default_value_t = 1000, value_parser = clap::value_parser!(u32).range(0..=10000000))]
 	pub spam_factor: u32,
 
 	#[clap(flatten)]

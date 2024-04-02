@@ -3363,6 +3363,7 @@ pub(crate) async fn respond_task(
 
 				// If we are over parallel limit wait for one to finish
 				if pending_out.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+					gum::debug!(target: LOG_TARGET, "Over max parallel requests, waiting for one to finish");
 					let result = pending_out.select_next_some().await;
 					let (_, peer) = result;
 					active_peers.remove(&peer);
