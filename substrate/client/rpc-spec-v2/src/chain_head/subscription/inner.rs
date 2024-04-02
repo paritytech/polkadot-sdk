@@ -637,7 +637,7 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		}
 	}
 
-	/// Suspends all subscriptions for the given duration.
+	/// Suspends all subscriptions for the configured duration.
 	///
 	/// All active subscriptions are removed.
 	pub fn suspend_subscriptions(&mut self) {
