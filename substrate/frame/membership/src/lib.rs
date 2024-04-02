@@ -375,10 +375,14 @@ impl<T: Config<I>, I: 'static> SortedMembers<T::AccountId> for Pallet<T, I> {
 		use frame_support::{assert_ok, traits::EnsureOrigin};
 		let new_member_lookup = T::Lookup::unlookup(new_member.clone());
 
-		assert_ok!(Pallet::<T, I>::add_member(
-			T::AddOrigin::try_successful_origin().unwrap(),
-			new_member_lookup,
-		));
+		if let Ok(origin) = T::AddOrigin::try_successful_origin() {
+			assert_ok!(Pallet::<T, I>::add_member(
+				origin,
+				new_member_lookup,
+			));
+		} else {
+			log::error!(target: LOG_TARGET, "Failed to add `{new_member:?}` in `SortedMembers::add`.")
+		}
 	}
 }
 
