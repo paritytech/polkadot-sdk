@@ -290,10 +290,10 @@ pub struct BridgedMmrHashMerge;
 impl mmr_lib::Merge for BridgedMmrHashMerge {
 	type Item = TestBridgedMmrNode;
 
-	fn merge(left: &Self::Item, right: &Self::Item) -> Self::Item {
+	fn merge(left: &Self::Item, right: &Self::Item) -> mmr_lib::Result<Self::Item> {
 		let mut concat = left.hash().as_ref().to_vec();
 		concat.extend_from_slice(right.hash().as_ref());
 
-		TestBridgedMmrNode::Hash(TestBridgedMmrHashing::hash(&concat))
+		Ok(TestBridgedMmrNode::Hash(TestBridgedMmrHashing::hash(&concat)))
 	}
 }
