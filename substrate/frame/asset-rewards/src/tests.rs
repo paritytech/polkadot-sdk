@@ -573,139 +573,176 @@ mod set_pool_expiry_block {
 	}
 }
 
-mod integration {
-	use super::*;
+/// Assert that an amount has been hypothetically earned by a staker.
+fn assert_hypothetically_earned(
+	staker: u128,
+	expected_earned: u128,
+	pool_id: u32,
+	reward_asset_id: NativeOrWithId<u32>,
+) {
+	hypothetically!({
+		// Get the pre-harvest balance.
+		let balance_before: <MockRuntime as Config>::Balance =
+			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
 
-	/// Assert that an amount has been hypothetically earned by a staker.
-	fn assert_hypothetically_earned(
-		staker: u128,
-		expected_earned: u128,
-		pool_id: u32,
-		reward_asset_id: NativeOrWithId<u32>,
-	) {
-		hypothetically!({
-			// Get the pre-harvest balance.
-			let balance_before: <MockRuntime as Config>::Balance =
-				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
+		// Harvest the rewards.
+		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker), pool_id, None));
 
-			// Harvest the rewards.
-			assert_ok!(StakingRewards::harvest_rewards(
-				RuntimeOrigin::signed(staker),
-				pool_id,
-				None
-			));
+		// Sanity check: staker rewards are reset to 0.
+		assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, staker).unwrap().rewards, 0);
 
-			// Sanity check: staker rewards are reset to 0.
-			assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, staker).unwrap().rewards, 0);
+		// Check that the staker has earned the expected amount.
+		let balance_after =
+			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
+		assert_eq!(
+			balance_after - balance_before,
+			<u128 as Into<<MockRuntime as Config>::Balance>>::into(expected_earned)
+		);
+	});
+}
 
-			// Check that the staker has earned the expected amount.
-			let balance_after =
-				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
-			assert_eq!(
-				balance_after - balance_before,
-				<u128 as Into<<MockRuntime as Config>::Balance>>::into(expected_earned)
-			);
-		});
-	}
+/// In this integration test scenario, we
+/// 1. Consider 2 stakers each staking and unstaking at different intervals, and assert their
+///    claimable rewards are as expected.
+/// 2. Check that rewards are correctly halted after the pool's expiry block, and resume when the
+///    pool is extended.
+/// 3. Check that reward rates adjustment works correctly.
+///
+/// Note: There are occasionally off by 1 errors due to rounding. In practice this is
+/// insignificant.
+#[test]
+fn two_stakers_integration_test() {
+	new_test_ext().execute_with(|| {
+		// Setup
+		let admin = 1;
+		let staker1 = 10u128;
+		let staker2 = 20;
+		let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
+		let reward_asset_id = NativeOrWithId::<u32>::Native;
+		let reward_rate_per_block = 100;
+		let expiry_block = 25u64.into();
+		create_tokens(admin, vec![staking_asset_id.clone()]);
+		assert_ok!(StakingRewards::create_pool(
+			RuntimeOrigin::signed(admin),
+			Box::new(staking_asset_id.clone()),
+			Box::new(reward_asset_id.clone()),
+			reward_rate_per_block,
+			expiry_block,
+			None
+		));
+		let pool_id = 0;
+		let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+		<<MockRuntime as Config>::Assets>::set_balance(
+			reward_asset_id.clone(),
+			&pool_account_id,
+			100_000,
+		);
+		<<MockRuntime as Config>::Assets>::set_balance(staking_asset_id.clone(), &staker1, 100_000);
+		<<MockRuntime as Config>::Assets>::set_balance(staking_asset_id.clone(), &staker2, 100_000);
 
-	#[test]
-	/// In this integration test scenario, we will consider 2 stakers each staking and unstaking at
-	/// different intervals, and assert their claimable rewards are as expected.
-	///
-	/// Note: There are occasionally off by 1 errors due to rounding. In practice, this is
-	/// insignificant.
-	fn two_stakers() {
-		new_test_ext().execute_with(|| {
-			// Setup
-			let admin = 1;
-			let staker1 = 10u128;
-			let staker2 = 20;
-			let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
-			let reward_asset_id = NativeOrWithId::<u32>::Native;
-			let reward_rate_per_block = 100;
-			let expiry_block = 25u64.into();
-			create_tokens(admin, vec![staking_asset_id.clone()]);
-			assert_ok!(StakingRewards::create_pool(
-				RuntimeOrigin::signed(admin),
-				Box::new(staking_asset_id.clone()),
-				Box::new(reward_asset_id.clone()),
-				reward_rate_per_block,
-				expiry_block,
-				None
-			));
-			let pool_id = 0;
-			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
-			<<MockRuntime as Config>::Assets>::set_balance(
-				reward_asset_id.clone(),
-				&pool_account_id,
-				100_000,
-			);
-			<<MockRuntime as Config>::Assets>::set_balance(
-				staking_asset_id.clone(),
-				&staker1,
-				100_000,
-			);
-			<<MockRuntime as Config>::Assets>::set_balance(
-				staking_asset_id.clone(),
-				&staker2,
-				100_000,
-			);
+		// Block 7: Staker 1 stakes 100 tokens.
+		System::set_block_number(7);
+		assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker1), pool_id, 100));
+		// At this point
+		// - Staker 1 has earned 0 tokens.
+		// - Staker 1 is earning 100 tokens per block.
 
-			// Block 7: Staker 1 stakes 100 tokens.
-			System::set_block_number(7);
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker1), pool_id, 100));
-			// At this point
-			// - Staker 1 has earned 0 tokens.
-			// - Staker 1 is earning 100 tokens per block.
+		// Check that Staker 1 has earned 0 tokens.
+		assert_hypothetically_earned(staker1, 0, pool_id, reward_asset_id.clone());
 
-			// Check that Staker 1 has earned 0 tokens.
-			assert_hypothetically_earned(staker1, 0, pool_id, reward_asset_id.clone());
+		// Block 9: Staker 2 stakes 100 tokens.
+		System::set_block_number(9);
+		assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker2), pool_id, 100));
+		// At this point
+		// - Staker 1 has earned 200 (100*2) tokens.
+		// - Staker 2 has earned 0 tokens.
+		// - Staker 1 is earning 50 tokens per block.
+		// - Staker 2 is earning 50 tokens per block.
 
-			// Block 9: Staker 2 stakes 100 tokens.
-			System::set_block_number(9);
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker2), pool_id, 100));
-			// At this point
-			// - Staker 1 has earned 200 (100*2) tokens.
-			// - Staker 2 has earned 0 tokens.
-			// - Staker 1 is earning 50 tokens per block.
-			// - Staker 2 is earning 50 tokens per block.
+		// Check that Staker 1 has earned 200 tokens and Staker 2 has earned 0 tokens.
+		assert_hypothetically_earned(staker1, 200, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 0, pool_id, reward_asset_id.clone());
 
-			// Check that Staker 1 has earned 200 tokens and Staker 2 has earned 0 tokens.
-			assert_hypothetically_earned(staker1, 200, pool_id, reward_asset_id.clone());
-			assert_hypothetically_earned(staker2, 0, pool_id, reward_asset_id.clone());
+		// Block 12: Staker 1 stakes an additional 100 tokens.
+		System::set_block_number(12);
+		assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker1), pool_id, 100));
+		// At this point
+		// - Staker 1 has earned 350 (200 + (50 * 3)) tokens.
+		// - Staker 2 has earned 150 (50 * 3) tokens.
+		// - Staker 1 is earning 66.66 tokens per block.
+		// - Staker 2 is earning 33.33 tokens per block.
 
-			// Block 12: Staker 1 stakes an additional 100 tokens.
-			System::set_block_number(12);
-			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker1), pool_id, 100));
-			// At this point
-			// - Staker 1 has earned 350 (200 + (50 * 3)) tokens.
-			// - Staker 2 has earned 150 (50 * 3) tokens.
-			// - Staker 1 is earning 66.66 tokens per block.
-			// - Staker 2 is earning 33.33 tokens per block.
+		// Check that Staker 1 has earned 350 tokens and Staker 2 has earned 150 tokens.
+		assert_hypothetically_earned(staker1, 349, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 149, pool_id, reward_asset_id.clone());
 
-			// Check that Staker 1 has earned 350 tokens and Staker 2 has earned 150 tokens.
-			assert_hypothetically_earned(staker1, 349, pool_id, reward_asset_id.clone());
-			assert_hypothetically_earned(staker2, 149, pool_id, reward_asset_id.clone());
+		// Block 22: Staker 1 unstakes 100 tokens.
+		System::set_block_number(22);
+		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100));
+		// - Staker 1 has earned 1016 (350 + 66.66 * 10) tokens.
+		// - Staker 2 has earned 483 (150 + 33.33 * 10) tokens.
+		// - Staker 1 is earning 50 tokens per block.
+		// - Staker 2 is earning 50 tokens per block.
+		assert_hypothetically_earned(staker1, 1015, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 483, pool_id, reward_asset_id.clone());
 
-			// Block 22: Staker 1 unstakes 100 tokens.
-			System::set_block_number(22);
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100));
-			// - Staker 1 has earned 1016 (350 + 66.66 * 10) tokens.
-			// - Staker 2 has earned 483  (150 + 33.33 * 10) tokens.
-			// - Staker 1 is earning 50 tokens per block.
-			// - Staker 2 is earning 50 tokens per block.
-			assert_hypothetically_earned(staker1, 1015, pool_id, reward_asset_id.clone());
-			assert_hypothetically_earned(staker2, 483, pool_id, reward_asset_id.clone());
+		// Block 23: Staker 1 unstakes 100 tokens.
+		System::set_block_number(23);
+		assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100));
+		// - Staker 1 has earned 1065 (1015 + 50) tokens.
+		// - Staker 2 has earned 533 (483 + 50) tokens.
+		// - Staker 1 is earning 0 tokens per block.
+		// - Staker 2 is earning 100 tokens per block.
+		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 533, pool_id, reward_asset_id.clone());
 
-			// Block 23: Staker 1 unstakes 100 tokens.
-			System::set_block_number(23);
-			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker1), pool_id, 100));
-			// - Staker 1 has earned 1065 (1015 + 50) tokens.
-			// - Staker 2 has earned 533  (483 + 50) tokens.
-			// - Staker 1 is earning 0 tokens per block.
-			// - Staker 2 is earning 100 tokens per block.
-			assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
-			assert_hypothetically_earned(staker2, 533, pool_id, reward_asset_id.clone());
-		});
-	}
+		// Block 50: Stakers should only have earned 2 blocks worth of tokens (expiry is 25).
+		System::set_block_number(50);
+		// - Staker 1 has earned 1065 tokens.
+		// - Staker 2 has earned 733 (533 + 2 * 100) tokens.
+		// - Staker 1 is earning 0 tokens per block.
+		// - Staker 2 is earning 0 tokens per block.
+		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 733, pool_id, reward_asset_id.clone());
+
+		// Block 51: Extend the pool expiry block to 60.
+		System::set_block_number(51);
+		// - Staker 1 is earning 0 tokens per block.
+		// - Staker 2 is earning 100 tokens per block.
+		assert_ok!(StakingRewards::set_pool_expiry_block(
+			RuntimeOrigin::signed(admin),
+			pool_id,
+			60u64
+		));
+		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 733, pool_id, reward_asset_id.clone());
+
+		// Block 53: Check rewards are resumed.
+		// - Staker 1 has earned 1065 tokens.
+		// - Staker 2 has earned 933 (733 + 2 * 100) tokens.
+		// - Staker 2 is earning 100 tokens per block.
+		System::set_block_number(53);
+		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 933, pool_id, reward_asset_id.clone());
+
+		// Block 55: Halve the block reward.
+		// - Staker 1 has earned 1065 tokens.
+		// - Staker 2 has earned 1133 (933 + 2 * 100) tokens.
+		// - Staker 2 is earning 50 tokens per block.
+		System::set_block_number(55);
+		assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
+			RuntimeOrigin::signed(admin),
+			pool_id,
+			50
+		));
+		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 1133, pool_id, reward_asset_id.clone());
+
+		// Block 60: Check rewards were adjusted correctly.
+		// - Staker 1 has earned 1065 tokens.
+		// - Staker 2 has earned 1383 (1133 + 5 * 50) tokens.
+		System::set_block_number(60);
+		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 1383, pool_id, reward_asset_id.clone());
+	});
 }

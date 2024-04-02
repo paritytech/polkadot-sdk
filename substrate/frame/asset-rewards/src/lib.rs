@@ -80,7 +80,7 @@ pub type PoolId = u32;
 pub(crate) const PRECISION_SCALING_FACTOR: u32 = u32::MAX;
 
 /// A pool staker.
-#[derive(Debug, Default, Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, Default, Clone, Decode, Encode, MaxEncodedLen, TypeInfo)]
 pub struct PoolStakerInfo<Balance> {
 	/// Amount of tokens staked.
 	amount: Balance,
@@ -91,7 +91,7 @@ pub struct PoolStakerInfo<Balance> {
 }
 
 /// A staking pool.
-#[derive(Debug, Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, Clone, Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	/// The asset that is staked in this pool.
 	staking_asset_id: AssetId,
@@ -120,7 +120,10 @@ pub mod pallet {
 		traits::tokens::{AssetId, Preservation},
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::{AccountIdConversion, BadOrigin, EnsureDiv, Saturating};
+	use sp_runtime::{
+		traits::{AccountIdConversion, BadOrigin, EnsureDiv, Saturating},
+		DispatchResult,
+	};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -463,11 +466,12 @@ pub mod pallet {
 			new_reward_rate_per_block: T::Balance,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			ensure!(pool_info.admin == caller, BadOrigin);
 
 			Self::update_pool_rewards(&pool_id, None)?;
 
+			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			pool_info.reward_rate_per_block = new_reward_rate_per_block;
 			Pools::<T>::insert(pool_id, pool_info);
 
@@ -497,7 +501,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Modify a pool admin.
+		/// Modify a expiry block.
 		///
 		/// TODO: Actually handle this in code
 		pub fn set_pool_expiry_block(
@@ -511,6 +515,8 @@ pub mod pallet {
 				new_expiry_block > frame_system::Pallet::<T>::block_number(),
 				Error::<T>::ExpiryBlockMustBeInTheFuture
 			);
+
+			Self::update_pool_rewards(&pool_id, None)?;
 
 			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			ensure!(pool_info.admin == caller, BadOrigin);
@@ -557,25 +563,34 @@ pub mod pallet {
 		}
 
 		/// Update pool reward state, and optionally also a staker's rewards.
+		///
+		/// Returns the updated pool info and optional staker info.
 		pub fn update_pool_rewards(
 			pool_id: &PoolId,
 			staker: Option<&T::AccountId>,
-		) -> DispatchResult {
+		) -> Result<
+			(
+				PoolInfo<T::AccountId, T::AssetId, T::Balance, BlockNumberFor<T>>,
+				Option<PoolStakerInfo<T::Balance>>,
+			),
+			DispatchError,
+		> {
 			let reward_per_token = Self::reward_per_token(pool_id)?;
 
 			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			pool_info.last_update_block = frame_system::Pallet::<T>::block_number();
 			pool_info.reward_per_token_stored = reward_per_token;
-			Pools::<T>::insert(pool_id, pool_info);
+			Pools::<T>::insert(pool_id, pool_info.clone());
 
 			if let Some(staker) = staker {
 				let mut staker_info = PoolStakers::<T>::get(pool_id, staker).unwrap_or_default();
 				staker_info.rewards = Self::derive_rewards(pool_id, staker)?;
 				staker_info.reward_per_token_paid = reward_per_token;
-				PoolStakers::<T>::insert(pool_id, staker, staker_info);
+				PoolStakers::<T>::insert(pool_id, staker, staker_info.clone());
+				return Ok((pool_info, Some(staker_info)));
 			}
 
-			Ok(())
+			Ok((pool_info, None))
 		}
 
 		/// Derives the current reward per token for this pool.
@@ -588,18 +603,19 @@ pub mod pallet {
 				return Ok(pool_info.reward_per_token_stored)
 			}
 
-			let blocks_elapsed: u32 = match frame_system::Pallet::<T>::block_number()
-				.saturating_sub(pool_info.last_update_block)
-				.try_into()
-			{
-				Ok(b) => b,
-				Err(_) => return Err(Error::<T>::BlockNumberConversionError.into()),
-			};
+			let rewardable_blocks_elapsed: u32 =
+				match Self::last_block_reward_applicable(pool_info.expiry_block)
+					.saturating_sub(pool_info.last_update_block)
+					.try_into()
+				{
+					Ok(b) => b,
+					Err(_) => return Err(Error::<T>::BlockNumberConversionError.into()),
+				};
 
 			Ok(pool_info.reward_per_token_stored.saturating_add(
 				pool_info
 					.reward_rate_per_block
-					.saturating_mul(blocks_elapsed.into())
+					.saturating_mul(rewardable_blocks_elapsed.into())
 					.saturating_mul(PRECISION_SCALING_FACTOR.into())
 					.ensure_div(pool_info.total_tokens_staked)?,
 			))
@@ -620,6 +636,14 @@ pub mod pallet {
 				.saturating_mul(reward_per_token.saturating_sub(staker_info.reward_per_token_paid))
 				.ensure_div(PRECISION_SCALING_FACTOR.into())?
 				.saturating_add(staker_info.rewards))
+		}
+
+		fn last_block_reward_applicable(pool_expiry_block: BlockNumberFor<T>) -> BlockNumberFor<T> {
+			if frame_system::Pallet::<T>::block_number() < pool_expiry_block {
+				frame_system::Pallet::<T>::block_number()
+			} else {
+				pool_expiry_block
+			}
 		}
 	}
 }
