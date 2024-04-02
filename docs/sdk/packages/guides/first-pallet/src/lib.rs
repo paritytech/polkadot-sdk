@@ -164,7 +164,6 @@ pub mod pallet {
 
 		pub(crate) use runtime::*;
 
-
 		#[allow(unused)]
 		#[docify::export]
 		fn new_test_state_basic() -> TestState {
