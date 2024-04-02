@@ -37,7 +37,7 @@ sp-weights = { path = "../../../../primitives/weights" }
 frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true }
 substrate-rpc-client = { path = "../../rpc/client" }
 
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 clap = { version = "4.5.3", features = ["derive"] }
 hex = { version = "0.4.3", default-features = false }
 log = { workspace = true, default-features = true }

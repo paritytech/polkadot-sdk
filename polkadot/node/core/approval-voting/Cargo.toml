@@ -41,7 +41,7 @@ rand_chacha = { version = "0.3.1" }
 rand = "0.8.5"
 
 [dev-dependencies]
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 parking_lot = "0.12.1"
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
