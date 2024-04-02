@@ -137,4 +137,3 @@ jobs:
             ${{ matrix.chain }}-compressed-info.json
             ${{ matrix.chain }}-metadata.json
             ${{ matrix.chain }}-diff.txt
-            ${{ matrix.chain }}-srtool-digest.json
