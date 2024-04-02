@@ -52,7 +52,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
       - name: Display structure of downloaded files
-        run: pwd; ls -lR
+        run: pwd; ls -la
 
       - name: Prepare draft
         id: draft
@@ -75,6 +75,13 @@ jobs:
           ROCOCO_DIGEST: ${{ github.workspace}}/rococo-runtime/rococo-srtool-digest.json'
           WESTEND_DIGEST: ${{ github.workspace}}/westend-runtime/westend-srtool-digest.json'
         run: |
+          find ${{env.GITHUB_WORKSPACE}} -type f -name "*_srtool_output.json"
+          ls -al $ASSET_HUB_ROCOCO_DIGEST
+          ls -al $ASSET_HUB_WESTEND_DIGEST
+          ls -al $BRIDGE_HUB_ROCOCO_DIGEST
+          ls -al $BRIDGE_HUB_WESTEND_DIGEST
+          ls -al $COLLECTIVES_WESTEND_DIGEST
+
           . ./.github/scripts/common/lib.sh
 
           export REF1=$(get_latest_release_tag)
