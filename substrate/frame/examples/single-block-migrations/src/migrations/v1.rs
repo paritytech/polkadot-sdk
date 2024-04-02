@@ -108,7 +108,7 @@ impl<T: crate::Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 	}
 }
 
-/// [`UncheckedOnRuntimeUpgrade`] implementation [`MigrateV0ToV1`] wrapped in a
+/// [`UncheckedOnRuntimeUpgrade`] implementation [`InnerMigrateV0ToV1`] wrapped in a
 /// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
 /// - The migration only runs once when the on-chain storage version is 0
 /// - The on-chain storage version is updated to `1` after the migration executes
