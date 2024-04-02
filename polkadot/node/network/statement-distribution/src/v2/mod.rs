@@ -3081,13 +3081,11 @@ pub(crate) async fn handle_response<Context>(
 			relay_parent_state.session,
 			|v| per_session.session_info.validators.get(v).map(|x| x.clone()),
 			|para, g_index| {
-				let expected_groups = relay_parent_state.groups_per_para.get(&para);
+				let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para) else {
+					return false
+				};
 
-				expected_groups.is_some() &&
-					expected_groups
-						.expect("checked is_some(); qed")
-						.iter()
-						.any(|g| g == &g_index)
+				expected_groups.iter().any(|g| g == &g_index)
 			},
 			disabled_mask,
 		);
