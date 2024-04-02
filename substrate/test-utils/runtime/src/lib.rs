@@ -1325,7 +1325,7 @@ mod tests {
 				.unwrap();
 			let r = Option::<Vec<u8>>::decode(&mut &r[..])
 				.unwrap()
-				.expect("defuault config is there");
+				.expect("default config is there");
 			let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 
 			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
