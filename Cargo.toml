@@ -196,6 +196,7 @@ members = [
 	"polkadot/rpc",
 	"polkadot/runtime/common",
 	"polkadot/runtime/common/slot_range_helper",
+	"polkadot/runtime/common/pallets/paras-registrar",
 	"polkadot/runtime/metrics",
 	"polkadot/runtime/parachains",
 	"polkadot/runtime/rococo",

@@ -17,7 +17,10 @@
 //! Pallet to handle parachain registration and related fund management.
 //! In essence this is a simple wrapper around `paras`.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 pub mod migration;
+pub mod traits;
 
 use frame_support::{
 	dispatch::DispatchResult,
@@ -701,9 +704,8 @@ impl<T: Config> OnNewHead for Pallet<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
-		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
-	};
+	use crate as paras_registrar;
+	use crate::{mock::conclude_pvf_checking, traits::Registrar as RegistrarTrait};
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl,
 		error::BadOrigin,
@@ -735,7 +737,7 @@ mod tests {
 			Configuration: configuration,
 			Parachains: paras,
 			ParasShared: shared,
-			Registrar: paras_registrar,
+			Registrar: crate::{Pallet, Call, Storage, Event<T>},
 			ParachainsOrigin: origin,
 		}
 	);
@@ -1667,3 +1669,6 @@ mod benchmarking {
 		);
 	}
 }
+
+#[cfg(test)]
+mod mock;

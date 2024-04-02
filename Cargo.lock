@@ -10498,6 +10498,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-paras-registrar"
+version = "7.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "staging-xcm",
+]
+
+[[package]]
 name = "pallet-preimage"
 version = "28.0.0"
 dependencies = [
@@ -13243,6 +13264,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-fast-unstake",
  "pallet-identity",
+ "pallet-paras-registrar",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-fn",
