@@ -44,5 +44,5 @@
     - [transaction_v1_broadcast](api/transaction_v1_broadcast.md)
     - [transaction_v1_stop](api/transaction_v1_stop.md)
   - [transactionWatch](api/transactionWatch.md)
-    - [transactionWatch_unstable_submitAndWatch](api/transactionWatch_unstable_submitAndWatch.md)
-    - [transactionWatch_unstable_unwatch](api/transactionWatch_unstable_unwatch.md)
+    - [transactionWatch_v1_submitAndWatch](api/transactionWatch_v1_submitAndWatch.md)
+    - [transactionWatch_v1_unwatch](api/transactionWatch_v1_unwatch.md)
