@@ -16,5 +16,8 @@ doc:
 
 crates:
   - name: sp-genesis-builder
+    bump: minor
   - name: staging-chain-spec-builder
+    bump: major
   - name: sc-chain-spec
+    bump: major
