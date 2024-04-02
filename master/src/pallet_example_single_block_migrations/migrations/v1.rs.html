@@ -341,32 +341,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -386,7 +360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>frame_support::{
 	storage_alias,
-	traits::{Get, OnRuntimeUpgrade},
+	traits::{Get, UncheckedOnRuntimeUpgrade},
 };
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
@@ -403,118 +377,92 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>Value&lt;T: <span class="kw">crate</span>::Config&gt; = StorageValue&lt;<span class="kw">crate</span>::Pallet&lt;T&gt;, u32&gt;;
 }
 
-<span class="doccomment">/// Private module containing *version unchecked* migration logic.
+<span class="doccomment">/// Implements [`UncheckedOnRuntimeUpgrade`], migrating the state of this pallet from V0 to V1.
 ///
-/// Should only be used by the [`VersionedMigration`](frame_support::migrations::VersionedMigration)
-/// type in this module to create something to export.
+/// In V0 of the template [`crate::Value`] is just a `u32`. In V1, it has been upgraded to
+/// contain the struct [`crate::CurrentAndPreviousValue`].
 ///
-/// The unversioned migration should be kept private so the unversioned migration cannot
-/// accidentally be used in any runtimes.
-///
-/// For more about this pattern of keeping items private, see
-/// - &lt;https://github.com/rust-lang/rust/issues/30905&gt;
-/// - &lt;https://internals.rust-lang.org/t/lang-team-minutes-private-in-public-rules/4504/40&gt;
-</span><span class="kw">mod </span>version_unchecked {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+/// In this migration, update the on-chain storage for the pallet to reflect the new storage
+/// layout.
+</span><span class="kw">pub struct </span>InnerMigrateV0ToV1&lt;T: <span class="kw">crate</span>::Config&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 
-	<span class="doccomment">/// Implements [`OnRuntimeUpgrade`], migrating the state of this pallet from V0 to V1.
+<span class="kw">impl</span>&lt;T: <span class="kw">crate</span>::Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>InnerMigrateV0ToV1&lt;T&gt; {
+	<span class="doccomment">/// Return the existing [`crate::Value`] so we can check that it was correctly set in
+	/// `InnerMigrateV0ToV1::post_upgrade`.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
+		<span class="kw">use </span>codec::Encode;
+
+		<span class="comment">// Access the old value using the `storage_alias` type
+		</span><span class="kw">let </span>old_value = v0::Value::&lt;T&gt;::get();
+		<span class="comment">// Return it as an encoded `Vec&lt;u8&gt;`
+		</span><span class="prelude-val">Ok</span>(old_value.encode())
+	}
+
+	<span class="doccomment">/// Migrate the storage from V0 to V1.
 	///
-	/// In V0 of the template [`crate::Value`] is just a `u32`. In V1, it has been upgraded to
-	/// contain the struct [`crate::CurrentAndPreviousValue`].
+	/// - If the value doesn&#39;t exist, there is nothing to do.
+	/// - If the value exists, it is read and then written back to storage inside a
+	/// [`crate::CurrentAndPreviousValue`].
+	</span><span class="kw">fn </span>on_runtime_upgrade() -&gt; frame_support::weights::Weight {
+		<span class="comment">// Read the old value from storage
+		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(old_value) = v0::Value::&lt;T&gt;::take() {
+			<span class="comment">// Write the new value to storage
+			</span><span class="kw">let </span>new = <span class="kw">crate</span>::CurrentAndPreviousValue { current: old_value, previous: <span class="prelude-val">None </span>};
+			<span class="kw">crate</span>::Value::&lt;T&gt;::put(new);
+			<span class="comment">// One read for the old value, one write for the new value
+			</span>T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
+		} <span class="kw">else </span>{
+			<span class="comment">// One read for trying to access the old value
+			</span>T::DbWeight::get().reads(<span class="number">1</span>)
+		}
+	}
+
+	<span class="doccomment">/// Verifies the storage was migrated correctly.
 	///
-	/// In this migration, update the on-chain storage for the pallet to reflect the new storage
-	/// layout.
-	</span><span class="kw">pub struct </span>MigrateV0ToV1&lt;T: <span class="kw">crate</span>::Config&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	/// - If there was no old value, the new value should not be set.
+	/// - If there was an old value, the new value should be a [`crate::CurrentAndPreviousValue`].
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
+		<span class="kw">use </span>codec::Decode;
+		<span class="kw">use </span>frame_support::ensure;
 
-	<span class="kw">impl</span>&lt;T: <span class="kw">crate</span>::Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateV0ToV1&lt;T&gt; {
-		<span class="doccomment">/// Return the existing [`crate::Value`] so we can check that it was correctly set in
-		/// `version_unchecked::MigrateV0ToV1::post_upgrade`.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
-		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
-			<span class="kw">use </span>codec::Encode;
+		<span class="kw">let </span>maybe_old_value = <span class="prelude-ty">Option</span>::&lt;u32&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>state[..]).map_err(|<span class="kw">_</span>| {
+			sp_runtime::TryRuntimeError::Other(<span class="string">&quot;Failed to decode old value from storage&quot;</span>)
+		})<span class="question-mark">?</span>;
 
-			<span class="comment">// Access the old value using the `storage_alias` type
-			</span><span class="kw">let </span>old_value = v0::Value::&lt;T&gt;::get();
-			<span class="comment">// Return it as an encoded `Vec&lt;u8&gt;`
-			</span><span class="prelude-val">Ok</span>(old_value.encode())
-		}
+		<span class="kw">match </span>maybe_old_value {
+			<span class="prelude-val">Some</span>(old_value) =&gt; {
+				<span class="kw">let </span>expected_new_value =
+					<span class="kw">crate</span>::CurrentAndPreviousValue { current: old_value, previous: <span class="prelude-val">None </span>};
+				<span class="kw">let </span>actual_new_value = <span class="kw">crate</span>::Value::&lt;T&gt;::get();
 
-		<span class="doccomment">/// Migrate the storage from V0 to V1.
-		///
-		/// - If the value doesn&#39;t exist, there is nothing to do.
-		/// - If the value exists, it is read and then written back to storage inside a
-		/// [`crate::CurrentAndPreviousValue`].
-		</span><span class="kw">fn </span>on_runtime_upgrade() -&gt; frame_support::weights::Weight {
-			<span class="comment">// Read the old value from storage
-			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(old_value) = v0::Value::&lt;T&gt;::take() {
-				<span class="comment">// Write the new value to storage
-				</span><span class="kw">let </span>new = <span class="kw">crate</span>::CurrentAndPreviousValue { current: old_value, previous: <span class="prelude-val">None </span>};
-				<span class="kw">crate</span>::Value::&lt;T&gt;::put(new);
-				<span class="comment">// One read for the old value, one write for the new value
-				</span>T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
-			} <span class="kw">else </span>{
-				<span class="comment">// One read for trying to access the old value
-				</span>T::DbWeight::get().reads(<span class="number">1</span>)
-			}
-		}
-
-		<span class="doccomment">/// Verifies the storage was migrated correctly.
-		///
-		/// - If there was no old value, the new value should not be set.
-		/// - If there was an old value, the new value should be a
-		///   [`crate::CurrentAndPreviousValue`].
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
-		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
-			<span class="kw">use </span>codec::Decode;
-			<span class="kw">use </span>frame_support::ensure;
-
-			<span class="kw">let </span>maybe_old_value = <span class="prelude-ty">Option</span>::&lt;u32&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>state[..]).map_err(|<span class="kw">_</span>| {
-				sp_runtime::TryRuntimeError::Other(<span class="string">&quot;Failed to decode old value from storage&quot;</span>)
-			})<span class="question-mark">?</span>;
-
-			<span class="kw">match </span>maybe_old_value {
-				<span class="prelude-val">Some</span>(old_value) =&gt; {
-					<span class="kw">let </span>expected_new_value =
-						<span class="kw">crate</span>::CurrentAndPreviousValue { current: old_value, previous: <span class="prelude-val">None </span>};
-					<span class="kw">let </span>actual_new_value = <span class="kw">crate</span>::Value::&lt;T&gt;::get();
-
-					<span class="macro">ensure!</span>(actual_new_value.is_some(), <span class="string">&quot;New value not set&quot;</span>);
-					<span class="macro">ensure!</span>(
-						actual_new_value == <span class="prelude-val">Some</span>(expected_new_value),
-						<span class="string">&quot;New value not set correctly&quot;
-					</span>);
-				},
-				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">ensure!</span>(<span class="kw">crate</span>::Value::&lt;T&gt;::get().is_none(), <span class="string">&quot;New value unexpectedly set&quot;</span>);
-				},
-			};
-			<span class="prelude-val">Ok</span>(())
-		}
+				<span class="macro">ensure!</span>(actual_new_value.is_some(), <span class="string">&quot;New value not set&quot;</span>);
+				<span class="macro">ensure!</span>(
+					actual_new_value == <span class="prelude-val">Some</span>(expected_new_value),
+					<span class="string">&quot;New value not set correctly&quot;
+				</span>);
+			},
+			<span class="prelude-val">None </span>=&gt; {
+				<span class="macro">ensure!</span>(<span class="kw">crate</span>::Value::&lt;T&gt;::get().is_none(), <span class="string">&quot;New value unexpectedly set&quot;</span>);
+			},
+		};
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 
-<span class="doccomment">/// Public module containing *version checked* migration logic.
-///
-/// This is the only module that should be exported from this module.
-///
-/// See [`VersionedMigration`](frame_support::migrations::VersionedMigration) docs for more about
-/// how it works.
-</span><span class="kw">pub mod </span>versioned {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-
-	<span class="doccomment">/// `version_unchecked::MigrateV0ToV1` wrapped in a
-	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
-	/// - The migration only runs once when the on-chain storage version is 0
-	/// - The on-chain storage version is updated to `1` after the migration executes
-	/// - Reads/Writes from checking/settings the on-chain storage version are accounted for
-	</span><span class="kw">pub type </span>MigrateV0ToV1&lt;T&gt; = frame_support::migrations::VersionedMigration&lt;
-		<span class="number">0</span>, <span class="comment">// The migration will only execute when the on-chain storage version is 0
-		</span><span class="number">1</span>, <span class="comment">// The on-chain storage version will be set to 1 after the migration is complete
-		</span>version_unchecked::MigrateV0ToV1&lt;T&gt;,
-		<span class="kw">crate</span>::pallet::Pallet&lt;T&gt;,
-		&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
-	&gt;;
-}
+<span class="doccomment">/// [`UncheckedOnRuntimeUpgrade`] implementation [`InnerMigrateV0ToV1`] wrapped in a
+/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), which ensures that:
+/// - The migration only runs once when the on-chain storage version is 0
+/// - The on-chain storage version is updated to `1` after the migration executes
+/// - Reads/Writes from checking/settings the on-chain storage version are accounted for
+</span><span class="kw">pub type </span>MigrateV0ToV1&lt;T&gt; = frame_support::migrations::VersionedMigration&lt;
+	<span class="number">0</span>, <span class="comment">// The migration will only execute when the on-chain storage version is 0
+	</span><span class="number">1</span>, <span class="comment">// The on-chain storage version will be set to 1 after the migration is complete
+	</span>InnerMigrateV0ToV1&lt;T&gt;,
+	<span class="kw">crate</span>::pallet::Pallet&lt;T&gt;,
+	&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
+&gt;;
 
 <span class="doccomment">/// Tests for our migration.
 ///
@@ -524,10 +472,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// 3. The storage is in the expected state after the migration
 </span><span class="attr">#[cfg(any(all(feature = <span class="string">&quot;try-runtime&quot;</span>, test), doc))]
 </span><span class="kw">mod </span>test {
+	<span class="kw">use </span><span class="self">self</span>::InnerMigrateV0ToV1;
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::mock::{new_test_ext, MockRuntime};
 	<span class="kw">use </span>frame_support::assert_ok;
-	<span class="kw">use </span>version_unchecked::MigrateV0ToV1;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>handles_no_existing_value() {
@@ -537,16 +485,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert!</span>(v0::Value::&lt;MockRuntime&gt;::get().is_none());
 
 			<span class="comment">// Get the pre_upgrade bytes
-			</span><span class="kw">let </span>bytes = <span class="kw">match </span>MigrateV0ToV1::&lt;MockRuntime&gt;::pre_upgrade() {
+			</span><span class="kw">let </span>bytes = <span class="kw">match </span>InnerMigrateV0ToV1::&lt;MockRuntime&gt;::pre_upgrade() {
 				<span class="prelude-val">Ok</span>(bytes) =&gt; bytes,
 				<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;pre_upgrade failed: {:?}&quot;</span>, e),
 			};
 
 			<span class="comment">// Execute the migration
-			</span><span class="kw">let </span>weight = MigrateV0ToV1::&lt;MockRuntime&gt;::on_runtime_upgrade();
+			</span><span class="kw">let </span>weight = InnerMigrateV0ToV1::&lt;MockRuntime&gt;::on_runtime_upgrade();
 
 			<span class="comment">// Verify post_upgrade succeeds
-			</span><span class="macro">assert_ok!</span>(MigrateV0ToV1::&lt;MockRuntime&gt;::post_upgrade(bytes));
+			</span><span class="macro">assert_ok!</span>(InnerMigrateV0ToV1::&lt;MockRuntime&gt;::post_upgrade(bytes));
 
 			<span class="comment">// The weight should be just 1 read for trying to access the old value.
 			</span><span class="macro">assert_eq!</span>(weight, &lt;MockRuntime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().reads(<span class="number">1</span>));
@@ -564,16 +512,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			v0::Value::&lt;MockRuntime&gt;::put(initial_value);
 
 			<span class="comment">// Get the pre_upgrade bytes
-			</span><span class="kw">let </span>bytes = <span class="kw">match </span>MigrateV0ToV1::&lt;MockRuntime&gt;::pre_upgrade() {
+			</span><span class="kw">let </span>bytes = <span class="kw">match </span>InnerMigrateV0ToV1::&lt;MockRuntime&gt;::pre_upgrade() {
 				<span class="prelude-val">Ok</span>(bytes) =&gt; bytes,
 				<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;pre_upgrade failed: {:?}&quot;</span>, e),
 			};
 
 			<span class="comment">// Execute the migration
-			</span><span class="kw">let </span>weight = MigrateV0ToV1::&lt;MockRuntime&gt;::on_runtime_upgrade();
+			</span><span class="kw">let </span>weight = InnerMigrateV0ToV1::&lt;MockRuntime&gt;::on_runtime_upgrade();
 
 			<span class="comment">// Verify post_upgrade succeeds
-			</span><span class="macro">assert_ok!</span>(MigrateV0ToV1::&lt;MockRuntime&gt;::post_upgrade(bytes));
+			</span><span class="macro">assert_ok!</span>(InnerMigrateV0ToV1::&lt;MockRuntime&gt;::post_upgrade(bytes));
 
 			<span class="comment">// The weight used should be 1 read for the old value, and 1 write for the new
 			// value.

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["make_register_token_with_insufficient_fee_message"]};

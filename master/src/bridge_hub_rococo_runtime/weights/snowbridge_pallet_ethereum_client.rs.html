@@ -274,28 +274,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -423,28 +401,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">93857</span>))
 			.saturating_add(T::DbWeight::get().reads(<span class="number">6</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
-	}
-	<span class="doccomment">/// Storage: EthereumBeaconClient LatestFinalizedBlockRoot (r:1 w:0)
-	/// Proof: EthereumBeaconClient LatestFinalizedBlockRoot (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient FinalizedBeaconState (r:1 w:0)
-	/// Proof: EthereumBeaconClient FinalizedBeaconState (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient LatestExecutionState (r:1 w:1)
-	/// Proof: EthereumBeaconClient LatestExecutionState (max_values: Some(1), max_size: Some(80), added: 575, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient ExecutionHeaderIndex (r:1 w:1)
-	/// Proof: EthereumBeaconClient ExecutionHeaderIndex (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient ExecutionHeaderMapping (r:1 w:1)
-	/// Proof: EthereumBeaconClient ExecutionHeaderMapping (max_values: None, max_size: Some(36), added: 2511, mode: MaxEncodedLen)
-	/// Storage: EthereumBeaconClient ExecutionHeaders (r:0 w:1)
-	/// Proof: EthereumBeaconClient ExecutionHeaders (max_values: None, max_size: Some(136), added: 2611, mode: MaxEncodedLen)
-	</span><span class="kw">fn </span>submit_execution_header() -&gt; Weight {
-		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `386`
-		//  Estimated: `3537`
-		// Minimum execution time: 108_761_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">113_158_000</span>, <span class="number">0</span>)
-			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3537</span>))
-			.saturating_add(T::DbWeight::get().reads(<span class="number">5</span>))
-			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
 	}
 }
 </code></pre></div></section></main></body></html>

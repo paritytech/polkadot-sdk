@@ -217,7 +217,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -235,7 +234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use super</span>::{Config, MaxPermanentSlots, MaxTemporarySlots, Pallet, LOG_TARGET};
-<span class="kw">use </span>frame_support::traits::{Get, GetStorageVersion, OnRuntimeUpgrade};
+<span class="kw">use </span>frame_support::traits::{Get, GetStorageVersion, UncheckedOnRuntimeUpgrade};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">use </span>frame_support::ensure;
@@ -243,10 +242,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">pub mod </span>v1 {
-
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();

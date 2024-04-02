@@ -238,9 +238,79 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>frame_support::ensure;
+<span class="kw">use </span>primitives::ExecutionProof;
 
 <span class="kw">use </span>snowbridge_core::inbound::{
 	VerificationError::{<span class="self">self</span>, <span class="kw-2">*</span>},
@@ -254,32 +324,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the log should be in the beacon client storage, meaning it has been verified and is an
 	/// ancestor of a finalized beacon block.
 	</span><span class="kw">fn </span>verify(event_log: <span class="kw-2">&amp;</span>Log, proof: <span class="kw-2">&amp;</span>Proof) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerificationError&gt; {
-		<span class="macro">log::info!</span>(
-			target: <span class="string">&quot;ethereum-client&quot;</span>,
-			<span class="string">&quot;💫 Verifying message with block hash {}&quot;</span>,
-			proof.block_hash,
-		);
+		<span class="self">Self</span>::verify_execution_proof(<span class="kw-2">&amp;</span>proof.execution_proof)
+			.map_err(|e| InvalidExecutionProof(e.into()))<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>header = &lt;ExecutionHeaderBuffer&lt;T&gt;&gt;::get(proof.block_hash).ok_or(HeaderNotFound)<span class="question-mark">?</span>;
-
-		<span class="kw">let </span>receipt = <span class="kw">match </span><span class="self">Self</span>::verify_receipt_inclusion(header.receipts_root, proof) {
-			<span class="prelude-val">Ok</span>(receipt) =&gt; receipt,
-			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">log::error!</span>(
-					target: <span class="string">&quot;ethereum-client&quot;</span>,
-					<span class="string">&quot;💫 Verification of receipt inclusion failed for block {}: {:?}&quot;</span>,
-					proof.block_hash,
-					err
-				);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(err)
-			},
-		};
-
-		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;ethereum-client&quot;</span>,
-			<span class="string">&quot;💫 Verified receipt inclusion for transaction at index {} in block {}&quot;</span>,
-			proof.tx_index, proof.block_hash,
-		);
+		<span class="kw">let </span>receipt = <span class="self">Self</span>::verify_receipt_inclusion(
+			proof.execution_proof.execution_header.receipts_root(),
+			<span class="kw-2">&amp;</span>proof.receipt_proof.<span class="number">1</span>,
+		)<span class="question-mark">?</span>;
 
 		event_log.validate().map_err(|<span class="kw">_</span>| InvalidLog)<span class="question-mark">?</span>;
 
@@ -293,17 +344,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!receipt.contains_log(<span class="kw-2">&amp;</span>event_log) {
 			<span class="macro">log::error!</span>(
 				target: <span class="string">&quot;ethereum-client&quot;</span>,
-				<span class="string">&quot;💫 Event log not found in receipt for transaction at index {} in block {}&quot;</span>,
-				proof.tx_index, proof.block_hash,
+				<span class="string">&quot;💫 Event log not found in receipt for transaction&quot;</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(LogNotFound)
 		}
-
-		<span class="macro">log::info!</span>(
-			target: <span class="string">&quot;ethereum-client&quot;</span>,
-			<span class="string">&quot;💫 Receipt verification successful for {}&quot;</span>,
-			proof.block_hash,
-		);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -314,9 +358,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `proof.block_hash`.
 	</span><span class="kw">pub fn </span>verify_receipt_inclusion(
 		receipts_root: H256,
-		proof: <span class="kw-2">&amp;</span>Proof,
+		receipt_proof: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Receipt, VerificationError&gt; {
-		<span class="kw">let </span>result = verify_receipt_proof(receipts_root, <span class="kw-2">&amp;</span>proof.data.<span class="number">1</span>).ok_or(InvalidProof)<span class="question-mark">?</span>;
+		<span class="kw">let </span>result = verify_receipt_proof(receipts_root, receipt_proof).ok_or(InvalidProof)<span class="question-mark">?</span>;
 
 		<span class="kw">match </span>result {
 			<span class="prelude-val">Ok</span>(receipt) =&gt; <span class="prelude-val">Ok</span>(receipt),
@@ -329,6 +373,98 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(InvalidProof)
 			},
 		}
+	}
+
+	<span class="doccomment">/// Validates an execution header with ancestry_proof against a finalized checkpoint on
+	/// chain.The beacon header containing the execution header is sent, plus the execution header,
+	/// along with a proof that the execution header is rooted in the beacon header body.
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_execution_proof(execution_proof: <span class="kw-2">&amp;</span>ExecutionProof) -&gt; DispatchResult {
+		<span class="kw">let </span>latest_finalized_state =
+			FinalizedBeaconState::&lt;T&gt;::get(LatestFinalizedBlockRoot::&lt;T&gt;::get())
+				.ok_or(Error::&lt;T&gt;::NotBootstrapped)<span class="question-mark">?</span>;
+		<span class="comment">// Checks that the header is an ancestor of a finalized header, using slot number.
+		</span><span class="macro">ensure!</span>(
+			execution_proof.header.slot &lt;= latest_finalized_state.slot,
+			Error::&lt;T&gt;::HeaderNotFinalized
+		);
+
+		<span class="comment">// Gets the hash tree root of the execution header, in preparation for the execution
+		// header proof (used to check that the execution header is rooted in the beacon
+		// header body.
+		</span><span class="kw">let </span>execution_header_root: H256 = execution_proof
+			.execution_header
+			.hash_tree_root()
+			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::BlockBodyHashTreeRootFailed)<span class="question-mark">?</span>;
+
+		<span class="macro">ensure!</span>(
+			verify_merkle_branch(
+				execution_header_root,
+				<span class="kw-2">&amp;</span>execution_proof.execution_branch,
+				config::EXECUTION_HEADER_SUBTREE_INDEX,
+				config::EXECUTION_HEADER_DEPTH,
+				execution_proof.header.body_root
+			),
+			Error::&lt;T&gt;::InvalidExecutionHeaderProof
+		);
+
+		<span class="kw">let </span>beacon_block_root: H256 = execution_proof
+			.header
+			.hash_tree_root()
+			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::HeaderHashTreeRootFailed)<span class="question-mark">?</span>;
+
+		<span class="kw">match </span><span class="kw-2">&amp;</span>execution_proof.ancestry_proof {
+			<span class="prelude-val">Some</span>(proof) =&gt; {
+				<span class="self">Self</span>::verify_ancestry_proof(
+					beacon_block_root,
+					execution_proof.header.slot,
+					<span class="kw-2">&amp;</span>proof.header_branch,
+					proof.finalized_block_root,
+				)<span class="question-mark">?</span>;
+			},
+			<span class="prelude-val">None </span>=&gt; {
+				<span class="comment">// If the ancestry proof is not provided, we expect this beacon header to be a
+				// finalized beacon header. We need to check that the header hash matches the
+				// finalized header root at the expected slot.
+				</span><span class="kw">let </span>state = &lt;FinalizedBeaconState&lt;T&gt;&gt;::get(beacon_block_root)
+					.ok_or(Error::&lt;T&gt;::ExpectedFinalizedHeaderNotStored)<span class="question-mark">?</span>;
+				<span class="kw">if </span>execution_proof.header.slot != state.slot {
+					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::ExpectedFinalizedHeaderNotStored.into())
+				}
+			},
+		}
+
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="doccomment">/// Verify that `block_root` is an ancestor of `finalized_block_root` Used to prove that
+	/// an execution header is an ancestor of a finalized header (i.e. the blocks are
+	/// on the same chain).
+	</span><span class="kw">fn </span>verify_ancestry_proof(
+		block_root: H256,
+		block_slot: u64,
+		block_root_proof: <span class="kw-2">&amp;</span>[H256],
+		finalized_block_root: H256,
+	) -&gt; DispatchResult {
+		<span class="kw">let </span>state = &lt;FinalizedBeaconState&lt;T&gt;&gt;::get(finalized_block_root)
+			.ok_or(Error::&lt;T&gt;::ExpectedFinalizedHeaderNotStored)<span class="question-mark">?</span>;
+
+		<span class="macro">ensure!</span>(block_slot &lt; state.slot, Error::&lt;T&gt;::HeaderNotFinalized);
+
+		<span class="kw">let </span>index_in_array = block_slot % (SLOTS_PER_HISTORICAL_ROOT <span class="kw">as </span>u64);
+		<span class="kw">let </span>leaf_index = (SLOTS_PER_HISTORICAL_ROOT <span class="kw">as </span>u64) + index_in_array;
+
+		<span class="macro">ensure!</span>(
+			verify_merkle_branch(
+				block_root,
+				block_root_proof,
+				leaf_index <span class="kw">as </span>usize,
+				config::BLOCK_ROOT_AT_INDEX_DEPTH,
+				state.block_roots_root
+			),
+			Error::&lt;T&gt;::InvalidAncestryMerkleProof
+		);
+
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 </code></pre></div></section></main></body></html>

@@ -274,13 +274,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
 	</span><span class="kw">fn </span>submit() -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
-		//  Measured:  `457`
-		//  Estimated: `3601`
-		// Minimum execution time: 69_000_000 picoseconds.
-		</span>Weight::from_parts(<span class="number">70_000_000</span>, <span class="number">0</span>)
-			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">3601</span>))
-			.saturating_add(T::DbWeight::get().reads(<span class="number">4</span>))
-			.saturating_add(T::DbWeight::get().writes(<span class="number">2</span>))
+		//  Measured:  `800`
+		//  Estimated: `7200`
+		// Minimum execution time: 200_000_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">200_000_000</span>, <span class="number">0</span>)
+			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">7200</span>))
+			.saturating_add(T::DbWeight::get().reads(<span class="number">9</span>))
+			.saturating_add(T::DbWeight::get().writes(<span class="number">6</span>))
 	}
 }
 </code></pre></div></section></main></body></html>

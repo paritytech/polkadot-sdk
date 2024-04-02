@@ -269,6 +269,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -287,7 +289,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Storage migrations for the Identity pallet.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span>frame_support::{migrations::VersionedMigration, pallet_prelude::<span class="kw-2">*</span>, traits::OnRuntimeUpgrade};
+<span class="kw">use </span>frame_support::{
+	migrations::VersionedMigration, pallet_prelude::<span class="kw-2">*</span>, traits::UncheckedOnRuntimeUpgrade,
+};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">use </span>codec::{Decode, Encode};
@@ -337,7 +341,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// prevent stalling a parachain by accumulating too much weight in the migration. To have an
 	/// unlimited migration (e.g. in a chain without PoV limits), set this to `u64::MAX`.
 	</span><span class="kw">pub struct </span>VersionUncheckedMigrateV0ToV1&lt;T, <span class="kw">const </span>KL: u64&gt;(PhantomData&lt;T&gt;);
-	<span class="kw">impl</span>&lt;T: Config, <span class="kw">const </span>KL: u64&gt; OnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateV0ToV1&lt;T, KL&gt; {
+	<span class="kw">impl</span>&lt;T: Config, <span class="kw">const </span>KL: u64&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateV0ToV1&lt;T, KL&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="kw">let </span>identities = v0::IdentityOf::&lt;T&gt;::iter().count();

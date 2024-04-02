@@ -220,15 +220,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Various pieces of common functionality.
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>core::marker::PhantomData;
-<span class="kw">use </span>frame_support::traits::{Get, OnRuntimeUpgrade};
+<span class="kw">use </span>frame_support::traits::{Get, UncheckedOnRuntimeUpgrade};
 
 <span class="kw">mod </span>v1 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="doccomment">/// Actual implementation of the storage migration.
-	</span><span class="kw">pub struct </span>MigrateToV1Impl&lt;T, I&gt;(PhantomData&lt;(T, I)&gt;);
+	</span><span class="kw">pub struct </span>UncheckedMigrateToV1Impl&lt;T, I&gt;(PhantomData&lt;(T, I)&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1Impl&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrateToV1Impl&lt;T, I&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; frame_support::weights::Weight {
 			<span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
 			<span class="kw">for </span>(collection, detail) <span class="kw">in </span>Collection::&lt;T, I&gt;::iter() {
@@ -251,7 +251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>MigrateV0ToV1&lt;T, I&gt; = frame_support::migrations::VersionedMigration&lt;
 	<span class="number">0</span>,
 	<span class="number">1</span>,
-	v1::MigrateToV1Impl&lt;T, I&gt;,
+	v1::UncheckedMigrateToV1Impl&lt;T, I&gt;,
 	Pallet&lt;T, I&gt;,
 	&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
 &gt;;

@@ -537,7 +537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CandidatePendingAvailability <span class="kw">as </span>V1CandidatePendingAvailability, Config, Pallet,
 		PendingAvailability <span class="kw">as </span>V1PendingAvailability,
 	};
-	<span class="kw">use </span>frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
+	<span class="kw">use </span>frame_support::{traits::UncheckedOnRuntimeUpgrade, weights::Weight};
 	<span class="kw">use </span>sp_core::Get;
 	<span class="kw">use </span>sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 
@@ -551,7 +551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub struct </span>VersionUncheckedMigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV1&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 			<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::inclusion::LOG_TARGET, <span class="string">&quot;Running pre_upgrade() for inclusion MigrateToV1&quot;</span>);
@@ -680,7 +680,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		mock::{new_test_ext, MockGenesisConfig, Test},
 	};
-	<span class="kw">use </span>frame_support::traits::OnRuntimeUpgrade;
+	<span class="kw">use </span>frame_support::traits::UncheckedOnRuntimeUpgrade;
 	<span class="kw">use </span>primitives::{AvailabilityBitfield, Id <span class="kw">as </span>ParaId};
 	<span class="kw">use </span>test_helpers::{dummy_candidate_commitments, dummy_candidate_descriptor, dummy_hash};
 
@@ -689,7 +689,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			<span class="comment">// No data to migrate.
 			</span><span class="macro">assert_eq!</span>(
-				&lt;VersionUncheckedMigrateToV1&lt;Test&gt; <span class="kw">as </span>OnRuntimeUpgrade&gt;::on_runtime_upgrade(),
+				&lt;VersionUncheckedMigrateToV1&lt;Test&gt; <span class="kw">as </span>UncheckedOnRuntimeUpgrade&gt;::on_runtime_upgrade(),
 				Weight::zero()
 			);
 			<span class="macro">assert!</span>(V1PendingAvailability::&lt;Test&gt;::iter().next().is_none());
@@ -763,7 +763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// For tests, db weight is zero.
 			</span><span class="macro">assert_eq!</span>(
-				&lt;VersionUncheckedMigrateToV1&lt;Test&gt; <span class="kw">as </span>OnRuntimeUpgrade&gt;::on_runtime_upgrade(),
+				&lt;VersionUncheckedMigrateToV1&lt;Test&gt; <span class="kw">as </span>UncheckedOnRuntimeUpgrade&gt;::on_runtime_upgrade(),
 				Weight::zero()
 			);
 

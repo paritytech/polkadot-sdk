@@ -1347,8 +1347,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">match </span>call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				<span class="kw">if </span>items.iter().all(|(k, <span class="kw">_</span>)| {
-					k.eq(<span class="kw-2">&amp;</span>bridging::XcmBridgeHubRouterByteFee::key()) |
-						k.eq(<span class="kw-2">&amp;</span>bridging::XcmBridgeHubRouterBaseFee::key()) |
+					k.eq(<span class="kw-2">&amp;</span>bridging::XcmBridgeHubRouterByteFee::key()) ||
+						k.eq(<span class="kw-2">&amp;</span>bridging::XcmBridgeHubRouterBaseFee::key()) ||
 						k.eq(<span class="kw-2">&amp;</span>bridging::to_ethereum::BridgeHubEthereumBaseFee::key())
 				}) =&gt;
 				<span class="kw">return </span><span class="bool-val">true</span>,

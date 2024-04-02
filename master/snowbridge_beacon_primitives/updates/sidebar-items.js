@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AncestryProof","CheckpointUpdate","ExecutionHeaderUpdate","NextSyncCommitteeUpdate","Update"]};
+window.SIDEBAR_ITEMS = {"struct":["CheckpointUpdate","NextSyncCommitteeUpdate","Update"]};

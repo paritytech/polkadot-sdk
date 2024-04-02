@@ -516,7 +516,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::<span class="kw-2">*</span>,
-	traits::{Defensive, OnRuntimeUpgrade},
+	traits::{Defensive, UncheckedOnRuntimeUpgrade},
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>primitives::vstaging::SchedulerParams;
@@ -566,7 +566,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub struct </span>UncheckedMigrateToV12&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 
-<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrateToV12&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrateToV12&lt;T&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::configuration::LOG_TARGET, <span class="string">&quot;Running pre_upgrade() for HostConfiguration MigrateToV12&quot;</span>);

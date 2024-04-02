@@ -1370,6 +1370,92 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1223" id="1223">1223</a>
 <a href="#1224" id="1224">1224</a>
 <a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
+<a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
+<a href="#1245" id="1245">1245</a>
+<a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 // Generated, do not edit!
@@ -1378,9 +1464,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>hex_literal::hex;
 <span class="kw">use </span>snowbridge_beacon_primitives::{
-	types::deneb, updates::AncestryProof, BeaconHeader, ExecutionHeaderUpdate,
-	NextSyncCommitteeUpdate, SyncAggregate, SyncCommittee, VersionedExecutionPayloadHeader,
+	types::deneb, AncestryProof, BeaconHeader, ExecutionProof, NextSyncCommitteeUpdate,
+	SyncAggregate, SyncCommittee, VersionedExecutionPayloadHeader,
 };
+<span class="kw">use </span>snowbridge_core::inbound::{InboundQueueFixture, Log, Message, Proof};
 <span class="kw">use </span>sp_core::U256;
 <span class="kw">use </span>sp_std::{boxed::Box, vec};
 
@@ -1392,11 +1479,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub fn </span>make_checkpoint() -&gt; Box&lt;CheckpointUpdate&gt; {
 	Box::new(CheckpointUpdate {
         header: BeaconHeader {
-            slot: <span class="number">2496</span>,
-            proposer_index: <span class="number">2</span>,
-            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;c99e49787106733eeebab4d93eb326e1f2214575c9d928f0c4ab0da0776f1622&quot;</span>).into(),
-            state_root: <span class="macro">hex!</span>(<span class="string">&quot;fbf8a08c86ef36bd173e37e733da4a78aa8e85fee99a990e858dd12a59087fde&quot;</span>).into(),
-            body_root: <span class="macro">hex!</span>(<span class="string">&quot;a2a8ad06901447b2807a9059580a4c40d8a941f325b1343c69f7c7c6c90e4ab0&quot;</span>).into(),
+            slot: <span class="number">864</span>,
+            proposer_index: <span class="number">4</span>,
+            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;614e7672f991ac268cd841055973f55e1e42228831a211adef207bb7329be614&quot;</span>).into(),
+            state_root: <span class="macro">hex!</span>(<span class="string">&quot;5fa8dfca3d760e4242ab46d529144627aa85348a19173b6e081172c701197a4a&quot;</span>).into(),
+            body_root: <span class="macro">hex!</span>(<span class="string">&quot;0f34c083b1803666bb1ac5e73fa71582731a2cf37d279ff0a3b0cad5a2ff371e&quot;</span>).into(),
         },
         current_sync_committee: SyncCommittee {
             pubkeys: [
@@ -1916,20 +2003,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
             aggregate_pubkey: <span class="macro">hex!</span>(<span class="string">&quot;8fbd66eeec2ff69ef0b836f04b1d67d88bcd4dfd495061964ad757c77abe822a39fa1cd8ed0d4d9bc9276cea73fd745c&quot;</span>).into(),
         },
         current_sync_committee_branch: <span class="macro">vec!</span>[
-            <span class="macro">hex!</span>(<span class="string">&quot;3ade38d498a062b50880a9409e1ca3a7fd4315d91eeb3bb83e56ac6bfe8d6a59&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;93880225bf99a0c5ec22b266ff829837754e9c5edf37a68c05b8f803fd82fa45&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;4c60656ec9a95fcf11030ad309c716b5b15beb7f60a0bcfc7c9d4eff505472ff&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;22d1645fceb4bf9a695043dda19a53e784ec70df6a6b1bd66ea30eba1cca5f2f&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;a8fc6cad84ceefc633ec56c2d031d525e1cb4b51c70eb252919fce5bba9a1fde&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;3ade38d498a062b50880a9409e1ca3a7fd4315d91eeb3bb83e56ac6bfe8d6a59&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;a9e90f89e7f90fd5d79a6bbcaf40ba5cfc05ab1b561ac51c84867c32248d5b1e&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;bd1a76b03e02402bb24a627de1980a80ab17691980271f597b844b89b497ef75&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;07bbcd27c7cad089023db046eda17e8209842b7d97add8b873519e84fe6480e7&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;94c11eeee4cb6192bf40810f23486d8c75dfbc2b6f28d988d6f74435ede243b0&quot;</span>).into(),
         ],
         validators_root: <span class="macro">hex!</span>(<span class="string">&quot;270d43e74ce340de4bca2b1936beca0f4f5408d9e78aec4850920baf659d5b69&quot;</span>).into(),
-        block_roots_root: <span class="macro">hex!</span>(<span class="string">&quot;d160b7687041891b73e54b06fc4e04f82d0fa8fdd76705895e216c6b24709dfe&quot;</span>).into(),
+        block_roots_root: <span class="macro">hex!</span>(<span class="string">&quot;b9aab9c388c4e4fcd899b71f62c498fc73406e38e8eb14aa440e9affa06f2a10&quot;</span>).into(),
         block_roots_branch: <span class="macro">vec!</span>[
-            <span class="macro">hex!</span>(<span class="string">&quot;105290e42d98ab6a0ada6e55453cede36c672abf645eeb986b88d7487616e135&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;9da41f274bcdf6122335443d9ce94d07163b48dba3e2f9499ff56f4e48b48b99&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;ecea7e1d3152d8130e83afdfe34b4de4ba2b69a33c9471991096daf454de9cf5&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;b2bf1758e50b2bfff29169fbc70fdb884b2b05bb615dbc53567574da6f4f1ae2&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;cd87069daf70975779126d6af833b7d636c75ca4d5e750ebcad0e76408a5e5bf&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;733422bd810895dab74cbbe07c69dd440cbb51f573181ad4dddac30fcdd0f41f&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;9b9eca73ab01d14549c325ba1b4610bb20bf1f8ec2dbd649f9d8cc7f3cea75fa&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;bcc666ad0ad9f9725cbd682bc95589d35b1b53b2a615f1e6e8dd5e086336becf&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;3069b547a08f703a1715016e926cbd64e71f93f64fb68d98d8c8f1ab745c46e5&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;c2de7e1097239404e17b263cfa0473533cc41e903cb03440d633bc5c27314cb4&quot;</span>).into(),
         ],
     })
 }
@@ -1939,13 +2026,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         attested_header: BeaconHeader {
             slot: <span class="number">129</span>,
             proposer_index: <span class="number">5</span>,
-            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;e32b6c18f029e755b0273dc1c4fa2bc4979794c8286ad40276c1b8a8e36049d8&quot;</span>).into(),
-            state_root: <span class="macro">hex!</span>(<span class="string">&quot;5ec9dacf25a5f09f20be0c59246b3d8dcfe64bd085b4bac5cec180690339801e&quot;</span>).into(),
-            body_root: <span class="macro">hex!</span>(<span class="string">&quot;4080cf2412d6ff77fc3164ad6155423a7112f207f173145ec16371a93f481f87&quot;</span>).into(),
+            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;c2def03fe44a2802130ca1a6d8406e4ccf4f344fec7075d4d84431cd4a8b0904&quot;</span>).into(),
+            state_root: <span class="macro">hex!</span>(<span class="string">&quot;fa62cde6666add7353d7aedcb61ebe3c6c84b5361e34f814825b1250affb5be4&quot;</span>).into(),
+            body_root: <span class="macro">hex!</span>(<span class="string">&quot;0f9c69f243fe7b5fa5860396c66c720a9e8b1e526e7914188930497cc4a9134c&quot;</span>).into(),
         },
         sync_aggregate: SyncAggregate{
             sync_committee_bits: <span class="macro">hex!</span>(<span class="string">&quot;ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff&quot;</span>),
-            sync_committee_signature: <span class="macro">hex!</span>(<span class="string">&quot;a761c3333fbb3d36bc8f65454f898da38001499dcd37494cf3d86940a995399ae649216ba4c985af154f83f72c8b1856079b7636a7a8d7d3f7602df2cbf699edb72b65253e82de4d9cc4db7377eafb22f799129f63f094a21c00675bdd5cc243&quot;</span>).into(),
+            sync_committee_signature: <span class="macro">hex!</span>(<span class="string">&quot;810cfde2afea3e276256c09bdf1cd321c33dcadeefddcfd24f488e6f756d917cfda90b5b437b3a4b4ef880985afa28a40cf565ec0a82877ddee36adc01d55d9d4a911ae3e22556e4c2636f1c707366fba019fb49450440fcd263d0b054b04bf0&quot;</span>).into(),
         },
         signature_slot: <span class="number">130</span>,
         next_sync_committee_update: <span class="prelude-val">Some</span>(NextSyncCommitteeUpdate {
@@ -2468,34 +2555,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
             },
             next_sync_committee_branch: <span class="macro">vec!</span>[
                 <span class="macro">hex!</span>(<span class="string">&quot;3ade38d498a062b50880a9409e1ca3a7fd4315d91eeb3bb83e56ac6bfe8d6a59&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;fd1e5ff5d4a15081efe3ff17857b1f95984c9a271b1c41c2f81f43e60c2cc541&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;e1c97f93bb7352d395d1ff8ee29881572cb7eb5d71634783701171dcd30cd93d&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;77fa2170ddbd89b15dae02f2e6cf9f76c8e00d1c4217320acffbe01576d0da61&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;e97288e0627219087a024078d69445f34f0583a6350a7c3c40c39fd1fa6f8d68&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;43276bee17fc9fba3f4866e902f0e5b5b308d79db91154bb8bf819973837a7d9&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;5572348e13ce59446ca0ea7cfeed07579da05f121920a76559e19bda94dd81cd&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;2d58adca9f3c742530de037f1933d6de1920ea4b68581613d4bc32b71547f221&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;7072b3c6577cd5a89b3234968f316f54630bb97eafbdb59e5b61637a9640255f&quot;</span>).into(),
             ],
         }),
         finalized_header: BeaconHeader{
             slot: <span class="number">64</span>,
             proposer_index: <span class="number">4</span>,
-            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;0f7bc2353778c14c7f6dba0fc5fe6eec87228b0d3a5447b61dce67b4d9338de3&quot;</span>).into(),
-            state_root: <span class="macro">hex!</span>(<span class="string">&quot;feb990de653ce494c0a263f820eaf05a9300dbdc30cb6065ede602827bfccde4&quot;</span>).into(),
-            body_root: <span class="macro">hex!</span>(<span class="string">&quot;f5235cd8c24f2695fc5b7989926305c10ad8cf5a87d62a739f675f5543df2ec1&quot;</span>).into(),
+            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;a876486aaad7ddb897f369fd22d0a9903cd61d00c9e0dfe7998dd68d1008c678&quot;</span>).into(),
+            state_root: <span class="macro">hex!</span>(<span class="string">&quot;818e21c3388575f8ccc9ff17ec79d5a57915bcd31bccf47770f65a18e068416b&quot;</span>).into(),
+            body_root: <span class="macro">hex!</span>(<span class="string">&quot;1d1f73b864b3bb7e11ff91b56ca1381e0f9ca8122b2c542db88243604c763019&quot;</span>).into(),
         },
         finality_branch: <span class="macro">vec!</span>[
             <span class="macro">hex!</span>(<span class="string">&quot;0200000000000000000000000000000000000000000000000000000000000000&quot;</span>).into(),
             <span class="macro">hex!</span>(<span class="string">&quot;10c726fac935bf9657cc7476d3cfa7bedec5983dcfb59e8a7df6d0a619e108d7&quot;</span>).into(),
             <span class="macro">hex!</span>(<span class="string">&quot;98e9116c6bb7f20de18800dc63e73e689d06d6a47d35b5e2b32cf093d475840d&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;e1c97f93bb7352d395d1ff8ee29881572cb7eb5d71634783701171dcd30cd93d&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;77fa2170ddbd89b15dae02f2e6cf9f76c8e00d1c4217320acffbe01576d0da61&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;e97288e0627219087a024078d69445f34f0583a6350a7c3c40c39fd1fa6f8d68&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;5572348e13ce59446ca0ea7cfeed07579da05f121920a76559e19bda94dd81cd&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;2d58adca9f3c742530de037f1933d6de1920ea4b68581613d4bc32b71547f221&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;7072b3c6577cd5a89b3234968f316f54630bb97eafbdb59e5b61637a9640255f&quot;</span>).into(),
         ],
-        block_roots_root: <span class="macro">hex!</span>(<span class="string">&quot;6fcdfd1c3fb1bdd421fe59dddfff3855b5ed5e30373887991a0059d019ad12bc&quot;</span>).into(),
+        block_roots_root: <span class="macro">hex!</span>(<span class="string">&quot;715b08694bef183a6d94b3113d16a7129f89fc3edec85a7e0eaf6ef9153552ef&quot;</span>).into(),
         block_roots_branch: <span class="macro">vec!</span>[
-            <span class="macro">hex!</span>(<span class="string">&quot;94b59531f172bc24f914bc0c10104ccb158676850f8cc3b47b6ddb7f096ebdd7&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;22470ed9155a938587d44d5fa19217c0f939d8862e504e67cd8cb4d1b960795e&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;feec3ef1a68f93849e71e84f90b99602cccc31868137b6887ca8244a4b979e8e&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;4028c72c71b6ce80ea7d18b2c9471f4e4fa39746261a9921e832a4a2f9bdf7bb&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;75f98062661785d3290b7bd998b64446582baa49210733fd4603e1a97cd45a44&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;6fb757f44052f30c464810f01b0132adfa1a5446d8715b41e9af88eee1ee3e65&quot;</span>).into(),
             <span class="macro">hex!</span>(<span class="string">&quot;5340ad5877c72dca689ca04bc8fedb78d67a4801d99887937edd8ccd29f87e82&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;f5ff4b0c6190005015889879568f5f0d9c40134c7ec4ffdda47950dcd92395ad&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;f2b3cb56753939a728ccad399a434ca490f018f2f331529ec0d8b2d59c509271&quot;</span>).into(),
         ],
     })
 }
@@ -2503,96 +2590,181 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub fn </span>make_finalized_header_update() -&gt; Box&lt;Update&gt; {
 	Box::new(Update {
         attested_header: BeaconHeader {
-            slot: <span class="number">2566</span>,
-            proposer_index: <span class="number">6</span>,
-            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;6eb9f13a2c496318ce1ab3087bbd872f5c9519a1a7ca8231a2453e3cb523af00&quot;</span>).into(),
-            state_root: <span class="macro">hex!</span>(<span class="string">&quot;c8cb12766113dff7e46d2917267bf33d0626d99dd47715fcdbc5c65fad3c04b4&quot;</span>).into(),
-            body_root: <span class="macro">hex!</span>(<span class="string">&quot;d8cfd0d7bc9bc3724417a1655bb0a67c0765ca36197320f4d834150b52ef1420&quot;</span>).into(),
+            slot: <span class="number">933</span>,
+            proposer_index: <span class="number">1</span>,
+            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;f5fc63e2780ca302b97aea73fc95d74d702b5afe9a772c2b68f695026337b620&quot;</span>).into(),
+            state_root: <span class="macro">hex!</span>(<span class="string">&quot;d856d11636bc4d866e78be9e747b222b0977556a367ab42e4085277301438050&quot;</span>).into(),
+            body_root: <span class="macro">hex!</span>(<span class="string">&quot;5689091ab4eb76c2e876271add4924e1c66ce987c300c24aac2ad8c703e9a33f&quot;</span>).into(),
         },
         sync_aggregate: SyncAggregate{
             sync_committee_bits: <span class="macro">hex!</span>(<span class="string">&quot;ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff&quot;</span>),
-            sync_committee_signature: <span class="macro">hex!</span>(<span class="string">&quot;9296f9a0387f2cac47008e22ad7c3cd3d49d35384c13e6aa1eacca7dca7c3d2ca81515e50eb3396b9550ed20ef7d8fa2049a186598feb2c00e93728045fcff917733d1827481b8fc95f3913e27fc70112c2490496eb57bb7181f02c3f9fd471f&quot;</span>).into(),
+            sync_committee_signature: <span class="macro">hex!</span>(<span class="string">&quot;93a3d482fe2a2f7fd2b634169752a8fddf1dc28b23a020b398be8526faf37a74ca0f6db1bed78a9c7256c09a6115235e108e0e8a7ce09287317b0856c4b77dfa5adba6cf4c3ebea5bfa4cd2fcde80fd0a532f2defe65d530201d5d2258796559&quot;</span>).into(),
         },
-        signature_slot: <span class="number">2567</span>,
+        signature_slot: <span class="number">934</span>,
         next_sync_committee_update: <span class="prelude-val">None</span>,
         finalized_header: BeaconHeader {
-            slot: <span class="number">2496</span>,
-            proposer_index: <span class="number">2</span>,
-            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;c99e49787106733eeebab4d93eb326e1f2214575c9d928f0c4ab0da0776f1622&quot;</span>).into(),
-            state_root: <span class="macro">hex!</span>(<span class="string">&quot;fbf8a08c86ef36bd173e37e733da4a78aa8e85fee99a990e858dd12a59087fde&quot;</span>).into(),
-            body_root: <span class="macro">hex!</span>(<span class="string">&quot;a2a8ad06901447b2807a9059580a4c40d8a941f325b1343c69f7c7c6c90e4ab0&quot;</span>).into(),
+            slot: <span class="number">864</span>,
+            proposer_index: <span class="number">4</span>,
+            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;614e7672f991ac268cd841055973f55e1e42228831a211adef207bb7329be614&quot;</span>).into(),
+            state_root: <span class="macro">hex!</span>(<span class="string">&quot;5fa8dfca3d760e4242ab46d529144627aa85348a19173b6e081172c701197a4a&quot;</span>).into(),
+            body_root: <span class="macro">hex!</span>(<span class="string">&quot;0f34c083b1803666bb1ac5e73fa71582731a2cf37d279ff0a3b0cad5a2ff371e&quot;</span>).into(),
         },
         finality_branch: <span class="macro">vec!</span>[
-            <span class="macro">hex!</span>(<span class="string">&quot;4e00000000000000000000000000000000000000000000000000000000000000&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;1b00000000000000000000000000000000000000000000000000000000000000&quot;</span>).into(),
             <span class="macro">hex!</span>(<span class="string">&quot;10c726fac935bf9657cc7476d3cfa7bedec5983dcfb59e8a7df6d0a619e108d7&quot;</span>).into(),
             <span class="macro">hex!</span>(<span class="string">&quot;98e9116c6bb7f20de18800dc63e73e689d06d6a47d35b5e2b32cf093d475840d&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;958b8e43347f6df6fa5eb3d62d06a862381a6585aa40640dd1c0de11f1cf89c1&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;f107dce04faa86a28fc5d4a618be9cb8d4fc3c23d6c42c3624f3ff4bf6586a03&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;a501cdc02e86969ac3e4d0c5a36f4f049efaa1ab8cb6693f51d130eb52a80f30&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;f12d9aededc72724e417b518fe6f847684f26f81616243dedf8c551cc7d504f5&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;89a85d0907ab3fd6e00ae385f61d456c6191646404ae7b8d23d0e60440cf4d00&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;9fc943b6020eb61d780d78bcc6f6102a81d2c868d58f36e61c6e286a2dc4d8c2&quot;</span>).into(),
         ],
-        block_roots_root: <span class="macro">hex!</span>(<span class="string">&quot;d160b7687041891b73e54b06fc4e04f82d0fa8fdd76705895e216c6b24709dfe&quot;</span>).into(),
+        block_roots_root: <span class="macro">hex!</span>(<span class="string">&quot;b9aab9c388c4e4fcd899b71f62c498fc73406e38e8eb14aa440e9affa06f2a10&quot;</span>).into(),
         block_roots_branch: <span class="macro">vec!</span>[
-            <span class="macro">hex!</span>(<span class="string">&quot;105290e42d98ab6a0ada6e55453cede36c672abf645eeb986b88d7487616e135&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;9da41f274bcdf6122335443d9ce94d07163b48dba3e2f9499ff56f4e48b48b99&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;ecea7e1d3152d8130e83afdfe34b4de4ba2b69a33c9471991096daf454de9cf5&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;b2bf1758e50b2bfff29169fbc70fdb884b2b05bb615dbc53567574da6f4f1ae2&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;cd87069daf70975779126d6af833b7d636c75ca4d5e750ebcad0e76408a5e5bf&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;733422bd810895dab74cbbe07c69dd440cbb51f573181ad4dddac30fcdd0f41f&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;9b9eca73ab01d14549c325ba1b4610bb20bf1f8ec2dbd649f9d8cc7f3cea75fa&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;bcc666ad0ad9f9725cbd682bc95589d35b1b53b2a615f1e6e8dd5e086336becf&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;3069b547a08f703a1715016e926cbd64e71f93f64fb68d98d8c8f1ab745c46e5&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;c2de7e1097239404e17b263cfa0473533cc41e903cb03440d633bc5c27314cb4&quot;</span>).into(),
         ]
     })
 }
 
-<span class="kw">pub fn </span>make_execution_header_update() -&gt; Box&lt;ExecutionHeaderUpdate&gt; {
-	Box::new(ExecutionHeaderUpdate {
+<span class="kw">pub fn </span>make_execution_proof() -&gt; Box&lt;ExecutionProof&gt; {
+	Box::new(ExecutionProof {
         header: BeaconHeader {
-            slot: <span class="number">215</span>,
-            proposer_index: <span class="number">2</span>,
-            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;97518f531a252bb6ca547b21aca9da767943ec99211d3b15c804e34c3a523f45&quot;</span>).into(),
-            state_root: <span class="macro">hex!</span>(<span class="string">&quot;b088b5a3a8c90d6dc919a695cd7bb0267c6f983ea2e675c559ceb8f46cb90b67&quot;</span>).into(),
-            body_root: <span class="macro">hex!</span>(<span class="string">&quot;0ba23c8224fdd01531d5ad51486353bd524a0b4c20bca704e26d3210616f829b&quot;</span>).into(),
+            slot: <span class="number">393</span>,
+            proposer_index: <span class="number">4</span>,
+            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;6545b47a614a1dd4cad042a0cdbbf5be347e8ffcdc02c6c64540d5153acebeef&quot;</span>).into(),
+            state_root: <span class="macro">hex!</span>(<span class="string">&quot;b62ac34a8cb82497be9542fe2114410c9f6021855b766015406101a1f3d86434&quot;</span>).into(),
+            body_root: <span class="macro">hex!</span>(<span class="string">&quot;04005fe231e11a5b7b1580cb73b177ae8b338bedd745497e6bb7122126a806db&quot;</span>).into(),
         },
         ancestry_proof: <span class="prelude-val">Some</span>(AncestryProof {
             header_branch: <span class="macro">vec!</span>[
-                <span class="macro">hex!</span>(<span class="string">&quot;97518f531a252bb6ca547b21aca9da767943ec99211d3b15c804e34c3a523f45&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;5ce0db996bd499c2b4f7a93263d5aafd052f420efb617cce6fdd54e25516aa45&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;84f0e373b66011ce774c7061440c0a50a51cce2b4b335395eee3e563d605597f&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;48f9ccc5f9594142c18c3b5c39a99f0549329c6ab3ba06c9a50030eadca87770&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;f89d6e311e05bc75a6f63ce118bccce254551f1a88d54c3b4f773f81f946bd99&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;2edd6d893c22636675147c07dfcdb541a146e87c3f15b51c388be4868246dc9b&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;d76b7de5f856e3208a91a42c9c398a7f4fab35e667bf916346050ae742514a2d&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;83a2e233e76385953ca41de4c3afe60471a61f0cc1b3846b4a0670e3e563b747&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;e783a5a109c2ad74e4eb53e8f6b11b31266a92a9e16c1fd5873109c5d41b282c&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;d4ea1ef3869ee6a0fd0b19d7d70027d144eecd4f1d32cbf47632a0a9069164b9&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;f8179564b58eb93a850d35e4156a04db651106442ad891c3e85155c1762792f1&quot;</span>).into(),
-                <span class="macro">hex!</span>(<span class="string">&quot;4cbb1edb48cf1e32fb30db60aaaeaf6190ffe4d0c8dbc96cec307daecb78be12&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;6545b47a614a1dd4cad042a0cdbbf5be347e8ffcdc02c6c64540d5153acebeef&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;fa84cc88ca53a72181599ff4eb07d8b444bce023fe2347c3b4f51004c43439d3&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;cadc8ae211c6f2221c9138e829249adf902419c78eb4727a150baa4d9a02cc9d&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;33a89962df08a35c52bd7e1d887cd71fa7803e68787d05c714036f6edf75947c&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;2c9760fce5c2829ef3f25595a703c21eb22d0186ce223295556ed5da663a82cf&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;e1aa87654db79c8a0ecd6c89726bb662fcb1684badaef5cd5256f479e3c622e1&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;aa70d5f314e4a1fbb9c362f3db79b21bf68b328887248651fbd29fc501d0ca97&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;160b6c235b3a1ed4ef5f80b03ee1c76f7bf3f591c92fca9d8663e9221b9f9f0f&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;f68d7dcd6a07a18e9de7b5d2aa1980eb962e11d7dcb584c96e81a7635c8d2535&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;1d5f912dfd6697110dd1ecb5cb8e77952eef57d85deb373572572df62bb157fc&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;ffff0ad7e659772f9534c195c815efc4014ef1e1daed4404c06385d11192e92b&quot;</span>).into(),
+                <span class="macro">hex!</span>(<span class="string">&quot;6cf04127db05441cd833107a52be852868890e4317e6a02ab47683aa75964220&quot;</span>).into(),
                 <span class="macro">hex!</span>(<span class="string">&quot;b7d05f875f140027ef5118a2247bbb84ce8f2f0f1123623085daf7960c329f5f&quot;</span>).into(),
             ],
-            finalized_block_root: <span class="macro">hex!</span>(<span class="string">&quot;890a7f23b9ed2160901654be9efc575d6830ca860e2a97866ae3423fb7bd7231&quot;</span>).into(),
+            finalized_block_root: <span class="macro">hex!</span>(<span class="string">&quot;751414cd97c0624f922b3e80285e9f776b08fa22fd5f87391f2ed7ef571a8d46&quot;</span>).into(),
         }),
         execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
-            parent_hash: <span class="macro">hex!</span>(<span class="string">&quot;d82ec63f5c5e6ba61d62f09c188f158e6449b94bdcc31941e68639eec3c4cf7a&quot;</span>).into(),
+            parent_hash: <span class="macro">hex!</span>(<span class="string">&quot;8092290aa21b7751576440f77edd02a94058429ce50e63a92d620951fb25eda2&quot;</span>).into(),
             fee_recipient: <span class="macro">hex!</span>(<span class="string">&quot;0000000000000000000000000000000000000000&quot;</span>).into(),
-            state_root: <span class="macro">hex!</span>(<span class="string">&quot;8b65545fe5f3216b47b6339b9c91ca2b7f1032a970b04246d9e9fb4460ee34c3&quot;</span>).into(),
-            receipts_root: <span class="macro">hex!</span>(<span class="string">&quot;7b1f61b9714c080ef0be014e01657a15f45f0304b477beebc7ca5596c8033095&quot;</span>).into(),
-            logs_bloom: <span class="macro">hex!</span>(<span class="string">&quot;00000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000080000000000000000000000000000004000000000080000000000000000000000000000000000010100000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000040004000000000000002000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000200000000000010&quot;</span>).into(),
-            prev_randao: <span class="macro">hex!</span>(<span class="string">&quot;6d9e2a012d82b1b6cb0a2c1c1ed24cc16dbb56e6e39ae545371e0666ab057862&quot;</span>).into(),
-            block_number: <span class="number">215</span>,
-            gas_limit: <span class="number">64842908</span>,
-            gas_used: <span class="number">119301</span>,
-            timestamp: <span class="number">1705859527</span>,
-            extra_data: <span class="macro">hex!</span>(<span class="string">&quot;d983010d0a846765746888676f312e32312e358664617277696e&quot;</span>).into(),
+            state_root: <span class="macro">hex!</span>(<span class="string">&quot;96a83e9ddf745346fafcb0b03d57314623df669ed543c110662b21302a0fae8b&quot;</span>).into(),
+            receipts_root: <span class="macro">hex!</span>(<span class="string">&quot;dccdfceea05036f7b61dcdabadc937945d31e68a8d3dfd4dc85684457988c284&quot;</span>).into(),
+            logs_bloom: <span class="macro">hex!</span>(<span class="string">&quot;00000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000080000000400000000000000000000004000000000080000000000000000000000000000000000010100000000000000000000000000000000020000000000000000000000000000000000080000000000000000000000000000040004000000000000002002002000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000080000000000000000000000000000000000100000000000000000200000200000010&quot;</span>).into(),
+            prev_randao: <span class="macro">hex!</span>(<span class="string">&quot;62e309d4f5119d1f5c783abc20fc1a549efbab546d8d0b25ff1cfd58be524e67&quot;</span>).into(),
+            block_number: <span class="number">393</span>,
+            gas_limit: <span class="number">54492273</span>,
+            gas_used: <span class="number">199644</span>,
+            timestamp: <span class="number">1710552813</span>,
+            extra_data: <span class="macro">hex!</span>(<span class="string">&quot;d983010d0b846765746888676f312e32312e368664617277696e&quot;</span>).into(),
             base_fee_per_gas: U256::from(<span class="number">7u64</span>),
-            block_hash: <span class="macro">hex!</span>(<span class="string">&quot;48498dbfbcfae53a7f4c289ee00747aceea925f6260c50ead5a33e1c55c40f98&quot;</span>).into(),
-            transactions_root: <span class="macro">hex!</span>(<span class="string">&quot;5ebc1347fe3df0611d4f66b19bd8e1c6f4eaed0371d850f14c83b1c77ea234e6&quot;</span>).into(),
+            block_hash: <span class="macro">hex!</span>(<span class="string">&quot;6a9810efb9581d30c1a5c9074f27c68ea779a8c1ae31c213241df16225f4e131&quot;</span>).into(),
+            transactions_root: <span class="macro">hex!</span>(<span class="string">&quot;2cfa6ed7327e8807c7973516c5c32a68ef2459e586e8067e113d081c3bd8c07d&quot;</span>).into(),
             withdrawals_root: <span class="macro">hex!</span>(<span class="string">&quot;792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535&quot;</span>).into(),
             blob_gas_used: <span class="number">0</span>,
             excess_blob_gas: <span class="number">0</span>,
         }),
         execution_branch: <span class="macro">vec!</span>[
-            <span class="macro">hex!</span>(<span class="string">&quot;f8c69d3830406d668619bcccc13c8dddde41e863326f7418b241d5924c4ad34a&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;a6833fa629f3286b6916c6e50b8bf089fc9126bee6f64d0413b4e59c1265834d&quot;</span>).into(),
             <span class="macro">hex!</span>(<span class="string">&quot;b46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb&quot;</span>).into(),
             <span class="macro">hex!</span>(<span class="string">&quot;db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71&quot;</span>).into(),
-            <span class="macro">hex!</span>(<span class="string">&quot;f4d6b5cf9c6e212615c3674fa625d04eb1114153fb221ef5ad02aa433fc67cfb&quot;</span>).into(),
+            <span class="macro">hex!</span>(<span class="string">&quot;d3af7c05c516726be7505239e0b9c7cb53d24abce6b91cdb3b3995f0164a75da&quot;</span>).into(),
         ],
     })
+}
+
+<span class="kw">pub fn </span>make_inbound_fixture() -&gt; InboundQueueFixture {
+	InboundQueueFixture {
+        message: Message {
+            event_log: 	Log {
+                address: <span class="macro">hex!</span>(<span class="string">&quot;eda338e4dc46038493b885327842fd3e301cab39&quot;</span>).into(),
+                topics: <span class="macro">vec!</span>[
+                    <span class="macro">hex!</span>(<span class="string">&quot;7153f9357c8ea496bba60bf82e67143e27b64462b49041f8e689e1b05728f84f&quot;</span>).into(),
+                    <span class="macro">hex!</span>(<span class="string">&quot;c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539&quot;</span>).into(),
+                    <span class="macro">hex!</span>(<span class="string">&quot;5f7060e971b0dc81e63f0aa41831091847d97c1a4693ac450cc128c7214e65e0&quot;</span>).into(),
+                ],
+                data: <span class="macro">hex!</span>(<span class="string">&quot;00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002e00a736aa00000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d00e40b54020000000000000000000000000000000000000000000000000000000000&quot;</span>).into(),
+            },
+            proof: Proof {
+                receipt_proof: (<span class="macro">vec!</span>[
+                    <span class="macro">hex!</span>(<span class="string">&quot;dccdfceea05036f7b61dcdabadc937945d31e68a8d3dfd4dc85684457988c284&quot;</span>).to_vec(),
+                    <span class="macro">hex!</span>(<span class="string">&quot;4a98e45a319168b0fc6005ce6b744ee9bf54338e2c0784b976a8578d241ced0f&quot;</span>).to_vec(),
+                ], <span class="macro">vec!</span>[
+                    <span class="macro">hex!</span>(<span class="string">&quot;f851a09c01dd6d2d8de951c45af23d3ad00829ce021c04d6c8acbe1612d456ee320d4980808080808080a04a98e45a319168b0fc6005ce6b744ee9bf54338e2c0784b976a8578d241ced0f8080808080808080&quot;</span>).to_vec(),
+                    <span class="macro">hex!</span>(<span class="string">&quot;f9028c30b9028802f90284018301d205b9010000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000080000000000000000000000000000004000000000080000000000000000000000000000000000010100000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000040004000000000000002000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000200000000000010f90179f85894eda338e4dc46038493b885327842fd3e301cab39e1a0f78bb28d4b1d7da699e5c0bc2be29c2b04b5aab6aacf6298fe5304f9db9c6d7ea000000000000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7df9011c94eda338e4dc46038493b885327842fd3e301cab39f863a07153f9357c8ea496bba60bf82e67143e27b64462b49041f8e689e1b05728f84fa0c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539a05f7060e971b0dc81e63f0aa41831091847d97c1a4693ac450cc128c7214e65e0b8a000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002e00a736aa00000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d00e40b54020000000000000000000000000000000000000000000000000000000000&quot;</span>).to_vec(),
+                ]),
+                execution_proof: ExecutionProof {
+                    header: BeaconHeader {
+                        slot: <span class="number">393</span>,
+                        proposer_index: <span class="number">4</span>,
+                        parent_root: <span class="macro">hex!</span>(<span class="string">&quot;6545b47a614a1dd4cad042a0cdbbf5be347e8ffcdc02c6c64540d5153acebeef&quot;</span>).into(),
+                        state_root: <span class="macro">hex!</span>(<span class="string">&quot;b62ac34a8cb82497be9542fe2114410c9f6021855b766015406101a1f3d86434&quot;</span>).into(),
+                        body_root: <span class="macro">hex!</span>(<span class="string">&quot;04005fe231e11a5b7b1580cb73b177ae8b338bedd745497e6bb7122126a806db&quot;</span>).into(),
+                    },
+                        ancestry_proof: <span class="prelude-val">Some</span>(AncestryProof {
+                        header_branch: <span class="macro">vec!</span>[
+                            <span class="macro">hex!</span>(<span class="string">&quot;6545b47a614a1dd4cad042a0cdbbf5be347e8ffcdc02c6c64540d5153acebeef&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;fa84cc88ca53a72181599ff4eb07d8b444bce023fe2347c3b4f51004c43439d3&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;cadc8ae211c6f2221c9138e829249adf902419c78eb4727a150baa4d9a02cc9d&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;33a89962df08a35c52bd7e1d887cd71fa7803e68787d05c714036f6edf75947c&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;2c9760fce5c2829ef3f25595a703c21eb22d0186ce223295556ed5da663a82cf&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;e1aa87654db79c8a0ecd6c89726bb662fcb1684badaef5cd5256f479e3c622e1&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;aa70d5f314e4a1fbb9c362f3db79b21bf68b328887248651fbd29fc501d0ca97&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;160b6c235b3a1ed4ef5f80b03ee1c76f7bf3f591c92fca9d8663e9221b9f9f0f&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;f68d7dcd6a07a18e9de7b5d2aa1980eb962e11d7dcb584c96e81a7635c8d2535&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;1d5f912dfd6697110dd1ecb5cb8e77952eef57d85deb373572572df62bb157fc&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;ffff0ad7e659772f9534c195c815efc4014ef1e1daed4404c06385d11192e92b&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;6cf04127db05441cd833107a52be852868890e4317e6a02ab47683aa75964220&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;b7d05f875f140027ef5118a2247bbb84ce8f2f0f1123623085daf7960c329f5f&quot;</span>).into(),
+                        ],
+                        finalized_block_root: <span class="macro">hex!</span>(<span class="string">&quot;751414cd97c0624f922b3e80285e9f776b08fa22fd5f87391f2ed7ef571a8d46&quot;</span>).into(),
+                        }),
+                    execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
+                        parent_hash: <span class="macro">hex!</span>(<span class="string">&quot;8092290aa21b7751576440f77edd02a94058429ce50e63a92d620951fb25eda2&quot;</span>).into(),
+                        fee_recipient: <span class="macro">hex!</span>(<span class="string">&quot;0000000000000000000000000000000000000000&quot;</span>).into(),
+                        state_root: <span class="macro">hex!</span>(<span class="string">&quot;96a83e9ddf745346fafcb0b03d57314623df669ed543c110662b21302a0fae8b&quot;</span>).into(),
+                        receipts_root: <span class="macro">hex!</span>(<span class="string">&quot;dccdfceea05036f7b61dcdabadc937945d31e68a8d3dfd4dc85684457988c284&quot;</span>).into(),
+                        logs_bloom: <span class="macro">hex!</span>(<span class="string">&quot;00000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000080000000400000000000000000000004000000000080000000000000000000000000000000000010100000000000000000000000000000000020000000000000000000000000000000000080000000000000000000000000000040004000000000000002002002000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000080000000000000000000000000000000000100000000000000000200000200000010&quot;</span>).into(),
+                        prev_randao: <span class="macro">hex!</span>(<span class="string">&quot;62e309d4f5119d1f5c783abc20fc1a549efbab546d8d0b25ff1cfd58be524e67&quot;</span>).into(),
+                        block_number: <span class="number">393</span>,
+                        gas_limit: <span class="number">54492273</span>,
+                        gas_used: <span class="number">199644</span>,
+                        timestamp: <span class="number">1710552813</span>,
+                        extra_data: <span class="macro">hex!</span>(<span class="string">&quot;d983010d0b846765746888676f312e32312e368664617277696e&quot;</span>).into(),
+                        base_fee_per_gas: U256::from(<span class="number">7u64</span>),
+                        block_hash: <span class="macro">hex!</span>(<span class="string">&quot;6a9810efb9581d30c1a5c9074f27c68ea779a8c1ae31c213241df16225f4e131&quot;</span>).into(),
+                        transactions_root: <span class="macro">hex!</span>(<span class="string">&quot;2cfa6ed7327e8807c7973516c5c32a68ef2459e586e8067e113d081c3bd8c07d&quot;</span>).into(),
+                        withdrawals_root: <span class="macro">hex!</span>(<span class="string">&quot;792930bbd5baac43bcc798ee49aa8185ef76bb3b44ba62b91d86ae569e4bb535&quot;</span>).into(),
+                        blob_gas_used: <span class="number">0</span>,
+                        excess_blob_gas: <span class="number">0</span>,
+                    }),
+                    execution_branch: <span class="macro">vec!</span>[
+                            <span class="macro">hex!</span>(<span class="string">&quot;a6833fa629f3286b6916c6e50b8bf089fc9126bee6f64d0413b4e59c1265834d&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;b46f0c01805fe212e15907981b757e6c496b0cb06664224655613dcec82505bb&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;db56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71&quot;</span>).into(),
+                            <span class="macro">hex!</span>(<span class="string">&quot;d3af7c05c516726be7505239e0b9c7cb53d24abce6b91cdb3b3995f0164a75da&quot;</span>).into(),
+                    ],
+                }
+            },
+        },
+        finalized_header: BeaconHeader {
+            slot: <span class="number">864</span>,
+            proposer_index: <span class="number">4</span>,
+            parent_root: <span class="macro">hex!</span>(<span class="string">&quot;614e7672f991ac268cd841055973f55e1e42228831a211adef207bb7329be614&quot;</span>).into(),
+            state_root: <span class="macro">hex!</span>(<span class="string">&quot;5fa8dfca3d760e4242ab46d529144627aa85348a19173b6e081172c701197a4a&quot;</span>).into(),
+            body_root: <span class="macro">hex!</span>(<span class="string">&quot;0f34c083b1803666bb1ac5e73fa71582731a2cf37d279ff0a3b0cad5a2ff371e&quot;</span>).into(),
+        },
+        block_roots_root: <span class="macro">hex!</span>(<span class="string">&quot;b9aab9c388c4e4fcd899b71f62c498fc73406e38e8eb14aa440e9affa06f2a10&quot;</span>).into(),
+    }
 }
 </code></pre></div></section></main></body></html>

@@ -219,6 +219,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Types for representing inbound messages
@@ -226,6 +234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::PalletError;
 <span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>snowbridge_beacon_primitives::{BeaconHeader, ExecutionProof};
 <span class="kw">use </span>sp_core::{H160, H256};
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>sp_std::vec::Vec;
@@ -246,6 +255,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>InvalidLog,
 	<span class="doccomment">/// Unable to verify the transaction receipt with the provided proof
 	</span>InvalidProof,
+	<span class="doccomment">/// Unable to verify the execution header with ancestry proof
+	</span>InvalidExecutionProof(<span class="attr">#[codec(skip)] </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
 }
 
 <span class="kw">pub type </span>MessageNonce = u64;
@@ -286,11 +297,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Inclusion proof for a transaction receipt
 </span><span class="attr">#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub struct </span>Proof {
-	<span class="comment">// The block hash of the block in which the receipt was included.
-	</span><span class="kw">pub </span>block_hash: H256,
-	<span class="comment">// The index of the transaction (and receipt) within the block.
-	</span><span class="kw">pub </span>tx_index: u32,
 	<span class="comment">// Proof keys and values (receipts tree)
-	</span><span class="kw">pub </span>data: (Vec&lt;Vec&lt;u8&gt;&gt;, Vec&lt;Vec&lt;u8&gt;&gt;),
+	</span><span class="kw">pub </span>receipt_proof: (Vec&lt;Vec&lt;u8&gt;&gt;, Vec&lt;Vec&lt;u8&gt;&gt;),
+	<span class="comment">// Proof that an execution header was finalized by the beacon chain
+	</span><span class="kw">pub </span>execution_proof: ExecutionProof,
+}
+
+<span class="attr">#[derive(Clone, RuntimeDebug)]
+</span><span class="kw">pub struct </span>InboundQueueFixture {
+	<span class="kw">pub </span>message: Message,
+	<span class="kw">pub </span>finalized_header: BeaconHeader,
+	<span class="kw">pub </span>block_roots_root: H256,
 }
 </code></pre></div></section></main></body></html>

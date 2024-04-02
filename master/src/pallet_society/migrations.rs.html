@@ -521,7 +521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>frame_support::traits::{Defensive, DefensiveOption, Instance, OnRuntimeUpgrade};
+<span class="kw">use </span>frame_support::traits::{Defensive, DefensiveOption, Instance, UncheckedOnRuntimeUpgrade};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
@@ -538,7 +538,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T: Config&lt;I&gt;,
 		I: Instance + <span class="lifetime">&#39;static</span>,
 		PastPayouts: Get&lt;Vec&lt;(&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;)&gt;&gt;,
-	&gt; OnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV2&lt;T, I, PastPayouts&gt;
+	&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV2&lt;T, I, PastPayouts&gt;
 {
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {

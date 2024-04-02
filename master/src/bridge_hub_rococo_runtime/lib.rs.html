@@ -1663,13 +1663,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1516" id="1516">1516</a>
 <a href="#1517" id="1517">1517</a>
 <a href="#1518" id="1518">1518</a>
-<a href="#1519" id="1519">1519</a>
-<a href="#1520" id="1520">1520</a>
-<a href="#1521" id="1521">1521</a>
-<a href="#1522" id="1522">1522</a>
-<a href="#1523" id="1523">1523</a>
-<a href="#1524" id="1524">1524</a>
-<a href="#1525" id="1525">1525</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1771,8 +1764,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-
-<span class="kw">use </span>polkadot_runtime_common::prod_or_fast;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">use </span>benchmark_helpers::DoNothingRouter;
@@ -2187,14 +2178,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>benchmark_helpers {
 	<span class="kw">use crate</span>::{EthereumBeaconClient, Runtime, RuntimeOrigin};
 	<span class="kw">use </span>codec::Encode;
-	<span class="kw">use </span>snowbridge_beacon_primitives::CompactExecutionHeader;
+	<span class="kw">use </span>snowbridge_beacon_primitives::BeaconHeader;
 	<span class="kw">use </span>snowbridge_pallet_inbound_queue::BenchmarkHelper;
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	<span class="kw">impl</span>&lt;T: snowbridge_pallet_ethereum_client::Config&gt; BenchmarkHelper&lt;T&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
-			EthereumBeaconClient::store_execution_header(block_hash, header, <span class="number">0</span>, H256::default())
+		<span class="kw">fn </span>initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
+			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
 		}
 	}
 
@@ -2315,14 +2306,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 }
 
-<span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>MaxExecutionHeadersToKeep: u32 = <span class="macro">prod_or_fast!</span>(<span class="number">8192 </span>* <span class="number">2</span>, <span class="number">1000</span>);
-}
-
 <span class="kw">impl </span>snowbridge_pallet_ethereum_client::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>ForkVersions = ChainForkVersions;
-	<span class="kw">type </span>MaxExecutionHeadersToKeep = MaxExecutionHeadersToKeep;
 	<span class="kw">type </span>WeightInfo = weights::snowbridge_pallet_ethereum_client::WeightInfo&lt;Runtime&gt;;
 }
 

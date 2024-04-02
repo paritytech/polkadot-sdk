@@ -1197,7 +1197,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::log;
-<span class="kw">use </span>frame_support::traits::OnRuntimeUpgrade;
+<span class="kw">use </span>frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
@@ -1312,7 +1312,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">pub struct </span>VersionUncheckedMigrateV7ToV8&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateV7ToV8&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateV7ToV8&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="prelude-val">Ok</span>(Vec::new())
@@ -1391,7 +1391,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CountedStorageMap&lt;Pallet&lt;T&gt;, Twox64Concat, PoolId, V7BondedPoolInner&lt;T&gt;&gt;;
 
 	<span class="kw">pub struct </span>VersionUncheckedMigrateV6ToV7&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateV6ToV7&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateV6ToV7&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>migrated = BondedPools::&lt;T&gt;::count();
 			<span class="comment">// The TVL should be the sum of all the funds that are actively staked and in the
@@ -1462,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 		}
 	}
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV6&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>MigrateToV6&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span><span class="kw-2">mut </span>success = <span class="number">0u64</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>fail = <span class="number">0u64</span>;

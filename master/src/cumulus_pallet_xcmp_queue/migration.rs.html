@@ -566,6 +566,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -588,7 +589,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>cumulus_primitives_core::XcmpMessageFormat;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
-	traits::{EnqueueMessage, OnRuntimeUpgrade, StorageVersion},
+	traits::{EnqueueMessage, StorageVersion, UncheckedOnRuntimeUpgrade},
 	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
 };
 
@@ -664,7 +665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 2D weights).
 	</span><span class="kw">pub struct </span>UncheckedMigrationToV2&lt;T: Config&gt;(PhantomData&lt;T&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrationToV2&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrationToV2&lt;T&gt; {
 		<span class="attr">#[allow(deprecated)]
 		</span><span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>translate = |pre: v1::QueueConfigData| -&gt; v2::QueueConfigData {
@@ -755,7 +756,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Migrates the pallet storage to v3.
 	</span><span class="kw">pub struct </span>UncheckedMigrationToV3&lt;T: Config&gt;(PhantomData&lt;T&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrationToV3&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrationToV3&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="attr">#[frame_support::storage_alias]
 			</span><span class="kw">type </span>Overweight&lt;T: Config&gt; =
@@ -834,7 +835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// thresholds to at least the default values.
 	</span><span class="kw">pub struct </span>UncheckedMigrationToV4&lt;T: Config&gt;(PhantomData&lt;T&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrationToV4&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrationToV4&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>translate = |pre: v2::QueueConfigData| -&gt; QueueConfigData {
 				<span class="kw">let </span>pre_default = v2::QueueConfigData::default();
@@ -883,6 +884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::mock::{new_test_ext, Test};
+	<span class="kw">use </span>frame_support::traits::OnRuntimeUpgrade;
 
 	<span class="attr">#[test]
 	#[allow(deprecated)]

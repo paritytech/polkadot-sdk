@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["LogValidationError","VerificationError"],"struct":["Log","Message","Proof"],"trait":["Verifier"],"type":["MessageNonce"]};
+window.SIDEBAR_ITEMS = {"enum":["LogValidationError","VerificationError"],"struct":["InboundQueueFixture","Log","Message","Proof"],"trait":["Verifier"],"type":["MessageNonce"]};

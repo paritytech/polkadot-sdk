@@ -526,6 +526,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
 <a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -545,7 +547,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! A module that is responsible for migration of storage.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::configuration::{Config, Pallet};
-<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::Defensive, weights::Weight};
+<span class="kw">use </span>frame_support::{
+	pallet_prelude::<span class="kw-2">*</span>,
+	traits::{Defensive, UncheckedOnRuntimeUpgrade},
+	weights::Weight,
+};
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>primitives::{
 	AsyncBackingParams, Balance, ExecutorParams, NodeFeatures, SessionIndex,
@@ -553,8 +559,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_runtime::Perbill;
 <span class="kw">use </span>sp_std::vec::Vec;
-
-<span class="kw">use </span>frame_support::traits::OnRuntimeUpgrade;
 
 <span class="kw">use </span><span class="kw">super</span>::v9::V9HostConfiguration;
 <span class="comment">// All configuration of the runtime with respect to paras.
@@ -691,7 +695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub struct </span>VersionUncheckedMigrateToV10&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV10&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV10&lt;T&gt; {
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::configuration::LOG_TARGET, <span class="string">&quot;Running pre_upgrade() for HostConfiguration MigrateToV10&quot;</span>);
