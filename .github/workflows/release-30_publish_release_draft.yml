@@ -72,8 +72,8 @@ jobs:
           GLUTTON_WESTEND_DIGEST: ${{ github.workspace}}/glutton-westend-runtime/glutton-westend-srtool-digest.json
           PEOPLE_ROCOCO_DIGEST: ${{ github.workspace}}/people-rococo-runtime/people-rococo-srtool-digest.json
           PEOPLE_WESTEND_DIGEST: ${{ github.workspace}}/people-westend-runtime/people-westend-srtool-digest.json
-          ROCOCO_DIGEST: ${{ github.workspace}}/rococo-runtime/rococo-srtool-digest.json'
-          WESTEND_DIGEST: ${{ github.workspace}}/westend-runtime/westend-srtool-digest.json'
+          ROCOCO_DIGEST: ${{ github.workspace}}/rococo-runtime/rococo-srtool-digest.json
+          WESTEND_DIGEST: ${{ github.workspace}}/westend-runtime/westend-srtool-digest.json
         run: |
           find ${{env.GITHUB_WORKSPACE}} -type f -name "*-srtool-digest.json"
           ls -al $ASSET_HUB_ROCOCO_DIGEST
