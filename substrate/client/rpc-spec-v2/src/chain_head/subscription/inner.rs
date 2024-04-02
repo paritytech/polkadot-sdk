@@ -1042,13 +1042,8 @@ mod tests {
 		let hashes = produce_blocks(client, 3);
 		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
-		let mut subs = SubscriptionsInner::new(
-			10,
-			Duration::from_secs(10),
-			MAX_OPERATIONS_PER_SUB,
-			Duration::from_secs(10),
-			backend,
-		);
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
 		let id_1 = "abc".to_string();
 		let id_2 = "abcd".to_string();
 
@@ -1087,13 +1082,8 @@ mod tests {
 	fn subscription_lock_block() {
 		let builder = TestClientBuilder::new();
 		let backend = builder.backend();
-		let mut subs = SubscriptionsInner::new(
-			10,
-			Duration::from_secs(10),
-			MAX_OPERATIONS_PER_SUB,
-			Duration::from_secs(10),
-			backend,
-		);
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
 
 		let id = "abc".to_string();
 		let hash = H256::random();
@@ -1124,13 +1114,8 @@ mod tests {
 		let hashes = produce_blocks(client, 1);
 		let hash = hashes[0];
 
-		let mut subs = SubscriptionsInner::new(
-			10,
-			Duration::from_secs(10),
-			MAX_OPERATIONS_PER_SUB,
-			Duration::from_secs(10),
-			backend,
-		);
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
 		let id = "abc".to_string();
 
 		let _stop = subs.insert_subscription(id.clone(), true).unwrap();
@@ -1159,13 +1144,8 @@ mod tests {
 		let hashes = produce_blocks(client, 1);
 		let hash = hashes[0];
 
-		let mut subs = SubscriptionsInner::new(
-			10,
-			Duration::from_secs(10),
-			MAX_OPERATIONS_PER_SUB,
-			Duration::from_secs(10),
-			backend,
-		);
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
 		let id = "abc".to_string();
 
 		let _stop = subs.insert_subscription(id.clone(), true).unwrap();
@@ -1207,13 +1187,8 @@ mod tests {
 		let hashes = produce_blocks(client, 3);
 		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
-		let mut subs = SubscriptionsInner::new(
-			10,
-			Duration::from_secs(10),
-			MAX_OPERATIONS_PER_SUB,
-			Duration::from_secs(10),
-			backend,
-		);
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
 		let id_1 = "abc".to_string();
 		let id_2 = "abcd".to_string();
 
@@ -1252,13 +1227,8 @@ mod tests {
 		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		// Maximum number of pinned blocks is 2.
-		let mut subs = SubscriptionsInner::new(
-			2,
-			Duration::from_secs(10),
-			MAX_OPERATIONS_PER_SUB,
-			Duration::from_secs(10),
-			backend,
-		);
+		let mut subs =
+			SubscriptionsInner::new(2, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
 		let id_1 = "abc".to_string();
 		let id_2 = "abcd".to_string();
 
@@ -1302,13 +1272,8 @@ mod tests {
 		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
 		// Maximum number of pinned blocks is 2 and maximum pin duration is 5 second.
-		let mut subs = SubscriptionsInner::new(
-			2,
-			Duration::from_secs(5),
-			MAX_OPERATIONS_PER_SUB,
-			Duration::from_secs(10),
-			backend,
-		);
+		let mut subs =
+			SubscriptionsInner::new(2, Duration::from_secs(5), MAX_OPERATIONS_PER_SUB, backend);
 		let id_1 = "abc".to_string();
 		let id_2 = "abcd".to_string();
 
@@ -1357,13 +1322,8 @@ mod tests {
 	fn subscription_check_stop_event() {
 		let builder = TestClientBuilder::new();
 		let backend = builder.backend();
-		let mut subs = SubscriptionsInner::new(
-			10,
-			Duration::from_secs(10),
-			MAX_OPERATIONS_PER_SUB,
-			Duration::from_secs(10),
-			backend,
-		);
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
 
 		let id = "abc".to_string();
 
@@ -1408,22 +1368,16 @@ mod tests {
 	}
 
 	#[test]
-	fn suspend_subscriptions() {
+	fn stop_all_subscriptions() {
 		let (backend, client) = init_backend();
 
 		let hashes = produce_blocks(client, 3);
 		let (hash_1, hash_2, hash_3) = (hashes[0], hashes[1], hashes[2]);
 
-		let mut subs = SubscriptionsInner::new(
-			10,
-			Duration::from_secs(10),
-			MAX_OPERATIONS_PER_SUB,
-			Duration::from_secs(3),
-			backend,
-		);
+		let mut subs =
+			SubscriptionsInner::new(10, Duration::from_secs(10), MAX_OPERATIONS_PER_SUB, backend);
 		let id_1 = "abc".to_string();
 		let id_2 = "abcd".to_string();
-		let id_3 = "abcde".to_string();
 
 		// Pin all blocks for the first subscription.
 		let _stop = subs.insert_subscription(id_1.clone(), true).unwrap();
@@ -1441,26 +1395,8 @@ mod tests {
 		assert_eq!(*subs.global_blocks.get(&hash_3).unwrap(), 1);
 		assert_eq!(subs.global_blocks.len(), 3);
 
-		// Suspend all subscriptions.
-		assert!(!subs.suspend.is_suspended());
-		subs.suspend_subscriptions();
-		assert!(subs.suspend.is_suspended());
-
-		// A new subscription cannot be inserted while suspended.
-		let result = subs.insert_subscription(id_3.clone(), true);
-		assert!(result.is_none());
-
-		// Check reference count.
-		assert_eq!(subs.global_blocks.len(), 0);
-
-		// Sleep 5 seconds.
-		std::thread::sleep(std::time::Duration::from_secs(5));
-
-		assert!(!subs.suspend.is_suspended());
-
-		// Subscriptions can be inserted again.
-		let _stop = subs.insert_subscription(id_1.clone(), true).unwrap();
-		let _stop = subs.insert_subscription(id_2.clone(), true).unwrap();
-		let _stop = subs.insert_subscription(id_3.clone(), true).unwrap();
+		// Stop all active subscriptions.
+		subs.stop_all_subscriptions();
+		assert!(subs.global_blocks.is_empty());
 	}
 }

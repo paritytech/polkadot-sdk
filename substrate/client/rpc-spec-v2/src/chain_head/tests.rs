@@ -58,7 +58,6 @@ type Block = substrate_test_runtime_client::runtime::Block;
 const MAX_PINNED_BLOCKS: usize = 32;
 const MAX_PINNED_SECS: u64 = 60;
 const MAX_OPERATIONS: usize = 16;
-const MAX_SUSPENDED_SECS: u64 = 30;
 const MAX_PAGINATION_LIMIT: usize = 5;
 const MAX_LAGGING_DISTANCE: usize = 128;
 const INVALID_HASH: [u8; 32] = [1; 32];
@@ -115,8 +114,7 @@ async fn setup_api() -> (
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -167,8 +165,8 @@ async fn follow_subscription_produces_blocks() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -237,8 +235,8 @@ async fn follow_with_runtime() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -551,8 +549,8 @@ async fn call_runtime_without_flag() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -1211,8 +1209,8 @@ async fn separate_operation_ids_for_subscriptions() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -1301,8 +1299,8 @@ async fn follow_generates_initial_blocks() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -1458,8 +1456,8 @@ async fn follow_exceeding_pinned_blocks() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -1536,8 +1534,8 @@ async fn follow_with_unpin() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -1649,8 +1647,8 @@ async fn unpin_duplicate_hashes() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -1753,8 +1751,8 @@ async fn follow_with_multiple_unpin_hashes() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -1908,8 +1906,8 @@ async fn follow_prune_best_block() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -2095,8 +2093,8 @@ async fn follow_forks_pruned_block() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -2256,8 +2254,8 @@ async fn follow_report_multiple_pruned_block() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -2503,8 +2501,8 @@ async fn pin_block_references() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -2642,8 +2640,8 @@ async fn follow_finalized_before_new_block() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -2758,8 +2756,8 @@ async fn ensure_operation_limits_works() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: 1,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -2864,8 +2862,8 @@ async fn check_continue_operation() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: 1,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -3048,8 +3046,8 @@ async fn stop_storage_operation() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: 1,
-			suspended_duration: Duration::from_secs(MAX_SUSPENDED_SECS),
-			suspend_on_lagging_distance: MAX_LAGGING_DISTANCE,
+
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
@@ -3337,13 +3335,12 @@ async fn storage_closest_merkle_value() {
 }
 
 #[tokio::test]
-async fn chain_head_suspend_subscriptions() {
+async fn chain_head_stop_all_subscriptions() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
 	let mut client = Arc::new(builder.build());
 
-	// Configure the chainHead to suspend subscriptions for 5 seconds
-	// and to suspend on lagging distance of 5 blocks.
+	// Configure the chainHead to stop all subscriptions on lagging distance of 5 blocks.
 	let api = ChainHead::new(
 		client.clone(),
 		backend,
@@ -3353,8 +3350,7 @@ async fn chain_head_suspend_subscriptions() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-			suspended_duration: Duration::from_secs(5),
-			suspend_on_lagging_distance: 5,
+			max_lagging_distance: 5,
 		},
 	)
 	.into_rpc();
@@ -3408,12 +3404,7 @@ async fn chain_head_suspend_subscriptions() {
 	// Should receive the stop event immediately.
 	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
 
-	// Wait for the suspension period to be over.
-	tokio::time::sleep(tokio::time::Duration::from_secs(6)).await;
-
-	// For the next subscription:
-	// - duration must be over
-	// - lagging distance must be smaller.
+	// For the next subscription, lagging distance must be smaller.
 	client.finalize_block(parent_hash, None).unwrap();
 
 	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();

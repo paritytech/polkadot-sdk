@@ -62,11 +62,9 @@ pub struct ChainHeadConfig {
 	pub subscription_max_pinned_duration: Duration,
 	/// The maximum number of ongoing operations per subscription.
 	pub subscription_max_ongoing_operations: usize,
-	/// Suspend the subscriptions if the distance between the leaves and the current finalized
+	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
-	///
-	/// Subscriptions are suspended for the `suspended_duration`.
-	pub suspend_on_lagging_distance: usize,
+	pub max_lagging_distance: usize,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	pub operation_max_storage_items: usize,
@@ -91,11 +89,9 @@ const MAX_ONGOING_OPERATIONS: usize = 16;
 /// before paginations is required.
 const MAX_STORAGE_ITER_ITEMS: usize = 5;
 
-/// Suspend the subscriptions if the distance between the leaves and the current finalized
+/// Stop all subscriptions if the distance between the leaves and the current finalized
 /// block is larger than this value.
-///
-/// Subscriptions are suspended for the `suspended_duration`.
-const SUSPEND_ON_LAGGING_DISTANCE: usize = 128;
+const MAX_LAGGING_DISTANCE: usize = 128;
 
 impl Default for ChainHeadConfig {
 	fn default() -> Self {
@@ -103,7 +99,7 @@ impl Default for ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: MAX_PINNED_DURATION,
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
-			suspend_on_lagging_distance: SUSPEND_ON_LAGGING_DISTANCE,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			operation_max_storage_items: MAX_STORAGE_ITER_ITEMS,
 		}
 	}
@@ -122,9 +118,9 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
-	/// Suspend the subscriptions if the distance between the leaves and the current finalized
+	/// Stop all subscriptions if the distance between the leaves and the current finalized
 	/// block is larger than this value.
-	suspend_on_lagging_distance: usize,
+	max_lagging_distance: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
 }
@@ -148,7 +144,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				backend,
 			)),
 			operation_max_storage_items: config.operation_max_storage_items,
-			suspend_on_lagging_distance: config.suspend_on_lagging_distance,
+			max_lagging_distance: config.max_lagging_distance,
 			_phantom: PhantomData,
 		}
 	}
@@ -196,7 +192,7 @@ where
 		let subscriptions = self.subscriptions.clone();
 		let backend = self.backend.clone();
 		let client = self.client.clone();
-		let suspend_on_lagging_distance = self.suspend_on_lagging_distance;
+		let max_lagging_distance = self.max_lagging_distance;
 
 		let fut = async move {
 			let Ok(sink) = pending.accept().await else { return };
@@ -207,8 +203,8 @@ where
 			let Some(sub_data) = subscriptions.insert_subscription(sub_id.clone(), with_runtime)
 			else {
 				// Inserting the subscription can only fail if the JsonRPSee generated a duplicate
-				// subscription ID; or subscriptions are suspended.
-				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted or suspended", sub_id);
+				// subscription ID.
+				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
 				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 				let _ = sink.send(msg).await;
 				return
@@ -221,12 +217,12 @@ where
 				subscriptions.clone(),
 				with_runtime,
 				sub_id.clone(),
-				suspend_on_lagging_distance,
+				max_lagging_distance,
 			);
 			let result = chain_head_follow.generate_events(sink, sub_data).await;
 
 			if let Err(SubscriptionManagementError::BlockDistanceTooLarge) = result {
-				debug!(target: LOG_TARGET, "[follow][id={:?}] All subscriptions are suspended", sub_id);
+				debug!(target: LOG_TARGET, "[follow][id={:?}] All subscriptions are stopped", sub_id);
 				subscriptions.stop_all_subscriptions();
 			}
 
