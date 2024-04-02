@@ -61,21 +61,21 @@ jobs:
           RUSTC_STABLE: ${{ needs.get-rust-versions.outputs.rustc-stable }}
           RUSTC_NIGHTLY: ${{ needs.get-rust-versions.outputs.rustc-nightly }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ASSET_HUB_ROCOCO_DIGEST: ${{ github.workspace}}/asset-hub-rococo-runtime/asset-hub-rococo-srtool-digest.json'
-          ASSET_HUB_WESTEND_DIGEST: ${{ github.workspace}}/asset-hub-westend-runtime/asset-hub-westend-srtool-digest.json'
-          BRIDGE_HUB_ROCOCO_DIGEST: ${{ github.workspace}}/bridge-hub-rococo-runtime/bridge-hub-rococo-srtool-digest.json'
-          BRIDGE_HUB_WESTEND_DIGEST: ${{ github.workspace}}/bridge-hub-westend-runtime/bridge-hub-westend-srtool-digest.json'
-          COLLECTIVES_WESTEND_DIGEST: ${{ github.workspace}}/collectives-westend-runtime/collectives-westend-srtool-digest.json'
-          CONTRACTS_ROCOCO_DIGEST: ${{ github.workspace}}/contracts-rococo-runtime/contracts-rococo-srtool-digest.json'
-          CORETIME_ROCOCO_DIGEST: ${{ github.workspace}}/coretime-rococo-runtime/coretime-rococo-srtool-digest.json'
-          CORETIME_WESTEND_DIGEST: ${{ github.workspace}}/coretime-westend-runtime/coretime-westend-srtool-digest.json'
-          GLUTTON_WESTEND_DIGEST: ${{ github.workspace}}/glutton-westend-runtime/glutton-westend-srtool-digest.json'
-          PEOPLE_ROCOCO_DIGEST: ${{ github.workspace}}/people-rococo-runtime/people-rococo-srtool-digest.json'
-          PEOPLE_WESTEND_DIGEST: ${{ github.workspace}}/people-westend-runtime/people-westend-srtool-digest.json'
+          ASSET_HUB_ROCOCO_DIGEST: ${{ github.workspace}}/asset-hub-rococo-runtime/asset-hub-rococo-srtool-digest.json
+          ASSET_HUB_WESTEND_DIGEST: ${{ github.workspace}}/asset-hub-westend-runtime/asset-hub-westend-srtool-digest.json
+          BRIDGE_HUB_ROCOCO_DIGEST: ${{ github.workspace}}/bridge-hub-rococo-runtime/bridge-hub-rococo-srtool-digest.json
+          BRIDGE_HUB_WESTEND_DIGEST: ${{ github.workspace}}/bridge-hub-westend-runtime/bridge-hub-westend-srtool-digest.json
+          COLLECTIVES_WESTEND_DIGEST: ${{ github.workspace}}/collectives-westend-runtime/collectives-westend-srtool-digest.json
+          CONTRACTS_ROCOCO_DIGEST: ${{ github.workspace}}/contracts-rococo-runtime/contracts-rococo-srtool-digest.json
+          CORETIME_ROCOCO_DIGEST: ${{ github.workspace}}/coretime-rococo-runtime/coretime-rococo-srtool-digest.json
+          CORETIME_WESTEND_DIGEST: ${{ github.workspace}}/coretime-westend-runtime/coretime-westend-srtool-digest.json
+          GLUTTON_WESTEND_DIGEST: ${{ github.workspace}}/glutton-westend-runtime/glutton-westend-srtool-digest.json
+          PEOPLE_ROCOCO_DIGEST: ${{ github.workspace}}/people-rococo-runtime/people-rococo-srtool-digest.json
+          PEOPLE_WESTEND_DIGEST: ${{ github.workspace}}/people-westend-runtime/people-westend-srtool-digest.json
           ROCOCO_DIGEST: ${{ github.workspace}}/rococo-runtime/rococo-srtool-digest.json'
           WESTEND_DIGEST: ${{ github.workspace}}/westend-runtime/westend-srtool-digest.json'
         run: |
-          find ${{env.GITHUB_WORKSPACE}} -type f -name "*_srtool_output.json"
+          find ${{env.GITHUB_WORKSPACE}} -type f -name "*-srtool-digest.json"
           ls -al $ASSET_HUB_ROCOCO_DIGEST
           ls -al $ASSET_HUB_WESTEND_DIGEST
           ls -al $BRIDGE_HUB_ROCOCO_DIGEST
@@ -100,7 +100,7 @@ jobs:
           name: release-notes-context
           path: |
             scripts/release/context.json
-            **/*_srtool_output.json
+            **/*-srtool-digest.json
 
       - name: Create draft release
         id: create-release
