@@ -242,6 +242,8 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	// Enqueue XCMP messages from siblings for later processing.
 	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
 	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type MaxActiveOutboundChannels = ConstU32<128>;
+	type MaxPageSize = ConstU32<{ 1 << 16 }>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = ();
