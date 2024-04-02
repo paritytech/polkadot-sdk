@@ -1605,6 +1605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1458" id="1458">1458</a>
 <a href="#1459" id="1459">1459</a>
 <a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2840,6 +2841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			prometheus_registry: prometheus_registry.clone(),
 			links: beefy_links,
 			on_demand_justifications_handler: beefy_on_demand_justifications_handler,
+			is_authority: role.is_authority(),
 		};
 
 		<span class="kw">let </span>gadget = beefy::start_beefy_gadget::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(beefy_params);
@@ -2849,18 +2851,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>task_manager
 			.spawn_essential_handle()
 			.spawn_blocking(<span class="string">&quot;beefy-gadget&quot;</span>, <span class="prelude-val">None</span>, gadget);
-		<span class="comment">// When offchain indexing is enabled, MMR gadget should also run.
-		</span><span class="kw">if </span>is_offchain_indexing_enabled {
-			task_manager.spawn_essential_handle().spawn_blocking(
-				<span class="string">&quot;mmr-gadget&quot;</span>,
-				<span class="prelude-val">None</span>,
-				MmrGadget::start(
-					client.clone(),
-					backend.clone(),
-					sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
-				),
-			);
-		}
+	}
+	<span class="comment">// When offchain indexing is enabled, MMR gadget should also run.
+	</span><span class="kw">if </span>is_offchain_indexing_enabled {
+		task_manager.spawn_essential_handle().spawn_blocking(
+			<span class="string">&quot;mmr-gadget&quot;</span>,
+			<span class="prelude-val">None</span>,
+			MmrGadget::start(
+				client.clone(),
+				backend.clone(),
+				sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
+			),
+		);
 	}
 
 	<span class="kw">let </span>config = grandpa::Config {

@@ -881,6 +881,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
 <a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1105,6 +1121,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>links: BeefyVoterLinks&lt;B&gt;,
 	<span class="doccomment">/// Handler for incoming BEEFY justifications requests from a remote peer.
 	</span><span class="kw">pub </span>on_demand_justifications_handler: BeefyJustifsRequestHandler&lt;B, C&gt;,
+	<span class="doccomment">/// Whether running under &quot;Authority&quot; role.
+	</span><span class="kw">pub </span>is_authority: bool,
 }
 <span class="doccomment">/// Helper object holding BEEFY worker communication/gossip components.
 ///
@@ -1153,6 +1171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		min_block_delta: u32,
 		gossip_validator: Arc&lt;GossipValidator&lt;B&gt;&gt;,
 		finality_notifications: <span class="kw-2">&amp;mut </span>Fuse&lt;FinalityNotifications&lt;B&gt;&gt;,
+		is_authority: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
 		<span class="comment">// Wait for BEEFY pallet to be active before starting voter.
 		</span><span class="kw">let </span>(beefy_genesis, best_grandpa) =
@@ -1166,6 +1185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			runtime.clone(),
 			<span class="kw-2">&amp;</span>key_store,
 			<span class="kw-2">&amp;</span>metrics,
+			is_authority,
 		)
 		.<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="comment">// Update the gossip validator with the right starting round and set id.
@@ -1184,6 +1204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		comms: BeefyComms&lt;B&gt;,
 		links: BeefyVoterLinks&lt;B&gt;,
 		pending_justifications: BTreeMap&lt;NumberFor&lt;B&gt;, BeefyVersionedFinalityProof&lt;B&gt;&gt;,
+		is_authority: bool,
 	) -&gt; BeefyWorker&lt;B, BE, P, R, S&gt; {
 		BeefyWorker {
 			backend: <span class="self">self</span>.backend,
@@ -1196,6 +1217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			comms,
 			links,
 			pending_justifications,
+			is_authority,
 		}
 	}
 
@@ -1306,6 +1328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		runtime: Arc&lt;R&gt;,
 		key_store: <span class="kw-2">&amp;</span>BeefyKeystore&lt;AuthorityId&gt;,
 		metrics: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
+		is_authority: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;PersistedState&lt;B&gt;, Error&gt; {
 		<span class="comment">// Initialize voter state from AUX DB if compatible.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>state) = <span class="kw">crate</span>::aux_schema::load_persistent(backend.as_ref())<span class="question-mark">?
@@ -1338,7 +1361,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">&quot;🥩 Handling missed BEEFY session after node restart: {:?}.&quot;</span>,
 					new_session_start
 				);
-				state.init_session_at(new_session_start, validator_set, key_store, metrics);
+				state.init_session_at(
+					new_session_start,
+					validator_set,
+					key_store,
+					metrics,
+					is_authority,
+				);
 			}
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(state)
 		}
@@ -1374,6 +1403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prometheus_registry,
 		links,
 		<span class="kw-2">mut </span>on_demand_justifications_handler,
+		is_authority,
 	} = beefy_params;
 
 	<span class="kw">let </span>BeefyNetworkParams {
@@ -1436,6 +1466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					min_block_delta,
 					beefy_comms.gossip_validator.clone(),
 					<span class="kw-2">&amp;mut </span>finality_notifications,
+					is_authority,
 				).fuse() =&gt; {
 					<span class="kw">match </span>builder_init_result {
 						<span class="prelude-val">Ok</span>(builder) =&gt; <span class="kw">break </span>builder,
@@ -1463,6 +1494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			beefy_comms,
 			links.clone(),
 			BTreeMap::new(),
+			is_authority,
 		);
 
 		<span class="kw">match </span>futures::future::select(

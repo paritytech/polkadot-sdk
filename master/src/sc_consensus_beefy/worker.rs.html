@@ -1801,49 +1801,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1654" id="1654">1654</a>
 <a href="#1655" id="1655">1655</a>
 <a href="#1656" id="1656">1656</a>
-<a href="#1657" id="1657">1657</a>
-<a href="#1658" id="1658">1658</a>
-<a href="#1659" id="1659">1659</a>
-<a href="#1660" id="1660">1660</a>
-<a href="#1661" id="1661">1661</a>
-<a href="#1662" id="1662">1662</a>
-<a href="#1663" id="1663">1663</a>
-<a href="#1664" id="1664">1664</a>
-<a href="#1665" id="1665">1665</a>
-<a href="#1666" id="1666">1666</a>
-<a href="#1667" id="1667">1667</a>
-<a href="#1668" id="1668">1668</a>
-<a href="#1669" id="1669">1669</a>
-<a href="#1670" id="1670">1670</a>
-<a href="#1671" id="1671">1671</a>
-<a href="#1672" id="1672">1672</a>
-<a href="#1673" id="1673">1673</a>
-<a href="#1674" id="1674">1674</a>
-<a href="#1675" id="1675">1675</a>
-<a href="#1676" id="1676">1676</a>
-<a href="#1677" id="1677">1677</a>
-<a href="#1678" id="1678">1678</a>
-<a href="#1679" id="1679">1679</a>
-<a href="#1680" id="1680">1680</a>
-<a href="#1681" id="1681">1681</a>
-<a href="#1682" id="1682">1682</a>
-<a href="#1683" id="1683">1683</a>
-<a href="#1684" id="1684">1684</a>
-<a href="#1685" id="1685">1685</a>
-<a href="#1686" id="1686">1686</a>
-<a href="#1687" id="1687">1687</a>
-<a href="#1688" id="1688">1688</a>
-<a href="#1689" id="1689">1689</a>
-<a href="#1690" id="1690">1690</a>
-<a href="#1691" id="1691">1691</a>
-<a href="#1692" id="1692">1692</a>
-<a href="#1693" id="1693">1693</a>
-<a href="#1694" id="1694">1694</a>
-<a href="#1695" id="1695">1695</a>
-<a href="#1696" id="1696">1696</a>
-<a href="#1697" id="1697">1697</a>
-<a href="#1698" id="1698">1698</a>
-<a href="#1699" id="1699">1699</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1879,7 +1836,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>codec::{Codec, Decode, DecodeAll, Encode};
 <span class="kw">use </span>futures::{stream::Fuse, FutureExt, StreamExt};
-<span class="kw">use </span>log::{debug, error, info, log_enabled, trace, warn};
+<span class="kw">use </span>log::{debug, error, info, trace, warn};
 <span class="kw">use </span>sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 <span class="kw">use </span>sc_utils::notification::NotificationReceiver;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
@@ -1897,7 +1854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SaturatedConversion,
 };
 <span class="kw">use </span>std::{
-	collections::{BTreeMap, BTreeSet, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	fmt::Debug,
 	sync::Arc,
 };
@@ -2178,6 +2135,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validator_set: ValidatorSet&lt;AuthorityId&gt;,
 		key_store: <span class="kw-2">&amp;</span>BeefyKeystore&lt;AuthorityId&gt;,
 		metrics: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
+		is_authority: bool,
 	) {
 		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 New active validator set: {:?}&quot;</span>, validator_set);
 
@@ -2194,11 +2152,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">if </span><span class="macro">log_enabled!</span>(target: LOG_TARGET, log::Level::Debug) {
-			<span class="comment">// verify the new validator set - only do it if we&#39;re also logging the warning
-			</span><span class="kw">if </span>verify_validator_set::&lt;B&gt;(<span class="kw-2">&amp;</span>new_session_start, <span class="kw-2">&amp;</span>validator_set, key_store).is_err() {
-				<span class="macro">metric_inc!</span>(metrics, beefy_no_authority_found_in_store);
-			}
+		<span class="comment">// verify we have some BEEFY key available in keystore when role is authority.
+		</span><span class="kw">if </span>is_authority &amp;&amp; key_store.public_keys().map_or(<span class="bool-val">false</span>, |k| k.is_empty()) {
+			<span class="macro">error!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;🥩 for session starting at block {:?} no BEEFY authority key found in store, \
+				you must generate valid session keys \
+				(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)&quot;</span>,
+				new_session_start,
+			);
+			<span class="macro">metric_inc!</span>(metrics, beefy_no_authority_found_in_store);
 		}
 
 		<span class="kw">let </span>id = validator_set.id();
@@ -2236,6 +2199,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>persisted_state: PersistedState&lt;B&gt;,
 	<span class="doccomment">/// BEEFY voter metrics
 	</span><span class="kw">pub </span>metrics: <span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
+	<span class="doccomment">/// Node runs under &quot;Authority&quot; role.
+	</span><span class="kw">pub </span>is_authority: bool,
 }
 
 <span class="kw">impl</span>&lt;B, BE, P, R, S&gt; BeefyWorker&lt;B, BE, P, R, S&gt;
@@ -2271,6 +2236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			validator_set,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.key_store,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.metrics,
+			<span class="self">self</span>.is_authority,
 		);
 	}
 
@@ -2886,33 +2852,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Verify `active` validator set for `block` against the key store
-///
-/// We want to make sure that we have _at least one_ key in our keystore that
-/// is part of the validator set, that&#39;s because if there are no local keys
-/// then we can&#39;t perform our job as a validator.
-///
-/// Note that for a non-authority node there will be no keystore, and we will
-/// return an error and don&#39;t check. The error can usually be ignored.
-</span><span class="kw">fn </span>verify_validator_set&lt;B: Block&gt;(
-	block: <span class="kw-2">&amp;</span>NumberFor&lt;B&gt;,
-	active: <span class="kw-2">&amp;</span>ValidatorSet&lt;AuthorityId&gt;,
-	key_store: <span class="kw-2">&amp;</span>BeefyKeystore&lt;AuthorityId&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-	<span class="kw">let </span>active: BTreeSet&lt;<span class="kw-2">&amp;</span>AuthorityId&gt; = active.validators().iter().collect();
-
-	<span class="kw">let </span>public_keys = key_store.public_keys()<span class="question-mark">?</span>;
-	<span class="kw">let </span>store: BTreeSet&lt;<span class="kw-2">&amp;</span>AuthorityId&gt; = public_keys.iter().collect();
-
-	<span class="kw">if </span>store.intersection(<span class="kw-2">&amp;</span>active).count() == <span class="number">0 </span>{
-		<span class="kw">let </span>msg = <span class="string">&quot;no authority public key found in store&quot;</span>.to_string();
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 for block {:?} {}&quot;</span>, block, msg);
-		<span class="prelude-val">Err</span>(Error::Keystore(msg))
-	} <span class="kw">else </span>{
-		<span class="prelude-val">Ok</span>(())
-	}
-}
-
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -3054,6 +2993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			comms,
 			pending_justifications: BTreeMap::new(),
 			persisted_state,
+			is_authority: <span class="bool-val">true</span>,
 		}
 	}
 
@@ -3315,32 +3255,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// verify validator set is correctly extracted from digest
 		</span><span class="kw">let </span>extracted = find_authorities_change::&lt;Block&gt;(<span class="kw-2">&amp;</span>header);
 		<span class="macro">assert_eq!</span>(extracted, <span class="prelude-val">Some</span>(validator_set));
-	}
-
-	<span class="attr">#[tokio::test]
-	</span><span class="kw">async fn </span>keystore_vs_validator_set() {
-		<span class="kw">let </span>keys = <span class="kw-2">&amp;</span>[Keyring::Alice];
-		<span class="kw">let </span>validator_set = ValidatorSet::new(make_beefy_ids(keys), <span class="number">0</span>).unwrap();
-		<span class="kw">let </span><span class="kw-2">mut </span>net = BeefyTestNet::new(<span class="number">1</span>);
-		<span class="kw">let </span><span class="kw-2">mut </span>worker = create_beefy_worker(net.peer(<span class="number">0</span>), <span class="kw-2">&amp;</span>keys[<span class="number">0</span>], <span class="number">1</span>, validator_set.clone());
-
-		<span class="comment">// keystore doesn&#39;t contain other keys than validators&#39;
-		</span><span class="macro">assert_eq!</span>(verify_validator_set::&lt;Block&gt;(<span class="kw-2">&amp;</span><span class="number">1</span>, <span class="kw-2">&amp;</span>validator_set, <span class="kw-2">&amp;</span>worker.key_store), <span class="prelude-val">Ok</span>(()));
-
-		<span class="comment">// unknown `Bob` key
-		</span><span class="kw">let </span>keys = <span class="kw-2">&amp;</span>[Keyring::Bob];
-		<span class="kw">let </span>validator_set = ValidatorSet::new(make_beefy_ids(keys), <span class="number">0</span>).unwrap();
-		<span class="kw">let </span>err_msg = <span class="string">&quot;no authority public key found in store&quot;</span>.to_string();
-		<span class="kw">let </span>expected = <span class="prelude-val">Err</span>(Error::Keystore(err_msg));
-		<span class="macro">assert_eq!</span>(verify_validator_set::&lt;Block&gt;(<span class="kw-2">&amp;</span><span class="number">1</span>, <span class="kw-2">&amp;</span>validator_set, <span class="kw-2">&amp;</span>worker.key_store), expected);
-
-		<span class="comment">// worker has no keystore
-		</span>worker.key_store = <span class="prelude-val">None</span>.into();
-		<span class="kw">let </span>expected_err = <span class="prelude-val">Err</span>(Error::Keystore(<span class="string">&quot;no Keystore&quot;</span>.into()));
-		<span class="macro">assert_eq!</span>(
-			verify_validator_set::&lt;Block&gt;(<span class="kw-2">&amp;</span><span class="number">1</span>, <span class="kw-2">&amp;</span>validator_set, <span class="kw-2">&amp;</span>worker.key_store),
-			expected_err
-		);
 	}
 
 	<span class="attr">#[tokio::test]
