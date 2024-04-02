@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::TrailingZeroInput, DispatchError};
-use sp_std::{prelude::Box, vec::Vec};
+use sp_std::vec::Vec;
 use sp_storage::TrackedStorageKey;
 
 /// An alphabet of possible parameters to use for benchmarking.
@@ -342,6 +342,44 @@ pub trait Benchmarking {
 	) -> Result<Vec<BenchmarkResult>, BenchmarkError>;
 }
 
+#[derive(Default)]
+pub struct BenchmarkRecording {
+	start_extrinsic: u128,
+	finish_extrinsic: u128,
+	start_pov: Option<u32>,
+	end_pov: Option<u32>,
+}
+
+impl BenchmarkRecording {
+	pub fn start(&mut self) {
+		self.start_pov = crate::benchmarking::proof_size();
+		self.start_extrinsic = crate::benchmarking::current_time();
+	}
+
+	pub fn stop(&mut self) {
+		self.finish_extrinsic = crate::benchmarking::current_time();
+		self.end_pov = crate::benchmarking::proof_size();
+	}
+
+	pub fn elapsed_extrinsic(&self) -> u128 {
+		self.finish_extrinsic.saturating_sub(self.start_extrinsic)
+	}
+
+	pub fn start_pov(&self) -> Option<u32> {
+		self.start_pov
+	}
+	pub fn end_pov(&self) -> Option<u32> {
+		self.end_pov
+	}
+
+	pub fn diff_pov(&self) -> u32 {
+		match (self.start_pov, self.end_pov) {
+			(Some(start), Some(end)) => end.saturating_sub(start),
+			_ => Default::default(),
+		}
+	}
+}
+
 /// The required setup for creating a benchmark.
 ///
 /// Instance generic parameter is optional and can be used in order to capture unused generics for
@@ -353,9 +391,10 @@ pub trait BenchmarkingSetup<T, I = ()> {
 	/// Set up the storage, and prepare a closure to run the benchmark.
 	fn instance(
 		&self,
+		recording: &mut BenchmarkRecording,
 		components: &[(BenchmarkParameter, u32)],
 		verify: bool,
-	) -> Result<Box<dyn FnOnce() -> Result<(), BenchmarkError>>, BenchmarkError>;
+	) -> Result<(), BenchmarkError>;
 }
 
 /// Grab an account, seeded by a name and index.

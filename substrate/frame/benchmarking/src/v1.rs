@@ -786,9 +786,10 @@ macro_rules! benchmark_backend {
 
 			fn instance(
 				&self,
+				recording: &mut $crate::BenchmarkRecording,
 				components: &[($crate::BenchmarkParameter, u32)],
 				verify: bool
-			) -> Result<$crate::__private::Box<dyn FnOnce() -> Result<(), $crate::BenchmarkError>>, $crate::BenchmarkError> {
+			) -> Result<(), $crate::BenchmarkError> {
 				$(
 					// Prepare instance
 					let $param = components.iter()
@@ -802,13 +803,14 @@ macro_rules! benchmark_backend {
 				$( $param_instancer ; )*
 				$( $post )*
 
-				Ok($crate::__private::Box::new(move || -> Result<(), $crate::BenchmarkError> {
-					$eval;
-					if verify {
-						$postcode;
-					}
-					Ok(())
-				}))
+				recording.start();
+				$eval;
+				recording.stop();
+
+				if verify {
+					$postcode;
+				}
+				Ok(())
 			}
 		}
 	};
@@ -960,14 +962,15 @@ macro_rules! selected_benchmark {
 
 			fn instance(
 				&self,
+				recording: &mut $crate::BenchmarkRecording,
 				components: &[($crate::BenchmarkParameter, u32)],
 				verify: bool
-			) -> Result<$crate::__private::Box<dyn FnOnce() -> Result<(), $crate::BenchmarkError>>, $crate::BenchmarkError> {
+			) -> Result<(), $crate::BenchmarkError> {
 				match self {
 					$(
 						Self::$bench => <
 							$bench as $crate::BenchmarkingSetup<T $(, $bench_inst)? >
-						>::instance(&$bench, components, verify),
+						>::instance(&$bench, recording, components, verify),
 					)*
 				}
 			}
@@ -1075,12 +1078,6 @@ macro_rules! impl_benchmark {
 					// Always reset the state after the benchmark.
 					$crate::__private::defer!($crate::benchmarking::wipe_db());
 
-					// Set up the externalities environment for the setup we want to
-					// benchmark.
-					let closure_to_benchmark = <
-						SelectedBenchmark as $crate::BenchmarkingSetup<T $(, $instance)?>
-					>::instance(&selected_benchmark, c, verify)?;
-
 					// Set the block number to at least 1 so events are deposited.
 					if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
 						frame_system::Pallet::<T>::set_block_number(1u32.into());
@@ -1108,20 +1105,14 @@ macro_rules! impl_benchmark {
 						verify
 					);
 
-					let start_pov = $crate::benchmarking::proof_size();
-					let start_extrinsic = $crate::benchmarking::current_time();
-
-					closure_to_benchmark()?;
-
-					let finish_extrinsic = $crate::benchmarking::current_time();
-					let end_pov = $crate::benchmarking::proof_size();
+					// Set up the externalities environment for the setup we want to
+					// benchmark.
+					let mut recording = $crate::BenchmarkRecording::default();
+					<SelectedBenchmark as $crate::BenchmarkingSetup<T $(, $instance)?>>::instance(&selected_benchmark, &mut recording, c, verify)?;
 
 					// Calculate the diff caused by the benchmark.
-					let elapsed_extrinsic = finish_extrinsic.saturating_sub(start_extrinsic);
-					let diff_pov = match (start_pov, end_pov) {
-						(Some(start), Some(end)) => end.saturating_sub(start),
-						_ => Default::default(),
-					};
+					let elapsed_extrinsic = recording.elapsed_extrinsic();
+					let diff_pov = recording.diff_pov();
 
 					// Commit the changes to get proper write count
 					$crate::benchmarking::commit_db();
@@ -1136,7 +1127,7 @@ macro_rules! impl_benchmark {
 					);
 					$crate::__private::log::trace!(
 						target: "benchmark",
-						"Proof sizes: before {:?} after {:?} diff {}", &start_pov, &end_pov, &diff_pov
+						"Proof sizes: before {:?} after {:?} diff {}", recording.start_pov(), recording.end_pov(), &diff_pov
 					);
 
 					// Time the storage root recalculation.

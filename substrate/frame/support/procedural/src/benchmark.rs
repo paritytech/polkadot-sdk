@@ -633,18 +633,16 @@ pub fn benchmarks(
 
 				fn instance(
 					&self,
+					recording: &mut #krate::BenchmarkRecording,
 					components: &[(#krate::BenchmarkParameter, u32)],
 					verify: bool,
-				) -> Result<
-					#krate::__private::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>,
-					#krate::BenchmarkError,
-				> {
+				) -> Result<(), #krate::BenchmarkError> {
 					match self {
 						#(
 							Self::#benchmark_names => {
 								<#benchmark_names as #krate::BenchmarkingSetup<
 									#type_use_generics
-								>>::instance(&#benchmark_names, components, verify)
+								>>::instance(&#benchmark_names, recording, components, verify)
 							}
 						)
 						*
@@ -740,12 +738,6 @@ pub fn benchmarks(
 						// Always reset the state after the benchmark.
 						#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
-						// Set up the externalities environment for the setup we want to
-						// benchmark.
-						let closure_to_benchmark = <
-							SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>
-						>::instance(&selected_benchmark, c, verify)?;
-
 						// Set the block number to at least 1 so events are deposited.
 						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
 							#frame_system::Pallet::<T>::set_block_number(1u32.into());
@@ -772,20 +764,12 @@ pub fn benchmarks(
 							c
 						);
 
-						let start_pov = #krate::benchmarking::proof_size();
-						let start_extrinsic = #krate::benchmarking::current_time();
-
-						closure_to_benchmark()?;
-
-						let finish_extrinsic = #krate::benchmarking::current_time();
-						let end_pov = #krate::benchmarking::proof_size();
+						let mut recording = #krate::BenchmarkRecording::default();
+						<SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>>::instance(&selected_benchmark, &mut recording, c, verify)?;
 
 						// Calculate the diff caused by the benchmark.
-						let elapsed_extrinsic = finish_extrinsic.saturating_sub(start_extrinsic);
-						let diff_pov = match (start_pov, end_pov) {
-							(Some(start), Some(end)) => end.saturating_sub(start),
-							_ => Default::default(),
-						};
+						let elapsed_extrinsic = recording.elapsed_extrinsic();
+						let diff_pov = recording.diff_pov();
 
 						// Commit the changes to get proper write count
 						#krate::benchmarking::commit_db();
@@ -1086,9 +1070,10 @@ fn expand_benchmark(
 
 			fn instance(
 				&self,
+				recording: &mut #krate::BenchmarkRecording,
 				components: &[(#krate::BenchmarkParameter, u32)],
 				verify: bool
-			) -> Result<#krate::__private::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>, #krate::BenchmarkError> {
+			) -> Result<(), #krate::BenchmarkError> {
 				#(
 					// prepare instance #param_names
 					let #param_names = components.iter()
@@ -1102,15 +1087,15 @@ fn expand_benchmark(
 					#setup_stmts
 				)*
 				#pre_call
-				Ok(#krate::__private::Box::new(move || -> Result<(), #krate::BenchmarkError> {
-					#post_call
-					if verify {
-						#(
-							#verify_stmts
-						)*
-					}
-					#impl_last_stmt
-				}))
+				recording.start();
+				#post_call
+				recording.stop();
+				if verify {
+					#(
+						#verify_stmts
+					)*
+				}
+				#impl_last_stmt
 			}
 		}
 
@@ -1128,10 +1113,6 @@ fn expand_benchmark(
 					// Always reset the state after the benchmark.
 					#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
-					// Set up the benchmark, return execution + verification function.
-					let closure_to_verify = <
-						SelectedBenchmark as #krate::BenchmarkingSetup<T, _>
-					>::instance(&selected_benchmark, &c, true)?;
 
 					// Set the block number to at least 1 so events are deposited.
 					if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
@@ -1139,7 +1120,8 @@ fn expand_benchmark(
 					}
 
 					// Run execution + verification
-					closure_to_verify()
+					let mut recording = #krate::BenchmarkRecording::default();
+					< SelectedBenchmark as #krate::BenchmarkingSetup<T, _> >::instance(&mut recording, &selected_benchmark, &c, true)?;
 				};
 
 				if components.is_empty() {
