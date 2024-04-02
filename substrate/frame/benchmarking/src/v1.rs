@@ -1223,13 +1223,15 @@ macro_rules! impl_benchmark_test {
 						// Always reset the state after the benchmark.
 						$crate::__private::defer!($crate::benchmarking::wipe_db());
 
-						// Set the block number to at least 1 so events are deposited.
-						if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
-							frame_system::Pallet::<T>::set_block_number(1u32.into());
-						}
+						let on_before_start = $crate::__private::Box::new(|| {
+							// Set the block number to at least 1 so events are deposited.
+							if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
+								frame_system::Pallet::<T>::set_block_number(1u32.into());
+							}
+						});
 
 						// Run execution + verification
-						<SelectedBenchmark as $crate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark, &c)
+						<SelectedBenchmark as $crate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark, &c, on_before_start)
 					};
 
 					if components.is_empty() {
