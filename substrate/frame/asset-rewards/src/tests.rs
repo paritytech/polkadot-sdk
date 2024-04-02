@@ -79,7 +79,6 @@ mod create_pool {
 	#[test]
 	fn success() {
 		new_test_ext().execute_with(|| {
-			// Setup
 			let user = 1;
 			let staking_asset_id = NativeOrWithId::<u32>::Native;
 			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
@@ -88,9 +87,7 @@ mod create_pool {
 
 			create_tokens(user, vec![reward_asset_id.clone()]);
 
-			// Create a pool with default admin.
 			assert_eq!(NextPoolId::<MockRuntime>::get(), 0);
-
 			assert_ok!(StakingRewards::create_pool(
 				RuntimeOrigin::signed(user),
 				Box::new(staking_asset_id.clone()),
@@ -396,7 +393,6 @@ mod unstake {
 	#[test]
 	fn fails_for_non_existent_pool() {
 		new_test_ext().execute_with(|| {
-			// Setup
 			let user = 1;
 			let non_existent_pool_id = 999;
 
@@ -601,19 +597,18 @@ fn assert_hypothetically_earned(
 	});
 }
 
-/// In this integration test scenario, we
-/// 1. Consider 2 stakers each staking and unstaking at different intervals, and assert their
-///    claimable rewards are as expected.
-/// 2. Check that rewards are correctly halted after the pool's expiry block, and resume when the
+/// This integration test
+/// 1. Considers 2 stakers each staking and unstaking at different intervals, asserts their
+///    claimable rewards are adjusted as expected, and that harvesting works.
+/// 2. Checks that rewards are correctly halted after the pool's expiry block, and resume when the
 ///    pool is extended.
-/// 3. Check that reward rates adjustment works correctly.
+/// 3. Checks that reward rates adjustment works correctly.
 ///
 /// Note: There are occasionally off by 1 errors due to rounding. In practice this is
 /// insignificant.
 #[test]
-fn two_stakers_integration_test() {
+fn integration() {
 	new_test_ext().execute_with(|| {
-		// Setup
 		let admin = 1;
 		let staker1 = 10u128;
 		let staker2 = 20;
@@ -738,11 +733,50 @@ fn two_stakers_integration_test() {
 		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 1133, pool_id, reward_asset_id.clone());
 
+		// Block 57: Staker 2 harvests their rewards.
+		System::set_block_number(57);
+		// - Staker 2 has earned 1233 (1133 + 2 * 50) tokens.
+		assert_hypothetically_earned(staker2, 1233, pool_id, reward_asset_id.clone());
+		// Get the pre-harvest balance.
+		let balance_before: <MockRuntime as Config>::Balance =
+			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker2);
+		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker2), pool_id, None));
+		let balance_after =
+			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker2);
+		assert_eq!(
+			balance_after - balance_before,
+			<u128 as Into<<MockRuntime as Config>::Balance>>::into(1233)
+		);
+
 		// Block 60: Check rewards were adjusted correctly.
 		// - Staker 1 has earned 1065 tokens.
-		// - Staker 2 has earned 1383 (1133 + 5 * 50) tokens.
+		// - Staker 2 has earned 149 (3 * 50) tokens.
 		System::set_block_number(60);
 		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
-		assert_hypothetically_earned(staker2, 1383, pool_id, reward_asset_id.clone());
+		assert_hypothetically_earned(staker2, 149, pool_id, reward_asset_id.clone());
+
+		// Finally, check events.
+		assert_eq!(
+			events(),
+			[
+				Event::PoolCreated {
+					creator: admin,
+					pool_id,
+					staking_asset_id,
+					reward_asset_id,
+					reward_rate_per_block: 100,
+					expiry_block: 25,
+					admin
+				},
+				Event::Staked { who: staker1, pool_id, amount: 100 },
+				Event::Staked { who: staker2, pool_id, amount: 100 },
+				Event::Staked { who: staker1, pool_id, amount: 100 },
+				Event::Unstaked { who: staker1, pool_id, amount: 100 },
+				Event::Unstaked { who: staker1, pool_id, amount: 100 },
+				Event::PoolExpiryBlockModified { pool_id, new_expiry_block: 60 },
+				Event::PoolRewardRateModified { pool_id, new_reward_rate_per_block: 50 },
+				Event::RewardsHarvested { who: staker2, staker: staker2, pool_id, amount: 1233 }
+			]
+		);
 	});
 }
