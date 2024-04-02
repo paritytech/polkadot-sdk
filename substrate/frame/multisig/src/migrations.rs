@@ -54,7 +54,7 @@ pub mod v1 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let in_code = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			if onchain > 0 {
@@ -68,7 +68,7 @@ pub mod v1 {
 				call_count.saturating_inc();
 			});
 
-			current.put::<Pallet<T>>();
+			in_code.put::<Pallet<T>>();
 
 			T::DbWeight::get().reads_writes(
 				// Reads: Get Calls + Get Version
@@ -136,10 +136,10 @@ pub mod v2 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			let current_code_version = Pallet::<T>::current_storage_version();
+			let in_code_version = Pallet::<T>::in_code_storage_version();
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 
-			if on_chain_version == 1 && current_code_version == 2 {
+			if on_chain_version == 1 && in_code_version == 2 {
 				let mut translated_count = 0u64;
 				Multisigs::<T>::translate::<
 					OldMultisig<BlockNumberFor<T>, BalanceOf<T>, T::AccountId, T::MaxSignatories>,
@@ -158,8 +158,8 @@ pub mod v2 {
 					},
 				);
 
-				current_code_version.put::<Pallet<T>>();
-				log::info!(target: LOG_TARGET, "Upgraded {} multisigs, storage to version {:?}", translated_count, current_code_version);
+				in_code_version.put::<Pallet<T>>();
+				log::info!(target: LOG_TARGET, "Upgraded {} multisigs, storage to version {:?}", translated_count, in_code_version);
 
 				T::DbWeight::get().reads_writes(translated_count + 1, translated_count + 1)
 			} else {
@@ -182,13 +182,13 @@ pub mod v2 {
 				"the multigis count before and after the migration should be the same"
 			);
 
-			let current_code_version = Pallet::<T>::current_code_storage_version();
+			let in_code_version = Pallet::<T>::in_code_storage_version();
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();
 
-			frame_support::ensure!(current_code_version == 2, "must_upgrade");
+			frame_support::ensure!(in_code_version == 2, "must_upgrade");
 			ensure!(
-				current_code_version == on_chain_version,
-				"after migration, the current_code_version and on_chain_version should be the same"
+				in_code_version == on_chain_version,
+				"after migration, the in_code_version and on_chain_version should be the same"
 			);
 
 			Multisigs::<T>::iter().try_for_each(
