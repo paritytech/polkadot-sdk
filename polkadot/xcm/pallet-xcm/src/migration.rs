@@ -19,7 +19,7 @@ use crate::{
 };
 use frame_support::{
 	pallet_prelude::*,
-	traits::{OnRuntimeUpgrade, StorageVersion},
+	traits::{OnRuntimeUpgrade, StorageVersion, UncheckedOnRuntimeUpgrade},
 	weights::Weight,
 };
 
@@ -35,7 +35,7 @@ pub mod v1 {
 	///
 	/// Use experimental [`MigrateToV1`] instead.
 	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = T::DbWeight::get().reads(1);
 
