@@ -103,11 +103,7 @@ impl MalusCli {
 			NemesisVariant::SpamStatementRequests(opts) => {
 				let SpamStatementRequestsOptions { spam_factor, cli } = opts;
 
-				polkadot_cli::run_node(
-					cli,
-					SpamStatementRequests { spam_factor }, 
-					finality_delay
-				)?
+				polkadot_cli::run_node(cli, SpamStatementRequests { spam_factor }, finality_delay)?
 			},
 		}
 		Ok(())

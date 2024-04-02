@@ -58,10 +58,10 @@ use sp_keystore::KeystorePtr;
 use fatality::Nested;
 use futures::{
 	channel::{mpsc, oneshot},
+	future::FutureExt,
+	select,
 	stream::FuturesUnordered,
 	SinkExt, StreamExt,
-	select,
-	future::FutureExt,
 };
 
 use std::{

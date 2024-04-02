@@ -422,10 +422,7 @@ pub struct ResponseManager {
 
 impl ResponseManager {
 	pub fn new() -> Self {
-		Self { 
-			pending_responses: FuturesUnordered::new(),
-			active_peers: HashSet::new(),
-		}
+		Self { pending_responses: FuturesUnordered::new(), active_peers: HashSet::new() }
 	}
 
 	/// Await the next incoming response to a sent request, or immediately
@@ -483,7 +480,6 @@ fn find_request_target_with_update(
 	let mut prune = Vec::new();
 	let mut target = None;
 	for (i, p) in known_by.iter().enumerate() {
-
 		// If we are already sending to that peer, skip for now
 		if response_manager.is_sending_to(p) {
 			continue
@@ -887,7 +883,7 @@ fn insert_or_update_priority(
 
 #[cfg(test)]
 mod tests {
-use super::*;
+	use super::*;
 	use polkadot_primitives::HeadData;
 	use polkadot_primitives_test_helpers as test_helpers;
 
@@ -1308,8 +1304,9 @@ use super::*;
 		assert_eq!(request_manager.by_priority.len(), 0);
 	}
 
-	// Test case where we queue 2 requests to be sent to the same peer and 1 request to another peer.
-	// Same peer requests should be served one at a time but they should not block the other peer request.
+	// Test case where we queue 2 requests to be sent to the same peer and 1 request to another
+	// peer. Same peer requests should be served one at a time but they should not block the other
+	// peer request.
 	#[test]
 	fn rate_limit_requests_to_same_peer() {
 		let mut request_manager = RequestManager::new();
@@ -1345,11 +1342,9 @@ use super::*;
 		let unwanted_mask = StatementFilter::blank(group_size);
 		let disabled_mask: BitVec<u8, Lsb0> = Default::default();
 		let request_properties = RequestProperties { unwanted_mask, backing_threshold: None };
-		let request_props =
-			|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
-		let peer_advertised = |_identifier: &CandidateIdentifier, _peer: &_| {
-			Some(StatementFilter::full(group_size))
-		};
+		let request_props = |_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+		let peer_advertised =
+			|_identifier: &CandidateIdentifier, _peer: &_| Some(StatementFilter::full(group_size));
 
 		// Add request for candidate 1 from peer 1
 		let identifier1 = request_manager
@@ -1371,13 +1366,13 @@ use super::*;
 
 		// Successfully dispatch request for candidate 1 from peer 1 and candidate 3 from peer 2
 		for _ in 0..2 {
-			let outgoing = request_manager
-				.next_request(&mut response_manager, request_props, peer_advertised);
+			let outgoing =
+				request_manager.next_request(&mut response_manager, request_props, peer_advertised);
 			assert!(outgoing.is_some());
 		}
 		assert_eq!(response_manager.active_peers.len(), 2);
-		assert!(response_manager.is_sending_to(&requested_peer_1));	
-		assert!(response_manager.is_sending_to(&requested_peer_2));	
+		assert!(response_manager.is_sending_to(&requested_peer_1));
+		assert!(response_manager.is_sending_to(&requested_peer_2));
 		assert_eq!(request_manager.requests.len(), 2);
 
 		// Add request for candidate 2 from peer 1
@@ -1389,9 +1384,10 @@ use super::*;
 			.get_or_insert(relay_parent, candidate_2, 1.into())
 			.add_peer(requested_peer_1);
 
-		// Do not dispatch the request for the second candidate from peer 1 (already serving that peer)
-		let outgoing = request_manager
-		.next_request(&mut response_manager, request_props, peer_advertised);
+		// Do not dispatch the request for the second candidate from peer 1 (already serving that
+		// peer)
+		let outgoing =
+			request_manager.next_request(&mut response_manager, request_props, peer_advertised);
 		assert!(outgoing.is_none());
 		assert_eq!(response_manager.active_peers.len(), 2);
 		assert!(response_manager.is_sending_to(&requested_peer_1));
@@ -1435,8 +1431,8 @@ use super::*;
 		}
 
 		// Check if the request that was ignored previously will be served now
-		let outgoing = request_manager
-			.next_request(&mut response_manager, request_props, peer_advertised);
+		let outgoing =
+			request_manager.next_request(&mut response_manager, request_props, peer_advertised);
 		assert!(outgoing.is_some());
 		assert_eq!(response_manager.active_peers.len(), 2);
 		assert!(response_manager.is_sending_to(&requested_peer_1));
