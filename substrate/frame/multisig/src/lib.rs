@@ -351,7 +351,7 @@ pub mod pallet {
 		/// For the multisigs that are created with `timepoint`, the following approvals must supply
 		/// the timepoint for that multisig.
 		/// For the multisigs that are NOT created with `timepoint`, the following approvals can provide `None`.
-		/// This function does not error if a `timepoint` is provided for a multisig that is not created with
+		/// This function does not error if a `timepoint` is provided for a multisig that is created WITHOUT
 		/// `timepoint`, the provided value will be simply ignored.
 		/// - `call`: The call to be executed.
 		///
@@ -425,7 +425,7 @@ pub mod pallet {
 		/// For the multisigs that are created with `timepoint`, the following approvals must supply
 		/// the timepoint for that multisig.
 		/// For the multisigs that are NOT created with `timepoint`, the following approvals can provide `None`.
-		/// This function does not error if a `timepoint` is provided for a multisig that is not created with
+		/// This function does not error if a `timepoint` is provided for a multisig that is created WITHOUT
 		/// `timepoint`, the provided value will be simply ignored.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
