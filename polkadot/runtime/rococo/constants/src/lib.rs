@@ -116,6 +116,8 @@ pub mod system_parachain {
 	pub const PEOPLE_ID: u32 = 1004;
 	/// BridgeHub parachain ID.
 	pub const BRIDGE_HUB_ID: u32 = 1013;
+	/// Brokerage parachain ID.
+	pub const BROKER_ID: u32 = 1005;
 
 	/// All system parachains of Rococo.
 	pub type SystemParachains = IsChildSystemParachain<Id>;

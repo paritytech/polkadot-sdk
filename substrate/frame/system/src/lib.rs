@@ -17,27 +17,60 @@
 
 //! # System Pallet
 //!
-//! The System pallet provides low-level access to core types and cross-cutting utilities.
-//! It acts as the base layer for other pallets to interact with the Substrate framework components.
+//! The System pallet provides low-level access to core types and cross-cutting utilities. It acts
+//! as the base layer for other pallets to interact with the Substrate framework components.
 //!
 //! - [`Config`]
 //!
 //! ## Overview
 //!
-//! The System pallet defines the core data types used in a Substrate runtime.
-//! It also provides several utility functions (see [`Pallet`]) for other FRAME pallets.
+//! The System pallet defines the core data types used in a Substrate runtime. It also provides
+//! several utility functions (see [`Pallet`]) for other FRAME pallets.
 //!
-//! In addition, it manages the storage items for extrinsics data, indexes, event records, and
-//! digest items, among other things that support the execution of the current block.
+//! In addition, it manages the storage items for extrinsic data, indices, event records, and digest
+//! items, among other things that support the execution of the current block.
 //!
-//! It also handles low-level tasks like depositing logs, basic set up and take down of
-//! temporary storage entries, and access to previous block hashes.
+//! It also handles low-level tasks like depositing logs, basic set up and take down of temporary
+//! storage entries, and access to previous block hashes.
 //!
 //! ## Interface
 //!
 //! ### Dispatchable Functions
 //!
-//! The System pallet does not implement any dispatchable functions.
+//! The System pallet provides dispatchable functions that, with the exception of `remark`, manage
+//! low-level or privileged functionality of a Substrate-based runtime.
+//!
+//! - `remark`: Make some on-chain remark.
+//! - `set_heap_pages`: Set the number of pages in the WebAssembly environment's heap.
+//! - `set_code`: Set the new runtime code.
+//! - `set_code_without_checks`: Set the new runtime code without any checks.
+//! - `set_storage`: Set some items of storage.
+//! - `kill_storage`: Kill some items from storage.
+//! - `kill_prefix`: Kill all storage items with a key that starts with the given prefix.
+//! - `remark_with_event`: Make some on-chain remark and emit an event.
+//! - `do_task`: Do some specified task.
+//! - `authorize_upgrade`: Authorize new runtime code.
+//! - `authorize_upgrade_without_checks`: Authorize new runtime code and an upgrade sans
+//!   verification.
+//! - `apply_authorized_upgrade`: Provide new, already-authorized runtime code.
+//!
+//! #### A Note on Upgrades
+//!
+//! The pallet provides two primary means of upgrading the runtime, a single-phase means using
+//! `set_code` and a two-phase means using `authorize_upgrade` followed by
+//! `apply_authorized_upgrade`. The first will directly attempt to apply the provided `code`
+//! (application may have to be scheduled, depending on the context and implementation of the
+//! `OnSetCode` trait).
+//!
+//! The `authorize_upgrade` route allows the authorization of a runtime's code hash. Once
+//! authorized, anyone may upload the correct runtime to apply the code. This pattern is useful when
+//! providing the runtime ahead of time may be unwieldy, for example when a large preimage (the
+//! code) would need to be stored on-chain or sent over a message transport protocol such as a
+//! bridge.
+//!
+//! The `*_without_checks` variants do not perform any version checks, so using them runs the risk
+//! of applying a downgrade or entirely other chain specification. They will still validate that the
+//! `code` meets the authorized hash.
 //!
 //! ### Public Functions
 //!
@@ -59,7 +92,7 @@
 //!   - [`CheckTxVersion`]: Checks that the transaction version is the same as the one used to sign
 //!     the transaction.
 //!
-//! Lookup the runtime aggregator file (e.g. `node/runtime`) to see the full list of signed
+//! Look up the runtime aggregator file (e.g. `node/runtime`) to see the full list of signed
 //! extensions included in a chain.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -77,6 +110,10 @@ use sp_runtime::{
 		Hash, Header, Lookup, LookupError, MaybeDisplay, MaybeSerializeDeserialize, Member, One,
 		Saturating, SimpleBitOps, StaticLookup, Zero,
 	},
+	transaction_validity::{
+		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
+		ValidTransaction,
+	},
 	DispatchError, RuntimeDebug,
 };
 #[cfg(any(feature = "std", test))]
@@ -90,13 +127,16 @@ use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
-		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass,
+		DispatchResult, DispatchResultWithPostInfo, PerDispatchClass, PostDispatchInfo,
 	},
-	impl_ensure_origin_with_arg_ignoring_arg,
+	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	migrations::MultiStepMigrator,
+	pallet_prelude::Pays,
 	storage::{self, StorageStreamIter},
 	traits::{
 		ConstU32, Contains, EnsureOrigin, EnsureOriginWithArg, Get, HandleLifetime,
-		OnKilledAccount, OnNewAccount, OriginTrait, PalletInfo, SortedMembers, StoredMap, TypedGet,
+		OnKilledAccount, OnNewAccount, OnRuntimeUpgrade, OriginTrait, PalletInfo, SortedMembers,
+		StoredMap, TypedGet,
 	},
 	Parameter,
 };
@@ -110,6 +150,7 @@ use sp_io::TestExternalities;
 pub mod limits;
 #[cfg(test)]
 pub(crate) mod mock;
+
 pub mod offchain;
 
 mod extensions;
@@ -130,6 +171,7 @@ pub use extensions::{
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
+use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::system";
@@ -198,6 +240,20 @@ impl<MaxNormal: Get<u32>, MaxOverflow: Get<u32>> ConsumerLimits for (MaxNormal, 
 	}
 }
 
+/// Information needed when a new runtime binary is submitted and needs to be authorized before
+/// replacing the current runtime.
+#[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct CodeUpgradeAuthorization<T>
+where
+	T: Config,
+{
+	/// Hash of the new runtime binary.
+	code_hash: T::Hash,
+	/// Whether or not to carry out version checks.
+	check_version: bool,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::{self as frame_system, pallet_prelude::*, *};
@@ -246,9 +302,14 @@ pub mod pallet {
 			type BaseCallFilter = frame_support::traits::Everything;
 			type BlockHashCount = frame_support::traits::ConstU64<10>;
 			type OnSetCode = ();
+			type SingleBlockMigrations = ();
+			type MultiBlockMigrator = ();
+			type PreInherents = ();
+			type PostInherents = ();
+			type PostTransactions = ();
 		}
 
-		/// Default configurations of this pallet in a solo-chain environment.
+		/// Default configurations of this pallet in a solochain environment.
 		///
 		/// ## Considerations:
 		///
@@ -340,6 +401,11 @@ pub mod pallet {
 
 			/// The set code logic, just the default since we're not a parachain.
 			type OnSetCode = ();
+			type SingleBlockMigrations = ();
+			type MultiBlockMigrator = ();
+			type PreInherents = ();
+			type PostInherents = ();
+			type PostTransactions = ();
 		}
 
 		/// Default configurations of this pallet in a relay-chain environment.
@@ -399,6 +465,7 @@ pub mod pallet {
 			+ Clone
 			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>;
 
+		#[docify::export(system_runtime_call)]
 		/// The aggregated `RuntimeCall` type.
 		#[pallet::no_default_bounds]
 		type RuntimeCall: Parameter
@@ -471,7 +538,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type DbWeight: Get<RuntimeDbWeight>;
 
-		/// Get the chain's current version.
+		/// Get the chain's in-code version.
 		#[pallet::constant]
 		type Version: Get<RuntimeVersion>;
 
@@ -518,6 +585,35 @@ pub mod pallet {
 
 		/// The maximum number of consumers allowed on a single account.
 		type MaxConsumers: ConsumerLimits;
+
+		/// All migrations that should run in the next runtime upgrade.
+		///
+		/// These used to be formerly configured in `Executive`. Parachains need to ensure that
+		/// running all these migrations in one block will not overflow the weight limit of a block.
+		/// The migrations are run *before* the pallet `on_runtime_upgrade` hooks, just like the
+		/// `OnRuntimeUpgrade` migrations.
+		type SingleBlockMigrations: OnRuntimeUpgrade;
+
+		/// The migrator that is used to run Multi-Block-Migrations.
+		///
+		/// Can be set to [`pallet-migrations`] or an alternative implementation of the interface.
+		/// The diagram in `frame_executive::block_flowchart` explains when it runs.
+		type MultiBlockMigrator: MultiStepMigrator;
+
+		/// A callback that executes in *every block* directly before all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		type PreInherents: PreInherents;
+
+		/// A callback that executes in *every block* directly after all inherents were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		type PostInherents: PostInherents;
+
+		/// A callback that executes in *every block* directly after all transactions were applied.
+		///
+		/// See `frame_executive::block_flowchart` for a in-depth explanation when it runs.
+		type PostTransactions: PostTransactions;
 	}
 
 	#[pallet::pallet]
@@ -565,6 +661,9 @@ pub mod pallet {
 		}
 
 		/// Set the new runtime code without doing any checks of the given `code`.
+		///
+		/// Note that runtime upgrades will not run if this is called with a not-increasing spec
+		/// version!
 		#[pallet::call_index(3)]
 		#[pallet::weight((T::SystemWeightInfo::set_code(), DispatchClass::Operational))]
 		pub fn set_code_without_checks(
@@ -661,6 +760,56 @@ pub mod pallet {
 			// Return success.
 			Ok(().into())
 		}
+
+		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
+		/// later.
+		///
+		/// This call requires Root origin.
+		#[pallet::call_index(9)]
+		#[pallet::weight((T::SystemWeightInfo::authorize_upgrade(), DispatchClass::Operational))]
+		pub fn authorize_upgrade(origin: OriginFor<T>, code_hash: T::Hash) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::do_authorize_upgrade(code_hash, true);
+			Ok(())
+		}
+
+		/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
+		/// later.
+		///
+		/// WARNING: This authorizes an upgrade that will take place without any safety checks, for
+		/// example that the spec name remains the same and that the version number increases. Not
+		/// recommended for normal use. Use `authorize_upgrade` instead.
+		///
+		/// This call requires Root origin.
+		#[pallet::call_index(10)]
+		#[pallet::weight((T::SystemWeightInfo::authorize_upgrade(), DispatchClass::Operational))]
+		pub fn authorize_upgrade_without_checks(
+			origin: OriginFor<T>,
+			code_hash: T::Hash,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::do_authorize_upgrade(code_hash, false);
+			Ok(())
+		}
+
+		/// Provide the preimage (runtime binary) `code` for an upgrade that has been authorized.
+		///
+		/// If the authorization required a version check, this call will ensure the spec name
+		/// remains unchanged and that the spec version has increased.
+		///
+		/// Depending on the runtime's `OnSetCode` configuration, this function may directly apply
+		/// the new `code` in the same block or attempt to schedule the upgrade.
+		///
+		/// All origins are allowed.
+		#[pallet::call_index(11)]
+		#[pallet::weight((T::SystemWeightInfo::apply_authorized_upgrade(), DispatchClass::Operational))]
+		pub fn apply_authorized_upgrade(
+			_: OriginFor<T>,
+			code: Vec<u8>,
+		) -> DispatchResultWithPostInfo {
+			let post = Self::do_apply_authorize_upgrade(code)?;
+			Ok(post)
+		}
 	}
 
 	/// Event for the System pallet.
@@ -687,6 +836,8 @@ pub mod pallet {
 		#[cfg(feature = "experimental")]
 		/// A [`Task`] failed during execution.
 		TaskFailed { task: T::RuntimeTask, err: DispatchError },
+		/// An upgrade was authorized.
+		UpgradeAuthorized { code_hash: T::Hash, check_version: bool },
 	}
 
 	/// Error for the System pallet
@@ -708,12 +859,18 @@ pub mod pallet {
 		NonZeroRefCount,
 		/// The origin filter prevent the call to be dispatched.
 		CallFiltered,
+		/// A multi-block migration is ongoing and prevents the current code from being replaced.
+		MultiBlockMigrationsOngoing,
 		#[cfg(feature = "experimental")]
 		/// The specified [`Task`] is not valid.
 		InvalidTask,
 		#[cfg(feature = "experimental")]
 		/// The specified [`Task`] failed during execution.
 		FailedTask,
+		/// No upgrade authorized.
+		NothingAuthorized,
+		/// The submitted code is not authorized.
+		Unauthorized,
 	}
 
 	/// Exposed trait-generic origin type.
@@ -735,11 +892,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
 
+	/// Whether all inherents have been applied.
+	#[pallet::storage]
+	pub type InherentsApplied<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// The current weight for the block.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn block_weight)]
-	pub(super) type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
+	pub type BlockWeight<T: Config> = StorageValue<_, ConsumedWeight, ValueQuery>;
 
 	/// Total length (in bytes) for all extrinsics put together, for the current block.
 	#[pallet::storage]
@@ -784,6 +945,7 @@ pub mod pallet {
 	/// just in case someone still reads them from within the runtime.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
+	#[pallet::disable_try_decode_storage]
 	#[pallet::unbounded]
 	pub(super) type Events<T: Config> =
 		StorageValue<_, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, ValueQuery>;
@@ -829,6 +991,12 @@ pub mod pallet {
 	#[pallet::whitelist_storage]
 	pub(super) type ExecutionPhase<T: Config> = StorageValue<_, Phase>;
 
+	/// `Some` if a code upgrade has been authorized.
+	#[pallet::storage]
+	#[pallet::getter(fn authorized_upgrade)]
+	pub(super) type AuthorizedUpgrade<T: Config> =
+		StorageValue<_, CodeUpgradeAuthorization<T>, OptionQuery>;
+
 	#[derive(frame_support::DefaultNoBound)]
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -846,6 +1014,25 @@ pub mod pallet {
 			<UpgradedToTripleRefCount<T>>::put(true);
 
 			sp_io::storage::set(well_known_keys::EXTRINSIC_INDEX, &0u32.encode());
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			if let Call::apply_authorized_upgrade { ref code } = call {
+				if let Ok(hash) = Self::validate_authorized_upgrade(&code[..]) {
+					return Ok(ValidTransaction {
+						priority: 100,
+						requires: Vec::new(),
+						provides: vec![hash.as_ref().to_vec()],
+						longevity: TransactionLongevity::max_value(),
+						propagate: true,
+					})
+				}
+			}
+			Err(InvalidTransaction::Call.into())
 		}
 	}
 }
@@ -1237,6 +1424,19 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::CodeUpdated);
 	}
 
+	/// Whether all inherents have been applied.
+	pub fn inherents_applied() -> bool {
+		InherentsApplied::<T>::get()
+	}
+
+	/// Note that all inherents have been applied.
+	///
+	/// Should be called immediately after all inherents have been applied. Must be called at least
+	/// once per block.
+	pub fn note_inherents_applied() {
+		InherentsApplied::<T>::put(true);
+	}
+
 	/// Increment the reference counter on an account.
 	#[deprecated = "Use `inc_consumers` instead"]
 	pub fn inc_ref(who: &T::AccountId) {
@@ -1556,6 +1756,7 @@ impl<T: Config> Pallet<T> {
 		<Digest<T>>::put(digest);
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
+		<InherentsApplied<T>>::kill();
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
@@ -1602,6 +1803,7 @@ impl<T: Config> Pallet<T> {
 		ExecutionPhase::<T>::kill();
 		AllExtrinsicsLen::<T>::kill();
 		storage::unhashed::kill(well_known_keys::INTRABLOCK_ENTROPY);
+		InherentsApplied::<T>::kill();
 
 		// The following fields
 		//
@@ -1845,10 +2047,14 @@ impl<T: Config> Pallet<T> {
 
 	/// Determine whether or not it is possible to update the code.
 	///
-	/// Checks the given code if it is a valid runtime wasm blob by instantianting
+	/// Checks the given code if it is a valid runtime wasm blob by instantiating
 	/// it and extracting the runtime version of it. It checks that the runtime version
 	/// of the old and new runtime has the same spec name and that the spec version is increasing.
 	pub fn can_set_code(code: &[u8]) -> Result<(), sp_runtime::DispatchError> {
+		if T::MultiBlockMigrator::ongoing() {
+			return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+		}
+
 		let current_version = T::Version::get();
 		let new_version = sp_io::misc::runtime_version(code)
 			.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
@@ -1871,6 +2077,41 @@ impl<T: Config> Pallet<T> {
 				Ok(())
 			}
 		}
+	}
+
+	/// To be called after any origin/privilege checks. Put the code upgrade authorization into
+	/// storage and emit an event. Infallible.
+	pub fn do_authorize_upgrade(code_hash: T::Hash, check_version: bool) {
+		AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
+		Self::deposit_event(Event::UpgradeAuthorized { code_hash, check_version });
+	}
+
+	/// Apply an authorized upgrade, performing any validation checks, and remove the authorization.
+	/// Whether or not the code is set directly depends on the `OnSetCode` configuration of the
+	/// runtime.
+	pub fn do_apply_authorize_upgrade(code: Vec<u8>) -> Result<PostDispatchInfo, DispatchError> {
+		Self::validate_authorized_upgrade(&code[..])?;
+		T::OnSetCode::set_code(code)?;
+		AuthorizedUpgrade::<T>::kill();
+		let post = PostDispatchInfo {
+			// consume the rest of the block to prevent further transactions
+			actual_weight: Some(T::BlockWeights::get().max_block),
+			// no fee for valid upgrade
+			pays_fee: Pays::No,
+		};
+		Ok(post)
+	}
+
+	/// Check that provided `code` can be upgraded to. Namely, check that its hash matches an
+	/// existing authorization and that it meets the specification requirements of `can_set_code`.
+	pub fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
+		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
+		let actual_hash = T::Hashing::hash(code);
+		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);
+		if authorization.check_version {
+			Self::can_set_code(code)?
+		}
+		Ok(actual_hash)
 	}
 }
 

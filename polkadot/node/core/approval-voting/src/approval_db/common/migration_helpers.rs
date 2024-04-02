@@ -20,6 +20,7 @@ use polkadot_node_primitives::approval::{
 	v1::{AssignmentCert, AssignmentCertKind, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT},
 	v2::VrfPreOutput,
 };
+
 pub fn make_bitvec(len: usize) -> BitVec<u8, BitOrderLsb0> {
 	bitvec::bitvec![u8, BitOrderLsb0; 0; len]
 }
@@ -30,10 +31,10 @@ pub fn dummy_assignment_cert(kind: AssignmentCertKind) -> AssignmentCert {
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
+	let preout = inout.to_preout();
 
 	AssignmentCert {
 		kind,
-		vrf: VrfSignature { pre_output: VrfPreOutput(out), proof: VrfProof(proof) },
+		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
 	}
 }

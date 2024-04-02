@@ -19,3 +19,4 @@ asset-hub-rococo-emulated-chain = { path = "../../chains/parachains/assets/asset
 asset-hub-westend-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-westend" }
 bridge-hub-rococo-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-rococo" }
 bridge-hub-westend-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-westend" }
+penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }

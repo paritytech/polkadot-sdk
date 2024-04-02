@@ -53,11 +53,6 @@ use polkadot_node_subsystem::{
 
 use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, ValidatorIndex};
 
-/// Peer set info for network initialization.
-///
-/// To be passed to [`FullNetworkConfiguration::add_notification_protocol`]().
-pub use polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
-
 use std::{
 	collections::{hash_map, HashMap},
 	iter::ExactSizeIterator,
@@ -267,7 +262,6 @@ async fn handle_validation_message<AD>(
 				}
 
 				metrics.on_peer_connected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				shared.local_view.clone().unwrap_or(View::default())
 			};
@@ -325,8 +319,6 @@ async fn handle_validation_message<AD>(
 				let w = peer_map.remove(&peer).is_some();
 
 				metrics.on_peer_disconnected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
-
 				w
 			};
 
@@ -529,7 +521,6 @@ async fn handle_collation_message<AD>(
 				}
 
 				metrics.on_peer_connected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				shared.local_view.clone().unwrap_or(View::default())
 			};
@@ -580,7 +571,6 @@ async fn handle_collation_message<AD>(
 				let w = peer_map.remove(&peer).is_some();
 
 				metrics.on_peer_disconnected(peer_set, version);
-				metrics.note_peer_count(peer_set, version, peer_map.len());
 
 				w
 			};
@@ -837,6 +827,7 @@ where
 							&metrics,
 							&notification_sinks,
 						);
+						note_peers_count(&metrics, &shared);
 					}
 				}
 			},

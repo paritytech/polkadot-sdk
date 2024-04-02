@@ -11,15 +11,17 @@ description = "Fixtures for testing contracts pallet."
 workspace = true
 
 [dependencies]
-wat = "1"
 frame-system = { path = "../../system" }
 sp-runtime = { path = "../../../primitives/runtime" }
-anyhow = "1.0.0"
+anyhow = "1.0.81"
 
 [build-dependencies]
 parity-wasm = "0.45.0"
 tempfile = "3.8.1"
 toml = "0.8.2"
 twox-hash = "1.6.3"
-anyhow = "1.0.0"
-cfg-if = { version = "1.0", default-features = false }
+polkavm-linker = { workspace = true, optional = true }
+anyhow = "1.0.81"
+
+[features]
+riscv = ["polkavm-linker"]

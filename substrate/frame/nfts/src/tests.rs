@@ -440,6 +440,12 @@ fn mint_should_work() {
 			account(2),
 			Some(MintWitness { owned_item: Some(43), ..Default::default() })
 		));
+		assert!(events().contains(&Event::<Test>::PalletAttributeSet {
+			collection: 0,
+			item: Some(43),
+			attribute: PalletAttributes::<<Test as Config>::CollectionId>::UsedToClaim(1),
+			value: Nfts::construct_attribute_value(vec![]).unwrap(),
+		}));
 
 		// can't mint twice
 		assert_noop!(
@@ -614,8 +620,13 @@ fn transfer_owner_should_work() {
 			Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)),
 			Error::<Test>::Unaccepted
 		);
+		assert_eq!(System::consumers(&account(2)), 0);
+
 		assert_ok!(Nfts::set_accept_ownership(RuntimeOrigin::signed(account(2)), Some(0)));
+		assert_eq!(System::consumers(&account(2)), 1);
+
 		assert_ok!(Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)));
+		assert_eq!(System::consumers(&account(2)), 1); // one consumer is added due to deposit repatriation
 
 		assert_eq!(collections(), vec![(account(2), 0)]);
 		assert_eq!(Balances::total_balance(&account(1)), 98);

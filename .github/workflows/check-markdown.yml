@@ -16,7 +16,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - uses: actions/setup-node@v4.0.0
+      - uses: actions/setup-node@v4.0.1
         with:
           node-version: "18.x"
           registry-url: "https://npm.pkg.github.com"
@@ -31,4 +31,5 @@ jobs:
         env:
           CONFIG: .github/.markdownlint.yaml
         run: |
+          echo "Checking markdown formatting. More info: docs/contributor/markdown_linting.md"
           markdownlint --config "$CONFIG" --ignore target .

@@ -148,7 +148,7 @@ mod tests {
 	use xcm_simulator::TestExt;
 
 	// Helper function for forming buy execution message
-	fn buy_execution<C>(fees: impl Into<MultiAsset>) -> Instruction<C> {
+	fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 		BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 	}
 
@@ -250,12 +250,13 @@ mod tests {
 		let withdraw_amount = 123;
 
 		Relay::execute_with(|| {
-			assert_ok!(RelayChainPalletXcm::reserve_transfer_assets(
+			assert_ok!(RelayChainPalletXcm::limited_reserve_transfer_assets(
 				relay_chain::RuntimeOrigin::signed(ALICE),
 				Box::new(Parachain(1).into()),
 				Box::new(AccountId32 { network: None, id: ALICE.into() }.into()),
 				Box::new((Here, withdraw_amount).into()),
 				0,
+				Unlimited,
 			));
 			assert_eq!(
 				relay_chain::Balances::free_balance(&child_account_id(1)),
@@ -424,7 +425,7 @@ mod tests {
 
 	/// Scenario:
 	/// The relay-chain transfers an NFT into a parachain's sovereign account, who then mints a
-	/// trustless-backed-derivated locally.
+	/// trustless-backed-derived locally.
 	///
 	/// Asserts that the parachain accounts are updated as expected.
 	#[test]
@@ -479,7 +480,7 @@ mod tests {
 			assert_ok!(ParachainPalletXcm::send_xcm(alice, Parent, message));
 		});
 		ParaA::execute_with(|| {
-			log::debug!(target: "xcm-exceutor", "Hello");
+			log::debug!(target: "xcm-executor", "Hello");
 			assert_eq!(
 				parachain::ForeignUniques::owner((Parent, GeneralIndex(2)).into(), 69u32.into()),
 				Some(ALICE),
@@ -642,7 +643,7 @@ mod tests {
 				parachain::MsgQueue::received_dmp(),
 				vec![Xcm(vec![QueryResponse {
 					query_id: query_id_set,
-					response: Response::Assets(MultiAssets::new()),
+					response: Response::Assets(Assets::new()),
 					max_weight: Weight::from_parts(1_000_000_000, 1024 * 1024),
 					querier: Some(Here.into()),
 				}])],

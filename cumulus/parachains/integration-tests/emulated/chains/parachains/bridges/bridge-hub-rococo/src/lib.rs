@@ -36,10 +36,14 @@ decl_test_parachains! {
 			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
 			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
+			MessageOrigin: bridge_hub_common::AggregateMessageOrigin,
 		},
 		pallets = {
 			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
 			Balances: bridge_hub_rococo_runtime::Balances,
+			EthereumSystem: bridge_hub_rococo_runtime::EthereumSystem,
+			EthereumInboundQueue: bridge_hub_rococo_runtime::EthereumInboundQueue,
+			EthereumOutboundQueue: bridge_hub_rococo_runtime::EthereumOutboundQueue,
 		}
 	},
 }

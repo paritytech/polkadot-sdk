@@ -170,7 +170,7 @@ where
 			.flatten()
 			.and_then(|hash| self.client.justifications(hash).ok().flatten())
 			.and_then(|justifs| justifs.get(BEEFY_ENGINE_ID).cloned())
-			.ok_or_else(|| reputation_changes.push(cost::UNKOWN_PROOF_REQUEST));
+			.ok_or_else(|| reputation_changes.push(cost::UNKNOWN_PROOF_REQUEST));
 		request
 			.pending_response
 			.send(netconfig::OutgoingResponse {
@@ -201,7 +201,7 @@ where
 			let peer = request.peer;
 			match self.handle_request(request) {
 				Ok(()) => {
-					metric_inc!(self, beefy_successful_justification_responses);
+					metric_inc!(self.metrics, beefy_successful_justification_responses);
 					debug!(
 						target: BEEFY_SYNC_LOG_TARGET,
 						"🥩 Handled BEEFY justification request from {:?}.", peer
@@ -209,7 +209,7 @@ where
 				},
 				Err(e) => {
 					// peer reputation changes already applied in `self.handle_request()`
-					metric_inc!(self, beefy_failed_justification_responses);
+					metric_inc!(self.metrics, beefy_failed_justification_responses);
 					debug!(
 						target: BEEFY_SYNC_LOG_TARGET,
 						"🥩 Failed to handle BEEFY justification request from {:?}: {}", peer, e,

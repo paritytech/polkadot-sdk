@@ -20,7 +20,9 @@
 extern crate common;
 
 #[no_mangle]
+#[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {}
 
 #[no_mangle]
+#[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {}

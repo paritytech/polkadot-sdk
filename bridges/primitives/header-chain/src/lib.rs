@@ -17,6 +17,7 @@
 //! Defines traits which represent a common interface for Substrate pallets which want to
 //! incorporate bridge functionality.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::justification::{
@@ -145,6 +146,7 @@ pub trait ConsensusLogReader {
 pub struct GrandpaConsensusLogReader<Number>(sp_std::marker::PhantomData<Number>);
 
 impl<Number: Codec> GrandpaConsensusLogReader<Number> {
+	/// Find and return scheduled (regular) change digest item.
 	pub fn find_scheduled_change(
 		digest: &Digest,
 	) -> Option<sp_consensus_grandpa::ScheduledChange<Number>> {
@@ -158,6 +160,8 @@ impl<Number: Codec> GrandpaConsensusLogReader<Number> {
 			})
 	}
 
+	/// Find and return forced change digest item. Or light client can't do anything
+	/// with forced changes, so we can't accept header with the forced change digest.
 	pub fn find_forced_change(
 		digest: &Digest,
 	) -> Option<(Number, sp_consensus_grandpa::ScheduledChange<Number>)> {
@@ -229,12 +233,27 @@ pub enum BridgeGrandpaCall<Header: HeaderT> {
 	/// `pallet-bridge-grandpa::Call::submit_finality_proof`
 	#[codec(index = 0)]
 	submit_finality_proof {
+		/// The header that we are going to finalize.
 		finality_target: Box<Header>,
+		/// Finality justification for the `finality_target`.
 		justification: justification::GrandpaJustification<Header>,
 	},
 	/// `pallet-bridge-grandpa::Call::initialize`
 	#[codec(index = 1)]
-	initialize { init_data: InitializationData<Header> },
+	initialize {
+		/// All data, required to initialize the pallet.
+		init_data: InitializationData<Header>,
+	},
+	/// `pallet-bridge-grandpa::Call::submit_finality_proof_ex`
+	#[codec(index = 4)]
+	submit_finality_proof_ex {
+		/// The header that we are going to finalize.
+		finality_target: Box<Header>,
+		/// Finality justification for the `finality_target`.
+		justification: justification::GrandpaJustification<Header>,
+		/// An identifier of the validators set, that have signed the justification.
+		current_set_id: SetId,
+	},
 }
 
 /// The `BridgeGrandpaCall` used by a chain.
@@ -264,7 +283,7 @@ pub trait ChainWithGrandpa: Chain {
 	/// ancestry and the pallet will accept such justification. The limit is only used to compute
 	/// maximal refund amount and submitting justifications which exceed the limit, may be costly
 	/// to submitter.
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32;
 
 	/// Maximal size of the mandatory chain header. Mandatory header is the header that enacts new
 	/// GRANDPA authorities set (so it has large digest inside).
@@ -298,8 +317,8 @@ where
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
 		<T::Chain as ChainWithGrandpa>::WITH_CHAIN_GRANDPA_PALLET_NAME;
 	const MAX_AUTHORITIES_COUNT: u32 = <T::Chain as ChainWithGrandpa>::MAX_AUTHORITIES_COUNT;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
-		<T::Chain as ChainWithGrandpa>::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 =
+		<T::Chain as ChainWithGrandpa>::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
 	const MAX_MANDATORY_HEADER_SIZE: u32 =
 		<T::Chain as ChainWithGrandpa>::MAX_MANDATORY_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE: u32 = <T::Chain as ChainWithGrandpa>::AVERAGE_HEADER_SIZE;
@@ -325,12 +344,15 @@ pub fn max_expected_submit_finality_proof_arguments_size<C: ChainWithGrandpa>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use bp_runtime::ChainId;
 	use frame_support::weights::Weight;
 	use sp_runtime::{testing::H256, traits::BlakeTwo256, MultiSignature};
 
 	struct TestChain;
 
 	impl Chain for TestChain {
+		const ID: ChainId = *b"test";
+
 		type BlockNumber = u32;
 		type Hash = H256;
 		type Hasher = BlakeTwo256;
@@ -351,7 +373,7 @@ mod tests {
 	impl ChainWithGrandpa for TestChain {
 		const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "Test";
 		const MAX_AUTHORITIES_COUNT: u32 = 128;
-		const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
+		const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 2;
 		const MAX_MANDATORY_HEADER_SIZE: u32 = 100_000;
 		const AVERAGE_HEADER_SIZE: u32 = 1_024;
 	}

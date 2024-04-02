@@ -20,4 +20,4 @@
 //! - how to write benchmarks, how you must think of worst case.
 //! - how to run benchmarks.
 //!
-//! - https://www.shawntabrizi.com/substrate/substrate-storage-deep-dive/
+//! - <https://www.shawntabrizi.com/assets/presentations/substrate-storage-deep-dive.pdf>

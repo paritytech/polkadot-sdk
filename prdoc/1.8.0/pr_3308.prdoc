@@ -1,0 +1,14 @@
+title: "Parachains-Aura: Only produce once per slot"
+
+doc:
+  - audience: Node Dev
+    description: |
+      With the introduction of asynchronous backing the relay chain allows parachain to include blocks every 6 seconds.
+      The Cumulus Aura implementations, besides the lookahead collator, are building blocks when there is a free slot for
+      the parachain in the relay chain. Most parachains are still running with a 12s slot duration and not allowing
+      to build multiple blocks per slot. But, the block production logic will be triggered every 6s, resulting in error
+      logs like: "no space left for the block in the unincluded segment". This is solved by ensuring that we don't build
+      multiple blocks per slot.
+
+crates:
+  - name: "cumulus-client-consensus-aura"

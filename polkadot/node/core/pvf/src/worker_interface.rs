@@ -105,9 +105,9 @@ pub async fn spawn_with_program_path(
 		gum::warn!(
 			target: LOG_TARGET,
 			%debug_id,
-			?program_path_clone,
-			?extra_args_clone,
-			?worker_dir_clone,
+			program_path = ?program_path_clone,
+			extra_args = ?extra_args_clone,
+			worker_dir = ?worker_dir_clone,
 			"error spawning worker: {}",
 			err,
 		);
@@ -130,11 +130,11 @@ where
 		fn make_tmppath(prefix: &str, dir: &Path) -> PathBuf {
 			use rand::distributions::Alphanumeric;
 
-			const DESCRIMINATOR_LEN: usize = 10;
+			const DISCRIMINATOR_LEN: usize = 10;
 
-			let mut buf = Vec::with_capacity(prefix.len() + DESCRIMINATOR_LEN);
+			let mut buf = Vec::with_capacity(prefix.len() + DISCRIMINATOR_LEN);
 			buf.extend(prefix.as_bytes());
-			buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DESCRIMINATOR_LEN));
+			buf.extend(rand::thread_rng().sample_iter(&Alphanumeric).take(DISCRIMINATOR_LEN));
 
 			let s = std::str::from_utf8(&buf)
 				.expect("the string is collected from a valid utf-8 sequence; qed");
@@ -384,10 +384,12 @@ pub struct WorkerDir {
 	tempdir: tempfile::TempDir,
 }
 
+pub const WORKER_DIR_PREFIX: &str = "worker-dir";
+
 impl WorkerDir {
 	/// Creates a new, empty worker dir with a random name in the given cache dir.
 	pub async fn new(debug_id: &'static str, cache_dir: &Path) -> Result<Self, SpawnErr> {
-		let prefix = format!("worker-dir-{}-", debug_id);
+		let prefix = format!("{WORKER_DIR_PREFIX}-{debug_id}-");
 		let tempdir = tempfile::Builder::new()
 			.prefix(&prefix)
 			.tempdir_in(cache_dir)

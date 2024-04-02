@@ -36,9 +36,9 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FungibleAdapter, IsConcrete,
-	NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation,
+	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
+	FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
@@ -49,7 +49,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -95,7 +95,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -120,17 +119,19 @@ impl pallet_uniques::Config for Runtime {
 	type Helper = ();
 }
 
-impl shared::Config for Runtime {}
+impl shared::Config for Runtime {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
 }
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub const TokenLocation: Location = Here.into_location();
 	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 }
 
@@ -162,7 +163,7 @@ type LocalOriginConverter = (
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub TokensPerSecondPerByte: (AssetId, u128, u128) =
-		(Concrete(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
+		(AssetId(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -196,6 +197,10 @@ impl Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
@@ -270,6 +275,7 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = MessageQueueHeapSize;
 	type MaxStale = MessageQueueMaxStale;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = ();
 	type MessageProcessor = MessageProcessor;
 	type QueueChangeHandler = ();
 	type QueuePausedQuery = ();
@@ -279,11 +285,11 @@ impl pallet_message_queue::Config for Runtime {
 construct_runtime!(
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ParasOrigin: origin::{Pallet, Origin},
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin},
-		Uniques: pallet_uniques::{Pallet, Call, Storage, Event<T>},
-		MessageQueue: pallet_message_queue::{Pallet, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		ParasOrigin: origin,
+		XcmPallet: pallet_xcm,
+		Uniques: pallet_uniques,
+		MessageQueue: pallet_message_queue,
 	}
 );

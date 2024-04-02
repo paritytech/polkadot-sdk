@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::tests::*;
+use codec::Encode;
 
 #[test]
 fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable() {
@@ -26,11 +27,11 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 
 	let remote_xcm = Xcm(vec![ClearOrigin]);
 
-	let xcm = VersionedXcm::from(Xcm(vec![
+	let xcm = VersionedXcm::from(Xcm::<()>(vec![
 		UnpaidExecution { weight_limit, check_origin },
 		ExportMessage {
 			network: RococoId,
-			destination: X1(Parachain(AssetHubRococo::para_id().into())),
+			destination: [Parachain(AssetHubRococo::para_id().into())].into(),
 			xcm: remote_xcm,
 		},
 	]));
@@ -38,10 +39,10 @@ fn send_xcm_from_westend_relay_to_rococo_asset_hub_should_fail_on_not_applicable
 	// Westend Global Consensus
 	// Send XCM message from Relay Chain to Bridge Hub source Parachain
 	Westend::execute_with(|| {
-		assert_ok!(<Westend as WestendPallet>::XcmPallet::send(
+		assert_ok!(<Westend as WestendPallet>::XcmPallet::send_blob(
 			sudo_origin,
 			bx!(destination),
-			bx!(xcm),
+			xcm.encode().try_into().unwrap(),
 		));
 
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
@@ -68,7 +69,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 
 	// prepare data
 	let destination = asset_hub_rococo_location();
-	let native_token = MultiLocation::parent();
+	let native_token = Location::parent();
 	let amount = ASSET_HUB_WESTEND_ED * 1_000;
 
 	// fund the AHR's SA on BHR for paying bridge transport fees
@@ -78,7 +79,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 
 	// send XCM from AssetHubWestend - fails - destination version not known
 	assert_err!(
-		send_asset_from_asset_hub_westend(destination, (native_token, amount)),
+		send_asset_from_asset_hub_westend(destination.clone(), (native_token.clone(), amount)),
 		DispatchError::Module(sp_runtime::ModuleError {
 			index: 31,
 			error: [1, 0, 0, 0],
@@ -87,7 +88,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	);
 
 	// set destination version
-	AssetHubWestend::force_xcm_version(destination, xcm::v3::prelude::XCM_VERSION);
+	AssetHubWestend::force_xcm_version(destination.clone(), xcm::v3::prelude::XCM_VERSION);
 
 	// TODO: remove this block, when removing `xcm:v2`
 	{
@@ -95,7 +96,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		// version, which does not have the `ExportMessage` instruction. If the default `2` is
 		// changed to `3`, then this assert can go away"
 		assert_err!(
-			send_asset_from_asset_hub_westend(destination, (native_token, amount)),
+			send_asset_from_asset_hub_westend(destination.clone(), (native_token.clone(), amount)),
 			DispatchError::Module(sp_runtime::ModuleError {
 				index: 31,
 				error: [1, 0, 0, 0],
@@ -110,7 +111,7 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		);
 		// send XCM from AssetHubWestend - fails - `ExportMessage` is not in `2`
 		assert_err!(
-			send_asset_from_asset_hub_westend(destination, (native_token, amount)),
+			send_asset_from_asset_hub_westend(destination.clone(), (native_token.clone(), amount)),
 			DispatchError::Module(sp_runtime::ModuleError {
 				index: 31,
 				error: [1, 0, 0, 0],
@@ -125,7 +126,10 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		xcm::v3::prelude::XCM_VERSION,
 	);
 	// send XCM from AssetHubWestend - ok
-	assert_ok!(send_asset_from_asset_hub_westend(destination, (native_token, amount)));
+	assert_ok!(send_asset_from_asset_hub_westend(
+		destination.clone(),
+		(native_token.clone(), amount)
+	));
 
 	// `ExportMessage` on local BridgeHub - fails - remote BridgeHub version not known
 	assert_bridge_hub_westend_message_accepted(false);
@@ -142,7 +146,10 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	);
 
 	// send XCM from AssetHubWestend - ok
-	assert_ok!(send_asset_from_asset_hub_westend(destination, (native_token, amount)));
+	assert_ok!(send_asset_from_asset_hub_westend(
+		destination.clone(),
+		(native_token.clone(), amount)
+	));
 	assert_bridge_hub_westend_message_accepted(true);
 	assert_bridge_hub_rococo_message_received();
 	// message delivered and processed at destination

@@ -42,9 +42,7 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
-pub use nonfungible_impl::*;
 pub use types::*;
-pub use utility_impls::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -160,6 +158,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type InstaPoolHistory<T> =
 		StorageMap<_, Blake2_128Concat, Timeslice, InstaPoolHistoryRecordOf<T>>;
+
+	/// Received core count change from the relay chain.
+	#[pallet::storage]
+	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -625,7 +627,7 @@ pub mod pallet {
 		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
 		/// - `region_id`: The Region which should become two interlaced Regions of incomplete
 		///   regularity.
-		/// - `pivot`: The interlace mask of on of the two new regions (the other it its partial
+		/// - `pivot`: The interlace mask of one of the two new regions (the other is its partial
 		///   complement).
 		#[pallet::call_index(9)]
 		pub fn interlace(
@@ -681,7 +683,7 @@ pub mod pallet {
 		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
 		/// - `region_id`: The Region which was assigned to the Pool.
 		/// - `max_timeslices`: The maximum number of timeslices which should be processed. This may
-		///   effect the weight of the call but should be ideally made equivalant to the length of
+		///   effect the weight of the call but should be ideally made equivalent to the length of
 		///   the Region `region_id`. If it is less than this, then further dispatches will be
 		///   required with the `region_id` which makes up any remainders of the region to be
 		///   collected.
@@ -774,6 +776,22 @@ pub mod pallet {
 		pub fn request_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_request_core_count(core_count)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(19)]
+		#[pallet::weight(T::WeightInfo::notify_core_count())]
+		pub fn notify_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_notify_core_count(core_count)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(99)]
+		#[pallet::weight(T::WeightInfo::swap_leases())]
+		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_swap_leases(id, other)?;
 			Ok(())
 		}
 	}

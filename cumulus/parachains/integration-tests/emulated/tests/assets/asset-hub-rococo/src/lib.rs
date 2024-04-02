@@ -13,94 +13,74 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use codec::Encode;
+#[cfg(test)]
+mod imports {
+	pub use codec::Encode;
 
-// Substrate
-pub use frame_support::{
-	assert_err, assert_ok,
-	pallet_prelude::Weight,
-	sp_runtime::{AccountId32, DispatchError, DispatchResult},
-	traits::fungibles::Inspect,
-};
+	// Substrate
+	pub use frame_support::{
+		assert_err, assert_ok,
+		pallet_prelude::Weight,
+		sp_runtime::{DispatchError, DispatchResult, ModuleError},
+		traits::fungibles::Inspect,
+	};
 
-// Polkadot
-pub use xcm::{
-	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
-};
+	// Polkadot
+	pub use xcm::{
+		prelude::{AccountId32 as AccountId32Junction, *},
+		v3,
+	};
 
-// Cumulus
-pub use asset_test_utils::xcm_helpers;
-pub use emulated_integration_tests_common::{
-	test_parachain_is_trusted_teleporter,
-	xcm_emulator::{
-		assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
-		RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
-	},
-	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
-	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
-};
-pub use parachains_common::{AccountId, Balance};
-pub use rococo_system_emulated_network::{
-	asset_hub_rococo_emulated_chain::{
-		genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
-	},
-	penpal_emulated_chain::PenpalAParaPallet as PenpalAPallet,
-	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
-	AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
-	AssetHubRococoParaSender as AssetHubRococoSender, BridgeHubRococoPara as BridgeHubRococo,
-	BridgeHubRococoParaReceiver as BridgeHubRococoReceiver, PenpalAPara as PenpalA,
-	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
-	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-	RococoRelaySender as RococoSender,
-};
+	// Cumulus
+	pub use asset_test_utils::xcm_helpers;
+	pub use emulated_integration_tests_common::{
+		test_parachain_is_trusted_teleporter,
+		xcm_emulator::{
+			assert_expected_events, bx, Chain, Parachain as Para, RelayChain as Relay, Test,
+			TestArgs, TestContext, TestExt,
+		},
+		xcm_helpers::{non_fee_asset, xcm_transact_paid_execution},
+		ASSETS_PALLET_ID, RESERVABLE_ASSET_ID, XCM_V3,
+	};
+	pub use parachains_common::Balance;
+	pub use rococo_system_emulated_network::{
+		asset_hub_rococo_emulated_chain::{
+			genesis::{AssetHubRococoAssetOwner, ED as ASSET_HUB_ROCOCO_ED},
+			AssetHubRococoParaPallet as AssetHubRococoPallet,
+		},
+		penpal_emulated_chain::{
+			PenpalAParaPallet as PenpalAPallet, PenpalAssetOwner,
+			PenpalBParaPallet as PenpalBPallet, ED as PENPAL_ED,
+		},
+		rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
+		AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
+		AssetHubRococoParaSender as AssetHubRococoSender, BridgeHubRococoPara as BridgeHubRococo,
+		BridgeHubRococoParaReceiver as BridgeHubRococoReceiver, PenpalAPara as PenpalA,
+		PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
+		PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver, RococoRelay as Rococo,
+		RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
+	};
 
-pub const ASSET_ID: u32 = 1;
-pub const ASSET_MIN_BALANCE: u128 = 1000;
-// `Assets` pallet index
-pub const ASSETS_PALLET_ID: u8 = 50;
+	// Runtimes
+	pub use asset_hub_rococo_runtime::xcm_config::{
+		TokenLocation as RelayLocation, XcmConfig as AssetHubRococoXcmConfig,
+	};
+	pub use penpal_runtime::xcm_config::{
+		LocalReservableFromAssetHub as PenpalLocalReservableFromAssetHub,
+		LocalTeleportableToAssetHub as PenpalLocalTeleportableToAssetHub,
+	};
+	pub use rococo_runtime::xcm_config::XcmConfig as RococoXcmConfig;
 
-pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
-pub type RelayToParaTest = Test<Rococo, PenpalA>;
-pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
-pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
-pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
+	pub const ASSET_ID: u32 = 3;
+	pub const ASSET_MIN_BALANCE: u128 = 1000;
 
-/// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
-pub fn relay_test_args(
-	dest: MultiLocation,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-) -> TestArgs {
-	TestArgs {
-		dest,
-		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
-		amount,
-		assets: (Here, amount).into(),
-		asset_id: None,
-		fee_asset_item: 0,
-		weight_limit: WeightLimit::Unlimited,
-	}
-}
-
-/// Returns a `TestArgs` instance to be used by parachains across integration tests
-pub fn para_test_args(
-	dest: MultiLocation,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-	assets: MultiAssets,
-	asset_id: Option<u32>,
-	fee_asset_item: u32,
-) -> TestArgs {
-	TestArgs {
-		dest,
-		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
-		amount,
-		assets,
-		asset_id,
-		fee_asset_item,
-		weight_limit: WeightLimit::Unlimited,
-	}
+	pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
+	pub type RelayToParaTest = Test<Rococo, PenpalA>;
+	pub type ParaToRelayTest = Test<PenpalA, Rococo>;
+	pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
+	pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
+	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
+	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Rococo>;
 }
 
 #[cfg(test)]

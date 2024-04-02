@@ -135,7 +135,7 @@ pub mod pallet {
 		/// The origin that is allowed to resume or suspend the XCMP queue.
 		type ControllerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The conversion function used to attempt to convert an XCM `MultiLocation` origin to a
+		/// The conversion function used to attempt to convert an XCM `Location` origin to a
 		/// superuser origin.
 		type ControllerOriginConverter: ConvertOrigin<Self::RuntimeOrigin>;
 
@@ -462,7 +462,7 @@ impl<T: Config> Pallet<T> {
 		// Max message size refers to aggregates, or pages. Not to individual fragments.
 		let max_message_size = channel_info.max_message_size as usize;
 		let format_size = format.encoded_size();
-		// We check the encoded fragment length plus the format size agains the max message size
+		// We check the encoded fragment length plus the format size against the max message size
 		// because the format is concatenated if a new page is needed.
 		let size_to_check = encoded_fragment
 			.len()
@@ -600,7 +600,7 @@ impl<T: Config> Pallet<T> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
 		let fp = T::XcmpQueue::footprint(sender);
 		// Assume that it will not fit into the current page:
-		let new_pages = fp.pages.saturating_add(1);
+		let new_pages = fp.ready_pages.saturating_add(1);
 		if new_pages > drop_threshold {
 			// This should not happen since the channel should have been suspended in
 			// [`on_queue_changed`].
@@ -663,12 +663,12 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 		let mut suspended_channels = <InboundXcmpSuspended<T>>::get();
 		let suspended = suspended_channels.contains(&para);
 
-		if suspended && fp.pages <= resume_threshold {
+		if suspended && fp.ready_pages <= resume_threshold {
 			Self::send_signal(para, ChannelSignal::Resume);
 
 			suspended_channels.remove(&para);
 			<InboundXcmpSuspended<T>>::put(suspended_channels);
-		} else if !suspended && fp.pages >= suspend_threshold {
+		} else if !suspended && fp.ready_pages >= suspend_threshold {
 			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
 			Self::send_signal(para, ChannelSignal::Suspend);
 
@@ -903,14 +903,14 @@ impl<T: Config> SendXcm for Pallet<T> {
 	type Ticket = (ParaId, VersionedXcm<()>);
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(ParaId, VersionedXcm<()>)> {
 		let d = dest.take().ok_or(SendError::MissingArgument)?;
 
-		match &d {
+		match d.unpack() {
 			// An HRMP message for a sibling parachain.
-			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
+			(1, [Parachain(id)]) => {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
 				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);

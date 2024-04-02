@@ -24,7 +24,7 @@ use crate::chain_head::{
 		BestBlockChanged, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 		RuntimeVersionEvent,
 	},
-	subscription::{InsertedSubscriptionData, SubscriptionManagement, SubscriptionManagementError},
+	subscription::{SubscriptionManagement, SubscriptionManagementError},
 };
 use futures::{
 	channel::oneshot,
@@ -36,12 +36,22 @@ use log::{debug, error};
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
+use sc_rpc::utils::to_sub_message;
 use sp_api::CallApiAt;
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
-use std::{collections::HashSet, sync::Arc};
+use std::{
+	collections::{HashSet, VecDeque},
+	sync::Arc,
+};
+
+/// The maximum number of finalized blocks provided by the
+/// `Initialized` event.
+const MAX_FINALIZED_BLOCKS: usize = 16;
+
+use super::subscription::InsertedSubscriptionData;
 
 /// Generates the events of the `chainHead_follow` method.
 pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
@@ -50,7 +60,7 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Backend of the chain.
 	backend: Arc<BE>,
 	/// Subscriptions handle.
-	sub_handle: Arc<SubscriptionManagement<Block, BE>>,
+	sub_handle: SubscriptionManagement<Block, BE>,
 	/// Subscription was started with the runtime updates flag.
 	with_runtime: bool,
 	/// Subscription ID.
@@ -64,7 +74,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 	pub fn new(
 		client: Arc<Client>,
 		backend: Arc<BE>,
-		sub_handle: Arc<SubscriptionManagement<Block, BE>>,
+		sub_handle: SubscriptionManagement<Block, BE>,
 		with_runtime: bool,
 		sub_id: String,
 	) -> Self {
@@ -92,6 +102,8 @@ struct InitialBlocks<Block: BlockT> {
 	///
 	/// It is a tuple of (block hash, parent hash).
 	finalized_block_descendants: Vec<(Block::Hash, Block::Hash)>,
+	/// Hashes of the last finalized blocks
+	finalized_block_hashes: VecDeque<Block::Hash>,
 	/// Blocks that should not be reported as pruned by the `Finalized` event.
 	///
 	/// Substrate database will perform the pruning of height N at
@@ -175,13 +187,14 @@ where
 	}
 
 	/// Get the in-memory blocks of the client, starting from the provided finalized hash.
+	///
+	/// The reported blocks are pinned by this function.
 	fn get_init_blocks_with_forks(
 		&self,
-		startup_point: &StartupPoint<Block>,
+		finalized: Block::Hash,
 	) -> Result<InitialBlocks<Block>, SubscriptionManagementError> {
 		let blockchain = self.backend.blockchain();
 		let leaves = blockchain.leaves()?;
-		let finalized = startup_point.finalized_hash;
 		let mut pruned_forks = HashSet::new();
 		let mut finalized_block_descendants = Vec::new();
 		let mut unique_descendants = HashSet::new();
@@ -195,17 +208,47 @@ where
 				// Ensure a `NewBlock` event is generated for all children of the
 				// finalized block. Describe the tree route as (child_node, parent_node)
 				// Note: the order of elements matters here.
-				let parents = std::iter::once(finalized).chain(blocks.clone());
+				let mut parent = finalized;
+				for child in blocks {
+					let pair = (child, parent);
 
-				for pair in blocks.zip(parents) {
 					if unique_descendants.insert(pair) {
+						// The finalized block is pinned below.
+						self.sub_handle.pin_block(&self.sub_id, child)?;
 						finalized_block_descendants.push(pair);
 					}
+
+					parent = child;
 				}
 			}
 		}
 
-		Ok(InitialBlocks { finalized_block_descendants, pruned_forks })
+		let mut current_block = finalized;
+		// The header of the finalized block must not be pruned.
+		let Some(header) = blockchain.header(current_block)? else {
+			return Err(SubscriptionManagementError::BlockHeaderAbsent);
+		};
+
+		// Report at most `MAX_FINALIZED_BLOCKS`. Note: The node might not have that many blocks.
+		let mut finalized_block_hashes = VecDeque::with_capacity(MAX_FINALIZED_BLOCKS);
+
+		// Pin the finalized block.
+		self.sub_handle.pin_block(&self.sub_id, current_block)?;
+		finalized_block_hashes.push_front(current_block);
+		current_block = *header.parent_hash();
+
+		for _ in 0..MAX_FINALIZED_BLOCKS - 1 {
+			let Ok(Some(header)) = blockchain.header(current_block) else { break };
+			// Block cannot be reported if pinning fails.
+			if self.sub_handle.pin_block(&self.sub_id, current_block).is_err() {
+				break
+			};
+
+			finalized_block_hashes.push_front(current_block);
+			current_block = *header.parent_hash();
+		}
+
+		Ok(InitialBlocks { finalized_block_descendants, finalized_block_hashes, pruned_forks })
 	}
 
 	/// Generate the initial events reported by the RPC `follow` method.
@@ -217,18 +260,17 @@ where
 		startup_point: &StartupPoint<Block>,
 	) -> Result<(Vec<FollowEvent<Block::Hash>>, HashSet<Block::Hash>), SubscriptionManagementError>
 	{
-		let init = self.get_init_blocks_with_forks(startup_point)?;
-
-		let initial_blocks = init.finalized_block_descendants;
+		let init = self.get_init_blocks_with_forks(startup_point.finalized_hash)?;
 
 		// The initialized event is the first one sent.
-		let finalized_block_hash = startup_point.finalized_hash;
-		self.sub_handle.pin_block(&self.sub_id, finalized_block_hash)?;
+		let initial_blocks = init.finalized_block_descendants;
+		let finalized_block_hashes = init.finalized_block_hashes;
 
+		let finalized_block_hash = startup_point.finalized_hash;
 		let finalized_block_runtime = self.generate_runtime_event(finalized_block_hash, None);
 
 		let initialized_event = FollowEvent::Initialized(Initialized {
-			finalized_block_hash,
+			finalized_block_hashes: finalized_block_hashes.into(),
 			finalized_block_runtime,
 			with_runtime: self.with_runtime,
 		});
@@ -237,8 +279,6 @@ where
 
 		finalized_block_descendants.push(initialized_event);
 		for (child, parent) in initial_blocks.into_iter() {
-			self.sub_handle.pin_block(&self.sub_id, child)?;
-
 			let new_runtime = self.generate_runtime_event(child, Some(parent));
 
 			let event = FollowEvent::NewBlock(NewBlock {
@@ -500,13 +540,18 @@ where
 		startup_point: &StartupPoint<Block>,
 		mut stream: EventStream,
 		mut to_ignore: HashSet<Block::Hash>,
-		mut sink: SubscriptionSink,
+		sink: SubscriptionSink,
 		rx_stop: oneshot::Receiver<()>,
 	) where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin,
 	{
 		let mut stream_item = stream.next();
-		let mut stop_event = rx_stop;
+
+		// The stop event can be triggered by the chainHead logic when the pinned
+		// block guarantee cannot be hold. Or when the client is disconnected.
+		let connection_closed = sink.closed();
+		tokio::pin!(connection_closed);
+		let mut stop_event = futures_util::future::select(rx_stop, connection_closed);
 
 		while let Either::Left((Some(event), next_stop_event)) =
 			futures_util::future::select(stream_item, stop_event).await
@@ -529,35 +574,23 @@ where
 						self.sub_id,
 						err
 					);
-					let _ = sink.send(&FollowEvent::<String>::Stop);
+					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+					let _ = sink.send(msg).await;
 					return
 				},
 			};
 
 			for event in events {
-				let result = sink.send(&event);
-
-				// Migration note: the new version of jsonrpsee returns Result<(), DisconnectError>
-				// The logic from `Err(err)` should be moved when building the new
-				// `SubscriptionMessage`.
-
-				// For now, jsonrpsee returns:
-				// Ok(true): message sent
-				// Ok(false): client disconnected or subscription closed
-				// Err(err): serder serialization error of the event
-				if let Err(err) = result {
+				let msg = to_sub_message(&sink, &event);
+				if let Err(err) = sink.send(msg).await {
 					// Failed to submit event.
 					debug!(
 						target: LOG_TARGET,
 						"[follow][id={:?}] Failed to send event {:?}", self.sub_id, err
 					);
 
-					let _ = sink.send(&FollowEvent::<String>::Stop);
-					return
-				}
-
-				if let Ok(false) = result {
-					// Client disconnected or subscription was closed.
+					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+					let _ = sink.send(msg).await;
 					return
 				}
 			}
@@ -566,15 +599,18 @@ where
 			stop_event = next_stop_event;
 		}
 
-		// If we got here either the substrate streams have closed
-		// or the `Stop` receiver was triggered.
-		let _ = sink.send(&FollowEvent::<String>::Stop);
+		// If we got here either:
+		// - the substrate streams have closed
+		// - the `Stop` receiver was triggered internally (cannot hold the pinned block guarantee)
+		// - the client disconnected.
+		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+		let _ = sink.send(msg).await;
 	}
 
 	/// Generate the block events for the `chainHead_follow` method.
 	pub async fn generate_events(
 		&mut self,
-		mut sink: SubscriptionSink,
+		sink: SubscriptionSink,
 		sub_data: InsertedSubscriptionData<Block>,
 	) {
 		// Register for the new block and finalized notifications.
@@ -602,7 +638,8 @@ where
 					self.sub_id,
 					err
 				);
-				let _ = sink.send(&FollowEvent::<Block::Hash>::Stop);
+				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+				let _ = sink.send(msg).await;
 				return
 			},
 		};

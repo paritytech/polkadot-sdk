@@ -21,7 +21,10 @@
     "/dns/bridgehub-polkadot-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWPNZm78tWUmKbta3SXdkqTPsquRc8ekEbJjZsGGi7YiRi",
     "/dns/pbr13.rotko.net/tcp/33543/p2p/12D3KooWMxZY7tDc2Rh454VaJJ7RexKAXVS6xSBEvTnXSGCnuGDw",
     "/dns/pbr13.rotko.net/tcp/34543/ws/p2p/12D3KooWMxZY7tDc2Rh454VaJJ7RexKAXVS6xSBEvTnXSGCnuGDw",
-    "/dns/pbr13.rotko.net/tcp/35543/wss/p2p/12D3KooWMxZY7tDc2Rh454VaJJ7RexKAXVS6xSBEvTnXSGCnuGDw"
+    "/dns/pbr13.rotko.net/tcp/35543/wss/p2p/12D3KooWMxZY7tDc2Rh454VaJJ7RexKAXVS6xSBEvTnXSGCnuGDw",
+    "/dns/bridge-hub-polkadot.bootnodes.polkadotters.com/tcp/30517/p2p/12D3KooWLUNE3LHPDa1WrrZaYT7ArK66CLM1bPv7kKz74UcLnQRB",
+    "/dns/bridge-hub-polkadot.bootnodes.polkadotters.com/tcp/30519/wss/p2p/12D3KooWLUNE3LHPDa1WrrZaYT7ArK66CLM1bPv7kKz74UcLnQRB",
+    "/dns/boot-polkadot-bridgehub.luckyfriday.io/tcp/443/wss/p2p/12D3KooWKf3mBXHjLbwtPqv1BdbQuwbFNcQQYxASS7iQ25264AXH"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

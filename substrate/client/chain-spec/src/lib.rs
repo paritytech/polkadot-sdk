@@ -338,6 +338,7 @@ pub use self::{
 		GenesisBlockBuilder,
 	},
 	genesis_config_builder::GenesisConfigBuilderRuntimeCaller,
+	json_patch::merge as json_merge,
 };
 pub use sc_chain_spec_derive::{ChainSpecExtension, ChainSpecGroup};
 
@@ -392,7 +393,7 @@ pub trait ChainSpec: BuildStorage + Send + Sync {
 	fn protocol_id(&self) -> Option<&str>;
 	/// Optional network fork identifier. `None` by default.
 	fn fork_id(&self) -> Option<&str>;
-	/// Additional loosly-typed properties of the chain.
+	/// Additional loosely-typed properties of the chain.
 	///
 	/// Returns an empty JSON object if 'properties' not defined in config
 	fn properties(&self) -> Properties;

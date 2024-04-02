@@ -16,43 +16,16 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{configuration, initializer, shared};
-use primitives::{
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	ValidatorIndex,
-};
-use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
+use crate::scheduler;
+use primitives::{CoreIndex, Id as ParaId};
+use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 
-/// Implementation for `DisabledValidators`
-// CAVEAT: this should only be called on the node side
-// as it might produce incorrect results on session boundaries
-pub fn disabled_validators<T>() -> Vec<ValidatorIndex>
-where
-	T: pallet_session::Config + shared::Config,
-{
-	let shuffled_indices = <shared::Pallet<T>>::active_validator_indices();
-	// mapping from raw validator index to `ValidatorIndex`
-	// this computation is the same within a session, but should be cheap
-	let reverse_index = shuffled_indices
-		.iter()
-		.enumerate()
-		.map(|(i, v)| (v.0, ValidatorIndex(i as u32)))
-		.collect::<BTreeMap<u32, ValidatorIndex>>();
-
-	// we might have disabled validators who are not parachain validators
-	<pallet_session::Pallet<T>>::disabled_validators()
-		.iter()
-		.filter_map(|v| reverse_index.get(v).cloned())
+/// Returns the claimqueue from the scheduler
+pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+	<scheduler::Pallet<T>>::claimqueue()
+		.into_iter()
+		.map(|(core_index, entries)| {
+			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
+		})
 		.collect()
-}
-
-/// Returns the current state of the node features.
-pub fn node_features<T: initializer::Config>() -> NodeFeatures {
-	<configuration::Pallet<T>>::config().node_features
-}
-
-/// Approval voting subsystem configuration parameteres
-pub fn approval_voting_params<T: initializer::Config>() -> ApprovalVotingParams {
-	let config = <configuration::Pallet<T>>::config();
-	config.approval_voting_params
 }
