@@ -2164,7 +2164,7 @@ async fn determine_groups_per_para(
 	let para_core_indices: Vec<_> = if let Some(claim_queue) = maybe_claim_queue {
 		claim_queue
 			.iter_claims_at(0)
-			.filter_map(|(core_index, para)| Some((para, core_index)))
+			.map(|(core_index, para)| Some((para, core_index)))
 			.collect()
 	} else {
 		availability_cores
