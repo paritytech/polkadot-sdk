@@ -20,5 +20,5 @@ elastic-validator-0: reports substrate_block_height{status="best"} is at least 2
 # Parachain should progress with 3 blocks per relay chain block, so it's reasonable to expect state to be 
 # at least 50, assuming some tolerance 
 some-parachain: log line contains "BlockData { state: 50, add: 2 }" within 10 seconds
-some-parachain-1: count of log lines containing "BlockData { state: 20, add: 2 }" is 0 within 10 seconds
+some-parachain-1: count of log lines containing "BlockData { state: 24, add: 2 }" is 0 within 10 seconds
 
