@@ -700,9 +700,9 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			.map_err(JfyiError::FetchClaimQueue)?;
 
 		let groups_per_para = determine_groups_per_para(
-			&availability_cores,
-			&group_rotation_info,
-			&maybe_claim_queue,
+			availability_cores,
+			group_rotation_info,
+			maybe_claim_queue,
 			max_candidate_depth,
 		);
 		state.per_relay_parent.insert(
@@ -2139,47 +2139,52 @@ async fn provide_candidate_to_grid<Context>(
 
 // Utility function to populate per relay parent `ParaId` to `GroupIndex` mappings.
 fn determine_groups_per_para(
-	availability_cores: &[CoreState],
-	group_rotation_info: &GroupRotationInfo,
-	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
+	availability_cores: Vec<CoreState>,
+	group_rotation_info: GroupRotationInfo,
+	maybe_claim_queue: Option<ClaimQueueSnapshot>,
 	max_candidate_depth: usize,
 ) -> HashMap<ParaId, Vec<GroupIndex>> {
+	let n_cores = availability_cores.len();
+
 	// Determine the core indices occupied by each para at the current relay parent. To support
 	// on-demand parachains we also consider the core indices at next block if core has a candidate
 	// pending availability.
-	let para_core_indices = availability_cores.iter().enumerate().filter_map(|(index, core)| {
-		match core {
-			CoreState::Scheduled(scheduled_core) =>
-				Some((scheduled_core.para_id, CoreIndex(index as u32))),
-			CoreState::Occupied(occupied_core) => {
-				if max_candidate_depth >= 1 {
-					// Use claim queue if available, or fallback to `next_up_on_available`
-					let maybe_scheduled_core = match maybe_claim_queue {
-						Some(claim_queue) => {
-							// What's up next on this core ?
-							fetch_next_scheduled_on_core(claim_queue, CoreIndex(index as u32))
-						},
-						None => {
-							// Runtime doesn't support claim queue runtime api. Fallback to
-							// `next_up_on_available`
-							occupied_core.next_up_on_available.clone()
-						},
-					};
+	let para_core_indices: Vec<_> = if let Some(claim_queue) = maybe_claim_queue {
+		claim_queue
+			.keys()
+			.filter_map(|core_index| {
+				let Some(scheduled_core) = fetch_next_scheduled_on_core(&claim_queue, *core_index)
+				else {
+					return None
+				};
 
-					maybe_scheduled_core
-						.map(|scheduled_core| (scheduled_core.para_id, CoreIndex(index as u32)))
-				} else {
-					None
-				}
-			},
-			CoreState::Free => None,
-		}
-	});
+				Some((scheduled_core.para_id, *core_index))
+			})
+			.collect()
+	} else {
+		availability_cores
+			.into_iter()
+			.enumerate()
+			.filter_map(|(index, core)| match core {
+				CoreState::Scheduled(scheduled_core) =>
+					Some((scheduled_core.para_id, CoreIndex(index as u32))),
+				CoreState::Occupied(occupied_core) =>
+					if max_candidate_depth >= 1 {
+						occupied_core
+							.next_up_on_available
+							.map(|scheduled_core| (scheduled_core.para_id, CoreIndex(index as u32)))
+					} else {
+						None
+					},
+				CoreState::Free => None,
+			})
+			.collect()
+	};
 
 	let mut groups_per_para = HashMap::new();
 	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
 	for (para, core_index) in para_core_indices {
-		let group_index = group_rotation_info.group_for_core(core_index, availability_cores.len());
+		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
 		groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index)
 	}
 
