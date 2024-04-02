@@ -20,4 +20,6 @@ doc:
 
 crates: 
   - name: polkadot-test-malus
+    bump: minor
   - name: polkadot-statement-distribution
+    bump: minor
