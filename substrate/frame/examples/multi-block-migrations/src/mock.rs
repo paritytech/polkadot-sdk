@@ -23,28 +23,24 @@
 //! comments on the specific config items. The core part of this runtime is the
 //! [`pallet_migrations::Config`] implementation, where you define the migrations you want to run
 //! using the [`Migrations`] type.
-//!
-//! ## How to Read the Documentation
-//!
-//! To access and navigate this documentation in your browser, use the following command:
-//!
-//! - `cargo doc --package pallet-examples-runtime-mbm --open`
-//!
-//! This documentation is organized to help you understand how this runtime is configured and how
-//! it uses the Multi-Block Migrations Framework.
 
 use crate::migrations::{v1, v1::weights::SubstrateWeight};
 use frame_support::{
 	construct_runtime, derive_impl,
-	migrations::{FreezeChainOnFailedMigration, MultiStepMigrator},
+	migrations::MultiStepMigrator,
 	pallet_prelude::Weight,
-	traits::{ConstU32, OnFinalize, OnInitialize},
+	traits::{OnFinalize, OnInitialize},
 };
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 impl crate::Config for Runtime {}
 
+frame_support::parameter_types! {
+	pub storage MigratorServiceWeight: Weight = Weight::from_parts(100, 100); // do not use in prod
+}
+
+#[derive_impl(pallet_migrations::config_preludes::TestDefaultConfig)]
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Here we inject the actual MBMs. Currently there is just one, but it accepts a tuple.
@@ -55,16 +51,7 @@ impl pallet_migrations::Config for Runtime {
 	// ```
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = (v1::LazyMigrationV1<Runtime, SubstrateWeight<Runtime>>,);
-	type CursorMaxLen = ConstU32<65_536>;
-	type IdentifierMaxLen = ConstU32<256>;
-	type MigrationStatusHandler = ();
-	type FailedMigrationHandler = FreezeChainOnFailedMigration;
 	type MaxServiceWeight = MigratorServiceWeight;
-	type WeightInfo = ();
-}
-
-frame_support::parameter_types! {
-	pub storage MigratorServiceWeight: Weight = Weight::from_parts(100, 100); // do not use in prod
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]

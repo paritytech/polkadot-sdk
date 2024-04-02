@@ -345,7 +345,7 @@ pub mod pallet {
 
 		frame_support::parameter_types! {
 			/// Maximal weight per block that can be spent on migrations in tests.
-			pub storage TestMaxServiceWeight: Weight = { <<TestDefaultConfig as frame_system::DefaultConfig>::BlockWeights as Get<BlockWeights>>::get().max_block.div(2) };
+			pub TestMaxServiceWeight: Weight = <<TestDefaultConfig as frame_system::DefaultConfig>::BlockWeights as Get<BlockWeights>>::get().max_block.div(2);
 		}
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
