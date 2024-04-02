@@ -24,7 +24,7 @@ frame = { path = "../../substrate/frame", features = [
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
-docify = "0.2.7"
+docify = "0.2.8"
 assert_cmd = "2.0.14"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
@@ -64,6 +64,7 @@ frame-executive = { path = "../../substrate/frame/executive" }
 pallet-timestamp = { path = "../../substrate/frame/timestamp" }
 pallet-balances = { path = "../../substrate/frame/balances" }
 pallet-assets = { path = "../../substrate/frame/assets" }
+pallet-preimage = { path = "../../substrate/frame/preimage" }
 pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
 pallet-utility = { path = "../../substrate/frame/utility" }
 pallet-multisig = { path = "../../substrate/frame/multisig" }
@@ -71,6 +72,8 @@ pallet-proxy = { path = "../../substrate/frame/proxy" }
 pallet-authorship = { path = "../../substrate/frame/authorship" }
 pallet-collective = { path = "../../substrate/frame/collective" }
 pallet-democracy = { path = "../../substrate/frame/democracy" }
+pallet-uniques = { path = "../../substrate/frame/uniques" }
+pallet-nfts = { path = "../../substrate/frame/nfts" }
 pallet-scheduler = { path = "../../substrate/frame/scheduler" }
 pallet-examples = { path = "../../substrate/frame/examples" }
 pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }

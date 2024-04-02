@@ -57,6 +57,9 @@
 /// `#[pallet::bar]` inside the mod.
 pub use frame_support::pallet;
 
+/// Export the main runtime macro. This is the new version of `construct_runtime!`.
+pub use frame_support::runtime;
+
 pub use frame_support::pallet_macros::{import_section, pallet_section};
 
 /// The logging library of the runtime. Can normally be the classic `log` crate.
@@ -151,6 +154,7 @@ pub mod runtime {
 		pub use frame_support::weights::{FeePolynomial, FixedFee, IdentityFee, NoFee};
 
 		/// Macro to amalgamate the runtime into `struct Runtime`.
+		// TODO: eventually change this to `use frame_support::construct_runtime as deprecated_construct_runtime;`
 		pub use frame_support::construct_runtime;
 
 		/// Macro to easily derive the `Config` trait of various pallet for `Runtime`.

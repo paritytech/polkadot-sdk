@@ -123,8 +123,8 @@ fn default_parachains_host_configuration(
 ) -> polkadot_runtime_parachains::configuration::HostConfiguration<polkadot_primitives::BlockNumber>
 {
 	use polkadot_primitives::{
-		vstaging::{node_features::FeatureIndex, ApprovalVotingParams},
-		AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE,
+		node_features::FeatureIndex, ApprovalVotingParams, AsyncBackingParams, MAX_CODE_SIZE,
+		MAX_POV_SIZE,
 	};
 
 	polkadot_runtime_parachains::configuration::HostConfiguration {

@@ -124,26 +124,36 @@ pub mod pallet {
 	pub(crate) mod tests {
 		use super::*;
 		use frame::testing_prelude::*;
+
 		const ALICE: u64 = 1;
 		const BOB: u64 = 2;
 		const CHARLIE: u64 = 3;
 
-		#[docify::export]
-		mod runtime {
-			use super::*;
-			// we need to reference our `mod pallet` as an identifier to pass to
-			// `construct_runtime`.
-			use crate::pallet as pallet_currency;
+		// we need to reference our `mod pallet` as an identifier to pass to
+		// `construct_runtime`.
+		use crate::pallet as pallet_currency;
 
-			construct_runtime!(
-				pub struct Runtime {
-					// ---^^^^^^ This is where `struct Runtime` is defined.
-					System: frame_system,
-					Currency: pallet_currency,
-					// this macro expects us to express pallets as "<some name for pallet>: <path
-					// to pallet>"
-				}
-			);
+		#[frame::runtime]
+		mod runtime {
+			#[runtime::runtime]
+			#[runtime::derive(
+				RuntimeCall,
+				RuntimeEvent,
+				RuntimeError,
+				RuntimeOrigin,
+				RuntimeFreezeReason,
+				RuntimeHoldReason,
+				RuntimeSlashReason,
+				RuntimeLockId,
+				RuntimeTask
+			)]
+			pub struct Runtime;
+
+			#[runtime::pallet_index(0)]
+			pub type System = frame_system;
+
+			#[runtime::pallet_index(1)]
+			pub type Currency = pallet_currency;
 
 			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 			impl frame_system::Config for Runtime {
@@ -157,7 +167,6 @@ pub mod pallet {
 			impl pallet_currency::Config for Runtime {}
 		}
 
-		pub(crate) use runtime::*;
 
 		#[allow(unused)]
 		#[docify::export]
@@ -357,11 +366,15 @@ pub mod pallet_v2 {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	#[docify::export]
+	/// Single storage item, of type `Balance`.
 	#[pallet::storage]
-	pub type Balances<T: Config> = StorageMap<_, _, T::AccountId, Balance>;
+	pub type TotalIssuance<T: Config> = StorageValue<Value = Balance>;
 
+	#[docify::export]
+	/// A mapping from `T::AccountId` to `Balance`.
 	#[pallet::storage]
-	pub type TotalIssuance<T: Config> = StorageValue<_, Balance>;
+	pub type Balances<T: Config> = StorageMap<Key = T::AccountId, Value = Balance>;
 
 	#[docify::export]
 	#[pallet::error]
