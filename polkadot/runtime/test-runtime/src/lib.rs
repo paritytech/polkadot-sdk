@@ -1176,7 +1176,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
-			get_preset::<RuntimeGenesisConfig>(id)
+			get_preset::<RuntimeGenesisConfig>(id, |_| None)
 		}
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
