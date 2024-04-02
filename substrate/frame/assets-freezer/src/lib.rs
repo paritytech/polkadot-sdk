@@ -59,14 +59,12 @@ use sp_runtime::{
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
-mod impl_frozen_balances;
-mod impl_fungibles;
-
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
+mod impls;
 mod types;
 pub use types::*;
 
