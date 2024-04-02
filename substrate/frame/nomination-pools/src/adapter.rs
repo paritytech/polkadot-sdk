@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::*;
-use sp_staking::DelegatedStakeInterface;
+use sp_staking::DelegationInterface;
 
 /// An adapter trait that can support multiple staking strategies.
 ///
@@ -97,9 +97,7 @@ pub trait StakeStrategy {
 	fn withdraw_unbonded(
 		pool_account: &Self::AccountId,
 		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError> {
-		Self::CoreStaking::withdraw_unbonded(pool_account.clone(), num_slashing_spans)
-	}
+	) -> Result<bool, DispatchError>;
 
 	/// Withdraw funds from pool account to member account.
 	fn member_withdraw(
@@ -172,6 +170,13 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 		}
 	}
 
+	fn withdraw_unbonded(
+		pool_account: &Self::AccountId,
+		num_slashing_spans: u32,
+	) -> Result<bool, DispatchError> {
+		Staking::withdraw_unbonded(pool_account.clone(), num_slashing_spans)
+	}
+
 	fn member_withdraw(
 		who: &T::AccountId,
 		pool_account: &Self::AccountId,
@@ -202,27 +207,30 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 /// In this approach, first the funds are delegated from delegator to the pool account and later
 /// staked with `Staking`. The advantage of this approach is that the funds are held in the
 /// user account itself and not in the pool account.
-pub struct DelegateStake<T: Config, Staking: DelegatedStakeInterface>(PhantomData<(T, Staking)>);
+pub struct DelegateStake<T: Config, Staking: StakingInterface, Delegation: DelegationInterface>(
+	PhantomData<(T, Staking, Delegation)>,
+);
 
 impl<
 		T: Config,
-		Staking: DelegatedStakeInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>,
-	> StakeStrategy for DelegateStake<T, Staking>
+		Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>,
+		Delegation: DelegationInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>,
+	> StakeStrategy for DelegateStake<T, Staking, Delegation>
 {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 	type CoreStaking = Staking;
 
 	fn transferable_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
-		Staking::agent_balance(pool_account).saturating_sub(Self::active_stake(pool_account))
+		Delegation::agent_balance(pool_account).saturating_sub(Self::active_stake(pool_account))
 	}
 
 	fn total_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
-		Staking::agent_balance(pool_account)
+		Delegation::agent_balance(pool_account)
 	}
 
-	fn member_delegation_balance(member_account: &T::AccountId) -> Staking::Balance {
-		Staking::delegator_balance(member_account)
+	fn member_delegation_balance(member_account: &T::AccountId) -> Delegation::Balance {
+		Delegation::delegator_balance(member_account)
 	}
 
 	fn pledge_bond(
@@ -235,13 +243,20 @@ impl<
 		match bond_type {
 			BondType::Create => {
 				// first delegation
-				Staking::delegate(who, pool_account, reward_account, amount)
+				Delegation::delegate(who, pool_account, reward_account, amount)
 			},
 			BondType::Later => {
 				// additional delegation
-				Staking::delegate_extra(who, pool_account, amount)
+				Delegation::delegate_extra(who, pool_account, amount)
 			},
 		}
+	}
+
+	fn withdraw_unbonded(
+		pool_account: &Self::AccountId,
+		num_slashing_spans: u32,
+	) -> Result<bool, DispatchError> {
+		Delegation::withdraw_unclaimed(pool_account.clone(), num_slashing_spans)
 	}
 
 	fn member_withdraw(
@@ -249,19 +264,19 @@ impl<
 		pool_account: &Self::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		Staking::withdraw_delegation(&who, pool_account, amount)
+		Delegation::withdraw_delegation(&who, pool_account, amount)
 	}
 
 	fn has_pending_slash(pool_account: &Self::AccountId) -> bool {
-		Staking::has_pending_slash(pool_account)
+		Delegation::has_pending_slash(pool_account)
 	}
 
 	fn member_slash(
 		who: &T::AccountId,
 		pool_account: &Self::AccountId,
-		amount: Staking::Balance,
+		amount: Delegation::Balance,
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
-		Staking::delegator_slash(pool_account, who, amount, maybe_reporter)
+		Delegation::delegator_slash(pool_account, who, amount, maybe_reporter)
 	}
 }

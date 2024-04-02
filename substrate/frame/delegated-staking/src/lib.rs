@@ -17,7 +17,7 @@
 
 //! # Delegated Staking Pallet
 //!
-//! This pallet implements [`sp_staking::DelegatedStakeInterface`] that extends [`StakingInterface`]
+//! This pallet implements [`sp_staking::DelegationInterface`] that extends [`StakingInterface`]
 //! to support delegation of stake. It consumes [`Config::CoreStaking`] to provide primitive staking
 //! functions and only implements the delegation features.
 //!
@@ -86,7 +86,7 @@
 //! slashes are cleared.
 //!
 //! The user of this pallet can apply slash using
-//! [DelegatedStakeInterface::delegator_slash](sp_staking::DelegatedStakeInterface::delegator_slash).
+//! [DelegationInterface::delegator_slash](sp_staking::DelegationInterface::delegator_slash).
 //!
 //! ## Migration from Nominator to Agent
 //! More details [here](https://hackmd.io/@ak0n/np-delegated-staking-migration).
@@ -157,9 +157,9 @@ use frame_support::{
 
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
-	ArithmeticError, DispatchResult, Perbill, RuntimeDebug, Saturating,
+	ArithmeticError, DispatchResult, RuntimeDebug, Saturating,
 };
-use sp_staking::{EraIndex, Stake, StakerStatus, StakingInterface, StakingUnsafe};
+use sp_staking::{EraIndex, StakerStatus, StakingInterface, StakingUnsafe};
 use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =

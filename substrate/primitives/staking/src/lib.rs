@@ -458,7 +458,21 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 ///
 /// The `Agent` is responsible for managing rewards and slashing for all the `Delegators` that
 /// have delegated funds to it.
-pub trait DelegatedStakeInterface: StakingInterface {
+pub trait DelegationInterface {
+	/// Balance type used by the staking system.
+	type Balance: Sub<Output = Self::Balance>
+		+ Ord
+		+ PartialEq
+		+ Default
+		+ Copy
+		+ MaxEncodedLen
+		+ FullCodec
+		+ TypeInfo
+		+ Saturating;
+
+	/// AccountId type used by the staking system.
+	type AccountId: Clone + core::fmt::Debug;
+
 	/// Effective balance of the `Agent` account.
 	///
 	/// This takes into account any pending slashes to `Agent`.
@@ -495,6 +509,17 @@ pub trait DelegatedStakeInterface: StakingInterface {
 		agent: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
+
+	/// Withdraw any unlocking funds in `CoreStaking` that can be claimed later by a delegator.
+	///
+	/// `CoreStaking` has a limitation on maximum unlocking chunks at any given time. If the limit
+	/// is reached, we want to implicitly unlock these funds even though a delegator is not
+	/// present to claim it. Not doing this would block any unbonding until unlocking funds are
+	/// claimed.
+	fn withdraw_unclaimed(
+		agent: Self::AccountId,
+		num_slashing_spans: u32,
+	) -> Result<bool, DispatchError>;
 
 	/// Returns true if there are pending slashes posted to the `Agent` account.
 	///
