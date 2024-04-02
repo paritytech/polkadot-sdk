@@ -42,7 +42,6 @@ frame_support::parameter_types! {
 
 #[derive_impl(pallet_migrations::config_preludes::TestDefaultConfig)]
 impl pallet_migrations::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	// Here we inject the actual MBMs. Currently there is just one, but it accepts a tuple.
 	//
 	// # Example
