@@ -45,7 +45,6 @@ use sp_consensus_beefy::{
 	BeefyApi, BeefySignatureHasher, Commitment, EquivocationProof, PayloadProvider, ValidatorSet,
 	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
-use sp_core::ByteArray;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header, NumberFor, Zero},
@@ -350,18 +349,16 @@ impl<B: Block> PersistedState<B> {
 			}
 		}
 
-		// verify we're not using BEEFY dummy key when role is authority.
-		if is_authority {
-			if key_store.public_keys().map_or(false, |k| k.is_empty()) {
-				error!(
-					target: LOG_TARGET,
-					"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
-					you must generate valid session keys \
-					(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)",
-					new_session_start,
-				);
-				metric_inc!(metrics, beefy_no_authority_found_in_store);
-			}
+		// verify we have some BEEFY key available in keystore when role is authority.
+		if is_authority && key_store.public_keys().map_or(false, |k| k.is_empty()) {
+			error!(
+				target: LOG_TARGET,
+				"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
+				you must generate valid session keys \
+				(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)",
+				new_session_start,
+			);
+			metric_inc!(metrics, beefy_no_authority_found_in_store);
 		}
 
 		let id = validator_set.id();
@@ -1193,6 +1190,7 @@ pub(crate) mod tests {
 			comms,
 			pending_justifications: BTreeMap::new(),
 			persisted_state,
+			is_authority: true,
 		}
 	}
 
