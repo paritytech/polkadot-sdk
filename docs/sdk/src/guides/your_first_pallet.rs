@@ -25,6 +25,7 @@
 //! - [Error](frame::pallet_macros::error)
 //! - Basics of testing a pallet
 //! - [Constructing a runtime](frame::runtime::prelude::construct_runtime)
+// TODO: fix links to pallet macros
 //!
 //! ## Background Knowledge
 //!
@@ -38,7 +39,7 @@
 //!
 //! A pallet is typically a normal rust-crate with the following properties:
 //!
-//! 1. it imports [`frame`], [`parity-scale-codec`] and [`type-info`] as bare minimum dependencies.
+//! 1. it imports [`frame`], [`parity_scale_codec`] and [`scale_info`] as bare minimum dependencies.
 //! 2. it follows the `std` pattern explained [here](crate::polkadot_sdk::substrate#wasm-build) to
 //!    optionally compile itself to native and wasm.
 //! 3. it contains `#![cfg_attr(not(feature = "std"), no_std)]`.
@@ -46,14 +47,12 @@
 //! There is nothing preventing multiple pallets from existing in the same crate, although most
 //! developers prefer one-pallet-per-crate in production.
 //!
-//! > You can fund the full source code of this guide in
+//! > You can find the full source code of this guide in
 //! > [`polkadot_sdk_docs_packages_guides_first_pallet`]. This page contains snippets from this
 //! > crate.
 //!
 //! ## Writing Your First Pallet
-// TODO: fix links to pallet macros
 //!
-
 //! ### Shell Pallet
 //!
 //! Consider the following as a "shell pallet". We continue building the rest of this pallet based
@@ -91,13 +90,14 @@
 //! details:
 //!
 //! - Where do `T::AccountId` and `T::RuntimeOrigin` come from? These are both defined in
-//!  [`frame::prelude::frame_system::Config`], therefore we can access them in `T`.
-//! - What is `ensure_signed`, and what does it do with the aforementioned `T::RuntimeOrigin`? This
-//!   is outside the scope of this guide, and you can learn more about it in the origin reference
-//!   document ([`crate::reference_docs::frame_origin`]). For now, you should only know the
+//!  [`frame::prelude::frame_system::Config`], therefore we can access them in `T`. Such types are
+//! defined further in [`crate::reference_docs::frame_runtime_types`].
+//! - What is [`ensure_signed`](frame_system::ensure_signed), and what does it do with the
+//!   aforementioned `T::RuntimeOrigin`? This is outside the scope of this guide, and you can learn
+//!   more about it [`crate::reference_docs::frame_origin`]. For now, you should only know the
 //!   signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
 //!   `Result<T::AccountId, _>`. So by the end of this function call, we know that this dispatchable
-//!   was signed by `who`.
+//!   was signed by some account.
 #![doc = docify::embed!("../../substrate/frame/system/src/lib.rs", ensure_signed)]
 //!
 //!

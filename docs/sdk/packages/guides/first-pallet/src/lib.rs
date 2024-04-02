@@ -5,11 +5,16 @@
 #[docify::export]
 #[frame::pallet(dev_mode)]
 pub mod shell_pallet {
+	// a Shell pallet. This is the bare minimum skeleton of any FRAME-based pallet.
 	use frame::prelude::*;
 
+	/// A trait meant to configure the pallet over types and values. See
+	/// [`frame::pallet_macros::config`] for more info.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
 
+	/// The main struct that represents the functionality of the pallet. See
+	/// [`frame::pallet_macros::pallet`] for more info.
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 }
@@ -30,12 +35,12 @@ pub mod pallet {
 	#[docify::export]
 	/// Single storage item, of type `Balance`.
 	#[pallet::storage]
-	pub type TotalIssuance<T: Config> = StorageValue<_, Balance>;
+	pub type TotalIssuance<T: Config> = StorageValue<Value = Balance>;
 
 	#[docify::export]
-	/// A mapping from `T::AccountId` to `Balance`
+	/// A mapping from `T::AccountId` to `Balance`.
 	#[pallet::storage]
-	pub type Balances<T: Config> = StorageMap<_, _, T::AccountId, Balance>;
+	pub type Balances<T: Config> = StorageMap<Key = T::AccountId, Value = Balance>;
 
 	#[docify::export(impl_pallet)]
 	#[pallet::call]

@@ -110,3 +110,6 @@ pub mod frame_pallet_coupling;
 /// Learn about RPC and Runtime APIs, and how frame pallets can expose their custom versions of
 /// each.
 pub mod frame_rpc_runtime_apis;
+
+/// Learn how to add custom host function to your node software implementations.
+pub mod custom_host_functions {}

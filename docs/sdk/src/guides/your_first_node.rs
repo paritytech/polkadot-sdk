@@ -164,8 +164,6 @@ fn run_omni_node() {
 	// TODO: after #3597 we can easily get this from `cargo_bin`.
 	let omni_node_path = "../../minimal-omni-node";
 	let runtime_blob_path = "../../target/release/wbuild/polkadot-sdk-docs-packages-guides-first-runtime/polkadot_sdk_docs_packages_guides_first_runtime.wasm";
-	let test_duration = 15;
-	let expected_blocks = 10;
 
 	if !std::path::Path::new(runtime_blob_path).exists() {
 		// run `cargo build --release -p polkadot-sdk-docs-packages-guides-first-runtime`
@@ -187,12 +185,13 @@ fn run_omni_node() {
 			.args(["--runtime", runtime_blob_path])
 			.args(["-l", "runtime=debug"])
 			.args(["--consensus", "manual-seal-1000"])
+			.stderr(process::Stdio::piped())
 			.spawn()
 			.unwrap()
 	}
 	let mut node_process = get_node_process(omni_node_path, runtime_blob_path);
 
-	std::thread::sleep(std::time::Duration::from_secs(test_duration));
+	std::thread::sleep(std::time::Duration::from_secs(15));
 	let stderr = node_process.stderr.take().unwrap();
 
 	kill(Pid::from_raw(node_process.id().try_into().unwrap()), SIGINT).unwrap();
@@ -200,10 +199,7 @@ fn run_omni_node() {
 
 	// ensure in stderr there is at least one line containing: "Imported #10"
 	assert!(
-		BufReader::new(stderr)
-			.lines()
-			.any(|l| l.unwrap().contains("Imported #{:expected_blocks}")),
-		"failed to find {} imported blocks in the output.",
-		expected_blocks,
+		BufReader::new(stderr).lines().any(|l| { l.unwrap().contains("Imported #10") }),
+		"failed to find 10 imported blocks in the output.",
 	);
 }
