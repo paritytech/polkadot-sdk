@@ -34,7 +34,7 @@ frame-election-provider-support = { path = "../election-provider-support", defau
 
 # third party
 log = { workspace = true }
-docify = "0.2.7"
+docify = "0.2.8"
 
 # Optional imports for benchmarking
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
