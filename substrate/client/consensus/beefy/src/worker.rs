@@ -33,7 +33,7 @@ use crate::{
 };
 use codec::{Codec, Decode, DecodeAll, Encode};
 use futures::{stream::Fuse, FutureExt, StreamExt};
-use log::{debug, error, info, log_enabled, trace, warn};
+use log::{debug, error, info, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_utils::notification::NotificationReceiver;
 use sp_api::ProvideRuntimeApi;
@@ -45,13 +45,14 @@ use sp_consensus_beefy::{
 	BeefyApi, BeefySignatureHasher, Commitment, EquivocationProof, PayloadProvider, ValidatorSet,
 	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
+use sp_core::ByteArray;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header, NumberFor, Zero},
 	SaturatedConversion,
 };
 use std::{
-	collections::{BTreeMap, BTreeSet, VecDeque},
+	collections::{BTreeMap, VecDeque},
 	fmt::Debug,
 	sync::Arc,
 };
@@ -332,6 +333,7 @@ impl<B: Block> PersistedState<B> {
 		validator_set: ValidatorSet<AuthorityId>,
 		key_store: &BeefyKeystore<AuthorityId>,
 		metrics: &Option<VoterMetrics>,
+		is_authority: bool,
 	) {
 		debug!(target: LOG_TARGET, "🥩 New active validator set: {:?}", validator_set);
 
@@ -348,9 +350,24 @@ impl<B: Block> PersistedState<B> {
 			}
 		}
 
-		if log_enabled!(target: LOG_TARGET, log::Level::Debug) {
-			// verify the new validator set - only do it if we're also logging the warning
-			if verify_validator_set::<B>(&new_session_start, &validator_set, key_store).is_err() {
+		// verify we're not using BEEFY dummy key when role is authority.
+		if is_authority {
+			let mut beefy_key_present = false;
+			for key in key_store.public_keys().unwrap_or_default() {
+				let id_raw: &[u8] = key.as_slice();
+				if id_raw[0..4] != *b"beef" {
+					// Non-dummy key found.
+					beefy_key_present = true;
+				}
+			}
+			if !beefy_key_present {
+				error!(
+					target: LOG_TARGET,
+					"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
+					you must generate valid session keys \
+					(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)",
+					new_session_start,
+				);
 				metric_inc!(metrics, beefy_no_authority_found_in_store);
 			}
 		}
@@ -390,6 +407,8 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub persisted_state: PersistedState<B>,
 	/// BEEFY voter metrics
 	pub metrics: Option<VoterMetrics>,
+	/// Node runs under "Authority" role.
+	pub is_authority: bool,
 }
 
 impl<B, BE, P, R, S> BeefyWorker<B, BE, P, R, S>
@@ -425,6 +444,7 @@ where
 			validator_set,
 			&self.key_store,
 			&self.metrics,
+			self.is_authority,
 		);
 	}
 
@@ -1040,33 +1060,6 @@ where
 	}
 }
 
-/// Verify `active` validator set for `block` against the key store
-///
-/// We want to make sure that we have _at least one_ key in our keystore that
-/// is part of the validator set, that's because if there are no local keys
-/// then we can't perform our job as a validator.
-///
-/// Note that for a non-authority node there will be no keystore, and we will
-/// return an error and don't check. The error can usually be ignored.
-fn verify_validator_set<B: Block>(
-	block: &NumberFor<B>,
-	active: &ValidatorSet<AuthorityId>,
-	key_store: &BeefyKeystore<AuthorityId>,
-) -> Result<(), Error> {
-	let active: BTreeSet<&AuthorityId> = active.validators().iter().collect();
-
-	let public_keys = key_store.public_keys()?;
-	let store: BTreeSet<&AuthorityId> = public_keys.iter().collect();
-
-	if store.intersection(&active).count() == 0 {
-		let msg = "no authority public key found in store".to_string();
-		debug!(target: LOG_TARGET, "🥩 for block {:?} {}", block, msg);
-		Err(Error::Keystore(msg))
-	} else {
-		Ok(())
-	}
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
@@ -1469,32 +1462,6 @@ pub(crate) mod tests {
 		// verify validator set is correctly extracted from digest
 		let extracted = find_authorities_change::<Block>(&header);
 		assert_eq!(extracted, Some(validator_set));
-	}
-
-	#[tokio::test]
-	async fn keystore_vs_validator_set() {
-		let keys = &[Keyring::Alice];
-		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
-		let mut net = BeefyTestNet::new(1);
-		let mut worker = create_beefy_worker(net.peer(0), &keys[0], 1, validator_set.clone());
-
-		// keystore doesn't contain other keys than validators'
-		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), Ok(()));
-
-		// unknown `Bob` key
-		let keys = &[Keyring::Bob];
-		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
-		let err_msg = "no authority public key found in store".to_string();
-		let expected = Err(Error::Keystore(err_msg));
-		assert_eq!(verify_validator_set::<Block>(&1, &validator_set, &worker.key_store), expected);
-
-		// worker has no keystore
-		worker.key_store = None.into();
-		let expected_err = Err(Error::Keystore("no Keystore".into()));
-		assert_eq!(
-			verify_validator_set::<Block>(&1, &validator_set, &worker.key_store),
-			expected_err
-		);
 	}
 
 	#[tokio::test]
