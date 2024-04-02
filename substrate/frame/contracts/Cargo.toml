@@ -58,7 +58,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/x
 [dev-dependencies]
 array-bytes = "6.1"
 assert_matches = "1"
-env_logger = "0.9"
+env_logger = "0.11"
 pretty_assertions = "1"
 wat = "1"
 pallet-contracts-fixtures = { path = "./fixtures" }

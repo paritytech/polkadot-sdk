@@ -44,7 +44,7 @@ parity-db = { version = "0.4.12" }
 
 [dev-dependencies]
 assert_matches = "1.4.0"
-env_logger = "0.9.0"
+env_logger = "0.11"
 futures = { version = "0.3.30", features = ["thread-pool"] }
 log = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }

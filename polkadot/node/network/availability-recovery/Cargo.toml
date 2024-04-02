@@ -30,7 +30,7 @@ sc-network = { path = "../../../../substrate/client/network" }
 
 [dev-dependencies]
 assert_matches = "1.4.0"
-env_logger = "0.9.0"
+env_logger = "0.11"
 futures-timer = "3.0.2"
 log = { workspace = true, default-features = true }
 

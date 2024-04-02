@@ -43,7 +43,7 @@ sp-statement-store = { path = "../../primitives/statement-store" }
 tokio = "1.37"
 
 [dev-dependencies]
-env_logger = "0.9"
+env_logger = "0.11"
 assert_matches = "1.3.0"
 sc-block-builder = { path = "../block-builder" }
 sc-network = { path = "../network" }
