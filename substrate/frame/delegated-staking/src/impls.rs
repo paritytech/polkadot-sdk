@@ -16,178 +16,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Implementations of public traits, namely [StakingInterface], [DelegatedStakeInterface] and
+//! Implementations of public traits, namely [DelegationInterface] and
 //! [OnStakingUpdate].
 
 use super::*;
-use sp_staking::{DelegatedStakeInterface, OnStakingUpdate};
+use sp_staking::{DelegationInterface, OnStakingUpdate};
 
-/// Wrapper `StakingInterface` implementation for `Agents`.
-impl<T: Config> StakingInterface for Pallet<T> {
+impl<T: Config> DelegationInterface for Pallet<T> {
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
-	type CurrencyToVote = <T::CoreStaking as StakingInterface>::CurrencyToVote;
 
-	fn minimum_nominator_bond() -> Self::Balance {
-		T::CoreStaking::minimum_nominator_bond()
-	}
-
-	fn minimum_validator_bond() -> Self::Balance {
-		T::CoreStaking::minimum_validator_bond()
-	}
-
-	fn stash_by_ctrl(_controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
-		// ctrl are deprecated, just return err.
-		Err(Error::<T>::NotSupported.into())
-	}
-
-	fn bonding_duration() -> EraIndex {
-		T::CoreStaking::bonding_duration()
-	}
-
-	fn current_era() -> EraIndex {
-		T::CoreStaking::current_era()
-	}
-
-	fn stake(who: &Self::AccountId) -> Result<Stake<Self::Balance>, DispatchError> {
-		ensure!(Self::is_agent(who), Error::<T>::NotSupported);
-		T::CoreStaking::stake(who)
-	}
-
-	fn total_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
-		if Self::is_agent(who) {
-			return T::CoreStaking::total_stake(who);
-		}
-
-		if Self::is_delegator(who) {
-			let delegation = Delegation::<T>::get(who).defensive_ok_or(Error::<T>::BadState)?;
-			return Ok(delegation.amount);
-		}
-
-		Err(Error::<T>::NotSupported.into())
-	}
-
-	fn active_stake(who: &Self::AccountId) -> Result<Self::Balance, DispatchError> {
-		T::CoreStaking::active_stake(who)
-	}
-
-	fn is_unbonding(who: &Self::AccountId) -> Result<bool, DispatchError> {
-		T::CoreStaking::is_unbonding(who)
-	}
-
-	fn fully_unbond(who: &Self::AccountId) -> DispatchResult {
-		ensure!(Self::is_agent(who), Error::<T>::NotSupported);
-		T::CoreStaking::fully_unbond(who)
-	}
-
-	fn bond(
-		who: &Self::AccountId,
-		value: Self::Balance,
-		payee: &Self::AccountId,
-	) -> DispatchResult {
-		// ensure who is not already staked
-		ensure!(T::CoreStaking::status(who).is_err(), Error::<T>::AlreadyStaking);
-		let agent = Agent::<T>::from(who)?;
-
-		ensure!(agent.available_to_bond() >= value, Error::<T>::NotEnoughFunds);
-		ensure!(agent.ledger.payee == *payee, Error::<T>::InvalidRewardDestination);
-
-		T::CoreStaking::virtual_bond(who, value, payee)
-	}
-
-	fn nominate(who: &Self::AccountId, validators: Vec<Self::AccountId>) -> DispatchResult {
-		ensure!(Self::is_agent(who), Error::<T>::NotAgent);
-		T::CoreStaking::nominate(who, validators)
-	}
-
-	fn chill(who: &Self::AccountId) -> DispatchResult {
-		ensure!(Self::is_agent(who), Error::<T>::NotAgent);
-		T::CoreStaking::chill(who)
-	}
-
-	fn bond_extra(who: &Self::AccountId, extra: Self::Balance) -> DispatchResult {
-		let ledger = <Agents<T>>::get(who).ok_or(Error::<T>::NotAgent)?;
-		ensure!(ledger.stakeable_balance() >= extra, Error::<T>::NotEnoughFunds);
-
-		T::CoreStaking::bond_extra(who, extra)
-	}
-
-	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult {
-		let agent = Agent::<T>::from(stash)?;
-		ensure!(agent.bonded_stake() >= value, Error::<T>::NotEnoughFunds);
-
-		T::CoreStaking::unbond(stash, value)
-	}
-
-	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
-		T::CoreStaking::update_payee(stash, reward_acc)
-	}
-
-	/// Withdraw unbonding funds until current era.
-	///
-	/// Funds are moved to unclaimed_withdrawals register of the `AgentLedger`.
-	fn withdraw_unbonded(
-		agent_acc: Self::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError> {
-		Pallet::<T>::withdraw_unbonded(&agent_acc, num_slashing_spans)
-			.map(|agent| agent.ledger.total_delegated.is_zero())
-	}
-
-	fn desired_validator_count() -> u32 {
-		T::CoreStaking::desired_validator_count()
-	}
-
-	fn election_ongoing() -> bool {
-		T::CoreStaking::election_ongoing()
-	}
-
-	fn force_unstake(_who: Self::AccountId) -> DispatchResult {
-		Err(Error::<T>::NotSupported.into())
-	}
-
-	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {
-		T::CoreStaking::is_exposed_in_era(who, era)
-	}
-
-	fn status(who: &Self::AccountId) -> Result<StakerStatus<Self::AccountId>, DispatchError> {
-		ensure!(Self::is_agent(who), Error::<T>::NotAgent);
-		T::CoreStaking::status(who)
-	}
-
-	fn is_validator(who: &Self::AccountId) -> bool {
-		T::CoreStaking::is_validator(who)
-	}
-
-	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
-		T::CoreStaking::nominations(who)
-	}
-
-	fn slash_reward_fraction() -> Perbill {
-		T::CoreStaking::slash_reward_fraction()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn max_exposure_page_size() -> sp_staking::Page {
-		T::CoreStaking::max_exposure_page_size()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn add_era_stakers(
-		current_era: &EraIndex,
-		stash: &Self::AccountId,
-		exposures: Vec<(Self::AccountId, Self::Balance)>,
-	) {
-		T::CoreStaking::add_era_stakers(current_era, stash, exposures)
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(era: EraIndex) {
-		T::CoreStaking::set_current_era(era)
-	}
-}
-
-impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 	/// Effective balance of the `Agent` account.
 	fn agent_balance(who: &Self::AccountId) -> Self::Balance {
 		Agent::<T>::from(who)
@@ -240,6 +78,17 @@ impl<T: Config> DelegatedStakeInterface for Pallet<T> {
 			amount,
 			0,
 		)
+	}
+
+	/// Withdraw unbonding funds until current era.
+	///
+	/// Funds are moved to unclaimed_withdrawals register of the `AgentLedger`.
+	fn withdraw_unclaimed(
+		agent_acc: Self::AccountId,
+		num_slashing_spans: u32,
+	) -> Result<bool, DispatchError> {
+		Pallet::<T>::withdraw_unbonded(&agent_acc, num_slashing_spans)
+			.map(|agent| agent.ledger.total_delegated.is_zero())
 	}
 
 	/// Returns true if the `Agent` have any slash pending to be applied.
