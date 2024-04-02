@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712049041572,
+  "lastUpdate": 1712055736041,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -883,6 +883,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010125237973333341,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "12eb285dbe6271c365db7ba17cf643bfc77fe753",
+          "message": "Fix parachain upgrade scheduling when done by the owner/root (#3341)\n\nWhen using `schedule_code_upgrade` to change the code of a parachain in\nthe relay chain runtime, we had already fixed to not set the `GoAhead`\nsignal. This was done to not brick any parachain after the upgrade,\nbecause they were seeing the signal without having any upgrade prepared.\nThe remaining problem is that the parachain code is only upgraded after\na parachain header was enacted, aka the parachain made some progress.\nHowever, this is quite complicated if the parachain is bricked (which is\nthe most common scenario why to manually schedule a code upgrade). Thus,\nthis pull request replaces `SetGoAhead` with `UpgradeStrategy` to signal\nto the logic kind of strategy want to use. The strategies are either\n`SetGoAheadSignal` or `ApplyAtExpectedBlock`. `SetGoAheadSignal` sets\nthe go ahead signal as before and awaits a parachain block.\n`ApplyAtExpectedBlock` schedules the upgrade and applies it directly at\nthe `expected_block` without waiting for the parachain to make any kind\nof progress.",
+          "timestamp": "2024-04-02T09:44:23Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/12eb285dbe6271c365db7ba17cf643bfc77fe753"
+        },
+        "date": 1712055712151,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.893333333326,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026532699566666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01059363744,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15453456288666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012608220059999998,
             "unit": "seconds"
           }
         ]
