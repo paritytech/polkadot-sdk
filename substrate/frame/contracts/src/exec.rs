@@ -733,6 +733,30 @@ where
 		stack.run(executable, input_data).map(|ret| (account_id, ret))
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_new_call(
+		dest: T::AccountId,
+		origin: Origin<T>,
+		gas_meter: &'a mut GasMeter<T>,
+		storage_meter: &'a mut storage::meter::Meter<T>,
+		schedule: &'a Schedule<T>,
+		value: BalanceOf<T>,
+		debug_message: Option<&'a mut DebugBufferVec<T>>,
+		determinism: Determinism,
+	) -> (Self, E) {
+		Self::new(
+			FrameArgs::Call { dest, cached_info: None, delegated_call: None },
+			origin,
+			gas_meter,
+			storage_meter,
+			schedule,
+			value,
+			debug_message,
+			determinism,
+		)
+		.unwrap()
+	}
+
 	/// Create a new call stack.
 	fn new(
 		args: FrameArgs<T, E>,

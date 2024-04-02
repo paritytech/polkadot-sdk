@@ -18,9 +18,11 @@
 //! Benchmarks for the contracts pallet
 #![cfg(feature = "runtime-benchmarks")]
 
+mod call_builder;
 mod code;
 mod sandbox;
 use self::{
+	call_builder::CallBuilder,
 	code::{
 		body::{self, DynInstr::*},
 		DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition, WasmModule,
@@ -796,12 +798,12 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_now(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::new(WasmModule::getter("seal0", "seal_now", r), vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+	fn seal_now(r: Linear<0, API_BENCHMARK_RUNS>) {
+		let func = CallBuilder::<T>::new(WasmModule::getter("seal0", "seal_now", r)).build();
+		#[block]
+		{
+			func.call();
+		}
 	}
 
 	#[benchmark(pov_mode = Measured)]
