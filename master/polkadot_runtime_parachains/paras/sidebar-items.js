@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ParaKind","ParaLifecycle","SetGoAhead"],"mod":["pallet"],"struct":["ParaGenesisArgs","ParaPastCodeMeta","ReplacementTimes","TestWeightInfo"],"trait":["AssignCoretime","OnNewHead","WeightInfo"]};
+window.SIDEBAR_ITEMS = {"enum":["ParaKind","ParaLifecycle","UpgradeStrategy"],"mod":["pallet"],"struct":["ParaGenesisArgs","ParaPastCodeMeta","ReplacementTimes","TestWeightInfo"],"trait":["AssignCoretime","OnNewHead","WeightInfo"]};

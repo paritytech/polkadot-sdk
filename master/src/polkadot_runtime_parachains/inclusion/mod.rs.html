@@ -1492,7 +1492,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{
 	configuration::{<span class="self">self</span>, HostConfiguration},
 	disputes, dmp, hrmp,
-	paras::{<span class="self">self</span>, SetGoAhead},
+	paras::{<span class="self">self</span>, UpgradeStrategy},
 	scheduler,
 	shared::{<span class="self">self</span>, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
@@ -2309,7 +2309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				new_code,
 				now,
 				<span class="kw-2">&amp;</span>config,
-				SetGoAhead::Yes,
+				UpgradeStrategy::SetGoAheadSignal,
 			));
 		}
 

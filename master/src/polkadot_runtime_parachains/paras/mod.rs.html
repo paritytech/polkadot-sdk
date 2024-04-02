@@ -2450,6 +2450,80 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2303" id="2303">2303</a>
 <a href="#2304" id="2304">2304</a>
 <a href="#2305" id="2305">2305</a>
+<a href="#2306" id="2306">2306</a>
+<a href="#2307" id="2307">2307</a>
+<a href="#2308" id="2308">2308</a>
+<a href="#2309" id="2309">2309</a>
+<a href="#2310" id="2310">2310</a>
+<a href="#2311" id="2311">2311</a>
+<a href="#2312" id="2312">2312</a>
+<a href="#2313" id="2313">2313</a>
+<a href="#2314" id="2314">2314</a>
+<a href="#2315" id="2315">2315</a>
+<a href="#2316" id="2316">2316</a>
+<a href="#2317" id="2317">2317</a>
+<a href="#2318" id="2318">2318</a>
+<a href="#2319" id="2319">2319</a>
+<a href="#2320" id="2320">2320</a>
+<a href="#2321" id="2321">2321</a>
+<a href="#2322" id="2322">2322</a>
+<a href="#2323" id="2323">2323</a>
+<a href="#2324" id="2324">2324</a>
+<a href="#2325" id="2325">2325</a>
+<a href="#2326" id="2326">2326</a>
+<a href="#2327" id="2327">2327</a>
+<a href="#2328" id="2328">2328</a>
+<a href="#2329" id="2329">2329</a>
+<a href="#2330" id="2330">2330</a>
+<a href="#2331" id="2331">2331</a>
+<a href="#2332" id="2332">2332</a>
+<a href="#2333" id="2333">2333</a>
+<a href="#2334" id="2334">2334</a>
+<a href="#2335" id="2335">2335</a>
+<a href="#2336" id="2336">2336</a>
+<a href="#2337" id="2337">2337</a>
+<a href="#2338" id="2338">2338</a>
+<a href="#2339" id="2339">2339</a>
+<a href="#2340" id="2340">2340</a>
+<a href="#2341" id="2341">2341</a>
+<a href="#2342" id="2342">2342</a>
+<a href="#2343" id="2343">2343</a>
+<a href="#2344" id="2344">2344</a>
+<a href="#2345" id="2345">2345</a>
+<a href="#2346" id="2346">2346</a>
+<a href="#2347" id="2347">2347</a>
+<a href="#2348" id="2348">2348</a>
+<a href="#2349" id="2349">2349</a>
+<a href="#2350" id="2350">2350</a>
+<a href="#2351" id="2351">2351</a>
+<a href="#2352" id="2352">2352</a>
+<a href="#2353" id="2353">2353</a>
+<a href="#2354" id="2354">2354</a>
+<a href="#2355" id="2355">2355</a>
+<a href="#2356" id="2356">2356</a>
+<a href="#2357" id="2357">2357</a>
+<a href="#2358" id="2358">2358</a>
+<a href="#2359" id="2359">2359</a>
+<a href="#2360" id="2360">2360</a>
+<a href="#2361" id="2361">2361</a>
+<a href="#2362" id="2362">2362</a>
+<a href="#2363" id="2363">2363</a>
+<a href="#2364" id="2364">2364</a>
+<a href="#2365" id="2365">2365</a>
+<a href="#2366" id="2366">2366</a>
+<a href="#2367" id="2367">2367</a>
+<a href="#2368" id="2368">2368</a>
+<a href="#2369" id="2369">2369</a>
+<a href="#2370" id="2370">2370</a>
+<a href="#2371" id="2371">2371</a>
+<a href="#2372" id="2372">2372</a>
+<a href="#2373" id="2373">2373</a>
+<a href="#2374" id="2374">2374</a>
+<a href="#2375" id="2375">2375</a>
+<a href="#2376" id="2376">2376</a>
+<a href="#2377" id="2377">2377</a>
+<a href="#2378" id="2378">2378</a>
+<a href="#2379" id="2379">2379</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2838,16 +2912,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// See https://github.com/paritytech/polkadot/issues/4601 for detailed explanation.
 		</span>included_at: BlockNumber,
-		<span class="doccomment">/// Whether or not the given para should be sent the `GoAhead` signal.
-		</span>set_go_ahead: SetGoAhead,
+		<span class="doccomment">/// Whether or not the upgrade should be enacted directly.
+		///
+		/// If set to `Yes` it means that no `GoAheadSignal` will be set and the parachain code
+		/// will also be overwritten directly.
+		</span>upgrade_strategy: UpgradeStrategy,
 	},
 }
 
-<span class="doccomment">/// Should the `GoAhead` signal be set after a successful check of the new wasm binary?
+<span class="doccomment">/// The strategy on how to handle a validation code upgrade.
+///
+/// When scheduling a parachain code upgrade the upgrade first is checked by all validators. The
+/// validators ensure that the new validation code can be compiled and instantiated. After the
+/// majority of the validators have reported their checking result the upgrade is either scheduled
+/// or aborted. This strategy then comes into play around the relay chain block this upgrade was
+/// scheduled in.
 </span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, TypeInfo, Decode, Encode)]
-</span><span class="kw">pub enum </span>SetGoAhead {
-	Yes,
-	No,
+</span><span class="kw">pub enum </span>UpgradeStrategy {
+	<span class="doccomment">/// Set the `GoAhead` signal to inform the parachain that it is time to upgrade.
+	///
+	/// The upgrade will then be applied after the first parachain block was enacted that must have
+	/// observed the `GoAhead` signal.
+	</span>SetGoAheadSignal,
+	<span class="doccomment">/// Apply the upgrade directly at the expected relay chain block.
+	///
+	/// This doesn&#39;t wait for the parachain to make any kind of progress.
+	</span>ApplyAtExpectedBlock,
 }
 
 <span class="kw">impl</span>&lt;BlockNumber&gt; PvfCheckCause&lt;BlockNumber&gt; {
@@ -3210,13 +3300,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>PastCodePruning&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, Vec&lt;(ParaId, BlockNumberFor&lt;T&gt;)&gt;, ValueQuery&gt;;
 
-	<span class="doccomment">/// The block number at which the planned code change is expected for a para.
+	<span class="doccomment">/// The block number at which the planned code change is expected for a parachain.
+	///
 	/// The change will be applied after the first parablock for this ID included which executes
 	/// in the context of a relay chain block with a number &gt;= `expected_at`.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>future_code_upgrade_at)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>FutureCodeUpgrades&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, BlockNumberFor&lt;T&gt;&gt;;
+
+	<span class="doccomment">/// The list of upcoming future code upgrades.
+	///
+	/// Each item is a pair of the parachain and the expected block at which the upgrade should be
+	/// applied. The upgrade will be applied at the given relay chain block. In contrast to
+	/// [`FutureCodeUpgrades`] this code upgrade will be applied regardless the parachain making any
+	/// progress or not.
+	///
+	/// Ordered ascending by block number.
+	</span><span class="attr">#[pallet::storage]
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>FutureCodeUpgradesAt&lt;T: Config&gt; =
+		StorageValue&lt;<span class="kw">_</span>, Vec&lt;(ParaId, BlockNumberFor&lt;T&gt;)&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The actual future code hash of a para.
 	///
@@ -3261,8 +3364,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UpgradeCooldowns&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, Vec&lt;(ParaId, BlockNumberFor&lt;T&gt;)&gt;, ValueQuery&gt;;
 
-	<span class="doccomment">/// The list of upcoming code upgrades. Each item is a pair of which para performs a code
-	/// upgrade and at which relay-chain block it is expected at.
+	<span class="doccomment">/// The list of upcoming code upgrades.
+	///
+	/// Each item is a pair of which para performs a code upgrade and at which relay-chain block it
+	/// is expected at.
 	///
 	/// Ordered ascending by block number.
 	</span><span class="attr">#[pallet::storage]
@@ -3332,21 +3437,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			new_code: ValidationCode,
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>maybe_prior_code_hash = CurrentCodeHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para);
 			<span class="kw">let </span>new_code_hash = new_code.hash();
 			<span class="self">Self</span>::increase_code_ref(<span class="kw-2">&amp;</span>new_code_hash, <span class="kw-2">&amp;</span>new_code);
-			CurrentCodeHash::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>para, new_code_hash);
-
-			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(prior_code_hash) = maybe_prior_code_hash {
-				<span class="self">Self</span>::note_past_code(para, now, now, prior_code_hash);
-			} <span class="kw">else </span>{
-				<span class="macro">log::error!</span>(
-					target: LOG_TARGET,
-					<span class="string">&quot;Pallet paras storage is inconsistent, prior code not found {:?}&quot;</span>,
-					<span class="kw-2">&amp;</span>para
-				);
-			}
+			<span class="self">Self</span>::set_current_code(para, new_code_hash, frame_system::Pallet::&lt;T&gt;::block_number());
 			<span class="self">Self</span>::deposit_event(Event::CurrentCodeUpdated(para));
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -3380,7 +3473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				new_code,
 				relay_parent_number,
 				<span class="kw-2">&amp;</span>config,
-				SetGoAhead::No,
+				UpgradeStrategy::ApplyAtExpectedBlock,
 			);
 			<span class="self">Self</span>::deposit_event(Event::CodeUpgradeScheduled(para));
 			<span class="prelude-val">Ok</span>(())
@@ -3679,7 +3772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>schedule_code_upgrade_external(
 		id: ParaId,
 		new_code: ValidationCode,
-		set_go_ahead: SetGoAhead,
+		upgrade_strategy: UpgradeStrategy,
 	) -&gt; DispatchResult {
 		<span class="comment">// Check that we can schedule an upgrade at all.
 		</span><span class="macro">ensure!</span>(<span class="self">Self</span>::can_upgrade_validation_code(id), Error::&lt;T&gt;::CannotUpgradeCode);
@@ -3691,7 +3784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>current_block = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="comment">// Schedule the upgrade with a delay just like if a parachain triggered the upgrade.
 		</span><span class="kw">let </span>upgrade_block = current_block.saturating_add(config.validation_upgrade_delay);
-		<span class="self">Self</span>::schedule_code_upgrade(id, new_code, upgrade_block, <span class="kw-2">&amp;</span>config, set_go_ahead);
+		<span class="self">Self</span>::schedule_code_upgrade(id, new_code, upgrade_block, <span class="kw-2">&amp;</span>config, upgrade_strategy);
 		<span class="self">Self</span>::deposit_event(Event::CodeUpgradeScheduled(id));
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3704,8 +3797,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Called by the initializer to initialize the paras pallet.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initializer_initialize(now: BlockNumberFor&lt;T&gt;) -&gt; Weight {
-		<span class="kw">let </span>weight = <span class="self">Self</span>::prune_old_code(now);
-		weight + <span class="self">Self</span>::process_scheduled_upgrade_changes(now)
+		<span class="self">Self</span>::prune_old_code(now) +
+			<span class="self">Self</span>::process_scheduled_upgrade_changes(now) +
+			<span class="self">Self</span>::process_future_code_upgrades_at(now)
 	}
 
 	<span class="doccomment">/// Called by the initializer to finalize the paras pallet.
@@ -3807,16 +3901,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// NOTE both of those iterates over the list and the outgoing. We do not expect either
 			//      of these to be large. Thus should be fine.
 			</span>UpcomingUpgrades::&lt;T&gt;::mutate(|upcoming_upgrades| {
-				<span class="kw-2">*</span>upcoming_upgrades = mem::take(upcoming_upgrades)
-					.into_iter()
-					.filter(|(para, <span class="kw">_</span>)| !outgoing.contains(para))
-					.collect();
+				upcoming_upgrades.retain(|(para, <span class="kw">_</span>)| !outgoing.contains(para));
 			});
 			UpgradeCooldowns::&lt;T&gt;::mutate(|upgrade_cooldowns| {
-				<span class="kw-2">*</span>upgrade_cooldowns = mem::take(upgrade_cooldowns)
-					.into_iter()
-					.filter(|(para, <span class="kw">_</span>)| !outgoing.contains(para))
-					.collect();
+				upgrade_cooldowns.retain(|(para, <span class="kw">_</span>)| !outgoing.contains(para));
+			});
+			FutureCodeUpgradesAt::&lt;T&gt;::mutate(|future_upgrades| {
+				future_upgrades.retain(|(para, <span class="kw">_</span>)| !outgoing.contains(para));
 			});
 		}
 
@@ -3910,6 +4001,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// 1 read for the meta for each pruning task, 1 read for the config
 		// 2 writes: updating the meta and pruning the code
 		</span>T::DbWeight::get().reads_writes(<span class="number">1 </span>+ pruning_tasks_done, <span class="number">2 </span>* pruning_tasks_done)
+	}
+
+	<span class="doccomment">/// Process the future code upgrades that should be applied directly.
+	///
+	/// Upgrades that should not be applied directly are being processed in
+	/// [`Self::process_scheduled_upgrade_changes`].
+	</span><span class="kw">fn </span>process_future_code_upgrades_at(now: BlockNumberFor&lt;T&gt;) -&gt; Weight {
+		<span class="comment">// account weight for `FutureCodeUpgradeAt::mutate`.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
+		FutureCodeUpgradesAt::&lt;T&gt;::mutate(
+			|upcoming_upgrades: <span class="kw-2">&amp;mut </span>Vec&lt;(ParaId, BlockNumberFor&lt;T&gt;)&gt;| {
+				<span class="kw">let </span>num = upcoming_upgrades.iter().take_while(|<span class="kw-2">&amp;</span>(<span class="kw">_</span>, at)| at &lt;= <span class="kw-2">&amp;</span>now).count();
+				<span class="kw">for </span>(id, expected_at) <span class="kw">in </span>upcoming_upgrades.drain(..num) {
+					weight += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
+
+					<span class="comment">// Both should always be `Some` in this case, since a code upgrade is scheduled.
+					</span><span class="kw">let </span>new_code_hash = <span class="kw">if let </span><span class="prelude-val">Some</span>(new_code_hash) = FutureCodeHash::&lt;T&gt;::take(<span class="kw-2">&amp;</span>id)
+					{
+						new_code_hash
+					} <span class="kw">else </span>{
+						<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Missing future code hash for {:?}&quot;</span>, <span class="kw-2">&amp;</span>id);
+						<span class="kw">continue
+					</span>};
+
+					weight += <span class="self">Self</span>::set_current_code(id, new_code_hash, expected_at);
+				}
+				num
+			},
+		);
+
+		weight
 	}
 
 	<span class="doccomment">/// Process the timers related to upgrades. Specifically, the upgrade go ahead signals toggle
@@ -4032,14 +4154,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				PvfCheckCause::Onboarding(id) =&gt; {
 					weight += <span class="self">Self</span>::proceed_with_onboarding(<span class="kw-2">*</span>id, sessions_observed);
 				},
-				PvfCheckCause::Upgrade { id, included_at, set_go_ahead } =&gt; {
+				PvfCheckCause::Upgrade { id, included_at, upgrade_strategy } =&gt; {
 					weight += <span class="self">Self</span>::proceed_with_upgrade(
 						<span class="kw-2">*</span>id,
 						code_hash,
 						now,
 						<span class="kw-2">*</span>included_at,
 						cfg,
-						<span class="kw-2">*</span>set_go_ahead,
+						<span class="kw-2">*</span>upgrade_strategy,
 					);
 				},
 			}
@@ -4073,38 +4195,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		now: BlockNumberFor&lt;T&gt;,
 		relay_parent_number: BlockNumberFor&lt;T&gt;,
 		cfg: <span class="kw-2">&amp;</span>configuration::HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
-		set_go_ahead: SetGoAhead,
+		upgrade_strategy: UpgradeStrategy,
 	) -&gt; Weight {
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
 
-		<span class="comment">// Compute the relay-chain block number starting at which the code upgrade is ready to be
-		// applied.
+		<span class="comment">// Compute the relay-chain block number starting at which the code upgrade is ready to
+		// be applied.
 		//
-		// The first parablock that has a relay-parent higher or at the same height of `expected_at`
-		// will trigger the code upgrade. The parablock that comes after that will be validated
-		// against the new validation code.
+		// The first parablock that has a relay-parent higher or at the same height of
+		// `expected_at` will trigger the code upgrade. The parablock that comes after that will
+		// be validated against the new validation code.
 		//
-		// Here we are trying to choose the block number that will have `validation_upgrade_delay`
-		// blocks from the relay-parent of inclusion of the the block that scheduled code upgrade
-		// but no less than `minimum_validation_upgrade_delay`. We want this delay out of caution
-		// so that when the last vote for pre-checking comes the parachain will have some time until
-		// the upgrade finally takes place.
+		// Here we are trying to choose the block number that will have
+		// `validation_upgrade_delay` blocks from the relay-parent of inclusion of the the block
+		// that scheduled code upgrade but no less than `minimum_validation_upgrade_delay`. We
+		// want this delay out of caution so that when the last vote for pre-checking comes the
+		// parachain will have some time until the upgrade finally takes place.
 		</span><span class="kw">let </span>expected_at = cmp::max(
 			relay_parent_number + cfg.validation_upgrade_delay,
 			now + cfg.minimum_validation_upgrade_delay,
 		);
 
-		weight += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">4</span>);
-		FutureCodeUpgrades::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, expected_at);
+		<span class="kw">match </span>upgrade_strategy {
+			UpgradeStrategy::ApplyAtExpectedBlock =&gt; {
+				FutureCodeUpgradesAt::&lt;T&gt;::mutate(|future_upgrades| {
+					<span class="kw">let </span>insert_idx = future_upgrades
+						.binary_search_by_key(<span class="kw-2">&amp;</span>expected_at, |<span class="kw-2">&amp;</span>(<span class="kw">_</span>, b)| b)
+						.unwrap_or_else(|idx| idx);
+					future_upgrades.insert(insert_idx, (id, expected_at));
+				});
 
-		<span class="comment">// Only set an upcoming upgrade if `GoAhead` signal should be set for the respective para.
-		</span><span class="kw">if </span>set_go_ahead == SetGoAhead::Yes {
-			UpcomingUpgrades::&lt;T&gt;::mutate(|upcoming_upgrades| {
-				<span class="kw">let </span>insert_idx = upcoming_upgrades
-					.binary_search_by_key(<span class="kw-2">&amp;</span>expected_at, |<span class="kw-2">&amp;</span>(<span class="kw">_</span>, b)| b)
-					.unwrap_or_else(|idx| idx);
-				upcoming_upgrades.insert(insert_idx, (id, expected_at));
-			});
+				weight += T::DbWeight::get().reads_writes(<span class="number">0</span>, <span class="number">2</span>);
+			},
+			UpgradeStrategy::SetGoAheadSignal =&gt; {
+				FutureCodeUpgrades::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, expected_at);
+
+				UpcomingUpgrades::&lt;T&gt;::mutate(|upcoming_upgrades| {
+					<span class="kw">let </span>insert_idx = upcoming_upgrades
+						.binary_search_by_key(<span class="kw-2">&amp;</span>expected_at, |<span class="kw-2">&amp;</span>(<span class="kw">_</span>, b)| b)
+						.unwrap_or_else(|idx| idx);
+					upcoming_upgrades.insert(insert_idx, (id, expected_at));
+				});
+
+				weight += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">3</span>);
+			},
 		}
 
 		<span class="kw">let </span>expected_at = expected_at.saturated_into();
@@ -4344,7 +4478,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		new_code: ValidationCode,
 		inclusion_block_number: BlockNumberFor&lt;T&gt;,
 		cfg: <span class="kw-2">&amp;</span>configuration::HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
-		set_go_ahead: SetGoAhead,
+		upgrade_strategy: UpgradeStrategy,
 	) -&gt; Weight {
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
 
@@ -4401,7 +4535,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		weight += <span class="self">Self</span>::kick_off_pvf_check(
-			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number, set_go_ahead },
+			PvfCheckCause::Upgrade { id, included_at: inclusion_block_number, upgrade_strategy },
 			code_hash,
 			new_code,
 			cfg,
@@ -4513,24 +4647,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Missing future code hash for {:?}&quot;</span>, <span class="kw-2">&amp;</span>id);
 					<span class="kw">return </span>T::DbWeight::get().reads_writes(<span class="number">3</span>, <span class="number">1 </span>+ <span class="number">3</span>)
 				};
-				<span class="kw">let </span>maybe_prior_code_hash = CurrentCodeHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>id);
-				CurrentCodeHash::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>new_code_hash);
 
-				<span class="kw">let </span>log = ConsensusLog::ParaUpgradeCode(id, new_code_hash);
-				&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_log(log.into());
+				<span class="kw">let </span>weight = <span class="self">Self</span>::set_current_code(id, new_code_hash, expected_at);
 
-				<span class="comment">// `now` is only used for registering pruning as part of `fn note_past_code`
-				</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
-
-				<span class="kw">let </span>weight = <span class="kw">if let </span><span class="prelude-val">Some</span>(prior_code_hash) = maybe_prior_code_hash {
-					<span class="self">Self</span>::note_past_code(id, expected_at, now, prior_code_hash)
-				} <span class="kw">else </span>{
-					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Missing prior code hash for para {:?}&quot;</span>, <span class="kw-2">&amp;</span>id);
-					Weight::zero()
-				};
-
-				<span class="comment">// add 1 to writes due to heads update.
-				</span>weight + T::DbWeight::get().reads_writes(<span class="number">3</span>, <span class="number">1 </span>+ <span class="number">3</span>)
+				weight + T::DbWeight::get().reads_writes(<span class="number">3</span>, <span class="number">3</span>)
 			} <span class="kw">else </span>{
 				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1 </span>+ <span class="number">0</span>)
 			}
@@ -4544,6 +4664,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		weight.saturating_add(T::OnNewHead::on_new_head(id, <span class="kw-2">&amp;</span>new_head))
+	}
+
+	<span class="doccomment">/// Set the current code for the given parachain.
+	</span><span class="comment">// `at` for para-triggered replacement is the block number of the relay-chain
+	// block in whose context the parablock was executed
+	// (i.e. number of `relay_parent` in the receipt)
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_current_code(
+		id: ParaId,
+		new_code_hash: ValidationCodeHash,
+		at: BlockNumberFor&lt;T&gt;,
+	) -&gt; Weight {
+		<span class="kw">let </span>maybe_prior_code_hash = CurrentCodeHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>id);
+		CurrentCodeHash::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>new_code_hash);
+
+		<span class="kw">let </span>log = ConsensusLog::ParaUpgradeCode(id, new_code_hash);
+		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_log(log.into());
+
+		<span class="comment">// `now` is only used for registering pruning as part of `fn note_past_code`
+		</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+
+		<span class="kw">let </span>weight = <span class="kw">if let </span><span class="prelude-val">Some</span>(prior_code_hash) = maybe_prior_code_hash {
+			<span class="self">Self</span>::note_past_code(id, at, now, prior_code_hash)
+		} <span class="kw">else </span>{
+			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Missing prior code hash for para {:?}&quot;</span>, <span class="kw-2">&amp;</span>id);
+			Weight::zero()
+		};
+
+		weight + T::DbWeight::get().writes(<span class="number">1</span>)
 	}
 
 	<span class="doccomment">/// Returns the list of PVFs (aka validation code) that require casting a vote by a validator in

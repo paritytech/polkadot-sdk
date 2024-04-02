@@ -1814,6 +1814,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1667" id="1667">1667</a>
 <a href="#1668" id="1668">1668</a>
 <a href="#1669" id="1669">1669</a>
+<a href="#1670" id="1670">1670</a>
+<a href="#1671" id="1671">1671</a>
+<a href="#1672" id="1672">1672</a>
+<a href="#1673" id="1673">1673</a>
+<a href="#1674" id="1674">1674</a>
+<a href="#1675" id="1675">1675</a>
+<a href="#1676" id="1676">1676</a>
+<a href="#1677" id="1677">1677</a>
+<a href="#1678" id="1678">1678</a>
+<a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1845,7 +1856,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>primitives::{HeadData, Id <span class="kw">as </span>ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
 <span class="kw">use </span>runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{<span class="self">self</span>, ParaGenesisArgs, SetGoAhead},
+	paras::{<span class="self">self</span>, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
 };
 <span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, result};
@@ -2224,6 +2235,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Schedule a parachain upgrade.
 		///
+		/// This will kick off a check of `new_code` by all validators. After the majority of the
+		/// validators have reported on the validity of the code, the code will either be enacted
+		/// or the upgrade will be rejected. If the code will be enacted, the current code of the
+		/// parachain will be overwritten directly. This means that any PoV will be checked by this
+		/// new code. The parachain itself will not be informed explictely that the validation code
+		/// has changed.
+		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
 		</span><span class="attr">#[pallet::call_index(<span class="number">7</span>)]
@@ -2234,7 +2252,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			new_code: ValidationCode,
 		) -&gt; DispatchResult {
 			<span class="self">Self</span>::ensure_root_para_or_owner(origin, para)<span class="question-mark">?</span>;
-			runtime_parachains::schedule_code_upgrade::&lt;T&gt;(para, new_code, SetGoAhead::No)<span class="question-mark">?</span>;
+			runtime_parachains::schedule_code_upgrade::&lt;T&gt;(
+				para,
+				new_code,
+				UpgradeStrategy::ApplyAtExpectedBlock,
+			)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 
