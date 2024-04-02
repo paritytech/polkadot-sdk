@@ -18,8 +18,7 @@
 use super::*;
 
 use frame_support::traits::fungibles::{Inspect, InspectFreeze, MutateFreeze};
-use sp_core::Get;
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::{Get, Zero};
 
 // Implement fungibles::Inspect as it is required. To do so, we'll re-export
 // all of `pallet-assets`' implementation of the same trait.
