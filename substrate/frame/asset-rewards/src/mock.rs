@@ -157,7 +157,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	// .unwrap();
 
 	pallet_balances::GenesisConfig::<MockRuntime> {
-		balances: vec![(1, 10000), (2, 20000), (3, 30000), (4, 40000)],
+		balances: vec![(1, 10000), (2, 20000), (3, 30000), (4, 40000), (10, 40000), (20, 40000)],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

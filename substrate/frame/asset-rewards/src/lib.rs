@@ -80,7 +80,7 @@ pub type PoolId = u32;
 pub(crate) const PRECISION_SCALING_FACTOR: u32 = u32::MAX;
 
 /// A pool staker.
-#[derive(Default, Decode, Encode, MaxEncodedLen, TypeInfo)]
+#[derive(Debug, Default, Decode, Encode, MaxEncodedLen, TypeInfo)]
 pub struct PoolStakerInfo<Balance> {
 	/// Amount of tokens staked.
 	amount: Balance,
@@ -416,7 +416,7 @@ pub mod pallet {
 
 			// Emit event.
 			Self::deposit_event(Event::RewardsHarvested {
-				who: caller,
+				who: caller.clone(),
 				staker,
 				pool_id,
 				amount: staker_info.rewards,
@@ -424,6 +424,7 @@ pub mod pallet {
 
 			// Reset staker rewards.
 			staker_info.rewards = 0u32.into();
+			PoolStakers::<T>::insert(pool_id, &caller, staker_info);
 
 			Ok(())
 		}
@@ -479,7 +480,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Derive a pool account ID from the pallet's ID.
-		fn pool_account_id(id: &PoolId) -> Result<T::AccountId, DispatchError> {
+		pub fn pool_account_id(id: &PoolId) -> Result<T::AccountId, DispatchError> {
 			if Pools::<T>::contains_key(id) {
 				Ok(T::PalletId::get().into_sub_account_truncating(id))
 			} else {
@@ -488,17 +489,18 @@ pub mod pallet {
 		}
 
 		/// Update pool reward state.
-		fn update_pool_rewards(pool_id: &PoolId, staker: &T::AccountId) -> DispatchResult {
+		pub fn update_pool_rewards(pool_id: &PoolId, staker: &T::AccountId) -> DispatchResult {
 			let reward_per_token = Self::reward_per_token(pool_id)?;
-
-			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			pool_info.last_update_block = frame_system::Pallet::<T>::block_number();
-			Pools::<T>::insert(pool_id, pool_info);
 
 			let mut staker_info = PoolStakers::<T>::get(pool_id, staker).unwrap_or_default();
 			staker_info.rewards = Self::derive_rewards(pool_id, staker)?;
 			staker_info.reward_per_token_paid = reward_per_token;
 			PoolStakers::<T>::insert(pool_id, staker, staker_info);
+
+			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+			pool_info.last_update_block = frame_system::Pallet::<T>::block_number();
+			pool_info.reward_per_token_stored = reward_per_token;
+			Pools::<T>::insert(pool_id, pool_info);
 
 			Ok(())
 		}
@@ -510,7 +512,7 @@ pub mod pallet {
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 
 			if pool_info.total_tokens_staked.eq(&0u32.into()) {
-				return Ok(0u32.into());
+				return Ok(pool_info.reward_per_token_stored)
 			}
 
 			let blocks_elapsed: u32 = match frame_system::Pallet::<T>::block_number()
@@ -521,15 +523,13 @@ pub mod pallet {
 				Err(_) => return Err(Error::<T>::BlockNumberConversionError.into()),
 			};
 
-			Ok(pool_info
-				.reward_per_token_stored
-				.saturating_add(
-					pool_info
-						.reward_rate_per_block
-						.saturating_mul(blocks_elapsed.into())
-						.saturating_mul(PRECISION_SCALING_FACTOR.into()),
-				)
-				.ensure_div(pool_info.total_tokens_staked)?)
+			Ok(pool_info.reward_per_token_stored.saturating_add(
+				pool_info
+					.reward_rate_per_block
+					.saturating_mul(blocks_elapsed.into())
+					.saturating_mul(PRECISION_SCALING_FACTOR.into())
+					.ensure_div(pool_info.total_tokens_staked)?,
+			))
 		}
 
 		/// Derives the amount of rewards earned by a staker.
