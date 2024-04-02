@@ -369,7 +369,7 @@ function relative_parent() {
 # used as Github Workflow Matrix. This call is exposed by the `scan` command and can be used as:
 # podman run --rm -it -v /.../fellowship-runtimes:/build docker.io/chevdor/srtool:1.70.0-0.11.1 scan
 function find_runtimes() {
-    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches 'construct_runtime!' -- '*lib.rs'))
+    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches '[frame_support::runtime]!' -- '*lib.rs'))
     re=".*-runtime$"
     JSON=$(jq --null-input '{ "include": [] }')
 
