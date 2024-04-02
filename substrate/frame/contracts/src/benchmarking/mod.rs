@@ -799,7 +799,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_now(r: Linear<0, API_BENCHMARK_RUNS>) {
-		let func = CallBuilder::<T>::new(WasmModule::getter("seal0", "seal_now", r)).build();
+		call_builder!(func, WasmModule::getter("seal0", "seal_now", r));
 		#[block]
 		{
 			func.call();

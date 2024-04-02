@@ -29,37 +29,6 @@ use sp_std::prelude::*;
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
 
-/// A LeakReclaimer is a guard that reclaims the leaked box when dropped.
-struct LeakReclaimer<T> {
-	ptr: *mut T,
-}
-
-impl<T> LeakReclaimer<T> {
-	/// Creates a new `LeakReclaimer`, leaking a boxed value and returning a static mutable
-	/// reference to its content, along with the guard for later cleanup.
-	///
-	/// # Safety
-	///
-	/// The caller must ensure that the returned reference is not used after the `LeakReclaimer` is
-	/// dropped.
-	unsafe fn new(value: T) -> (&'static mut T, Self) {
-		let mut boxed = Box::new(value);
-		let ptr: *mut T = &mut *boxed;
-		let static_ref: &'static mut T = Box::leak(boxed);
-
-		(static_ref, Self { ptr })
-	}
-}
-
-impl<T> Drop for LeakReclaimer<T> {
-	fn drop(&mut self) {
-		// Safety: The pointer is valid as it points to the leaked box, created by `[Self::new]`.
-		unsafe {
-			let _ = Box::from_raw(self.ptr);
-		}
-	}
-}
-
 /// A builder used to prepare a contract call.
 pub struct CallBuilder<T: Config> {
 	caller: T::AccountId,
@@ -67,16 +36,12 @@ pub struct CallBuilder<T: Config> {
 	gas_meter: GasMeter<T>,
 	storage_meter: Meter<T>,
 	schedule: Schedule<T>,
-	input: Vec<u8>,
 }
 
 /// A prepared contract call ready to be executed.
 pub struct PreparedCall<'a, T: Config> {
 	func: wasmi::Func,
 	store: wasmi::Store<Runtime<'a, StackExt<'a, T>>>,
-
-	// The reclaims are used to ensure that the leaked boxes are dropped when this get dropped.
-	_reclaims: (LeakReclaimer<StackExt<'a, T>>, LeakReclaimer<CallBuilder<T>>),
 }
 
 impl<'a, T: Config> PreparedCall<'a, T> {
@@ -102,33 +67,37 @@ where
 			schedule: T::Schedule::get(),
 			gas_meter: GasMeter::new(Weight::MAX),
 			storage_meter: Default::default(),
-			input: vec![],
 		}
+	}
+
+	/// Build the call stack.
+	pub fn build_ext(&mut self) -> (StackExt<'_, T>, WasmBlob<T>) {
+		StackExt::bench_new_call(
+			self.dest.clone(),
+			Origin::from_account_id(self.caller.clone()),
+			&mut self.gas_meter,
+			&mut self.storage_meter,
+			&self.schedule,
+			0u32.into(),
+			None,
+			Determinism::Enforced,
+		)
 	}
 
 	/// Prepare a call to the module.
 	/// Returns a a closure used to invoke the call.
-	pub fn build(self) -> PreparedCall<'static, T> {
-		let input = self.input.clone();
-
-		// Safety: reclaim_sbox is dropped when PreparedCall is dropped.
-		let (sbox, reclaim_sbox) = unsafe { LeakReclaimer::new(self) };
-
-		let (ext, module) = Stack::bench_new_call(
-			sbox.dest.clone(),
-			Origin::from_account_id(sbox.caller.clone()),
-			&mut sbox.gas_meter,
-			&mut sbox.storage_meter,
-			&sbox.schedule,
-			0u32.into(),
-			None,
-			Determinism::Enforced,
-		);
-
-		// Safety: reclaim_ext is dropped when PreparedCall is dropped.
-		let (ext, reclaim_ext): (&mut StackExt<T>, _) = unsafe { LeakReclaimer::new(ext) };
+	pub fn build<'a>(ext: &'a mut StackExt<'a, T>, module: WasmBlob<T>) -> PreparedCall<'a, T> {
+		let input = vec![];
 		let (func, store) = module.bench_prepare_call(ext, input);
-
-		PreparedCall { func, store, _reclaims: (reclaim_ext, reclaim_sbox) }
+		PreparedCall { func, store }
 	}
 }
+
+#[macro_export]
+macro_rules! call_builder(
+	($func: ident, $module:expr) => {
+		let mut builder = CallBuilder::<T>::new($module);
+		let (mut ext, module) = builder.build_ext();
+		let $func = CallBuilder::<T>::build(&mut ext, module);
+	}
+);
