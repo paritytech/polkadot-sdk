@@ -208,7 +208,7 @@ where
 	///  - The RPC layer will not be able to generate the `NewBlock` events for all blocks.
 	///
 	/// This edge-case can happen for parachains where the relay chain syncs slower to
-	/// the head of the chain than the parachain node that is synched already.
+	/// the head of the chain than the parachain node that is synced already.
 	fn distace_within_reason(
 		&self,
 		block: Block::Hash,
