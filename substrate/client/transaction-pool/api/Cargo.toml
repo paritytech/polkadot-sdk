@@ -12,9 +12,9 @@ description = "Transaction pool client facing API."
 workspace = true
 
 [dependencies]
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-futures = "0.3.21"
+futures = "0.3.30"
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
