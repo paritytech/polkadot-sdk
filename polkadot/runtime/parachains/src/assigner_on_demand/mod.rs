@@ -42,18 +42,24 @@ mod tests;
 
 use core::mem::take;
 
-use crate::{configuration, paras, scheduler::common::Assignment};
+use crate::{
+	configuration,
+	coretime::{mk_coretime_call, BrokerRuntimePallets, CoretimeCalls},
+	paras,
+	scheduler::common::Assignment,
+};
+use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
 
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Imbalance, WithdrawReasons,
+		Imbalance, OnUnbalanced, WithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::*;
-use primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
+use primitives::{Balance, CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
 use sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
@@ -334,6 +340,12 @@ pub mod pallet {
 		/// information stored for.
 		#[pallet::constant]
 		type MaxHistoricalRevenue: Get<u32>;
+
+		type SendXcm: SendXcm;
+
+		/// The ParaId of the broker system parachain.
+		#[pallet::constant]
+		type BrokerId: Get<u32>;
 	}
 
 	/// Creates and empty revenue tracker if one isn't present in storage already.
@@ -406,6 +418,9 @@ pub mod pallet {
 		/// The current spot price is higher than the max amount specified in the `place_order`
 		/// call, making it invalid.
 		SpotPriceHigherThanMaxAmount,
+		/// Requested revenue information `when` parameter was in the future from the current
+		/// block height.
+		RequestedFutureRevenue,
 	}
 
 	#[pallet::hooks]
@@ -560,7 +575,8 @@ where
 	}
 
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
-	/// with a keep alive check or to allow the account to be reaped.
+	/// with a keep alive check or to allow the account to be reaped. The amount charged is
+	/// burnt from the `Currency` and stored to
 	///
 	/// Parameters:
 	/// - `sender`: The sender of the call, funds will be withdrawn from this account.
@@ -596,16 +612,14 @@ where
 			// Is the current price higher than `max_amount`
 			ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
 
-			// Charge the sending account the spot price
-			let withdrawn_amount = T::Currency::withdraw(
+			// Charge the sending account the spot price. The imbalance is handled by this pallet's
+			// `OnUnbalanced` trait implementation and added to the revenue information.
+			let _ = T::Currency::withdraw(
 				&sender,
 				spot_price,
 				WithdrawReasons::FEE,
 				existence_requirement,
 			)?;
-
-			// Add the spot price to the revenue information
-			Self::add_revenue_info(withdrawn_amount);
 
 			ensure!(
 				queue_status.size() < config.scheduler_params.on_demand_queue_max_size,
@@ -814,21 +828,51 @@ where
 		})
 	}
 
-	pub fn do_request_revenue_info_at(_when: BlockNumberFor<T>) -> DispatchResult {
-		//TODO: impl
+	/// Provide the amount of revenue accumulated from Instantaneous Coretime Sales from Relay-chain
+	/// block number last_until to until, not including until itself. last_until is defined as being
+	/// the until argument of the last notify_revenue message sent, or zero for the first call. If
+	/// revenue is None, this indicates that the information is no longer available. This explicitly
+	/// disregards the possibility of multiple parachains requesting and being notified of revenue
+	/// information.
+	///
+	/// The Relay-chain must be configured to ensure that only a single revenue information
+	/// destination exists.
+	pub fn notify_revenue(when: BlockNumberFor<T>) -> DispatchResult {
+		let now = <frame_system::Pallet<T>>::block_number();
+		// When cannot be in the future.
+		ensure!(when <= now, Error::<T>::RequestedFutureRevenue);
+
+		// TODO actual revenue
+		let revenue: Balance = 0u128;
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			mk_coretime_call(CoretimeCalls::NotifyRevenue(revenue)),
+		]);
+		if let Err(err) = send_xcm::<T::SendXcm>(
+			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
+			message,
+		) {
+			log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
+		}
+
 		Ok(())
 	}
 
-	/// Adds revenue information for the current block.
-	/// TODO Make sure we don't mess up total issuance
-	fn add_revenue_info(amount: NegativeImbalanceOf<T>) {
-		Revenue::<T>::mutate(|revenue| {
-			let current_revenue = revenue.get_mut(0);
-			current_revenue.map(|rev| {
-				let new_revenue = rev.saturating_add(amount.peek());
-				*rev = new_revenue;
+	fn get_revenue(now: BlockNumberFor<T>, when: BlockNumberFor<T>) -> Balance {
+		let revenue: Balance = 0u128;
+		T::Revenue::mutate(|revenue| {
+			revenue.into_iter().enumerate().for_each(|(index, block_revenue)| {
+				//
+				if when >= now.saturating_sub(index) {
+					revenue.saturating_add(block_revenue);
+					block_revenue = 0;
+				}
 			})
 		});
+		revenue
 	}
 
 	/// Getter for the affinity tracker.
@@ -871,5 +915,25 @@ where
 	#[cfg(test)]
 	fn get_traffic_default_value() -> FixedU128 {
 		<T as Config>::TrafficDefaultValue::get()
+	}
+}
+
+/// Add all negative imbalance dropped to the historical on demand revenue.
+impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Pallet<T> {
+	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
+		let numeric_amount = amount.peek();
+
+		// Add the amount to the current block's revenue information.
+		Revenue::<T>::mutate(|revenue| {
+			let current_revenue = revenue.get_mut(0);
+			current_revenue.map(|rev| {
+				let new_revenue = rev.saturating_add(numeric_amount);
+				*rev = new_revenue;
+			})
+		});
+
+		// NOTE: The tokens could be burned at this point, but are kept in total issuance
+		// and teleported (burnt on the relay chain) to the broker chain when it requests
+		// revenue information.
 	}
 }

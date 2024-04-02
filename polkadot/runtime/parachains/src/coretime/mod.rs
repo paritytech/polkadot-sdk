@@ -24,7 +24,7 @@ use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
-use primitives::{CoreIndex, Id as ParaId};
+use primitives::{Balance, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
 use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
 
@@ -70,20 +70,22 @@ impl WeightInfo for TestWeightInfo {
 /// construct remote calls. The codec index must correspond to the index of `Broker` in the
 /// `construct_runtime` of the coretime chain.
 #[derive(Encode, Decode)]
-enum BrokerRuntimePallets {
+pub(crate) enum BrokerRuntimePallets {
 	#[codec(index = 50)]
 	Broker(CoretimeCalls),
 }
 
 /// Call encoding for the calls needed from the Broker pallet.
 #[derive(Encode, Decode)]
-enum CoretimeCalls {
+pub(crate) enum CoretimeCalls {
 	#[codec(index = 1)]
 	Reserve(pallet_broker::Schedule),
 	#[codec(index = 3)]
 	SetLease(pallet_broker::TaskId, pallet_broker::Timeslice),
 	#[codec(index = 19)]
 	NotifyCoreCount(u16),
+	#[codec(index = 20)]
+	NotifyRevenue(Balance),
 }
 
 #[frame_support::pallet]
@@ -158,7 +160,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Ignore requests not coming from the broker parachain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-			assigner_on_demand::Pallet::<T>::do_request_revenue_info_at(when)
+			assigner_on_demand::Pallet::<T>::notify_revenue(when)
 		}
 
 		//// TODO Impl me!
@@ -251,7 +253,7 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 	}
 }
 
-fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
+pub(crate) fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
 		// Largest call is set_lease with 1526 byte:

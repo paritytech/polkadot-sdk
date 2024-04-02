@@ -710,7 +710,12 @@ fn queue_status_size_fn_works() {
 
 #[test]
 fn add_revenue_info_works() {
+	let alice = 100u64;
+	let amt = 10_000_000u128;
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		Balances::make_free_balance_be(&alice, amt);
+		assert_eq!(Balances::total_issuance(), amt);
+
 		// Revenue should be empty on block 0
 		assert_eq!(Revenue::<Test>::get().len(), 0);
 

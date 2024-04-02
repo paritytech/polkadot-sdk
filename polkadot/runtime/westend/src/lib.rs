@@ -1243,6 +1243,8 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
 	type MaxHistoricalRevenue = MaxHistoricalRevenue;
+	type SendXcm = crate::xcm_config::XcmRouter;
+	type BrokerId = BrokerId;
 }
 
 impl parachains_assigner_coretime::Config for Runtime {}
