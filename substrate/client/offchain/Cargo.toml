@@ -20,7 +20,7 @@ array-bytes = "6.1"
 bytes = "1.1"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 fnv = "1.0.6"
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 hyper = { version = "0.14.16", features = ["http2", "stream"] }
 hyper-rustls = { version = "0.24.0", features = ["http2"] }

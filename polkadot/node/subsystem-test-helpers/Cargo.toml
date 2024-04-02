@@ -12,7 +12,7 @@ workspace = true
 
 [dependencies]
 async-trait = "0.1.79"
-futures = "0.3.21"
+futures = "0.3.30"
 parking_lot = "0.12.1"
 polkadot-node-subsystem = { path = "../subsystem" }
 polkadot-erasure-coding = { path = "../../erasure-coding" }

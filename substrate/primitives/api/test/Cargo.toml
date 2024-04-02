@@ -30,7 +30,7 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 
 [dev-dependencies]
 criterion = "0.4.0"
-futures = "0.3.21"
+futures = "0.3.30"
 log = { workspace = true, default-features = true }
 sp-core = { path = "../../core" }
 static_assertions = "1.1.0"

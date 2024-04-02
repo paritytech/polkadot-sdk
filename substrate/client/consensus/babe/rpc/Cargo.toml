@@ -17,7 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
-futures = "0.3.21"
+futures = "0.3.30"
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
 sc-consensus-babe = { path = ".." }

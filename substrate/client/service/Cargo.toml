@@ -30,7 +30,7 @@ runtime-benchmarks = [
 [dependencies]
 jsonrpsee = { version = "0.22", features = ["server"] }
 thiserror = { workspace = true }
-futures = "0.3.21"
+futures = "0.3.30"
 rand = "0.8.5"
 parking_lot = "0.12.1"
 log = { workspace = true, default-features = true }

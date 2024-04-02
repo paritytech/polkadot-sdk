@@ -25,7 +25,7 @@ thiserror = { optional = true, workspace = true }
 sp-runtime = { path = "../runtime", default-features = false, optional = true }
 
 [dev-dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 
 [features]
 default = ["std"]

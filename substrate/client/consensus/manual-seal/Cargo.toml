@@ -20,7 +20,7 @@ jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
 assert_matches = "1.3.0"
 async-trait = "0.1.79"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.1"
 log = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }

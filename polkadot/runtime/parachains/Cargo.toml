@@ -59,7 +59,7 @@ polkadot-runtime-metrics = { path = "../metrics", default-features = false }
 polkadot-core-primitives = { path = "../../core-primitives", default-features = false }
 
 [dev-dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 hex-literal = "0.4.1"
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
 frame-support-test = { path = "../../../substrate/frame/support/test" }

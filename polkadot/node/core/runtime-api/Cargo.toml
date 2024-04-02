@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
 schnellru = "0.2.1"
 
@@ -26,7 +26,7 @@ sp-api = { path = "../../../../substrate/primitives/api" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 async-trait = "0.1.79"
-futures = { version = "0.3.21", features = ["thread-pool"] }
+futures = { version = "0.3.30", features = ["thread-pool"] }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-node-primitives = { path = "../../primitives" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }

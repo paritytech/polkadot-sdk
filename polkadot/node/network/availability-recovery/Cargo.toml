@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 tokio = "1.24.2"
 schnellru = "0.2.1"
 rand = "0.8.5"
