@@ -204,24 +204,26 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	pub fn recover(
 		&self, 
 		public: &AuthorityId,
-		pok: Vec<u8>
-	) -> Vec<Vec<u8>> {
+		pok: &[u8],
+	) -> Result<bls377::Public, error::Error> {
 		info!("ETF: trying to run acss recovery");
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))
 			.map_err(|_| ())
 			.unwrap();
-
-		let mut recovered = Vec::new();
 		
 		let public: bls377::Public =
 			bls377::Public::try_from(public.as_slice()).unwrap();
 		
-		store.acss_recover(
+		if let Some(Some(pubkey)) = store.acss_recover(
 			BEEFY_KEY_TYPE, 
 			&public, 
 			pok
-		);
-		recovered
+		).ok() {
+			return Ok(pubkey);
+		}
+		Err(error::Error::Signature(format!(
+			"invalid signature [] for key {:?}", public
+		)))
 	}
 }
 

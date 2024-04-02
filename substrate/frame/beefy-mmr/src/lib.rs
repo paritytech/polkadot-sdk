@@ -74,8 +74,23 @@ where
 
 /// Convert BEEFY secp256k1 public keys into Ethereum addresses
 pub struct BeefyEcdsaToEthereum;
-impl Convert<sp_consensus_beefy::bls_crypto::AuthorityId, Vec<u8>> for BeefyEcdsaToEthereum {
-	fn convert(beefy_id: sp_consensus_beefy::bls_crypto::AuthorityId) -> Vec<u8> {
+impl Convert<sp_consensus_beefy::ecdsa_crypto::AuthorityId, Vec<u8>> for BeefyEcdsaToEthereum {
+	fn convert(beefy_id: sp_consensus_beefy::ecdsa_crypto::AuthorityId) -> Vec<u8> {
+		// Vec::new()
+		sp_core::ecdsa::Public::from(beefy_id)
+			.to_eth_address()
+			.map(|v| v.to_vec())
+			.map_err(|_| {
+				log::debug!(target: "runtime::beefy", "Failed to convert BEEFY PublicKey to ETH address!");
+			})
+			.unwrap_or_default()
+	}
+}
+
+/// Convert BEEFY secp256k1 public keys into Ethereum addresses
+pub struct BeefyBlsToEthereum;
+impl Convert<sp_consensus_beefy::bls_crypto::AuthorityId, Vec<u8>> for BeefyBlsToEthereum {
+	fn convert(_beefy_id: sp_consensus_beefy::bls_crypto::AuthorityId) -> Vec<u8> {
 		Vec::new()
 		// sp_core::ecdsa::Public::from(beefy_id)
 		// 	.to_eth_address()
@@ -86,6 +101,7 @@ impl Convert<sp_consensus_beefy::bls_crypto::AuthorityId, Vec<u8>> for BeefyEcds
 		// 	.unwrap_or_default()
 	}
 }
+
 
 type MerkleRootOf<T> = <<T as pallet_mmr::Config>::Hashing as sp_runtime::traits::Hash>::Output;
 

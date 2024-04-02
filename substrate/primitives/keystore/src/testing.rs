@@ -364,9 +364,9 @@ impl Keystore for MemoryKeystore {
 		&self,
 		key_type: KeyTypeId,
 		public: &bls377::Public,
-		pok: Vec<u8>,
-	) {
-		// TODO
+		pok: &[u8]
+	) -> Result<Option<bls377::Public>, Error> {
+		Ok(None)
 	}
 
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {

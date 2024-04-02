@@ -192,12 +192,13 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	}
 	
 	#[cfg(feature = "etf")]
-	fn acss_recover(&self, pok_bytes: Vec<u8>) -> Option<Self> {
+	fn acss_recover(&self, pok_bytes: &[u8]) -> Option<Self> {
 		if let Some(pok) = BatchPoK::deserialize_compressed(&pok_bytes[..]) {
 			if let Some(recovered) = DoublePublicKeyScheme::recover(
 				&mut mutable_self.0, 
 				&pok_bytes
 			) {
+				// todo: omit the blinding secret for now
 				return Some(Pair(w3f_bls::SecretKey::from(recovered.0)));
 			}
 		}

@@ -120,15 +120,21 @@ impl LocalKeystore {
 		&self, 
 		key_type: KeyTypeId,
 		public: &T::Public,
-		pok_bytes: Vec<u8>
-	// ) -> std::result::Result<Option<T::Public>, TraitError>  {
-	) {
-		let recovered = self
-			.0
+		pok_bytes: &[u8],
+	) -> std::result::Result<Option<T::Public>, TraitError>  {
+		let mut recovered = None;
+
+		#[cfg(feature = "etf")]
+		let recovered = self.0
 			.read()
-			.key_pair_by_type::<T>(public, key_type).unwrap()
-			.map(|pair| pair.acss_recover(pok_bytes));
-		// Ok(signature)
+			.key_pair_by_type::<T>(public, key_type)?
+			.map(|pair| pair.acss_recover(pok_bytes.clone()));
+
+		if recover.is_some() {
+			self.0.insert_ephemeral_pair(recovered, pok_bytes, key_type);
+		} // else error?
+
+		Ok(recovered.public())
 	}
 
 
@@ -431,9 +437,9 @@ impl Keystore for LocalKeystore {
 			msg: &[u8],
 		) -> std::result::Result<Option<ecdsa_bls377::Signature>, TraitError> {
 			 let sig = self.0
-			.read()
-			.key_pair_by_type::<ecdsa_bls377::Pair>(public, key_type)?
-			.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
+				.read()
+				.key_pair_by_type::<ecdsa_bls377::Pair>(public, key_type)?
+				.map(|pair| pair.sign_with_hasher::<KeccakHasher>(msg));
 			Ok(sig)
 		}
 
@@ -442,15 +448,12 @@ impl Keystore for LocalKeystore {
 			&self,
 			key_type: KeyTypeId,
 			public: &bls377::Public,
-			pok: Vec<u8>,
-		// ) -> std::result::Result<Option<ecdsa_bls377::Signature>, TraitError> {
-		) {
+			pok_bytes: &[u8]
+		) -> std::result::Result<Option<bls377::Public>, TraitError> {
+			let mut out = None;
 			#[cfg(feature = "etf")]
-			let recovered = self.0
-				.read()
-				.key_pair_by_type::<bls377::Pair>(public, key_type).unwrap()
-				.map(|pair| pair.acss_recover(pok));
-			// Ok(sig)
+			let out = self.acss_recover(key_type, public, pok_bytes);
+			Ok(out)
 		}
 	}
 }

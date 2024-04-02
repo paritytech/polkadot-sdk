@@ -492,30 +492,6 @@ where
 		Ok(())
 	}
 
-	// triage_incoming_resharing
-	/// Based on [VoterOracle] this vote is either processed here or discarded.
-	fn triage_incoming_resharing(
-		&mut self,
-		value: u8,
-	) -> Result<(), Error> {
-		// let block_num = vote.commitment.block_number;
-		// match self.voting_oracle().triage_round(block_num)? {
-		// 	RoundAction::Process =>
-		// 		if let Some(finality_proof) = self.handle_vote(vote)? {
-		// 			let gossip_proof = GossipMessage::<B>::FinalityProof(finality_proof);
-		// 			let encoded_proof = gossip_proof.encode();
-		// 			self.comms.gossip_engine.gossip_message(
-		// 				proofs_topic::<B>(),
-		// 				encoded_proof,
-		// 				true,
-		// 			);
-		// 		},
-		// 	RoundAction::Drop => metric_inc!(self.metrics, beefy_stale_votes),
-		// 	RoundAction::Enqueue => error!(target: LOG_TARGET, "🥩 unexpected vote: {:?}.", vote),
-		// };
-		Ok(())
-	}
-
 	/// Based on [VoterOracle] this vote is either processed here or discarded.
 	fn triage_incoming_vote(
 		&mut self,
@@ -883,9 +859,7 @@ where
 				);
 				Error::Backend(err_msg)
 			}).unwrap();
-		// ok so we could just get the share here
-		// and do the recovery...
-		/// get pubkeys from the keystore...
+
 		let runtime_api = self.runtime.runtime_api();
 		
 		info!(
@@ -908,13 +882,15 @@ where
 							BatchPoK::<ark_bls12_377::G1Projective>::
 								deserialize_compressed(&pok_bytes[..]).unwrap();
 					info!(target: LOG_TARGET, "🎲 Found pok: {:?}", pok);
-					// now we can try to run the ACSS recovery scheme...
-					let recovered = self.key_store.recover(&id, pok_bytes);
-					// let recovered_shares = self.key_store.recover(&id, pok);
+
+					let pubkey = self.key_store.recover(
+						&id, 
+						&pok_bytes,
+					);
 					info!(
 						target: LOG_TARGET, 
-						"🎲 ACSS Recovery found shares: {:?}", 
-						recovered,
+						"🎲 ACSS Recovery found public key commitment: {:?}", 
+						pubkey,
 					);
 				}
 			}
