@@ -44,4 +44,4 @@ lazy_static = "1.4.0"
 parity-db = "0.4.12"
 sc-transaction-pool = { path = "../../../client/transaction-pool" }
 sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
-futures = { version = "0.3.21", features = ["thread-pool"] }
+futures = { version = "0.3.30", features = ["thread-pool"] }
