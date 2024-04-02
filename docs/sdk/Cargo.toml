@@ -27,7 +27,7 @@ pallet-example-offchain-worker = { path = "../../substrate/frame/examples/offcha
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
-docify = "0.2.7"
+docify = "0.2.8"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
