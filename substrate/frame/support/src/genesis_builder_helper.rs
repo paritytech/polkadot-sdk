@@ -35,21 +35,23 @@ pub fn build_state<GC: BuildGenesisConfig>(json: Vec<u8>) -> BuildResult {
 	Ok(())
 }
 
-/// Get the default `GenesisConfig` as a JSON blob if `id` is None.
+/// Get the default `GenesisConfig` as a JSON blob if `name` is None.
 ///
-/// No named presets are supported. For more info refer to
-/// [`sp_genesis_builder::GenesisBuilder::get_preset`].
-pub fn get_preset<GC>(id: &Option<PresetId>) -> Option<Vec<u8>>
+/// Query of named presets is delegetaed to provided `preset_for_name` closure. For more info refer
+/// to [`sp_genesis_builder::GenesisBuilder::get_preset`].
+pub fn get_preset<GC>(
+	name: &Option<PresetId>,
+	preset_for_name: impl FnOnce(&sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>>,
+) -> Option<Vec<u8>>
 where
 	GC: BuildGenesisConfig + Default,
 {
-	if id.is_none() {
+	name.as_ref().map_or(
 		Some(
 			serde_json::to_string(&GC::default())
 				.expect("serialization to json is expected to work. qed.")
 				.into_bytes(),
-		)
-	} else {
-		None
-	}
+		),
+		preset_for_name,
+	)
 }
