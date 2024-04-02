@@ -17,21 +17,20 @@
 
 //! # Assets Pallet
 //!
-//! A simple, secure module for dealing with sets of assets implementing
-//! [`fungible`](frame_support::traits::fungible) traits, via
-//! [`fungibles`](frame_support::traits::fungibles) traits.
+//! A simple, secure module for dealing with sets of assets implementing [`fungible`] traits, via
+//! [`fungibles`] traits.
 //!
 //! The pallet makes heavy use of concepts such as Holds and Freezes from the
 //! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
 //! as a prerequisite to understanding this pallet.
 //!
-//! See the [`frame_tokens`] reference docs for more information about the place of the
-//! Assets pallet in FRAME.
+//! See the [`frame_tokens`] reference docs for more information about the place of the Assets
+//! pallet in FRAME.
 //!
 //! ## Overview
 //!
-//! The Assets module provides functionality for asset management of fungible asset classes
-//! with a fixed supply, including:
+//! The Assets module provides functionality for asset management of fungible asset classes with a
+//! fixed supply, including:
 //!
 //! * Asset Issuance (Minting)
 //! * Asset Transferal

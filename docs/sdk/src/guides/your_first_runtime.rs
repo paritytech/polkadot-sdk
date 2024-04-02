@@ -44,7 +44,8 @@
 //! In the case of our example:
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", our_config_impl)]
 //!
-//! In this example, we bring in a number of other pallets from [`frame`] into the runtime:
+//! In this example, we bring in a number of other pallets from [`frame`] into the runtime, each of
+//! their `Config` need to be implemented for `struct Runtime`:
 #![doc = docify::embed!("./packages/guides/first-runtime/src/lib.rs", config_impls)]
 //!
 //! Notice how we use [`frame::pallet_macros::derive_impl`] to provide "default" configuration items
@@ -54,7 +55,8 @@
 //!
 //! > Recall that in [`crate::guides::your_first_pallet`], we provided `type AccountId = u64` to
 //! > `frame_system`, while in this case we rely on whatever is provided by
-//! > `SolochainDefaultConfig`, which is indeed a "real" 32 byte account id.
+//! > [`SolochainDefaultConfig`](frame_system::pallet::config_preludes::SolochainDefaultConfig),
+//! > which is indeed a "real" 32 byte account id.
 //!
 //! Then, a familiar instance of `construct_runtime` amalgamates all of the pallets (and crucially,
 //! defines )

@@ -133,27 +133,22 @@ pub mod pallet {
 		// `construct_runtime`.
 		use crate::pallet as pallet_currency;
 
-		#[frame::runtime]
+		#[docify::export]
 		mod runtime {
-			#[runtime::runtime]
-			#[runtime::derive(
-				RuntimeCall,
-				RuntimeEvent,
-				RuntimeError,
-				RuntimeOrigin,
-				RuntimeFreezeReason,
-				RuntimeHoldReason,
-				RuntimeSlashReason,
-				RuntimeLockId,
-				RuntimeTask
-			)]
-			pub struct Runtime;
+			use super::*;
+			// we need to reference our `mod pallet` as an identifier to pass to
+			// `construct_runtime`.
+			use crate::pallet as pallet_currency;
 
-			#[runtime::pallet_index(0)]
-			pub type System = frame_system;
-
-			#[runtime::pallet_index(1)]
-			pub type Currency = pallet_currency;
+			construct_runtime!(
+				pub struct Runtime {
+					// ---^^^^^^ This is where `struct Runtime` is defined.
+					System: frame_system,
+					Currency: pallet_currency,
+					// this macro expects us to express pallets as "<some name for pallet>: <path
+					// to pallet>"
+				}
+			);
 
 			#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 			impl frame_system::Config for Runtime {
@@ -166,6 +161,8 @@ pub mod pallet {
 			// our simple pallet has nothing to be configured.
 			impl pallet_currency::Config for Runtime {}
 		}
+
+		pub(crate) use runtime::*;
 
 
 		#[allow(unused)]
@@ -211,6 +208,8 @@ pub mod pallet {
 		impl StateBuilder {
 			pub(crate) fn build_and_execute(self, test: impl FnOnce() -> ()) {
 				let mut ext = TestState::new_empty();
+
+				// Some code that is executed before all tests: setup state.
 				ext.execute_with(|| {
 					for (who, amount) in &self.balances {
 						Balances::<Runtime>::insert(who, amount);
@@ -220,7 +219,7 @@ pub mod pallet {
 
 				ext.execute_with(test);
 
-				// assertions that must always hold
+				// Some code that is executed after all tests: check total issuance.
 				ext.execute_with(|| {
 					assert_eq!(
 						Balances::<Runtime>::iter().map(|(_, x)| x).sum::<u128>(),

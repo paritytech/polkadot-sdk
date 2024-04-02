@@ -75,9 +75,9 @@ pub mod frame_benchmarking_weight;
 /// Learn about the token-related logic in FRAME and how to apply it to your use case.
 pub mod frame_tokens;
 
-/// Learn about chain specification file and the genesis state of the blockchain.
-// TODO: @michalkucharczyk https://github.com/paritytech/polkadot-sdk-docs/issues/51
-pub mod chain_spec_genesis;
+/// Learn about how different paths towards running a node software, and how to supply it with a
+/// chain specification.
+pub mod node_and_chain_spec;
 
 /// Learn about all the memory limitations of the WASM runtime when it comes to memory usage.
 // TODO: @kianenigma https://github.com/paritytech/polkadot-sdk-docs/issues/52

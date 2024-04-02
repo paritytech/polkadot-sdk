@@ -4,118 +4,20 @@
 //! [`your_first_runtime`], in a node. Within the context of this guide, we will focus on running a
 //! solo-chain node.
 //!
-//! In the next section, we will first covert some background knowledge related to the node software
-//! before getting to the practical parts. If you want to skip ahead to running the runtime of the
-//! previous guide in a node, you can jump to the [Running with Omni Node](#todo) section.
+//! First, make sure to read all the content covered in
+//! [`crate::reference_docs::node_and_chain_spec`]. Once done, you should be familiar with the two
+//! main options of launching a node:
 //!
-//! ## Node Consideration
-//!
-//! This is a good point to take a step back, and recap some of the software components that make up
-//! the node. Most importantly, the node is composed of:
-//!
-//! * Consensus Engine
-//! * Chain Specification
-//! * RPC server, Database, P2P networking, Transaction Pool etc.
-//!
-//! To learn more about the node, see [`crate::reference_docs::wasm_meta_protocol`].
-//!
-//! Our main focus will be on the former two.
-//!
-//! ### Consensus Engine
-//!
-//! In any given substrate-based chain, both the node and the runtime will have their inherit some
-//! information about what consensus engine is going to be used.
-//!
-//! In practice, the majority of the implementation of any consensus engine is in the node side, but
-//! the runtime also typically needs to expose a custom runtime-api to enable the particular
-//! consensus engine to work, and that particular runtime-api is implemented by a pallet
-//! corresponding to that consensus engine.
-//!
-//! For example, taking a snippet from [`solochain-template-runtime`], the runtime has to provide
-//! this additional runtime-api, if the node software is configured to use Aura:
-//!
-//! ```ignore
-//! impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-//!     fn slot_duration() -> sp_consensus_aura::SlotDuration {
-//!         ...
-//!     }
-//!     fn authorities() -> Vec<AuraId> {
-//!         ...
-//!     }
-//! }
-//! ````
-//!
-//! For simplicity, we can break down "consensus" into two main parts:
-//!
-//! * Block Authoring: Deciding who gets to produce the next block.
-//! * Finality: Deciding when a block is considered final.
-//!
-//! For block authoring, there are a number of options:
-//!
-//! * [`sc_consensus_manual_seal`]: Useful for testing, where any node can produce a block.
-//! * [`sc_consensus_aura`]/[`pallet_aura`]: A simple round-robin block authoring mechanism.
-//! * [`sc_consensus_babe`]/[`pallet_babe`]: A more advanced block authoring mechanism, capable of
-//!   anonymizing the next block author.
-//! * [`sc_consensus_pow`]: Proof of Work block authoring.
-//!
-//! For finality, there is one main option shipped with polkadot-sdk:
-//!
-//! * [`sc_consensus_grandpa`]/[`pallet_grandpa`]: A finality gadget that uses a voting mechanism to
-//!   decide when a block
-//!
-//! **Within the context of this guide, what matters the most is that the node and the runtime must
-//! have matching consensus components.**
-//!
-//! For example, [`your_first_runtime`] uses has no consensus related code, and therefore can only
-//! be executed with a node that uses [`sc_consensus_manual_seal`].
-//!
-//! ### Chain Specification
-//!
-//! TODO: brief intro into chain, spec, why it matters, how the node can be linked to it. but then
-//! forward to [`sc_chain_spec`].
-//!
-//! ### Node Types
-//!
-//! This then brings us to explore what options are available to you in terms of node software when
-//! using polkadot-sdk. Historically, the one and only way has been to use templates, but we expect
-//! more options to be released in 2024.
-//!
-//! #### Using a Full Node via Templates
-//!
-//! In this option, your project will contain the full runtime+node software, and the two components
-//! are aware of each other's details. For example, in any given template, both the node and the
-//! runtime are configured to use the same, and correct consensus.
-//!
-//! This usually entails a lot of boilerplate code, especially on the node side, and therefore using
-//! one of our many [`crate::polkadot_sdk::templates`] is the recommended way to get started with
-//! this.
-//!
-//! The advantage of this option is that you will have full control over customization of your node
-//! side components. The downside is that there is more code to maintain, especially when it comes
-//! to keeping up with new releases.
+//! 1. A template
+//! 2. An Omni Node
 //!
 //! While we will not do it here, it should be a great learning step to try and integrate the
 //! runtime built in this guide thus far into the [`minimal_template_runtime`], and then run it with
-//! `minimal_template_node`.
+//! `minimal_template_node`. This will be the former approach.o.
 //!
-//! #### Using an omni-Node
-//!
-//! An omni-node is a new term in the polkadot-sdk (see
-//! [here](https://github.com/paritytech/polkadot-sdk/pull/3597/) and
-//! [here](https://github.com/paritytech/polkadot-sdk/issues/5)) and refers to a node that is
-//! capable of running any runtime, so long as a certain set of assumptions are met. One of the most
-//! important of such assumptions is that the consensus engine, as explained above, must match
-//! between the node and runtime.
-//!
-//! Therefore we expect to have "one omni-node per consensus type".
-//!
-//! The end goal with the omni-nodes is for developers to not need to maintain any node software and
-//! download binary which can run their runtime.
-//!
-//! Given polkadot-sdk's path toward totally [deprecating the native
-//! runtime](https://github.com/paritytech/polkadot-sdk/issues/62) from one another, using an
-//! omni-node is the natural evolution. Read more in
-//! [`crate::reference_docs::wasm_meta_protocol#native-runtime`].
+//! In the next section, we will use the latter approach for simplicity. [`your_first_runtime`] uses
+//! has no consensus related code, and therefore can only be executed with a node that uses
+//! [`sc_consensus_manual_seal`], namely `minima-omni-node`.
 //!
 //! ## Running Your First (omni) Node.
 //!
@@ -123,14 +25,24 @@
 //! using the `minimal-omni-node`. This section will be updated with more info once the omni-node
 //! feature is fully merged.
 //!
+//! The process of running a runtime with an omni-node is quite trivial:
+//!
+//! * compile the runtime (with `--release`)
+//! * pass it to the omni-node as the `--runtime`.
+//! * Note that we use the [`--tmp`](sc_cli::RunCmd::tmp) flag which spins up a new temporary
+//!   database each time.
+//! * We enable all `runtime` logs, which helps with the visibility of what is happening in the
+//!   runtime. If you now add `frame::log::info!(target: "runtime", ...)` logs in your runtime, you
+//!   will see them in the output.
+//!
 //! ```ignore
 //! $ cargo build --release -p polkadot-sdk-docs-packages-guides-first-runtime
 //! # assuming the `minimal-omni-node` binary is available from compiling it from
 //! # https://github.com/paritytech/polkadot-sdk/pull/3597
 //! $ ./minimal-omni-node\
-//! 	--tmp \
-//! 	--runtime ./target/release/wbuild/polkadot-sdk-docs-packages-guides-first-runtime/polkadot_sdk_docs_packages_guides_first_runtime.wasm \
-//! 	-l runtime=debug
+//!     --tmp \
+//!     --runtime ./target/release/wbuild/polkadot-sdk-docs-packages-guides-first-runtime/polkadot_sdk_docs_packages_guides_first_runtime.wasm \
+//!     -l runtime=debug
 //! ```
 //!
 //! Or the equivalent from the tests of this crate:
@@ -150,7 +62,7 @@
 //! [`build_config`]: polkadot_sdk_docs_packages_guides_first_runtime::Runtime#method.build_config
 
 #[test]
-// #[ignore = "will not work until we have good omni-nodes in this repo; wait for #3597"]
+#[ignore = "will not work until we have good omni-nodes in this repo; wait for #3597"]
 fn run_omni_node() {
 	use nix::{
 		sys::signal::{kill, Signal::SIGINT},
