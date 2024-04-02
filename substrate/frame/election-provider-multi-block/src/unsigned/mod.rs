@@ -19,8 +19,9 @@
 
 pub mod miner;
 
-use crate::PageSize;
+use crate::{unsigned::miner::MinerError, PageSize};
 use frame_election_provider_support::PageIndex;
+use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
 use sp_std::boxed::Box;
 
 // public re-exports.
@@ -44,7 +45,7 @@ pub(crate) mod pallet {
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
-	pub trait Config: crate::Config {
+	pub trait Config: crate::Config + SendTransactionTypes<Call<Self>> {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -71,7 +72,10 @@ pub(crate) mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T> {}
+	pub enum Event<T: Config> {
+		/// Unsigned solution submitted successfully.
+		UnsignedSolutionSubmitted { at: BlockNumberFor<T> },
+	}
 
 	#[pallet::storage]
 	pub type Something<T: Config> = StorageMap<_, Twox64Concat, u32, u32>;
@@ -120,6 +124,10 @@ pub(crate) mod pallet {
 			// Store newly received paged solution.
 			// QueuedSolution<T>::put(...)
 
+			Self::deposit_event(Event::UnsignedSolutionSubmitted {
+				at: <frame_system::Pallet<T>>::block_number(),
+			});
+
 			Ok(())
 		}
 	}
@@ -131,6 +139,12 @@ pub(crate) mod pallet {
 			Weight::zero()
 		}
 
+		fn offchain_worker(now: BlockNumberFor<T>) {
+			sublog!(info, "unsigned", " >> offchain worker called");
+
+			Self::mine_and_submit().unwrap();
+		}
+
 		fn integrity_test() {
 			// TODO(gpestana)
 		}
@@ -139,5 +153,25 @@ pub(crate) mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			todo!()
 		}
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	pub fn mine_and_submit() -> Result<(), MinerError> {
+		let call = Self::mine_checked_call()?;
+		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			.map_err(|_| MinerError::SubmissionFailed);
+
+		Ok(())
+	}
+
+	pub fn mine_checked_call() -> Result<Call<T>, MinerError> {
+		// get solution
+		let call = Call::submit_page_unsigned {
+			raw_solution: Default::default(),
+			weight_witness: Default::default(),
+		};
+
+		Ok(call)
 	}
 }

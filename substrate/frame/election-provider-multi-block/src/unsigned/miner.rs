@@ -49,6 +49,7 @@ pub enum MinerError {
 	/// The solution generated from the miner is not feasible.
 	Feasibility(FeasibilityError),
 	InvalidPage,
+	SubmissionFailed,
 }
 
 impl From<sp_npos_elections::Error> for MinerError {

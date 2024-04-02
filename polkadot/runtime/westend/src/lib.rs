@@ -110,7 +110,7 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_election_provider_multi_block::{
 	self as pallet_epm_core,
 	signed::{self as pallet_epm_signed},
-	unsigned::{self as pallet_unsigned, miner::Miner},
+	unsigned::{self as pallet_epm_unsigned, miner::Miner},
 	verifier::{self as pallet_epm_verifier},
 	Phase,
 };
@@ -632,6 +632,22 @@ impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
 	fn convert(_a: usize) -> Balance {
 		ElectionSubmissionDepositBase::get()
 	}
+}
+
+parameter_types! {
+    pub OffchainRepeatInterval: BlockNumber = 10;
+    pub MinerTxPriority: u64 = 0;
+	pub MinerSolutionMaxLength: u32 = 10;
+	pub MinerSolutionMaxWeight: Weight = Default::default();
+}
+
+impl pallet_epm_unsigned::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type OffchainRepeatInterval = OffchainRepeatInterval;
+    type MinerTxPriority = MinerTxPriority;
+    type MaxLength = MinerSolutionMaxLength;
+    type MaxWeight = MinerSolutionMaxWeight;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -1464,7 +1480,7 @@ construct_runtime! {
 		ElectionProviderMultiBlock: pallet_epm_core = 70,
 		ElectionVerifierPallet: pallet_epm_verifier = 71,
 		ElectionSignedPallet: pallet_epm_signed = 72,
-		//ElectionUnsignedPallet: pallet_epm_unsigned = 73,
+		ElectionUnsignedPallet: pallet_epm_unsigned = 69,
 
 		// Provides a semi-sorted list of nominators for staking.
 		VoterList: pallet_bags_list::<Instance1> = 25,
@@ -1723,7 +1739,7 @@ mod benches {
 		[pallet_epm_core, ElectionProviderMultiBlock]
         [pallet_epm_verifier, ElectionVerifierPallet]
         [pallet_epm_signed, ElectionSignedPallet]
-        //[pallet_epm_unsigned, ElectionUnsignedPallet]
+        [pallet_epm_unsigned, ElectionUnsignedPallet]
 		[frame_election_provider_support, ElectionProviderBench::<Runtime>]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_identity, Identity]

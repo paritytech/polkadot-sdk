@@ -23,6 +23,7 @@ pub use staking::*;
 use crate::{
 	self as epm,
 	signed::{self as signed_pallet},
+	unsigned::{self as unsigned_pallet},
 	verifier::{self as verifier_pallet},
 	Config, *,
 };
@@ -36,6 +37,7 @@ frame_support::construct_runtime!(
 		MultiPhase: epm,
 		VerifierPallet: verifier_pallet,
 		SignedPallet: signed_pallet,
+		UnsignedPallet: unsigned_pallet,
 	}
 );
 
@@ -80,7 +82,6 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type MaxHolds = ConstU32<1>;
 	type RuntimeFreezeReason = ();
 }
 
@@ -145,6 +146,32 @@ impl crate::signed::Config for Runtime {
 	type MaxSubmissions = MaxSubmissions;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub OffchainRepeatInterval: BlockNumber = 10;
+	pub MinerTxPriority: u64 = 0;
+	pub MinerSolutionMaxLength: u32 = 10;
+	pub MinerSolutionMaxWeight: Weight = Default::default();
+}
+
+impl crate::unsigned::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffchainRepeatInterval = OffchainRepeatInterval;
+	type MinerTxPriority = MinerTxPriority;
+	type MaxLength = MinerSolutionMaxLength;
+	type MaxWeight = MinerSolutionMaxWeight;
+	type WeightInfo = ();
+}
+
+pub type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+
+impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type OverarchingCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
 }
 
 pub struct ConstDepositBase;
@@ -280,8 +307,9 @@ pub(crate) fn roll_to(n: BlockNumber) {
 		System::set_block_number(bn);
 
 		MultiPhase::on_initialize(bn);
-		SignedPallet::on_initialize(bn);
 		VerifierPallet::on_initialize(bn);
+		SignedPallet::on_initialize(bn);
+		UnsignedPallet::on_initialize(bn);
 
 		// TODO: maybe add try-checks for all pallets here too, as we progress the blocks.
 
