@@ -271,13 +271,13 @@ mod staking_integration {
 			assert!(eq_stake(agent, total_staked, total_staked));
 
 			// 305 wants to unbond 50 in era 2, withdrawable in era 5.
-			assert_ok!(DelegatedStaking::unbond(&agent, 50));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 50));
 			// 310 wants to unbond 100 in era 3, withdrawable in era 6.
 			start_era(3);
-			assert_ok!(DelegatedStaking::unbond(&agent, 100));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 100));
 			// 320 wants to unbond 200 in era 4, withdrawable in era 7.
 			start_era(4);
-			assert_ok!(DelegatedStaking::unbond(&agent, 200));
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 200));
 
 			// active stake is now reduced..
 			let expected_active = total_staked - (50 + 100 + 200);
@@ -512,7 +512,7 @@ mod staking_integration {
 				Balances::free_balance(200),
 				5000 - staked_amount - ExistentialDeposit::get()
 			);
-			assert_eq!(DelegatedStaking::stake(&200).unwrap(), init_stake);
+			assert_eq!(Staking::stake(&200).unwrap(), init_stake);
 			assert_eq!(get_agent(&200).ledger.effective_balance(), 4000);
 			assert_eq!(get_agent(&200).available_to_bond(), 0);
 
@@ -539,7 +539,7 @@ mod staking_integration {
 				);
 
 				// delegate stake is unchanged.
-				assert_eq!(DelegatedStaking::stake(&200).unwrap(), init_stake);
+				assert_eq!(Staking::stake(&200).unwrap(), init_stake);
 				assert_eq!(get_agent(&200).ledger.effective_balance(), 4000);
 				assert_eq!(get_agent(&200).available_to_bond(), 0);
 			}
