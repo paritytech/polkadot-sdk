@@ -17,7 +17,7 @@
 
 use super::*;
 use frame_support::{
-	migrations::VersionedMigration, pallet_prelude::*, traits::UncheckedOnRuntimeUpgrade,
+	migrations::VersionedMigration, pallet_prelude::*,
 };
 
 #[cfg(feature = "try-runtime")]
