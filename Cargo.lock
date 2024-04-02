@@ -1920,7 +1920,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-common"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -10479,7 +10479,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-parameters"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -18707,7 +18707,7 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-hashing"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -18721,7 +18721,7 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-hashing-proc-macro"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "quote",
  "sp-crypto-hashing",
