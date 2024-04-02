@@ -983,6 +983,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#836" id="836">836</a>
 <a href="#837" id="837">837</a>
 <a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1353,6 +1365,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>count() -&gt; usize {
 		Members::&lt;T, I&gt;::decode_len().unwrap_or(<span class="number">0</span>)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">fn </span>add(new_member: <span class="kw-2">&amp;</span>T::AccountId) {
+		<span class="kw">use </span>frame_support::{assert_ok, traits::EnsureOrigin};
+		<span class="kw">let </span>new_member_lookup = T::Lookup::unlookup(new_member.clone());
+
+		<span class="kw">if let </span><span class="prelude-val">Ok</span>(origin) = T::AddOrigin::try_successful_origin() {
+			<span class="macro">assert_ok!</span>(Pallet::&lt;T, I&gt;::add_member(origin, new_member_lookup,));
+		} <span class="kw">else </span>{
+			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to add `{new_member:?}` in `SortedMembers::add`.&quot;</span>)
+		}
 	}
 }
 
