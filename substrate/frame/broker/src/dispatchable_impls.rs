@@ -437,4 +437,9 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::AllowedRenewalDropped { core, when });
 		Ok(())
 	}
+
+	pub(crate) fn do_notify_revenue(amount: BalanceOf<T>) -> DispatchResult {
+		RevenueInbox::<T>::put(Some(amount));
+		Ok(())
+	}
 }

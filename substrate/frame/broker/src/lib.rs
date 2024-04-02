@@ -163,6 +163,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
+	/// Received revenue info from the relay chain.
+	#[pallet::storage]
+	pub type RevenueInbox<T: Config> = StorageValue<_, RelayBalanceOf<T>, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -784,6 +788,14 @@ pub mod pallet {
 		pub fn notify_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_notify_core_count(core_count)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(20)]
+		#[pallet::weight(T::WeightInfo::notify_revenue())]
+		pub fn notify_revenue(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_notify_revenue(amount)?;
 			Ok(())
 		}
 	}
