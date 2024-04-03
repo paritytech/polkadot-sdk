@@ -267,7 +267,7 @@ fn spend_local_origin_permissioning_works() {
 fn spend_local_origin_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&Treasury::account_id(), 102);
 		// approve spend of some amount to beneficiary `6`.
 		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
 		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
@@ -282,7 +282,7 @@ fn spend_local_origin_works() {
 		// free balance of `6` is `100`, spend period has passed.
 		<Treasury as OnInitialize<u64>>::on_initialize(2);
 		assert_eq!(Balances::free_balance(6), 100);
-		// `100` spent, `1` burned.
+		// `100` spent, `1` burned, `1` in ED.
 		assert_eq!(Treasury::pot(), 0);
 	});
 }
@@ -1140,5 +1140,37 @@ fn try_state_spends_invariant_3_works() {
 			Treasury::do_try_state(),
 			Err(Other("Spend cannot expire before it becomes valid."))
 		);
+	});
+}
+
+#[test]
+fn multiple_spend_periods_work() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Check that accumulate works when we have Some value in Dummy already.
+		// 100 will be spent, 1024 will be the burn amount, 1 for ED
+		Balances::make_free_balance_be(&Treasury::account_id(), 100 + 1024 + 1);
+		// approve spend of total amount 100 to beneficiary `6`.
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(11), 10, 6));
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(12), 20, 6));
+		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(13), 50, 6));
+		// free balance of `6` is zero, spend period has not passed.
+		<Treasury as OnInitialize<u64>>::on_initialize(1);
+		assert_eq!(Balances::free_balance(6), 0);
+		// free balance of `6` is `100`, spend period has passed.
+		<Treasury as OnInitialize<u64>>::on_initialize(2);
+		assert_eq!(Balances::free_balance(6), 100);
+		// `100` spent, 50% burned
+		assert_eq!(Treasury::pot(), 512);
+
+		// 3 more spends periods pass at once, and an extra block.
+		<Treasury as OnInitialize<u64>>::on_initialize(2 + ( 3 * 2 ) + 1);
+		// Pot should be reduced by 50% 3 times, so 1/8th the amount.
+		assert_eq!(Treasury::pot(), 64);
+		// Even though we are on block 9, the last spend period was block 8.
+		assert_eq!(LastSpendPeriod::<Test>::get(), Some(8));
 	});
 }
