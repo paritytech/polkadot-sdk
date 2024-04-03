@@ -766,7 +766,13 @@ where
 			true
 		} else {
 			for record in last_value.record.iter() {
-				self.network.put_record_to(record.clone(), new_record.peers_with_record.clone());
+				self.network.put_record_to(
+					record.clone(),
+					new_record.peers_with_record.clone(),
+					// If this is empty it means we received the answer from our node local
+					// storage, so we need to update that as well.
+					new_record.peers_with_record.is_empty(),
+				);
 			}
 			false
 		}

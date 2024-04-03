@@ -284,8 +284,14 @@ impl<B: BlockT> Behaviour<B> {
 		self.discovery.put_value(key, value);
 	}
 
-	pub fn put_record_to(&mut self, record: PeerRecord, peers: HashSet<PeerId>) {
-		self.discovery.put_record_to(record, peers);
+	/// Puts a record into DHT, on the provided Peers
+	pub fn put_record_to(
+		&mut self,
+		record: PeerRecord,
+		peers: HashSet<PeerId>,
+		update_local_storage: bool,
+	) {
+		self.discovery.put_record_to(record, peers, update_local_storage);
 	}
 }
 

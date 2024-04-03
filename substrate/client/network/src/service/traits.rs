@@ -63,7 +63,7 @@ pub trait NetworkDHTProvider {
 	/// Start putting a value in the DHT.
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>);
 
-	fn put_record_to(&self, record: PeerRecord, peers: HashSet<PeerId>);
+	fn put_record_to(&self, record: PeerRecord, peers: HashSet<PeerId>, update_local_storage: bool);
 }
 
 impl<T> NetworkDHTProvider for Arc<T>
@@ -79,8 +79,13 @@ where
 		T::put_value(self, key, value)
 	}
 
-	fn put_record_to(&self, record: PeerRecord, peers: HashSet<PeerId>) {
-		T::put_record_to(self, record, peers)
+	fn put_record_to(
+		&self,
+		record: PeerRecord,
+		peers: HashSet<PeerId>,
+		update_local_storage: bool,
+	) {
+		T::put_record_to(self, record, peers, update_local_storage)
 	}
 }
 

@@ -408,16 +408,19 @@ impl DiscoveryBehaviour {
 		}
 	}
 
-	pub fn put_record_to(&mut self, record: PeerRecord, peers: HashSet<PeerId>) {
+	pub fn put_record_to(
+		&mut self,
+		record: PeerRecord,
+		peers: HashSet<PeerId>,
+		update_local_storage: bool,
+	) {
 		if let Some(kad) = self.kademlia.as_mut() {
-			if peers.is_empty() {
-				warn!(target: "sub-libp2p", "Updating our record in the store");
-				if let Err(e) = kad.store_mut().put(record.record) {
-					warn!(target: "sub-libp2p", "Failed to update our record");
+			if update_local_storage {
+				if let Err(e) = kad.store_mut().put(record.record.clone()) {
+					warn!(target: "sub-libp2p", "Failed to update local starage");
 				}
-			} else {
-				kad.put_record_to(record.record, peers.into_iter(), Quorum::One);
 			}
+			kad.put_record_to(record.record, peers.into_iter(), Quorum::One);
 		}
 	}
 
