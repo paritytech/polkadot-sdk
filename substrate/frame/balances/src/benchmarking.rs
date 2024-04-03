@@ -326,7 +326,7 @@ mod benchmarks {
 		let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
 		let _ = <Balances<T, I> as Currency<_>>::make_free_balance_be(&caller, balance);
 
-		// Burn enough to kill the account.
+		// Burn minimum possible amount which should not kill the account.
 		let burn_amount = 1u32.into();
 
 		#[extrinsic_call]
