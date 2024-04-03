@@ -226,7 +226,7 @@ mod benchmarks {
 		let mut m = v09::Migration::<T>::default();
 		#[block]
 		{
-			m.step(&mut WeightMeter::new())
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -259,7 +259,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step(&mut WeightMeter::new())
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -276,7 +276,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step(&mut WeightMeter::new())
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -291,7 +291,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step(&mut WeightMeter::new())
+			m.step(&mut WeightMeter::new());
 		}
 		Ok(())
 	}
@@ -307,7 +307,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step(&mut WeightMeter::new())
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -322,7 +322,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step(&mut WeightMeter::new())
+			m.step(&mut WeightMeter::new());
 		}
 
 		Ok(())
