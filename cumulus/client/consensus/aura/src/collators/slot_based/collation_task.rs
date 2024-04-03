@@ -109,6 +109,7 @@ where
 				tracing::debug!(
 					target: LOG_TARGET,
 					hash = ?message.hash,
+					num_messages = ?messages.len() + 1,
 					"Pushing new message.",
 				);
 					messages.push_back(message);
@@ -152,7 +153,7 @@ async fn handle_collation_message<Block: BlockT>(
 		return;
 	}
 
-	let number = parachain_candidate.block.header().number().clone();
+	let number = *parachain_candidate.block.header().number();
 	let (collation, block_data) =
 		match collator_service.build_collation(&parent_header, hash, parachain_candidate) {
 			Some(collation) => collation,
