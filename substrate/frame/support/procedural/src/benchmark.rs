@@ -770,7 +770,7 @@ pub fn benchmarks(
 
 						// Calculate the diff caused by the benchmark.
 						let elapsed_extrinsic = recording.elapsed_extrinsic().expect("elapsed time should be recorded");
-						let diff_pov = recording.diff_pov().expect("pov should be recorded");
+						let diff_pov = recording.diff_pov().unwrap_or_default();
 
 						// Commit the changes to get proper write count
 						#krate::benchmarking::commit_db();
