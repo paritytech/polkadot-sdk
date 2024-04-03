@@ -2951,17 +2951,8 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_sub_account_truncating((AccountType::Bonded, id))
 	}
 
-	pub fn migrate_to_delegate_stake(_id: PoolId) -> DispatchResult {
-		// TODO(ank4n): implement this.
-		Ok(())
-	}
-
-	/// Useful for tests.
-	#[cfg(test)]
-	#[allow(unused)]
-	pub fn migrate_to_transfer_stake(_id: PoolId) -> DispatchResult {
-		// TODO(ank4n): implement this.
-		Ok(())
+	pub fn migrate_to_delegate_stake(id: PoolId) -> DispatchResult {
+		T::StakeAdapter::migrate_nominator_to_agent(&Self::create_bonded_account(id), &Self::create_reward_account(id))
 	}
 
 	/// Create the reward account of a pool with the given id.

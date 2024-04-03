@@ -154,6 +154,13 @@ pub mod unversioned {
 					log!(error, "Pool {} balance mismatch. Expected: {:?}, Actual: {:?}", id, expected_balance, actual_balance);
 					return Err(TryRuntimeError::Other("Pool balance mismatch"));
 				}
+
+				// account balance should be zero.
+				let pool_account_balance = T::Currency::total_balance(&Pallet::<T>::create_bonded_account(id));
+				if pool_account_balance != Zero::zero() {
+					log!(error, "Pool account balance was expected to be zero. Pool: {}, Balance: {:?}", id, pool_account_balance);
+					return Err(TryRuntimeError::Other("Pool account balance not migrated"));
+				}
 			};
 
 			Ok(())
