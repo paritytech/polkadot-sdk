@@ -800,6 +800,59 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -843,12 +896,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_blockchain::{
 	Backend <span class="kw">as </span>BlockChainBackend, Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
-<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor};
+<span class="kw">use </span>sp_runtime::{
+	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor},
+	SaturatedConversion, Saturating,
+};
 <span class="kw">use </span>std::{
 	collections::{HashSet, VecDeque},
 	sync::Arc,
 };
-
 <span class="doccomment">/// The maximum number of finalized blocks provided by the
 /// `Initialized` event.
 </span><span class="kw">const </span>MAX_FINALIZED_BLOCKS: usize = <span class="number">16</span>;
@@ -869,6 +924,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>sub_id: String,
 	<span class="doccomment">/// The best reported block by this subscription.
 	</span>best_block_cache: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
+	<span class="doccomment">/// Stop all subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	</span>max_lagging_distance: usize,
 }
 
 <span class="kw">impl</span>&lt;BE: Backend&lt;Block&gt;, Block: BlockT, Client&gt; ChainHeadFollower&lt;BE, Block, Client&gt; {
@@ -879,8 +937,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sub_handle: SubscriptionManagement&lt;Block, BE&gt;,
 		with_runtime: bool,
 		sub_id: String,
+		max_lagging_distance: usize,
 	) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ client, backend, sub_handle, with_runtime, sub_id, best_block_cache: <span class="prelude-val">None </span>}
+		<span class="self">Self </span>{
+			client,
+			backend,
+			sub_handle,
+			with_runtime,
+			sub_id,
+			best_block_cache: <span class="prelude-val">None</span>,
+			max_lagging_distance,
+		}
 	}
 }
 
@@ -988,6 +1055,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 	}
 
+	<span class="doccomment">/// Check the distance between the provided blocks does not exceed a
+	/// a reasonable range.
+	///
+	/// When the blocks are too far apart (potentially millions of blocks):
+	///  - Tree route is expensive to calculate.
+	///  - The RPC layer will not be able to generate the `NewBlock` events for all blocks.
+	///
+	/// This edge-case can happen for parachains where the relay chain syncs slower to
+	/// the head of the chain than the parachain node that is synced already.
+	</span><span class="kw">fn </span>distace_within_reason(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		block: Block::Hash,
+		finalized: Block::Hash,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubscriptionManagementError&gt; {
+		<span class="kw">let </span><span class="prelude-val">Some</span>(block_num) = <span class="self">self</span>.client.number(block)<span class="question-mark">? </span><span class="kw">else </span>{
+			<span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionManagementError::BlockHashAbsent)
+		};
+		<span class="kw">let </span><span class="prelude-val">Some</span>(finalized_num) = <span class="self">self</span>.client.number(finalized)<span class="question-mark">? </span><span class="kw">else </span>{
+			<span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionManagementError::BlockHashAbsent)
+		};
+
+		<span class="kw">let </span>distance: usize = block_num.saturating_sub(finalized_num).saturated_into();
+		<span class="kw">if </span>distance &gt; <span class="self">self</span>.max_lagging_distance {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionManagementError::BlockDistanceTooLarge);
+		}
+
+		<span class="prelude-val">Ok</span>(())
+	}
+
 	<span class="doccomment">/// Get the in-memory blocks of the client, starting from the provided finalized hash.
 	///
 	/// The reported blocks are pinned by this function.
@@ -1000,6 +1096,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>pruned_forks = HashSet::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>finalized_block_descendants = Vec::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>unique_descendants = HashSet::new();
+
+		<span class="comment">// Ensure all leaves are within a reasonable distance from the finalized block,
+		// before traversing the tree.
+		</span><span class="kw">for </span>leaf <span class="kw">in </span><span class="kw-2">&amp;</span>leaves {
+			<span class="self">self</span>.distace_within_reason(<span class="kw-2">*</span>leaf, finalized)<span class="question-mark">?</span>;
+		}
+
 		<span class="kw">for </span>leaf <span class="kw">in </span>leaves {
 			<span class="kw">let </span>tree_route = sp_blockchain::tree_route(blockchain, finalized, leaf)<span class="question-mark">?</span>;
 
@@ -1344,7 +1447,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">mut </span>to_ignore: HashSet&lt;Block::Hash&gt;,
 		sink: SubscriptionSink,
 		rx_stop: oneshot::Receiver&lt;()&gt;,
-	) <span class="kw">where
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubscriptionManagementError&gt;
+	<span class="kw">where
 		</span>EventStream: Stream&lt;Item = NotificationType&lt;Block&gt;&gt; + Unpin,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>stream_item = stream.next();
@@ -1378,8 +1482,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					);
 					<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
 					<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
-					<span class="kw">return
-				</span>},
+					<span class="kw">return </span><span class="prelude-val">Err</span>(err)
+				},
 			};
 
 			<span class="kw">for </span>event <span class="kw">in </span>events {
@@ -1393,8 +1497,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
 					<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
-					<span class="kw">return
-				</span>}
+					<span class="comment">// No need to propagate this error further, the client disconnected.
+					</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
+				}
 			}
 
 			stream_item = stream.next();
@@ -1407,6 +1512,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// - the client disconnected.
 		</span><span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
 		<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Generate the block events for the `chainHead_follow` method.
@@ -1414,7 +1520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		sink: SubscriptionSink,
 		sub_data: InsertedSubscriptionData&lt;Block&gt;,
-	) {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubscriptionManagementError&gt; {
 		<span class="comment">// Register for the new block and finalized notifications.
 		</span><span class="kw">let </span>stream_import = <span class="self">self
 			</span>.client
@@ -1442,8 +1548,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 				<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
 				<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
-				<span class="kw">return
-			</span>},
+				<span class="kw">return </span><span class="prelude-val">Err</span>(err)
+			},
 		};
 
 		<span class="kw">let </span>initial = NotificationType::InitialEvents(initial_events);
@@ -1452,7 +1558,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>stream = stream::once(futures::future::ready(initial)).chain(merged);
 
 		<span class="self">self</span>.submit_events(<span class="kw-2">&amp;</span>startup_point, stream.boxed(), pruned_forks, sink, sub_data.rx_stop)
-			.<span class="kw">await</span>;
-	}
+			.<span class="kw">await
+	</span>}
 }
 </code></pre></div></section></main></body></html>

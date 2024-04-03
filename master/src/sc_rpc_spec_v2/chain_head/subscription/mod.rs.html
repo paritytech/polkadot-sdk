@@ -389,6 +389,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -623,6 +632,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None
 			</span>},
 		}
+	}
+
+	<span class="doccomment">/// Stop all active subscriptions.
+	///
+	/// For all active subscriptions, the internal data is discarded, blocks are unpinned and the
+	/// `Stop` event will be generated.
+	</span><span class="kw">pub fn </span>stop_all_subscriptions(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+		<span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write();
+		inner.stop_all_subscriptions()
 	}
 }
 

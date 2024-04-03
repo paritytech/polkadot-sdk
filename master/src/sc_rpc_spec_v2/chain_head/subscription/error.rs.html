@@ -215,6 +215,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -258,6 +262,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The unpin method was called with duplicate hashes.
 	</span><span class="attr">#[error(<span class="string">&quot;Duplicate hashes&quot;</span>)]
 	</span>DuplicateHashes,
+	<span class="doccomment">/// The distance between the leaves and the current finalized block is too large.
+	</span><span class="attr">#[error(<span class="string">&quot;Distance too large&quot;</span>)]
+	</span>BlockDistanceTooLarge,
 	<span class="doccomment">/// Custom error.
 	</span><span class="attr">#[error(<span class="string">&quot;Subscription error {0}&quot;</span>)]
 	</span>Custom(String),
@@ -274,6 +281,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="self">Self</span>::BlockHeaderAbsent, <span class="self">Self</span>::BlockHeaderAbsent) |
 			(<span class="self">Self</span>::SubscriptionAbsent, <span class="self">Self</span>::SubscriptionAbsent) |
 			(<span class="self">Self</span>::DuplicateHashes, <span class="self">Self</span>::DuplicateHashes) =&gt; <span class="bool-val">true</span>,
+			(<span class="self">Self</span>::BlockDistanceTooLarge, <span class="self">Self</span>::BlockDistanceTooLarge) =&gt; <span class="bool-val">true</span>,
 			(<span class="self">Self</span>::Custom(lhs), <span class="self">Self</span>::Custom(rhs)) =&gt; lhs == rhs,
 			<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 		}

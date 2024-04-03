@@ -774,6 +774,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#627" id="627">627</a>
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -838,6 +855,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>subscription_max_pinned_duration: Duration,
 	<span class="doccomment">/// The maximum number of ongoing operations per subscription.
 	</span><span class="kw">pub </span>subscription_max_ongoing_operations: usize,
+	<span class="doccomment">/// Stop all subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	</span><span class="kw">pub </span>max_lagging_distance: usize,
 	<span class="doccomment">/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	</span><span class="kw">pub </span>operation_max_storage_items: usize,
@@ -864,6 +884,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// before paginations is required.
 </span><span class="kw">const </span>MAX_STORAGE_ITER_ITEMS: usize = <span class="number">5</span>;
 
+<span class="doccomment">/// Stop all subscriptions if the distance between the leaves and the current finalized
+/// block is larger than this value.
+</span><span class="kw">const </span>MAX_LAGGING_DISTANCE: usize = <span class="number">128</span>;
+
 <span class="doccomment">/// The maximum number of `chainHead_follow` subscriptions per connection.
 </span><span class="kw">const </span>MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION: usize = <span class="number">4</span>;
 
@@ -873,6 +897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: MAX_PINNED_DURATION,
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			operation_max_storage_items: MAX_STORAGE_ITER_ITEMS,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		}
@@ -892,6 +917,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	</span>operation_max_storage_items: usize,
+	<span class="doccomment">/// Stop all subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	</span>max_lagging_distance: usize,
 	<span class="doccomment">/// Phantom member to pin the block type.
 	</span>_phantom: PhantomData&lt;Block&gt;,
 }
@@ -916,6 +944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				backend,
 			),
 			operation_max_storage_items: config.operation_max_storage_items,
+			max_lagging_distance: config.max_lagging_distance,
 			_phantom: PhantomData,
 		}
 	}
@@ -963,6 +992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>subscriptions = <span class="self">self</span>.subscriptions.clone();
 		<span class="kw">let </span>backend = <span class="self">self</span>.backend.clone();
 		<span class="kw">let </span>client = <span class="self">self</span>.client.clone();
+		<span class="kw">let </span>max_lagging_distance = <span class="self">self</span>.max_lagging_distance;
 
 		<span class="kw">let </span>fut = <span class="kw">async move </span>{
 			<span class="comment">// Ensure the current connection ID has enough space to accept a new subscription.
@@ -983,8 +1013,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span><span class="prelude-val">Some</span>(sub_data) =
 				reserved_subscription.insert_subscription(sub_id.clone(), with_runtime)
 			<span class="kw">else </span>{
-				<span class="comment">// Inserting the subscription can only fail if the JsonRPSee
-				// generated a duplicate subscription ID.
+				<span class="comment">// Inserting the subscription can only fail if the JsonRPSee generated a duplicate
+				// subscription ID.
 				</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[follow][id={:?}] Subscription already accepted&quot;</span>, sub_id);
 				<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
 				<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
@@ -998,9 +1028,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				subscriptions,
 				with_runtime,
 				sub_id.clone(),
+				max_lagging_distance,
 			);
-
-			chain_head_follow.generate_events(sink, sub_data).<span class="kw">await</span>;
+			<span class="kw">let </span>result = chain_head_follow.generate_events(sink, sub_data).<span class="kw">await</span>;
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(SubscriptionManagementError::BlockDistanceTooLarge) = result {
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[follow][id={:?}] All subscriptions are stopped&quot;</span>, sub_id);
+				reserved_subscription.stop_all_subscriptions();
+			}
 
 			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[follow][id={:?}] Subscription removed&quot;</span>, sub_id);
 		};
