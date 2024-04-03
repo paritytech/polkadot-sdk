@@ -143,7 +143,7 @@ jobs:
         with:
           upload_url: ${{ needs.publish-release-draft.outputs.asset_upload_url }}
           asset_path: ${{ env.ASSET }}
-          asset_name: ${{ matrix.runtime.name }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm
+          asset_name: ${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm
           asset_content_type: application/wasm
 
   # post_to_matrix:
