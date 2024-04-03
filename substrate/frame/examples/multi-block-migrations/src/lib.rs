@@ -32,7 +32,7 @@
 //! [`migrations::v1`] module.
 //!
 //! The [`MyMap`](`pallet::MyMap`) storage item is defined in this `pallet`, and is
-//! aliased to [`old::MyMap`](`migrations::v1::old::MyMap`) in the [`migrations::v1`]
+//! aliased to [`v0::MyMap`](`migrations::v1::v0::MyMap`) in the [`migrations::v1`]
 //! module.
 //!
 //! ## How to Read the Documentation

@@ -18,7 +18,7 @@
 //! # Multi-Block Migration v1
 //!
 //! This module showcases a simple migration that iterates over the values in the
-//! [`v1::MyMap`](`crate::migrations::v1::v1::MyMap`) storage map, transforms them,
+//! [`v0::MyMap`](`crate::migrations::v1::v0::MyMap`) storage map, transforms them,
 //! and inserts them into the [`MyMap`](`crate::pallet::MyMap`) storage map.
 
 use super::PALLET_MIGRATIONS_ID;
