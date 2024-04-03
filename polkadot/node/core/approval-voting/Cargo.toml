@@ -10,7 +10,7 @@ description = "Approval Voting Subsystem of the Polkadot node"
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
 gum = { package = "tracing-gum", path = "../../gum" }
@@ -41,7 +41,7 @@ rand_chacha = { version = "0.3.1" }
 rand = "0.8.5"
 
 [dev-dependencies]
-async-trait = "0.1.74"
+async-trait = "0.1.79"
 parking_lot = "0.12.1"
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
@@ -52,4 +52,4 @@ assert_matches = "1.4.0"
 kvdb-memorydb = "0.13.0"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
 log = { workspace = true, default-features = true }
-env_logger = "0.9.0"
+env_logger = "0.11"

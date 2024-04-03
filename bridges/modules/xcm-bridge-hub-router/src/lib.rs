@@ -427,7 +427,7 @@ mod tests {
 		run_test(|| {
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(FixedU128::from_rational(125, 100)));
 
-			// it shold eventually decreased to one
+			// it should eventually decreased to one
 			while XcmBridgeHubRouter::bridge().delivery_fee_factor > MINIMAL_DELIVERY_FEE_FACTOR {
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
