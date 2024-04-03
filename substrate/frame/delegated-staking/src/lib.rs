@@ -138,9 +138,6 @@ use types::*;
 
 mod impls;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
