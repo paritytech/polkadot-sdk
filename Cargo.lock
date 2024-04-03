@@ -13330,7 +13330,6 @@ dependencies = [
  "sc-consensus",
  "sc-executor",
  "sc-network",
- "sc-network-sync",
  "sc-rpc",
  "sc-service",
  "sc-sysinfo",

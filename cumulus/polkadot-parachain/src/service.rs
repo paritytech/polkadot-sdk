@@ -52,7 +52,6 @@ use sc_consensus::{
 };
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, service::traits::NetworkBackend, NetworkBlock};
-use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
@@ -235,7 +234,6 @@ where
 		&TaskManager,
 		Arc<dyn RelayChainInterface>,
 		Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
-		Arc<SyncingService<Block>>,
 		KeystorePtr,
 		Duration,
 		ParaId,
@@ -369,7 +367,6 @@ where
 			&task_manager,
 			relay_chain_interface.clone(),
 			transaction_pool,
-			sync_service.clone(),
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
 			para_id,
@@ -710,7 +707,6 @@ pub async fn start_generic_aura_node<Net: NetworkBackend<Block, Hash>>(
 		 task_manager,
 		 relay_chain_interface,
 		 transaction_pool,
-		 sync_oracle,
 		 keystore,
 		 relay_chain_slot_duration,
 		 para_id,
@@ -739,7 +735,6 @@ pub async fn start_generic_aura_node<Net: NetworkBackend<Block, Hash>>(
 				block_import,
 				para_client: client,
 				relay_client: relay_chain_interface,
-				sync_oracle,
 				keystore,
 				collator_key,
 				para_id,
@@ -753,7 +748,7 @@ pub async fn start_generic_aura_node<Net: NetworkBackend<Block, Hash>>(
 			};
 
 			let fut =
-				basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params);
+				basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _>(params);
 			task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 			Ok(())
@@ -828,7 +823,6 @@ where
 		 task_manager,
 		 relay_chain_interface,
 		 transaction_pool,
-		 sync_oracle,
 		 keystore,
 		 relay_chain_slot_duration,
 		 para_id,
@@ -896,7 +890,6 @@ where
 					block_import,
 					para_client: client,
 					relay_client: relay_chain_interface2,
-					sync_oracle,
 					keystore,
 					collator_key,
 					para_id,
@@ -909,7 +902,7 @@ where
 					collation_request_receiver: Some(request_stream),
 				};
 
-				basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params)
+				basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _>(params)
 					.await
 			});
 
@@ -972,7 +965,6 @@ where
 		 task_manager,
 		 relay_chain_interface,
 		 transaction_pool,
-		 sync_oracle,
 		 keystore,
 		 relay_chain_slot_duration,
 		 para_id,
@@ -1045,7 +1037,6 @@ where
 					code_hash_provider: move |block_hash| {
 						client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 					},
-					sync_oracle,
 					keystore,
 					collator_key,
 					para_id,
@@ -1058,7 +1049,7 @@ where
 					                     * to aura */
 				};
 
-				aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params)
+				aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params)
 					.await
 			});
 
@@ -1082,7 +1073,6 @@ fn start_relay_chain_consensus(
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
-	_sync_oracle: Arc<SyncingService<Block>>,
 	_keystore: KeystorePtr,
 	_relay_chain_slot_duration: Duration,
 	para_id: ParaId,
@@ -1153,7 +1143,6 @@ fn start_lookahead_aura_consensus(
 	task_manager: &TaskManager,
 	relay_chain_interface: Arc<dyn RelayChainInterface>,
 	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
-	sync_oracle: Arc<SyncingService<Block>>,
 	keystore: KeystorePtr,
 	relay_chain_slot_duration: Duration,
 	para_id: ParaId,
@@ -1186,7 +1175,6 @@ fn start_lookahead_aura_consensus(
 		code_hash_provider: move |block_hash| {
 			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 		},
-		sync_oracle,
 		keystore,
 		collator_key,
 		para_id,
@@ -1198,7 +1186,7 @@ fn start_lookahead_aura_consensus(
 		reinitialize: false,
 	};
 
-	let fut = aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params);
+	let fut = aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(params);
 	task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 	Ok(())
