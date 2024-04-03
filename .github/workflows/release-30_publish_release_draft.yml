@@ -132,10 +132,11 @@ jobs:
         env:
           JSON: release-notes-context/${{ matrix.chain }}-runtime/${{ matrix.chain }}-srtool-digest.json
         run: |
-          >>$GITHUB_ENV echo ASSET=$(find ${{ matrix.chain }} -name '*.compact.compressed.wasm')
+          >>$GITHUB_ENV echo ASSET=$(find ${{ matrix.chain }}-runtime -name '*.compact.compressed.wasm')
           >>$GITHUB_ENV echo SPEC=$(<${JSON} jq -r .runtimes.compact.subwasm.core_version.specVersion)
 
       - name: Upload compressed ${{ matrix.chain }} v${{ env.SPEC }} wasm
+        if: ${{ matrix.chain }} != 'rococo-parachain'
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 #v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
