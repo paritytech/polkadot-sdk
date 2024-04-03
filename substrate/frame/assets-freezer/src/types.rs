@@ -15,8 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::pallet_prelude::{Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo};
-use frame_support::traits::fungibles::Inspect;
+use frame_support::{
+	pallet_prelude::{Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo},
+	traits::fungibles::Inspect,
+};
 
 pub type AssetIdOf<T, I> = <pallet_assets::Pallet<T, I> as Inspect<AccountIdOf<T>>>::AssetId;
 pub type AssetBalanceOf<T, I> = <pallet_assets::Pallet<T, I> as Inspect<AccountIdOf<T>>>::Balance;

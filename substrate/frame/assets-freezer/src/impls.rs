@@ -38,8 +38,9 @@ impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, As
 }
 
 /// Implement [`frame_support::traits::fungibles::Inspect`] as it is bound by
-/// [`frame_support::traits::fungibles::InspectFreeze`] and [`frame_support::traits::fungibles::MutateFreeze`].
-/// To do so, we'll re-export all of `pallet-assets` implementation of the same trait.
+/// [`frame_support::traits::fungibles::InspectFreeze`] and
+/// [`frame_support::traits::fungibles::MutateFreeze`]. To do so, we'll re-export all of
+/// `pallet-assets` implementation of the same trait.
 impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 	type AssetId = AssetIdOf<T, I>;
 	type Balance = AssetBalanceOf<T, I>;
@@ -104,11 +105,11 @@ impl<T: Config<I>, I: 'static> InspectFreeze<AccountIdOf<T>> for Pallet<T, I> {
 
 	fn can_freeze(asset: Self::AssetId, id: &Self::Id, who: &AccountIdOf<T>) -> bool {
 		let freezes = Freezes::<T, I>::get(asset, who);
-		freezes.len()
-			< T::MaxFreezes::get()
+		freezes.len() <
+			T::MaxFreezes::get()
 				.try_into()
-				.expect("MaxFreezes is the same type as S within Freezes<S>; qed")
-			|| freezes.into_iter().any(|i| i.id == *id)
+				.expect("MaxFreezes is the same type as S within Freezes<S>; qed") ||
+			freezes.into_iter().any(|i| i.id == *id)
 	}
 }
 

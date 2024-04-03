@@ -38,8 +38,9 @@
 //!
 //! - Pallet hooks that implement custom logic to let `pallet-assets` know whether an balance is
 //!   frozen for an account on a given asset (see: [`pallet_assets::FrozenBalance`]).
-//! - An implementation of the fungibles [inspect][`frame_support::traits::fungibles::InspectFreeze`]
-//!   and the [mutation][`frame_support::traits::fungibles::InspectFreeze`] APIs for freezes.
+//! - An implementation of the fungibles
+//!   [inspect][`frame_support::traits::fungibles::InspectFreeze`] and the
+//!   [mutation][`frame_support::traits::fungibles::InspectFreeze`] APIs for freezes.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
