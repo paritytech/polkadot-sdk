@@ -424,17 +424,13 @@ impl BenchmarkRecording {
 	}
 
 	pub fn diff_pov(&self) -> Option<u32> {
-		match (self.start_pov, self.end_pov) {
-			(Some(start), Some(end)) => Some(end.saturating_sub(start)),
-			_ => None,
-		}
+		self.start_pov.zip(self.end_pov).map(|(start, end)| end.saturating_sub(start))
 	}
 
 	pub fn elapsed_extrinsic(&self) -> Option<u128> {
-		match (self.start_extrinsic, self.finish_extrinsic) {
-			(Some(start), Some(end)) => Some(end.saturating_sub(start)),
-			_ => None,
-		}
+		self.start_extrinsic
+			.zip(self.finish_extrinsic)
+			.map(|(start, end)| end.saturating_sub(start))
 	}
 }
 
