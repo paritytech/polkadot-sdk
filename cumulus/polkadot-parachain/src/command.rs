@@ -803,10 +803,7 @@ pub fn run() -> Result<()> {
 							.await
 							.map(|r| r.0),
 						chain_spec::people::PeopleRuntimeType::Polkadot |
-						chain_spec::people::PeopleRuntimeType::PolkadotLocal =>
-							crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
+						chain_spec::people::PeopleRuntimeType::PolkadotLocal |
 						chain_spec::people::PeopleRuntimeType::Rococo |
 						chain_spec::people::PeopleRuntimeType::RococoLocal |
 						chain_spec::people::PeopleRuntimeType::RococoDevelopment |
