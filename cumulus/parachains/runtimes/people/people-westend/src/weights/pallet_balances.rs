@@ -155,4 +155,12 @@ impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(u.into())))
 			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(u.into()))
 	}
+	fn burn_allow_death() -> Weight {
+		// TODO
+		Weight::zero()
+	}
+	fn burn_keep_alive() -> Weight {
+		// TODO
+		Weight::zero()
+	}
 }
