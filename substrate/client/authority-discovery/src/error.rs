@@ -75,4 +75,7 @@ pub enum Error {
 
 	#[error("Unable to fetch best block.")]
 	BestBlockFetchingError,
+
+	#[error("Received dht value found event with records received from different peers.")]
+	ReceivingDhtValueFoundFromDifferentPeerIds,
 }

@@ -159,7 +159,9 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 	/// we got at least one successfull result.
 	known_lookups: HashMap<KademliaKey, AuthorityId>,
 
-	/// Peers with old records
+	/// Last known record by key, here we always keep the record with
+	/// the highest creation time and we don't accept records older than
+	/// that.
 	last_known_record: HashMap<KademliaKey, RecordInfo>,
 
 	addr_cache: addr_cache::AddrCache,
@@ -176,7 +178,7 @@ struct RecordInfo {
 	// Time since UNIX_EPOCH in nanoseconds.
 	creation_time: u128,
 	// Peers that we know have this record.
-	peers: HashSet<PeerId>,
+	peers_with_record: HashSet<PeerId>,
 	// The record itself.
 	record: Option<PeerRecord>,
 }
@@ -236,8 +238,8 @@ where
 		// interval for `publish_interval`, `query_interval` and `priority_group_set_interval`
 		// instead of a constant interval.
 		let publish_interval =
-			ExpIncInterval::new(Duration::from_secs(2), Duration::from_secs(60 * 10));
-		let query_interval = ExpIncInterval::new(Duration::from_secs(2), Duration::from_secs(90));
+			ExpIncInterval::new(Duration::from_secs(2), config.max_publish_interval);
+		let query_interval = ExpIncInterval::new(Duration::from_secs(2), config.max_query_interval);
 
 		// An `ExpIncInterval` is overkill here because the interval is constant, but consistency
 		// is more simple.
@@ -607,8 +609,8 @@ where
 			.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
 			.ok_or(Error::ReceivingDhtValueFoundEventWithNoRecords)?;
 
-		let mut peer_id = single(values.iter().map(|record| record.peer.clone()))
-			.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
+		let answering_peer_id = single(values.iter().map(|record| record.peer.clone()))
+			.map_err(|_| Error::ReceivingDhtValueFoundFromDifferentPeerIds)?
 			.ok_or(Error::ReceivingDhtValueFoundEventWithNoRecords)?;
 		let values_clone = values.clone();
 		let authority_id: AuthorityId =
@@ -728,13 +730,13 @@ where
 			single(remote_addresses.iter().map(|(_addr, timestamp)| *timestamp))
 				.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
 				.unwrap_or_default();
-	
+
 		for record in values_clone {
 			needs_update |= self.handle_new_record(
 				kadmelia_key.clone(),
 				RecordInfo {
 					creation_time: records_creation_time,
-					peers: peer_id.iter().map(|peer| *peer).collect(),
+					peers_with_record: answering_peer_id.iter().map(|peer| *peer).collect(),
 					record: Some(record),
 				},
 			);
@@ -754,7 +756,7 @@ where
 	fn handle_new_record(&mut self, kadmelia_key: KademliaKey, new_record: RecordInfo) -> bool {
 		let last_value = self.last_known_record.entry(kadmelia_key.clone()).or_default();
 		if new_record.creation_time > last_value.creation_time {
-			let peers_that_need_updating = last_value.peers.clone();
+			let peers_that_need_updating = last_value.peers_with_record.clone();
 			for record in new_record.record.iter() {
 				self.network.put_record_to(record.clone(), peers_that_need_updating.clone());
 			}
@@ -764,11 +766,11 @@ where
 		} else if new_record.creation_time == last_value.creation_time {
 			// Same record just update in case this is a record from old nods that don't have
 			// timestamp.
-			last_value.peers.extend(new_record.peers);
+			last_value.peers_with_record.extend(new_record.peers_with_record);
 			true
 		} else {
 			for record in last_value.record.iter() {
-				self.network.put_record_to(record.clone(), new_record.peers.clone());
+				self.network.put_record_to(record.clone(), new_record.peers_with_record.clone());
 			}
 			false
 		}
