@@ -48,7 +48,10 @@ impl ClaimQueueSnapshot {
 
 	/// Returns an iterator over all claimed cores and the claiming `ParaId` at the specified
 	/// `depth` in the claim queue.
-	pub fn iter_claims_at_depth(&self, depth: usize) -> impl Iterator<Item = (CoreIndex, ParaId)> + '_ {
+	pub fn iter_claims_at_depth(
+		&self,
+		depth: usize,
+	) -> impl Iterator<Item = (CoreIndex, ParaId)> + '_ {
 		self.0
 			.iter()
 			.filter_map(move |(core_index, paras)| Some((*core_index, *paras.get(depth)?)))
