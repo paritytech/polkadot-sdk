@@ -40,6 +40,30 @@ fn create_default_pool() {
 	));
 }
 
+fn assert_hypothetically_earned(
+	staker: u128,
+	expected_earned: u128,
+	pool_id: u32,
+	reward_asset_id: NativeOrWithId<u32>,
+) {
+	hypothetically!({
+		// Get the pre-harvest balance.
+		let balance_before: <MockRuntime as Config>::Balance =
+			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
+
+		// Harvest the rewards.
+		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker), pool_id, None));
+
+		// Sanity check: staker rewards are reset to 0.
+		assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, staker).unwrap().rewards, 0);
+
+		// Check that the staker has earned the expected amount.
+		let balance_after =
+			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
+		assert_eq!(balance_after - balance_before, expected_earned);
+	});
+}
+
 fn events() -> Vec<Event<MockRuntime>> {
 	let result = System::events()
 		.into_iter()
@@ -839,31 +863,6 @@ mod set_pool_reward_rate_per_block {
 			);
 		});
 	}
-}
-
-/// Assert that an amount has been hypothetically earned by a staker.
-fn assert_hypothetically_earned(
-	staker: u128,
-	expected_earned: u128,
-	pool_id: u32,
-	reward_asset_id: NativeOrWithId<u32>,
-) {
-	hypothetically!({
-		// Get the pre-harvest balance.
-		let balance_before: <MockRuntime as Config>::Balance =
-			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
-
-		// Harvest the rewards.
-		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker), pool_id, None));
-
-		// Sanity check: staker rewards are reset to 0.
-		assert_eq!(PoolStakers::<MockRuntime>::get(pool_id, staker).unwrap().rewards, 0);
-
-		// Check that the staker has earned the expected amount.
-		let balance_after =
-			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
-		assert_eq!(balance_after - balance_before, expected_earned);
-	});
 }
 
 /// This integration test
