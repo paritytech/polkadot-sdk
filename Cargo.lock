@@ -3631,6 +3631,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-babe",
  "sc-consensus-slots",
+ "sc-service",
  "sc-telemetry",
  "schnellru",
  "sp-api",
@@ -3646,6 +3647,7 @@ dependencies = [
  "sp-state-machine",
  "sp-timestamp",
  "substrate-prometheus-endpoint",
+ "tokio",
  "tracing",
 ]
 
@@ -3844,6 +3846,7 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-aura",
  "pallet-timestamp",
  "parity-scale-codec",
