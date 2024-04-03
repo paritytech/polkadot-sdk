@@ -376,6 +376,7 @@ try-runtime = [
 	"pallet-democracy/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
+	"pallet-example-mbm/try-runtime",
 	"pallet-example-tasks/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-glutton/try-runtime",
@@ -425,7 +426,6 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-example-mbm/try-runtime"
 ]
 experimental = [
 	"frame-support/experimental",

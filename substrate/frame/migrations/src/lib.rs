@@ -767,7 +767,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// The maximal weight of calling [`exec_migration`].
+	/// The maximal weight of calling the private `Self::exec_migration` function.
 	pub fn exec_migration_max_weight() -> Weight {
 		T::WeightInfo::exec_migration_complete()
 			.max(T::WeightInfo::exec_migration_completed())
