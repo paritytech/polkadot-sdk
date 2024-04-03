@@ -78,4 +78,10 @@ pub enum Error {
 
 	#[error("Received dht value found event with records received from different peers.")]
 	ReceivingDhtValueFoundFromDifferentPeerIds,
+
+	#[error("Failed to verify a dht creation time signature.")]
+	VerifyingDhtPayloadCreationTime,
+
+	#[error("Received dht value found event with different record creation time.")]
+	ReceivingDhtValueFoundWithDifferentRecordCreationTime,
 }

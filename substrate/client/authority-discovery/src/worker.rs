@@ -609,10 +609,6 @@ where
 			.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
 			.ok_or(Error::ReceivingDhtValueFoundEventWithNoRecords)?;
 
-		let answering_peer_id = single(values.iter().map(|record| record.peer.clone()))
-			.map_err(|_| Error::ReceivingDhtValueFoundFromDifferentPeerIds)?
-			.ok_or(Error::ReceivingDhtValueFoundEventWithNoRecords)?;
-		let values_clone = values.clone();
 		let authority_id: AuthorityId =
 			if let Some(authority_id) = self.in_flight_lookups.remove(&remote_key) {
 				authority_id
@@ -627,7 +623,7 @@ where
 		let local_peer_id = self.network.local_peer_id();
 		let kadmelia_key = remote_key;
 		let remote_addresses: Vec<(Multiaddr, u128)> = values
-			.into_iter()
+			.iter()
 			.map(|record| {
 				let schema::SignedAuthorityRecord {
 					record,
@@ -653,14 +649,8 @@ where
 						&creation_time_info.timestamp,
 						&authority_id,
 					) {
-						log::error!(
-							"Could not verify public key {:?}, {:?}",
-							creation_time_info.timestamp,
-							creation_time_info.signature
-						);
-						return Err(Error::VerifyingDhtPayload)
+						return Err(Error::VerifyingDhtPayloadCreationTime)
 					}
-					log::error!("Public key verified");
 				}
 
 				let creation_time: u128 = creation_time_info
@@ -668,7 +658,8 @@ where
 					.map(|creation_time| {
 						u128::decode(&mut &creation_time.timestamp[..]).unwrap_or_default()
 					})
-					.unwrap_or_default();
+					.unwrap_or_default(); // 0 is a sane default for records that do not have creation time present.
+
 				let addresses: Vec<(Multiaddr, u128)> =
 					schema::AuthorityRecord::decode(record.as_slice())
 						.map(|a| a.addresses)
@@ -725,14 +716,19 @@ where
 			.take(MAX_ADDRESSES_PER_AUTHORITY)
 			.collect();
 
-		let mut needs_update = false;
+		let mut addr_cache_needs_update = false;
+
+		let answering_peer_id = single(values.iter().map(|record| record.peer.clone()))
+			.map_err(|_| Error::ReceivingDhtValueFoundFromDifferentPeerIds)?
+			.ok_or(Error::ReceivingDhtValueFoundEventWithNoRecords)?;
+
 		let records_creation_time =
 			single(remote_addresses.iter().map(|(_addr, timestamp)| *timestamp))
-				.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
+				.map_err(|_| Error::ReceivingDhtValueFoundWithDifferentRecordCreationTime)?
 				.unwrap_or_default();
 
-		for record in values_clone {
-			needs_update |= self.handle_new_record(
+		for record in values {
+			addr_cache_needs_update |= self.handle_new_record(
 				kadmelia_key.clone(),
 				RecordInfo {
 					creation_time: records_creation_time,
@@ -741,7 +737,8 @@ where
 				},
 			);
 		}
-		if !remote_addresses.is_empty() && needs_update {
+
+		if !remote_addresses.is_empty() && addr_cache_needs_update {
 			self.addr_cache
 				.insert(authority_id, remote_addresses.into_iter().map(|(addr, _)| addr).collect());
 			if let Some(metrics) = &self.metrics {
@@ -762,7 +759,6 @@ where
 			}
 			self.last_known_record.insert(kadmelia_key, new_record);
 			true
-		// TODO update records on peers with old records.
 		} else if new_record.creation_time == last_value.creation_time {
 			// Same record just update in case this is a record from old nods that don't have
 			// timestamp.
@@ -874,8 +870,10 @@ fn sign_record_with_authority_ids(
 
 		// Scale encode
 		let auth_signature = auth_signature.encode();
-		let creation_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-		log::error!("Publish record created at {:?}", creation_time);
+		let creation_time = SystemTime::now()
+			.duration_since(UNIX_EPOCH)
+			.map(|time| time.as_nanos())
+			.unwrap_or_default();
 
 		let creation_time = creation_time.encode();
 		let creation_time_signature = key_store
@@ -884,13 +882,6 @@ fn sign_record_with_authority_ids(
 			.ok_or_else(|| {
 				Error::CannotSign(format!("Could not find key in keystore. Key: {:?}", key))
 			})?;
-
-		log::error!(
-			"Publish record created signature {:?} ==== {:?} ===== {:?}",
-			creation_time,
-			creation_time_signature,
-			creation_time_signature.encode()
-		);
 
 		let creation_time = schema::TimestampInfo {
 			timestamp: creation_time,
