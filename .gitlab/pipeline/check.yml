@@ -113,9 +113,10 @@ check-toml-format:
     - echo "---------- Building ${PACKAGE} runtime ----------"
     - time cargo build --release --locked -p "$PACKAGE" --features try-runtime
     - echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
-    - time ./try-runtime ${COMMAND_EXTRA_ARGS} \
-          --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
-          on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
+    - >
+      time ./try-runtime ${COMMAND_EXTRA_ARGS} \
+        --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
+        on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
     - sleep 5
 
 # Check runtime migrations for Parity managed relay chains
