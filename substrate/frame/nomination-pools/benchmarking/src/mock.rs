@@ -167,7 +167,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter =
-	pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = ConstU32<8>;
