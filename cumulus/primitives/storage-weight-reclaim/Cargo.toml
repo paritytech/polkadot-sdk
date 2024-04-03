@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 log = { workspace = true }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
@@ -22,7 +22,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 
 cumulus-primitives-core = { path = "../core", default-features = false }
 cumulus-primitives-proof-size-hostfunction = { path = "../proof-size-hostfunction", default-features = false }
-docify = "0.2.7"
+docify = "0.2.8"
 
 [dev-dependencies]
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
