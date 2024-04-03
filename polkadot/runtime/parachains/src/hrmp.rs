@@ -305,7 +305,7 @@ pub mod pallet {
 			proposed_max_capacity: u32,
 			proposed_max_message_size: u32,
 		},
-		/// An HRMP channel was opened between two system chains.
+		/// An HRMP channel was opened with a system chain.
 		HrmpSystemChannelOpened {
 			sender: ParaId,
 			recipient: ParaId,

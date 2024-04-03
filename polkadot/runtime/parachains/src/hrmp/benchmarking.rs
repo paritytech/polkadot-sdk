@@ -50,6 +50,15 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event);
 }
 
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	let events = frame_system::Pallet::<T>::events();
+	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+
+	println!("events: {:?}", events);
+
+	assert!(events.iter().any(|record| record.event == system_event));
+}
+
 /// Enumerates the phase in the setup process of a channel between two parachains.
 enum ParachainSetupStep {
 	/// A channel open has been requested
@@ -526,6 +535,29 @@ mod benchmarks {
 
 		#[extrinsic_call]
 		_(sender_origin, recipient_id);
+
+		let (max_message_size, max_capacity) =
+				T::DefaultChannelSizeAndCapacityWithSystem::get();
+
+		assert_has_event::<T>(
+			Event::<T>::HrmpSystemChannelOpened {
+				sender: sender_id.into(),
+			recipient: recipient_id,
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			}
+			.into(),
+		);
+
+		assert_has_event::<T>(
+			Event::<T>::HrmpSystemChannelOpened {
+				sender: recipient_id,
+				recipient: sender_id.into(),
+				proposed_max_capacity: max_capacity,
+				proposed_max_message_size: max_message_size,
+			}
+			.into(),
+		);
 	}
 
 	impl_benchmark_test_suite!(
