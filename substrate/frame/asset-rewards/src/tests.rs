@@ -406,6 +406,139 @@ mod unstake {
 	}
 }
 
+mod harvest_rewards {
+	use super::*;
+
+	#[test]
+	fn success() {
+		new_test_ext().execute_with(|| {
+			let staker = 1;
+			let pool_id = 0;
+			let reward_asset_id = NativeOrWithId::<u32>::Native;
+			create_default_pool();
+			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+			<<MockRuntime as Config>::Assets>::set_balance(
+				reward_asset_id.clone(),
+				&pool_account_id,
+				100_000,
+			);
+
+			// Stake
+			System::set_block_number(10);
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+
+			// Harvest
+			System::set_block_number(20);
+			let balance_before: <MockRuntime as Config>::Balance =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
+			assert_ok!(StakingRewards::harvest_rewards(
+				RuntimeOrigin::signed(staker),
+				pool_id,
+				None
+			));
+			let balance_after =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
+
+			// Assert
+			assert_eq!(
+				balance_after - balance_before,
+				10 * Pools::<MockRuntime>::get(pool_id).unwrap().reward_rate_per_block
+			);
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::RewardsHarvested {
+					who: staker,
+					staker,
+					pool_id,
+					amount: 10 * Pools::<MockRuntime>::get(pool_id).unwrap().reward_rate_per_block
+				}
+			);
+		});
+	}
+
+	#[test]
+	fn succeeds_when_harvesting_for_other_staker() {
+		new_test_ext().execute_with(|| {
+			let staker = 1;
+			let harvester = 2;
+			let pool_id = 0;
+			let reward_asset_id = NativeOrWithId::<u32>::Native;
+			create_default_pool();
+			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+			<<MockRuntime as Config>::Assets>::set_balance(
+				reward_asset_id.clone(),
+				&pool_account_id,
+				100_000,
+			);
+
+			// Stake
+			System::set_block_number(10);
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+			System::set_block_number(20);
+
+			// Harvest
+			let balance_before: <MockRuntime as Config>::Balance =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
+			assert_ok!(StakingRewards::harvest_rewards(
+				RuntimeOrigin::signed(harvester),
+				pool_id,
+				Some(staker)
+			));
+			let balance_after =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
+
+			// Assert
+			assert_eq!(
+				balance_after - balance_before,
+				10 * Pools::<MockRuntime>::get(pool_id).unwrap().reward_rate_per_block
+			);
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::RewardsHarvested {
+					who: harvester,
+					staker,
+					pool_id,
+					amount: 10 * Pools::<MockRuntime>::get(pool_id).unwrap().reward_rate_per_block
+				}
+			);
+		});
+	}
+
+	#[test]
+	fn fails_for_non_existent_staker() {
+		new_test_ext().execute_with(|| {
+			let non_existent_staker = 999;
+
+			create_default_pool();
+			assert_err!(
+				StakingRewards::harvest_rewards(
+					RuntimeOrigin::signed(non_existent_staker),
+					0,
+					None
+				),
+				Error::<MockRuntime>::NonExistentStaker
+			);
+		});
+	}
+
+	#[test]
+	fn fails_for_non_existent_pool() {
+		new_test_ext().execute_with(|| {
+			let staker = 1;
+			let non_existent_pool_id = 999;
+
+			assert_err!(
+				StakingRewards::harvest_rewards(
+					RuntimeOrigin::signed(staker),
+					non_existent_pool_id,
+					None
+				),
+				Error::<MockRuntime>::NonExistentPool
+			);
+		});
+	}
+}
+
 mod set_pool_admin {
 	use super::*;
 

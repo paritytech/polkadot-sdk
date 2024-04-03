@@ -280,6 +280,8 @@ pub mod pallet {
 		NotEnoughTokens,
 		/// An operation was attempted on a non-existent pool.
 		NonExistentPool,
+		/// An operation was attempted on a non-existent pool.
+		NonExistentStaker,
 		/// An operation was attempted using a non-existent asset.
 		NonExistentAsset,
 		/// There was an error converting a block number.
@@ -450,7 +452,8 @@ pub mod pallet {
 
 			// Always start by updating the pool and staker rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			let staker_info = PoolStakers::<T>::get(pool_id, &staker).unwrap_or_default();
+			let staker_info =
+				PoolStakers::<T>::get(pool_id, &staker).ok_or(Error::<T>::NonExistentStaker)?;
 			let (pool_info, mut staker_info) =
 				Self::update_pool_and_staker_rewards(pool_info, staker_info)?;
 
