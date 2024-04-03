@@ -337,22 +337,23 @@ fn force_adjust_total_issuance_rejects_more_than_inactive() {
 }
 
 #[test]
-fn burn_allow_death_works() {
+fn burn_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Prepare account with initial balance
 		let (account, init_balance) = (1, 37);
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), account, init_balance));
 		let init_issuance = Balances::total_issuance();
+		let (keep_alive, allow_death) = (true, false);
 
-		// Cannot burn more than what's available
+		// 1. Cannot burn more than what's available
 		assert_noop!(
-			Balances::burn_allow_death(Some(account).into(), init_balance + 1),
+			Balances::burn(Some(account).into(), init_balance + 1, allow_death),
 			TokenError::FundsUnavailable,
 		);
 
-		// Burn some funds, without reaping the account
+		// 2. Burn some funds, without reaping the account
 		let burn_amount_1 = 1;
-		assert_ok!(Balances::burn_allow_death(Some(account).into(), burn_amount_1));
+		assert_ok!(Balances::burn(Some(account).into(), burn_amount_1, allow_death));
 		System::assert_last_event(RuntimeEvent::Balances(Event::Burned {
 			who: account.clone(),
 			amount: burn_amount_1,
@@ -360,9 +361,16 @@ fn burn_allow_death_works() {
 		assert_eq!(Balances::total_issuance(), init_issuance - burn_amount_1);
 		assert_eq!(Balances::total_balance(&account), init_balance - burn_amount_1);
 
-		// Burn some more funds, this time reaping the account
-		let burn_amount_2 = init_balance - burn_amount_1 - <Test as Config>::ExistentialDeposit::get() + 1;
-		assert_ok!(Balances::burn_allow_death(Some(account).into(), burn_amount_2));
+		// 3. Cannot burn funds below existential deposit if `keep_alive` is `true`
+		let burn_amount_2 =
+			init_balance - burn_amount_1 - <Test as Config>::ExistentialDeposit::get() + 1;
+		assert_noop!(
+			Balances::burn(Some(account).into(), init_balance + 1, keep_alive),
+			TokenError::FundsUnavailable,
+		);
+
+		// 4. Burn some more funds, this time reaping the account
+		assert_ok!(Balances::burn(Some(account).into(), burn_amount_2, allow_death));
 		System::assert_last_event(RuntimeEvent::Balances(Event::Burned {
 			who: account.clone(),
 			amount: burn_amount_2,

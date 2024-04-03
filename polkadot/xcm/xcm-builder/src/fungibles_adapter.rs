@@ -18,7 +18,11 @@
 
 use frame_support::traits::{
 	tokens::{
-		fungibles, Fortitude::Polite, Precision::Exact, Preservation::Preserve, Provenance::Minted,
+		fungibles,
+		Fortitude::Polite,
+		Precision::Exact,
+		Preservation::{Expendable, Preserve},
+		Provenance::Minted,
 	},
 	Contains, Get,
 };
@@ -176,7 +180,8 @@ impl<
 	}
 	fn reduce_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
 		let checking_account = CheckingAccount::get();
-		let ok = Assets::burn_from(asset_id, &checking_account, amount, Exact, Polite).is_ok();
+		let ok = Assets::burn_from(asset_id, &checking_account, amount, Expendable, Exact, Polite)
+			.is_ok();
 		debug_assert!(ok, "`can_reduce_checked` must have returned `true` immediately prior; qed");
 	}
 }
@@ -295,7 +300,7 @@ impl<
 		let (asset_id, amount) = Matcher::matches_fungibles(what)?;
 		let who = AccountIdConverter::convert_location(who)
 			.ok_or(MatchError::AccountIdConversionFailed)?;
-		Assets::burn_from(asset_id, &who, amount, Exact, Polite)
+		Assets::burn_from(asset_id, &who, amount, Expendable, Exact, Polite)
 			.map_err(|e| XcmError::FailedToTransactAsset(e.into()))?;
 		Ok(what.clone().into())
 	}

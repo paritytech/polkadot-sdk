@@ -59,6 +59,7 @@ pub trait WeightInfo {
 	fn upgrade_accounts(u: u32, ) -> Weight;
 	fn force_adjust_total_issuance() -> Weight;
 	fn burn_allow_death() -> Weight;
+	fn burn_keep_alive() -> Weight;
 }
 
 /// Weights for `pallet_balances` using the Substrate node and recommended hardware.
@@ -172,6 +173,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn burn_keep_alive() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_329_000 picoseconds.
+		Weight::from_parts(47_297_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -276,6 +286,15 @@ impl WeightInfo for () {
 		Weight::from_parts(6_507_000, 0)
 	}
 	fn burn_allow_death() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_329_000 picoseconds.
+		Weight::from_parts(47_297_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn burn_keep_alive() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `3593`
