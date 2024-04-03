@@ -16,6 +16,9 @@ on:
     inputs:
       excluded_runtimes:
         type: string
+    outputs:
+      published_runtimes:
+        value: ${{ jobs.find-runtimes.outputs.runtime }}
 
   schedule:
     - cron: "00 02 * * 1" # 2AM weekly on monday
