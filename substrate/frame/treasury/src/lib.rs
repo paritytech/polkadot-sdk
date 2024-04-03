@@ -84,9 +84,10 @@ use scale_info::TypeInfo;
 
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, BlockNumberProvider, CheckedAdd, Saturating, StaticLookup, Zero,
+		AccountIdConversion, BlockNumberProvider, CheckedAdd, One, Saturating, StaticLookup,
+		UniqueSaturatedInto, Zero,
 	},
-	Permill, RuntimeDebug,
+	PerThing, Permill, RuntimeDebug,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
@@ -100,6 +101,7 @@ use frame_support::{
 	weights::Weight,
 	PalletId,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -344,6 +346,10 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// The blocknumber for the last triggered spend period.
+	#[pallet::storage]
+	pub(crate) type LastSpendPeriod<T, I = ()> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -442,7 +448,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		/// ## Complexity
 		/// - `O(A)` where `A` is the number of approvals
-		fn on_initialize(n: frame_system::pallet_prelude::BlockNumberFor<T>) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let pot = Self::pot();
 			let deactivated = Deactivated::<T, I>::get();
 			if pot != deactivated {
@@ -456,17 +462,27 @@ pub mod pallet {
 			}
 
 			// Check to see if we should spend some funds!
-			if (n % T::SpendPeriod::get()).is_zero() {
-				Self::spend_funds()
+			let last_spend_period =
+				// AUDIT REVIEW TODO! Needs to handle migration story for this better.
+				LastSpendPeriod::<T, I>::get().unwrap_or(BlockNumberFor::<T>::zero());
+			let blocks_since_last_spend_period = n.saturating_sub(last_spend_period);
+			let safe_spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T>::one());
+
+			// Safe because of `max(1)` above.
+			let (spend_periods_passed, extra_blocks) = (
+				blocks_since_last_spend_period / safe_spend_period,
+				blocks_since_last_spend_period % safe_spend_period,
+			);
+			let new_last_spend_period = n.saturating_sub(extra_blocks);
+			if spend_periods_passed > BlockNumberFor::<T>::zero() {
+				Self::spend_funds(spend_periods_passed, new_last_spend_period)
 			} else {
 				Weight::zero()
 			}
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn try_state(
-			_: frame_system::pallet_prelude::BlockNumberFor<T>,
-		) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
 		}
@@ -947,7 +963,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Spend some money! returns number of approvals before spend.
-	pub fn spend_funds() -> Weight {
+	pub fn spend_funds(
+		spend_periods_passed: BlockNumberFor<T>,
+		new_last_spend_period: BlockNumberFor<T>,
+	) -> Weight {
+		LastSpendPeriod::<T, I>::put(new_last_spend_period);
 		let mut total_weight = Weight::zero();
 
 		let mut budget_remaining = Self::pot();
@@ -999,10 +1019,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			&mut missed_any,
 		);
 
-		if !missed_any {
-			// burn some proportion of the remaining budget if we run a surplus.
-			let burn = (T::Burn::get() * budget_remaining).min(budget_remaining);
-			budget_remaining -= burn;
+		if !missed_any && !T::Burn::get().is_zero() {
+			// Get the amount of treasury that should be left after potentially multiple spend
+			// periods have passed.
+			let one_minus_burn = T::Burn::get().left_from_one();
+			let percent_left =
+				one_minus_burn.saturating_pow(spend_periods_passed.unique_saturated_into());
+			let new_budget_remaining = percent_left * budget_remaining;
+			let burn = budget_remaining.saturating_sub(new_budget_remaining);
+			budget_remaining = new_budget_remaining;
 
 			let (debit, credit) = T::Currency::pair(burn);
 			imbalance.subsume(debit);
