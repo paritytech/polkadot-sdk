@@ -126,6 +126,7 @@ impl<
 		// It checks that we have not authored more than `V + 1` blocks in the slot.
 		// As a slot however, we take the parachain slot here. Velocity should
 		// be measured in relation to the relay chain slot.
+		// https://github.com/paritytech/polkadot-sdk/issues/3967
 		if last_slot == new_slot {
 			authored_so_far < velocity + 1
 		} else {

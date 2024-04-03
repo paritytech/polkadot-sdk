@@ -25,7 +25,6 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false }
-log = { workspace = true }
 
 [dev-dependencies]
 

@@ -366,6 +366,7 @@ pub async fn find_potential_parents<B: BlockT>(
 	while let Some(entry) = frontier.pop() {
 		// TODO find_potential_parents The assumption that entry.depth = 1 is the pending block is
 		// not correct if we produce sub 6s blocks.
+		// https://github.com/paritytech/polkadot-sdk/issues/3967
 		let is_pending =
 			entry.depth == 1 && pending_hash.as_ref().map_or(false, |h| &entry.hash == h);
 		let is_included = entry.depth == 0;

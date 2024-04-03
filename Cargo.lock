@@ -3846,7 +3846,6 @@ dependencies = [
  "cumulus-pallet-parachain-system",
  "frame-support",
  "frame-system",
- "log",
  "pallet-aura",
  "pallet-timestamp",
  "parity-scale-codec",
