@@ -42,7 +42,7 @@ sp-tracing = { path = "../../primitives/tracing" }
 
 [dev-dependencies]
 criterion = "0.4.0"
-tracing-subscriber = { workspace = true, features = ["parking_lot", "chrono"] }
+tracing-subscriber = { workspace = true, features = ["chrono", "parking_lot"] }
 
 [[bench]]
 name = "bench"
