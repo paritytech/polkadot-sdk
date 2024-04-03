@@ -208,10 +208,9 @@ impl pallet_message_queue::Config for Runtime {
 	>;
 	type Size = u32;
 	type QueueChangeHandler = ();
-	type QueuePausedQuery = (); // No XCMP queue pallet deployed.
-							// Most on-chain HRMP channels are configured to use 102400 bytes of max message size, so we
-							// need to set the page size larger than that until we reduce the channel size it on-chain.
-	type HeapSize = sp_core::ConstU32<{ 103 * 1024 }>;
+	// No XCMP queue pallet deployed.
+	type QueuePausedQuery = ();
+	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
 	type IdleMaxServiceWeight = MessageQueueServiceWeight;
