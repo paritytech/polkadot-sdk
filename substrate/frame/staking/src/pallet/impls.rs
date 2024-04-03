@@ -1168,24 +1168,6 @@ impl<T: Config> Pallet<T> {
 		EraInfo::<T>::get_full_exposure(era, account)
 	}
 
-	/// Whether the passed reward destination is restricted for the given account.
-	///
-	/// virtual stakers are not allowed to compound their rewards as this pallet does not manage
-	/// locks for them. For external pallets that manage the virtual bond, it is their
-	/// responsibility to distribute the reward and re-bond them.
-	///
-	/// Conservatively, we expect them to always set the reward destination to a non stash account.
-	pub(crate) fn restrict_reward_destination(
-		who: &T::AccountId,
-		reward_destination: RewardDestination<T::AccountId>,
-	) -> bool {
-		Self::is_virtual_staker(who) &&
-			match reward_destination {
-				RewardDestination::Account(payee) => payee == *who,
-				_ => true,
-			}
-	}
-
 	/// Whether `who` is a virtual staker whose funds are managed by another pallet.
 	pub(crate) fn is_virtual_staker(who: &T::AccountId) -> bool {
 		VirtualStakers::<T>::contains_key(who)
@@ -1827,6 +1809,14 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult {
+		// Since virtual stakers are not allowed to compound their rewards as this pallet does not
+		// manage their locks, we do not allow reward account to be set same as stash. For
+		// external pallets that manage the virtual bond, they can claim rewards and re-bond them.
+		ensure!(
+			!Self::is_virtual_staker(stash) || stash != reward_acc,
+			Error::<T>::RewardDestinationRestricted
+		);
+
 		// since controller is deprecated and this function is never used for old ledgers with
 		// distinct controllers, we can safely assume that stash is the controller.
 		Self::set_payee(

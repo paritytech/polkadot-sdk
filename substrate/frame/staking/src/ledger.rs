@@ -210,11 +210,6 @@ impl<T: Config> StakingLedger<T> {
 			return Err(Error::<T>::AlreadyBonded)
 		}
 
-		// check if the payee is ok.
-		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone()) {
-			return Err(Error::<T>::RewardDestinationRestricted);
-		}
-
 		<Payee<T>>::insert(&self.stash, payee);
 		<Bonded<T>>::insert(&self.stash, &self.stash);
 		self.update()
@@ -224,11 +219,6 @@ impl<T: Config> StakingLedger<T> {
 	pub(crate) fn set_payee(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::NotStash)
-		}
-
-		// check if the payee is ok.
-		if Pallet::<T>::restrict_reward_destination(&self.stash, payee.clone()) {
-			return Err(Error::<T>::RewardDestinationRestricted);
 		}
 
 		<Payee<T>>::insert(&self.stash, payee);
