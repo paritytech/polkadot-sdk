@@ -798,10 +798,7 @@ pub fn run() -> Result<()> {
 
 					People(people_runtime_type) => match people_runtime_type {
 						chain_spec::people::PeopleRuntimeType::Kusama |
-						chain_spec::people::PeopleRuntimeType::KusamaLocal =>
-							crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
-							.await
-							.map(|r| r.0),
+						chain_spec::people::PeopleRuntimeType::KusamaLocal |
 						chain_spec::people::PeopleRuntimeType::Polkadot |
 						chain_spec::people::PeopleRuntimeType::PolkadotLocal |
 						chain_spec::people::PeopleRuntimeType::Rococo |
