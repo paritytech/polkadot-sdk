@@ -411,18 +411,14 @@ mod staking_integration {
 				100
 			));
 
-			// if delegate calls Staking pallet directly with a different reward destination, it
-			// fails.
+			// update_payee to self fails.
 			assert_noop!(
-				Staking::set_payee(RuntimeOrigin::signed(200), RewardDestination::Stash),
+				<Staking as StakingInterface>::update_payee(&200, &200),
 				StakingError::<T>::RewardDestinationRestricted
 			);
 
 			// passing correct reward destination works
-			assert_ok!(Staking::set_payee(
-				RuntimeOrigin::signed(200),
-				RewardDestination::Account(201)
-			));
+			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
 
 			// amount is staked correctly
 			assert!(eq_stake(200, 100, 100));
