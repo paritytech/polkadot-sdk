@@ -17,7 +17,10 @@
 use codec::{Codec, Decode};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
-use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
+use cumulus_client_consensus_aura::collators::{
+	basic::{self as basic_aura, Params as BasicAuraParams},
+	lookahead::{self as aura, Params as AuraParams},
+};
 use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
@@ -33,7 +36,7 @@ use cumulus_primitives_core::{
 	ParaId,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use sc_client_api::UsageProvider;
+
 use sc_rpc::DenyUnsafe;
 use sp_core::Pair;
 
@@ -43,7 +46,7 @@ use crate::{fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi, rpc};
 pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Header, Nonce};
 
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
-use futures::{lock::Mutex, prelude::*};
+use futures::{channel::mpsc, lock::Mutex, prelude::*};
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, ImportQueue,
@@ -834,8 +837,7 @@ where
 					proposer,
 					collator_service,
 					authoring_duration: Duration::from_millis(1500),
-					reinitialize: true, /* we need to always re-initialize for asset-hub moving
-					                     * to aura */
+					reinitialize: true,
 				};
 
 				aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params)
@@ -942,6 +944,46 @@ fn start_maybe_lookahead_aura_consensus(
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 	backend: Arc<ParachainBackend>,
 ) -> Result<(), sc_service::Error> {
+	let (mut collation_sender, collation_receiver) = mpsc::channel(10);
+
+	let fwd_client = client.clone();
+	let fwd_collator_key = collator_key.clone();
+	let fwd_overseer_handle = overseer_handle.clone();
+	task_manager.spawn_handle().spawn("aura-collation-forwarder", None, async move {
+		let mut request_receiver = cumulus_client_collator::relay_chain_driven::init(
+			fwd_collator_key,
+			para_id,
+			fwd_overseer_handle,
+		)
+		.await;
+		while let Some(request) = request_receiver.next().await {
+			let validation_data = request.persisted_validation_data();
+			let parent_header =
+				match <Block as BlockT>::Header::decode(&mut &validation_data.parent_head.0[..]) {
+					Ok(header) => header,
+					Err(e) => {
+						log::error!("Error decoding parent header: {e:?}");
+						continue
+					},
+				};
+			let parent_hash = parent_header.hash();
+			let has_unincluded_segment_api = fwd_client
+				.runtime_api()
+				.has_api::<dyn cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>>(
+					parent_hash,
+				)
+				.unwrap_or(false);
+
+			if has_unincluded_segment_api {
+				log::info!("Collation request forwarder detected async backing API");
+				return
+			}
+
+			if let Err(e) = collation_sender.send(request).await {
+				log::error!("Cannot forward collation request: {e:?}");
+			}
+		}
+	});
 
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
@@ -957,36 +999,33 @@ fn start_maybe_lookahead_aura_consensus(
 		announce_block,
 		client.clone(),
 	);
-	let proposer = Proposer::new(proposer_factory);
+	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
-	let best_block = client.usage_info().chain.best_hash;
-
-	let has_unincluded_segment_api = client.runtime_api().has_api::<dyn cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>>(best_block).unwrap_or(false);
-
-	let fut = if !has_unincluded_segment_api {
+	task_manager.spawn_essential_handle().spawn("aura", None, async move {
 		// basic Aura
-		let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 		let params = BasicAuraParams {
 			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-			block_import,
-			para_client: client,
-			relay_client: relay_chain_interface,
-			sync_oracle,
-			keystore,
-			collator_key,
+			block_import: block_import.clone(),
+			para_client: client.clone(),
+			relay_client: relay_chain_interface.clone(),
+			sync_oracle: sync_oracle.clone(),
+			keystore: keystore.clone(),
+			collator_key: collator_key.clone(),
 			para_id,
-			overseer_handle,
+			overseer_handle: overseer_handle.clone(),
 			slot_duration,
 			relay_chain_slot_duration,
-			proposer,
-			collator_service,
+			proposer: Proposer::new(proposer_factory.clone()),
+			collator_service: collator_service.clone(),
 			// Very limited proposal time.
 			authoring_duration: Duration::from_millis(500),
-			collation_request_receiver: None,
+			collation_request_receiver: Some(collation_receiver),
 		};
 
-		basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params).boxed()
-	} else {
+		basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params).await;
+
+		log::info!("Switching to lookahead collator");
+
 		let params = AuraParams {
 			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 			block_import,
@@ -1002,15 +1041,14 @@ fn start_maybe_lookahead_aura_consensus(
 			para_id,
 			overseer_handle,
 			relay_chain_slot_duration,
-			proposer,
+			proposer: Proposer::new(proposer_factory),
 			collator_service,
 			authoring_duration: Duration::from_millis(1500),
-			reinitialize: false,
+			reinitialize: true,
 		};
 
-		aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params).boxed()
-	};
-	task_manager.spawn_essential_handle().spawn("aura", None, fut);
+		aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params).await
+	});
 
 	Ok(())
 }
