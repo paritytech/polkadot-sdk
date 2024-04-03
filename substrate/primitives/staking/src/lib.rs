@@ -539,11 +539,21 @@ pub trait DelegationInterface {
 
 	/// Migrate an existing `Nominator` to `Agent` account.
 	///
-	/// The implementation should ensure the `Nominator` account funds are moved to a temporary
-	/// `delegator` account from which funds can be later claimed as existing `Delegators`.
+	/// The implementation should ensure the `Nominator` account funds are moved to an escrow
+	/// from which `Agents` can later release funds to its `Delegators`.
 	fn migrate_nominator_to_agent(
 		agent: &Self::AccountId,
 		reward_account: &Self::AccountId,
+	) -> DispatchResult;
+
+	/// Migrate `value` of delegation to `delegator` from a migrating agent.
+	///
+	/// When a direct `Nominator` migrates to `Agent`, the funds are kept in escrow. This function
+	/// allows the `Agent` to release the funds to the `delegator`.
+	fn migrate_delegation(
+		agent: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
 	) -> DispatchResult;
 }
 

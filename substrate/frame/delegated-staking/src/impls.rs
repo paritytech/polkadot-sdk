@@ -116,6 +116,18 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			reward_account.clone(),
 		)
 	}
+
+	fn migrate_delegation(
+		agent: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+	) -> DispatchResult {
+		Pallet::<T>::claim_delegation(
+			RawOrigin::Signed(agent.clone()).into(),
+			delegator.clone(),
+			value,
+		)
+	}
 }
 
 impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
