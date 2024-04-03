@@ -36,6 +36,7 @@ use cumulus_primitives_core::{
 	ParaId,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
+use sc_client_api::UsageProvider;
 use sc_rpc::DenyUnsafe;
 use sp_core::Pair;
 
@@ -438,7 +439,7 @@ pub async fn start_rococo_parachain_node(
 		para_id,
 		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_aura_import_queue,
-		start_lookahead_aura_consensus,
+		start_maybe_lookahead_aura_consensus,
 		hwbench,
 	)
 	.await
@@ -783,7 +784,7 @@ pub async fn start_generic_aura_lookahead_node(
 		para_id,
 		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_relay_to_aura_import_queue::<_, AuraId>,
-		start_lookahead_aura_consensus,
+		start_maybe_lookahead_aura_consensus,
 		hwbench,
 	)
 	.await
@@ -1151,7 +1152,7 @@ fn start_relay_chain_consensus(
 }
 
 /// Start consensus using the lookahead aura collator.
-fn start_lookahead_aura_consensus(
+fn start_maybe_lookahead_aura_consensus(
 	client: Arc<ParachainClient<FakeRuntimeApi>>,
 	block_import: ParachainBlockImport<FakeRuntimeApi>,
 	prometheus_registry: Option<&Registry>,
@@ -1168,6 +1169,7 @@ fn start_lookahead_aura_consensus(
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 	backend: Arc<ParachainBackend>,
 ) -> Result<(), sc_service::Error> {
+
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
@@ -1182,29 +1184,59 @@ fn start_lookahead_aura_consensus(
 		announce_block,
 		client.clone(),
 	);
+	let proposer = Proposer::new(proposer_factory);
 
-	let params = AuraParams {
-		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-		block_import,
-		para_client: client.clone(),
-		para_backend: backend,
-		relay_client: relay_chain_interface,
-		code_hash_provider: move |block_hash| {
-			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
-		},
-		sync_oracle,
-		keystore,
-		collator_key,
-		para_id,
-		overseer_handle,
-		relay_chain_slot_duration,
-		proposer: Proposer::new(proposer_factory),
-		collator_service,
-		authoring_duration: Duration::from_millis(1500),
-		reinitialize: false,
+	let best_block = client.usage_info().chain.best_hash;
+
+	let has_unincluded_segment_api = client.runtime_api().has_api::<dyn cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>>(best_block).unwrap_or(false);
+
+	let fut = if !has_unincluded_segment_api {
+		// basic Aura
+		let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+		let params = BasicAuraParams {
+			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			block_import,
+			para_client: client,
+			relay_client: relay_chain_interface,
+			sync_oracle,
+			keystore,
+			collator_key,
+			para_id,
+			overseer_handle,
+			slot_duration,
+			relay_chain_slot_duration,
+			proposer,
+			collator_service,
+			// Very limited proposal time.
+			authoring_duration: Duration::from_millis(500),
+			collation_request_receiver: None,
+		};
+
+		basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params).boxed()
+	} else {
+		let params = AuraParams {
+			create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+			block_import,
+			para_client: client.clone(),
+			para_backend: backend,
+			relay_client: relay_chain_interface,
+			code_hash_provider: move |block_hash| {
+				client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+			},
+			sync_oracle,
+			keystore,
+			collator_key,
+			para_id,
+			overseer_handle,
+			relay_chain_slot_duration,
+			proposer,
+			collator_service,
+			authoring_duration: Duration::from_millis(1500),
+			reinitialize: false,
+		};
+
+		aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params).boxed()
 	};
-
-	let fut = aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params);
 	task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 	Ok(())
@@ -1228,7 +1260,7 @@ pub async fn start_basic_lookahead_node(
 		para_id,
 		|_, _, _, _| Ok(RpcModule::new(())),
 		build_relay_to_aura_import_queue::<_, AuraId>,
-		start_lookahead_aura_consensus,
+		start_maybe_lookahead_aura_consensus,
 		hwbench,
 	)
 	.await
@@ -1250,7 +1282,7 @@ pub async fn start_contracts_rococo_node(
 		para_id,
 		build_contracts_rpc_extensions,
 		build_aura_import_queue,
-		start_lookahead_aura_consensus,
+		start_maybe_lookahead_aura_consensus,
 		hwbench,
 	)
 	.await
