@@ -6943,8 +6943,54 @@ mod staking_unsafe {
 			);
 		});
 	}
-}
 
+	#[test]
+	fn virtual_staker_cannot_bond_again() {
+		ExtBuilder::default().build_and_execute(|| {
+			// 200 virtual bonds
+			bond_virtual_nominator(200, 201, 500, vec![11, 21]);
+
+			// Tries bonding again
+			assert_noop!(
+				<Staking as StakingUnsafe>::virtual_bond(&200, 200, &201),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// And again with a different reward destination.
+			assert_noop!(
+				<Staking as StakingUnsafe>::virtual_bond(&200, 200, &202),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// Direct bond is not allowed as well.
+			assert_noop!(
+				<Staking as StakingInterface>::bond(&200, 200, &202),
+				Error::<Test>::AlreadyBonded
+			);
+		});
+	}
+
+	#[test]
+	fn migrate_virtual_staker() {
+		ExtBuilder::default().build_and_execute(|| {
+			// give some balance to 200
+			Balances::make_free_balance_be(&200, 2000);
+
+			// stake
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(200), 1000, RewardDestination::Staked));
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 1000);
+
+			// migrate them to virtual staker
+			<Staking as StakingUnsafe>::migrate_to_virtual_staker(&200);
+
+			// ensure the balance is not locked anymore
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 0);
+
+			// and they are marked as virtual stakers
+			assert_eq!(Pallet::<Test>::is_virtual_staker(&200), true);
+		});
+	}
+}
 mod ledger {
 	use super::*;
 
