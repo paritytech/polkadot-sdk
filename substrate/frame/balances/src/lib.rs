@@ -767,6 +767,21 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Burn the specified liquid free balance from the origin account.
+		///
+		/// If the origin's account ends up below the existential deposit as a result
+		/// of the burn, the account will be reaped.
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::burn_allow_death())]
+		pub fn burn_allow_death(
+			origin: OriginFor<T>,
+			#[pallet::compact] value: T::Balance,
+		) -> DispatchResult {
+			let source = ensure_signed(origin)?;
+			<Self as fungible::Mutate<_>>::burn_from(&source, value, Precision::Exact, Polite)?;
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
