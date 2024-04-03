@@ -30,7 +30,7 @@ pallet-xcm = { path = "../../../../polkadot/xcm/pallet-xcm", default-features = 
 polkadot-parachain-primitives = { path = "../../../../polkadot/parachain" }
 polkadot-primitives = { path = "../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { path = "../../../../polkadot/runtime/parachains" }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 sp-api = { path = "../../../primitives/api", default-features = false }
 sp-core = { path = "../../../primitives/core", default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }

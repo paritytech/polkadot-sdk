@@ -53,7 +53,7 @@ pub type HostFunctions = (
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
-/// A specialized `WasmExecutor` intended to use accross substrate node. It provides all required
+/// A specialized `WasmExecutor` intended to use across substrate node. It provides all required
 /// HostFunctions.
 pub type RuntimeExecutor = sc_executor::WasmExecutor<HostFunctions>;
 
@@ -652,6 +652,7 @@ pub fn new_full_base(
 		prometheus_registry: prometheus_registry.clone(),
 		links: beefy_links,
 		on_demand_justifications_handler: beefy_on_demand_justifications_handler,
+		is_authority: role.is_authority(),
 	};
 
 	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);

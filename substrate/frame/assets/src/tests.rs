@@ -1453,7 +1453,7 @@ fn force_asset_status_should_work() {
 		));
 		assert_eq!(Assets::balance(0, 1), 50);
 
-		// account can recieve assets for balance < min_balance
+		// account can receive assets for balance < min_balance
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 1));
 		assert_eq!(Assets::balance(0, 1), 51);
 
