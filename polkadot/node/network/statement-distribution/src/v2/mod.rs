@@ -46,6 +46,7 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
 	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
+	vstaging::fetch_claim_queue,
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
@@ -149,10 +150,9 @@ pub(crate) const REQUEST_RETRY_DELAY: Duration = Duration::from_secs(1);
 struct PerRelayParentState {
 	local_validator: Option<LocalValidatorState>,
 	statement_store: StatementStore,
-	availability_cores: Vec<CoreState>,
-	group_rotation_info: GroupRotationInfo,
 	seconding_limit: usize,
 	session: SessionIndex,
+	groups_per_para: HashMap<ParaId, Vec<GroupIndex>>,
 }
 
 impl PerRelayParentState {
@@ -563,10 +563,12 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 	activated: &ActivatedLeaf,
 	leaf_mode: ProspectiveParachainsMode,
 ) -> JfyiErrorResult<()> {
-	let seconding_limit = match leaf_mode {
+	let max_candidate_depth = match leaf_mode {
 		ProspectiveParachainsMode::Disabled => return Ok(()),
-		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth + 1,
+		ProspectiveParachainsMode::Enabled { max_candidate_depth, .. } => max_candidate_depth,
 	};
+
+	let seconding_limit = max_candidate_depth + 1;
 
 	state
 		.implicit_view
@@ -693,15 +695,23 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 			}
 		});
 
+		let groups_per_para = determine_groups_per_para(
+			ctx.sender(),
+			new_relay_parent,
+			availability_cores,
+			group_rotation_info,
+			max_candidate_depth,
+		)
+		.await;
+
 		state.per_relay_parent.insert(
 			new_relay_parent,
 			PerRelayParentState {
 				local_validator,
 				statement_store: StatementStore::new(&per_session.groups),
-				availability_cores,
-				group_rotation_info,
 				seconding_limit,
 				session: session_index,
+				groups_per_para,
 			},
 		);
 	}
@@ -2126,17 +2136,64 @@ async fn provide_candidate_to_grid<Context>(
 	}
 }
 
-fn group_for_para(
-	availability_cores: &[CoreState],
-	group_rotation_info: &GroupRotationInfo,
-	para_id: ParaId,
-) -> Option<GroupIndex> {
-	// Note: this won't work well for on-demand parachains as it assumes that core assignments are
-	// fixed across blocks.
-	let core_index = availability_cores.iter().position(|c| c.para_id() == Some(para_id));
+// Utility function to populate per relay parent `ParaId` to `GroupIndex` mappings.
+async fn determine_groups_per_para(
+	sender: &mut impl overseer::StatementDistributionSenderTrait,
+	relay_parent: Hash,
+	availability_cores: Vec<CoreState>,
+	group_rotation_info: GroupRotationInfo,
+	max_candidate_depth: usize,
+) -> HashMap<ParaId, Vec<GroupIndex>> {
+	let maybe_claim_queue = fetch_claim_queue(sender, relay_parent)
+			.await
+			.unwrap_or_else(|err| {
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?err,
+					"determine_groups_per_para: `claim_queue` API not available, falling back to iterating availability cores"
+				);
+				None
+			});
 
-	core_index
-		.map(|c| group_rotation_info.group_for_core(CoreIndex(c as _), availability_cores.len()))
+	let n_cores = availability_cores.len();
+
+	// Determine the core indices occupied by each para at the current relay parent. To support
+	// on-demand parachains we also consider the core indices at next block if core has a candidate
+	// pending availability.
+	let para_core_indices: Vec<_> = if let Some(claim_queue) = maybe_claim_queue {
+		claim_queue
+			.into_iter()
+			.filter_map(|(core_index, paras)| Some((*paras.front()?, core_index)))
+			.collect()
+	} else {
+		availability_cores
+			.into_iter()
+			.enumerate()
+			.filter_map(|(index, core)| match core {
+				CoreState::Scheduled(scheduled_core) =>
+					Some((scheduled_core.para_id, CoreIndex(index as u32))),
+				CoreState::Occupied(occupied_core) =>
+					if max_candidate_depth >= 1 {
+						occupied_core
+							.next_up_on_available
+							.map(|scheduled_core| (scheduled_core.para_id, CoreIndex(index as u32)))
+					} else {
+						None
+					},
+				CoreState::Free => None,
+			})
+			.collect()
+	};
+
+	let mut groups_per_para = HashMap::new();
+	// Map from `CoreIndex` to `GroupIndex` and collect as `HashMap`.
+	for (para, core_index) in para_core_indices {
+		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
+		groups_per_para.entry(para).or_insert_with(Vec::new).push(group_index)
+	}
+
+	groups_per_para
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
@@ -2199,18 +2256,23 @@ async fn fragment_tree_update_inner<Context>(
 			let confirmed_candidate = state.candidates.get_confirmed(&candidate_hash);
 			let prs = state.per_relay_parent.get_mut(&receipt.descriptor().relay_parent);
 			if let (Some(confirmed), Some(prs)) = (confirmed_candidate, prs) {
-				let group_index = group_for_para(
-					&prs.availability_cores,
-					&prs.group_rotation_info,
-					receipt.descriptor().para_id,
-				);
-
 				let per_session = state.per_session.get(&prs.session);
-				if let (Some(per_session), Some(group_index)) = (per_session, group_index) {
+				let group_index = confirmed.group_index();
+
+				// Sanity check if group_index is valid for this para at relay parent.
+				let Some(expected_groups) = prs.groups_per_para.get(&receipt.descriptor().para_id)
+				else {
+					continue
+				};
+				if !expected_groups.iter().any(|g| *g == group_index) {
+					continue
+				}
+
+				if let Some(per_session) = per_session {
 					send_backing_fresh_statements(
 						ctx,
 						candidate_hash,
-						group_index,
+						confirmed.group_index(),
 						&receipt.descriptor().relay_parent,
 						prs,
 						confirmed,
@@ -2318,13 +2380,12 @@ async fn handle_incoming_manifest_common<'a, Context>(
 		Some(x) => x,
 	};
 
-	let expected_group = group_for_para(
-		&relay_parent_state.availability_cores,
-		&relay_parent_state.group_rotation_info,
-		para_id,
-	);
+	let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para_id) else {
+		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
+		return None
+	};
 
-	if expected_group != Some(manifest_summary.claimed_group_index) {
+	if !expected_groups.iter().any(|g| g == &manifest_summary.claimed_group_index) {
 		modify_reputation(reputation, ctx.sender(), peer, COST_MALFORMED_MANIFEST).await;
 		return None
 	}
@@ -3044,13 +3105,11 @@ pub(crate) async fn handle_response<Context>(
 			relay_parent_state.session,
 			|v| per_session.session_info.validators.get(v).map(|x| x.clone()),
 			|para, g_index| {
-				let expected_group = group_for_para(
-					&relay_parent_state.availability_cores,
-					&relay_parent_state.group_rotation_info,
-					para,
-				);
+				let Some(expected_groups) = relay_parent_state.groups_per_para.get(&para) else {
+					return false
+				};
 
-				Some(g_index) == expected_group
+				expected_groups.iter().any(|g| g == &g_index)
 			},
 			disabled_mask,
 		);
