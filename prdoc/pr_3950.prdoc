@@ -1,0 +1,9 @@
+title: Add `ClaimQueue` wrapper
+
+doc:
+  - audience: Node Dev
+    description: |
+      Intoduces a new wrapper type that exposes methods to access the claims on core at depths.
+
+crates:
+ - name: polkadot-node-subsystem-util
