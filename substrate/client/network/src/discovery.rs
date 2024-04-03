@@ -58,7 +58,7 @@ use libp2p::{
 		handler::KademliaHandler,
 		record::store::{MemoryStore, RecordStore},
 		GetClosestPeersError, GetRecordOk, Kademlia, KademliaBucketInserts, KademliaConfig,
-		KademliaEvent, QueryId, QueryResult, Quorum, Record, RecordKey,
+		KademliaEvent, PeerRecord, QueryId, QueryResult, Quorum, Record, RecordKey,
 	},
 	mdns::{self, tokio::Behaviour as TokioMdns},
 	multiaddr::Protocol,
@@ -408,6 +408,12 @@ impl DiscoveryBehaviour {
 		}
 	}
 
+	pub fn put_record_to(&mut self, record: PeerRecord, peers: HashSet<PeerId>) {
+		if let Some(kad) = self.kademlia.as_mut() {
+			kad.put_record_to(record.record, peers.into_iter(), Quorum::One);
+		}
+	}
+
 	/// Returns the number of nodes in each Kademlia kbucket for each Kademlia instance.
 	///
 	/// Identifies Kademlia instances by their [`ProtocolId`] and kbuckets by the base 2 logarithm
@@ -474,7 +480,7 @@ pub enum DiscoveryOut {
 	/// The DHT yielded results for the record request.
 	///
 	/// Returning the result grouped in (key, value) pairs as well as the request duration.
-	ValueFound(Vec<(RecordKey, Vec<u8>)>, Duration),
+	ValueFound(Vec<PeerRecord>, Duration),
 
 	/// The record requested was not found in the DHT.
 	///
@@ -809,7 +815,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 								self.records_to_publish.insert(id, r.record.clone());
 
 								DiscoveryOut::ValueFound(
-									vec![(r.record.key, r.record.value)],
+									vec![r],
 									stats.duration().unwrap_or_default(),
 								)
 							},

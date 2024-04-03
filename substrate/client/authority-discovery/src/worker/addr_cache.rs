@@ -36,7 +36,7 @@ pub(super) struct AddrCache {
 	/// Since we may store the mapping across several sessions, a single
 	/// `PeerId` might correspond to multiple `AuthorityId`s. However,
 	/// it's not expected that a single `AuthorityId` can have multiple `PeerId`s.
-	authority_id_to_addresses: HashMap<AuthorityId, HashMap<Multiaddr, Instant>>,
+	authority_id_to_addresses: HashMap<AuthorityId, HashMap<Multiaddr, u128>>,
 	peer_id_to_authority_ids: HashMap<PeerId, HashSet<AuthorityId>>,
 }
 
@@ -50,10 +50,15 @@ impl AddrCache {
 
 	/// Inserts the given [`AuthorityId`] and [`Vec<Multiaddr>`] pair for future lookups by
 	/// [`AuthorityId`] or [`PeerId`].
-	pub fn insert(&mut self, authority_id: AuthorityId, addresses: Vec<Multiaddr>) {
+	pub fn insert(&mut self, authority_id: AuthorityId, addresses: Vec<(Multiaddr, u128)>) {
+		let newest_address = addresses
+			.iter()
+			.map(|(_, creation_time)| *creation_time)
+			.max()
+			.unwrap_or_default();
 		let mut addresses = addresses
 			.into_iter()
-			.map(|addr| (addr, Instant::now() + std::time::Duration::from_secs(24 * 60 * 60)))
+			.map(|(addr, creation_time)| (addr, creation_time))
 			.collect::<HashMap<_, _>>();
 
 		let mut peer_ids = addresses_to_peer_ids(&addresses);
@@ -88,7 +93,7 @@ impl AddrCache {
 
 		let to_keep_addresses = old_addresses
 			.iter()
-			.filter(|(addr, expires)| **expires >= time_now && !addresses.contains_key(addr))
+			.filter(|(addr, expires)| creation_tim&& !addresses.contains_key(addr))
 			.map(|(addr, expires)| (addr.clone(), *expires))
 			.collect::<HashMap<_, _>>();
 
@@ -196,7 +201,7 @@ fn peer_id_from_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
 	})
 }
 
-fn addresses_to_peer_ids(addresses: &HashMap<Multiaddr, Instant>) -> HashSet<PeerId> {
+fn addresses_to_peer_ids(addresses: &HashMap<Multiaddr, u128>) -> HashSet<PeerId> {
 	addresses.keys().filter_map(peer_id_from_multiaddr).collect::<HashSet<_>>()
 }
 

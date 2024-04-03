@@ -13,6 +13,10 @@ message PeerSignature {
 	bytes public_key = 2;
 }
 
+message Timestamp {
+	bytes timestamp = 1;
+}
+
 // Then we need to serialize the authority record and signature to send them over the wire.
 message SignedAuthorityRecord {
 	bytes record = 1;
@@ -20,4 +24,6 @@ message SignedAuthorityRecord {
 	// Even if there are multiple `record.addresses`, all of them have the same peer id.
     // Old versions are missing this field. It is optional in order to provide compatibility both ways.
 	PeerSignature peer_signature = 3;
+	// Utc timestamp when this record was created
+	Timestamp creation_time = 4;
 }

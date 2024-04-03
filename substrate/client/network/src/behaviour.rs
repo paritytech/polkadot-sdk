@@ -31,8 +31,12 @@ use crate::{
 
 use futures::channel::oneshot;
 use libp2p::{
-	core::Multiaddr, identify::Info as IdentifyInfo, identity::PublicKey, kad::RecordKey,
-	swarm::NetworkBehaviour, PeerId,
+	core::Multiaddr,
+	identify::Info as IdentifyInfo,
+	identity::PublicKey,
+	kad::{PeerRecord, RecordKey},
+	swarm::NetworkBehaviour,
+	PeerId,
 };
 
 use parking_lot::Mutex;
@@ -278,6 +282,10 @@ impl<B: BlockT> Behaviour<B> {
 	/// `ValuePutFailed` event.
 	pub fn put_value(&mut self, key: RecordKey, value: Vec<u8>) {
 		self.discovery.put_value(key, value);
+	}
+
+	pub fn put_record_to(&mut self, record: PeerRecord, peers: HashSet<PeerId>) {
+		self.discovery.put_record_to(record, peers);
 	}
 }
 

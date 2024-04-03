@@ -26,7 +26,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	marker::PhantomData,
 	sync::Arc,
-	time::Duration,
+	time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt};
@@ -34,7 +34,9 @@ use futures::{channel::mpsc, future, stream::Fuse, FutureExt, Stream, StreamExt}
 use addr_cache::AddrCache;
 use codec::{Decode, Encode};
 use ip_network::IpNetwork;
-use libp2p::{core::multiaddr, identity::PublicKey, multihash::Multihash, Multiaddr, PeerId};
+use libp2p::{
+	core::multiaddr, identity::PublicKey, kad::PeerRecord, multihash::Multihash, Multiaddr, PeerId,
+};
 use linked_hash_set::LinkedHashSet;
 use multihash_codetable::{Code, MultihashDigest};
 
@@ -156,6 +158,9 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 	/// These are the entries in the `in_flight_lookups` for which
 	/// we got at least one successfull result.
 	known_lookups: HashMap<KademliaKey, AuthorityId>,
+
+	/// Peers with old records
+	last_known_record: HashMap<KademliaKey, (u128, HashSet<PeerId>, Option<PeerRecord>)>,
 
 	addr_cache: addr_cache::AddrCache,
 
@@ -285,6 +290,7 @@ where
 			role,
 			metrics,
 			phantom: PhantomData,
+			last_known_record: HashMap::new(),
 		}
 	}
 
@@ -336,7 +342,9 @@ where
 	fn process_message_from_service(&self, msg: ServicetoWorkerMsg) {
 		match msg {
 			ServicetoWorkerMsg::GetAddressesByAuthorityId(authority, sender) => {
-				let _ = sender.send(self.addr_cache.get_addresses_by_authority_id(&authority));
+				let _ = sender.send(
+					self.addr_cache.get_addresses_by_authority_id(&authority).map(Clone::clone),
+				);
 			},
 			ServicetoWorkerMsg::GetAuthorityIdsByPeerId(peer_id, sender) => {
 				let _ = sender
@@ -526,7 +534,7 @@ where
 				}
 
 				if log_enabled!(log::Level::Debug) {
-					let hashes: Vec<_> = v.iter().map(|(hash, _value)| hash.clone()).collect();
+					let hashes: Vec<_> = v.iter().map(|record| record.record.key.clone()).collect();
 					debug!(target: LOG_TARGET, "Value for hash '{:?}' found on Dht.", hashes);
 				}
 
@@ -583,12 +591,16 @@ where
 		}
 	}
 
-	fn handle_dht_value_found_event(&mut self, values: Vec<(KademliaKey, Vec<u8>)>) -> Result<()> {
+	fn handle_dht_value_found_event(&mut self, values: Vec<PeerRecord>) -> Result<()> {
 		// Ensure `values` is not empty and all its keys equal.
-		let remote_key = single(values.iter().map(|(key, _)| key.clone()))
+		let remote_key = single(values.iter().map(|record| record.record.key.clone()))
 			.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
 			.ok_or(Error::ReceivingDhtValueFoundEventWithNoRecords)?;
 
+		let mut peer_id = single(values.iter().map(|record| record.peer.clone()))
+			.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
+			.ok_or(Error::ReceivingDhtValueFoundEventWithNoRecords)?;
+		let values_clone = values.clone();
 		let authority_id: AuthorityId =
 			if let Some(authority_id) = self.in_flight_lookups.remove(&remote_key) {
 				authority_id
@@ -601,13 +613,17 @@ where
 		self.known_lookups.insert(remote_key.clone(), authority_id.clone());
 
 		let local_peer_id = self.network.local_peer_id();
-
-		let remote_addresses: Vec<Multiaddr> = values
+		let kadmelia_key = remote_key;
+		let remote_addresses: Vec<(Multiaddr, u128)> = values
 			.into_iter()
-			.map(|(_k, v)| {
-				let schema::SignedAuthorityRecord { record, auth_signature, peer_signature } =
-					schema::SignedAuthorityRecord::decode(v.as_slice())
-						.map_err(Error::DecodingProto)?;
+			.map(|record| {
+				let schema::SignedAuthorityRecord {
+					record,
+					auth_signature,
+					peer_signature,
+					creation_time,
+				} = schema::SignedAuthorityRecord::decode(record.record.value.as_slice())
+					.map_err(Error::DecodingProto)?;
 
 				let auth_signature = AuthoritySignature::decode(&mut &auth_signature[..])
 					.map_err(Error::EncodingDecodingScale)?;
@@ -615,14 +631,19 @@ where
 				if !AuthorityPair::verify(&auth_signature, &record, &authority_id) {
 					return Err(Error::VerifyingDhtPayload)
 				}
-
-				let addresses: Vec<Multiaddr> = schema::AuthorityRecord::decode(record.as_slice())
-					.map(|a| a.addresses)
-					.map_err(Error::DecodingProto)?
-					.into_iter()
-					.map(|a| a.try_into())
-					.collect::<std::result::Result<_, _>>()
-					.map_err(Error::ParsingMultiaddress)?;
+				let creation_time: u128 = creation_time
+					.map(|creation_time| {
+						u128::decode(&mut &creation_time.timestamp[..]).unwrap_or_default()
+					})
+					.unwrap_or_default();
+				let addresses: Vec<(Multiaddr, u128)> =
+					schema::AuthorityRecord::decode(record.as_slice())
+						.map(|a| a.addresses)
+						.map_err(Error::DecodingProto)?
+						.into_iter()
+						.map(|a| a.try_into().map(|addr| (addr, creation_time)))
+						.collect::<std::result::Result<_, _>>()
+						.map_err(Error::ParsingMultiaddress)?;
 
 				let get_peer_id = |a: &Multiaddr| match a.iter().last() {
 					Some(multiaddr::Protocol::P2p(key)) => PeerId::from_multihash(key).ok(),
@@ -630,12 +651,12 @@ where
 				};
 
 				// Ignore [`Multiaddr`]s without [`PeerId`] or with own addresses.
-				let addresses: Vec<Multiaddr> = addresses
+				let addresses: Vec<(Multiaddr, u128)> = addresses
 					.into_iter()
-					.filter(|a| get_peer_id(a).filter(|p| *p != local_peer_id).is_some())
+					.filter(|a| get_peer_id(&a.0).filter(|p| *p != local_peer_id).is_some())
 					.collect();
 
-				let remote_peer_id = single(addresses.iter().map(get_peer_id))
+				let remote_peer_id = single(addresses.iter().map(|a| get_peer_id(&a.0)))
 					.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentPeerIds)? // different peer_id in records
 					.flatten()
 					.ok_or(Error::ReceivingDhtValueFoundEventWithNoPeerIds)?; // no records with peer_id in them
@@ -662,14 +683,65 @@ where
 				}
 				Ok(addresses)
 			})
-			.collect::<Result<Vec<Vec<Multiaddr>>>>()?
+			.collect::<Result<Vec<Vec<(Multiaddr, u128)>>>>()?
 			.into_iter()
 			.flatten()
 			.take(MAX_ADDRESSES_PER_AUTHORITY)
 			.collect();
 
-		if !remote_addresses.is_empty() {
-			self.addr_cache.insert(authority_id, remote_addresses);
+		let newest_timestamp = single(remote_addresses.iter().map(|(_addr, timestamp)| *timestamp))
+			.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
+			.unwrap_or_default();
+
+		let mut needs_update = false;
+		let last_value = self.last_known_record.entry(kadmelia_key).or_default();
+		if newest_timestamp > last_value.0 {
+			last_value.0 = newest_timestamp;
+			last_value.1 = Default::default();
+			last_value.2 = values_clone.first().cloned();
+			needs_update = true;
+			let peers_that_need_updating = last_value.1.clone();
+			log::error!(
+				"convergence: Updating stored value on peers newest_timestamp {:?} === last_value {:?} peers_that_need_updating {:?}",
+				newest_timestamp,
+				last_value.0,
+				peers_that_need_updating
+			);
+			for record in values_clone {
+				self.network.put_record_to(record, peers_that_need_updating.clone());
+			}
+		// TODO update records on peers with old records.
+		} else if newest_timestamp == last_value.0 {
+			// Same record just update in case this is a record from old nods that don't have
+			// timestamp.
+			needs_update = true;
+			log::error!(
+				"convergence: Peer already has the latest value newest_timestamp {:?} == last_value {:?}",
+				newest_timestamp,
+				last_value.0
+			);
+		} else {
+			let wtf_peer_id = peer_id.clone();
+			let peers_that_need_updating: HashSet<PeerId> = peer_id.take().into_iter().collect();
+			log::error!(
+				"convergence: Peers informs us of old value newest_timestamp {:?} == last_value {:?} == peers_that_need_updating {:?} wtf_peer_id {:?}",
+				newest_timestamp,
+				last_value,
+				peers_that_need_updating,
+				wtf_peer_id
+			);
+			for record in last_value.2.iter() {
+				self.network.put_record_to(record.clone(), peers_that_need_updating.clone());
+			}
+		}
+
+		if let Some(peer_id) = peer_id {
+			last_value.1.insert(peer_id);
+		}
+
+		if !remote_addresses.is_empty() && needs_update {
+			self.addr_cache
+				.insert(authority_id, remote_addresses.into_iter().map(|(addr, _)| addr).collect());
 			if let Some(metrics) = &self.metrics {
 				metrics
 					.known_authorities_count
@@ -777,11 +849,17 @@ fn sign_record_with_authority_ids(
 
 		// Scale encode
 		let auth_signature = auth_signature.encode();
+		let creation_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+		log::error!("Publish record created at {:?}", creation_time);
+
+		let creation_time = creation_time.encode();
+		let creation_time = schema::Timestamp { timestamp: creation_time };
 
 		let signed_record = schema::SignedAuthorityRecord {
 			record: serialized_record.clone(),
 			auth_signature,
 			peer_signature: peer_signature.clone(),
+			creation_time: Some(creation_time),
 		}
 		.encode_to_vec();
 

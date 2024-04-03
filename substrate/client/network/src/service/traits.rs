@@ -31,7 +31,7 @@ use crate::{
 };
 
 use futures::{channel::oneshot, Stream};
-use libp2p::{Multiaddr, PeerId};
+use libp2p::{kad::PeerRecord, Multiaddr, PeerId};
 
 use sc_network_common::role::ObservedRole;
 
@@ -62,6 +62,8 @@ pub trait NetworkDHTProvider {
 
 	/// Start putting a value in the DHT.
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>);
+
+	fn put_record_to(&self, record: PeerRecord, peers: HashSet<PeerId>);
 }
 
 impl<T> NetworkDHTProvider for Arc<T>
@@ -75,6 +77,10 @@ where
 
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>) {
 		T::put_value(self, key, value)
+	}
+
+	fn put_record_to(&self, record: PeerRecord, peers: HashSet<PeerId>) {
+		T::put_record_to(self, record, peers)
 	}
 }
 
