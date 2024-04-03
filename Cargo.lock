@@ -4382,7 +4382,6 @@ dependencies = [
  "polkadot-test-service",
  "portpicker",
  "rand 0.8.5",
- "rococo-parachain-runtime",
  "sc-basic-authorship",
  "sc-block-builder",
  "sc-chain-spec",
