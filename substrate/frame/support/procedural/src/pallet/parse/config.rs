@@ -525,8 +525,7 @@ mod tests {
 		assert!(has_expected_system_config(path.clone(), &frame_system));
 
 		let frame_system =
-		syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system))
-			.unwrap();
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
 		assert!(has_expected_system_config(path, &frame_system));
 	}
 
@@ -541,11 +540,9 @@ mod tests {
 		assert!(has_expected_system_config(path, &frame_system));
 
 		let frame_system =
-			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system))
-				.unwrap();
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system)).unwrap();
 		let path =
-			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config))
-				.unwrap();
+			syn::parse2::<syn::Path>(quote::quote!(frame::deps::frame_system::Config)).unwrap();
 		assert!(has_expected_system_config(path, &frame_system));
 	}
 
@@ -561,8 +558,7 @@ mod tests {
 		let frame_system =
 			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system)).unwrap();
 		let path =
-			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config))
-				.unwrap();
+			syn::parse2::<syn::Path>(quote::quote!(frame::xyz::frame_system::Config)).unwrap();
 		assert!(has_expected_system_config(path, &frame_system));
 	}
 
