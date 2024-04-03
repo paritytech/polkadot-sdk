@@ -390,7 +390,7 @@ where
 
 		for (authority, new_addresses) in &resolved {
 			match self.resolved_authorities.get(authority) {
-				Some(old_address) if !old_address.is_superset(new_addresses) =>
+				Some(old_addresses) if !old_addresses.is_superset(new_addresses) =>
 					changed.push(new_addresses.clone()),
 				None => changed.push(new_addresses.clone()),
 				_ => {},
