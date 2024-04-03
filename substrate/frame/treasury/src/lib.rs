@@ -448,7 +448,8 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		/// ## Complexity
 		/// - `O(A)` where `A` is the number of approvals
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_do_not_use_local_block_number: BlockNumberFor<T>) -> Weight {
+			let block_number = T::BlockNumberProvider::current_block_number();
 			let pot = Self::pot();
 			let deactivated = Deactivated::<T, I>::get();
 			if pot != deactivated {
@@ -465,7 +466,7 @@ pub mod pallet {
 			let last_spend_period =
 				// AUDIT REVIEW TODO! Needs to handle migration story for this better.
 				LastSpendPeriod::<T, I>::get().unwrap_or(BlockNumberFor::<T>::zero());
-			let blocks_since_last_spend_period = n.saturating_sub(last_spend_period);
+			let blocks_since_last_spend_period = block_number.saturating_sub(last_spend_period);
 			let safe_spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T>::one());
 
 			// Safe because of `max(1)` above.
@@ -473,7 +474,7 @@ pub mod pallet {
 				blocks_since_last_spend_period / safe_spend_period,
 				blocks_since_last_spend_period % safe_spend_period,
 			);
-			let new_last_spend_period = n.saturating_sub(extra_blocks);
+			let new_last_spend_period = block_number.saturating_sub(extra_blocks);
 			if spend_periods_passed > BlockNumberFor::<T>::zero() {
 				Self::spend_funds(spend_periods_passed, new_last_spend_period)
 			} else {
