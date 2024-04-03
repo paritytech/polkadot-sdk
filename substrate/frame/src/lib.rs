@@ -45,6 +45,10 @@
 //!
 //! In short, this crate only re-exports types and traits from multiple sources. All of these
 //! sources are listed (and re-exported again) in [`deps`].
+//! 
+//! ## Usage
+//! 
+//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
