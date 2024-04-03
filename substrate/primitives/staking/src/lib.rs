@@ -315,9 +315,9 @@ pub trait StakingInterface {
 /// These apis bypass some or all safety checks and should only be used if you know what you are
 /// doing.
 pub trait StakingUnsafe: StakingInterface {
-	/// Release all funds bonded for stake without unbonding the ledger.
+	/// Migrate an existing staker to a virtual staker.
 	///
-	/// Unsafe, should only used for migration of `nominator` to `virtual_nominator`.
+	/// It would release all funds held by the implementation pallet.
 	fn migrate_to_virtual_staker(who: &Self::AccountId);
 
 	/// Book-keep a new bond for `who` without applying any locks (hence virtual).
