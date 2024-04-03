@@ -1072,7 +1072,7 @@ macro_rules! impl_benchmark {
 				$crate::benchmarking::set_whitelist(whitelist.clone());
 
 				let mut results: $crate::__private::Vec<$crate::BenchmarkResult> = $crate::__private::Vec::new();
-				let on_before_start = move || {
+				let on_before_start = || {
 					// Set the block number to at least 1 so events are deposited.
 					if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
 						frame_system::Pallet::<T>::set_block_number(1u32.into());
@@ -1097,6 +1097,7 @@ macro_rules! impl_benchmark {
 					// Always reset the state after the benchmark.
 					$crate::__private::defer!($crate::benchmarking::wipe_db());
 
+					// Time the extrinsic logic.
 					$crate::__private::log::trace!(
 						target: "benchmark",
 						"Start Benchmark: {} ({:?}) verify {}",

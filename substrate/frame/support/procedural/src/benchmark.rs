@@ -733,7 +733,8 @@ pub fn benchmarks(
 					#krate::benchmarking::set_whitelist(whitelist.clone());
 					let mut results: #krate::__private::Vec<#krate::BenchmarkResult> = #krate::__private::Vec::new();
 
-					let on_before_start = move || {
+					let on_before_start = || {
+						// Set the block number to at least 1 so events are deposited.
 						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
 							#frame_system::Pallet::<T>::set_block_number(1u32.into());
 						}
@@ -757,7 +758,7 @@ pub fn benchmarks(
 						// Always reset the state after the benchmark.
 						#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
-						// Set the block number to at least 1 so events are deposited.
+						// Time the extrinsic logic.
 						#krate::__private::log::trace!(
 							target: "benchmark",
 							"Start Benchmark: {} ({:?})",
