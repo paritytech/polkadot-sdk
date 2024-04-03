@@ -209,8 +209,8 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking,
 		VoterList: pallet_bags_list::<Instance1>,
-		DelegatedStaking: pallet_delegated_staking,
 		Pools: pallet_nomination_pools,
+		DelegatedStaking: pallet_delegated_staking,
 	}
 );
 

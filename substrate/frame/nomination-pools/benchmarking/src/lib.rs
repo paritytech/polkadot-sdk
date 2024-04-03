@@ -487,7 +487,7 @@ frame_benchmarking::benchmarks! {
 			Zero::zero()
 		);
 		assert_eq!(
-			CurrencyOf::<T>::balance(&pool_account),
+			T::StakeAdapter::total_balance(&pool_account),
 			min_create_bond
 		);
 		assert_eq!(pallet_staking::Ledger::<T>::get(&pool_account).unwrap().unlocking.len(), 1);

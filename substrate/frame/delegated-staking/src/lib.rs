@@ -390,9 +390,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			let delegator = ensure_signed(origin)?;
 
-			// ensure amount is over minimum to delegate
-			ensure!(amount > T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
-
 			// ensure delegator is sane.
 			ensure!(
 				Delegation::<T>::can_delegate(&delegator, &agent),
@@ -533,6 +530,9 @@ impl<T: Config> Pallet<T> {
 			} else {
 				amount
 			};
+
+		// ensure amount is at least minimum to delegate.
+		ensure!(new_delegation_amount >= T::Currency::minimum_balance(), Error::<T>::NotEnoughFunds);
 
 		Delegation::<T>::from(agent, new_delegation_amount).save_or_kill(delegator);
 		ledger.total_delegated =
