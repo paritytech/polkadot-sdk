@@ -61,6 +61,19 @@ impl From<&'static str> for RuntimeString {
 	}
 }
 
+impl<'a> TryFrom<&'a RuntimeString> for &'a str {
+	type Error = core::str::Utf8Error;
+	fn try_from(from: &'a RuntimeString) -> core::result::Result<&'a str, Self::Error> {
+		match from {
+			#[cfg(feature = "std")]
+			RuntimeString::Owned(string) => Ok(string.as_str()),
+			#[cfg(not(feature = "std"))]
+			RuntimeString::Owned(vec) => core::str::from_utf8(&vec),
+			RuntimeString::Borrowed(str) => Ok(str),
+		}
+	}
+}
+
 #[cfg(feature = "std")]
 impl From<RuntimeString> for String {
 	fn from(string: RuntimeString) -> Self {

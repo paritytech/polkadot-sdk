@@ -39,8 +39,8 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 type VirtualOverseer = TestSubsystemContextHandle<PvfCheckerMessage>;
 
-fn dummy_validation_code_hash(descriminator: u8) -> ValidationCodeHash {
-	ValidationCode(vec![descriminator]).hash()
+fn dummy_validation_code_hash(discriminator: u8) -> ValidationCodeHash {
+	ValidationCode(vec![discriminator]).hash()
 }
 
 struct StartsNewSession {
@@ -511,7 +511,7 @@ fn reactivating_pvf_leads_to_second_check() {
 				.reply(PreCheckOutcome::Valid);
 			test_state.expect_submit_vote(&mut handle).await.reply_ok();
 
-			// Now activate a descdedant leaf, where the PVF is not present.
+			// Now activate a descendant leaf, where the PVF is not present.
 			test_state
 				.active_leaves_update(
 					&mut handle,

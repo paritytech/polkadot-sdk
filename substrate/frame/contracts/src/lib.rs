@@ -298,6 +298,9 @@ pub mod pallet {
 		/// Therefore please make sure to be restrictive about which dispatchables are allowed
 		/// in order to not introduce a new DoS vector like memory allocation patterns that can
 		/// be exploited to drive the runtime into a panic.
+		///
+		/// This filter does not apply to XCM transact calls. To impose restrictions on XCM transact
+		/// calls, you must configure them separately within the XCM pallet itself.
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
@@ -1104,7 +1107,7 @@ pub mod pallet {
 		/// A more detailed error can be found on the node console if debug messages are enabled
 		/// by supplying `-lruntime::contracts=debug`.
 		CodeRejected,
-		/// An indetermistic code was used in a context where this is not permitted.
+		/// An indeterministic code was used in a context where this is not permitted.
 		Indeterministic,
 		/// A pending migration needs to complete before the extrinsic can be called.
 		MigrationInProgress,
