@@ -74,6 +74,7 @@ fn v1_decodes_v2() {
 		record: vec_record_v2.clone(),
 		auth_signature: vec_auth_signature.clone(),
 		peer_signature: Some(peer_signature_v2.clone()),
+		creation_time: None,
 	};
 	let mut vec_signed_record_v2 = vec![];
 	signed_record_v2.encode(&mut vec_signed_record_v2).unwrap();

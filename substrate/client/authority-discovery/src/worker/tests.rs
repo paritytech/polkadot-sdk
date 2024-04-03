@@ -32,7 +32,7 @@ use futures::{
 use libp2p::{
 	core::multiaddr,
 	identity::{Keypair, SigningError},
-	kad::record::Key as KademliaKey,
+	kad::{record::Key as KademliaKey, Record},
 	PeerId,
 };
 use prometheus_endpoint::prometheus::default_registry;
@@ -119,6 +119,7 @@ sp_api::mock_impl_runtime_apis! {
 pub enum TestNetworkEvent {
 	GetCalled(KademliaKey),
 	PutCalled(KademliaKey, Vec<u8>),
+	PutToCalled(PeerRecord, HashSet<PeerId>, bool),
 }
 
 pub struct TestNetwork {
@@ -128,6 +129,7 @@ pub struct TestNetwork {
 	// Whenever functions on `TestNetwork` are called, the function arguments are added to the
 	// vectors below.
 	pub put_value_call: Arc<Mutex<Vec<(KademliaKey, Vec<u8>)>>>,
+	pub put_value_to_call: Arc<Mutex<Vec<(PeerRecord, HashSet<PeerId>, bool)>>>,
 	pub get_value_call: Arc<Mutex<Vec<KademliaKey>>>,
 	event_sender: mpsc::UnboundedSender<TestNetworkEvent>,
 	event_receiver: Option<mpsc::UnboundedReceiver<TestNetworkEvent>>,
@@ -149,6 +151,7 @@ impl Default for TestNetwork {
 			external_addresses: vec!["/ip6/2001:db8::/tcp/30333".parse().unwrap()],
 			put_value_call: Default::default(),
 			get_value_call: Default::default(),
+			put_value_to_call: Default::default(),
 			event_sender: tx,
 			event_receiver: Some(rx),
 		}
@@ -177,6 +180,23 @@ impl NetworkDHTProvider for TestNetwork {
 		self.event_sender
 			.clone()
 			.unbounded_send(TestNetworkEvent::GetCalled(key.clone()))
+			.unwrap();
+	}
+
+	fn put_record_to(
+		&self,
+		record: PeerRecord,
+		peers: HashSet<PeerId>,
+		update_local_storage: bool,
+	) {
+		self.put_value_to_call.lock().unwrap().push((
+			record.clone(),
+			peers.clone(),
+			update_local_storage,
+		));
+		self.event_sender
+			.clone()
+			.unbounded_send(TestNetworkEvent::PutToCalled(record, peers, update_local_storage))
 			.unwrap();
 	}
 }
@@ -323,7 +343,10 @@ fn publish_discover_cycle() {
 
 			let dht_event = {
 				let (key, value) = network.put_value_call.lock().unwrap().pop().unwrap();
-				DhtEvent::ValueFound(vec![(key, value)])
+				DhtEvent::ValueFound(vec![PeerRecord {
+					peer: None,
+					record: Record { key, value, publisher: None, expires: None },
+				}])
 			};
 
 			// Node B discovering node A's address.
@@ -477,7 +500,13 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 				remote_public_key.clone(),
 				&remote_key_store,
 				None,
-			);
+			)
+			.into_iter()
+			.map(|(key, value)| PeerRecord {
+				peer: None,
+				record: Record { key, value, publisher: None, expires: None },
+			})
+			.collect();
 			DhtEvent::ValueFound(kv_pairs)
 		};
 		dht_event_tx.send(dht_event).await.expect("Channel has capacity of 1.");
@@ -554,14 +583,26 @@ impl DhtValueFoundTester {
 		block_on(local_worker.refill_pending_lookups_queue()).unwrap();
 		local_worker.start_new_lookups();
 
-		drop(local_worker.handle_dht_value_found_event(values));
+		drop(
+			local_worker.handle_dht_value_found_event(
+				values
+					.into_iter()
+					.map(|(key, value)| PeerRecord {
+						peer: None,
+						record: Record { key, value, publisher: None, expires: None },
+					})
+					.collect(),
+			),
+		);
 
 		self.local_worker = Some(local_worker);
 
 		self.local_worker
 			.as_ref()
 			.map(|w| {
-				w.addr_cache.get_addresses_by_authority_id(&self.remote_authority_public.into())
+				w.addr_cache
+					.get_addresses_by_authority_id(&self.remote_authority_public.into())
+					.cloned()
 			})
 			.unwrap()
 	}
@@ -819,10 +860,18 @@ fn lookup_throttling() {
 					remote_key,
 					&remote_key_store,
 					None,
-				);
+				)
+				.into_iter()
+				.map(|(key, value)| PeerRecord {
+					peer: None,
+					record: Record { key, value, publisher: None, expires: None },
+				})
+				.collect();
 				DhtEvent::ValueFound(kv_pairs)
 			};
 			dht_event_tx.send(dht_event).await.expect("Channel has capacity of 1.");
+
+			assert!(matches!(receiver.next().await, Some(TestNetworkEvent::PutToCalled(_, _, _))));
 
 			// Assert worker to trigger another lookup.
 			assert!(matches!(receiver.next().await, Some(TestNetworkEvent::GetCalled(_))));

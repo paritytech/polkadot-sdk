@@ -63,6 +63,9 @@ pub trait NetworkDHTProvider {
 	/// Start putting a value in the DHT.
 	fn put_value(&self, key: KademliaKey, value: Vec<u8>);
 
+	/// Start putting the record to `peers`.
+	///
+	/// If `update_local_storage` is true the local storage is udpated as well.
 	fn put_record_to(&self, record: PeerRecord, peers: HashSet<PeerId>, update_local_storage: bool);
 }
 

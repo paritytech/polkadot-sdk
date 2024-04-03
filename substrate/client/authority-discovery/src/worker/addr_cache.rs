@@ -250,7 +250,7 @@ mod tests {
 			cache.insert(third.0.clone(), vec![third.1.clone()]);
 
 			assert_eq!(
-				Some(HashSet::from([third.1.clone()])),
+				Some(&HashSet::from([third.1.clone()])),
 				cache.get_addresses_by_authority_id(&third.0),
 				"Expect `get_addresses_by_authority_id` to return addresses of third authority.",
 			);
@@ -344,7 +344,7 @@ mod tests {
 				cache.get_authority_ids_by_peer_id(&peer_id_from_multiaddr(&multiaddr3).unwrap())
 			);
 			assert_eq!(
-				HashSet::from([multiaddr2.clone(), multiaddr3.clone(), multiaddr4.clone()]),
+				&HashSet::from([multiaddr2.clone(), multiaddr3.clone(), multiaddr4.clone()]),
 				cache.get_addresses_by_authority_id(&authority1).unwrap(),
 			);
 
@@ -374,11 +374,11 @@ mod tests {
 
 		assert_eq!(2, addr_cache.num_authority_ids());
 		assert_eq!(
-			HashSet::from([addr.clone()]),
+			&HashSet::from([addr.clone()]),
 			addr_cache.get_addresses_by_authority_id(&authority_id0).unwrap()
 		);
 		assert_eq!(
-			HashSet::from([addr]),
+			&HashSet::from([addr]),
 			addr_cache.get_addresses_by_authority_id(&authority_id1).unwrap()
 		);
 	}

@@ -718,7 +718,7 @@ where
 
 		let mut addr_cache_needs_update = false;
 
-		let answering_peer_id = single(values.iter().map(|record| record.peer.clone()))
+		let answering_peer_id = single(values.iter().map(|record| record.peer))
 			.map_err(|_| Error::ReceivingDhtValueFoundFromDifferentPeerIds)?
 			.ok_or(Error::ReceivingDhtValueFoundEventWithNoRecords)?;
 
