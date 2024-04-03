@@ -5,12 +5,8 @@
   "bootNodes": [
     "/dns/kusama-coretime-connect-a-0.polkadot.io/tcp/30334/p2p/12D3KooWR7Biy6nPgQFhk2eYP62pAkcFA6he9RUFURTDh7ewTjpo",
     "/dns/kusama-coretime-connect-a-1.polkadot.io/tcp/30334/p2p/12D3KooWAGFiMZDF9RxdacrkenzGdo8nhfSe9EXofHc5mHeJ9vGX",
-    "/dns/kusama-coretime-connect-b-0.polkadot.io/tcp/30334/p2p/12D3KooWEbJsTw3TnLjDr3M7LtuBzhSBeMThpgRRNF5zPP2PUnjM",
-    "/dns/kusama-coretime-connect-b-1.polkadot.io/tcp/30334/p2p/12D3KooWMkSaSjV6pZ58d5zaBykQitYQaKtuD3TTWYbuES5WLdny",
     "/dns/kusama-coretime-connect-a-0.polkadot.io/tcp/443/wss/p2p/12D3KooWR7Biy6nPgQFhk2eYP62pAkcFA6he9RUFURTDh7ewTjpo",
-    "/dns/kusama-coretime-connect-a-1.polkadot.io/tcp/443/wss/p2p/12D3KooWAGFiMZDF9RxdacrkenzGdo8nhfSe9EXofHc5mHeJ9vGX",
-    "/dns/kusama-coretime-connect-b-0.polkadot.io/tcp/443/wss/p2p/12D3KooWEbJsTw3TnLjDr3M7LtuBzhSBeMThpgRRNF5zPP2PUnjM",
-    "/dns/kusama-coretime-connect-b-1.polkadot.io/tcp/443/wss/p2p/12D3KooWMkSaSjV6pZ58d5zaBykQitYQaKtuD3TTWYbuES5WLdny"
+    "/dns/kusama-coretime-connect-a-1.polkadot.io/tcp/443/wss/p2p/12D3KooWAGFiMZDF9RxdacrkenzGdo8nhfSe9EXofHc5mHeJ9vGX"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
