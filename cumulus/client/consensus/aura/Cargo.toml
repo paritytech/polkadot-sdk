@@ -36,6 +36,7 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 sp-timestamp = { path = "../../../../substrate/primitives/timestamp" }
 sp-state-machine = { path = "../../../../substrate/primitives/state-machine" }
+sc-service = { path = "../../../../substrate/client/service" }
 substrate-prometheus-endpoint = { path = "../../../../substrate/utils/prometheus" }
 
 # Cumulus
@@ -52,4 +53,3 @@ polkadot-primitives = { path = "../../../../polkadot/primitives" }
 polkadot-node-primitives = { path = "../../../../polkadot/node/primitives" }
 polkadot-node-subsystem = { path = "../../../../polkadot/node/subsystem" }
 polkadot-overseer = { path = "../../../../polkadot/node/overseer" }
-sc-service = { version = "0.35.0", path = "../../../../substrate/client/service" }

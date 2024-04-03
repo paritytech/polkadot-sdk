@@ -76,7 +76,7 @@ use crate::{
 
 const PARENT_SEARCH_DEPTH: usize = 10;
 
-/// Parameters for [`run`].
+/// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<Block: BlockT, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
@@ -122,6 +122,7 @@ impl SlotTimer {
 		Self { slot_duration }
 	}
 
+	/// Returns a future that resolves when the next slot arrives.
 	pub async fn wait_until_next_slot(&self) -> SlotAndTime {
 		let time_until_next_slot = time_until_next_slot(self.slot_duration.as_duration());
 		tokio::time::sleep(time_until_next_slot).await;

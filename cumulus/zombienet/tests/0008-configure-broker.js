@@ -23,7 +23,7 @@ async function run(nodeName, networkInfo, _jsArgs) {
       contributionTimeout: 5,
     }),
     // We need MOARE cores.
-    api.tx.broker.requestCoreCount(7),
+    api.tx.broker.requestCoreCount(5),
     // Set a lease for the broker chain itself.
     api.tx.broker.setLease(
       1005,

@@ -156,6 +156,7 @@ where
 		Ok((paras_inherent_data, other_inherent_data))
 	}
 
+	/// Build and import a parachain block on the given parent header, using the given slot claim.
 	pub async fn build_block_and_import(
 		&mut self,
 		parent_header: &Block::Header,

@@ -149,7 +149,7 @@ where
 
 	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
 
-	let slot_params = block_builder_task::BuilderTaskParams {
+	let block_builder_params = block_builder_task::BuilderTaskParams {
 		create_inherent_data_providers: params.create_inherent_data_providers,
 		block_import: params.block_import,
 		para_client: params.para_client,
@@ -164,7 +164,8 @@ where
 		collator_sender: tx,
 	};
 
-	let block_builder_fut = run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(slot_params);
+	let block_builder_fut =
+		run_block_builder::<Block, P, _, _, _, _, _, _, _, _>(block_builder_params);
 
 	(collation_task_fut, block_builder_fut)
 }
