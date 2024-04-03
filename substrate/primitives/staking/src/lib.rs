@@ -536,6 +536,15 @@ pub trait DelegationInterface {
 		value: Self::Balance,
 		maybe_reporter: Option<Self::AccountId>,
 	) -> sp_runtime::DispatchResult;
+
+	/// Migrate an existing `Nominator` to `Agent` account.
+	///
+	/// The implementation should ensure the `Nominator` account funds are moved to a temporary
+	/// `delegator` account from which funds can be later claimed as existing `Delegators`.
+	fn migrate_nominator_to_agent(
+		agent: &Self::AccountId,
+		reward_account: &Self::AccountId,
+	) -> DispatchResult;
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);

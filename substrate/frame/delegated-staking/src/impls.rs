@@ -106,6 +106,16 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 	) -> sp_runtime::DispatchResult {
 		Pallet::<T>::do_slash(agent.clone(), delegator.clone(), value, maybe_reporter)
 	}
+
+	fn migrate_nominator_to_agent(
+		agent: &Self::AccountId,
+		reward_account: &Self::AccountId,
+	) -> DispatchResult {
+		Pallet::<T>::migrate_to_agent(
+			RawOrigin::Signed(agent.clone()).into(),
+			reward_account.clone(),
+		)
+	}
 }
 
 impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
