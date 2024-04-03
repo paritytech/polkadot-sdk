@@ -11,4 +11,6 @@ doc:
 
 crates:
   - name: frame-support
+    bump: major
   - name: pallet-balances
+    bump: minor
