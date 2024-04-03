@@ -10,7 +10,7 @@ description = "The Chain API subsystem provides access to chain related utility 
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
 polkadot-node-metrics = { path = "../../metrics" }
 polkadot-node-subsystem = { path = "../../subsystem" }
@@ -19,7 +19,7 @@ sc-client-api = { path = "../../../../substrate/client/api" }
 sc-consensus-babe = { path = "../../../../substrate/client/consensus/babe" }
 
 [dev-dependencies]
-futures = { version = "0.3.21", features = ["thread-pool"] }
+futures = { version = "0.3.30", features = ["thread-pool"] }
 maplit = "1.0.2"
 parity-scale-codec = "3.6.1"
 polkadot-node-primitives = { path = "../../primitives" }
