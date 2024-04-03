@@ -810,22 +810,17 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 									stats,
 								);
 
-								// Let's directly finish the query, as we are only interested in a
-								// quorum of 1.
-								if let Some(kad) = self.kademlia.as_mut() {
-									if let Some(_query) = kad.query_mut(&id) {
-										// Let the query continue, to increase the chances we
-										// discover all possible addresses, for the cases where more
-										// addresses might exist in DHT, for example when the node
-										// changes its PeerId.
-
-										// TODO: We need to determine what is the right balance
-										// here, between creating too many queries in our network
-										// and robustness in the presence of bad records.
-										// With letting the query finish by itself we receive around
-										// 20 answers with 3 of them happening in parallel.
-										// More details here: https://github.com/libp2p/specs/blob/master/kad-dht/README.md#definitions
-										// query.finish();
+								// Let's directly finish the query if we are above 4.
+								// This number should small enough to make sure we don't
+								// unnecessarily flood the network with queries, but high
+								// enough to make sure we also touch peers which might have
+								// old record, so that we can update them once we notice
+								// they have old records.
+								if stats.num_successes() > 4 {
+									if let Some(kad) = self.kademlia.as_mut() {
+										if let Some(mut query) = kad.query_mut(&id) {
+											query.finish();
+										}
 									}
 								}
 

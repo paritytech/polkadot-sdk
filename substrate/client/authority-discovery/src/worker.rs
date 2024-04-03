@@ -907,7 +907,7 @@ fn sign_record_with_authority_ids(
 			.duration_since(UNIX_EPOCH)
 			.map(|time| time.as_nanos())
 			.unwrap_or_default();
-
+		debug!(target: LOG_TARGET, "Publish address with creation time{:?}", creation_time);
 		let creation_time = creation_time.encode();
 		let creation_time_signature = key_store
 			.sr25519_sign(key_types::AUTHORITY_DISCOVERY, key.as_ref(), &creation_time)
