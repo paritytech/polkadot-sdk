@@ -111,7 +111,7 @@ pub mod unversioned {
 	/// Migrate existing pools from [`adapter::TransferStake`] to [`adapter::DelegateStake`].
 	///
 	/// Note: This only migrates the pools, the members are not migrated. They can use the
-	/// permission-less [`Call::claim_delegation()`] to migrate their funds.
+	/// permission-less [`Pallet::claim_delegation()`] to migrate their funds.
 	pub struct DelegationStakeMigration<T>(sp_std::marker::PhantomData<T>);
 
 	// FIXME(ank4n) convert to MBM.
