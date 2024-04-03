@@ -529,8 +529,8 @@ frame_benchmarking::benchmarks! {
 		let depositor_lookup = T::Lookup::unlookup(depositor.clone());
 
 		// Give the depositor some balance to bond
-		CurrencyOf::<T>::set_balance(&depositor, min_create_bond * 2u32.into());
-
+		// it needs to transfer min balance to reward account as well so give additional min balance.
+		CurrencyOf::<T>::set_balance(&depositor, min_create_bond + CurrencyOf::<T>::minimum_balance() * 2u32.into());
 		// Make sure no Pools exist at a pre-condition for our verify checks
 		assert_eq!(RewardPools::<T>::count(), 0);
 		assert_eq!(BondedPools::<T>::count(), 0);
