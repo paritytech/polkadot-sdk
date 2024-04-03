@@ -105,14 +105,12 @@ ord_parameter_types! {
 	pub const AssetConversionOrigin: u128 = AccountIdConversion::<u128>::into_account_truncating(&StakingRewardsPalletId::get());
 }
 
+// Set account id 1 to the permissioned creator
 pub struct MockPermissionedPoolCreator;
 impl EnsureOrigin<RuntimeOrigin> for MockPermissionedPoolCreator {
 	type Success = ();
 
-	fn try_origin(
-		origin: RuntimeOrigin,
-		// key: &RuntimeParametersKey,
-	) -> Result<Self::Success, RuntimeOrigin> {
+	fn try_origin(origin: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		// Set account 1 to admin in tests
 		if ensure_signed(origin.clone()).map_or(false, |acc| acc == 1) {
 			return Ok(());
@@ -122,7 +120,7 @@ impl EnsureOrigin<RuntimeOrigin> for MockPermissionedPoolCreator {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<O, ()> {
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
 		todo!()
 	}
 }
@@ -135,7 +133,6 @@ impl Config for MockRuntime {
 	type Balance = <Self as pallet_balances::Config>::Balance;
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
-	// allow account id 1 to be permissioned creator
 	type PermissionedPoolCreator = MockPermissionedPoolCreator;
 }
 
