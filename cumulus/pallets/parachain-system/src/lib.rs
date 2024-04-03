@@ -464,7 +464,7 @@ pub mod pallet {
 			// One complication here, is that the `host_configuration` is updated by an inherent
 			// and those are processed after the block initialization phase. Therefore, we have to
 			// be content only with the configuration as per the previous block. That means that
-			// the configuration can be either stale (or be abscent altogether in case of the
+			// the configuration can be either stale (or be absent altogether in case of the
 			// beginning of the chain).
 			//
 			// In order to mitigate this, we do the following. At the time, we are only concerned

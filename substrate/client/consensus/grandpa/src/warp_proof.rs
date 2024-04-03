@@ -249,7 +249,7 @@ impl<Block: BlockT, Backend: ClientBackend<Block>> NetworkProvider<Block, Backen
 where
 	NumberFor<Block>: BlockNumberOps,
 {
-	/// Create a new istance for a given backend and authority set.
+	/// Create a new instance for a given backend and authority set.
 	pub fn new(
 		backend: Arc<Backend>,
 		authority_set: SharedAuthoritySet<Block::Hash, NumberFor<Block>>,

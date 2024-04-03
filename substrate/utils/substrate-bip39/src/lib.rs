@@ -43,7 +43,7 @@ pub enum Error {
 ///
 /// Any other length will return an error.
 ///
-/// `password` is analog to BIP39 seed generation itself, with an empty string being defalt.
+/// `password` is analog to BIP39 seed generation itself, with an empty string being default.
 pub fn mini_secret_from_entropy(entropy: &[u8], password: &str) -> Result<MiniSecretKey, Error> {
 	let seed = seed_from_entropy(entropy, password)?;
 	Ok(MiniSecretKey::from_bytes(&seed[..32]).expect("Length is always correct; qed"))

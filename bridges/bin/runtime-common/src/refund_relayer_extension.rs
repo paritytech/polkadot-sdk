@@ -16,7 +16,7 @@
 
 //! Signed extension that refunds relayer if he has delivered some new messages.
 //! It also refunds transaction cost if the transaction is an `utility.batchAll()`
-//! with calls that are: delivering new messsage and all necessary underlying headers
+//! with calls that are: delivering new message and all necessary underlying headers
 //! (parachain or relay chain).
 
 use crate::messages_call_ext::{
@@ -1538,7 +1538,7 @@ mod tests {
 	}
 
 	#[test]
-	fn validate_boosts_priority_of_message_delivery_transactons() {
+	fn validate_boosts_priority_of_message_delivery_transactions() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 
@@ -1568,7 +1568,7 @@ mod tests {
 	}
 
 	#[test]
-	fn validate_does_not_boost_priority_of_message_delivery_transactons_with_too_many_messages() {
+	fn validate_does_not_boost_priority_of_message_delivery_transactions_with_too_many_messages() {
 		run_test(|| {
 			initialize_environment(100, 100, 100);
 
