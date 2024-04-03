@@ -160,7 +160,7 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 	known_lookups: HashMap<KademliaKey, AuthorityId>,
 
 	/// Peers with old records
-	last_known_record: HashMap<KademliaKey, (u128, HashSet<PeerId>, Option<PeerRecord>)>,
+	last_known_record: HashMap<KademliaKey, RecordInfo>,
 
 	addr_cache: addr_cache::AddrCache,
 
@@ -169,6 +169,16 @@ pub struct Worker<Client, Network, Block, DhtEventStream> {
 	role: Role,
 
 	phantom: PhantomData<Block>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct RecordInfo {
+	// Time since UNIX_EPOCH in nanoseconds.
+	creation_time: u128,
+	// Peers that we know have this record.
+	peers: HashSet<PeerId>,
+	// The record itself.
+	record: Option<PeerRecord>,
 }
 
 /// Wrapper for [`AuthorityDiscoveryApi`](sp_authority_discovery::AuthorityDiscoveryApi). Can be
@@ -713,70 +723,22 @@ where
 			.take(MAX_ADDRESSES_PER_AUTHORITY)
 			.collect();
 
-		let newest_timestamp = single(remote_addresses.iter().map(|(_addr, timestamp)| *timestamp))
-			.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
-			.unwrap_or_default();
-
 		let mut needs_update = false;
-		let last_value = self.last_known_record.entry(kadmelia_key).or_default();
-		if newest_timestamp > last_value.0 {
-			last_value.0 = newest_timestamp;
-			last_value.1 = Default::default();
-			last_value.2 = values_clone.first().cloned();
-			needs_update = true;
-			let peers_that_need_updating = last_value.1.clone();
-			log::error!(
-				"convergence: {:?} Updating stored value on peers newest_timestamp {:?} === last_value {:?} peers_that_need_updating {:?}",
-				authority_id,
-				newest_timestamp,
-				last_value.0,
-				peers_that_need_updating
+		let records_creation_time =
+			single(remote_addresses.iter().map(|(_addr, timestamp)| *timestamp))
+				.map_err(|_| Error::ReceivingDhtValueFoundEventWithDifferentKeys)?
+				.unwrap_or_default();
+	
+		for record in values_clone {
+			needs_update |= self.handle_new_record(
+				kadmelia_key.clone(),
+				RecordInfo {
+					creation_time: records_creation_time,
+					peers: peer_id.iter().map(|peer| *peer).collect(),
+					record: Some(record),
+				},
 			);
-			for record in values_clone {
-				self.network.put_record_to(record, peers_that_need_updating.clone());
-			}
-		// TODO update records on peers with old records.
-		} else if newest_timestamp == last_value.0 {
-			// Same record just update in case this is a record from old nods that don't have
-			// timestamp.
-			needs_update = true;
-			log::error!(
-				"convergence: {:?} Peer already has the latest value newest_timestamp {:?} == last_value {:?}",
-				authority_id,
-				newest_timestamp,
-				last_value.0
-			);
-		} else {
-			let wtf_peer_id = peer_id.clone();
-			let peers_that_need_updating: HashSet<PeerId> = peer_id.take().into_iter().collect();
-			if last_value.0 - newest_timestamp > Duration::from_secs(20 * 60).as_nanos() {
-				log::error!(
-					"convergence: {:?} Peers informs us of really old value {:?} seconds newest_timestamp {:?} == last_value {:?} == peers_that_need_updating {:?} wtf_peer_id {:?}",
-					authority_id,
-					newest_timestamp,
-					last_value,
-					peers_that_need_updating,
-					wtf_peer_id,
-					(last_value.0 - newest_timestamp) / 1000 / 1000 / 1000
-				);
-			}
-			log::error!(
-				"convergence: {:?} Peers informs us of old value newest_timestamp {:?} == last_value {:?} == peers_that_need_updating {:?} wtf_peer_id {:?}",
-				authority_id,
-				newest_timestamp,
-				last_value,
-				peers_that_need_updating,
-				wtf_peer_id
-			);
-			for record in last_value.2.iter() {
-				self.network.put_record_to(record.clone(), peers_that_need_updating.clone());
-			}
 		}
-
-		if let Some(peer_id) = peer_id {
-			last_value.1.insert(peer_id);
-		}
-
 		if !remote_addresses.is_empty() && needs_update {
 			self.addr_cache
 				.insert(authority_id, remote_addresses.into_iter().map(|(addr, _)| addr).collect());
@@ -787,6 +749,29 @@ where
 			}
 		}
 		Ok(())
+	}
+
+	fn handle_new_record(&mut self, kadmelia_key: KademliaKey, new_record: RecordInfo) -> bool {
+		let last_value = self.last_known_record.entry(kadmelia_key.clone()).or_default();
+		if new_record.creation_time > last_value.creation_time {
+			let peers_that_need_updating = last_value.peers.clone();
+			for record in new_record.record.iter() {
+				self.network.put_record_to(record.clone(), peers_that_need_updating.clone());
+			}
+			self.last_known_record.insert(kadmelia_key, new_record);
+			true
+		// TODO update records on peers with old records.
+		} else if new_record.creation_time == last_value.creation_time {
+			// Same record just update in case this is a record from old nods that don't have
+			// timestamp.
+			last_value.peers.extend(new_record.peers);
+			true
+		} else {
+			for record in last_value.record.iter() {
+				self.network.put_record_to(record.clone(), new_record.peers.clone());
+			}
+			false
+		}
 	}
 
 	/// Retrieve our public keys within the current and next authority set.
