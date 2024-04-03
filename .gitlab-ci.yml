@@ -233,7 +233,7 @@ include:
 # In a DAG, every jobs chain is executed independently of others. The `fail_fast` principle suggests
 # to fail the pipeline as soon as possible to shorten the feedback loop.
 
-subsystem-regression-tests-recovery-regression:
+.subsystem-regression-tests-recovery-regression:
   stage: test
   # artifacts:
   #   name: "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}"
@@ -264,10 +264,10 @@ subsystem-regression-tests-distribution-regression:
     - .docker-env
     - .common-refs
     # - .run-immediately
-  parallel: 3
+  parallel: 6
   script:
     - for i in {1..10}; do cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks || echo fail_${i} >> fails ; done
-    - cat fails
+    - if [ -s fails ]; then cat fails; exit 1; fi
 
   tags:
     - benchmark
