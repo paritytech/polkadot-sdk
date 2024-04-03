@@ -1,4 +1,4 @@
-# transactionWatch_unstable_submitAndWatch
+# transactionWatch_v1_submitAndWatch
 
 **Parameters**:
 
@@ -6,9 +6,12 @@
 
 **Return value**: String representing the subscription.
 
-The string returned by this function is opaque and its meaning can't be interpreted by the JSON-RPC client. It is only meant to be matched with the `subscription` field of events and potentially passed to `transactionWatch_unstable_unwatch`.
+The string returned by this function is opaque and its meaning can't be interpreted by the JSON-RPC client. It is only meant to be matched with the `subscription` field of events and potentially passed to `transactionWatch_v1_unwatch`.
 
-Once this function has been called, the server will try to propagate this transaction over the peer-to-peer network and/or include it onto the chain even if `transactionWatch_unstable_unwatch` is called or that the JSON-RPC client disconnects. In other words, it is not possible to cancel submitting a transaction.
+Once this function has been called, the server will try to propagate this transaction over the peer-to-peer network and/or include it onto the chain even if `transactionWatch_v1_unwatch` is called or that the JSON-RPC client disconnects. In other words, it is not possible to cancel submitting a transaction.
+
+The JSON-RPC server must accept at least 4 `transactionWatch_v1_submitAndWatch` subscriptions per JSON-RPC client.
+Trying to open more might lead to a JSON-RPC error when calling `transactionWatch_v1_submitAndWatch`.
 
 ## Notifications format
 
@@ -17,7 +20,7 @@ This function will later generate one or more notifications in the following for
 ```json
 {
     "jsonrpc": "2.0",
-    "method": "transactionWatch_unstable_watchEvent",
+    "method": "transactionWatch_v1_watchEvent",
     "params": {
         "subscription": "...",
         "result": ...
@@ -124,7 +127,7 @@ No more event will be generated about this transaction.
 
 The `invalid` event indicates that the runtime has marked the transaction as invalid.
 
-This can happen for a variety of reasons specific to the chain, such as a bad signature, bad nonce, not enough balance for fees, etc.
+This can happen for a variety of reasons specific to the chain, such as a bad signature, bad nonce, not enough balance for fees, invalid decoded transaction bytes etc.
 
 `error` is a human-readable error message indicating why the transaction is invalid. This string isn't meant to be shown to end users, but is for developers to understand the problem.
 
@@ -165,4 +168,5 @@ JSON-RPC servers are allowed to skip sending events as long as it properly keeps
 
 ## Possible errors
 
-A JSON-RPC error is generated if the `transaction` parameter has an invalid format, but no error is produced if the bytes of the `transaction`, once decoded, are invalid. Instead, an `invalid` notification will be generated.
+- A JSON-RPC error with error code `-32800` can be generated if the JSON-RPC client has already opened 4 or more `transactionWatch_v1_submitAndWatch` subscriptions.
+- A JSON-RPC error with error code `-32602` is generated if the `transaction` parameter is not a valid hex string. Note that no error is produced if the bytes of the `transaction`, once decoded, are invalid. Instead, an `invalid` notification will be generated.
