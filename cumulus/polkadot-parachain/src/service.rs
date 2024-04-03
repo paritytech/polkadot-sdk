@@ -22,7 +22,7 @@ use cumulus_client_consensus_aura::collators::{
 	lookahead::{self as aura, Params as AuraParams},
 };
 use cumulus_client_consensus_common::{
-	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
+	ParachainBlockImport as TParachainBlockImport,
 };
 use cumulus_client_consensus_proposer::Proposer;
 #[allow(deprecated)]
@@ -32,7 +32,7 @@ use cumulus_client_service::{
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{
-	relay_chain::{Hash as PHash, PersistedValidationData, ValidationCode},
+	relay_chain::{ValidationCode},
 	ParaId,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
@@ -43,10 +43,10 @@ use sp_core::Pair;
 use jsonrpsee::RpcModule;
 
 use crate::{fake_runtime_api::aura::RuntimeApi as FakeRuntimeApi, rpc};
-pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Header, Nonce};
+pub use parachains_common::{AccountId, AuraId, Balance, Block, Hash, Nonce};
 
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
-use futures::{channel::mpsc, lock::Mutex, prelude::*};
+use futures::{channel::mpsc, prelude::*};
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImportParams, ImportQueue,
