@@ -63,7 +63,7 @@ mod schema {
 	#[cfg(test)]
 	mod tests;
 
-	include!(concat!(env!("OUT_DIR"), "/authority_discovery_v2.rs"));
+	include!(concat!(env!("OUT_DIR"), "/authority_discovery_v3.rs"));
 }
 #[cfg(test)]
 pub mod tests;
@@ -905,7 +905,7 @@ fn sign_record_with_authority_ids(
 			creation_time_signature.encode()
 		);
 
-		let creation_time = schema::Timestamp {
+		let creation_time = schema::TimestampInfo {
 			timestamp: creation_time,
 			signature: creation_time_signature.encode(),
 		};
