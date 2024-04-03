@@ -21,9 +21,7 @@ use cumulus_client_consensus_aura::collators::{
 	basic::{self as basic_aura, Params as BasicAuraParams},
 	lookahead::{self as aura, Params as AuraParams},
 };
-use cumulus_client_consensus_common::{
-	ParachainBlockImport as TParachainBlockImport,
-};
+use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_consensus_proposer::Proposer;
 #[allow(deprecated)]
 use cumulus_client_service::old_consensus;
@@ -31,10 +29,7 @@ use cumulus_client_service::{
 	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
 	BuildNetworkParams, CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
-use cumulus_primitives_core::{
-	relay_chain::{ValidationCode},
-	ParaId,
-};
+use cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 
 use sc_rpc::DenyUnsafe;
