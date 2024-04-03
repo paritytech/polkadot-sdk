@@ -335,7 +335,7 @@ mod benchmarks {
 		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
 		#[block]
 		{
-			Migration::<T>::migrate(&mut WeightMeter::new())
+			Migration::<T>::migrate(&mut WeightMeter::new());
 		}
 		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
 	}
