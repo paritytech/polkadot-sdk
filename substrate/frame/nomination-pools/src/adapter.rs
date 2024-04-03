@@ -127,6 +127,9 @@ pub trait StakeStrategy {
 ///
 /// In order to stake, this adapter transfers the funds from the member/delegator account to the
 /// pool account and stakes through the pool account on `Staking`.
+///
+/// This is the older Staking strategy used by pools. To switch to the newer [`DelegateStake`]
+/// strategy, storage migration is required.
 pub struct TransferStake<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
 impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
@@ -207,6 +210,10 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 /// In this approach, first the funds are delegated from delegator to the pool account and later
 /// staked with `Staking`. The advantage of this approach is that the funds are held in the
 /// user account itself and not in the pool account.
+///
+/// This is the newer staking strategy used by pools. Once switched to this and migrated, ideally
+/// the `TransferStake` strategy should not be used. Or a separate migration would be required for
+/// it which is not provided by this pallet.
 pub struct DelegateStake<T: Config, Staking: StakingInterface, Delegation: DelegationInterface>(
 	PhantomData<(T, Staking, Delegation)>,
 );

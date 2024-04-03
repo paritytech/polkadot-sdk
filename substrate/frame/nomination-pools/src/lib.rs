@@ -1633,6 +1633,8 @@ pub mod pallet {
 		type U256ToBalance: Convert<U256, BalanceOf<Self>>;
 
 		/// The interface for nominating.
+		///
+		/// Note: Switching to a new StakeStrategy might require a migration of the storage.
 		type StakeAdapter: StakeStrategy<AccountId = Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// The amount of eras a `SubPools::with_era` pool can exist before it gets merged into the
