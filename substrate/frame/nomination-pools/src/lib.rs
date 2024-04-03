@@ -2951,6 +2951,19 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_sub_account_truncating((AccountType::Bonded, id))
 	}
 
+	pub fn migrate_to_delegate_stake(_id: PoolId) -> DispatchResult {
+		// TODO(ank4n): implement this.
+		Ok(())
+	}
+
+	/// Useful for tests.
+	#[cfg(test)]
+	#[allow(unused)]
+	pub fn migrate_to_transfer_stake(_id: PoolId) -> DispatchResult {
+		// TODO(ank4n): implement this.
+		Ok(())
+	}
+
 	/// Create the reward account of a pool with the given id.
 	pub fn create_reward_account(id: PoolId) -> T::AccountId {
 		// NOTE: in order to have a distinction in the test account id type (u128), we put

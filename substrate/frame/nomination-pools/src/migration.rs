@@ -107,6 +107,59 @@ pub mod unversioned {
 			Ok(())
 		}
 	}
+
+	/// Migrate existing pools from [`adapter::TransferStake`] to [`adapter::DelegateStake`].
+	///
+	/// Note: This only migrates the pools, the members are not migrated. They can use the
+	/// permission-less [`Call::claim_delegation()`] to migrate their funds.
+	pub struct DelegationStakeMigration<T>(sp_std::marker::PhantomData<T>);
+
+	// FIXME(ank4n) convert to MBM.
+	impl<T: Config> OnRuntimeUpgrade for DelegationStakeMigration<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut migrate_count: u32 = 0;
+			let mut fail_count: u32 = 0;
+			BondedPools::<T>::iter()
+				.for_each(|(id, _inner)| {
+					if Pallet::<T>::migrate_to_delegate_stake(id).is_ok() {
+						migrate_count.saturating_inc();
+					} else {
+						fail_count.saturating_inc();
+					}
+				});
+
+			// TODO(ank4n) bench `migrate_to_delegate_stake`.
+			Weight::default()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
+			BondedPools::<T>::iter_keys().for_each(|id| {
+				pool_balances.push(T::Currency::total_balance(&Pallet::<T>::create_bonded_account(id)));
+			});
+
+			Ok(pool_balances.encode())
+
+		}
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let expected_pool_balances: Vec<BalanceOf<T>> = Decode::decode(&mut &data[..]).unwrap();
+
+			for (index, id) in BondedPools::<T>::iter_keys().enumerate() {
+				let actual_balance = T::StakeAdapter::total_balance(&Pallet::<T>::create_bonded_account(id));
+				let expected_balance = expected_pool_balances.get(index).unwrap();
+
+				if actual_balance != *expected_balance {
+					log!(error, "Pool {} balance mismatch. Expected: {:?}, Actual: {:?}", id, expected_balance, actual_balance);
+					return Err(TryRuntimeError::Other("Pool balance mismatch"));
+				}
+			};
+
+			Ok(())
+		}
+	}
+
 }
 
 pub mod v8 {
@@ -1022,8 +1075,8 @@ mod helpers {
 	use super::*;
 
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
-		BondedPools::<T>::iter()
-			.map(|(id, _inner)| {
+		BondedPools::<T>::iter_keys()
+			.map(|id| {
 				T::StakeAdapter::total_stake(&Pallet::<T>::create_bonded_account(id))
 			})
 			.reduce(|acc, total_balance| acc + total_balance)
