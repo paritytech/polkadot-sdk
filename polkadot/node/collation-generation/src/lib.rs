@@ -50,7 +50,7 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
 	CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, ScheduledCore, ValidationCodeHash,
+	PersistedValidationData, ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
 use std::sync::Arc;

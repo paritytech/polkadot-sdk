@@ -28,7 +28,7 @@ use polkadot_node_subsystem::{
 	ActivatedLeaf,
 };
 use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystemContextHandle};
-use polkadot_node_subsystem_util::TimeoutExt;
+use polkadot_node_subsystem_util::{vstaging::ClaimQueueSnapshot, TimeoutExt};
 use polkadot_primitives::{
 	async_backing::{BackingState, CandidatePendingAvailability},
 	AsyncBackingParams, BlockNumber, CollatorPair, HeadData, PersistedValidationData,
@@ -1052,7 +1052,7 @@ mod helpers {
 		async_backing_params: AsyncBackingParams,
 		cores: Vec<CoreState>,
 		runtime_version: u32,
-		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+		claim_queue: ClaimQueueSnapshot,
 	) {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
