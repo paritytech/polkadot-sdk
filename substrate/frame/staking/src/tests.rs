@@ -6969,6 +6969,11 @@ mod staking_unsafe {
 			);
 		});
 	}
+
+	#[test]
+	fn migrate_virtual_staker(){
+		// TODO(ank4n) test migration integrity
+	}
 }
 
 mod ledger {
