@@ -73,6 +73,7 @@ impl core::BenchmarkDescription for ImportBenchmarkDescription {
 		match self.database_type {
 			DatabaseType::RocksDb => path.push("rocksdb"),
 			DatabaseType::ParityDb => path.push("paritydb"),
+			DatabaseType::ParityDbMulti => path.push("paritydbmulti"),
 		}
 
 		path.push(&format!("{}", self.size));

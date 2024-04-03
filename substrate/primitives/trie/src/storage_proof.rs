@@ -15,14 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode};
-use hash_db::{HashDB, Hasher};
+use core::iter::{DoubleEndedIterator, IntoIterator};
 use scale_info::TypeInfo;
-use sp_std::{
-	collections::btree_set::BTreeSet,
-	iter::{DoubleEndedIterator, IntoIterator},
-	vec::Vec,
-};
+use trie_db::node_db::Hasher;
+
 // Note that `LayoutV1` usage here (proof compaction) is compatible
 // with `LayoutV0`.
 use crate::LayoutV1 as Layout;
@@ -105,7 +103,7 @@ impl StorageProof {
 		root: H::Out,
 	) -> Result<CompactProof, crate::CompactProofError<H::Out, crate::Error<H::Out>>> {
 		let db = self.into_memory_db();
-		crate::encode_compact::<Layout<H>, crate::MemoryDB<H>>(&db, &root)
+		crate::encode_compact::<Layout<H, ()>, crate::MemoryDB<H>>(&db, &root)
 	}
 
 	/// Encode as a compact proof with default trie layout.
@@ -114,7 +112,7 @@ impl StorageProof {
 		root: H::Out,
 	) -> Result<CompactProof, crate::CompactProofError<H::Out, crate::Error<H::Out>>> {
 		let db = self.to_memory_db();
-		crate::encode_compact::<Layout<H>, crate::MemoryDB<H>>(&db, &root)
+		crate::encode_compact::<Layout<H, ()>, crate::MemoryDB<H>>(&db, &root)
 	}
 
 	/// Returns the estimated encoded size of the compact proof.
@@ -163,7 +161,7 @@ impl CompactProof {
 		expected_root: Option<&H::Out>,
 	) -> Result<(StorageProof, H::Out), crate::CompactProofError<H::Out, crate::Error<H::Out>>> {
 		let mut db = crate::MemoryDB::<H>::new(&[]);
-		let root = crate::decode_compact::<Layout<H>, _, _>(
+		let root = crate::decode_compact::<Layout<H, ()>, _>(
 			&mut db,
 			self.iter_compact_encoded_nodes(),
 			expected_root,
@@ -191,7 +189,7 @@ impl CompactProof {
 	) -> Result<(crate::MemoryDB<H>, H::Out), crate::CompactProofError<H::Out, crate::Error<H::Out>>>
 	{
 		let mut db = crate::MemoryDB::<H>::new(&[]);
-		let root = crate::decode_compact::<Layout<H>, _, _>(
+		let root = crate::decode_compact::<Layout<H, ()>, _>(
 			&mut db,
 			self.iter_compact_encoded_nodes(),
 			expected_root,

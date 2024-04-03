@@ -19,8 +19,6 @@
 //! State backend that's useful for benchmarking
 
 use crate::{DbState, DbStateBuilder};
-use hash_db::{Hasher as DbHasher, Prefix};
-use kvdb::{DBTransaction, KeyValueDB};
 use linked_hash_map::LinkedHashMap;
 use parking_lot::Mutex;
 use sp_core::{
@@ -29,34 +27,20 @@ use sp_core::{
 };
 use sp_runtime::{traits::Hash, StateVersion, Storage};
 use sp_state_machine::{
-	backend::Backend as StateBackend, BackendTransaction, ChildStorageCollection, DBValue,
-	IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
+	backend::{Backend as StateBackend, DBLocation},
+	BackendTransaction, ChildStorageCollection, IterArgs, StorageCollection, StorageIterator,
+	StorageKey, StorageValue,
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
-	prefixed_key, MemoryDB, MerkleValue,
+	ChildChangeset, MemoryDB, MerkleValue,
 };
 use std::{
 	cell::{Cell, RefCell},
-	collections::HashMap,
 	sync::Arc,
 };
 
 type State<H> = DbState<H>;
-
-struct StorageDb<Hasher> {
-	db: Arc<dyn KeyValueDB>,
-	_phantom: std::marker::PhantomData<Hasher>,
-}
-
-impl<Hasher: Hash> sp_state_machine::Storage<Hasher> for StorageDb<Hasher> {
-	fn get(&self, key: &Hasher::Output, prefix: Prefix) -> Result<Option<DBValue>, String> {
-		let prefixed_key = prefixed_key::<Hasher>(key, prefix);
-		self.db
-			.get(0, &prefixed_key)
-			.map_err(|e| format!("Database backend error: {:?}", e))
-	}
-}
 
 struct KeyTracker {
 	enable_tracking: bool,
@@ -73,17 +57,14 @@ struct KeyTracker {
 
 /// State that manages the backend database reference. Allows runtime to control the database.
 pub struct BenchmarkingState<Hasher: Hash> {
-	root: Cell<Hasher::Output>,
 	genesis_root: Hasher::Output,
+	genesis: MemoryDB<Hasher>,
 	state: RefCell<Option<State<Hasher>>>,
-	db: Cell<Option<Arc<dyn KeyValueDB>>>,
-	genesis: HashMap<Vec<u8>, (Vec<u8>, i32)>,
-	record: Cell<Vec<Vec<u8>>>,
 	key_tracker: Arc<Mutex<KeyTracker>>,
 	whitelist: RefCell<Vec<TrackedStorageKey>>,
-	proof_recorder: Option<sp_trie::recorder::Recorder<Hasher>>,
+	proof_recorder: Option<sp_trie::recorder::Recorder<Hasher, DBLocation>>,
 	proof_recorder_root: Cell<Hasher::Output>,
-	shared_trie_cache: SharedTrieCache<Hasher>,
+	shared_trie_cache: SharedTrieCache<Hasher, DBLocation>,
 }
 
 /// A raw iterator over the `BenchmarkingState`.
@@ -134,17 +115,16 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 		enable_tracking: bool,
 	) -> Result<Self, String> {
 		let state_version = sp_runtime::StateVersion::default();
-		let mut root = Default::default();
-		let mut mdb = MemoryDB::<Hasher>::default();
-		sp_trie::trie_types::TrieDBMutBuilderV1::<Hasher>::new(&mut mdb, &mut root).build();
+		let mdb = MemoryDB::<Hasher>::default();
+		let root = sp_trie::trie_types::TrieDBMutBuilderV1::<Hasher>::new(&mdb)
+			.build()
+			.commit()
+			.root_hash();
 
 		let mut state = BenchmarkingState {
 			state: RefCell::new(None),
-			db: Cell::new(None),
-			root: Cell::new(root),
 			genesis: Default::default(),
 			genesis_root: Default::default(),
-			record: Default::default(),
 			key_tracker: Arc::new(Mutex::new(KeyTracker {
 				main_keys: Default::default(),
 				child_keys: Default::default(),
@@ -159,40 +139,33 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 
 		state.add_whitelist_to_tracker();
 
-		state.reopen()?;
+		*state.state.borrow_mut() =
+			Some(DbStateBuilder::<Hasher>::new(Box::new(mdb), root).build());
+
 		let child_delta = genesis.children_default.values().map(|child_content| {
 			(
 				&child_content.child_info,
 				child_content.data.iter().map(|(k, v)| (k.as_ref(), Some(v.as_ref()))),
 			)
 		});
-		let (root, transaction): (Hasher::Output, _) =
-			state.state.borrow().as_ref().unwrap().full_storage_root(
-				genesis.top.iter().map(|(k, v)| (k.as_ref(), Some(v.as_ref()))),
-				child_delta,
-				state_version,
-			);
-		state.genesis = transaction.clone().drain();
-		state.genesis_root = root;
-		state.commit(root, transaction, Vec::new(), Vec::new())?;
-		state.record.take();
+		let transaction = state.state.borrow().as_ref().unwrap().full_storage_root(
+			genesis.top.iter().map(|(k, v)| (k.as_ref(), Some(v.as_ref()))),
+			child_delta,
+			state_version,
+		);
+		let mut genesis = MemoryDB::<Hasher>::default();
+		let genesis_root = transaction.apply_to(&mut genesis);
+		state.genesis = genesis;
+		state.genesis_root = genesis_root;
+		state.reopen()?;
 		Ok(state)
 	}
 
 	fn reopen(&self) -> Result<(), String> {
 		*self.state.borrow_mut() = None;
-		let db = match self.db.take() {
-			Some(db) => db,
-			None => Arc::new(kvdb_memorydb::create(1)),
-		};
-		self.db.set(Some(db.clone()));
-		if let Some(recorder) = &self.proof_recorder {
-			recorder.reset();
-			self.proof_recorder_root.set(self.root.get());
-		}
-		let storage_db = Arc::new(StorageDb::<Hasher> { db, _phantom: Default::default() });
+		let db = Box::new(self.genesis.clone());
 		*self.state.borrow_mut() = Some(
-			DbStateBuilder::<Hasher>::new(storage_db, self.root.get())
+			DbStateBuilder::<Hasher>::new(db, self.genesis_root)
 				.with_optional_recorder(self.proof_recorder.clone())
 				.with_cache(self.shared_trie_cache.local_cache())
 				.build(),
@@ -340,7 +313,6 @@ fn state_err() -> String {
 
 impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 	type Error = <DbState<Hasher> as StateBackend<Hasher>>::Error;
-	type TrieBackendStorage = <DbState<Hasher> as StateBackend<Hasher>>::TrieBackendStorage;
 	type RawIter = RawIter<Hasher>;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
@@ -438,13 +410,15 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<Hasher::Out>>)>,
 		state_version: StateVersion,
-	) -> (Hasher::Output, BackendTransaction<Hasher>) {
+	) -> BackendTransaction<Hasher::Out> {
 		self.state
 			.borrow()
 			.as_ref()
-			.map_or(Default::default(), |s| s.storage_root(delta, state_version))
+			.map_or(BackendTransaction::unchanged(self.genesis_root), |s| {
+				s.storage_root(delta, state_version)
+			})
 	}
 
 	fn child_storage_root<'a>(
@@ -452,11 +426,11 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (Hasher::Output, bool, BackendTransaction<Hasher>) {
-		self.state
-			.borrow()
-			.as_ref()
-			.map_or(Default::default(), |s| s.child_storage_root(child_info, delta, state_version))
+	) -> (BackendTransaction<Hasher::Out>, bool) {
+		self.state.borrow().as_ref().map_or_else(
+			|| (BackendTransaction::unchanged(self.genesis_root), true),
+			|s| s.child_storage_root(child_info, delta, state_version),
+		)
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
@@ -476,30 +450,20 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 
 	fn commit(
 		&self,
-		storage_root: <Hasher as DbHasher>::Out,
-		mut transaction: BackendTransaction<Hasher>,
+		transaction: BackendTransaction<Hasher::Out>,
 		main_storage_changes: StorageCollection,
 		child_storage_changes: ChildStorageCollection,
 	) -> Result<(), Self::Error> {
-		if let Some(db) = self.db.take() {
-			let mut db_transaction = DBTransaction::new();
-			let changes = transaction.drain();
-			let mut keys = Vec::with_capacity(changes.len());
-			for (key, (val, rc)) in changes {
-				if rc > 0 {
-					db_transaction.put(0, &key, &val);
-				} else if rc < 0 {
-					db_transaction.delete(0, &key);
-				}
-				keys.push(key);
+		if let Some(state) = &mut *self.state.borrow_mut() {
+			if let Some(mut db) = state.backend_storage_mut().as_mem_db_mut() {
+				let root = transaction.apply_to(&mut db);
+				state.set_root(root);
+			} else if let Some(mut db) = state.backend_storage_mut().as_prefixed_mem_db_mut() {
+				let root = transaction.apply_to(&mut db);
+				state.set_root(root);
+			} else {
+				unreachable!()
 			}
-			let mut record = self.record.take();
-			record.extend(keys);
-			self.record.set(record);
-			db.write(db_transaction)
-				.map_err(|_| String::from("Error committing transaction"))?;
-			self.root.set(storage_root);
-			self.db.set(Some(db));
 
 			// Track DB Writes
 			main_storage_changes.iter().for_each(|(key, _)| {
@@ -510,29 +474,12 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 					self.add_write_key(Some(child_storage_key), key);
 				})
 			});
-		} else {
-			return Err("Trying to commit to a closed db".into())
 		}
-		self.reopen()
+		Ok(())
 	}
 
 	fn wipe(&self) -> Result<(), Self::Error> {
 		// Restore to genesis
-		let record = self.record.take();
-		if let Some(db) = self.db.take() {
-			let mut db_transaction = DBTransaction::new();
-			for key in record {
-				match self.genesis.get(&key) {
-					Some((v, _)) => db_transaction.put(0, &key, v),
-					None => db_transaction.delete(0, &key),
-				}
-			}
-			db.write(db_transaction)
-				.map_err(|_| String::from("Error committing transaction"))?;
-			self.db.set(Some(db));
-		}
-
-		self.root.set(self.genesis_root);
 		self.reopen()?;
 		self.wipe_tracker();
 		Ok(())
@@ -631,16 +578,22 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 				log::debug!(target: "benchmark", "Some proof size: {}", &proof_size);
 				proof_size
 			} else {
+				let root = if let Some(state) = self.state.borrow().as_ref().map(|s| *s.root()) {
+					state
+				} else {
+					self.genesis_root
+				};
+
 				if let Some(size) = proof.encoded_compact_size::<Hasher>(proof_recorder_root) {
 					size as u32
-				} else if proof_recorder_root == self.root.get() {
+				} else if proof_recorder_root == root {
 					log::debug!(target: "benchmark", "No changes - no proof");
 					0
 				} else {
 					panic!(
 						"proof rec root {:?}, root {:?}, genesis {:?}, rec_len {:?}",
 						self.proof_recorder_root.get(),
-						self.root.get(),
+						root,
 						self.genesis_root,
 						proof_size,
 					);
@@ -660,7 +613,7 @@ impl<Hasher: Hash> std::fmt::Debug for BenchmarkingState<Hasher> {
 mod test {
 	use crate::bench::BenchmarkingState;
 	use sp_runtime::traits::HashingFor;
-	use sp_state_machine::backend::Backend as _;
+	use sp_state_machine::{backend::Backend as _, BackendTransaction};
 
 	fn hex(hex: &str) -> Vec<u8> {
 		array_bytes::hex2bytes(hex).unwrap()
@@ -710,8 +663,7 @@ mod test {
 
 			bench_state
 				.commit(
-					Default::default(),
-					Default::default(),
+					BackendTransaction::unchanged(Default::default()),
 					vec![("foo".as_bytes().to_vec(), None)],
 					vec![("child1".as_bytes().to_vec(), vec![("foo".as_bytes().to_vec(), None)])],
 				)

@@ -337,7 +337,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 				) -> std::option::Option<#crate_::StorageProof> {
 					let recorder = std::option::Option::take(&mut self.recorder);
 					std::option::Option::map(recorder, |recorder| {
-						#crate_::ProofRecorder::<Block>::drain_storage_proof(recorder)
+						#crate_::ProofRecorder::<Block>::drain_storage_proof(&recorder)
 					})
 				}
 

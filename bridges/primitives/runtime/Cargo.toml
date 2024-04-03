@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
-hash-db = { version = "0.16.0", default-features = false }
+trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
 impl-trait-for-tuples = "0.2.2"
 log = { workspace = true }
 num-traits = { version = "0.2", default-features = false }
@@ -28,7 +28,6 @@ sp-runtime = { path = "../../../substrate/primitives/runtime", default-features 
 sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
-trie-db = { version = "0.28.0", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4"
@@ -39,7 +38,6 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"hash-db/std",
 	"log/std",
 	"num-traits/std",
 	"scale-info/std",
@@ -50,5 +48,6 @@ std = [
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-trie/std",
+	"trie-db/std",
 	"trie-db/std",
 ]

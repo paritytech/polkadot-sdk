@@ -22,34 +22,36 @@ use sp_std::{
 	collections::btree_map::{BTreeMap, Entry},
 };
 use sp_trie::NodeCodec;
-use trie_db::{node::NodeOwned, Hasher};
+use trie_db::{node::NodeOwned, node_db::Hasher};
 
 /// Special purpose trie cache implementation that is able to cache an unlimited number
 /// of values. To be used in `validate_block` to serve values and nodes that
 /// have already been loaded and decoded from the storage proof.
 pub(crate) struct TrieCache<'a, H: Hasher> {
-	node_cache: RefMut<'a, BTreeMap<H::Out, NodeOwned<H::Out>>>,
-	value_cache: Option<RefMut<'a, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
+	node_cache: RefMut<'a, BTreeMap<H::Out, NodeOwned<H::Out, ()>>>,
+	value_cache: Option<RefMut<'a, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out, ()>>>>,
 }
 
-impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
-	fn lookup_value_for_key(&mut self, key: &[u8]) -> Option<&trie_db::CachedValue<H::Out>> {
+impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>, ()> for TrieCache<'a, H> {
+	fn lookup_value_for_key(&mut self, key: &[u8]) -> Option<&trie_db::CachedValue<H::Out, ()>> {
 		self.value_cache.as_ref().and_then(|cache| cache.get(key))
 	}
 
-	fn cache_value_for_key(&mut self, key: &[u8], value: trie_db::CachedValue<H::Out>) {
+	fn cache_value_for_key(&mut self, key: &[u8], value: trie_db::CachedValue<H::Out, ()>) {
 		self.value_cache.as_mut().and_then(|cache| cache.insert(key.into(), value));
 	}
 
 	fn get_or_insert_node(
 		&mut self,
 		hash: <NodeCodec<H> as trie_db::NodeCodec>::HashOut,
+		_location: (),
 		fetch_node: &mut dyn FnMut() -> trie_db::Result<
-			NodeOwned<H::Out>,
+			NodeOwned<H::Out, ()>,
 			H::Out,
 			<NodeCodec<H> as trie_db::NodeCodec>::Error,
 		>,
-	) -> trie_db::Result<&NodeOwned<H::Out>, H::Out, <NodeCodec<H> as trie_db::NodeCodec>::Error> {
+	) -> trie_db::Result<&NodeOwned<H::Out, ()>, H::Out, <NodeCodec<H> as trie_db::NodeCodec>::Error>
+	{
 		match self.node_cache.entry(hash) {
 			Entry::Occupied(entry) => Ok(entry.into_mut()),
 			Entry::Vacant(entry) => Ok(entry.insert(fetch_node()?)),
@@ -59,21 +61,24 @@ impl<'a, H: Hasher> trie_db::TrieCache<NodeCodec<H>> for TrieCache<'a, H> {
 	fn get_node(
 		&mut self,
 		hash: &H::Out,
-	) -> Option<&NodeOwned<<NodeCodec<H> as trie_db::NodeCodec>::HashOut>> {
+		_location: (),
+	) -> Option<&NodeOwned<<NodeCodec<H> as trie_db::NodeCodec>::HashOut, ()>> {
 		self.node_cache.get(hash)
 	}
+
+	fn insert_new_node(&mut self, _hash: &H::Out) {}
 }
 
 /// Provider of [`TrieCache`] instances.
 pub(crate) struct CacheProvider<H: Hasher> {
-	node_cache: RefCell<BTreeMap<H::Out, NodeOwned<H::Out>>>,
+	node_cache: RefCell<BTreeMap<H::Out, NodeOwned<H::Out, ()>>>,
 	/// Cache: `storage_root` => `storage_key` => `value`.
 	///
 	/// One `block` can for example use multiple tries (child tries) and we need to distinguish the
 	/// cached (`storage_key`, `value`) between them. For this we are using the `storage_root` to
 	/// distinguish them (even if the storage root is the same for two child tries, it just means
 	/// that both are exactly the same trie and there would happen no collision).
-	value_cache: RefCell<BTreeMap<H::Out, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out>>>>,
+	value_cache: RefCell<BTreeMap<H::Out, BTreeMap<Box<[u8]>, trie_db::CachedValue<H::Out, ()>>>>,
 }
 
 impl<H: Hasher> CacheProvider<H> {

@@ -15,8 +15,8 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = "0.2.1"
 log = { workspace = true }
-trie-db = { version = "0.28.0", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+trie-db = { package = "subtrie", version = "0.0.1", default-features = false }
 
 # Substrate
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -49,7 +49,6 @@ cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-si
 assert_matches = "1.5"
 hex-literal = "0.4.1"
 lazy_static = "1.4"
-trie-standardmap = "0.16.0"
 rand = "0.8.5"
 futures = "0.3.28"
 

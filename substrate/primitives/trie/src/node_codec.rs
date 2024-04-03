@@ -19,12 +19,13 @@
 
 use super::node_header::{NodeHeader, NodeKind};
 use crate::{error::Error, trie_constants};
+use alloc::{borrow::Borrow, vec::Vec};
 use codec::{Compact, Decode, Encode, Input};
-use hash_db::Hasher;
-use sp_std::{borrow::Borrow, marker::PhantomData, ops::Range, vec::Vec};
+use core::{marker::PhantomData, ops::Range};
 use trie_db::{
 	nibble_ops,
 	node::{NibbleSlicePlan, NodeHandlePlan, NodePlan, Value, ValuePlan},
+	node_db::Hasher,
 	ChildReference, NodeCodec as NodeCodecT,
 };
 
@@ -134,12 +135,14 @@ where
 					None, None, None, None, None, None, None, None, None, None, None, None, None,
 					None, None, None,
 				];
+				let mut i_hash = 0;
 				for i in 0..nibble_ops::NIBBLE_LENGTH {
 					if bitmap.value_at(i) {
 						let count = <Compact<u32>>::decode(&mut input)?.0 as usize;
 						let range = input.take(count)?;
 						children[i] = Some(if count == H::LENGTH {
-							NodeHandlePlan::Hash(range)
+							i_hash += 1;
+							NodeHandlePlan::Hash(range, i_hash - 1)
 						} else {
 							NodeHandlePlan::Inline(range)
 						});
@@ -185,7 +188,11 @@ where
 		&[trie_constants::EMPTY_TRIE]
 	}
 
-	fn leaf_node(partial: impl Iterator<Item = u8>, number_nibble: usize, value: Value) -> Vec<u8> {
+	fn leaf_node<L>(
+		partial: impl Iterator<Item = u8>,
+		number_nibble: usize,
+		value: Value<L>,
+	) -> Vec<u8> {
 		let contains_hash = matches!(&value, Value::Node(..));
 		let mut output = if contains_hash {
 			partial_from_iterator_encode(partial, number_nibble, NodeKind::HashedValueLeaf)
@@ -197,7 +204,7 @@ where
 				Compact(value.len() as u32).encode_to(&mut output);
 				output.extend_from_slice(value);
 			},
-			Value::Node(hash) => {
+			Value::Node(hash, _) => {
 				debug_assert!(hash.len() == H::LENGTH);
 				output.extend_from_slice(hash);
 			},
@@ -205,26 +212,26 @@ where
 		output
 	}
 
-	fn extension_node(
+	fn extension_node<L>(
 		_partial: impl Iterator<Item = u8>,
 		_nbnibble: usize,
-		_child: ChildReference<<H as Hasher>::Out>,
+		_child: ChildReference<<H as Hasher>::Out, L>,
 	) -> Vec<u8> {
 		unreachable!("No extension codec.")
 	}
 
-	fn branch_node(
-		_children: impl Iterator<Item = impl Borrow<Option<ChildReference<<H as Hasher>::Out>>>>,
-		_maybe_value: Option<Value>,
+	fn branch_node<L>(
+		_children: impl Iterator<Item = impl Borrow<Option<ChildReference<<H as Hasher>::Out, L>>>>,
+		_maybe_value: Option<Value<L>>,
 	) -> Vec<u8> {
 		unreachable!("No extension codec.")
 	}
 
-	fn branch_node_nibbled(
+	fn branch_node_nibbled<L>(
 		partial: impl Iterator<Item = u8>,
 		number_nibble: usize,
-		children: impl Iterator<Item = impl Borrow<Option<ChildReference<<H as Hasher>::Out>>>>,
-		value: Option<Value>,
+		children: impl Iterator<Item = impl Borrow<Option<ChildReference<<H as Hasher>::Out, L>>>>,
+		value: Option<Value<L>>,
 	) -> Vec<u8> {
 		let contains_hash = matches!(&value, Some(Value::Node(..)));
 		let mut output = match (&value, contains_hash) {
@@ -244,7 +251,7 @@ where
 				Compact(value.len() as u32).encode_to(&mut output);
 				output.extend_from_slice(value);
 			},
-			Some(Value::Node(hash)) => {
+			Some(Value::Node(hash, _)) => {
 				debug_assert!(hash.len() == H::LENGTH);
 				output.extend_from_slice(hash);
 			},
@@ -252,7 +259,7 @@ where
 		}
 		Bitmap::encode(
 			children.map(|maybe_child| match maybe_child.borrow() {
-				Some(ChildReference::Hash(h)) => {
+				Some(ChildReference::Hash(h, _)) => {
 					h.as_ref().encode_to(&mut output);
 					true
 				},

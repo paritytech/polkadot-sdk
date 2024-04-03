@@ -22,6 +22,7 @@ node-primitives = { path = "../primitives" }
 node-testing = { path = "../testing" }
 kitchensink-runtime = { path = "../runtime" }
 sc-client-api = { path = "../../../client/api" }
+sc-client-db = { path = "../../../client/db" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 serde = { workspace = true, default-features = true }
@@ -36,12 +37,12 @@ sc-basic-authorship = { path = "../../../client/basic-authorship" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-timestamp = { path = "../../../primitives/timestamp", default-features = false }
 sp-tracing = { path = "../../../primitives/tracing" }
-hash-db = "0.16.0"
+trie-db = { package = "subtrie", version = "0.0.1" }
 tempfile = "3.1.0"
 fs_extra = "1"
 rand = { version = "0.8.5", features = ["small_rng"] }
 lazy_static = "1.4.0"
-parity-db = "0.4.12"
+parity-db = "0.4.13"
 sc-transaction-pool = { path = "../../../client/transaction-pool" }
 sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
 futures = { version = "0.3.21", features = ["thread-pool"] }

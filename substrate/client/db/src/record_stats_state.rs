@@ -28,7 +28,7 @@ use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
 	BackendTransaction, IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend,
 };
-use sp_trie::MerkleValue;
+use sp_trie::{ChildChangeset, MerkleValue};
 use std::sync::Arc;
 
 /// State abstraction for recording stats about state access.
@@ -110,7 +110,6 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 	for RecordStatsState<S, B>
 {
 	type Error = S::Error;
-	type TrieBackendStorage = S::TrieBackendStorage;
 	type RawIter = RawIter<S, B>;
 
 	fn storage(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Self::Error> {
@@ -186,9 +185,9 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
 		state_version: StateVersion,
-	) -> (B::Hash, BackendTransaction<HashingFor<B>>) {
+	) -> BackendTransaction<B::Hash> {
 		self.state.storage_root(delta, state_version)
 	}
 
@@ -197,7 +196,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-	) -> (B::Hash, bool, BackendTransaction<HashingFor<B>>) {
+	) -> (BackendTransaction<B::Hash>, bool) {
 		self.state.child_storage_root(child_info, delta, state_version)
 	}
 
@@ -219,9 +218,10 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 impl<S: StateBackend<HashingFor<B>> + AsTrieBackend<HashingFor<B>>, B: BlockT>
 	AsTrieBackend<HashingFor<B>> for RecordStatsState<S, B>
 {
-	type TrieBackendStorage = <S as AsTrieBackend<HashingFor<B>>>::TrieBackendStorage;
-
-	fn as_trie_backend(&self) -> &TrieBackend<Self::TrieBackendStorage, HashingFor<B>> {
+	fn as_trie_backend(&self) -> &TrieBackend<HashingFor<B>> {
 		self.state.as_trie_backend()
+	}
+	fn as_trie_backend_mut(&mut self) -> &mut TrieBackend<HashingFor<B>> {
+		self.state.as_trie_backend_mut()
 	}
 }

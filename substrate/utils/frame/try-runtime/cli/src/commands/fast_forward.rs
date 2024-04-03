@@ -127,9 +127,7 @@ async fn run<Block: BlockT, HostFns: HostFunctions>(
 	let storage_changes =
 		changes.drain_storage_changes(&externalities.backend, externalities.state_version)?;
 
-	externalities
-		.backend
-		.apply_transaction(storage_changes.transaction_storage_root, storage_changes.transaction);
+	externalities.backend.apply_transaction(storage_changes.transaction);
 
 	Ok(())
 }
@@ -225,7 +223,7 @@ where
 
 	for _ in 1..=command.n_blocks.unwrap_or(u64::MAX) {
 		// We are saving state before we overwrite it while producing new block.
-		let backend = ext.as_backend();
+		let backend = ext.as_backend().unwrap();
 
 		log::info!("Producing new empty block at height {:?}", last_block_number + One::one());
 

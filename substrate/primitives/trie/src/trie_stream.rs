@@ -21,10 +21,9 @@ use crate::{
 	node_header::{size_and_prefix_iterator, NodeKind},
 	trie_constants,
 };
+use alloc::vec::Vec;
 use codec::{Compact, Encode};
-use hash_db::Hasher;
-use sp_std::vec::Vec;
-use trie_root;
+use trie_db::{node_db::Hasher, trie_root};
 
 /// Codec-flavored TrieStream.
 #[derive(Default, Clone)]

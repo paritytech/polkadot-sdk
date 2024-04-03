@@ -600,7 +600,6 @@ curve25519-dalek = { opt-level = 3 }
 ed25519-dalek = { opt-level = 3 }
 flate2 = { opt-level = 3 }
 futures-channel = { opt-level = 3 }
-hash-db = { opt-level = 3 }
 hashbrown = { opt-level = 3 }
 hmac = { opt-level = 3 }
 httparse = { opt-level = 3 }
@@ -632,3 +631,7 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+subtrie = { git = "https://github.com/paritytech/subtrie.git", branch = "master" }
+parity-db = { git = "https://github.com/paritytech/parity-db.git", branch = "master" }

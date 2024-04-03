@@ -17,9 +17,8 @@
 
 //! Basic implementation for Externalities.
 
-use crate::{Backend, OverlayedChanges, StorageKey, StorageValue};
+use crate::{Backend, DBLocation, OverlayedChanges, StorageKey, StorageValue};
 use codec::Encode;
-use hash_db::Hasher;
 use log::warn;
 use sp_core::{
 	storage::{
@@ -35,6 +34,7 @@ use std::{
 	collections::BTreeMap,
 	iter::FromIterator,
 };
+use trie_db::node_db::Hasher;
 
 /// Simple Map-based Externalities impl.
 #[derive(Debug)]
@@ -258,7 +258,7 @@ impl Externalities for BasicExternalities {
 		// Single child trie implementation currently allows using the same child
 		// empty root for all child trie. Using null storage key until multiple
 		// type of child trie support.
-		let empty_hash = empty_child_trie_root::<LayoutV1<Blake2Hasher>>();
+		let empty_hash = empty_child_trie_root::<LayoutV1<Blake2Hasher, DBLocation>>();
 		for child_info in self.overlay.children().map(|d| d.1.clone()).collect::<Vec<_>>() {
 			let child_root = self.child_storage_root(&child_info, state_version);
 			if empty_hash[..] == child_root[..] {
@@ -269,8 +269,10 @@ impl Externalities for BasicExternalities {
 		}
 
 		match state_version {
-			StateVersion::V0 => LayoutV0::<Blake2Hasher>::trie_root(top).as_ref().into(),
-			StateVersion::V1 => LayoutV1::<Blake2Hasher>::trie_root(top).as_ref().into(),
+			StateVersion::V0 =>
+				LayoutV0::<Blake2Hasher, DBLocation>::trie_root(top).as_ref().into(),
+			StateVersion::V1 =>
+				LayoutV1::<Blake2Hasher, DBLocation>::trie_root(top).as_ref().into(),
 		}
 	}
 
@@ -285,8 +287,9 @@ impl Externalities for BasicExternalities {
 			crate::in_memory_backend::new_in_mem::<Blake2Hasher>()
 				.child_storage_root(&child_info, delta, state_version)
 				.0
+				.root_hash()
 		} else {
-			empty_child_trie_root::<LayoutV1<Blake2Hasher>>()
+			empty_child_trie_root::<LayoutV1<Blake2Hasher, DBLocation>>()
 		}
 		.encode()
 	}

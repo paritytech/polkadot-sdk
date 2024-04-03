@@ -23,13 +23,13 @@ use crate::{
 	backend::Backend, IndexOperation, IterArgs, OverlayedChanges, StorageKey, StorageValue,
 };
 use codec::{Encode, EncodeAppend};
-use hash_db::Hasher;
 #[cfg(feature = "std")]
 use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
 };
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
+use trie_db::node_db::Hasher;
 
 use crate::{log_error, trace, warn};
 use sp_std::{
@@ -617,7 +617,6 @@ where
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 		self.backend
 			.commit(
-				changes.transaction_storage_root,
 				changes.transaction,
 				changes.main_storage_changes,
 				changes.child_storage_changes,
