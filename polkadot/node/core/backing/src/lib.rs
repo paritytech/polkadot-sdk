@@ -105,12 +105,11 @@ use polkadot_node_subsystem_util::{
 	Validator,
 };
 use polkadot_primitives::{
-	vstaging::{node_features::FeatureIndex, NodeFeatures},
-	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex, GroupRotationInfo,
-	Hash, Id as ParaId, IndexedVec, PersistedValidationData, PvfExecKind, SessionIndex,
-	SigningContext, ValidationCode, ValidatorId, ValidatorIndex, ValidatorSignature,
-	ValidityAttestation,
+	node_features::FeatureIndex, BackedCandidate, CandidateCommitments, CandidateHash,
+	CandidateReceipt, CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex,
+	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, PersistedValidationData,
+	PvfExecKind, SessionIndex, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
+	ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
 use statement_table::{
@@ -911,7 +910,7 @@ async fn handle_active_leaves_update<Context>(
 			}
 
 			let mut seconded_at_depth = HashMap::new();
-			if let Some(response) = membership_answers.next().await {
+			while let Some(response) = membership_answers.next().await {
 				match response {
 					Err(oneshot::Canceled) => {
 						gum::warn!(
