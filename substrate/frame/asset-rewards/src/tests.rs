@@ -416,12 +416,6 @@ mod harvest_rewards {
 			let pool_id = 0;
 			let reward_asset_id = NativeOrWithId::<u32>::Native;
 			create_default_pool();
-			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
-			<<MockRuntime as Config>::Assets>::set_balance(
-				reward_asset_id.clone(),
-				&pool_account_id,
-				100_000,
-			);
 
 			// Stake
 			System::set_block_number(10);
@@ -464,12 +458,6 @@ mod harvest_rewards {
 			let pool_id = 0;
 			let reward_asset_id = NativeOrWithId::<u32>::Native;
 			create_default_pool();
-			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
-			<<MockRuntime as Config>::Assets>::set_balance(
-				reward_asset_id.clone(),
-				&pool_account_id,
-				100_000,
-			);
 
 			// Stake
 			System::set_block_number(10);
@@ -608,14 +596,13 @@ mod set_pool_expiry_block {
 	use super::*;
 
 	#[test]
-	fn success() {
+	fn updates_state_correctly() {
 		new_test_ext().execute_with(|| {
 			let admin = 1;
 			let pool_id = 0;
 			let new_expiry_block = 200u64;
 			create_default_pool();
 
-			// Modify the pool expiry block
 			assert_ok!(StakingRewards::set_pool_expiry_block(
 				RuntimeOrigin::signed(admin),
 				pool_id,
@@ -623,11 +610,76 @@ mod set_pool_expiry_block {
 			));
 
 			// Check state
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().expiry_block, new_expiry_block);
 			assert_eq!(
 				*events().last().unwrap(),
 				Event::<MockRuntime>::PoolExpiryBlockModified { pool_id, new_expiry_block }
 			);
-			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().expiry_block, new_expiry_block);
+		});
+	}
+
+	#[test]
+	fn extends_reward_accumulation() {
+		new_test_ext().execute_with(|| {
+			let admin = 1;
+			let staker = 2;
+			let pool_id = 0;
+			let new_expiry_block = 200u64;
+			create_default_pool();
+
+			// Regular reward accumulation
+			System::set_block_number(10);
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+			System::set_block_number(20);
+			assert_hypothetically_earned(staker, 100 * 10, pool_id, NativeOrWithId::<u32>::Native);
+
+			// Expiry was block 100, or only earned 90 blocks at block 150
+			System::set_block_number(150);
+			assert_hypothetically_earned(staker, 100 * 90, pool_id, NativeOrWithId::<u32>::Native);
+
+			// Extend expiry 50 more blocks
+			assert_ok!(StakingRewards::set_pool_expiry_block(
+				RuntimeOrigin::signed(admin),
+				pool_id,
+				new_expiry_block
+			));
+			System::set_block_number(300);
+
+			// Staker has been in pool with rewards active for 140 blocks total
+			assert_hypothetically_earned(staker, 100 * 140, pool_id, NativeOrWithId::<u32>::Native);
+		});
+	}
+
+	#[test]
+	fn halts_reward_accumulation() {
+		new_test_ext().execute_with(|| {
+			let admin = 1;
+			let staker = 2;
+			let pool_id = 0;
+			create_default_pool();
+
+			// Earn 10 blocks of rewards
+			System::set_block_number(10);
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+			System::set_block_number(20);
+			assert_hypothetically_earned(staker, 100 * 10, pool_id, NativeOrWithId::<u32>::Native);
+
+			// Cut off rewards earlier than original expiry
+			System::set_block_number(21);
+			assert_ok!(StakingRewards::set_pool_expiry_block(
+				RuntimeOrigin::signed(admin),
+				pool_id,
+				30
+			));
+			System::set_block_number(50);
+
+			// Staker has been in pool with rewards active for 20 blocks total
+			assert_hypothetically_earned(
+				staker,
+				100 * 20 - 1, // -1 rounding error
+				pool_id,
+				NativeOrWithId::<u32>::Native,
+			);
 		});
 	}
 
@@ -674,11 +726,9 @@ mod set_pool_expiry_block {
 			let admin = 1;
 			let pool_id = 0;
 			create_default_pool();
-
-			System::set_block_number(5000);
-
+			System::set_block_number(50);
 			assert_err!(
-				StakingRewards::set_pool_expiry_block(RuntimeOrigin::signed(admin), pool_id, 2u64),
+				StakingRewards::set_pool_expiry_block(RuntimeOrigin::signed(admin), pool_id, 40u64),
 				Error::<MockRuntime>::ExpiryBlockMustBeInTheFuture
 			);
 		});
@@ -799,13 +849,6 @@ fn assert_hypothetically_earned(
 	reward_asset_id: NativeOrWithId<u32>,
 ) {
 	hypothetically!({
-		let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
-		<<MockRuntime as Config>::Assets>::set_balance(
-			reward_asset_id.clone(),
-			&pool_account_id,
-			100_000,
-		);
-
 		// Get the pre-harvest balance.
 		let balance_before: <MockRuntime as Config>::Balance =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
@@ -851,14 +894,6 @@ fn integration() {
 			None
 		));
 		let pool_id = 0;
-		let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
-		<<MockRuntime as Config>::Assets>::set_balance(
-			reward_asset_id.clone(),
-			&pool_account_id,
-			100_000,
-		);
-		<<MockRuntime as Config>::Assets>::set_balance(staking_asset_id.clone(), &staker1, 100_000);
-		<<MockRuntime as Config>::Assets>::set_balance(staking_asset_id.clone(), &staker2, 100_000);
 
 		// Block 7: Staker 1 stakes 100 tokens.
 		System::set_block_number(7);
