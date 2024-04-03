@@ -9,4 +9,5 @@ doc:
       This PR adds a new call `hrmp.establish_channel_with_system` that allows a parachain origin to open a bidirectional channel with a system parachain.
 
 crates: 
-  - name: polkadot-runtime-parachains
+- name: polkadot-runtime-parachains
+  bump: minor
