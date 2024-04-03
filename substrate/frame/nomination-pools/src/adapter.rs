@@ -122,6 +122,12 @@ pub trait StakeStrategy {
 		reward_account: &Self::AccountId,
 	) -> DispatchResult;
 
+	fn migrate_delegation(
+		agent: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+	) -> DispatchResult;
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn nominations(pool_account: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		Self::CoreStaking::nominations(pool_account)
@@ -215,6 +221,14 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	) -> DispatchResult {
 		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
 	}
+
+	fn migrate_delegation(
+		_agent: &Self::AccountId,
+		_delegator: &Self::AccountId,
+		_value: Self::Balance,
+	) -> DispatchResult {
+		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
+	}
 }
 
 /// A staking strategy implementation that supports delegation based staking.
@@ -304,5 +318,13 @@ impl<
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
 		Delegation::migrate_nominator_to_agent(agent, reward_account)
+	}
+
+	fn migrate_delegation(
+		agent: &Self::AccountId,
+		delegator: &Self::AccountId,
+		value: Self::Balance,
+	) -> DispatchResult {
+		Delegation::migrate_delegation(agent, delegator, value)
 	}
 }

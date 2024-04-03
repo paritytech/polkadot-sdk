@@ -1938,6 +1938,8 @@ pub mod pallet {
 		NothingToAdjust,
 		/// No slash pending that can be applied to the member.
 		NothingToSlash,
+		/// No delegation to claim.
+		NoDelegationToClaim,
 	}
 
 	#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
@@ -2830,7 +2832,7 @@ pub mod pallet {
 		/// Apply a pending slash on a member.
 		#[pallet::call_index(23)]
 		// FIXME(ank4n): fix weight. Depends on unbonding pool count for member_account.
-		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
+		#[pallet::weight(Weight::default())]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,
@@ -2838,6 +2840,40 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let member_account = T::Lookup::lookup(member_account)?;
 			Self::do_apply_slash(&member_account, Some(who))
+		}
+
+		/// Allows a pool member to claim their delegation in their own account.
+		///
+		/// This is a permission-less call and refunds any fee if claim is successful.
+		///
+		/// If the pool has migrated to delegation based staking, the staked tokens of pool members
+		/// can be moved and held in their own account. See [`adapter::DelegateStake`]
+		#[pallet::call_index(24)]
+		// FIXME(ank4n): Bench and migration tests for pool.
+		#[pallet::weight(Weight::default())]
+		pub fn claim_delegation(
+			origin: OriginFor<T>,
+			member_account: AccountIdLookupOf<T>,
+		) -> DispatchResultWithPostInfo {
+			let _caller = ensure_signed(origin)?;
+
+			let member_account = T::Lookup::lookup(member_account)?;
+			let member =
+				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
+			let pool_contribution = member.total_balance();
+			ensure!(pool_contribution >= MinJoinBond::<T>::get(), Error::<T>::MinimumBondNotMet);
+
+			let delegation = T::StakeAdapter::member_delegation_balance(&member_account);
+			ensure!(pool_contribution > delegation, Error::<T>::NoDelegationToClaim);
+
+			let diff = pool_contribution.defensive_saturating_sub(delegation);
+			T::StakeAdapter::migrate_delegation(
+				&Pallet::<T>::create_bonded_account(member.pool_id),
+				&member_account,
+				diff,
+			)?;
+
+			Ok(Pays::No.into())
 		}
 	}
 
