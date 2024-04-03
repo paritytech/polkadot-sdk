@@ -921,6 +921,127 @@ mod deposit_reward_tokens {
 	}
 }
 
+mod withdraw_reward_tokens {
+	use super::*;
+
+	#[test]
+	fn success() {
+		new_test_ext().execute_with(|| {
+			let admin = 1;
+			let pool_id = 0;
+			let reward_asset_id = NativeOrWithId::<u32>::Native;
+			let initial_deposit = 10;
+			let withdraw_amount = 5;
+			create_default_pool();
+			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+
+			let admin_balance_before =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &admin);
+			let pool_balance_before = <<MockRuntime as Config>::Assets>::balance(
+				reward_asset_id.clone(),
+				&pool_account_id,
+			);
+
+			// Deposit initial reward tokens
+			assert_ok!(StakingRewards::deposit_reward_tokens(
+				RuntimeOrigin::signed(admin),
+				pool_id,
+				initial_deposit
+			));
+
+			// Withdraw some tokens
+			assert_ok!(StakingRewards::withdraw_reward_tokens(
+				RuntimeOrigin::signed(admin),
+				pool_id,
+				withdraw_amount
+			));
+
+			let admin_balance_after =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &admin);
+			let pool_balance_after =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id, &pool_account_id);
+
+			assert_eq!(
+				<<MockRuntime as Config>::Assets>::balance(
+					reward_asset_id.clone(),
+					&pool_account_id
+				),
+				initial_deposit - withdraw_amount
+			);
+			assert_eq!(
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id, &admin),
+				withdraw_amount
+			);
+		});
+	}
+
+	// #[test]
+	// fn fails_for_non_existent_pool() {
+	// 	new_test_ext().execute_with(|| {
+	// 		let admin = 1;
+	// 		let non_existent_pool_id = 999;
+	// 		let withdraw_amount = 5000;
+	//
+	// 		assert_err!(
+	// 			StakingRewards::withdraw_reward_tokens(
+	// 				RuntimeOrigin::signed(admin),
+	// 				non_existent_pool_id,
+	// 				withdraw_amount
+	// 			),
+	// 			Error::<MockRuntime>::NonExistentPool
+	// 		);
+	// 	});
+	// }
+	//
+	// #[test]
+	// fn fails_for_non_admin() {
+	// 	new_test_ext().execute_with(|| {
+	// 		let non_admin = 2;
+	// 		let pool_id = 0;
+	// 		let withdraw_amount = 5000;
+	// 		create_default_pool();
+	//
+	// 		assert_err!(
+	// 			StakingRewards::withdraw_reward_tokens(
+	// 				RuntimeOrigin::signed(non_admin),
+	// 				pool_id,
+	// 				withdraw_amount
+	// 			),
+	// 			BadOrigin
+	// 		);
+	// 	});
+	// }
+	//
+	// #[test]
+	// fn fails_for_insufficient_pool_balance() {
+	// 	new_test_ext().execute_with(|| {
+	// 		let admin = 1;
+	// 		let pool_id = 0;
+	// 		let reward_asset_id = NativeOrWithId::<u32>::Native;
+	// 		let initial_deposit = 10000;
+	// 		let withdraw_amount = 15000;
+	// 		create_default_pool();
+	//
+	// 		// Deposit initial reward tokens
+	// 		let pool_account = StakingRewards::pool_account_id(&pool_id).unwrap();
+	// 		<<MockRuntime as Config>::Assets>::set_balance(
+	// 			reward_asset_id,
+	// 			&pool_account,
+	// 			initial_deposit,
+	// 		);
+	//
+	// 		assert_err!(
+	// 			StakingRewards::withdraw_reward_tokens(
+	// 				RuntimeOrigin::signed(admin),
+	// 				pool_id,
+	// 				withdraw_amount
+	// 			),
+	// 			assets::Error::<MockRuntime>::BalanceLow
+	// 		);
+	// 	});
+	// }
+}
+
 /// This integration test
 /// 1. Considers 2 stakers each staking and unstaking at different intervals, asserts their
 ///    claimable rewards are adjusted as expected, and that harvesting works.

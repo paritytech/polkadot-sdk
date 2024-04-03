@@ -23,17 +23,22 @@
 //!
 //! Governance can create a new incentive program for a fungible asset by creating a new pool.
 //!
-//! When creating the pool, governance specifies a 'staking asset', 'reward asset', and 'reward rate
-//! per block'.
+//! When creating the pool, governance specifies a 'staking asset', 'reward asset', 'reward rate
+//! per block', and an 'expiry block'.
 //!
-//! Once the pool is created, holders of the 'staking asset' can stake them in this pallet (creating
-//! a new Freeze). Once staked, the staker begins accumulating the right to claim the 'reward asset'
-//! each block, proportional to their share of the total staked tokens in the pool.
+//! Once the pool is created, holders of the 'staking asset' can stake them in this pallet, which
+//! puts a Freeze on the asset.
+//!
+//! Once staked, the staker begins accumulating the right to claim the 'reward asset' each block,
+//! proportional to their share of the total staked tokens in the pool.
 //!
 //! Reward assets pending distribution are held in an account derived from the pallet ID and a
 //! unique pool ID.
 //!
 //! Care should be taken to keep pool accounts adequately funded with the reward asset.
+//!
+//! The pool administator can adjust the reward rate per block, the expiry block, and the admin
+//! after the pool is created.
 //!
 //! ## Permissioning
 //!
@@ -50,14 +55,23 @@
 //! pallet Call method, which while slightly more verbose, makes it much easier to understand the
 //! code and reason about where side-effects occur in the pallet.
 //!
-//! ## Implementation Notes
+//! ## Rewards Algorithm
 //!
-//! The implementation is based on the [AccumulatedRewardsPerShare](https://dev.to/heymarkkop/understanding-sushiswaps-masterchef-staking-rewards-1m6f) algorithm.
+//! The rewards algorithm is based on the Synthetix [StakingRewards.sol](https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol)
+//! smart contract.
 //!
-//! Rewards are calculated JIT (just-in-time), when a staker claims their rewards.
+//! Rewards are calculated JIT (just-in-time), and all operations are O(1) making the approach
+//! scalable to many pools and stakers.
 //!
-//! All operations are O(1), allowing the approach to scale to an arbitrary amount of pools and
-//! stakers.
+//! The approach is widly used across the Ethereum ecosystem, there is also quite battle tested.
+//!
+//! ### Resources
+//!
+//! - [This YouTube video series](https://www.youtube.com/watch?v=6ZO5aYg1GI8), which walks through
+//!   the math of the algorithm.
+//! - [This dev.to article](https://dev.to/heymarkkop/understanding-sushiswaps-masterchef-staking-rewards-1m6f),
+//!   which explains the algorithm of the SushiSwap MasterChef staking. While not identical to the
+//!   Synthetix approach, they are very similar.
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -570,6 +584,26 @@ pub mod pallet {
 				amount,
 				Preservation::Preserve,
 			)?;
+			Ok(())
+		}
+
+		/// Permissioned method to withdraw reward tokens from a pool.
+		pub fn withdraw_reward_tokens(
+			origin: OriginFor<T>,
+			pool_id: PoolId,
+			amount: T::Balance,
+		) -> DispatchResult {
+			let caller = ensure_signed(origin)?;
+			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
+			ensure!(pool_info.admin == caller, BadOrigin);
+			T::Assets::transfer(
+				pool_info.reward_asset_id,
+				&caller,
+				&Self::pool_account_id(&pool_id)?,
+				amount,
+				Preservation::Preserve,
+			)?;
+
 			Ok(())
 		}
 	}
