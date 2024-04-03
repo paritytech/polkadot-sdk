@@ -26,7 +26,8 @@ use sp_runtime::traits::BadOrigin;
 /// - Expiry block: 100
 /// - Admin: 1
 ///
-/// Useful for tests when you don't care about customising, or reusing the pool params.
+/// Useful to reduce boilerplate in tests when it's not important to customise or reusing pool
+/// params.
 fn create_default_pool() {
 	let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
 	assert_ok!(StakingRewards::create_pool(
@@ -320,8 +321,6 @@ mod stake {
 	fn fails_for_non_existent_pool() {
 		new_test_ext().execute_with(|| {
 			let user = 1;
-			let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
-
 			assert_err!(
 				StakingRewards::stake(RuntimeOrigin::signed(user), 999, 1000),
 				Error::<MockRuntime>::NonExistentPool
@@ -574,10 +573,7 @@ fn assert_hypothetically_earned(
 		// Check that the staker has earned the expected amount.
 		let balance_after =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
-		assert_eq!(
-			balance_after - balance_before,
-			<u128 as Into<<MockRuntime as Config>::Balance>>::into(expected_earned)
-		);
+		assert_eq!(balance_after - balance_before, expected_earned);
 	});
 }
 
@@ -716,7 +712,7 @@ fn integration() {
 		assert_hypothetically_earned(staker1, 1064, pool_id, reward_asset_id.clone());
 		assert_hypothetically_earned(staker2, 1133, pool_id, reward_asset_id.clone());
 
-		// Block 57: Staker 2 harvests their rewards.
+		// Block 57: Staker2 harvests their rewards.
 		System::set_block_number(57);
 		// - Staker 2 has earned 1233 (1133 + 2 * 50) tokens.
 		assert_hypothetically_earned(staker2, 1233, pool_id, reward_asset_id.clone());
@@ -726,10 +722,7 @@ fn integration() {
 		assert_ok!(StakingRewards::harvest_rewards(RuntimeOrigin::signed(staker2), pool_id, None));
 		let balance_after =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker2);
-		assert_eq!(
-			balance_after - balance_before,
-			<u128 as Into<<MockRuntime as Config>::Balance>>::into(1233)
-		);
+		assert_eq!(balance_after - balance_before, 1233u128);
 
 		// Block 60: Check rewards were adjusted correctly.
 		// - Staker 1 has earned 1065 tokens.
