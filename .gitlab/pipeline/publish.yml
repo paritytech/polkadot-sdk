@@ -118,7 +118,10 @@ trigger_workflow:
         export bencmark_name=$(basename $benchmark)
         echo "Benchmark: $bencmark_name"
         export benchmark_dir=$(echo $bencmark_name | sed 's/\.json//')
-        curl -q -X POST
+        curl -q -X POST \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: token $GITHUB_TOKEN" \
+               https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/actions/workflows/subsystem-benchmarks.yml/dispatches \
               -H "Accept: application/vnd.github.v3+json"
               -H "Authorization: token $GITHUB_TOKEN"
                https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/actions/workflows/subsystem-benchmarks.yml/dispatches
