@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::tests::*;
+use xcm_executor::traits::TransferType;
 
 fn send_asset_from_asset_hub_rococo_to_asset_hub_westend(id: Location, amount: u128) {
 	let destination = asset_hub_westend_location();
@@ -58,16 +59,17 @@ fn send_asset_from_penpal_rococo_through_local_asset_hub_to_westend_asset_hub(
 		let signed_origin = <PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get());
 		let beneficiary: Location =
 			AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
-		let fees: Asset = (id, transfer_amount).into();
-		let assets: Assets = fees.clone().into();
+		let fees: Asset = (id.clone(), transfer_amount).into();
+		let assets: Assets = vec![fees.clone()].into();
 
 		<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_reserve(
 			signed_origin,
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
-			bx!(assets.into()),
+			bx!(assets.clone().into()),
+			bx!(TransferType::RemoteReserve(local_asset_hub.clone().into())),
 			bx!(fees.into()),
-			bx!(local_asset_hub.into()),
+			bx!(TransferType::RemoteReserve(local_asset_hub.into())),
 			WeightLimit::Unlimited,
 		)
 	}));
@@ -210,7 +212,7 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	let prefund_amount = 10_000_000_000_000u128;
 	let wnd_at_asset_hub_rococo =
 		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Westend)]);
-	let owner: AccountId = AssetHubWestend::account_id_of(ALICE);
+	let owner: AccountId = AssetHubRococo::account_id_of(ALICE);
 	AssetHubRococo::force_create_foreign_asset(
 		wnd_at_asset_hub_rococo,
 		owner,
@@ -302,49 +304,6 @@ fn send_rocs_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_westend() 
 		NetworkId::Westend,
 		AssetHubWestend::para_id(),
 	);
-
-	AssetHubWestend::execute_with(|| {
-		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
-
-		// setup a pool to pay xcm fees with `roc_at_asset_hub_westend` tokens
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			roc_at_asset_hub_westend.into(),
-			AssetHubWestendSender::get().into(),
-			3_000_000_000_000,
-		));
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(xcm::v3::Parent.into()),
-			Box::new(roc_at_asset_hub_westend),
-		));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-			]
-		);
-
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
-			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(xcm::v3::Parent.into()),
-			Box::new(roc_at_asset_hub_westend),
-			1_000_000_000_000,
-			2_000_000_000_000,
-			1,
-			1,
-			AssetHubWestendSender::get().into()
-		));
-
-		assert_expected_events!(
-			AssetHubWestend,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
-			]
-		);
-	});
 
 	let amount = ASSET_HUB_ROCOCO_ED * 10_000_000;
 	let penpal_location = AssetHubRococo::sibling_location_of(PenpalA::para_id());

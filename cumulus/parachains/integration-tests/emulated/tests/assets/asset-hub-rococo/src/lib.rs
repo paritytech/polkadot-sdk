@@ -81,6 +81,7 @@ mod imports {
 	pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
 	pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
 	pub type ParaToParaThroughRelayTest = Test<PenpalA, PenpalB, Rococo>;
+	pub type ParaToParaThroughAHTest = Test<PenpalA, PenpalB, AssetHubRococo>;
 }
 
 #[cfg(test)]

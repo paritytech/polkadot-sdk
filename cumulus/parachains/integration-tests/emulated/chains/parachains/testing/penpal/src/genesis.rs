@@ -80,15 +80,14 @@ pub fn genesis(para_id: u32) -> Storage {
 			assets: vec![
 				// Relay Native asset representation
 				(
-					Location::try_from(RelayLocation::get()).expect("conversion works"),
+					Location::try_from(RelayLocation::get()).unwrap(),
 					PenpalAssetOwner::get(),
 					true,
 					ED,
 				),
 				// Sufficient AssetHub asset representation
 				(
-					Location::try_from(LocalReservableFromAssetHub::get())
-						.expect("conversion works"),
+					Location::try_from(LocalReservableFromAssetHub::get()).unwrap(),
 					PenpalAssetOwner::get(),
 					true,
 					ED,
