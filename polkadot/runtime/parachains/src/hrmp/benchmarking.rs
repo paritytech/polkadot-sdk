@@ -110,24 +110,24 @@ where
 	));
 
 	if matches!(until, ParachainSetupStep::Requested) {
-		return output
+		return output;
 	}
 
 	assert_ok!(Hrmp::<T>::hrmp_accept_open_channel(recipient_origin.into(), sender));
 	if matches!(until, ParachainSetupStep::Accepted) {
-		return output
+		return output;
 	}
 
 	Hrmp::<T>::process_hrmp_open_channel_requests(&Configuration::<T>::config());
 	if matches!(until, ParachainSetupStep::Established) {
-		return output
+		return output;
 	}
 
 	let channel_id = HrmpChannelId { sender, recipient };
 	assert_ok!(Hrmp::<T>::hrmp_close_channel(sender_origin.clone().into(), channel_id));
 	if matches!(until, ParachainSetupStep::CloseRequested) {
 		// NOTE: this is just for expressiveness, otherwise the if-statement is 100% useless.
-		return output
+		return output;
 	}
 
 	output
@@ -536,13 +536,12 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(sender_origin, recipient_id);
 
-		let (max_message_size, max_capacity) =
-				T::DefaultChannelSizeAndCapacityWithSystem::get();
+		let (max_message_size, max_capacity) = T::DefaultChannelSizeAndCapacityWithSystem::get();
 
 		assert_has_event::<T>(
 			Event::<T>::HrmpSystemChannelOpened {
 				sender: sender_id.into(),
-			recipient: recipient_id,
+				recipient: recipient_id,
 				proposed_max_capacity: max_capacity,
 				proposed_max_message_size: max_message_size,
 			}
