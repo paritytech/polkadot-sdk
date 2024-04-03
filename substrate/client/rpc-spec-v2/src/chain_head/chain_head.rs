@@ -240,7 +240,7 @@ where
 			let result = chain_head_follow.generate_events(sink, sub_data).await;
 			if let Err(SubscriptionManagementError::BlockDistanceTooLarge) = result {
 				debug!(target: LOG_TARGET, "[follow][id={:?}] All subscriptions are stopped", sub_id);
-				subscriptions.stop_all_subscriptions();
+				reserved_subscription.stop_all_subscriptions();
 			}
 
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription removed", sub_id);
