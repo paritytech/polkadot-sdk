@@ -425,6 +425,7 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-example-mbm/try-runtime"
 ]
 experimental = [
 	"frame-support/experimental",

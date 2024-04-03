@@ -48,7 +48,12 @@ impl pallet_migrations::Config for Runtime {
 	// type Migrations = (v1::Migration<Runtime>, v2::Migration<Runtime>, v3::Migration<Runtime>);
 	// ```
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = (crate::migrations::v1::LazyMigrationV1<Runtime, crate::migrations::v1::weights::SubstrateWeight<Runtime>>,);
+	type Migrations = (
+		crate::migrations::v1::LazyMigrationV1<
+			Runtime,
+			crate::migrations::v1::weights::SubstrateWeight<Runtime>,
+		>,
+	);
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
 	type MaxServiceWeight = MigratorServiceWeight;
