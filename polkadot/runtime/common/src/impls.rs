@@ -336,6 +336,7 @@ mod tests {
 		type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 		type BalanceConverter = UnityAssetBalanceConversion;
 		type PayoutPeriod = ConstU64<0>;
+		type BlockNumberProvider = System;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper = ();
 	}
