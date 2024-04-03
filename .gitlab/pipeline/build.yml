@@ -105,7 +105,7 @@ build-rustdoc:
     - mv ./target/doc ./crate-docs
     # Inject Simple Analytics (https://www.simpleanalytics.com/) privacy preserving tracker into
     # all .html files
-    - |
+    - >
       inject_simple_analytics() {
         local path="$1"
         local script_content="<script async defer src=\"https://apisa.parity.io/latest.js\"></script><noscript><img src=\"https://apisa.parity.io/latest.js\" alt=\"\" referrerpolicy=\"no-referrer-when-downgrade\" /></noscript>"

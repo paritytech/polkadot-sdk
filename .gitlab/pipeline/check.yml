@@ -104,7 +104,7 @@ check-toml-format:
     - .docker-env
     - .test-pr-refs
   script:
-    - |
+    - >
       export RUST_LOG=remote-ext=debug,runtime=debug
 
       echo "---------- Downloading try-runtime CLI ----------"
@@ -117,8 +117,8 @@ check-toml-format:
       time cargo build --release --locked -p "$PACKAGE" --features try-runtime
 
       echo "---------- Executing on-runtime-upgrade for ${NETWORK} ----------"
-      time ./try-runtime ${COMMAND_EXTRA_ARGS} \
-          --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
+      time ./try-runtime ${COMMAND_EXTRA_ARGS}
+          --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM"
           on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
       sleep 5
 

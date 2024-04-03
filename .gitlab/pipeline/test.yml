@@ -23,22 +23,22 @@ test-linux-stable:
     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
     # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
     # "upgrade_version_checks_should_work" is currently failing
-    - |
-      time cargo nextest run \
-        --workspace \
-        --locked \
-        --release \
-        --no-fail-fast \
-        --features try-runtime,experimental,riscv,ci-only-tests \
+    - >
+      time cargo nextest run
+        --workspace
+        --locked
+        --release
+        --no-fail-fast
+        --features try-runtime,experimental,riscv,ci-only-tests
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # Upload tests results to Elasticsearch
     - echo "Upload test results to Elasticsearch"
     - cat target/nextest/default/junit.xml | xq . > target/nextest/default/junit.json
-    - |
-      curl -v -XPOST --http1.1 \
-      -u ${ELASTIC_USERNAME}:${ELASTIC_PASSWORD} \
-      https://elasticsearch.parity-build.parity.io/unit-tests/_doc/${CI_JOB_ID} \
-      -H 'Content-Type: application/json' \
+    - >
+      curl -v -XPOST --http1.1
+      -u ${ELASTIC_USERNAME}:${ELASTIC_PASSWORD}
+      https://elasticsearch.parity-build.parity.io/unit-tests/_doc/${CI_JOB_ID}
+      -H 'Content-Type: application/json'
       -d @target/nextest/default/junit.json || echo "failed to upload junit report"
     # run runtime-api tests with `enable-staging-api` feature on the 1st node
     - if [ ${CI_NODE_INDEX} == 1 ]; then time cargo nextest run -p sp-api-test --features enable-staging-api; fi
@@ -87,13 +87,13 @@ test-linux-stable-runtime-benchmarks:
 #   script:
 #     # Build all but only execute 'runtime' tests.
 #     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
-#     - |
-#       time cargo nextest run \
-#         --workspace \
-#         --locked \
-#         --release \
-#         --no-fail-fast \
-#         --features runtime-benchmarks,try-runtime \
+#     - >
+#       time cargo nextest run
+#         --workspace
+#         --locked
+#         --release
+#         --no-fail-fast
+#         --features runtime-benchmarks,try-runtime
 #         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
 #     # todo: add flacky-test collector
 
