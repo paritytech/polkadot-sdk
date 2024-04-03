@@ -2163,8 +2163,8 @@ async fn determine_groups_per_para(
 	// pending availability.
 	let para_core_indices: Vec<_> = if let Some(claim_queue) = maybe_claim_queue {
 		claim_queue
-			.into_iter()
-			.filter_map(|(core_index, paras)| Some((*paras.front()?, core_index)))
+			.iter_claims_at_depth(0)
+			.map(|(core_index, para)| (para, core_index))
 			.collect()
 	} else {
 		availability_cores
