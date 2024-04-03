@@ -109,23 +109,11 @@ pub enum CandidateStorageInsertionError {
 	PersistedValidationDataMismatch,
 	/// The candidate was already known.
 	CandidateAlreadyKnown(CandidateHash),
-	/// There's another candidate with this parent head hash already present. We don't accept
-	/// forks.
-	CandidateWithDuplicateParentHeadHash(Hash),
-	/// There's another candidate with this output head hash already present. We don't accept
-	/// cycles.
-	CandidateWithDuplicateOutputHeadHash(Hash),
 }
 
 /// Stores candidates and information about them such as their relay-parents and their backing
 /// states.
 pub(crate) struct CandidateStorage {
-	// Index from head data hash to candidate hashes with that head data as a parent.
-	by_parent_head: HashMap<Hash, CandidateHash>,
-
-	// Index from head data hash to candidate hashes outputting that head data.
-	by_output_head: HashMap<Hash, CandidateHash>,
-
 	// Index from candidate hash to fragment node.
 	by_candidate_hash: HashMap<CandidateHash, CandidateEntry>,
 }
@@ -133,39 +121,7 @@ pub(crate) struct CandidateStorage {
 impl CandidateStorage {
 	/// Create a new `CandidateStorage`.
 	pub fn new() -> Self {
-		CandidateStorage {
-			by_parent_head: HashMap::new(),
-			by_output_head: HashMap::new(),
-			by_candidate_hash: HashMap::new(),
-		}
-	}
-
-	/// Check if we could add a candidate
-	pub fn can_add_candidate(
-		&self,
-		candidate_hash: &CandidateHash,
-		parent_head_hash: &Hash,
-		output_head_hash: Option<&Hash>,
-	) -> Result<(), CandidateStorageInsertionError> {
-		if self.by_candidate_hash.contains_key(candidate_hash) {
-			return Err(CandidateStorageInsertionError::CandidateAlreadyKnown(*candidate_hash))
-		}
-
-		if self.by_parent_head.contains_key(parent_head_hash) {
-			return Err(CandidateStorageInsertionError::CandidateWithDuplicateParentHeadHash(
-				*parent_head_hash,
-			));
-		}
-
-		if let Some(output_head_hash) = output_head_hash {
-			if self.by_output_head.contains_key(output_head_hash) {
-				return Err(CandidateStorageInsertionError::CandidateWithDuplicateOutputHeadHash(
-					*output_head_hash,
-				));
-			}
-		}
-
-		Ok(())
+		CandidateStorage { by_candidate_hash: HashMap::new() }
 	}
 
 	/// Introduce a new candidate.
@@ -176,10 +132,9 @@ impl CandidateStorage {
 		state: CandidateState,
 	) -> Result<CandidateHash, CandidateStorageInsertionError> {
 		let candidate_hash = candidate.hash();
-		let parent_head_hash = persisted_validation_data.parent_head.hash();
-		let output_head_hash = candidate.commitments.head_data.hash();
-
-		self.can_add_candidate(&candidate_hash, &parent_head_hash, Some(&output_head_hash))?;
+		if self.by_candidate_hash.contains_key(&candidate_hash) {
+			return Err(CandidateStorageInsertionError::CandidateAlreadyKnown(candidate_hash))
+		}
 
 		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash {
 			return Err(CandidateStorageInsertionError::PersistedValidationDataMismatch)
@@ -199,9 +154,7 @@ impl CandidateStorage {
 			},
 		};
 
-		// These have all been sanity checked already.
-		self.by_parent_head.insert(parent_head_hash, candidate_hash);
-		self.by_output_head.insert(output_head_hash, candidate_hash);
+		// This has been sanity checked already.
 		self.by_candidate_hash.insert(candidate_hash, entry);
 
 		Ok(candidate_hash)
@@ -209,12 +162,7 @@ impl CandidateStorage {
 
 	/// Remove a candidate from the store.
 	pub fn remove_candidate(&mut self, candidate_hash: &CandidateHash) {
-		if let Some(entry) = self.by_candidate_hash.remove(candidate_hash) {
-			let parent_head_hash = entry.candidate.persisted_validation_data.parent_head.hash();
-			let output_head_hash = entry.candidate.commitments.head_data.hash();
-			self.by_parent_head.remove(&parent_head_hash);
-			self.by_output_head.remove(&output_head_hash);
-		}
+		self.by_candidate_hash.remove(candidate_hash);
 	}
 
 	/// Note that an existing candidate has been backed.
@@ -239,40 +187,14 @@ impl CandidateStorage {
 		self.by_candidate_hash.contains_key(candidate_hash)
 	}
 
-	/// The number of stored candidates.
-	pub fn len(&self) -> usize {
-		self.by_candidate_hash.len()
-	}
-
-	/// Return an iterator over the stored candidate hashes.
-	pub fn candidate_hashes(&self) -> impl Iterator<Item = &CandidateHash> {
-		self.by_candidate_hash.keys()
+	/// Return an iterator over the stored candidates.
+	pub fn candidates(&self) -> impl Iterator<Item = &CandidateEntry> {
+		self.by_candidate_hash.values()
 	}
 
 	/// Retain only candidates which pass the predicate.
 	pub(crate) fn retain(&mut self, pred: impl Fn(&CandidateHash) -> bool) {
 		self.by_candidate_hash.retain(|h, _v| pred(h));
-		self.by_parent_head.retain(|_parent, child| pred(child));
-		self.by_output_head.retain(|_output, candidate| pred(candidate));
-	}
-
-	/// Get head-data by hash.
-	pub(crate) fn head_data_by_hash(&self, hash: &Hash) -> Option<&HeadData> {
-		// First, search for candidates outputting this head data and extract the head data
-		// from their commitments if they exist.
-		//
-		// Otherwise, search for candidates building upon this head data and extract the head data
-		// from their persisted validation data if they exist.
-		self.by_output_head
-			.get(hash)
-			.and_then(|a_candidate| self.by_candidate_hash.get(a_candidate))
-			.map(|e| &e.candidate.commitments.head_data)
-			.or_else(|| {
-				self.by_parent_head
-					.get(hash)
-					.and_then(|a_candidate| self.by_candidate_hash.get(a_candidate))
-					.map(|e| &e.candidate.persisted_validation_data.parent_head)
-			})
 	}
 
 	/// Returns candidate's relay parent, if present.
@@ -283,21 +205,20 @@ impl CandidateStorage {
 		self.by_candidate_hash.get(candidate_hash).map(|entry| entry.relay_parent)
 	}
 
-	fn get_para_child<'a>(&'a self, parent_head_hash: &Hash) -> Option<&'a CandidateEntry> {
-		let by_candidate_hash = &self.by_candidate_hash;
-		self.by_parent_head
-			.get(parent_head_hash)
-			.map(move |h| by_candidate_hash.get(h))
-			.flatten()
-	}
-
-	fn get(&'_ self, candidate_hash: &CandidateHash) -> Option<&'_ CandidateEntry> {
-		self.by_candidate_hash.get(candidate_hash)
+	fn possible_para_children<'a>(
+		&'a self,
+		parent_head_hash: &'a Hash,
+	) -> impl Iterator<Item = &'a CandidateEntry> + 'a {
+		// TODO: we could add a by_parent_head here, but it complicates the code for little benefit.
+		// This vector shouldn't get large.
+		self.by_candidate_hash
+			.values()
+			.filter(|c| c.parent_head_data_hash() == *parent_head_hash)
 	}
 
 	#[cfg(test)]
-	pub fn len(&self) -> (usize, usize) {
-		(self.by_parent_head.len(), self.by_candidate_hash.len())
+	pub fn len(&self) -> usize {
+		self.by_candidate_hash.len()
 	}
 }
 
@@ -313,11 +234,25 @@ pub(crate) enum CandidateState {
 }
 
 #[derive(Debug)]
-struct CandidateEntry {
+pub(crate) struct CandidateEntry {
 	candidate_hash: CandidateHash,
 	relay_parent: Hash,
 	candidate: ProspectiveCandidate<'static>,
 	state: CandidateState,
+}
+
+impl CandidateEntry {
+	pub fn hash(&self) -> CandidateHash {
+		self.candidate_hash
+	}
+
+	pub fn parent_head_data_hash(&self) -> Hash {
+		self.candidate.persisted_validation_data.parent_head.hash()
+	}
+
+	pub fn output_head_data_hash(&self) -> Hash {
+		self.candidate.commitments.head_data.hash()
+	}
 }
 
 /// A candidate existing on-chain but pending availability, for special treatment
@@ -486,11 +421,14 @@ impl<'a> HypotheticalCandidate<'a> {
 pub(crate) struct FragmentChain {
 	scope: Scope,
 
-	// Invariant: a contiguous prefix of the 'nodes' storage will contain
-	// the top-level children.
 	chain: Vec<FragmentNode>,
 
 	candidates: HashSet<CandidateHash>,
+
+	// Index from head data hash to candidate hashes with that head data as a parent.
+	by_parent_head: HashMap<Hash, CandidateHash>,
+	// Index from head data hash to candidate hashes outputting that head data.
+	by_output_head: HashMap<Hash, CandidateHash>,
 }
 
 impl FragmentChain {
@@ -505,7 +443,13 @@ impl FragmentChain {
 			"Instantiating Fragment Chain",
 		);
 
-		let mut fragment_chain = Self { scope, chain: Vec::new(), candidates: HashSet::new() };
+		let mut fragment_chain = Self {
+			scope,
+			chain: Vec::new(),
+			candidates: HashSet::new(),
+			by_parent_head: HashMap::new(),
+			by_output_head: HashMap::new(),
+		};
 
 		fragment_chain.populate_chain(storage);
 
@@ -528,29 +472,11 @@ impl FragmentChain {
 		self.candidates.contains(candidate)
 	}
 
-	/// Add a candidate and recursively populate from storage.
+	/// Try accumulating more candidates onto the chain.
 	///
-	/// Candidates can be added either as children of the root or children of other candidates.
-	pub(crate) fn add_and_populate(&mut self, hash: CandidateHash, storage: &CandidateStorage) {
-		let candidate_entry = match storage.get(&hash) {
-			None => return,
-			Some(e) => e,
-		};
-
-		let required_parent_head = self
-			.chain
-			.last()
-			.map(|c| &c.fragment.candidate().commitments.head_data)
-			.unwrap_or_else(|| &self.scope.base_constraints.required_parent);
-
-		let candidate_parent = &candidate_entry.candidate.persisted_validation_data.parent_head;
-
-		// If this builds on the latest required head, add it and populate from storage,
-		// as it may connect previously disconnected candidates also.
-		if required_parent_head == candidate_parent {
-			self.populate_chain(storage);
-		}
-		// If not, there's nothing to be done
+	/// Candidates can only be added if they build on the already existing chain.
+	pub(crate) fn repopulate(&mut self, storage: &CandidateStorage) {
+		self.populate_chain(storage);
 	}
 
 	/// Returns the hypothetical depths where a candidate with the given hash and parent head data
@@ -564,17 +490,6 @@ impl FragmentChain {
 		candidate: HypotheticalCandidate,
 		candidate_storage: &CandidateStorage,
 	) -> MemberState {
-		// pub enum MemberState {
-		// 	/// Present in the candidate storage, but not connected to the prospective chain.
-		// 	Unconnected,
-		// 	/// Present in the fragment chain
-		// 	Present,
-		// 	/// Can be added to the fragment chain
-		// 	Potential,
-		// 	/// Not present in the candidate storage and cannot be added to the fragment chain in the
-		// 	/// future.
-		// 	None,
-		// }
 		let mut can_be_chained = false;
 
 		// If we've already used this candidate in the chain
@@ -582,19 +497,12 @@ impl FragmentChain {
 			return MemberState::Present
 		}
 
-		if candidate_storage
-			.can_add_candidate(
-				&candidate_hash,
-				&candidate.parent_head_data_hash(),
-				candidate.output_head_data_hash().as_ref(),
-			)
-			.is_err()
-		{
-			// This would mean a fork or a cycle.
-			return MemberState::None
-		}
-
-		if !self.check_potential(candidate_storage, &candidate.relay_parent()) {
+		if !self.can_add_candidate_as_potential(
+			candidate_storage,
+			&candidate.relay_parent(),
+			candidate.parent_head_data_hash(),
+			candidate.output_head_data_hash(),
+		) {
 			gum::debug!(
 				target: LOG_TARGET,
 				"Check potential returned false",
@@ -742,19 +650,16 @@ impl FragmentChain {
 		0
 	}
 
-	pub fn check_potential(&self, storage: &CandidateStorage, relay_parent: &Hash) -> bool {
-		const MAX_UNCONNECTED: usize = 5;
-
-		let Some(unconnected_candidates) = storage.len().checked_sub(self.candidates.len()) else {
-			gum::debug!(
-				target: LOG_TARGET,
-				"Underflow",
-			);
-			return false
-		};
-
-		// If we've got enough candidates for the configured depth.
-		if self.chain.len() + 1 > self.scope.max_depth {
+	// This assumes that the tree does not already contain this candidate.
+	pub fn can_add_candidate_as_potential(
+		&self,
+		storage: &CandidateStorage,
+		relay_parent: &Hash,
+		parent_head_hash: Hash,
+		output_head_hash: Option<Hash>,
+	) -> bool {
+		// If we've got enough candidates for the configured depth, no point in adding more.
+		if self.chain.len() >= self.scope.max_depth {
 			gum::debug!(
 				target: LOG_TARGET,
 				"Enough candidates for the configured depth",
@@ -762,12 +667,86 @@ impl FragmentChain {
 			return false
 		}
 
-		if unconnected_candidates >= MAX_UNCONNECTED {
+		if !self.check_potential(relay_parent, parent_head_hash, output_head_hash) {
+			return false
+		}
+
+		let unconnected = self.count_unconnected_potential_candidates(storage);
+
+		const MAX_UNCONNECTED: usize = 5;
+
+		if unconnected < MAX_UNCONNECTED {
+			gum::debug!(
+				target: LOG_TARGET,
+				"Can add candidate as unconnected",
+			);
+			true
+		} else {
 			gum::debug!(
 				target: LOG_TARGET,
 				"Too many unconnected candidates",
 			);
-			return false
+			false
+		}
+	}
+
+	pub fn count_unconnected_potential_candidates(&self, storage: &CandidateStorage) -> usize {
+		let mut count = 0;
+		for candidate in storage.candidates() {
+			if !self.candidates.contains(&candidate.candidate_hash) {
+				if self.check_potential(
+					&candidate.relay_parent,
+					candidate.candidate.persisted_validation_data.parent_head.hash(),
+					Some(candidate.candidate.commitments.head_data.hash()),
+				) {
+					count += 1;
+				}
+			}
+		}
+
+		count
+	}
+
+	fn check_forks_and_cycles(
+		&self,
+		parent_head_hash: Hash,
+		output_head_hash: Option<Hash>,
+	) -> bool {
+		if self.by_parent_head.contains_key(&parent_head_hash) {
+			// fork. our parent has another child already
+			return false;
+		}
+
+		if let Some(output_head_hash) = output_head_hash {
+			if self.by_output_head.contains_key(&output_head_hash) {
+				// this is not a chain, there are multiple paths to the same state.
+				return false;
+			}
+
+			// trivial 0-length cycle.
+			if parent_head_hash == output_head_hash {
+				return false;
+			}
+
+			// this should catch any other cycles. our output state cannot already be the parent
+			// state of another candidate, unless this is a cycle, since the already added
+			// candidates form a chain.
+			if self.by_parent_head.contains_key(&output_head_hash) {
+				return false;
+			}
+		}
+
+		true
+	}
+
+	fn check_potential(
+		&self,
+		relay_parent: &Hash,
+		parent_head_hash: Hash,
+		output_head_hash: Option<Hash>,
+	) -> bool {
+		if !self.check_forks_and_cycles(parent_head_hash, output_head_hash) {
+			return false;
 		}
 
 		let earliest_rp = if let Some(last_candidate) = self.chain.last() {
@@ -848,9 +827,18 @@ impl FragmentChain {
 				};
 
 			let required_head_hash = child_constraints.required_parent.hash();
-			let possible_child = storage.get_para_child(&required_head_hash);
+			// Even though we don't allow parachain forks under the same active leaf, they may still
+			// appear under different relay chain forks, hence the iterator below.
+			let possible_children = storage.possible_para_children(&required_head_hash);
+			let mut added_child = false;
+			for candidate in possible_children {
+				if !self.check_forks_and_cycles(
+					candidate.parent_head_data_hash(),
+					Some(candidate.output_head_data_hash()),
+				) {
+					continue
+				}
 
-			if let Some(candidate) = possible_child {
 				// Add one node to chain if
 				// 1. parent hash is correct
 				// 2. relay-parent does not move backwards.
@@ -862,7 +850,7 @@ impl FragmentChain {
 					.map(|p| p.relay_parent.clone())
 					.or_else(|| self.scope.ancestor_by_hash(&candidate.relay_parent))
 				else {
-					break
+					continue
 				};
 
 				// require: pending availability candidates don't move backwards
@@ -881,14 +869,14 @@ impl FragmentChain {
 					});
 
 				if relay_parent.number < min_relay_parent_number {
-					break // relay parent moved backwards.
+					continue // relay parent moved backwards.
 				}
 
 				// don't add candidates if they're already present in the chain.
-				// this can never happen, as candidates can only be duplicated if there's a cycle.
-				// and CandidateStorage does not allow cycles.
+				// this can never happen, as candidates can only be duplicated if there's a cycle
+				// and we shouldn't have allowed for a cycle to be chained.
 				if self.contains_candidate(&candidate.candidate_hash) {
-					break
+					continue
 				}
 
 				let fragment = {
@@ -933,10 +921,48 @@ impl FragmentChain {
 
 				self.chain.push(node);
 				self.candidates.insert(candidate.candidate_hash);
-			} else {
+				// We've already checked for forks and cycles.
+				self.by_parent_head.insert(
+					candidate.candidate.persisted_validation_data.parent_head.hash(),
+					candidate.candidate_hash,
+				);
+				self.by_output_head.insert(
+					candidate.candidate.commitments.head_data.hash(),
+					candidate.candidate_hash,
+				);
+				added_child = true;
+				// We can only add one child for a candidate. (it's a chain, not a tree)
 				break;
 			}
+
+			if !added_child {
+				break
+			}
 		}
+	}
+
+	// Get head-data by hash.
+	pub(crate) fn head_data_by_hash(
+		&self,
+		storage: &CandidateStorage,
+		hash: &Hash,
+	) -> Option<HeadData> {
+		// First, search for candidates outputting this head data and extract the head data
+		// from their commitments if they exist.
+		//
+		// Otherwise, search for candidates building upon this head data and extract the head data
+		// from their persisted validation data if they exist.
+		self.by_output_head
+			.get(hash)
+			.and_then(|a_candidate| storage.by_candidate_hash.get(a_candidate))
+			.map(|e| &e.candidate.commitments.head_data)
+			.or_else(|| {
+				self.by_parent_head
+					.get(hash)
+					.and_then(|a_candidate| storage.by_candidate_hash.get(a_candidate))
+					.map(|e| &e.candidate.persisted_validation_data.parent_head)
+			})
+			.cloned()
 	}
 }
 

@@ -334,15 +334,17 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 			live_paras.insert(*para_id);
 
 			if let Some(storage) = view.candidate_storage.get(para_id) {
-				for candidate in storage.candidate_hashes() {
-					if !live_candidates.contains(candidate) {
-						if fragment_tree.check_potential(
+				for candidate in storage.candidates() {
+					if !live_candidates.contains(&candidate.hash()) {
+						if fragment_tree.can_add_candidate_as_potential(
 							storage,
 							&storage
-								.relay_parent_by_candidate_hash(candidate)
+								.relay_parent_by_candidate_hash(&candidate.hash())
 								.expect("Candidate hash is taken from the storage iterator"),
+							candidate.parent_head_data_hash(),
+							Some(candidate.output_head_data_hash()),
 						) {
-							live_candidates.insert(*candidate);
+							live_candidates.insert(candidate.hash());
 						}
 					}
 				}
@@ -457,6 +459,8 @@ async fn handle_introduce_seconded_candidate<Context>(
 	};
 
 	let relay_parent = candidate.descriptor.relay_parent;
+	let parent_head_hash = pvd.parent_head.hash();
+	let output_head_hash = Some(candidate.commitments.head_data.hash());
 	let candidate_hash = match storage.add_candidate(candidate, pvd, CandidateState::Seconded) {
 		Ok(c) => c,
 		Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
@@ -478,49 +482,30 @@ async fn handle_introduce_seconded_candidate<Context>(
 			let _ = tx.send(false);
 			return
 		},
-		Err(CandidateStorageInsertionError::CandidateWithDuplicateParentHeadHash(hash)) => {
-			gum::info!(
-				target: LOG_TARGET,
-				para = ?para,
-				"The received seconded candidate would result in a fork. We already have another
-				candidate with this parent head hash: {:?}. Dropping the candidate.",
-				hash
-			);
-
-			let _ = tx.send(false);
-			return
-		},
-		Err(CandidateStorageInsertionError::CandidateWithDuplicateOutputHeadHash(hash)) => {
-			gum::info!(
-				target: LOG_TARGET,
-				para = ?para,
-				"The received seconded candidate with output head hash {:?} would result in a
-				candidate cycle. Dropping the candidate.",
-				hash
-			);
-
-			let _ = tx.send(false);
-			return
-		},
 	};
 
-	let mut candidate_introduced = false;
+	let mut keep_in_storage = false;
 	for leaf_data in view.active_leaves.values_mut() {
 		if let Some(tree) = leaf_data.fragment_chains.get_mut(&para) {
-			tree.add_and_populate(candidate_hash, &*storage);
+			tree.repopulate(&*storage);
 			if tree.contains_candidate(&candidate_hash) {
-				candidate_introduced = true;
-			} else if tree.check_potential(&storage, &relay_parent) {
-				candidate_introduced = true;
+				keep_in_storage = true;
+			} else if tree.can_add_candidate_as_potential(
+				&storage,
+				&relay_parent,
+				parent_head_hash,
+				output_head_hash,
+			) {
+				keep_in_storage = true;
 			}
 		}
 	}
 
-	if !candidate_introduced {
+	if !keep_in_storage {
 		storage.remove_candidate(&candidate_hash);
 	}
 
-	let _ = tx.send(candidate_introduced);
+	let _ = tx.send(keep_in_storage);
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -753,10 +738,7 @@ fn answer_prospective_validation_data_request(
 	};
 
 	let (mut head_data, parent_head_data_hash) = match request.parent_head_data {
-		ParentHeadData::OnlyHash(parent_head_data_hash) => (
-			storage.head_data_by_hash(&parent_head_data_hash).map(|x| x.clone()),
-			parent_head_data_hash,
-		),
+		ParentHeadData::OnlyHash(parent_head_data_hash) => (None, parent_head_data_hash),
 		ParentHeadData::WithData { head_data, hash } => (Some(head_data), hash),
 	};
 
@@ -779,6 +761,12 @@ fn answer_prospective_validation_data_request(
 			let required_parent = &fragment_tree.scope().base_constraints().required_parent;
 			if required_parent.hash() == parent_head_data_hash {
 				head_data = Some(required_parent.clone());
+			} else {
+				if let Some(found_head_data) =
+					fragment_tree.head_data_by_hash(storage, &parent_head_data_hash)
+				{
+					head_data = Some(found_head_data);
+				}
 			}
 		}
 		if max_pov_size.is_none() {
