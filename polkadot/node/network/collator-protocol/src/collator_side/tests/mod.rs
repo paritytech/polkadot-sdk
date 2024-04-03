@@ -45,9 +45,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	vstaging::NodeFeatures, AuthorityDiscoveryId, CollatorPair, ExecutorParams, GroupIndex,
-	GroupRotationInfo, IndexedVec, ScheduledCore, SessionIndex, SessionInfo, ValidatorId,
-	ValidatorIndex,
+	AuthorityDiscoveryId, CollatorPair, ExecutorParams, GroupIndex, GroupRotationInfo, IndexedVec,
+	NodeFeatures, ScheduledCore, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
 use test_helpers::mock::new_leaf;

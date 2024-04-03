@@ -27,11 +27,10 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 use polkadot_runtime_parachains::{
 	assigner_parachains as parachains_assigner_parachains,
 	configuration as parachains_configuration, disputes as parachains_disputes,
-	disputes::slashing as parachains_slashing,
-	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
-	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
-	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::{v7 as runtime_impl, vstaging as staging_runtime_impl},
+	disputes::slashing as parachains_slashing, dmp as parachains_dmp, hrmp as parachains_hrmp,
+	inclusion as parachains_inclusion, initializer as parachains_initializer,
+	origin as parachains_origin, paras as parachains_paras,
+	paras_inherent as parachains_paras_inherent, runtime_api_impl::v10 as runtime_impl,
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
@@ -973,16 +972,16 @@ sp_api::impl_runtime_apis! {
 			runtime_impl::async_backing_params::<Runtime>()
 		}
 
-		fn approval_voting_params() -> primitives::vstaging::ApprovalVotingParams {
-			staging_runtime_impl::approval_voting_params::<Runtime>()
+		fn approval_voting_params() -> primitives::ApprovalVotingParams {
+			runtime_impl::approval_voting_params::<Runtime>()
 		}
 
 		fn disabled_validators() -> Vec<ValidatorIndex> {
-			staging_runtime_impl::disabled_validators::<Runtime>()
+			runtime_impl::disabled_validators::<Runtime>()
 		}
 
-		fn node_features() -> primitives::vstaging::NodeFeatures {
-			staging_runtime_impl::node_features::<Runtime>()
+		fn node_features() -> primitives::NodeFeatures {
+			runtime_impl::node_features::<Runtime>()
 		}
 	}
 
