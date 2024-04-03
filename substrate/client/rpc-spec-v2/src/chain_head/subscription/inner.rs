@@ -1399,4 +1399,57 @@ mod tests {
 		subs.stop_all_subscriptions();
 		assert!(subs.global_blocks.is_empty());
 	}
+
+	#[test]
+	fn reserved_subscription_cleans_resources() {
+		let builder = TestClientBuilder::new();
+		let backend = builder.backend();
+		let subs = Arc::new(parking_lot::RwLock::new(SubscriptionsInner::new(
+			10,
+			Duration::from_secs(10),
+			MAX_OPERATIONS_PER_SUB,
+			backend,
+		)));
+
+		// Maximum 2 subscriptions per connection.
+		let rpc_connections = crate::common::connections::RpcConnections::new(2);
+
+		let subscription_management =
+			crate::chain_head::subscription::SubscriptionManagement::_from_inner(
+				subs.clone(),
+				rpc_connections.clone(),
+			);
+
+		let reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+		let mut reserved_sub_second = subscription_management.reserve_subscription(1).unwrap();
+		// Subscriptions reserved but not yet populated.
+		assert_eq!(subs.read().subs.len(), 0);
+
+		// Cannot reserve anymore.
+		assert!(subscription_management.reserve_subscription(1).is_none());
+		// Drop the first subscription.
+		drop(reserved_sub_first);
+		// Space is freed-up for the rpc connections.
+		let mut reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+
+		// Insert subscriptions.
+		let _sub_data_first =
+			reserved_sub_first.insert_subscription("sub1".to_string(), true).unwrap();
+		let _sub_data_second =
+			reserved_sub_second.insert_subscription("sub2".to_string(), true).unwrap();
+		// Check we have 2 subscriptions under management.
+		assert_eq!(subs.read().subs.len(), 2);
+
+		// Drop first reserved subscription.
+		drop(reserved_sub_first);
+		// Check that the subscription is removed.
+		assert_eq!(subs.read().subs.len(), 1);
+		// Space is freed-up for the rpc connections.
+		let reserved_sub_first = subscription_management.reserve_subscription(1).unwrap();
+
+		// Drop all subscriptions.
+		drop(reserved_sub_first);
+		drop(reserved_sub_second);
+		assert_eq!(subs.read().subs.len(), 0);
+	}
 }

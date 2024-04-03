@@ -1,0 +1,54 @@
+# The actions takes json file as input and runs github-action-benchmark for it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      benchmark-data-dir-path:
+        description: "Path to the benchmark data directory"
+        required: true
+        type: string
+      output-file-path:
+        description: "Path to the benchmark data file"
+        required: true
+        type: string
+
+jobs:
+  subsystem-benchmarks:
+    runs-on: ubuntu-latest
+    environment: subsystem-benchmarks
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "${{ github.event.inputs.benchmark-data-dir-path }}" | grep -P '^[a-z\-]'
+          echo "${{ github.event.inputs.output-file-path }}" | grep -P '^[a-z\-]+\.json'
+
+      - name: Checkout Sources
+        uses: actions/checkout@v4.1.2
+        with:
+          fetch-depth: 0
+          ref: "gh-pages"
+
+      - name: Copy bench results
+        id: step_one
+        run: |
+          cp bench/gitlab/${{ github.event.inputs.output-file-path }} ${{ github.event.inputs.output-file-path }}
+
+      - name: Switch branch
+        id: step_two
+        run: |
+          git checkout master --
+
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
+          private-key: ${{ secrets.POLKADOTSDK_GHPAGES_APP_KEY }}
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "customSmallerIsBetter"
+          output-file-path: ${{ github.event.inputs.output-file-path }}
+          benchmark-data-dir-path: "bench/${{ github.event.inputs.benchmark-data-dir-path }}"
+          github-token: ${{ steps.app-token.outputs.token }}
+          auto-push: true

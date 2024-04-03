@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	chain_head::{event::MethodResponse, test_utils::ChainHeadMockClient},
+	chain_head::{api::ChainHeadApiClient, event::MethodResponse, test_utils::ChainHeadMockClient},
 	common::events::{StorageQuery, StorageQueryType, StorageResultType},
 	hex_string,
 };
@@ -27,8 +27,12 @@ use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use futures::Future;
 use jsonrpsee::{
-	core::server::Subscription as RpcSubscription, rpc_params, MethodsError as Error, RpcModule,
+	core::{
+		client::Subscription as RpcClientSubscription, server::Subscription as RpcSubscription,
+	},
+	rpc_params, MethodsError as Error, RpcModule,
 };
+
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sc_service::client::new_in_mem;
@@ -60,12 +64,43 @@ const MAX_PINNED_SECS: u64 = 60;
 const MAX_OPERATIONS: usize = 16;
 const MAX_PAGINATION_LIMIT: usize = 5;
 const MAX_LAGGING_DISTANCE: usize = 128;
+const MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION: usize = 4;
+
 const INVALID_HASH: [u8; 32] = [1; 32];
 const KEY: &[u8] = b":mock";
 const VALUE: &[u8] = b"hello world";
 const CHILD_STORAGE_KEY: &[u8] = b"child";
 const CHILD_VALUE: &[u8] = b"child value";
 const DOES_NOT_PRODUCE_EVENTS_SECONDS: u64 = 10;
+
+/// Start an RPC server with the chainHead module.
+pub async fn run_server() -> std::net::SocketAddr {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client,
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+			max_follow_subscriptions_per_connection: 1,
+		},
+	)
+	.into_rpc();
+
+	let server = jsonrpsee::server::ServerBuilder::default().build("127.0.0.1:0").await.unwrap();
+
+	let addr = server.local_addr().unwrap();
+	let handle = server.start(api);
+
+	tokio::spawn(handle.stopped());
+	addr
+}
 
 async fn get_next_event<T: serde::de::DeserializeOwned>(sub: &mut RpcSubscription) -> T {
 	let (event, _sub_id) = tokio::time::timeout(std::time::Duration::from_secs(60), sub.next())
@@ -115,6 +150,7 @@ async fn setup_api() -> (
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -167,6 +203,7 @@ async fn follow_subscription_produces_blocks() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -237,6 +274,7 @@ async fn follow_with_runtime() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -551,6 +589,7 @@ async fn call_runtime_without_flag() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -1211,6 +1250,7 @@ async fn separate_operation_ids_for_subscriptions() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -1301,6 +1341,7 @@ async fn follow_generates_initial_blocks() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -1458,6 +1499,7 @@ async fn follow_exceeding_pinned_blocks() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -1536,6 +1578,7 @@ async fn follow_with_unpin() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -1649,6 +1692,7 @@ async fn unpin_duplicate_hashes() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -1753,6 +1797,7 @@ async fn follow_with_multiple_unpin_hashes() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -1908,6 +1953,7 @@ async fn follow_prune_best_block() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -2095,6 +2141,7 @@ async fn follow_forks_pruned_block() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -2256,6 +2303,7 @@ async fn follow_report_multiple_pruned_block() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -2503,6 +2551,7 @@ async fn pin_block_references() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -2642,6 +2691,7 @@ async fn follow_finalized_before_new_block() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -2758,6 +2808,7 @@ async fn ensure_operation_limits_works() {
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -2818,7 +2869,7 @@ async fn ensure_operation_limits_works() {
 			FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id
 	);
 
-	// The storage is finished and capactiy must be released.
+	// The storage is finished and capacity must be released.
 	let alice_id = AccountKeyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
@@ -2864,6 +2915,7 @@ async fn check_continue_operation() {
 			operation_max_storage_items: 1,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -3048,6 +3100,7 @@ async fn stop_storage_operation() {
 			operation_max_storage_items: 1,
 
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
@@ -3149,7 +3202,7 @@ async fn storage_closest_merkle_value() {
 
 	/// The core of this test.
 	///
-	/// Checks keys that are exact match, keys with descedant and keys that should not return
+	/// Checks keys that are exact match, keys with descendant and keys that should not return
 	/// values.
 	///
 	/// Returns (key, merkle value) pairs.
@@ -3175,7 +3228,7 @@ async fn storage_closest_merkle_value() {
 							key: hex_string(b":AAAB"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue
 						},
-						// Key with descedent.
+						// Key with descendant.
 						StorageQuery {
 							key: hex_string(b":A"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue
@@ -3351,11 +3404,13 @@ async fn chain_head_stop_all_subscriptions() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 			max_lagging_distance: 5,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
 
 	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+
 	// Ensure the imported block is propagated and pinned for this subscription.
 	assert_matches!(
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
@@ -3412,4 +3467,179 @@ async fn chain_head_stop_all_subscriptions() {
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::Initialized(_)
 	);
+}
+
+#[tokio::test]
+async fn chain_head_single_connection_context() {
+	let server_addr = run_server().await;
+	let server_url = format!("ws://{}", server_addr);
+	let client = jsonrpsee::ws_client::WsClientBuilder::default()
+		.build(&server_url)
+		.await
+		.unwrap();
+	// Calls cannot be made from a different connection context.
+	let second_client = jsonrpsee::ws_client::WsClientBuilder::default()
+		.build(&server_url)
+		.await
+		.unwrap();
+
+	let mut sub: RpcClientSubscription<FollowEvent<String>> =
+		ChainHeadApiClient::<String>::chain_head_unstable_follow(&client, true)
+			.await
+			.unwrap();
+
+	let event = tokio::time::timeout(std::time::Duration::from_secs(60), sub.next())
+		.await
+		.unwrap()
+		.unwrap()
+		.unwrap();
+	let finalized_hash = match event {
+		FollowEvent::Initialized(init) => init.finalized_block_hashes.into_iter().last().unwrap(),
+		_ => panic!("Expected FollowEvent::Initialized"),
+	};
+
+	let first_sub_id = match sub.kind() {
+		jsonrpsee::core::client::SubscriptionKind::Subscription(id) => match id {
+			jsonrpsee::types::SubscriptionId::Num(num) => num.to_string(),
+			jsonrpsee::types::SubscriptionId::Str(s) => s.to_string(),
+		},
+		_ => panic!("Unexpected subscription ID"),
+	};
+
+	// Trying to unpin from a different connection will have no effect.
+	let _response = ChainHeadApiClient::<String>::chain_head_unstable_unpin(
+		&second_client,
+		first_sub_id.clone(),
+		crate::chain_head::api::ListOrValue::Value(finalized_hash.clone()),
+	)
+	.await
+	.unwrap();
+
+	// Body can still be fetched from the first subscription.
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_body(
+		&client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+	)
+	.await
+	.unwrap();
+	assert_matches!(response, MethodResponse::Started(_started));
+
+	// Cannot make a call from a different connection context.
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_body(
+		&second_client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+	)
+	.await
+	.unwrap();
+	assert_matches!(response, MethodResponse::LimitReached);
+
+	let response: Option<String> = ChainHeadApiClient::<String>::chain_head_unstable_header(
+		&client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+	)
+	.await
+	.unwrap();
+	assert!(response.is_some());
+	// Cannot make a call from a different connection context.
+	let response: Option<String> = ChainHeadApiClient::<String>::chain_head_unstable_header(
+		&second_client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+	)
+	.await
+	.unwrap();
+	assert!(response.is_none());
+
+	let key = hex_string(&KEY);
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_storage(
+		&client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+		vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash }],
+		None,
+	)
+	.await
+	.unwrap();
+	assert_matches!(response, MethodResponse::Started(_started));
+	// Cannot make a call from a different connection context.
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_storage(
+		&second_client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+		vec![StorageQuery { key: key.clone(), query_type: StorageQueryType::Hash }],
+		None,
+	)
+	.await
+	.unwrap();
+	assert_matches!(response, MethodResponse::LimitReached);
+
+	let alice_id = AccountKeyring::Alice.to_account_id();
+	// Hex encoded scale encoded bytes representing the call parameters.
+	let call_parameters = hex_string(&alice_id.encode());
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_call(
+		&client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+		"AccountNonceApi_account_nonce".into(),
+		call_parameters.clone(),
+	)
+	.await
+	.unwrap();
+	assert_matches!(response, MethodResponse::Started(_started));
+	// Cannot make a call from a different connection context.
+	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_call(
+		&second_client,
+		first_sub_id.clone(),
+		finalized_hash.clone(),
+		"AccountNonceApi_account_nonce".into(),
+		call_parameters.clone(),
+	)
+	.await
+	.unwrap();
+	assert_matches!(response, MethodResponse::LimitReached);
+}
+
+#[tokio::test]
+async fn chain_head_limit_reached() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	// Maximum of 1 chainHead_follow subscription.
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: 1,
+		},
+	)
+	.into_rpc();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+
+	// Initialized must always be reported first.
+	let _event: FollowEvent<String> = get_next_event(&mut sub).await;
+
+	let error = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap_err();
+	assert!(error
+		.to_string()
+		.contains("Maximum number of chainHead_follow has been reached"));
+
+	// After dropping the subscription, other subscriptions are allowed to be created.
+	drop(sub);
+	// Ensure the `chainHead_unfollow` is propagated to the server.
+	tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	// Initialized must always be reported first.
+	let _event: FollowEvent<String> = get_next_event(&mut sub).await;
 }

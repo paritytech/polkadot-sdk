@@ -36,7 +36,7 @@ sp-io = { path = "../../../../substrate/primitives/io", default-features = false
 
 snowbridge-core = { path = "../../primitives/core", default-features = false }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
-snowbridge-pallet-ethereum-client-fixtures = { path = "./fixtures", default-features = false, optional = true }
+snowbridge-pallet-ethereum-client-fixtures = { path = "fixtures", default-features = false, optional = true }
 primitives = { package = "snowbridge-beacon-primitives", path = "../../primitives/beacon", default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
 bp-runtime = { path = "../../../primitives/runtime", default-features = false }
@@ -48,7 +48,7 @@ sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 serde_json = { workspace = true, default-features = true }
 hex-literal = "0.4.1"
 pallet-timestamp = { path = "../../../../substrate/frame/timestamp" }
-snowbridge-pallet-ethereum-client-fixtures = { path = "./fixtures" }
+snowbridge-pallet-ethereum-client-fixtures = { path = "fixtures" }
 sp-io = { path = "../../../../substrate/primitives/io" }
 serde = { workspace = true, default-features = true }
 
