@@ -800,8 +800,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
-<a href="#656" id="656">656</a>
-<a href="#657" id="657">657</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -849,13 +847,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>polkadot_node_subsystem_util::{
 	request_async_backing_params, request_availability_cores, request_para_backing_state,
 	request_persisted_validation_data, request_validation_code, request_validation_code_hash,
-	request_validators,
-	vstaging::{fetch_claim_queue, fetch_next_scheduled_on_core},
+	request_validators, vstaging::fetch_claim_queue,
 };
 <span class="kw">use </span>polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
 	CollatorPair, CoreIndex, CoreState, Hash, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, ValidationCodeHash,
+	PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };
 <span class="kw">use </span>sp_core::crypto::Pair;
 <span class="kw">use </span>std::sync::Arc;
@@ -1049,11 +1046,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						// Use claim queue if available, or fallback to `next_up_on_available`
 						</span><span class="kw">let </span>res = <span class="kw">match </span>maybe_claim_queue {
 							<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>claim_queue) =&gt; {
-								<span class="comment">// read what&#39;s in the claim queue for this core
-								</span>fetch_next_scheduled_on_core(
-									claim_queue,
-									CoreIndex(core_idx <span class="kw">as </span>u32),
-								)
+								<span class="comment">// read what&#39;s in the claim queue for this core at depth 0.
+								</span>claim_queue
+									.get_claim_for(CoreIndex(core_idx <span class="kw">as </span>u32), <span class="number">0</span>)
+									.map(|para_id| ScheduledCore { para_id, collator: <span class="prelude-val">None </span>})
 							},
 							<span class="prelude-val">None </span>=&gt; {
 								<span class="comment">// Runtime doesn&#39;t support claim queue runtime api. Fallback to

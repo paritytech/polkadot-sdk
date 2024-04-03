@@ -1663,6 +1663,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1516" id="1516">1516</a>
 <a href="#1517" id="1517">1517</a>
 <a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1795,6 +1797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages,
 		bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages,
 	),
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
@@ -3158,7 +3161,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(
 					bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 					bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
-				)
+				),
+				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 			);
 
 			<span class="comment">// for BridgeHubRococo

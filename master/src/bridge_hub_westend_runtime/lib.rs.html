@@ -1322,6 +1322,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1175" id="1175">1175</a>
 <a href="#1176" id="1176">1176</a>
 <a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1433,6 +1435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
 	BridgeRejectObsoleteHeadersAndMessages,
 	(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages,),
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
@@ -2478,6 +2481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(
 					bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages::default(),
 				),
+				cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new()
 			);
 
 			{

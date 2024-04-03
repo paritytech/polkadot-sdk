@@ -243,6 +243,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -268,14 +282,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>polkadot_node_subsystem_types::messages::{RuntimeApiMessage, RuntimeApiRequest};
 <span class="kw">use </span>polkadot_overseer::SubsystemSender;
-<span class="kw">use </span>polkadot_primitives::{CoreIndex, Hash, Id <span class="kw">as </span>ParaId, ScheduledCore, ValidatorIndex};
+<span class="kw">use </span>polkadot_primitives::{CoreIndex, Hash, Id <span class="kw">as </span>ParaId, ValidatorIndex};
 
 <span class="kw">use crate</span>::{has_required_runtime, request_claim_queue, request_disabled_validators, runtime};
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;parachain::subsystem-util-vstaging&quot;</span>;
 
 <span class="doccomment">/// A snapshot of the runtime claim queue at an arbitrary relay chain block.
-</span><span class="kw">pub type </span>ClaimQueueSnapshot = BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;;
+</span><span class="attr">#[derive(Default)]
+</span><span class="kw">pub struct </span>ClaimQueueSnapshot(BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;);
+
+<span class="kw">impl </span>From&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;&gt; <span class="kw">for </span>ClaimQueueSnapshot {
+	<span class="kw">fn </span>from(claim_queue_snapshot: BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;) -&gt; <span class="self">Self </span>{
+		ClaimQueueSnapshot(claim_queue_snapshot)
+	}
+}
+
+<span class="kw">impl </span>ClaimQueueSnapshot {
+	<span class="doccomment">/// Returns the `ParaId` that has a claim for `core_index` at the specified `depth` in the
+	/// claim queue. A depth of `0` means the very next block.
+	</span><span class="kw">pub fn </span>get_claim_for(<span class="kw-2">&amp;</span><span class="self">self</span>, core_index: CoreIndex, depth: usize) -&gt; <span class="prelude-ty">Option</span>&lt;ParaId&gt; {
+		<span class="self">self</span>.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>core_index)<span class="question-mark">?</span>.get(depth).copied()
+	}
+
+	<span class="doccomment">/// Returns an iterator over all claimed cores and the claiming `ParaId` at the specified
+	/// `depth` in the claim queue.
+	</span><span class="kw">pub fn </span>iter_claims_at_depth(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		depth: usize,
+	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (CoreIndex, ParaId)&gt; + <span class="lifetime">&#39;_ </span>{
+		<span class="self">self</span>.<span class="number">0
+			</span>.iter()
+			.filter_map(<span class="kw">move </span>|(core_index, paras)| <span class="prelude-val">Some</span>((<span class="kw-2">*</span>core_index, <span class="kw-2">*</span>paras.get(depth)<span class="question-mark">?</span>)))
+	}
+}
 
 <span class="comment">// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
 </span><span class="doccomment">/// Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
@@ -323,22 +363,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await
 			</span>.<span class="kw">await
 			</span>.map_err(runtime::Error::RuntimeRequestCanceled)<span class="question-mark">??</span>;
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(res))
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(res.into()))
 	} <span class="kw">else </span>{
 		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Runtime doesn&#39;t support `request_claim_queue`&quot;</span>);
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 	}
-}
-
-<span class="doccomment">/// Returns the next scheduled `ParaId` for a core in the claim queue, wrapped in `ScheduledCore`.
-</span><span class="kw">pub fn </span>fetch_next_scheduled_on_core(
-	claim_queue: <span class="kw-2">&amp;</span>ClaimQueueSnapshot,
-	core_idx: CoreIndex,
-) -&gt; <span class="prelude-ty">Option</span>&lt;ScheduledCore&gt; {
-	claim_queue
-		.get(<span class="kw-2">&amp;</span>core_idx)<span class="question-mark">?
-		</span>.front()
-		.cloned()
-		.map(|para_id| ScheduledCore { para_id, collator: <span class="prelude-val">None </span>})
 }
 </code></pre></div></section></main></body></html>

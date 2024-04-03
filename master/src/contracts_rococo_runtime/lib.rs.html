@@ -954,6 +954,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#807" id="807">807</a>
 <a href="#808" id="808">808</a>
 <a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
@@ -1046,6 +1047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_system::CheckNonce&lt;Runtime&gt;,
 	frame_system::CheckWeight&lt;Runtime&gt;,
 	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
 );
 <span class="doccomment">/// Unchecked extrinsic type as expected by this runtime.
 </span><span class="kw">pub type </span>UncheckedExtrinsic =
