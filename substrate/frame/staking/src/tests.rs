@@ -6971,11 +6971,26 @@ mod staking_unsafe {
 	}
 
 	#[test]
-	fn migrate_virtual_staker(){
-		// TODO(ank4n) test migration integrity
+	fn migrate_virtual_staker() {
+		ExtBuilder::default().build_and_execute(|| {
+			// give some balance to 200
+			Balances::make_free_balance_be(&200, 2000);
+
+			// stake
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(200), 1000, RewardDestination::Staked));
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 1000);
+
+			// migrate them to virtual staker
+			<Staking as StakingUnsafe>::migrate_to_virtual_staker(&200);
+
+			// ensure the balance is not locked anymore
+			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 0);
+
+			// and they are marked as virtual stakers
+			assert_eq!(Pallet::<Test>::is_virtual_staker(&200), true);
+		});
 	}
 }
-
 mod ledger {
 	use super::*;
 
