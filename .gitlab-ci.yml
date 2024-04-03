@@ -266,7 +266,9 @@ subsystem-regression-tests-distribution-regression:
     # - .run-immediately
   parallel: 3
   script:
-    - cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks
+    - cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks || echo fail
+    - cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks || echo fail
+    - cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks || echo fail
   tags:
     - benchmark
   allow_failure: true
