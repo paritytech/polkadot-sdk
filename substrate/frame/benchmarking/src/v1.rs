@@ -1072,12 +1072,30 @@ macro_rules! impl_benchmark {
 				$crate::benchmarking::set_whitelist(whitelist.clone());
 
 				let mut results: $crate::__private::Vec<$crate::BenchmarkResult> = $crate::__private::Vec::new();
+				let on_before_start = move || {
+					// Set the block number to at least 1 so events are deposited.
+					if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
+						frame_system::Pallet::<T>::set_block_number(1u32.into());
+					}
+
+					// Commit the externalities to the database, flushing the DB cache.
+					// This will enable worst case scenario for reading from the database.
+					$crate::benchmarking::commit_db();
+
+					// Access all whitelisted keys to get them into the proof recorder since the
+					// recorder does now have a whitelist.
+					for key in &whitelist {
+						$crate::__private::storage::unhashed::get_raw(&key.key);
+					}
+
+					// Reset the read/write counter so we don't count operations in the setup process.
+					$crate::benchmarking::reset_read_write_count();
+				};
 
 				// Always do at least one internal repeat...
 				for _ in 0 .. internal_repeats.max(1) {
 					// Always reset the state after the benchmark.
 					$crate::__private::defer!($crate::benchmarking::wipe_db());
-
 
 					$crate::__private::log::trace!(
 						target: "benchmark",
@@ -1089,27 +1107,7 @@ macro_rules! impl_benchmark {
 
 					// Set up the externalities environment for the setup we want to
 					// benchmark.
-					let whitelist = whitelist.clone();
-					let mut recording = $crate::BenchmarkRecording::new($crate::__private::Box::new(move || {
-						// Set the block number to at least 1 so events are deposited.
-						if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
-							frame_system::Pallet::<T>::set_block_number(1u32.into());
-						}
-
-						// Commit the externalities to the database, flushing the DB cache.
-						// This will enable worst case scenario for reading from the database.
-						$crate::benchmarking::commit_db();
-
-						// Access all whitelisted keys to get them into the proof recorder since the
-						// recorder does now have a whitelist.
-						for key in whitelist {
-							$crate::__private::storage::unhashed::get_raw(&key.key);
-						}
-
-						// Reset the read/write counter so we don't count operations in the setup process.
-						$crate::benchmarking::reset_read_write_count();
-					}));
-
+					let mut recording = $crate::BenchmarkRecording::new(&on_before_start);
 					<SelectedBenchmark as $crate::BenchmarkingSetup<T $(, $instance)?>>::instance(&selected_benchmark, &mut recording, c, verify)?;
 
 					// Calculate the diff caused by the benchmark.
@@ -1223,15 +1221,15 @@ macro_rules! impl_benchmark_test {
 						// Always reset the state after the benchmark.
 						$crate::__private::defer!($crate::benchmarking::wipe_db());
 
-						let on_before_start = $crate::__private::Box::new(|| {
+						let on_before_start = || {
 							// Set the block number to at least 1 so events are deposited.
 							if $crate::__private::Zero::is_zero(&frame_system::Pallet::<T>::block_number()) {
 								frame_system::Pallet::<T>::set_block_number(1u32.into());
 							}
-						});
+						};
 
 						// Run execution + verification
-						<SelectedBenchmark as $crate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark, &c, on_before_start)
+						<SelectedBenchmark as $crate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark, &c, &on_before_start)
 					};
 
 					if components.is_empty() {

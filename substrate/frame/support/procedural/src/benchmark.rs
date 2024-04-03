@@ -733,6 +733,25 @@ pub fn benchmarks(
 					#krate::benchmarking::set_whitelist(whitelist.clone());
 					let mut results: #krate::__private::Vec<#krate::BenchmarkResult> = #krate::__private::Vec::new();
 
+					let on_before_start = move || {
+						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
+							#frame_system::Pallet::<T>::set_block_number(1u32.into());
+						}
+
+						// Commit the externalities to the database, flushing the DB cache.
+						// This will enable worst case scenario for reading from the database.
+						#krate::benchmarking::commit_db();
+
+						// Access all whitelisted keys to get them into the proof recorder since the
+						// recorder does now have a whitelist.
+						for key in &whitelist {
+							#krate::__private::storage::unhashed::get_raw(&key.key);
+						}
+
+						// Reset the read/write counter so we don't count operations in the setup process.
+						#krate::benchmarking::reset_read_write_count();
+					};
+
 					// Always do at least one internal repeat...
 					for _ in 0 .. internal_repeats.max(1) {
 						// Always reset the state after the benchmark.
@@ -746,26 +765,7 @@ pub fn benchmarks(
 							c
 						);
 
-						let whitelist = whitelist.clone();
-						let mut recording = #krate::BenchmarkRecording::new(#krate::__private::Box::new(move || {
-							if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
-								#frame_system::Pallet::<T>::set_block_number(1u32.into());
-							}
-
-							// Commit the externalities to the database, flushing the DB cache.
-							// This will enable worst case scenario for reading from the database.
-							#krate::benchmarking::commit_db();
-
-							// Access all whitelisted keys to get them into the proof recorder since the
-							// recorder does now have a whitelist.
-							for key in whitelist {
-								#krate::__private::storage::unhashed::get_raw(&key.key);
-							}
-
-							// Reset the read/write counter so we don't count operations in the setup process.
-							#krate::benchmarking::reset_read_write_count();
-						}));
-
+						let mut recording = #krate::BenchmarkRecording::new(&on_before_start);
 						<SelectedBenchmark as #krate::BenchmarkingSetup<#type_use_generics>>::instance(&selected_benchmark, &mut recording, c, verify)?;
 
 						// Calculate the diff caused by the benchmark.
@@ -1114,15 +1114,15 @@ fn expand_benchmark(
 					// Always reset the state after the benchmark.
 					#krate::__private::defer!(#krate::benchmarking::wipe_db());
 
-					let on_before_start = #krate::__private::Box::new(|| {
+					let on_before_start = || {
 						// Set the block number to at least 1 so events are deposited.
 						if #krate::__private::Zero::is_zero(&#frame_system::Pallet::<T>::block_number()) {
 							#frame_system::Pallet::<T>::set_block_number(1u32.into());
 						}
-					});
+					};
 
 					// Run execution + verification
-					<SelectedBenchmark as #krate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark,  &c, on_before_start)
+					<SelectedBenchmark as #krate::BenchmarkingSetup<T, _>>::test_instance(&selected_benchmark,  &c, &on_before_start)
 				};
 
 				if components.is_empty() {

@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::TrailingZeroInput, DispatchError};
-use sp_std::{prelude::Box, vec::Vec};
+use sp_std::vec::Vec;
 use sp_storage::TrackedStorageKey;
 
 /// An alphabet of possible parameters to use for benchmarking.
@@ -356,37 +356,33 @@ struct NoopRecording;
 impl Recording for NoopRecording {}
 
 /// A no-op recording, used for tests that should setup some state before running the benchmark.
-struct TestRecording {
-	on_before_start: Option<Box<dyn FnOnce()>>,
+struct TestRecording<'a> {
+	on_before_start: Option<&'a dyn Fn()>,
 }
 
-impl TestRecording {
-	fn new(on_before_start: Box<dyn FnOnce()>) -> Self {
+impl<'a> TestRecording<'a> {
+	fn new(on_before_start: &'a dyn Fn()) -> Self {
 		Self { on_before_start: Some(on_before_start) }
 	}
 }
 
-impl Recording for TestRecording {
+impl<'a> Recording for TestRecording<'a> {
 	fn start(&mut self) {
-		let on_before_start = self
-			.on_before_start
-			.take()
-			.expect("on_before_start is always set by `new`; qed");
-		(on_before_start)();
+		(self.on_before_start.take().expect("start called more than once"))();
 	}
 }
 
 /// Records the time and proof size of a single benchmark iteration.
-pub struct BenchmarkRecording {
-	on_before_start: Option<Box<dyn FnOnce()>>,
+pub struct BenchmarkRecording<'a> {
+	on_before_start: Option<&'a dyn Fn()>,
 	start_extrinsic: Option<u128>,
 	finish_extrinsic: Option<u128>,
 	start_pov: Option<u32>,
 	end_pov: Option<u32>,
 }
 
-impl BenchmarkRecording {
-	pub fn new(on_before_start: Box<dyn FnOnce()>) -> Self {
+impl<'a> BenchmarkRecording<'a> {
+	pub fn new(on_before_start: &'a dyn Fn()) -> Self {
 		Self {
 			on_before_start: Some(on_before_start),
 			start_extrinsic: None,
@@ -397,13 +393,9 @@ impl BenchmarkRecording {
 	}
 }
 
-impl Recording for BenchmarkRecording {
+impl<'a> Recording for BenchmarkRecording<'a> {
 	fn start(&mut self) {
-		let on_before_start = self
-			.on_before_start
-			.take()
-			.expect("on_before_start is always set by `new`; qed");
-		(on_before_start)();
+		(self.on_before_start.take().expect("start called more than once"))();
 		self.start_pov = crate::benchmarking::proof_size();
 		self.start_extrinsic = Some(crate::benchmarking::current_time());
 	}
@@ -414,7 +406,7 @@ impl Recording for BenchmarkRecording {
 	}
 }
 
-impl BenchmarkRecording {
+impl<'a> BenchmarkRecording<'a> {
 	pub fn start_pov(&self) -> Option<u32> {
 		self.start_pov
 	}
@@ -454,7 +446,7 @@ pub trait BenchmarkingSetup<T, I = ()> {
 	fn test_instance(
 		&self,
 		components: &[(BenchmarkParameter, u32)],
-		on_before_start: Box<dyn FnOnce()>,
+		on_before_start: &dyn Fn(),
 	) -> Result<(), BenchmarkError> {
 		return self.instance(&mut TestRecording::new(on_before_start), components, true);
 	}
