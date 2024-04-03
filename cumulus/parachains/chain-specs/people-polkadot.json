@@ -1,0 +1,6 @@
+{
+  "name": "Polkadot People",
+  "id": "people-polkadot",
+  "chainType": "Live",
+  "todo": "generate chain spec"
+}

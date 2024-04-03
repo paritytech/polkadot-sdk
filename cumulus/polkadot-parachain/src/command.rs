@@ -759,6 +759,16 @@ pub fn run() -> Result<()> {
 					.map_err(Into::into),
 
 					Coretime(coretime_runtime_type) => match coretime_runtime_type {
+						chain_spec::coretime::CoretimeRuntimeType::Kusama |
+						chain_spec::coretime::CoretimeRuntimeType::KusamaLocal =>
+							crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0),
+						chain_spec::coretime::CoretimeRuntimeType::Polkadot |
+						chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal =>
+							crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0),
 						chain_spec::coretime::CoretimeRuntimeType::Rococo |
 						chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
 						chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
@@ -790,6 +800,16 @@ pub fn run() -> Result<()> {
 						.map_err(Into::into),
 
 					People(people_runtime_type) => match people_runtime_type {
+						chain_spec::people::PeopleRuntimeType::Kusama |
+						chain_spec::people::PeopleRuntimeType::KusamaLocal =>
+							crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0),
+						chain_spec::people::PeopleRuntimeType::Polkadot |
+						chain_spec::people::PeopleRuntimeType::PolkadotLocal =>
+							crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
+							.await
+							.map(|r| r.0),
 						chain_spec::people::PeopleRuntimeType::Rococo |
 						chain_spec::people::PeopleRuntimeType::RococoLocal |
 						chain_spec::people::PeopleRuntimeType::RococoDevelopment |

@@ -1,0 +1,6 @@
+{
+  "name": "Kusama People",
+  "id": "people-kusama",
+  "chainType": "Live",
+  "todo": "generate chain spec"
+}

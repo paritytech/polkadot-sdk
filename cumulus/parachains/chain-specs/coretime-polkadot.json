@@ -1,0 +1,6 @@
+{
+  "name": "Polkadot Coretime",
+  "id": "coretime-polkadot"
+  "chainType": "Live",
+  "todo": "generate chain spec"
+}
