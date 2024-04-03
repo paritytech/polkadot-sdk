@@ -29,7 +29,6 @@ use sp_runtime::traits::BadOrigin;
 /// Useful for tests when you don't care about customising, or reusing the pool params.
 fn create_default_pool() {
 	let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
-	create_tokens(1, vec![staking_asset_id.clone()]);
 	assert_ok!(StakingRewards::create_pool(
 		RuntimeOrigin::signed(1),
 		Box::new(staking_asset_id),
@@ -38,17 +37,6 @@ fn create_default_pool() {
 		100u64,
 		None
 	));
-}
-
-fn create_tokens(owner: u128, tokens: Vec<NativeOrWithId<u32>>) {
-	let ed = 1;
-	for token_id in tokens {
-		let asset_id = match token_id {
-			NativeOrWithId::WithId(id) => id,
-			_ => unreachable!("invalid token"),
-		};
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, false, ed));
-	}
 }
 
 fn events() -> Vec<Event<MockRuntime>> {
@@ -84,8 +72,6 @@ mod create_pool {
 			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
 			let reward_rate_per_block = 100;
 			let expiry_block = 200u64;
-
-			create_tokens(user, vec![reward_asset_id.clone()]);
 
 			assert_eq!(NextPoolId::<MockRuntime>::get(), 0);
 			assert_ok!(StakingRewards::create_pool(
@@ -243,7 +229,6 @@ mod create_pool {
 			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
 			let reward_rate_per_block = 100;
 			let expiry_block = 100u64;
-			create_tokens(user, vec![reward_asset_id.clone()]);
 			assert_err!(
 				StakingRewards::create_pool(
 					RuntimeOrigin::signed(user),
@@ -266,7 +251,6 @@ mod create_pool {
 			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
 			let reward_rate_per_block = 100;
 			let expiry_block = 100u64;
-			create_tokens(user, vec![reward_asset_id.clone()]);
 			System::set_block_number(expiry_block + 1u64);
 			assert_err!(
 				StakingRewards::create_pool(
@@ -326,6 +310,9 @@ mod stake {
 			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 1500);
 
 			// TODO: Check user's frozen balance is updated
+
+			// Event is emitted.
+			assert_eq!(events(), []);
 		});
 	}
 
@@ -334,12 +321,9 @@ mod stake {
 		new_test_ext().execute_with(|| {
 			let user = 1;
 			let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
-			create_tokens(user, vec![staking_asset_id.clone()]);
-
-			let non_existent_pool_id = 999;
 
 			assert_err!(
-				StakingRewards::stake(RuntimeOrigin::signed(user), non_existent_pool_id, 1000),
+				StakingRewards::stake(RuntimeOrigin::signed(user), 999, 1000),
 				Error::<MockRuntime>::NonExistentPool
 			);
 		});
@@ -616,7 +600,6 @@ fn integration() {
 		let reward_asset_id = NativeOrWithId::<u32>::Native;
 		let reward_rate_per_block = 100;
 		let expiry_block = 25u64.into();
-		create_tokens(admin, vec![staking_asset_id.clone()]);
 		assert_ok!(StakingRewards::create_pool(
 			RuntimeOrigin::signed(admin),
 			Box::new(staking_asset_id.clone()),

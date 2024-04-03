@@ -142,19 +142,26 @@ impl Config for MockRuntime {
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<MockRuntime>::default().build_storage().unwrap();
 
-	// pallet_assets::GenesisConfig::<MockRuntime, Instance1> {
-	// 	// Genesis assets: id, owner, is_sufficient, min_balance
-	// 	// pub assets: Vec<(T::AssetId, T::AccountId, bool, T::Balance)>,
-	// 	assets: vec![(1, 1, true, 10000)],
-	// 	// Genesis metadata: id, name, symbol, decimals
-	// 	// pub metadata: Vec<(T::AssetId, Vec<u8>, Vec<u8>, u8)>,
-	// 	metadata: vec![(1, b"test".to_vec(), b"TST".to_vec(), 18)],
-	// 	// Genesis accounts: id, account_id, balance
-	// 	// pub accounts: Vec<(T::AssetId, T::AccountId, T::Balance)>,
-	// 	accounts: vec![(1, 1, 10000)],
-	// }
-	// .assimilate_storage(&mut t)
-	// .unwrap();
+	pallet_assets::GenesisConfig::<MockRuntime, Instance1> {
+		// Genesis assets: id, owner, is_sufficient, min_balance
+		// pub assets: Vec<(T::AssetId, T::AccountId, bool, T::Balance)>,
+		assets: vec![(1, 1, true, 10000)],
+		// Genesis metadata: id, name, symbol, decimals
+		// pub metadata: Vec<(T::AssetId, Vec<u8>, Vec<u8>, u8)>,
+		metadata: vec![(1, b"test".to_vec(), b"TST".to_vec(), 18)],
+		// Genesis accounts: id, account_id, balance
+		// pub accounts: Vec<(T::AssetId, T::AccountId, T::Balance)>,
+		accounts: vec![
+			(1, 1, 10000),
+			(1, 2, 20000),
+			(1, 3, 30000),
+			(1, 4, 40000),
+			(1, 10, 40000),
+			(1, 20, 40000),
+		],
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	pallet_balances::GenesisConfig::<MockRuntime> {
 		balances: vec![(1, 10000), (2, 20000), (3, 30000), (4, 40000), (10, 40000), (20, 40000)],
