@@ -24,7 +24,6 @@
 //! [`pallet_migrations::Config`] implementation, where you define the migrations you want to run
 //! using the [`Migrations`] type.
 
-use crate::migrations::{v1, v1::weights::SubstrateWeight};
 use frame_support::{
 	construct_runtime, derive_impl,
 	migrations::MultiStepMigrator,
@@ -49,7 +48,9 @@ impl pallet_migrations::Config for Runtime {
 	// type Migrations = (v1::Migration<Runtime>, v2::Migration<Runtime>, v3::Migration<Runtime>);
 	// ```
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = (v1::LazyMigrationV1<Runtime, SubstrateWeight<Runtime>>,);
+	type Migrations = (crate::migrations::v1::LazyMigrationV1<Runtime, crate::migrations::v1::weights::SubstrateWeight<Runtime>>,);
+	#[cfg(feature = "runtime-benchmarks")]
+	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
 	type MaxServiceWeight = MigratorServiceWeight;
 }
 
@@ -73,6 +74,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_io::TestExternalities::new(Default::default())
 }
 
+#[allow(dead_code)]
 pub fn run_to_block(n: u64) {
 	assert!(System::block_number() < n);
 	while System::block_number() < n {

@@ -294,6 +294,7 @@ pub mod pallet {
 		///
 		/// Should be configured to [`crate::mock_helpers::MockedMigrations`] in benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
+		#[pallet::no_default]
 		type Migrations: MockedMigrations;
 
 		/// The maximal length of an encoded cursor.
@@ -328,8 +329,6 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
-		#[cfg(feature = "runtime-benchmarks")]
-		use crate::mock_helpers::MockedMigrations;
 		use frame_support::{
 			derive_impl,
 			migrations::FreezeChainOnFailedMigration,
@@ -357,8 +356,6 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
-			#[cfg(feature = "runtime-benchmarks")]
-			type Migrations = MockedMigrations;
 			type CursorMaxLen = ConstU32<{ 1 << 16 }>;
 			type IdentifierMaxLen = ConstU32<{ 256 }>;
 			type MigrationStatusHandler = ();
