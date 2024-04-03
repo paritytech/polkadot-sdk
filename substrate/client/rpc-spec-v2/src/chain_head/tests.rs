@@ -89,6 +89,7 @@ pub async fn run_server() -> std::net::SocketAddr {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
 			max_follow_subscriptions_per_connection: 1,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 		},
 	)
 	.into_rpc();
