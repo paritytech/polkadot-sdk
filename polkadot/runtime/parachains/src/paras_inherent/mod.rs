@@ -43,9 +43,9 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use primitives::{
-	effective_minimum_backing_votes, vstaging::node_features::FeatureIndex, BackedCandidate,
-	CandidateHash, CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet,
-	CoreIndex, DisputeStatementSet, HeadData, InherentData as ParachainsInherentData,
+	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate, CandidateHash,
+	CandidateReceipt, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
+	DisputeStatementSet, HeadData, InherentData as ParachainsInherentData,
 	MultiDisputeStatementSet, ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields,
 	SigningContext, UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields,
 	ValidatorId, ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,

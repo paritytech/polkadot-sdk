@@ -1233,6 +1233,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			prometheus_registry: prometheus_registry.clone(),
 			links: beefy_links,
 			on_demand_justifications_handler: beefy_on_demand_justifications_handler,
+			is_authority: role.is_authority(),
 		};
 
 		let gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
@@ -1242,18 +1243,18 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		task_manager
 			.spawn_essential_handle()
 			.spawn_blocking("beefy-gadget", None, gadget);
-		// When offchain indexing is enabled, MMR gadget should also run.
-		if is_offchain_indexing_enabled {
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"mmr-gadget",
-				None,
-				MmrGadget::start(
-					client.clone(),
-					backend.clone(),
-					sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
-				),
-			);
-		}
+	}
+	// When offchain indexing is enabled, MMR gadget should also run.
+	if is_offchain_indexing_enabled {
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"mmr-gadget",
+			None,
+			MmrGadget::start(
+				client.clone(),
+				backend.clone(),
+				sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
+			),
+		);
 	}
 
 	let config = grandpa::Config {
