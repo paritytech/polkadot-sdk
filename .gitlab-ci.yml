@@ -245,6 +245,7 @@ subsystem-regression-tests-recovery-regression:
     - .docker-env
     - .common-refs
     # - .run-immediately
+  parallel: 3
   script:
     - cargo bench --profile=testnet -p polkadot-availability-recovery --bench availability-recovery-regression-bench --features subsystem-benchmarks
   tags:
@@ -263,6 +264,7 @@ subsystem-regression-tests-distribution-regression:
     - .docker-env
     - .common-refs
     # - .run-immediately
+  parallel: 3
   script:
     - cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks
   tags:
