@@ -598,8 +598,8 @@ pub mod pallet {
 			ensure!(pool_info.admin == caller, BadOrigin);
 			T::Assets::transfer(
 				pool_info.reward_asset_id,
-				&caller,
 				&Self::pool_account_id(&pool_id)?,
+				&caller,
 				amount,
 				Preservation::Preserve,
 			)?;
