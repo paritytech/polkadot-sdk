@@ -24,7 +24,7 @@ use cumulus_primitives_core::{
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
-	PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
+	BlockNumber, CoreState, PHeader, RelayChainError, RelayChainInterface, RelayChainResult,
 };
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
@@ -236,5 +236,12 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>> {
 		let imported_headers_stream = self.rpc_client.get_best_heads_stream()?;
 		Ok(imported_headers_stream.boxed())
+	}
+
+	async fn availability_cores(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Vec<CoreState<RelayHash, BlockNumber>>> {
+		self.rpc_client.parachain_host_availability_cores(relay_parent).await
 	}
 }

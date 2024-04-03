@@ -20,7 +20,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
 use cumulus_primitives_core::{
-	relay_chain::{self, BlockId},
+	relay_chain::{BlockId, BlockNumber, CoreState},
 	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage,
 };
 use cumulus_relay_chain_interface::{
@@ -45,11 +45,11 @@ use std::{
 	time::Duration,
 };
 
-fn relay_block_num_from_hash(hash: &PHash) -> relay_chain::BlockNumber {
+fn relay_block_num_from_hash(hash: &PHash) -> BlockNumber {
 	hash.to_low_u64_be() as u32
 }
 
-fn relay_hash_from_block_num(block_number: relay_chain::BlockNumber) -> PHash {
+fn relay_hash_from_block_num(block_number: BlockNumber) -> PHash {
 	PHash::from_low_u64_be(block_number as u64)
 }
 
@@ -246,6 +246,13 @@ impl RelayChainInterface for Relaychain {
 			state_root: PHash::zero(),
 			extrinsics_root: PHash::zero(),
 		}))
+	}
+
+	async fn availability_cores(
+		&self,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Vec<CoreState<PHash, BlockNumber>>> {
+		unimplemented!("Not needed for test");
 	}
 }
 

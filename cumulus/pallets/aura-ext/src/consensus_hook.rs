@@ -65,8 +65,17 @@ where
 		let para_slot_from_relay =
 			Slot::from_timestamp(relay_chain_timestamp.into(), para_slot_duration);
 
-		// Perform checks.
-		assert_eq!(slot, para_slot_from_relay, "slot number mismatch");
+		// Check that we are not too far in the future. Since we expect `V` parachain blocks
+		// during the relay chain slot, we can allow for `V` parachain slots into the future.
+		if *slot > *para_slot_from_relay + u64::from(velocity) {
+			panic!(
+				"Parachain slot is too far in the future: parachain_slot: {:?}, derived_from_relay_slot: {:?} velocity: {:?}",
+				slot,
+				para_slot_from_relay,
+				velocity
+			);
+		}
+
 		if authored > velocity + 1 {
 			panic!("authored blocks limit is reached for the slot")
 		}
@@ -113,6 +122,10 @@ impl<
 			return false
 		}
 
+		// TODO: This logic needs to be adjusted.
+		// It checks that we have not authored more than `V + 1` blocks in the slot.
+		// As a slot however, we take the parachain slot here. Velocity should
+		// be measured in relation to the relay chain slot.
 		if last_slot == new_slot {
 			authored_so_far < velocity + 1
 		} else {

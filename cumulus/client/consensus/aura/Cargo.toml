@@ -15,6 +15,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive
 futures = "0.3.28"
 tracing = "0.1.37"
 schnellru = "0.2.1"
+tokio = { version = "1.36.0", features = ["sync"] }
 
 # Substrate
 sc-client-api = { path = "../../../../substrate/client/api" }
@@ -51,3 +52,4 @@ polkadot-primitives = { path = "../../../../polkadot/primitives" }
 polkadot-node-primitives = { path = "../../../../polkadot/node/primitives" }
 polkadot-node-subsystem = { path = "../../../../polkadot/node/subsystem" }
 polkadot-overseer = { path = "../../../../polkadot/node/overseer" }
+sc-service = { version = "0.35.0", path = "../../../../substrate/client/service" }

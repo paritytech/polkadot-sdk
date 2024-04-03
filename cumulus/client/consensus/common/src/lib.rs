@@ -46,6 +46,8 @@ pub use level_monitor::{LevelLimit, MAX_LEAVES_PER_LEVEL_SENSIBLE_DEFAULT};
 
 pub mod import_queue;
 
+const PARENT_SEARCH_LOG_TARGET: &str = "consensus::common::find_potential_parents";
+
 /// Provides the hash of validation code used for authoring/execution of blocks at a given
 /// hash.
 pub trait ValidationCodeHashProvider<Hash> {
@@ -350,6 +352,7 @@ pub async fn find_potential_parents<B: BlockT>(
 	let included_hash = included_header.hash();
 	let pending_hash = pending_header.as_ref().map(|hdr| hdr.hash());
 
+	tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?included_hash, included_num = ?included_header.number(), ?pending_hash ,?rp_ancestry, "Searching relay chain ancestry.");
 	let mut frontier = vec![PotentialParent::<B> {
 		hash: included_hash,
 		header: included_header,
@@ -361,6 +364,8 @@ pub async fn find_potential_parents<B: BlockT>(
 	// relay parents.
 	let mut potential_parents = Vec::new();
 	while let Some(entry) = frontier.pop() {
+		// TODO find_potential_parents The assumption that entry.depth = 1 is the pending block is
+		// not correct if we produce sub 6s blocks.
 		let is_pending =
 			entry.depth == 1 && pending_hash.as_ref().map_or(false, |h| &entry.hash == h);
 		let is_included = entry.depth == 0;
@@ -370,16 +375,21 @@ pub async fn find_potential_parents<B: BlockT>(
 		// because they have already been posted on chain.
 		let is_potential = is_pending || is_included || {
 			let digest = entry.header.digest();
-			cumulus_primitives_core::extract_relay_parent(digest).map_or(false, is_hash_in_ancestry) ||
+			let is_hash_in_ancestry_check = cumulus_primitives_core::extract_relay_parent(digest)
+				.map_or(false, is_hash_in_ancestry);
+			let is_root_in_ancestry_check =
 				cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(digest)
 					.map(|(r, _n)| r)
-					.map_or(false, is_root_in_ancestry)
+					.map_or(false, is_root_in_ancestry);
+
+			is_hash_in_ancestry_check || is_root_in_ancestry_check
 		};
 
 		let parent_aligned_with_pending = entry.aligned_with_pending;
 		let child_depth = entry.depth + 1;
 		let hash = entry.hash;
 
+		tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, root_in_ancestry = is_potential && !is_pending && !is_included, ?hash, is_pending, is_included, "Checking potential parent.");
 		if is_potential {
 			potential_parents.push(entry);
 		}

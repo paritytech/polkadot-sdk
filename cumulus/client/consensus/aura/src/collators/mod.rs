@@ -27,6 +27,7 @@ use polkadot_primitives::{
 
 pub mod basic;
 pub mod lookahead;
+pub mod slot_based;
 
 /// Check the `local_validation_code_hash` against the validation code hash in the relay chain
 /// state.

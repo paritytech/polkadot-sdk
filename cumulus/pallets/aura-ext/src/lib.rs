@@ -83,7 +83,7 @@ pub mod pallet {
 
 			SlotInfo::<T>::put((new_slot, authored));
 
-			T::DbWeight::get().reads_writes(2, 1)
+			T::DbWeight::get().reads_writes(4, 2)
 		}
 	}
 
