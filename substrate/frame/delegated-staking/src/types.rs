@@ -263,8 +263,10 @@ impl<T: Config> Agent<T> {
 
 	/// Save self and remove if no delegation left.
 	///
-	/// Returns error if the delegate is in an unexpected state.
-	pub(crate) fn save_or_kill(self) -> Result<(), DispatchError> {
+	/// Returns:
+	/// - true if agent killed.
+	/// - error if the delegate is in an unexpected state.
+	pub(crate) fn save_or_kill(self) -> Result<bool, DispatchError> {
 		let key = self.key;
 		// see if delegate can be killed
 		if self.ledger.total_delegated == Zero::zero() {
@@ -274,11 +276,10 @@ impl<T: Config> Agent<T> {
 				Error::<T>::BadState
 			);
 			<Agents<T>>::remove(key);
-		} else {
-			self.ledger.save(&key)
+			return Ok(true)
 		}
-
-		Ok(())
+		self.ledger.save(&key);
+		Ok(false)
 	}
 
 	/// Reloads self from storage.

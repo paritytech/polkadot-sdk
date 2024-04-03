@@ -572,9 +572,12 @@ impl<T: Config> Pallet<T> {
 		// if we still do not have enough funds to release, abort.
 		ensure!(agent.ledger.unclaimed_withdrawals >= amount, Error::<T>::NotEnoughFunds);
 
-		// claim withdraw from agent.
-		agent.remove_unclaimed_withdraw(amount)?.save_or_kill()?;
-
+		// claim withdraw from agent. Kill agent if no delegation left.
+		// TODO(ank4n): Ideally if there is a register, there should be an unregister that should
+		// clean up the agent. Need to improve this.
+		if agent.remove_unclaimed_withdraw(amount)?.save_or_kill()? {
+			let _ = frame_system::Pallet::<T>::dec_providers(who).defensive();
+		}
 		// book keep delegation
 		delegation.amount = delegation
 			.amount
