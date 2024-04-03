@@ -54,8 +54,7 @@ pub mod __private {
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
 	pub use sp_runtime::{
-		traits::{AsSystemOriginSigner, Dispatchable},
-		DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
 	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
@@ -76,7 +75,6 @@ pub mod storage;
 #[cfg(test)]
 mod tests;
 pub mod traits;
-pub mod transaction_extensions;
 pub mod weights;
 #[doc(hidden)]
 pub mod unsigned {
@@ -147,7 +145,7 @@ impl TypeId for PalletId {
 /// # Examples
 ///
 /// There are different ways to declare the `prefix` to use. The `prefix` type can either be
-/// declared explicetly by passing it to the macro as an attribute or by letting the macro
+/// declared explicitly by passing it to the macro as an attribute or by letting the macro
 /// guess on what the `prefix` type is. The `prefix` is always passed as the first generic
 /// argument to the type declaration. When using [`#[pallet::storage]`](pallet_macros::storage)
 /// this first generic argument is always `_`. Besides declaring the `prefix`, the rest of the
@@ -509,6 +507,9 @@ pub fn debug(data: &impl sp_std::fmt::Debug) {
 pub use frame_support_procedural::{
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
 };
+
+#[cfg(feature = "experimental")]
+pub use frame_support_procedural::runtime;
 
 #[doc(hidden)]
 pub use frame_support_procedural::{__create_tt_macro, __generate_dummy_part_checker};
@@ -1109,7 +1110,7 @@ pub mod pallet_macros {
 
 	/// Declares a storage as unbounded in potential size.
 	///
-	/// When implementating the storage info (when `#[pallet::generate_storage_info]` is
+	/// When implementing the storage info (when `#[pallet::generate_storage_info]` is
 	/// specified on the pallet struct placeholder), the size of the storage will be declared
 	/// as unbounded. This can be useful for storage which can never go into PoV (Proof of
 	/// Validity).
@@ -1583,8 +1584,8 @@ pub mod pallet_macros {
 	/// [`ValidateUnsigned`](frame_support::pallet_prelude::ValidateUnsigned) for
 	/// type `Pallet<T>`, and some optional where clause.
 	///
-	/// NOTE: There is also the [`sp_runtime::traits::TransactionExtension`] trait that can be
-	/// used to add some specific logic for transaction validation.
+	/// NOTE: There is also the [`sp_runtime::traits::SignedExtension`] trait that can be used
+	/// to add some specific logic for transaction validation.
 	///
 	/// ## Macro expansion
 	///
@@ -1932,7 +1933,7 @@ pub mod pallet_macros {
 	/// #   use frame_support::__private::TestExternalities;
 	/// #   use frame_support::traits::UnfilteredDispatchable;
 	/// #    impl custom_pallet::Config for Runtime {}
-	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	/// #    impl frame_system::Config for Runtime {
 	/// #        type Block = frame_system::mocking::MockBlock<Self>;
 	/// #    }
@@ -2339,7 +2340,7 @@ pub mod pallet_macros {
 
 	/// Allows defining conditions for a task to run.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
 	/// given work item to be valid.
 	///
@@ -2350,7 +2351,7 @@ pub mod pallet_macros {
 
 	/// Allows defining an index for a task.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
 	/// work item.
 	///
@@ -2360,7 +2361,7 @@ pub mod pallet_macros {
 
 	/// Allows defining an iterator over available work items for a task.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`).
 	///
 	/// It takes an iterator as input that yields a tuple with same types as the function
@@ -2369,7 +2370,7 @@ pub mod pallet_macros {
 
 	/// Allows defining the weight of a task.
 	///
-	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// This attribute is attached to a function inside an `impl` block annotated with
 	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
 	/// item.
 	///

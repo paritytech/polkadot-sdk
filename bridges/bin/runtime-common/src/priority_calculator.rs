@@ -128,7 +128,7 @@ mod integrity_tests {
 		Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 		BalanceOf<Runtime>: Send + Sync + FixedPointOperand,
 	{
-		// esimate priority of transaction that delivers one message and has large tip
+		// estimate priority of transaction that delivers one message and has large tip
 		let maximal_messages_in_delivery_transaction =
 			Runtime::MaxUnconfirmedMessagesAtInboundLane::get();
 		let small_with_tip_priority =
@@ -163,21 +163,18 @@ mod integrity_tests {
 	{
 		// just an estimation of extra transaction bytes that are added to every transaction
 		// (including signature, signed extensions extra and etc + in our case it includes
-		// all call arguments extept the proof itself)
+		// all call arguments except the proof itself)
 		let base_tx_size = 512;
 		// let's say we are relaying similar small messages and for every message we add more trie
 		// nodes to the proof (x0.5 because we expect some nodes to be reused)
 		let estimated_message_size = 512;
 		// let's say all our messages have the same dispatch weight
-		let estimated_message_dispatch_weight = <Runtime as pallet_bridge_messages::Config<
-			MessagesInstance,
-		>>::WeightInfo::message_dispatch_weight(
-			estimated_message_size
-		);
+		let estimated_message_dispatch_weight =
+			Runtime::WeightInfo::message_dispatch_weight(estimated_message_size);
 		// messages proof argument size is (for every message) messages size + some additional
 		// trie nodes. Some of them are reused by different messages, so let's take 2/3 of default
 		// "overhead" constant
-		let messages_proof_size = <Runtime as pallet_bridge_messages::Config<MessagesInstance>>::WeightInfo::expected_extra_storage_proof_size()
+		let messages_proof_size = Runtime::WeightInfo::expected_extra_storage_proof_size()
 			.saturating_mul(2)
 			.saturating_div(3)
 			.saturating_add(estimated_message_size)
@@ -185,7 +182,7 @@ mod integrity_tests {
 
 		// finally we are able to estimate transaction size and weight
 		let transaction_size = base_tx_size.saturating_add(messages_proof_size);
-		let transaction_weight = <Runtime as pallet_bridge_messages::Config<MessagesInstance>>::WeightInfo::receive_messages_proof_weight(
+		let transaction_weight = Runtime::WeightInfo::receive_messages_proof_weight(
 			&PreComputedSize(transaction_size as _),
 			messages as _,
 			estimated_message_dispatch_weight.saturating_mul(messages),
