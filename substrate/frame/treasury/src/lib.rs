@@ -83,7 +83,9 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
+	traits::{
+		AccountIdConversion, BlockNumberProvider, CheckedAdd, Saturating, StaticLookup, Zero,
+	},
 	Permill, RuntimeDebug,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -289,6 +291,9 @@ pub mod pallet {
 		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
+
+		/// Provider for the block number.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
 	/// Number of proposals that have been made.
@@ -734,7 +739,7 @@ pub mod pallet {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			let beneficiary = T::BeneficiaryLookup::lookup(*beneficiary)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let valid_from = valid_from.unwrap_or(now);
 			let expire_at = valid_from.saturating_add(T::PayoutPeriod::get());
 			ensure!(expire_at > now, Error::<T, I>::SpendExpired);
@@ -812,7 +817,7 @@ pub mod pallet {
 		pub fn payout(origin: OriginFor<T>, index: SpendIndex) -> DispatchResult {
 			ensure_signed(origin)?;
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= spend.valid_from, Error::<T, I>::EarlyPayout);
 			ensure!(spend.expire_at > now, Error::<T, I>::SpendExpired);
 			ensure!(
@@ -858,7 +863,7 @@ pub mod pallet {
 
 			ensure_signed(origin)?;
 			let mut spend = Spends::<T, I>::get(index).ok_or(Error::<T, I>::InvalidIndex)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 
 			if now > spend.expire_at && !matches!(spend.status, State::Attempted { .. }) {
 				// spend has expired and no further status update is expected.
