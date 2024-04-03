@@ -598,7 +598,12 @@ pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId
 	assert_ok!(Staking::nominate(RuntimeOrigin::signed(who), target));
 }
 
-pub(crate) fn bond_virtual_nominator(who: AccountId, payee: AccountId, val: Balance, target: Vec<AccountId>) {
+pub(crate) fn bond_virtual_nominator(
+	who: AccountId,
+	payee: AccountId,
+	val: Balance,
+	target: Vec<AccountId>,
+) {
 	// who is provided by another pallet in a real scenario.
 	System::inc_providers(&who);
 	assert_ok!(<Staking as sp_staking::StakingUnsafe>::virtual_bond(&who, val, &payee));
