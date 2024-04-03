@@ -27,7 +27,8 @@ codec = { version = "3.6.1", package = "parity-scale-codec", default-features = 
 tracing = { version = "0.1.29", default-features = false }
 tracing-core = { version = "0.1.32", default-features = false }
 tracing-subscriber = { workspace = true, optional = true, features = [
-	"env-filter", "tracing-log",
+	"env-filter",
+	"tracing-log",
 ] }
 
 [features]
