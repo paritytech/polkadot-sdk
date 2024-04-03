@@ -68,7 +68,7 @@ use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
-use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
+use sp_runtime::{FixedU128, RuntimeDebug, Saturating, WeakBoundedVec};
 use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
@@ -333,14 +333,14 @@ pub mod pallet {
 		ParaId,
 		Twox64Concat,
 		u16,
-		BoundedVec<u8, T::MaxPageSize>,
+		WeakBoundedVec<u8, T::MaxPageSize>,
 		ValueQuery,
 	>;
 
 	/// Any signal messages waiting to be sent.
 	#[pallet::storage]
 	pub(super) type SignalMessages<T: Config> =
-		StorageMap<_, Blake2_128Concat, ParaId, BoundedVec<u8, T::MaxPageSize>, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, ParaId, WeakBoundedVec<u8, T::MaxPageSize>, ValueQuery>;
 
 	/// The configuration which controls the dynamics of the outbound queue.
 	#[pallet::storage]
@@ -535,7 +535,9 @@ impl<T: Config> Pallet<T> {
 						if page.len() + encoded_fragment.len() > max_message_size {
 							return None
 						}
-						page.try_extend(encoded_fragment.iter().cloned()).ok()?;
+						for frag in encoded_fragment.iter() {
+							page.try_push(*frag).ok()?;
+						}
 						Some(page.len())
 					},
 				)
@@ -553,8 +555,9 @@ impl<T: Config> Pallet<T> {
 			new_page.extend_from_slice(&encoded_fragment[..]);
 			let last_page_size = new_page.len();
 			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
-			let bounded_page =
-				BoundedVec::try_from(new_page).map_err(|_| MessageSendError::TooBig)?;
+			let bounded_page = BoundedVec::<u8, T::MaxPageSize>::try_from(new_page)
+				.map_err(|_| MessageSendError::TooBig)?;
+			let bounded_page = WeakBoundedVec::force_from(bounded_page.into_inner(), None);
 			<OutboundXcmpMessages<T>>::insert(recipient, page_index, bounded_page);
 			<OutboundXcmpStatus<T>>::put(all_channels);
 			(number_of_pages, last_page_size)
@@ -586,8 +589,11 @@ impl<T: Config> Pallet<T> {
 				.map_err(|_| Error::<T>::TooManyOutboundChannels)?;
 		}
 
-		let page = BoundedVec::try_from((XcmpMessageFormat::Signals, signal).encode())
-			.map_err(|_| Error::<T>::TooBig)?;
+		let page = BoundedVec::<u8, T::MaxPageSize>::try_from(
+			(XcmpMessageFormat::Signals, signal).encode(),
+		)
+		.map_err(|_| Error::<T>::TooBig)?;
+		let page = WeakBoundedVec::force_from(page.into_inner(), None);
 
 		<SignalMessages<T>>::insert(dest, page);
 		<OutboundXcmpStatus<T>>::put(s);

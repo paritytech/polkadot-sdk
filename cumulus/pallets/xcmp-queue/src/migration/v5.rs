@@ -87,28 +87,33 @@ impl<T: V5Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV4T
 			let info = T::ChannelInfo::get_channel_info(channel)
 				.expect("All listed channels must provide info");
 
-			ensure!(
-				info.max_message_size <= max_msg_len,
-				"Max message size for channel is too large. This means that the V5 migration can \
-				be front-run and an attacker could place a large message just right before the \
-				migration to make other messages un-decodable. Please either increase \
-				`MaxPageSize` or decrease the `max_message_size` for this channel.",
-			);
+			if info.max_message_size > max_msg_len {
+				log::error!(
+					"Max message size for channel is too large. This means that the V5 \
+				migration can be front-run and an attacker could place a large message just right \
+				before the migration to make other messages un-decodable. Please either increase \
+				`MaxPageSize` or decrease the `max_message_size` for this channel. Channel max: {}, \
+				MaxPageSize: {}",
+					info.max_message_size,
+					max_msg_len
+				);
+				return Err("Migration can be front-run".into());
+			}
 		}
 
 		// Now check that all pages still fit into the new `BoundedVec`s:
 		for page in v4::OutboundXcmpMessages::<T>::iter_values() {
-			ensure!(
-				page.len() < T::MaxPageSize::get() as usize,
-				"Too long message in storage. Either manually truncate the pages or increase `MaxPageSize`."
-			);
+			if page.len() >= T::MaxPageSize::get() as usize {
+				log::warn!("Too long message in storage. WeakBoundedVec should handle this.");
+			}
 		}
 		for page in v4::SignalMessages::<T>::iter_values() {
-			ensure!(
-				page.len() < T::MaxPageSize::get() as usize,
-				"Too long signal in storage. Either manually truncate the pages or increase `MaxPageSize`."
-			);
+			if page.len() >= T::MaxPageSize::get() as usize {
+				log::warn!("Too long message in storage. WeakBoundedVec should handle this.");
+			}
 		}
+
+		ensure!(T::MaxPageSize::get() >= 16, "Sanity check failed: MaxPageSize too small");
 
 		Ok(())
 	}
