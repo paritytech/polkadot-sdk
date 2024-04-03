@@ -408,6 +408,9 @@ impl DiscoveryBehaviour {
 		}
 	}
 
+	/// Puts a record into the DHT on the provided `peers`
+	///
+	/// If `update_local_storage` is true, the local storage is update as well.
 	pub fn put_record_to(
 		&mut self,
 		record: PeerRecord,
@@ -416,7 +419,7 @@ impl DiscoveryBehaviour {
 	) {
 		if let Some(kad) = self.kademlia.as_mut() {
 			if update_local_storage {
-				if let Err(e) = kad.store_mut().put(record.record.clone()) {
+				if let Err(_e) = kad.store_mut().put(record.record.clone()) {
 					warn!(target: "sub-libp2p", "Failed to update local starage");
 				}
 			}
@@ -816,6 +819,12 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 										// addresses might exist in DHT, for example when the node
 										// changes its PeerId.
 
+										// TODO: We need to determine what is the right balance
+										// here, between creating too many queries in our network
+										// and robustness in the presence of bad records.
+										// With letting the query finish by itself we receive around
+										// 20 answers with 3 of them happening in parallel.
+										// More details here: https://github.com/libp2p/specs/blob/master/kad-dht/README.md#definitions
 										// query.finish();
 									}
 								}

@@ -755,7 +755,13 @@ where
 		if new_record.creation_time > last_value.creation_time {
 			let peers_that_need_updating = last_value.peers_with_record.clone();
 			for record in new_record.record.iter() {
-				self.network.put_record_to(record.clone(), peers_that_need_updating.clone());
+				self.network.put_record_to(
+					record.clone(),
+					peers_that_need_updating.clone(),
+					// If this is empty it means we received the answer from our node local
+					// storage, so we need to update that as well.
+					new_record.peers_with_record.is_empty(),
+				);
 			}
 			self.last_known_record.insert(kadmelia_key, new_record);
 			true
