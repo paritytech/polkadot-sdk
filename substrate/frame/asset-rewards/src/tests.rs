@@ -685,6 +685,112 @@ mod set_pool_expiry_block {
 	}
 }
 
+mod set_pool_reward_rate_per_block {
+	use super::*;
+
+	#[test]
+	fn state_is_modified_correctly() {
+		new_test_ext().execute_with(|| {
+			let admin = 1;
+			let pool_id = 0;
+			let new_reward_rate = 200;
+			create_default_pool();
+
+			assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
+				RuntimeOrigin::signed(admin),
+				pool_id,
+				new_reward_rate
+			));
+
+			// Check state
+			assert_eq!(
+				Pools::<MockRuntime>::get(pool_id).unwrap().reward_rate_per_block,
+				new_reward_rate
+			);
+
+			// Check event
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::PoolRewardRateModified {
+					pool_id,
+					new_reward_rate_per_block: new_reward_rate
+				}
+			);
+		});
+	}
+
+	#[test]
+	fn staker_rewards_are_affected_correctly() {
+		new_test_ext().execute_with(|| {
+			let admin = 1;
+			let staker = 2;
+			let pool_id = 0;
+			let new_reward_rate = 50;
+			create_default_pool();
+
+			// Stake some tokens, and accumulate 10 blocks of rewards at the default pool rate (100)
+			System::set_block_number(10);
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+			System::set_block_number(20);
+
+			// Halve the reward rate
+			assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
+				RuntimeOrigin::signed(admin),
+				pool_id,
+				new_reward_rate
+			));
+
+			// Accumulate 10 blocks of rewards at the new rate
+			System::set_block_number(30);
+
+			// Check that rewards are calculated correctly with the updated rate
+			assert_hypothetically_earned(
+				staker,
+				10 * 100 + 10 * new_reward_rate - 1, // -1 due to rounding
+				pool_id,
+				NativeOrWithId::<u32>::Native,
+			);
+		});
+	}
+
+	#[test]
+	fn fails_for_non_existent_pool() {
+		new_test_ext().execute_with(|| {
+			let admin = 1;
+			let non_existent_pool_id = 999;
+			let new_reward_rate = 200;
+
+			assert_err!(
+				StakingRewards::set_pool_reward_rate_per_block(
+					RuntimeOrigin::signed(admin),
+					non_existent_pool_id,
+					new_reward_rate
+				),
+				Error::<MockRuntime>::NonExistentPool
+			);
+		});
+	}
+
+	#[test]
+	fn fails_for_non_admin() {
+		new_test_ext().execute_with(|| {
+			let non_admin = 2;
+			let pool_id = 0;
+			let new_reward_rate = 200;
+			create_default_pool();
+
+			assert_err!(
+				StakingRewards::set_pool_reward_rate_per_block(
+					RuntimeOrigin::signed(non_admin),
+					pool_id,
+					new_reward_rate
+				),
+				BadOrigin
+			);
+		});
+	}
+}
+
 /// Assert that an amount has been hypothetically earned by a staker.
 fn assert_hypothetically_earned(
 	staker: u128,
@@ -693,6 +799,13 @@ fn assert_hypothetically_earned(
 	reward_asset_id: NativeOrWithId<u32>,
 ) {
 	hypothetically!({
+		let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+		<<MockRuntime as Config>::Assets>::set_balance(
+			reward_asset_id.clone(),
+			&pool_account_id,
+			100_000,
+		);
+
 		// Get the pre-harvest balance.
 		let balance_before: <MockRuntime as Config>::Balance =
 			<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &staker);
