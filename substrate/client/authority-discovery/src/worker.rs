@@ -729,6 +729,7 @@ where
 
 		for record in values {
 			addr_cache_needs_update |= self.handle_new_record(
+				&authority_id,
 				kadmelia_key.clone(),
 				RecordInfo {
 					creation_time: records_creation_time,
@@ -750,10 +751,15 @@ where
 		Ok(())
 	}
 
-	fn handle_new_record(&mut self, kadmelia_key: KademliaKey, new_record: RecordInfo) -> bool {
-		let last_value = self.last_known_record.entry(kadmelia_key.clone()).or_default();
-		if new_record.creation_time > last_value.creation_time {
-			let peers_that_need_updating = last_value.peers_with_record.clone();
+	fn handle_new_record(
+		&mut self,
+		authority_id: &AuthorityId,
+		kadmelia_key: KademliaKey,
+		new_record: RecordInfo,
+	) -> bool {
+		let current_record_info = self.last_known_record.entry(kadmelia_key.clone()).or_default();
+		if new_record.creation_time > current_record_info.creation_time {
+			let peers_that_need_updating = current_record_info.peers_with_record.clone();
 			for record in new_record.record.iter() {
 				self.network.put_record_to(
 					record.clone(),
@@ -763,15 +769,30 @@ where
 					new_record.peers_with_record.is_empty(),
 				);
 			}
+			debug!(
+					target: LOG_TARGET,
+					"Found a newer record for {:?} new record creation time {:?} old record creation time {:?}",
+					authority_id, new_record.creation_time, current_record_info.creation_time
+			);
 			self.last_known_record.insert(kadmelia_key, new_record);
 			true
-		} else if new_record.creation_time == last_value.creation_time {
+		} else if new_record.creation_time == current_record_info.creation_time {
 			// Same record just update in case this is a record from old nods that don't have
 			// timestamp.
-			last_value.peers_with_record.extend(new_record.peers_with_record);
+			debug!(
+					target: LOG_TARGET,
+					"Found same record for {:?} record creation time {:?}",
+					authority_id, new_record.creation_time
+			);
+			current_record_info.peers_with_record.extend(new_record.peers_with_record);
 			true
 		} else {
-			for record in last_value.record.iter() {
+			debug!(
+					target: LOG_TARGET,
+					"Found old record for {:?} received record creation time {:?} current record creation time {:?}",
+					authority_id, new_record.creation_time, current_record_info.creation_time,
+			);
+			for record in current_record_info.record.iter() {
 				self.network.put_record_to(
 					record.clone(),
 					new_record.peers_with_record.clone(),
