@@ -355,7 +355,7 @@ fn burn_works() {
 		let burn_amount_1 = 1;
 		assert_ok!(Balances::burn(Some(account).into(), burn_amount_1, allow_death));
 		System::assert_last_event(RuntimeEvent::Balances(Event::Burned {
-			who: account.clone(),
+			who: account,
 			amount: burn_amount_1,
 		}));
 		assert_eq!(Balances::total_issuance(), init_issuance - burn_amount_1);
@@ -372,7 +372,7 @@ fn burn_works() {
 		// 4. Burn some more funds, this time reaping the account
 		assert_ok!(Balances::burn(Some(account).into(), burn_amount_2, allow_death));
 		System::assert_last_event(RuntimeEvent::Balances(Event::Burned {
-			who: account.clone(),
+			who: account,
 			amount: burn_amount_2,
 		}));
 		assert_eq!(Balances::total_issuance(), init_issuance - burn_amount_1 - burn_amount_2);
