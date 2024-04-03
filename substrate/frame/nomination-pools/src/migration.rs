@@ -119,14 +119,13 @@ pub mod unversioned {
 		fn on_runtime_upgrade() -> Weight {
 			let mut migrate_count: u32 = 0;
 			let mut fail_count: u32 = 0;
-			BondedPools::<T>::iter()
-				.for_each(|(id, _inner)| {
-					if Pallet::<T>::migrate_to_delegate_stake(id).is_ok() {
-						migrate_count.saturating_inc();
-					} else {
-						fail_count.saturating_inc();
-					}
-				});
+			BondedPools::<T>::iter().for_each(|(id, _inner)| {
+				if Pallet::<T>::migrate_to_delegate_stake(id).is_ok() {
+					migrate_count.saturating_inc();
+				} else {
+					fail_count.saturating_inc();
+				}
+			});
 
 			// TODO(ank4n) bench `migrate_to_delegate_stake`.
 			Weight::default()
@@ -136,37 +135,49 @@ pub mod unversioned {
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
 			BondedPools::<T>::iter_keys().for_each(|id| {
-				pool_balances.push(T::Currency::total_balance(&Pallet::<T>::create_bonded_account(id)));
+				pool_balances
+					.push(T::Currency::total_balance(&Pallet::<T>::create_bonded_account(id)));
 			});
 
 			Ok(pool_balances.encode())
-
 		}
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			let expected_pool_balances: Vec<BalanceOf<T>> = Decode::decode(&mut &data[..]).unwrap();
 
 			for (index, id) in BondedPools::<T>::iter_keys().enumerate() {
-				let actual_balance = T::StakeAdapter::total_balance(&Pallet::<T>::create_bonded_account(id));
+				let actual_balance =
+					T::StakeAdapter::total_balance(&Pallet::<T>::create_bonded_account(id));
 				let expected_balance = expected_pool_balances.get(index).unwrap();
 
 				if actual_balance != *expected_balance {
-					log!(error, "Pool {} balance mismatch. Expected: {:?}, Actual: {:?}", id, expected_balance, actual_balance);
+					log!(
+						error,
+						"Pool {} balance mismatch. Expected: {:?}, Actual: {:?}",
+						id,
+						expected_balance,
+						actual_balance
+					);
 					return Err(TryRuntimeError::Other("Pool balance mismatch"));
 				}
 
 				// account balance should be zero.
-				let pool_account_balance = T::Currency::total_balance(&Pallet::<T>::create_bonded_account(id));
+				let pool_account_balance =
+					T::Currency::total_balance(&Pallet::<T>::create_bonded_account(id));
 				if pool_account_balance != Zero::zero() {
-					log!(error, "Pool account balance was expected to be zero. Pool: {}, Balance: {:?}", id, pool_account_balance);
+					log!(
+						error,
+						"Pool account balance was expected to be zero. Pool: {}, Balance: {:?}",
+						id,
+						pool_account_balance
+					);
 					return Err(TryRuntimeError::Other("Pool account balance not migrated"));
 				}
-			};
+			}
 
 			Ok(())
 		}
 	}
-
 }
 
 pub mod v8 {
@@ -1083,9 +1094,7 @@ mod helpers {
 
 	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
 		BondedPools::<T>::iter_keys()
-			.map(|id| {
-				T::StakeAdapter::total_stake(&Pallet::<T>::create_bonded_account(id))
-			})
+			.map(|id| T::StakeAdapter::total_stake(&Pallet::<T>::create_bonded_account(id)))
 			.reduce(|acc, total_balance| acc + total_balance)
 			.unwrap_or_default()
 	}

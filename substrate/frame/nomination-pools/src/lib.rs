@@ -2952,7 +2952,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn migrate_to_delegate_stake(id: PoolId) -> DispatchResult {
-		T::StakeAdapter::migrate_nominator_to_agent(&Self::create_bonded_account(id), &Self::create_reward_account(id))
+		T::StakeAdapter::migrate_nominator_to_agent(
+			&Self::create_bonded_account(id),
+			&Self::create_reward_account(id),
+		)
 	}
 
 	/// Create the reward account of a pool with the given id.

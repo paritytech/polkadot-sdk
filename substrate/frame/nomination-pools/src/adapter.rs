@@ -117,7 +117,10 @@ pub trait StakeStrategy {
 		maybe_reporter: Option<Self::AccountId>,
 	) -> DispatchResult;
 
-	fn migrate_nominator_to_agent(agent: &Self::AccountId, reward_account: &Self::AccountId) -> DispatchResult;
+	fn migrate_nominator_to_agent(
+		agent: &Self::AccountId,
+		reward_account: &Self::AccountId,
+	) -> DispatchResult;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn nominations(pool_account: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
