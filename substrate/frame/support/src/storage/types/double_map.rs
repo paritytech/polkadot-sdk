@@ -663,8 +663,8 @@ impl<Prefix, Hasher1, Key1, Hasher2, Key2, Value, I, QueryKind, OnEmpty, MaxValu
 	for StorageDoubleMap<Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues>
 where
 	Prefix: StorageInstance,
-	Hasher1: ReversibleStorageHasher,
-	Hasher2: ReversibleStorageHasher,
+	Hasher1: StorageHasher,
+	Hasher2: StorageHasher,
 	Key1: FullCodec,
 	Key2: FullCodec,
 	Value: FullCodec + StorageTryAppend<I>,
@@ -698,8 +698,8 @@ impl<Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues>
 	StorageDoubleMap<Prefix, Hasher1, Key1, Hasher2, Key2, Value, QueryKind, OnEmpty, MaxValues>
 where
 	Prefix: StorageInstance,
-	Hasher1: crate::hash::StorageHasher + ReversibleStorageHasher,
-	Hasher2: crate::hash::StorageHasher + ReversibleStorageHasher,
+	Hasher1: crate::hash::StorageHasher,
+	Hasher2: crate::hash::StorageHasher,
 	Key1: FullCodec,
 	Key2: FullCodec,
 	Value: FullCodec,
@@ -1301,6 +1301,7 @@ where
 #[cfg(test)]
 mod test {
 	use super::*;
+	//use crate::storage::StorageDoubleMap;
 	use crate::{hash::*, storage::types::ValueQuery};
 	use sp_io::{hashing::twox_128, TestExternalities};
 	use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};

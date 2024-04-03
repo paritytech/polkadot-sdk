@@ -1839,15 +1839,15 @@ mod test {
 				const STORAGE_PREFIX: &'static str = "Storage";
 			}
 
-			type df = StorageValue<Prefix, Digest>;
-			df::append(DigestItem::Other(Vec::new()));
+			type Value = StorageValue<Prefix, Digest>;
+			Value::append(DigestItem::Other(Vec::new()));
 
-			let value =
-				unhashed::get_raw(&storage_prefix(df::pallet_prefix(), df::storage_prefix()))
+			let raw =
+				unhashed::get_raw(&storage_prefix(Value::pallet_prefix(), Value::storage_prefix()))
 					.unwrap();
 
 			let expected = Digest { logs: vec![DigestItem::Other(Vec::new())] };
-			assert_eq!(Digest::decode(&mut &value[..]).unwrap(), expected);
+			assert_eq!(Digest::decode(&mut &raw[..]).unwrap(), expected);
 		});
 	}
 
@@ -1891,38 +1891,38 @@ mod test {
 				const STORAGE_PREFIX: &'static str = "MyStorageMap";
 			}
 
-			type mp = StorageMap<Prefix, Twox64Concat, u64, u64>;
+			type Map = StorageMap<Prefix, Twox64Concat, u64, u64>;
 
 			let k = [twox_128(b"MyModule"), twox_128(b"MyStorageMap")].concat();
-			assert_eq!(mp::prefix_hash().to_vec(), k);
+			assert_eq!(Map::prefix_hash().to_vec(), k);
 
 			// empty to start
-			assert!(mp::iter_keys().collect::<Vec<_>>().is_empty());
+			assert!(Map::iter_keys().collect::<Vec<_>>().is_empty());
 
-			mp::insert(1, 10);
-			mp::insert(2, 20);
-			mp::insert(3, 30);
-			mp::insert(4, 40);
+			Map::insert(1, 10);
+			Map::insert(2, 20);
+			Map::insert(3, 30);
+			Map::insert(4, 40);
 
 			// just looking
-			let mut keys = mp::iter_keys().collect::<Vec<_>>();
+			let mut keys = Map::iter_keys().collect::<Vec<_>>();
 			keys.sort();
 			assert_eq!(keys, vec![1, 2, 3, 4]);
 
 			// draining the keys and values
-			let mut drained_keys = mp::iter_keys().drain().collect::<Vec<_>>();
+			let mut drained_keys = Map::iter_keys().drain().collect::<Vec<_>>();
 			drained_keys.sort();
 			assert_eq!(drained_keys, vec![1, 2, 3, 4]);
 
 			// empty again
-			assert!(mp::iter_keys().collect::<Vec<_>>().is_empty());
+			assert!(Map::iter_keys().collect::<Vec<_>>().is_empty());
 		});
 	}
 
 	#[test]
 	fn prefix_iterator_pagination_works() {
 		TestExternalities::default().execute_with(|| {
-			use crate::{hash::Identity, storage::generator::map::StorageMap};
+			use crate::hash::Identity;
 			#[crate::storage_alias]
 			type MyStorageMap = StorageMap<MyModule, Identity, u64, u64>;
 

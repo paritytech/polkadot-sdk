@@ -451,7 +451,7 @@ pub fn __create_tt_macro(input: TokenStream) -> TokenStream {
 /// ---
 ///
 /// Rust-Analyzer Users: Documentation for this macro can be found at
-/// `frame_support::pallet_macros::storage_alias`.
+/// 	.
 #[proc_macro_attribute]
 pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream {
 	storage_alias::storage_alias(attributes.into(), input.into())

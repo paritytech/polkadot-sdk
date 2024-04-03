@@ -20,14 +20,14 @@
 
 #![warn(missing_docs)]
 
-use codec::{DecodeAll, FullCodec, FullEncode};
+use codec::{DecodeAll, FullCodec};
 use core::marker::PhantomData;
 use frame_support::{
 	storage::types::{StorageDoubleMap, StorageMap, StorageValue},
 	traits::StorageInstance,
 	StorageHasher,
 };
-use jsonrpsee::core::Error as RpcError;
+use jsonrpsee::core::ClientError as RpcError;
 use sc_rpc_api::state::StateApiClient;
 use serde::{de::DeserializeOwned, Serialize};
 use sp_storage::{StorageData, StorageKey};
@@ -126,13 +126,13 @@ use sp_storage::{StorageData, StorageKey};
 ///     let hash = None::<Hash>;
 ///     let _: Option<u64> = q.get(&cl, hash).await?;
 ///
-///     let q = StorageQuery::map::<Voxels<TestRuntime>, _>((0, 0, 0));
+///     let q = StorageQuery::map::<Voxels<TestRuntime>>((0, 0, 0));
 ///     let _: Option<Block> = q.get(&cl, hash).await?;
 ///
-///     let q = StorageQuery::map::<Actions<TestRuntime>, _>(12);
+///     let q = StorageQuery::map::<Actions<TestRuntime>>(12);
 ///     let _: Option<Loc> = q.get(&cl, hash).await?;
 ///
-///     let q = StorageQuery::double_map::<Prefab<TestRuntime>, _, _>(3, (0, 0, 0));
+///     let q = StorageQuery::double_map::<Prefab<TestRuntime>>(3, (0, 0, 0));
 ///     let _: Option<Block> = q.get(&cl, hash).await?;
 ///
 ///     Ok(())
