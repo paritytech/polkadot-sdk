@@ -6943,6 +6943,37 @@ mod staking_unsafe {
 			);
 		});
 	}
+
+	#[test]
+	fn virtual_staker_cannot_bond_again() {
+		ExtBuilder::default().build_and_execute(|| {
+			// 10 virtual bonds
+			assert_ok!(<Staking as StakingUnsafe>::virtual_bond(&10, 100, &11));
+
+			// Tries bonding again
+			assert_noop!(
+				<Staking as StakingUnsafe>::virtual_bond(&10, 20, &11),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// And again with a different reward destination.
+			assert_noop!(
+				<Staking as StakingUnsafe>::virtual_bond(&10, 20, &12),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// Direct bond is not allowed as well.
+			assert_noop!(
+				<Staking as StakingInterface>::bond(&10, 20, &12),
+				Error::<Test>::AlreadyBonded
+			);
+		});
+	}
+
+	#[test]
+	fn migrate_virtual_staker(){
+		// TODO(ank4n) test migration integrity
+	}
 }
 
 mod ledger {

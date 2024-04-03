@@ -317,8 +317,8 @@ pub trait StakingInterface {
 pub trait StakingUnsafe: StakingInterface {
 	/// Release all funds bonded for stake without unbonding the ledger.
 	///
-	/// Unsafe, only used for migration of `nominator` to `virtual_nominator`.
-	fn force_release(who: &Self::AccountId);
+	/// Unsafe, should only used for migration of `nominator` to `virtual_nominator`.
+	fn migrate_to_virtual_staker(who: &Self::AccountId);
 
 	/// Book-keep a new bond for `who` without applying any locks (hence virtual).
 	///
