@@ -155,13 +155,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, ProcessMessageError&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Trait to determine whether the execution engine should actually execute a given XCM.</p>
 <p>Can be amalgamated into a tuple to have multiple trials. If any of the tuple elements returns
-<code>Ok()</code>, the execution stops. Else, <code>Err(_)</code> is returned if all elements reject the message.</p>
+<code>Ok(())</code>, the execution stops. Else, <code>Err(_)</code> is returned if all elements reject the message.</p>
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.should_execute" class="method"><a class="src rightside" href="../../src/staging_xcm_executor/traits/should_execute.rs.html#45-50">source</a><h4 class="code-header">fn <a href="#tymethod.should_execute" class="fn">should_execute</a>&lt;RuntimeCall&gt;(
     origin: &amp;<a class="struct" href="../../staging_xcm/v4/location/struct.Location.html" title="struct staging_xcm::v4::location::Location">Location</a>,
     instructions: &amp;mut [<a class="enum" href="../../staging_xcm/v4/enum.Instruction.html" title="enum staging_xcm::v4::Instruction">Instruction</a>&lt;RuntimeCall&gt;],
     max_weight: <a class="struct" href="../../sp_weights/weight_v2/struct.Weight.html" title="struct sp_weights::weight_v2::Weight">Weight</a>,
     properties: &amp;mut <a class="struct" href="struct.Properties.html" title="struct staging_xcm_executor::traits::Properties">Properties</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, ProcessMessageError&gt;</h4></section></summary><div class="docblock"><p>Returns <code>true</code> if the given <code>message</code> may be executed.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>, ProcessMessageError&gt;</h4></section></summary><div class="docblock"><p>Returns <code>Ok(())</code> if the given <code>message</code> may be executed.</p>
 <ul>
 <li><code>origin</code>: The origin (sender) of the message.</li>
 <li><code>instructions</code>: The message itself.</li>
