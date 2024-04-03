@@ -1,0 +1,18 @@
+Description: Slot based authoring for elastic scaling
+Network: ./0008-elastic_authoring.toml
+Creds: config
+
+alice: is up
+coretime-collator: is up
+
+# configure relay chain
+alice: js-script ./0008-configure-relay.js with "" return is 0 within 600 secs
+
+# configure broker chain
+coretime-collator: js-script ./0008-configure-broker.js with "" return is 0 within 600 secs
+
+# Ensure that parachain 2100 got onboarded
+alice: parachain 2100 block height is at least 30 within 45000 seconds
+
+# Ensure that parachain 2000 got onboarded
+alice: parachain 2000 block height is at least 10 within 45000 seconds
