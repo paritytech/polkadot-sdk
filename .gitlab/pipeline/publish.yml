@@ -122,9 +122,6 @@ trigger_workflow:
               -H "Accept: application/vnd.github.v3+json" \
               -H "Authorization: token $GITHUB_TOKEN" \
                https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/actions/workflows/subsystem-benchmarks.yml/dispatches \
-              -H "Accept: application/vnd.github.v3+json"
-              -H "Authorization: token $GITHUB_TOKEN"
-               https://api.github.com/repos/paritytech/${CI_PROJECT_NAME}/actions/workflows/subsystem-benchmarks.yml/dispatches
                 -d '{"ref":"refs/heads/master","inputs":{"benchmark-data-dir-path":"'$benchmark_dir'","output-file-path":"'$bencmark_name'"}}'
         sleep 300
       done

@@ -23,19 +23,13 @@ test-linux-stable:
     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
     # add experimental to features after https://github.com/paritytech/substrate/pull/14502 is merged
     # "upgrade_version_checks_should_work" is currently failing
+    - >
       time cargo nextest run \
         --workspace \
         --locked \
         --release \
         --no-fail-fast \
         --features try-runtime,experimental,riscv,ci-only-tests \
-    - >
-      time cargo nextest run
-        --workspace
-        --locked
-        --release
-        --no-fail-fast
-        --features try-runtime,experimental,riscv,ci-only-tests
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # Upload tests results to Elasticsearch
     - echo "Upload test results to Elasticsearch"
@@ -93,19 +87,13 @@ test-linux-stable-runtime-benchmarks:
 #   script:
 #     # Build all but only execute 'runtime' tests.
 #     - echo "Node index - ${CI_NODE_INDEX}. Total amount - ${CI_NODE_TOTAL}"
+#     - >
 #       time cargo nextest run \
 #         --workspace \
 #         --locked \
 #         --release \
 #         --no-fail-fast \
 #         --features runtime-benchmarks,try-runtime \
-#     - >
-#       time cargo nextest run
-#         --workspace
-#         --locked
-#         --release
-#         --no-fail-fast
-#         --features runtime-benchmarks,try-runtime
 #         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
 #     # todo: add flacky-test collector
 
