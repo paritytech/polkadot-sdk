@@ -226,8 +226,8 @@ where
 		// interval for `publish_interval`, `query_interval` and `priority_group_set_interval`
 		// instead of a constant interval.
 		let publish_interval =
-			ExpIncInterval::new(Duration::from_secs(2), config.max_publish_interval);
-		let query_interval = ExpIncInterval::new(Duration::from_secs(2), config.max_query_interval);
+			ExpIncInterval::new(Duration::from_secs(2), Duration::from_secs(60 * 10));
+		let query_interval = ExpIncInterval::new(Duration::from_secs(2), Duration::from_secs(90));
 
 		// An `ExpIncInterval` is overkill here because the interval is constant, but consistency
 		// is more simple.
@@ -621,7 +621,7 @@ where
 					record,
 					auth_signature,
 					peer_signature,
-					creation_time,
+					creation_time: creation_time_info,
 				} = schema::SignedAuthorityRecord::decode(record.record.value.as_slice())
 					.map_err(Error::DecodingProto)?;
 
@@ -631,7 +631,28 @@ where
 				if !AuthorityPair::verify(&auth_signature, &record, &authority_id) {
 					return Err(Error::VerifyingDhtPayload)
 				}
-				let creation_time: u128 = creation_time
+
+				if let Some(creation_time_info) = creation_time_info.as_ref() {
+					let creation_time_signature =
+						AuthoritySignature::decode(&mut &creation_time_info.signature[..])
+							.map_err(Error::EncodingDecodingScale)?;
+					if !AuthorityPair::verify(
+						&creation_time_signature,
+						&creation_time_info.timestamp,
+						&authority_id,
+					) {
+						log::error!(
+							"Could not verify public key {:?}, {:?}",
+							creation_time_info.timestamp,
+							creation_time_info.signature
+						);
+						return Err(Error::VerifyingDhtPayload)
+					}
+					log::error!("Public key verified");
+				}
+
+				let creation_time: u128 = creation_time_info
+					.as_ref()
 					.map(|creation_time| {
 						u128::decode(&mut &creation_time.timestamp[..]).unwrap_or_default()
 					})
@@ -668,7 +689,10 @@ where
 				if let Some(peer_signature) = peer_signature {
 					let public_key = PublicKey::try_decode_protobuf(&peer_signature.public_key)
 						.map_err(Error::ParsingLibp2pIdentity)?;
-					let signature = Signature { public_key, bytes: peer_signature.signature };
+					let signature = Signature {
+						public_key: public_key.clone(),
+						bytes: peer_signature.signature,
+					};
 
 					if !signature.verify(record, &remote_peer_id) {
 						return Err(Error::VerifyingDhtPayload)
@@ -702,7 +726,8 @@ where
 			needs_update = true;
 			let peers_that_need_updating = last_value.1.clone();
 			log::error!(
-				"convergence: Updating stored value on peers newest_timestamp {:?} === last_value {:?} peers_that_need_updating {:?}",
+				"convergence: {:?} Updating stored value on peers newest_timestamp {:?} === last_value {:?} peers_that_need_updating {:?}",
+				authority_id,
 				newest_timestamp,
 				last_value.0,
 				peers_that_need_updating
@@ -716,15 +741,28 @@ where
 			// timestamp.
 			needs_update = true;
 			log::error!(
-				"convergence: Peer already has the latest value newest_timestamp {:?} == last_value {:?}",
+				"convergence: {:?} Peer already has the latest value newest_timestamp {:?} == last_value {:?}",
+				authority_id,
 				newest_timestamp,
 				last_value.0
 			);
 		} else {
 			let wtf_peer_id = peer_id.clone();
 			let peers_that_need_updating: HashSet<PeerId> = peer_id.take().into_iter().collect();
+			if last_value.0 - newest_timestamp > Duration::from_secs(20 * 60).as_nanos() {
+				log::error!(
+					"convergence: {:?} Peers informs us of really old value {:?} seconds newest_timestamp {:?} == last_value {:?} == peers_that_need_updating {:?} wtf_peer_id {:?}",
+					authority_id,
+					newest_timestamp,
+					last_value,
+					peers_that_need_updating,
+					wtf_peer_id,
+					(last_value.0 - newest_timestamp) / 1000 / 1000 / 1000
+				);
+			}
 			log::error!(
-				"convergence: Peers informs us of old value newest_timestamp {:?} == last_value {:?} == peers_that_need_updating {:?} wtf_peer_id {:?}",
+				"convergence: {:?} Peers informs us of old value newest_timestamp {:?} == last_value {:?} == peers_that_need_updating {:?} wtf_peer_id {:?}",
+				authority_id,
 				newest_timestamp,
 				last_value,
 				peers_that_need_updating,
@@ -853,7 +891,24 @@ fn sign_record_with_authority_ids(
 		log::error!("Publish record created at {:?}", creation_time);
 
 		let creation_time = creation_time.encode();
-		let creation_time = schema::Timestamp { timestamp: creation_time };
+		let creation_time_signature = key_store
+			.sr25519_sign(key_types::AUTHORITY_DISCOVERY, key.as_ref(), &creation_time)
+			.map_err(|e| Error::CannotSign(format!("{}. Key: {:?}", e, key)))?
+			.ok_or_else(|| {
+				Error::CannotSign(format!("Could not find key in keystore. Key: {:?}", key))
+			})?;
+
+		log::error!(
+			"Publish record created signature {:?} ==== {:?} ===== {:?}",
+			creation_time,
+			creation_time_signature,
+			creation_time_signature.encode()
+		);
+
+		let creation_time = schema::Timestamp {
+			timestamp: creation_time,
+			signature: creation_time_signature.encode(),
+		};
 
 		let signed_record = schema::SignedAuthorityRecord {
 			record: serialized_record.clone(),

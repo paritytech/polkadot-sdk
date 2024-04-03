@@ -15,6 +15,7 @@ message PeerSignature {
 
 message Timestamp {
 	bytes timestamp = 1;
+	bytes signature = 2;
 }
 
 // Then we need to serialize the authority record and signature to send them over the wire.

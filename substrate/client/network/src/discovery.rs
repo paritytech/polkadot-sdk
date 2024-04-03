@@ -410,7 +410,14 @@ impl DiscoveryBehaviour {
 
 	pub fn put_record_to(&mut self, record: PeerRecord, peers: HashSet<PeerId>) {
 		if let Some(kad) = self.kademlia.as_mut() {
-			kad.put_record_to(record.record, peers.into_iter(), Quorum::One);
+			if peers.is_empty() {
+				warn!(target: "sub-libp2p", "Updating our record in the store");
+				if let Err(e) = kad.store_mut().put(record.record) {
+					warn!(target: "sub-libp2p", "Failed to update our record");
+				}
+			} else {
+				kad.put_record_to(record.record, peers.into_iter(), Quorum::One);
+			}
 		}
 	}
 
