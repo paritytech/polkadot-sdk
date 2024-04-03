@@ -279,6 +279,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -361,6 +364,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[error(<span class="string">&quot;Fetching validator groups failed {0:?}&quot;</span>)]
 	</span>FetchValidatorGroups(RuntimeApiError),
+
+	<span class="attr">#[error(<span class="string">&quot;Fetching claim queue failed {0:?}&quot;</span>)]
+	</span>FetchClaimQueue(runtime::Error),
 
 	<span class="attr">#[error(<span class="string">&quot;Attempted to share statement when not a validator or not assigned&quot;</span>)]
 	</span>InvalidShare,

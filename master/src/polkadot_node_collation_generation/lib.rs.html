@@ -802,40 +802,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
-<a href="#658" id="658">658</a>
-<a href="#659" id="659">659</a>
-<a href="#660" id="660">660</a>
-<a href="#661" id="661">661</a>
-<a href="#662" id="662">662</a>
-<a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a>
-<a href="#665" id="665">665</a>
-<a href="#666" id="666">666</a>
-<a href="#667" id="667">667</a>
-<a href="#668" id="668">668</a>
-<a href="#669" id="669">669</a>
-<a href="#670" id="670">670</a>
-<a href="#671" id="671">671</a>
-<a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
-<a href="#681" id="681">681</a>
-<a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
-<a href="#686" id="686">686</a>
-<a href="#687" id="687">687</a>
-<a href="#688" id="688">688</a>
-<a href="#689" id="689">689</a>
-<a href="#690" id="690">690</a>
-<a href="#691" id="691">691</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -876,25 +842,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SubmitCollationParams,
 };
 <span class="kw">use </span>polkadot_node_subsystem::{
-	messages::{CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiRequest},
+	messages::{CollationGenerationMessage, CollatorProtocolMessage},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 <span class="kw">use </span>polkadot_node_subsystem_util::{
-	has_required_runtime, request_async_backing_params, request_availability_cores,
-	request_claim_queue, request_para_backing_state, request_persisted_validation_data,
-	request_validation_code, request_validation_code_hash, request_validators,
+	request_async_backing_params, request_availability_cores, request_para_backing_state,
+	request_persisted_validation_data, request_validation_code, request_validation_code_hash,
+	request_validators,
+	vstaging::{fetch_claim_queue, fetch_next_scheduled_on_core},
 };
 <span class="kw">use </span>polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
 	CollatorPair, CoreIndex, CoreState, Hash, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, ScheduledCore, ValidationCodeHash,
+	PersistedValidationData, ValidationCodeHash,
 };
 <span class="kw">use </span>sp_core::crypto::Pair;
-<span class="kw">use </span>std::{
-	collections::{BTreeMap, VecDeque},
-	sync::Arc,
-};
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">mod </span>error;
 
@@ -1066,7 +1030,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>availability_cores = availability_cores<span class="question-mark">??</span>;
 		<span class="kw">let </span>async_backing_params = async_backing_params<span class="question-mark">?</span>.ok();
 		<span class="kw">let </span>n_validators = validators<span class="question-mark">??</span>.len();
-		<span class="kw">let </span>maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent).<span class="kw">await</span><span class="question-mark">?</span>;
+		<span class="kw">let </span>maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent)
+			.<span class="kw">await
+			</span>.map_err(<span class="kw">crate</span>::error::Error::UtilRuntime)<span class="question-mark">?</span>;
 
 		<span class="comment">// The loop bellow will fill in cores that the para is allowed to build on.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>cores_to_build_on = Vec::new();
@@ -1492,39 +1458,5 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, <span class="kw-2">&amp;</span>available_data)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(polkadot_erasure_coding::branches(<span class="kw-2">&amp;</span>chunks).root())
-}
-
-<span class="comment">// Checks if the runtime supports `request_claim_queue` and executes it. Returns `Ok(None)`
-// otherwise. Any [`RuntimeApiError`]s are bubbled up to the caller.
-</span><span class="kw">async fn </span>fetch_claim_queue(
-	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::CollationGenerationSenderTrait,
-	relay_parent: Hash,
-) -&gt; <span class="kw">crate</span>::error::Result&lt;<span class="prelude-ty">Option</span>&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;&gt;&gt; {
-	<span class="kw">if </span>has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
-	)
-	.<span class="kw">await
-	</span>{
-		<span class="kw">let </span>res = request_claim_queue(relay_parent, sender).<span class="kw">await</span>.<span class="kw">await</span><span class="question-mark">??</span>;
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(res))
-	} <span class="kw">else </span>{
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Runtime doesn&#39;t support `request_claim_queue`&quot;</span>);
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-	}
-}
-
-<span class="comment">// Returns the next scheduled `ParaId` for a core in the claim queue, wrapped in `ScheduledCore`.
-// This function is supposed to be used in `handle_new_activations` hence the return type.
-</span><span class="kw">fn </span>fetch_next_scheduled_on_core(
-	claim_queue: <span class="kw-2">&amp;</span>BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;,
-	core_idx: CoreIndex,
-) -&gt; <span class="prelude-ty">Option</span>&lt;ScheduledCore&gt; {
-	claim_queue
-		.get(<span class="kw-2">&amp;</span>core_idx)<span class="question-mark">?
-		</span>.front()
-		.cloned()
-		.map(|para_id| ScheduledCore { para_id, collator: <span class="prelude-val">None </span>})
 }
 </code></pre></div></section></main></body></html>
