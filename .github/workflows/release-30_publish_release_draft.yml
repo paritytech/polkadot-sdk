@@ -1,16 +1,15 @@
 name: Release - Publish draft
 
 on:
-  # push:
-  #   tags:
-  #     # Catches v1.2.3 and v1.2.3-rc1
-  #     - v[0-9]+.[0-9]+.[0-9]+*
+  push:
+    tags:
+      # Catches v1.2.3 and v1.2.3-rc1
+      - v[0-9]+.[0-9]+.[0-9]+*
 
   workflow_dispatch:
     inputs:
       version:
-        description: Current release version as a number
-        default: v1.9.0
+        description: Current release/rc version
         required: true
 
 jobs:
@@ -57,7 +56,7 @@ jobs:
       - name: Prepare draft
         id: draft
         env:
-          VERSION: ${{ inputs.version }}
+          REL_TAG: ${{ inputs.version || github.ref }}
           RUSTC_STABLE: ${{ needs.get-rust-versions.outputs.rustc-stable }}
           RUSTC_NIGHTLY: ${{ needs.get-rust-versions.outputs.rustc-nightly }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -75,18 +74,11 @@ jobs:
           ROCOCO_DIGEST: ${{ github.workspace}}/rococo-runtime/rococo-srtool-digest.json
           WESTEND_DIGEST: ${{ github.workspace}}/westend-runtime/westend-srtool-digest.json
         run: |
-          find ${{env.GITHUB_WORKSPACE}} -type f -name "*-srtool-digest.json"
-          ls -al $ASSET_HUB_ROCOCO_DIGEST
-          ls -al $ASSET_HUB_WESTEND_DIGEST
-          ls -al $BRIDGE_HUB_ROCOCO_DIGEST
-          ls -al $BRIDGE_HUB_WESTEND_DIGEST
-          ls -al $COLLECTIVES_WESTEND_DIGEST
-
           . ./.github/scripts/common/lib.sh
 
           export REF1=$(get_latest_release_tag)
-          export REF2=$VERSION
-          export VERSION=$(echo "$VERSION" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
+          export REF2=$REL_TAG
+          export VERSION=$(echo "$REL_TAG" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
 
           ./scripts/release/build-changelogs.sh
 
@@ -107,10 +99,9 @@ jobs:
         uses: actions/create-release@0cb9c9b65d5d1901c1f53e5e66eaf4afd303e70e # v1.1.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REF: ${{ inputs.version }}
         with:
-          tag_name: ${{ env.REF }}
-          release_name: Polkadot ${{ env.REF}}
+          tag_name: ${{ env.REL_TAG }}
+          release_name: Polkadot ${{ env.REL_TAG }}
           body_path: ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
           draft: true
 
