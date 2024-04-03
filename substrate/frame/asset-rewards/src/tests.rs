@@ -17,7 +17,7 @@
 
 use crate::{mock::*, *};
 use frame_support::{assert_err, assert_ok, hypothetically, traits::fungible::NativeOrWithId};
-use sp_runtime::traits::BadOrigin;
+use sp_runtime::{traits::BadOrigin, ArithmeticError};
 
 /// Creates a basic pool with values:
 /// - Staking asset: 1
@@ -860,6 +860,62 @@ mod set_pool_reward_rate_per_block {
 					new_reward_rate
 				),
 				BadOrigin
+			);
+		});
+	}
+}
+
+mod deposit_reward_tokens {
+	use super::*;
+
+	#[test]
+	fn success() {
+		new_test_ext().execute_with(|| {
+			let depositor = 1;
+			let pool_id = 0;
+			let amount = 1000;
+			let reward_asset_id = NativeOrWithId::<u32>::Native;
+			create_default_pool();
+			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+
+			let depositor_balance_before =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &depositor);
+			let pool_balance_before = <<MockRuntime as Config>::Assets>::balance(
+				reward_asset_id.clone(),
+				&pool_account_id,
+			);
+			assert_ok!(StakingRewards::deposit_reward_tokens(
+				RuntimeOrigin::signed(depositor),
+				pool_id,
+				amount
+			));
+			let depositor_balance_after =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &depositor);
+			let pool_balance_after =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id, &pool_account_id);
+
+			assert_eq!(pool_balance_after - pool_balance_before, amount);
+			assert_eq!(depositor_balance_before - depositor_balance_after, amount);
+		});
+	}
+
+	#[test]
+	fn fails_for_non_existent_pool() {
+		new_test_ext().execute_with(|| {
+			assert_err!(
+				StakingRewards::deposit_reward_tokens(RuntimeOrigin::signed(1), 999, 100),
+				Error::<MockRuntime>::NonExistentPool
+			);
+		});
+	}
+
+	#[test]
+	fn fails_for_insufficient_balance() {
+		new_test_ext().execute_with(|| {
+			create_default_pool();
+			assert_err!(
+				StakingRewards::deposit_reward_tokens(RuntimeOrigin::signed(1), 0, 100_000_000),
+				ArithmeticError::Underflow
 			);
 		});
 	}
