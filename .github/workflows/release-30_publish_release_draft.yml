@@ -111,5 +111,5 @@ jobs:
         with:
           tag_name: ${{ env.REF }}
           release_name: Polkadot ${{ env.REF}}
-          body_path: ./polkadot-sdk/scripts/release/RELEASE_DRAFT.md
+          body_path: ${{ github.workspace}}/scripts/release/RELEASE_DRAFT.md
           draft: true
