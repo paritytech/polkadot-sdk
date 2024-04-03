@@ -36,7 +36,7 @@ use sp_core::{
 	},
 };
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor, Hash, HashOutput},
+	traits::{Block as BlockT, Hash, HashOutput, HashingFor},
 	StateVersion,
 };
 use sp_state_machine::TestExternalities;
@@ -1110,7 +1110,9 @@ where
 		Ok(RemoteExternalities { inner_ext, block_hash })
 	}
 
-	pub(crate) async fn pre_build(mut self) -> Result<RemoteExternalities<HashingFor<B>>, &'static str> {
+	pub(crate) async fn pre_build(
+		mut self,
+	) -> Result<RemoteExternalities<HashingFor<B>>, &'static str> {
 		let mut ext = match self.mode.clone() {
 			Mode::Offline(config) => self.do_load_offline(config)?,
 			Mode::Online(_) => self.do_load_remote().await?,
