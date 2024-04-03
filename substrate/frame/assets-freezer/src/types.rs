@@ -15,16 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::traits::fungibles::Inspect;
 use frame_support::pallet_prelude::{Decode, Encode, MaxEncodedLen, RuntimeDebug, TypeInfo};
+use frame_support::traits::fungibles::Inspect;
 
 pub type AssetIdOf<T, I> = <pallet_assets::Pallet<T, I> as Inspect<AccountIdOf<T>>>::AssetId;
 pub type AssetBalanceOf<T, I> = <pallet_assets::Pallet<T, I> as Inspect<AccountIdOf<T>>>::Balance;
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 /// An identifier and balance.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub struct IdAmount<Id, Balance> {
+#[derive(
+	Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, MaxEncodedLen, TypeInfo,
+)]
+pub struct IdAmount<Id: Ord, Balance: Ord> {
 	/// An identifier for this item.
 	pub id: Id,
 	/// Some amount for this item.

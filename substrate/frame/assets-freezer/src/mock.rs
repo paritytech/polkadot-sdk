@@ -17,6 +17,7 @@
 
 //! Tests mock for `pallet-assets-freezer`.
 
+use crate as pallet_assets_freezer;
 pub use crate::*;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -29,10 +30,9 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-use crate as pallet_assets_freezer;
 
 pub type AccountId = u64;
-type Balance = u64;
+pub type Balance = u64;
 pub type AssetId = u32;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -41,9 +41,8 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Assets: pallet_assets,
-		Balances: pallet_balances,
-		// Assets: pallet_assets,
 		AssetsFreezer: pallet_assets_freezer,
+		Balances: pallet_balances,
 	}
 );
 
@@ -130,7 +129,7 @@ impl Config for Test {
 	type MaxFreezes = ConstU32<2>;
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {
 	let t = RuntimeGenesisConfig {
 		assets: pallet_assets::GenesisConfig {
 			assets: vec![(1, 0, true, 1)],
@@ -145,6 +144,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| {
 		System::set_block_number(1);
+		execute();
+		frame_support::assert_ok!(AssetsFreezer::do_try_state());
 	});
 
 	ext

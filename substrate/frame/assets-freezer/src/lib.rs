@@ -38,13 +38,17 @@
 //!
 //! - Pallet hooks that implement custom logic to let `pallet-assets` know whether an balance is
 //!   frozen for an account on a given asset (see: [`pallet_assets::FrozenBalance`]).
-//! - An implementation of the fungibles [inspect][docs:inspect_freeze] and the [mutation][docs:mutate_freeze]
-//!   APIs for freezes.
-//!
-//! [docs:inspect_freeze]: `frame_support::traits::fungibles::InspectFreeze`
-//! [docs:mutate_freeze]: `frame_support::traits::fungibles::MutateFreeze`
+//! - An implementation of the fungibles [inspect][`frame_support::traits::fungibles::InspectFreeze`]
+//!   and the [mutation][`frame_support::traits::fungibles::InspectFreeze`] APIs for freezes.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
+use frame_support::pallet_prelude::DispatchResult;
+use frame_system::pallet_prelude::BlockNumberFor;
+use sp_runtime::{
+	traits::{Saturating, Zero},
+	BoundedSlice,
+};
 
 pub use pallet::*;
 
@@ -72,6 +76,7 @@ pub mod pallet {
 			+ FullCodec
 			+ TypeInfo
 			+ PartialEq
+			+ Ord
 			+ MaxEncodedLen
 			+ Clone
 			+ Debug
@@ -126,13 +131,15 @@ pub mod pallet {
 		AccountIdOf<T>,
 		AssetBalanceOf<T, I>,
 	>;
-}
 
-use frame_support::pallet_prelude::DispatchResult;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	BoundedSlice,
-};
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+}
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn update_freezes(
@@ -151,6 +158,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		FrozenBalances::<T, I>::set(asset.clone(), who, Some(after_frozen));
 		if freezes.is_empty() {
 			Freezes::<T, I>::remove(asset.clone(), who);
+			FrozenBalances::<T, I>::remove(asset.clone(), who);
 		} else {
 			Freezes::<T, I>::insert(asset.clone(), who, freezes);
 		}
@@ -161,6 +169,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let amount = after_frozen.saturating_sub(prev_frozen);
 			Self::deposit_event(Event::AssetFrozen { asset_id: asset, who: who.clone(), amount });
 		}
+		Ok(())
+	}
+
+	#[cfg(any(test, feature = "try-runtime"))]
+	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (asset, who, _) in FrozenBalances::<T, I>::iter() {
+			let max_frozen_amount = Freezes::<T, I>::get(asset.clone(), who.clone())
+				.into_iter()
+				.reduce(IdAmount::<T::RuntimeFreezeReason, AssetBalanceOf<T, I>>::max)
+				.map(|l| l.amount);
+
+			frame_support::ensure!(
+				FrozenBalances::<T, I>::get(asset, who) == max_frozen_amount,
+				"The `FrozenAmount` is not equal to the maximum amount in `Freezes` for (`asset`, `who`)"
+			);
+		}
+
 		Ok(())
 	}
 }

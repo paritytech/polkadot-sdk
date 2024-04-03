@@ -7,7 +7,6 @@ license = "MIT-0"
 homepage = "https://substrate.io"
 repository.workspace = true
 description = "Provides freezing features to `pallet-assets`"
-readme = "README.md"
 
 [lints]
 workspace = true

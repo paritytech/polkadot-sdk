@@ -18,7 +18,6 @@
 //! Tests for pallet-assets-freezer.
 
 use crate::mock::*;
-use sp_runtime::BoundedVec;
 
 use frame_support::{
 	assert_ok,
@@ -29,19 +28,24 @@ use pallet_assets::FrozenBalance;
 const WHO: AccountId = 1;
 const ASSET_ID: AssetId = 1;
 
-fn basic_freeze() {
-	Freezes::<Test>::set(
-		ASSET_ID,
-		WHO,
-		BoundedVec::truncate_from(vec![IdAmount { id: DummyFreezeReason::Governance, amount: 1 }]),
-	);
-	FrozenBalances::<Test>::insert(ASSET_ID, WHO, 1);
+fn test_set_freeze(id: DummyFreezeReason, amount: Balance) {
+	let mut freezes = Freezes::<Test>::get(ASSET_ID, WHO);
+
+	if let Some(i) = freezes.iter_mut().find(|l| l.id == id) {
+		i.amount = amount;
+	} else {
+		freezes
+			.try_push(IdAmount { id, amount })
+			.expect("freeze is added without exceeding bounds; qed");
+	}
+
+	assert_ok!(AssetsFreezer::update_freezes(ASSET_ID, &WHO, freezes.as_bounded_slice()));
 }
 
 #[test]
 fn it_works_returning_balance_frozen() {
-	new_test_ext().execute_with(|| {
-		basic_freeze();
+	new_test_ext(|| {
+		test_set_freeze(DummyFreezeReason::Governance, 1);
 		assert_eq!(
 			AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Governance, &WHO),
 			1u64
@@ -51,9 +55,10 @@ fn it_works_returning_balance_frozen() {
 
 #[test]
 fn it_works_returning_frozen_balances() {
-	new_test_ext().execute_with(|| {
-		basic_freeze();
+	new_test_ext(|| {
+		test_set_freeze(DummyFreezeReason::Governance, 1);
 		assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(1u64));
+		test_set_freeze(DummyFreezeReason::Staking, 3);
 		FrozenBalances::<Test>::insert(ASSET_ID, WHO, 3);
 		assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
 	});
@@ -61,20 +66,17 @@ fn it_works_returning_frozen_balances() {
 
 #[test]
 fn it_works_returning_can_freeze() {
-	new_test_ext().execute_with(|| {
-		basic_freeze();
+	new_test_ext(|| {
+		test_set_freeze(DummyFreezeReason::Governance, 1);
 		assert!(AssetsFreezer::can_freeze(ASSET_ID, &DummyFreezeReason::Staking, &WHO));
-		Freezes::<Test>::mutate(&ASSET_ID, &WHO, |f| {
-			f.try_push(IdAmount { id: DummyFreezeReason::Staking, amount: 1 })
-				.expect("current freezes size is less than max freezes; qed");
-		});
+		test_set_freeze(DummyFreezeReason::Staking, 1);
 		assert!(!AssetsFreezer::can_freeze(ASSET_ID, &DummyFreezeReason::Other, &WHO));
 	});
 }
 
 #[test]
 fn set_freeze_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(|| {
 		assert_ok!(AssetsFreezer::set_freeze(ASSET_ID, &DummyFreezeReason::Governance, &WHO, 10));
 		assert_eq!(
 			AssetsFreezer::reducible_balance(
@@ -106,7 +108,7 @@ fn set_freeze_works() {
 
 #[test]
 fn extend_freeze_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(|| {
 		assert_ok!(AssetsFreezer::set_freeze(ASSET_ID, &DummyFreezeReason::Governance, &WHO, 10));
 		assert_ok!(AssetsFreezer::extend_freeze(ASSET_ID, &DummyFreezeReason::Governance, &WHO, 8));
 		System::assert_last_event(
@@ -144,7 +146,7 @@ fn extend_freeze_works() {
 
 #[test]
 fn thaw_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext(|| {
 		assert_ok!(AssetsFreezer::set_freeze(ASSET_ID, &DummyFreezeReason::Governance, &WHO, 10));
 		System::assert_has_event(
 			Event::<Test>::AssetFrozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),

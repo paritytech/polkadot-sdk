@@ -17,8 +17,8 @@
 
 use super::*;
 
-use pallet_assets::FrozenBalance;
 use frame_support::traits::fungibles::{Inspect, InspectFreeze, MutateFreeze};
+use pallet_assets::FrozenBalance;
 use sp_runtime::traits::{Get, Zero};
 
 impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, AssetBalanceOf<T, I>>
@@ -37,8 +37,9 @@ impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, As
 	}
 }
 
-// Implement fungibles::Inspect as it is required. To do so, we'll re-export
-// all of `pallet-assets`' implementation of the same trait.
+/// Implement [`frame_support::traits::fungibles::Inspect`] as it is bound by
+/// [`frame_support::traits::fungibles::InspectFreeze`] and [`frame_support::traits::fungibles::MutateFreeze`].
+/// To do so, we'll re-export all of `pallet-assets` implementation of the same trait.
 impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 	type AssetId = AssetIdOf<T, I>;
 	type Balance = AssetBalanceOf<T, I>;
