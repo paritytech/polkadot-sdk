@@ -1113,8 +1113,8 @@ macro_rules! impl_benchmark {
 					<SelectedBenchmark as $crate::BenchmarkingSetup<T $(, $instance)?>>::instance(&selected_benchmark, &mut recording, c, verify)?;
 
 					// Calculate the diff caused by the benchmark.
-					let elapsed_extrinsic = recording.elapsed_extrinsic();
-					let diff_pov = recording.diff_pov();
+					let elapsed_extrinsic = recording.elapsed_extrinsic().expect("elapsed time should be recorded");
+					let diff_pov = recording.diff_pov().expect("pov should be recorded");
 
 					// Commit the changes to get proper write count
 					$crate::benchmarking::commit_db();

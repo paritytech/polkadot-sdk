@@ -379,8 +379,8 @@ impl Recording for TestRecording {
 /// Records the time and proof size of a single benchmark iteration.
 pub struct BenchmarkRecording {
 	on_before_start: Option<Box<dyn FnOnce()>>,
-	start_extrinsic: u128,
-	finish_extrinsic: u128,
+	start_extrinsic: Option<u128>,
+	finish_extrinsic: Option<u128>,
 	start_pov: Option<u32>,
 	end_pov: Option<u32>,
 }
@@ -389,8 +389,8 @@ impl BenchmarkRecording {
 	pub fn new(on_before_start: Box<dyn FnOnce()>) -> Self {
 		Self {
 			on_before_start: Some(on_before_start),
-			start_extrinsic: 0,
-			finish_extrinsic: 0,
+			start_extrinsic: None,
+			finish_extrinsic: None,
 			start_pov: None,
 			end_pov: None,
 		}
@@ -405,20 +405,16 @@ impl Recording for BenchmarkRecording {
 			.expect("on_before_start is always set by `new`; qed");
 		(on_before_start)();
 		self.start_pov = crate::benchmarking::proof_size();
-		self.start_extrinsic = crate::benchmarking::current_time();
+		self.start_extrinsic = Some(crate::benchmarking::current_time());
 	}
 
 	fn stop(&mut self) {
-		self.finish_extrinsic = crate::benchmarking::current_time();
+		self.finish_extrinsic = Some(crate::benchmarking::current_time());
 		self.end_pov = crate::benchmarking::proof_size();
 	}
 }
 
 impl BenchmarkRecording {
-	pub fn elapsed_extrinsic(&self) -> u128 {
-		self.finish_extrinsic.saturating_sub(self.start_extrinsic)
-	}
-
 	pub fn start_pov(&self) -> Option<u32> {
 		self.start_pov
 	}
@@ -427,10 +423,17 @@ impl BenchmarkRecording {
 		self.end_pov
 	}
 
-	pub fn diff_pov(&self) -> u32 {
+	pub fn diff_pov(&self) -> Option<u32> {
 		match (self.start_pov, self.end_pov) {
-			(Some(start), Some(end)) => end.saturating_sub(start),
-			_ => Default::default(),
+			(Some(start), Some(end)) => Some(end.saturating_sub(start)),
+			_ => None,
+		}
+	}
+
+	pub fn elapsed_extrinsic(&self) -> Option<u128> {
+		match (self.start_extrinsic, self.finish_extrinsic) {
+			(Some(start), Some(end)) => Some(end.saturating_sub(start)),
+			_ => None,
 		}
 	}
 }
