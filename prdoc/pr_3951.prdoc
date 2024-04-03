@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Pallet Assets Freezer
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This pallet is an extension of `pallet-assets`, and extends its capabilities to support
+      freezing of a given asset in an account. In order for this pallet to correctly function,
+      the implementor must set the type `Freezer` of `pallet-assets` Config to the according instance
+      of `pallet-assets-freezer`.
+  - audience: Runtime User
+    description: |
+      The storage of this pallet contains a list of the current freezes an account has for a given
+      asset. Applications' UIs and Developer Tools might benefit from observing it.
+
+crates:
+  - name: pallet-assets-freezer
+    bump: none
