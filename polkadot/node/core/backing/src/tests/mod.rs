@@ -33,8 +33,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	vstaging::node_features, CandidateDescriptor, GroupRotationInfo, HeadData,
-	PersistedValidationData, PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features, CandidateDescriptor, GroupRotationInfo, HeadData, PersistedValidationData,
+	PvfExecKind, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use rstest::rstest;
 use sp_application_crypto::AppCrypto;
