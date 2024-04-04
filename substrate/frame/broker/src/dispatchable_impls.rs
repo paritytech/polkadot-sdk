@@ -16,12 +16,13 @@
 // limitations under the License.
 
 use super::*;
+use coretime_interface::CoretimeInterface;
 use frame_support::{
 	pallet_prelude::{DispatchResult, *},
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::{Convert, ConvertBack};
 use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
@@ -439,7 +440,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_notify_revenue(amount: BalanceOf<T>) -> DispatchResult {
-		RevenueInbox::<T>::put(Some(amount));
+		RevenueInbox::<T>::put(amount);
 		Ok(())
 	}
 }

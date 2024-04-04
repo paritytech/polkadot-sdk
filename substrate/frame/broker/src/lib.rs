@@ -165,7 +165,7 @@ pub mod pallet {
 
 	/// Received revenue info from the relay chain.
 	#[pallet::storage]
-	pub type RevenueInbox<T: Config> = StorageValue<_, RelayBalanceOf<T>, OptionQuery>;
+	pub type RevenueInbox<T: Config> = StorageValue<_, OnDemandRevenueRecord<T>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
