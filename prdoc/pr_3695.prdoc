@@ -4,12 +4,6 @@
 title: "pallet-xcm: add new extrinsic for asset transfers using explicit reserve"
 
 doc:
-  - audience: Runtime Dev
-    description: |
-      pallet-xcm's extrinsics `teleport_assets` and `reserve_transfer_assets` have been
-      marked as deprecated. Please change their usage to the `limited_teleport_assets`
-      and `limited_reserve_transfer_assets`, respectively; or use the generic/flexible
-      `transfer_assets` extrinsic.
   - audience: Runtime User
     description: |
       pallet-xcm has a new extrinsic `transfer_assets_using_reserve` for transferring
@@ -22,9 +16,11 @@ doc:
       (such as Asset Hub ForeignAssets), when the transfer strictly depends on the used
       reserve location.
 
-      E.g. For transferring Foreign Assets over a bridge, Asset Hub must be used as the
-      reserve location. Same when transferring bridged assets between parachains, the
-      local Asset Hub must be used as the explicit reserve location.
+      E.g. For transferring a bridged Foreign Assets between local parachains, Asset Hub
+      or the parachain that bridged the asset over must be used as the reserve location.
+      Same when transferring bridged assets back across the bridge, the local bridging
+      parachain must be used as the explicit reserve location.
 
 crates:
 - name: pallet-xcm
+  bump: minor
