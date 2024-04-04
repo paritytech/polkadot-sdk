@@ -97,7 +97,9 @@ pub trait StakeStrategy {
 	fn withdraw_unbonded(
 		pool_account: &Self::AccountId,
 		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError>;
+	) -> Result<bool, DispatchError> {
+		Self::CoreStaking::withdraw_unbonded(pool_account.clone(), num_slashing_spans)
+	}
 
 	/// Withdraw funds from pool account to member account.
 	fn member_withdraw(
@@ -183,14 +185,6 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 			},
 		}
 	}
-
-	fn withdraw_unbonded(
-		pool_account: &Self::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError> {
-		Staking::withdraw_unbonded(pool_account.clone(), num_slashing_spans)
-	}
-
 	fn member_withdraw(
 		who: &T::AccountId,
 		pool_account: &Self::AccountId,
@@ -283,13 +277,6 @@ impl<
 				Delegation::delegate_extra(who, pool_account, amount)
 			},
 		}
-	}
-
-	fn withdraw_unbonded(
-		pool_account: &Self::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError> {
-		Delegation::withdraw_unclaimed(pool_account.clone(), num_slashing_spans)
 	}
 
 	fn member_withdraw(
