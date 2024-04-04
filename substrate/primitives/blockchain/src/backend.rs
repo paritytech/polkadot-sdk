@@ -267,29 +267,26 @@ pub trait Backend<Block: BlockT>:
 
 			let leaf_number = *fork_block_header.number();
 
-			let mut needs_pruning = false;
 			// All leaves will eventually have as ancestor either the finalized block or its
 			// parent. All other forks were cleared on the previous block finalization.
-			loop {
+			let needs_pruning = loop {
 				// The block ends up in the finalized block. All forks are valid at this point.
 				if fork_block_header.hash() == finalized_block_hash {
-					break
+					break false
 				}
 
 				// The block ends up in the parent block of the finalized block. It's a stale fork.
-				if fork_block_header.hash() == *finalized_block_header.parent_hash() {
-					needs_pruning = true;
-					break
+				if *fork_block_header.number() <= finalized_block_number {
+					break true
 				}
 
 				if let Some(parent_header) = self.header(*fork_block_header.parent_hash())? {
 					fork_block_header = parent_header;
 				} else {
 					// Sometimes routes can't be calculated. E.g. after warp sync.
-					needs_pruning = true;
-					break
+					break true
 				}
-			}
+			};
 
 			// Fork ended up in the parent of the finalized block.
 			if needs_pruning {
