@@ -710,7 +710,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_root(r: Linear<0, API_BENCHMARK_RUNS>) -> Result<(), BenchmarkError> {
+	fn seal_caller_is_root(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
 			imported_functions: vec![ImportedFunction {
@@ -722,11 +722,13 @@ mod benchmarks {
 			call_body: Some(body::repeated(r, &[Instruction::Call(0), Instruction::Drop])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Root;
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
-		Ok(())
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_origin(Origin::Root);
+		call_builder!(func, setup: setup);
+		#[block]
+		{
+			func.call();
+		}
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1003,8 +1005,8 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-
-		call_builder!(func, instance, code);
+		let instance = Contract::<T>::new(code, vec![])?;
+		let origin = RawOrigin::Signed(instance.caller.clone());
 		assert_eq!(T::Currency::total_balance(&beneficiary), 0u32.into());
 		assert_eq!(
 			T::Currency::balance(&instance.account_id),
@@ -1023,11 +1025,8 @@ mod benchmarks {
 				.delegate_dependencies_count() as u32,
 			T::MaxDelegateDependencies::get()
 		);
-
-		#[block]
-		{
-			func.call();
-		}
+		#[extrinsic_call]
+		call(origin, instance.addr.clone(), 0u32.into(), Weight::MAX, None, vec![]);
 
 		if r > 0 {
 			assert_eq!(T::Currency::total_balance(&instance.account_id), 0u32.into());
@@ -1849,14 +1848,18 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		instance.set_balance(value * (r + 1).into());
-		let origin = RawOrigin::Signed(instance.caller.clone());
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_balance(value * (r + 1).into());
+		call_builder!(func, setup: setup);
+
 		for account in &accounts {
 			assert_eq!(T::Currency::total_balance(account), 0u32.into());
 		}
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![]);
+
+		#[block]
+		{
+			func.call();
+		}
 
 		for account in &accounts {
 			assert_eq!(T::Currency::total_balance(account), value);
@@ -1930,17 +1933,13 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		#[extrinsic_call]
-		call(
-			origin,
-			instance.addr,
-			0u32.into(),
-			Weight::MAX,
-			Some(BalanceOf::<T>::from(u32::MAX.into()).into()),
-			vec![],
-		);
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_storage_deposit_limit(BalanceOf::<T>::from(u32::MAX.into()));
+		call_builder!(func, setup: setup);
+		#[block]
+		{
+			func.call();
+		}
 		Ok(())
 	}
 
@@ -2044,11 +2043,13 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		let bytes = vec![42; c as usize];
-		#[extrinsic_call]
-		call(origin, instance.addr, 0u32.into(), Weight::MAX, None, bytes);
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_data(vec![42; c as usize]);
+		call_builder!(func, setup: setup);
+		#[block]
+		{
+			func.call();
+		}
 		Ok(())
 	}
 

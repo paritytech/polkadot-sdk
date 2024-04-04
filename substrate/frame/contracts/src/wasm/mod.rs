@@ -348,7 +348,7 @@ type PreExecResult<'a, E> = Result<InstanceOrExecReturn<'a, E>, ExecError>;
 
 impl<T: Config> WasmBlob<T> {
 	/// Sync the frame's gas meter with the engine's one.
-	fn process_result<E: Ext<T = T>>(
+	pub fn process_result<E: Ext<T = T>>(
 		mut store: Store<Runtime<E>>,
 		result: Result<(), wasmi::Error>,
 	) -> ExecResult {

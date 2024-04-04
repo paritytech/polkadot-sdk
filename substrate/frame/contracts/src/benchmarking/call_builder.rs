@@ -20,8 +20,8 @@ use crate::{
 	exec::Stack,
 	storage::meter::Meter,
 	wasm::Runtime,
-	BalanceOf, Config, DebugBufferVec, Determinism, GasMeter, Origin, Schedule, TypeInfo, WasmBlob,
-	Weight,
+	BalanceOf, Config, DebugBufferVec, Determinism, ExecReturnValue, GasMeter, Origin, Schedule,
+	TypeInfo, WasmBlob, Weight,
 };
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
@@ -37,8 +37,9 @@ pub struct PreparedCall<'a, T: Config> {
 }
 
 impl<'a, T: Config> PreparedCall<'a, T> {
-	pub fn call(mut self) {
-		self.func.call(&mut self.store, &[], &mut []).unwrap();
+	pub fn call(mut self) -> ExecReturnValue {
+		let result = self.func.call(&mut self.store, &[], &mut []);
+		WasmBlob::<T>::process_result(self.store, result).unwrap()
 	}
 }
 
@@ -53,7 +54,7 @@ pub struct CallSetup<T: Config> {
 	value: BalanceOf<T>,
 	debug_message: Option<DebugBufferVec<T>>,
 	determinism: Determinism,
-	input: Vec<u8>,
+	data: Vec<u8>,
 }
 
 impl<T> CallSetup<T>
@@ -67,26 +68,40 @@ where
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
 
+		let storage_meter = Meter::new(&origin, None, 0u32.into()).unwrap();
+
 		Self {
 			contract,
 			dest,
 			origin,
 			gas_meter: GasMeter::new(Weight::MAX),
-			storage_meter: Default::default(),
+			storage_meter,
 			schedule: T::Schedule::get(),
 			value: 0u32.into(),
 			debug_message: None,
 			determinism: Determinism::Enforced,
-			input: vec![],
+			data: vec![],
 		}
+	}
+
+	pub fn set_storage_deposit_limit(&mut self, balance: BalanceOf<T>) {
+		self.storage_meter = Meter::new(&self.origin, Some(balance), 0u32.into()).unwrap();
+	}
+
+	pub fn set_origin(&mut self, origin: Origin<T>) {
+		self.origin = origin;
 	}
 
 	pub fn set_balance(&mut self, value: BalanceOf<T>) {
 		self.contract.set_balance(value);
 	}
 
-	pub fn input(&self) -> Vec<u8> {
-		self.input.clone()
+	pub fn set_data(&mut self, value: Vec<u8>) {
+		self.data = value;
+	}
+
+	pub fn data(&self) -> Vec<u8> {
+		self.data.clone()
 	}
 
 	pub fn contract(&self) -> Contract<T> {
@@ -132,9 +147,9 @@ macro_rules! call_builder(
 		$crate::call_builder!($func, _contract, setup: $setup);
 	};
     ($func:ident, $contract: ident, setup: $setup: ident) => {
-		let input = $setup.input();
+		let data = $setup.data();
 		let $contract = $setup.contract();
 		let (mut ext, module) = $setup.ext();
-		let $func = CallSetup::<T>::prepare_call(&mut ext, module, input);
+		let $func = CallSetup::<T>::prepare_call(&mut ext, module, data);
 	};
 );
