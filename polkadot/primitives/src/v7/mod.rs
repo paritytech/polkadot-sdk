@@ -1086,15 +1086,6 @@ pub enum CoreState<H = Hash, N = BlockNumber> {
 }
 
 impl<N> CoreState<N> {
-	/// If this core state has a `para_id`, return it.
-	pub fn para_id(&self) -> Option<Id> {
-		match self {
-			Self::Occupied(ref core) => Some(core.para_id()),
-			Self::Scheduled(core) => Some(core.para_id),
-			Self::Free => None,
-		}
-	}
-
 	/// Is this core state `Self::Occupied`?
 	pub fn is_occupied(&self) -> bool {
 		matches!(self, Self::Occupied(_))
