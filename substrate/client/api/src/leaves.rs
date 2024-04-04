@@ -70,10 +70,7 @@ impl<H: Copy, N: Ord> FinalizationOutcome<H, N> {
 		for (hash, number) in new_displaced {
 			removed
 				.entry(Reverse(number))
-				.and_modify(|hashes| {
-					hashes.push(hash);
-				})
-				.or_insert(vec![hash]);
+				.or_default().push(hash);
 		}
 
 		FinalizationOutcome { removed }
