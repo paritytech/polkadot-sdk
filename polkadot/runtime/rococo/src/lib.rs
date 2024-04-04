@@ -79,7 +79,7 @@ use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::historical as session_historical;
-use pallet_transaction_payment::{CurrencyAdapter, FeeDetails, RuntimeDispatchInfo};
+use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
 use sp_core::{ConstU128, OpaqueMetadata, H256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
@@ -324,7 +324,7 @@ parameter_types! {
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, ToAuthor<Runtime>>;
+	type OnChargeTransaction = FungibleAdapter<Balances, ToAuthor<Runtime>>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
