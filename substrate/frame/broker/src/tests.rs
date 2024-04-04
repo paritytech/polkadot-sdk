@@ -864,6 +864,29 @@ fn cannot_set_expired_lease() {
 }
 
 #[test]
+fn short_leases_are_cleaned() {
+	TestExt::new().region_length(3).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(200, 1));
+		advance_to(2);
+
+		// New leases are allowed to expire within this region given expiry > `current_timeslice`.
+		assert_noop!(
+			Broker::do_set_lease(1000, Broker::current_timeslice()),
+			Error::<Test>::AlreadyExpired
+		);
+		assert_eq!(Leases::<Test>::get().len(), 0);
+		assert_ok!(Broker::do_set_lease(1000, Broker::current_timeslice().saturating_add(1)));
+		assert_eq!(Leases::<Test>::get().len(), 1);
+
+		// But are cleaned up in the next rotate_sale.
+		let config = Configuration::<Test>::get().unwrap();
+		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
+		advance_to(timeslice_period.saturating_mul(config.region_length.into()));
+		assert_eq!(Leases::<Test>::get().len(), 0);
+	});
+}
+
+#[test]
 fn leases_are_limited() {
 	TestExt::new().execute_with(|| {
 		let max_leases: u32 = <Test as Config>::MaxLeasedCores::get();

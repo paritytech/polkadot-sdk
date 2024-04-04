@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 impl-trait-for-tuples = "0.2"
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 
 # Substrate
 frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
@@ -25,6 +25,7 @@ sp-std = { path = "../../../../../substrate/primitives/std", default-features = 
 sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
 pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
 
 # Cumulus
 asset-test-utils = { path = "../../assets/test-utils" }
@@ -73,6 +74,7 @@ std = [
 	"pallet-bridge-messages/std",
 	"pallet-bridge-parachains/std",
 	"pallet-bridge-relayers/std",
+	"pallet-timestamp/std",
 	"pallet-utility/std",
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",

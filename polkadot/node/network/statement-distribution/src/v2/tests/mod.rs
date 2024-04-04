@@ -177,20 +177,39 @@ impl TestState {
 	}
 
 	fn make_dummy_leaf(&self, relay_parent: Hash) -> TestLeaf {
+		self.make_dummy_leaf_with_multiple_cores_per_para(relay_parent, 1)
+	}
+
+	fn make_dummy_leaf_with_multiple_cores_per_para(
+		&self,
+		relay_parent: Hash,
+		groups_for_first_para: usize,
+	) -> TestLeaf {
 		TestLeaf {
 			number: 1,
 			hash: relay_parent,
 			parent_hash: Hash::repeat_byte(0),
 			session: 1,
 			availability_cores: self.make_availability_cores(|i| {
-				CoreState::Scheduled(ScheduledCore {
-					para_id: ParaId::from(i as u32),
-					collator: None,
-				})
+				let para_id = if i < groups_for_first_para {
+					ParaId::from(0u32)
+				} else {
+					ParaId::from(i as u32)
+				};
+
+				CoreState::Scheduled(ScheduledCore { para_id, collator: None })
 			}),
 			disabled_validators: Default::default(),
 			para_data: (0..self.session_info.validator_groups.len())
-				.map(|i| (ParaId::from(i as u32), PerParaData::new(1, vec![1, 2, 3].into())))
+				.map(|i| {
+					let para_id = if i < groups_for_first_para {
+						ParaId::from(0u32)
+					} else {
+						ParaId::from(i as u32)
+					};
+
+					(para_id, PerParaData::new(1, vec![1, 2, 3].into()))
+				})
 				.collect(),
 			minimum_backing_votes: 2,
 		}
@@ -437,6 +456,7 @@ async fn setup_test_and_connect_peers(
 	validator_count: usize,
 	group_size: usize,
 	peers_to_connect: &[TestPeerToConnect],
+	send_topology_before_leaf: bool,
 ) -> TestSetupInfo {
 	let local_validator = state.local.clone().unwrap();
 	let local_group = local_validator.group_index.unwrap();
@@ -481,10 +501,14 @@ async fn setup_test_and_connect_peers(
 		}
 	}
 
-	activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
-
-	// Send gossip topology.
-	send_new_topology(overseer, state.make_dummy_topology()).await;
+	// Send gossip topology and activate leaf.
+	if send_topology_before_leaf {
+		send_new_topology(overseer, state.make_dummy_topology()).await;
+		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
+	} else {
+		activate_leaf(overseer, &test_leaf, &state, true, vec![]).await;
+		send_new_topology(overseer, state.make_dummy_topology()).await;
+	}
 
 	TestSetupInfo {
 		local_validator,

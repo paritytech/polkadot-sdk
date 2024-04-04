@@ -36,7 +36,9 @@ use polkadot_node_network_protocol::{
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::approval::{
-	v1::{AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert},
+	v1::{
+		AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
+	},
 	v2::{
 		AsBitIndex, AssignmentCertKindV2, CandidateBitfield, IndirectAssignmentCertV2,
 		IndirectSignedApprovalVoteV2,
@@ -228,7 +230,7 @@ impl ApprovalEntry {
 		Ok(())
 	}
 
-	// Get the assignment certiticate and claimed candidates.
+	// Get the assignment certificate and claimed candidates.
 	pub fn assignment(&self) -> (IndirectAssignmentCertV2, CandidateBitfield) {
 		(self.assignment.clone(), self.assignment_claimed_candidates.clone())
 	}
@@ -402,7 +404,7 @@ impl Knowledge {
 			},
 		};
 
-		// In case of succesful insertion of multiple candidate assignments create additional
+		// In case of successful insertion of multiple candidate assignments create additional
 		// entries for each assigned candidate. This fakes knowledge of individual assignments, but
 		// we need to share the same `MessageSubject` with the followup approval candidate index.
 		if kind == MessageKind::Assignment && success && message.1.count_ones() > 1 {
@@ -1063,17 +1065,17 @@ impl State {
 				.await;
 			},
 			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Approvals(approvals)) => {
-				self.process_incoming_approvals(ctx, metrics, peer_id, approvals).await;
+				let sanitized_approvals =
+					self.sanitize_v2_approvals(peer_id, ctx.sender(), approvals).await;
+				self.process_incoming_approvals(ctx, metrics, peer_id, sanitized_approvals)
+					.await;
 			},
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
 			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) => {
-				self.process_incoming_approvals(
-					ctx,
-					metrics,
-					peer_id,
-					approvals.into_iter().map(|approval| approval.into()).collect::<Vec<_>>(),
-				)
-				.await;
+				let sanitized_approvals =
+					self.sanitize_v1_approvals(peer_id, ctx.sender(), approvals).await;
+				self.process_incoming_approvals(ctx, metrics, peer_id, sanitized_approvals)
+					.await;
 			},
 		}
 	}
@@ -1895,10 +1897,10 @@ impl State {
 					_ => break,
 				};
 
-				// Any peer which is in the `known_by` see and we know its peer_id authorithy id
+				// Any peer which is in the `known_by` see and we know its peer_id authority id
 				// mapping has already been sent all messages it's meant to get for that block and
 				// all in-scope prior blocks. In case, we just learnt about its peer_id
-				// authorithy-id mapping we have to retry sending the messages that should be sent
+				// authority-id mapping we have to retry sending the messages that should be sent
 				// to it for all un-finalized blocks.
 				if entry.known_by.contains_key(&peer_id) && !retry_known_blocks {
 					break
@@ -2196,6 +2198,60 @@ impl State {
 
 		sanitized_assignments
 	}
+
+	// Filter out obviously invalid candidate indices.
+	async fn sanitize_v1_approvals(
+		&mut self,
+		peer_id: PeerId,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		approval: Vec<IndirectSignedApprovalVote>,
+	) -> Vec<IndirectSignedApprovalVoteV2> {
+		let mut sanitized_approvals = Vec::new();
+		for approval in approval.into_iter() {
+			if approval.candidate_index as usize > MAX_BITFIELD_SIZE {
+				// Punish the peer for the invalid message.
+				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
+					.await;
+				gum::debug!(
+					target: LOG_TARGET,
+					block_hash = ?approval.block_hash,
+					candidate_index = ?approval.candidate_index,
+					"Bad approval v1, invalid candidate index"
+				);
+			} else {
+				sanitized_approvals.push(approval.into())
+			}
+		}
+
+		sanitized_approvals
+	}
+
+	// Filter out obviously invalid candidate indices.
+	async fn sanitize_v2_approvals(
+		&mut self,
+		peer_id: PeerId,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		approval: Vec<IndirectSignedApprovalVoteV2>,
+	) -> Vec<IndirectSignedApprovalVoteV2> {
+		let mut sanitized_approvals = Vec::new();
+		for approval in approval.into_iter() {
+			if approval.candidate_indices.len() as usize > MAX_BITFIELD_SIZE {
+				// Punish the peer for the invalid message.
+				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
+					.await;
+				gum::debug!(
+					target: LOG_TARGET,
+					block_hash = ?approval.block_hash,
+					candidate_indices_len = ?approval.candidate_indices.len(),
+					"Bad approval v2, invalid candidate indices size"
+				);
+			} else {
+				sanitized_approvals.push(approval)
+			}
+		}
+
+		sanitized_approvals
+	}
 }
 
 // This adjusts the required routing of messages in blocks that pass the block filter
@@ -2204,7 +2260,7 @@ impl State {
 // The modifier accepts as inputs the current required-routing state, whether
 // the message is locally originating, and the validator index of the message issuer.
 //
-// Then, if the topology is known, this progates messages to all peers in the required
+// Then, if the topology is known, this propagates messages to all peers in the required
 // routing set which are aware of the block. Peers which are unaware of the block
 // will have the message sent when it enters their view in `unify_with_peer`.
 //
@@ -2384,7 +2440,7 @@ impl ApprovalDistribution {
 							gum::trace!(target: LOG_TARGET, "active leaves signal (ignored)");
 							// the relay chain blocks relevant to the approval subsystems
 							// are those that are available, but not finalized yet
-							// actived and deactivated heads hence are irrelevant to this subsystem, other than
+							// activated and deactivated heads hence are irrelevant to this subsystem, other than
 							// for tracing purposes.
 							if let Some(activated) = update.activated {
 								let head = activated.hash;

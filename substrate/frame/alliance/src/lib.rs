@@ -442,24 +442,20 @@ pub mod pallet {
 	/// The IPFS CID of the alliance rule.
 	/// Fellows can propose a new rule with a super-majority.
 	#[pallet::storage]
-	#[pallet::getter(fn rule)]
 	pub type Rule<T: Config<I>, I: 'static = ()> = StorageValue<_, Cid, OptionQuery>;
 
 	/// The current IPFS CIDs of any announcements.
 	#[pallet::storage]
-	#[pallet::getter(fn announcements)]
 	pub type Announcements<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<Cid, T::MaxAnnouncementsCount>, ValueQuery>;
 
 	/// Maps members to their candidacy deposit.
 	#[pallet::storage]
-	#[pallet::getter(fn deposit_of)]
 	pub type DepositOf<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BalanceOf<T, I>, OptionQuery>;
 
 	/// Maps member type to members of each type.
 	#[pallet::storage]
-	#[pallet::getter(fn members)]
 	pub type Members<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Twox64Concat,
@@ -471,20 +467,17 @@ pub mod pallet {
 	/// A set of members who gave a retirement notice. They can retire after the end of retirement
 	/// period stored as a future block number.
 	#[pallet::storage]
-	#[pallet::getter(fn retiring_members)]
 	pub type RetiringMembers<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, BlockNumberFor<T>, OptionQuery>;
 
 	/// The current list of accounts deemed unscrupulous. These accounts non grata cannot submit
 	/// candidacy.
 	#[pallet::storage]
-	#[pallet::getter(fn unscrupulous_accounts)]
 	pub type UnscrupulousAccounts<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<T::AccountId, T::MaxUnscrupulousItems>, ValueQuery>;
 
 	/// The current list of websites deemed unscrupulous.
 	#[pallet::storage]
-	#[pallet::getter(fn unscrupulous_websites)]
 	pub type UnscrupulousWebsites<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedVec<UrlOf<T, I>, T::MaxUnscrupulousItems>, ValueQuery>;
 
@@ -505,10 +498,10 @@ pub mod pallet {
 			proposal: Box<<T as Config<I>>::Proposal>,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResult {
-			let proposor = ensure_signed(origin)?;
-			ensure!(Self::has_voting_rights(&proposor), Error::<T, I>::NoVotingRights);
+			let proposer = ensure_signed(origin)?;
+			ensure!(Self::has_voting_rights(&proposer), Error::<T, I>::NoVotingRights);
 
-			T::ProposalProvider::propose_proposal(proposor, threshold, proposal, length_bound)?;
+			T::ProposalProvider::propose_proposal(proposer, threshold, proposal, length_bound)?;
 			Ok(())
 		}
 

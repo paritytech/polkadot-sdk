@@ -22,7 +22,7 @@
 //! multiplication implementation provided there.
 
 use crate::{biguint, Rounding};
-use sp_std::cmp::{max, min};
+use core::cmp::{max, min};
 
 /// Helper gcd function used in Rational128 implementation.
 pub fn gcd(a: u128, b: u128) -> u128 {

@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Removed `pallet::getter` usage from Beefy and MMR pallets
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes `pallet::getter` usage from `pallet-beefy`, `pallet-beefy-mmr` and `pallet-mmr`, and updates dependant code and runtimes accordingly.
+      The syntax `StorageItem::<T, I>::get()` should be used instead.
+
+crates: 
+  - name: pallet-beefy
+  - name: pallet-beefy-mmr
+  - name: pallet-mmr
+  - name: kitchensink-runtime
+  - name: rococo-runtime
+  - name: westend-runtime

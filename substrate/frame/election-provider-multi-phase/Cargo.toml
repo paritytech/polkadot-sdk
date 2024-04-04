@@ -18,10 +18,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = [
+scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 ] }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
@@ -38,7 +38,7 @@ frame-election-provider-support = { path = "../election-provider-support", defau
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
 pallet-election-provider-support-benchmarking = { path = "../election-provider-support/benchmarking", default-features = false, optional = true }
 rand = { version = "0.8.5", default-features = false, features = ["alloc", "small_rng"], optional = true }
-strum = { version = "0.24.1", default-features = false, features = ["derive"], optional = true }
+strum = { version = "0.26.2", default-features = false, features = ["derive"], optional = true }
 
 [dev-dependencies]
 parking_lot = "0.12.1"

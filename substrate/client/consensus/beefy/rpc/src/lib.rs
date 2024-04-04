@@ -184,10 +184,10 @@ mod tests {
 	async fn uninitialized_rpc_handler() {
 		let (rpc, _) = setup_io_handler();
 		let request = r#"{"jsonrpc":"2.0","method":"beefy_getFinalizedHead","params":[],"id":1}"#;
-		let expected_response = r#"{"jsonrpc":"2.0","error":{"code":1,"message":"BEEFY RPC endpoint not ready"},"id":1}"#.to_string();
+		let expected_response = r#"{"jsonrpc":"2.0","error":{"code":1,"message":"BEEFY RPC endpoint not ready"},"id":1}"#;
 		let (response, _) = rpc.raw_json_request(&request, 1).await.unwrap();
 
-		assert_eq!(expected_response, response.result);
+		assert_eq!(expected_response, response);
 	}
 
 	#[tokio::test]
@@ -205,20 +205,18 @@ mod tests {
 			\"jsonrpc\":\"2.0\",\
 			\"result\":\"0x2f0039e93a27221fcf657fb877a1d4f60307106113e885096cb44a461cd0afbf\",\
 			\"id\":1\
-		}"
-		.to_string();
+		}";
 		let not_ready = "{\
 			\"jsonrpc\":\"2.0\",\
 			\"error\":{\"code\":1,\"message\":\"BEEFY RPC endpoint not ready\"},\
 			\"id\":1\
-		}"
-		.to_string();
+		}";
 
 		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
 		while std::time::Instant::now() < deadline {
 			let (response, _) = io.raw_json_request(request, 1).await.expect("RPC requests work");
-			if response.result != not_ready {
-				assert_eq!(response.result, expected);
+			if response != not_ready {
+				assert_eq!(response, expected);
 				// Success
 				return
 			}
@@ -249,7 +247,7 @@ mod tests {
 			.unwrap();
 		let expected = r#"{"jsonrpc":"2.0","result":false,"id":1}"#;
 
-		assert_eq!(response.result, expected);
+		assert_eq!(response, expected);
 	}
 
 	fn create_finality_proof() -> BeefyVersionedFinalityProof<Block> {

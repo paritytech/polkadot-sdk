@@ -66,9 +66,9 @@ use crate::{
 	traits::BlockNumberProvider,
 };
 use codec::{Codec, Decode, Encode};
+use core::fmt;
 use sp_core::offchain::{Duration, Timestamp};
 use sp_io::offchain;
-use sp_std::fmt;
 
 /// Default expiry duration for time based locks in milliseconds.
 const STORAGE_LOCK_DEFAULT_EXPIRY_DURATION: Duration = Duration::from_millis(20_000);
@@ -556,7 +556,7 @@ mod tests {
 			let res = lock.try_lock();
 			assert_eq!(res.is_ok(), false);
 
-			// sleep again untill sleep_until > deadline
+			// sleep again until sleep_until > deadline
 			offchain::sleep_until(offchain::timestamp().add(Duration::from_millis(200)));
 
 			// the lock has expired, failed to extend it

@@ -11,8 +11,8 @@ workspace = true
 
 [dependencies]
 anyhow = "1.0"
-async-trait = "0.1.74"
-thiserror = "1.0.48"
+async-trait = "0.1.79"
+thiserror = { workspace = true }
 
 # Substrate
 sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }

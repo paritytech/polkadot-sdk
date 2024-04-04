@@ -43,13 +43,14 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	request_async_backing_params, request_availability_cores, request_persisted_validation_data,
-	request_validation_code, request_validation_code_hash, request_validators,
+	request_async_backing_params, request_availability_cores, request_para_backing_state,
+	request_persisted_validation_data, request_validation_code, request_validation_code_hash,
+	request_validators, vstaging::fetch_claim_queue,
 };
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
-	CollatorPair, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
-	ValidationCodeHash,
+	CollatorPair, CoreIndex, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
 use std::sync::Arc;
@@ -208,6 +209,7 @@ async fn handle_new_activations<Context>(
 	if config.collator.is_none() {
 		return Ok(())
 	}
+	let para_id = config.para_id;
 
 	let _overall_timer = metrics.time_new_activations();
 
@@ -221,28 +223,42 @@ async fn handle_new_activations<Context>(
 		);
 
 		let availability_cores = availability_cores??;
-		let n_validators = validators??.len();
 		let async_backing_params = async_backing_params?.ok();
+		let n_validators = validators??.len();
+		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent)
+			.await
+			.map_err(crate::error::Error::UtilRuntime)?;
+
+		// The loop bellow will fill in cores that the para is allowed to build on.
+		let mut cores_to_build_on = Vec::new();
 
 		for (core_idx, core) in availability_cores.into_iter().enumerate() {
-			let _availability_core_timer = metrics.time_new_activations_availability_core();
-
-			let (scheduled_core, assumption) = match core {
-				CoreState::Scheduled(scheduled_core) =>
-					(scheduled_core, OccupiedCoreAssumption::Free),
+			let scheduled_core = match core {
+				CoreState::Scheduled(scheduled_core) => scheduled_core,
 				CoreState::Occupied(occupied_core) => match async_backing_params {
 					Some(params) if params.max_candidate_depth >= 1 => {
 						// maximum candidate depth when building on top of a block
 						// pending availability is necessarily 1 - the depth of the
 						// pending block is 0 so the child has depth 1.
 
-						// TODO [now]: this assumes that next up == current.
-						// in practice we should only set `OccupiedCoreAssumption::Included`
-						// when the candidate occupying the core is also of the same para.
-						if let Some(scheduled) = occupied_core.next_up_on_available {
-							(scheduled, OccupiedCoreAssumption::Included)
-						} else {
-							continue
+						// Use claim queue if available, or fallback to `next_up_on_available`
+						let res = match maybe_claim_queue {
+							Some(ref claim_queue) => {
+								// read what's in the claim queue for this core at depth 0.
+								claim_queue
+									.get_claim_for(CoreIndex(core_idx as u32), 0)
+									.map(|para_id| ScheduledCore { para_id, collator: None })
+							},
+							None => {
+								// Runtime doesn't support claim queue runtime api. Fallback to
+								// `next_up_on_available`
+								occupied_core.next_up_on_available
+							},
+						};
+
+						match res {
+							Some(res) => res,
+							None => continue,
 						}
 					},
 					_ => {
@@ -259,7 +275,7 @@ async fn handle_new_activations<Context>(
 					gum::trace!(
 						target: LOG_TARGET,
 						core_idx = %core_idx,
-						"core is free. Keep going.",
+						"core is not assigned to any para. Keep going.",
 					);
 					continue
 				},
@@ -274,64 +290,90 @@ async fn handle_new_activations<Context>(
 					their_para = %scheduled_core.para_id,
 					"core is not assigned to our para. Keep going.",
 				);
-				continue
+			} else {
+				// Accumulate cores for building collation(s) outside the loop.
+				cores_to_build_on.push(CoreIndex(core_idx as u32));
 			}
+		}
 
-			// we get validation data and validation code synchronously for each core instead of
-			// within the subtask loop, because we have only a single mutable handle to the
-			// context, so the work can't really be distributed
+		// Skip to next relay parent if there is no core assigned to us.
+		if cores_to_build_on.is_empty() {
+			continue
+		}
 
-			let validation_data = match request_persisted_validation_data(
-				relay_parent,
-				scheduled_core.para_id,
-				assumption,
-				ctx.sender(),
-			)
-			.await
-			.await??
-			{
-				Some(v) => v,
-				None => {
-					gum::trace!(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						relay_parent = ?relay_parent,
-						our_para = %config.para_id,
-						their_para = %scheduled_core.para_id,
-						"validation data is not available",
-					);
-					continue
-				},
-			};
+		let para_backing_state =
+			request_para_backing_state(relay_parent, config.para_id, ctx.sender())
+				.await
+				.await??
+				.ok_or(crate::error::Error::MissingParaBackingState)?;
 
-			let validation_code_hash = match obtain_validation_code_hash_with_assumption(
-				relay_parent,
-				scheduled_core.para_id,
-				assumption,
-				ctx.sender(),
-			)
-			.await?
-			{
-				Some(v) => v,
-				None => {
-					gum::trace!(
-						target: LOG_TARGET,
-						core_idx = %core_idx,
-						relay_parent = ?relay_parent,
-						our_para = %config.para_id,
-						their_para = %scheduled_core.para_id,
-						"validation code hash is not found.",
-					);
-					continue
-				},
-			};
+		// We are being very optimistic here, but one of the cores could pend availability some more
+		// block, ore even time out.
+		// For timeout assumption the collator can't really know because it doesn't receive bitfield
+		// gossip.
+		let assumption = if para_backing_state.pending_availability.is_empty() {
+			OccupiedCoreAssumption::Free
+		} else {
+			OccupiedCoreAssumption::Included
+		};
 
-			let task_config = config.clone();
-			let metrics = metrics.clone();
-			let mut task_sender = ctx.sender().clone();
-			ctx.spawn(
-				"collation-builder",
-				Box::pin(async move {
+		gum::debug!(
+			target: LOG_TARGET,
+			relay_parent = ?relay_parent,
+			our_para = %config.para_id,
+			?assumption,
+			"Occupied core(s) assumption",
+		);
+
+		let mut validation_data = match request_persisted_validation_data(
+			relay_parent,
+			config.para_id,
+			assumption,
+			ctx.sender(),
+		)
+		.await
+		.await??
+		{
+			Some(v) => v,
+			None => {
+				gum::debug!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent,
+					our_para = %config.para_id,
+					"validation data is not available",
+				);
+				continue
+			},
+		};
+
+		let validation_code_hash = match obtain_validation_code_hash_with_assumption(
+			relay_parent,
+			config.para_id,
+			assumption,
+			ctx.sender(),
+		)
+		.await?
+		{
+			Some(v) => v,
+			None => {
+				gum::debug!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent,
+					our_para = %config.para_id,
+					"validation code hash is not found.",
+				);
+				continue
+			},
+		};
+
+		let task_config = config.clone();
+		let metrics = metrics.clone();
+		let mut task_sender = ctx.sender().clone();
+
+		ctx.spawn(
+			"chained-collation-builder",
+			Box::pin(async move {
+				for core_index in cores_to_build_on {
 					let collator_fn = match task_config.collator.as_ref() {
 						Some(x) => x,
 						None => return,
@@ -343,21 +385,23 @@ async fn handle_new_activations<Context>(
 							None => {
 								gum::debug!(
 									target: LOG_TARGET,
-									para_id = %scheduled_core.para_id,
+									?para_id,
 									"collator returned no collation on collate",
 								);
 								return
 							},
 						};
 
+					let parent_head = collation.head_data.clone();
 					construct_and_distribute_receipt(
 						PreparedCollation {
 							collation,
-							para_id: scheduled_core.para_id,
+							para_id,
 							relay_parent,
-							validation_data,
+							validation_data: validation_data.clone(),
 							validation_code_hash,
 							n_validators,
+							core_index,
 						},
 						task_config.key.clone(),
 						&mut task_sender,
@@ -365,9 +409,13 @@ async fn handle_new_activations<Context>(
 						&metrics,
 					)
 					.await;
-				}),
-			)?;
-		}
+
+					// Chain the collations. All else stays the same as we build the chained
+					// collation on same relay parent.
+					validation_data.parent_head = parent_head;
+				}
+			}),
+		)?;
 	}
 
 	Ok(())
@@ -388,6 +436,7 @@ async fn handle_submit_collation<Context>(
 		parent_head,
 		validation_code_hash,
 		result_sender,
+		core_index,
 	} = params;
 
 	let validators = request_validators(relay_parent, ctx.sender()).await.await??;
@@ -424,6 +473,7 @@ async fn handle_submit_collation<Context>(
 		validation_data,
 		validation_code_hash,
 		n_validators,
+		core_index,
 	};
 
 	construct_and_distribute_receipt(
@@ -445,6 +495,7 @@ struct PreparedCollation {
 	validation_data: PersistedValidationData,
 	validation_code_hash: ValidationCodeHash,
 	n_validators: usize,
+	core_index: CoreIndex,
 }
 
 /// Takes a prepared collation, along with its context, and produces a candidate receipt
@@ -463,9 +514,11 @@ async fn construct_and_distribute_receipt(
 		validation_data,
 		validation_code_hash,
 		n_validators,
+		core_index,
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
+	let parent_head_data = validation_data.parent_head.clone();
 	let parent_head_data_hash = validation_data.parent_head.hash();
 
 	// Apply compression to the block data.
@@ -551,12 +604,14 @@ async fn construct_and_distribute_receipt(
 	metrics.on_collation_generated();
 
 	sender
-		.send_message(CollatorProtocolMessage::DistributeCollation(
-			ccr,
+		.send_message(CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt: ccr,
 			parent_head_data_hash,
 			pov,
+			parent_head_data,
 			result_sender,
-		))
+			core_index,
+		})
 		.await;
 }
 

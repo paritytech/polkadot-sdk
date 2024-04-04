@@ -384,7 +384,7 @@ fn query_call_info_and_fee_details_works() {
                         adjusted_weight_fee: info
                             .weight
                             .min(BlockWeights::get().max_block)
-                            .ref_time() as u64 * 2 * 3 / 2  /* weight * weight_fee * multipler */
+                            .ref_time() as u64 * 2 * 3 / 2  /* weight * weight_fee * multiplier */
                     }),
                     tip: 0,
                 },

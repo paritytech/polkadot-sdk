@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../gum" }
 
@@ -24,13 +24,13 @@ sc-tracing = { path = "../../../substrate/client/tracing" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 primitives = { package = "polkadot-primitives", path = "../../primitives" }
 bs58 = { version = "0.5.0", features = ["alloc"] }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 
 [dev-dependencies]
 assert_cmd = "2.0.4"
 tempfile = "3.2.0"
 hyper = { version = "0.14.20", default-features = false, features = ["http1", "tcp"] }
-tokio = "1.24.2"
+tokio = "1.37"
 polkadot-test-service = { path = "../test/service", features = ["runtime-metrics"] }
 substrate-test-utils = { path = "../../../substrate/test-utils" }
 sc-service = { path = "../../../substrate/client/service" }

@@ -425,8 +425,8 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	fn verify_signature(who: &T::AccountId, signature: &[u8]) -> Result<(), DispatchError> {
 		// sr25519 always expects a 64 byte signature.
-		let signature: AnySignature = sr25519::Signature::from_slice(signature)
-			.ok_or(Error::<T>::InvalidSignature)?
+		let signature: AnySignature = sr25519::Signature::try_from(signature)
+			.map_err(|_| Error::<T>::InvalidSignature)?
 			.into();
 
 		// In Polkadot, the AccountId is always the same as the 32 byte public key.
@@ -512,7 +512,7 @@ mod tests {
 		pub const BlockHashCount: u32 = 250;
 	}
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -556,7 +556,6 @@ mod tests {
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 
