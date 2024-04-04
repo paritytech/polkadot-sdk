@@ -550,6 +550,7 @@ pub mod pallet {
 		/// - `initial_price`: The price of Bulk Coretime in the first sale.
 		/// - `total_core_count`: This is the total number of cores the relay chain should have
 		/// after the sale concludes.
+		///
 		/// NOTE: This function does not actually request that new core count from the relay chain.
 		/// You need to make sure to call `request_core_count` afterwards to bring the relay chain
 		/// in sync.
@@ -564,7 +565,7 @@ pub mod pallet {
 		pub fn start_sales(
 			origin: OriginFor<T>,
 			initial_price: BalanceOf<T>,
-			total_core_count: Option<CoreIndex>,
+			total_core_count: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_start_sales(initial_price, total_core_count)?;
