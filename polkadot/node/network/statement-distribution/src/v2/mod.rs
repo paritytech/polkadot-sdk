@@ -46,7 +46,7 @@ use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
 	reputation::ReputationAggregator,
 	runtime::{request_min_backing_votes, ProspectiveParachainsMode},
-	vstaging::fetch_claim_queue,
+	vstaging::{fetch_claim_queue, ClaimQueueSnapshot},
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, CandidateHash, CompactStatement, CoreIndex, CoreState, GroupIndex,
@@ -681,6 +681,13 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 				.map_err(JfyiError::FetchValidatorGroups)?
 				.1;
 
+		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), new_relay_parent)
+		.await
+		.unwrap_or_else(|err| {
+				gum::debug!(target: LOG_TARGET, ?new_relay_parent, ?err, "handle_active_leaves_update: `claim_queue` API not available");
+				None
+			});
+
 		let local_validator = per_session.local_validator.and_then(|v| {
 			if let LocalValidatorIndex::Active(idx) = v {
 				find_active_validator_state(
@@ -688,7 +695,9 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 					&per_session.groups,
 					&availability_cores,
 					&group_rotation_info,
+					&maybe_claim_queue,
 					seconding_limit,
+					max_candidate_depth,
 				)
 			} else {
 				Some(LocalValidatorState { grid_tracker: GridTracker::default(), active: None })
@@ -752,7 +761,9 @@ fn find_active_validator_state(
 	groups: &Groups,
 	availability_cores: &[CoreState],
 	group_rotation_info: &GroupRotationInfo,
+	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
 	seconding_limit: usize,
+	max_candidate_depth: usize,
 ) -> Option<LocalValidatorState> {
 	if groups.all().is_empty() {
 		return None
@@ -760,18 +771,29 @@ fn find_active_validator_state(
 
 	let our_group = groups.by_validator_index(validator_index)?;
 
-	// note: this won't work well for on-demand parachains because it only works
-	// when core assignments to paras are static throughout the session.
-
-	let core = group_rotation_info.core_for_group(our_group, availability_cores.len());
-	let para = availability_cores.get(core.0 as usize).and_then(|c| c.para_id());
+	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
+	let core_assignment = if let Some(claim_queue) = maybe_claim_queue {
+		claim_queue.get_claim_for(core_index, 0)
+	} else {
+		availability_cores
+			.get(core_index.0 as usize)
+			.map(|core_state| match core_state {
+				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
+				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
+					.next_up_on_available
+					.as_ref()
+					.map(|scheduled_core| scheduled_core.para_id),
+				CoreState::Free | CoreState::Occupied(_) => None,
+			})
+			.flatten()
+	};
 	let group_validators = groups.get(our_group)?.to_owned();
 
 	Some(LocalValidatorState {
 		active: Some(ActiveValidatorState {
 			index: validator_index,
 			group: our_group,
-			assignment: para,
+			assignment: core_assignment,
 			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
 				.expect("group is non-empty because we are in it; qed"),
 		}),
