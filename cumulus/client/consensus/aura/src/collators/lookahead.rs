@@ -49,7 +49,9 @@ use polkadot_node_subsystem::messages::{
 	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CollatorPair, CoreIndex, Id as ParaId, OccupiedCoreAssumption};
+use polkadot_primitives::{
+	CollatorPair, CoreIndex, CoreState, Id as ParaId, OccupiedCoreAssumption,
+};
 
 use futures::{channel::oneshot, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
@@ -495,6 +497,7 @@ async fn cores_scheduled_for_para(
 	para_id: ParaId,
 	overseer_handle: &mut OverseerHandle,
 ) -> Vec<CoreIndex> {
+	// Get `AvailabilityCores` from runtime
 	let (tx, rx) = oneshot::channel();
 	let request = RuntimeApiRequest::AvailabilityCores(tx);
 	overseer_handle
@@ -522,11 +525,49 @@ async fn cores_scheduled_for_para(
 		},
 	};
 
+	// Get `AsyncBackingParams` from runtime
+	let (tx, rx) = oneshot::channel();
+	let request = RuntimeApiRequest::AsyncBackingParams(tx);
+	overseer_handle
+		.send_msg(RuntimeApiMessage::Request(relay_parent, request), "LookaheadCollator")
+		.await;
+	let async_backing_params = match rx.await {
+		Ok(Ok(params)) => params,
+		Ok(Err(error)) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?error,
+				?relay_parent,
+				"Failed to query async backing params runtime API",
+			);
+			return Vec::new()
+		},
+		Err(oneshot::Canceled) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?relay_parent,
+				"Sender for async backing params runtime request dropped",
+			);
+			return Vec::new()
+		},
+	};
+
 	cores
 		.iter()
 		.enumerate()
 		.filter_map(|(index, core)| {
-			if core.para_id() == Some(para_id) {
+			let core_para_id = match core {
+				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
+				CoreState::Occupied(occupied_core)
+					if async_backing_params.max_candidate_depth >= 1 =>
+					occupied_core
+						.next_up_on_available
+						.as_ref()
+						.map(|scheduled_core| scheduled_core.para_id),
+				CoreState::Free | CoreState::Occupied(_) => None,
+			};
+
+			if core_para_id == Some(para_id) {
 				Some(CoreIndex(index as u32))
 			} else {
 				None
