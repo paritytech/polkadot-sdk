@@ -244,8 +244,13 @@ impl xcm_executor::Config for XcmConfig {
 		RuntimeCall,
 		MaxInstructions,
 	>;
-	type Trader =
-		UsingComponents<WeightToFee, WndRelayLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+	type Trader = UsingComponents<
+		WeightToFee,
+		TokenRelayLocation,
+		AccountId,
+		Balances,
+		ToStakingPot<Runtime>,
+	>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;
