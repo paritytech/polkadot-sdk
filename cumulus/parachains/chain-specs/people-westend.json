@@ -20,7 +20,9 @@
     "/dns/boot.gatotech.network/tcp/33340/p2p/12D3KooWHwURYtEHpexfrZa8k8hVgVi5FTFr4N8HBnn9kPDsWfgA",
     "/dns/boot.gatotech.network/tcp/35340/wss/p2p/12D3KooWHwURYtEHpexfrZa8k8hVgVi5FTFr4N8HBnn9kPDsWfgA",
     "/dns/people-westend.bootnode.amforc.com/tcp/30333/wss/p2p/12D3KooWQrMQFAXxJJJCtVr8nViBR6EDsuT1RyqU3eoCMebRQxTf",
-    "/dns/people-westend.bootnode.amforc.com/tcp/30346/p2p/12D3KooWQrMQFAXxJJJCtVr8nViBR6EDsuT1RyqU3eoCMebRQxTf"
+    "/dns/people-westend.bootnode.amforc.com/tcp/30346/p2p/12D3KooWQrMQFAXxJJJCtVr8nViBR6EDsuT1RyqU3eoCMebRQxTf",
+    "/dns/people-westend-bootnode.turboflakes.io/tcp/30650/p2p/12D3KooWQEhmZg3uMkuxVUx3jbsD84zEX4dUKtvHfmCoBWMhybKW",
+    "/dns/people-westend-bootnode.turboflakes.io/tcp/30750/wss/p2p/12D3KooWQEhmZg3uMkuxVUx3jbsD84zEX4dUKtvHfmCoBWMhybKW"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
