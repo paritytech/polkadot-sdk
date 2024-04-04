@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ number of blocks authored per slot.</div></li><li><div class="item-name"><a clas
 Blocks will be produced at a minimum duration defined by <code>SLOT_DURATION</code>.
 <code>SLOT_DURATION</code> is picked up by <code>pallet_timestamp</code> which is in turn picked
 up by <code>pallet_aura</code> to implement <code>fn slot_duration()</code>.</div></li><li><div class="item-name"><a class="constant" href="constant.RELAY_CHAIN_SLOT_DURATION_MILLIS.html" title="constant testnet_parachains_constants::rococo::consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS">RELAY_CHAIN_SLOT_DURATION_MILLIS</a></div><div class="desc docblock-short">Relay chain slot duration, in milliseconds.</div></li><li><div class="item-name"><a class="constant" href="constant.SLOT_DURATION.html" title="constant testnet_parachains_constants::rococo::consensus::SLOT_DURATION">SLOT_DURATION</a></div></li><li><div class="item-name"><a class="constant" href="constant.UNINCLUDED_SEGMENT_CAPACITY.html" title="constant testnet_parachains_constants::rococo::consensus::UNINCLUDED_SEGMENT_CAPACITY">UNINCLUDED_SEGMENT_CAPACITY</a></div><div class="desc docblock-short">Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-into the relay chain.</div></li></ul></section></div></main></body></html>
+into the relay chain.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

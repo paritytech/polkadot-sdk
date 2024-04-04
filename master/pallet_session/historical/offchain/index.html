@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ validator-sets. Based on the logic of historical slashing, but the validation is
 Use <a href="../onchain/index.html" title="mod pallet_session::historical::onchain"><code>fn store_current_session_validator_set_to_offchain()</code></a> to store the
 required data to the offchain validator set. This is used in conjunction with <a href="../struct.ProvingTrie.html" title="struct pallet_session::historical::ProvingTrie"><code>ProvingTrie</code></a>
 and the off-chain indexing API.</p>
-</div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.keep_newest.html" title="fn pallet_session::historical::offchain::keep_newest">keep_newest</a></div><div class="desc docblock-short">Keep the newest <code>n</code> items, and prune all items older than that.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_session_membership.html" title="fn pallet_session::historical::offchain::prove_session_membership">prove_session_membership</a></div><div class="desc docblock-short">Create a proof based on the data available in the off-chain database.</div></li><li><div class="item-name"><a class="fn" href="fn.prune_older_than.html" title="fn pallet_session::historical::offchain::prune_older_than">prune_older_than</a></div><div class="desc docblock-short">Attempt to prune anything that is older than <code>first_to_keep</code> session index.</div></li></ul></section></div></main></body></html>
+</div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.keep_newest.html" title="fn pallet_session::historical::offchain::keep_newest">keep_newest</a></div><div class="desc docblock-short">Keep the newest <code>n</code> items, and prune all items older than that.</div></li><li><div class="item-name"><a class="fn" href="fn.prove_session_membership.html" title="fn pallet_session::historical::offchain::prove_session_membership">prove_session_membership</a></div><div class="desc docblock-short">Create a proof based on the data available in the off-chain database.</div></li><li><div class="item-name"><a class="fn" href="fn.prune_older_than.html" title="fn pallet_session::historical::offchain::prune_older_than">prune_older_than</a></div><div class="desc docblock-short">Attempt to prune anything that is older than <code>first_to_keep</code> session index.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

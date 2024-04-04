@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -373,4 +375,7 @@ generating the default <code>sp-tracing</code>-calls. Note that this is rarely n
 for the case when that would create a circular dependency. You usually <em>do not</em> want to add
 this flag, as tracing doesn’t cost you anything by default anyways (it is added as a no-op)
 but is super useful for debugging later.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -158,9 +160,16 @@ Then charges for this assetId as described by FeeCharger
 Weight, paid balance, local asset Id and the location is stored for
 later refund purposes
 Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
-Alternatively we could just return payment in the aforementioned case</div></li><li><div class="item-name"><a class="struct" href="struct.XcmFeesTo32ByteAccount.html" title="struct cumulus_primitives_utility::XcmFeesTo32ByteAccount">XcmFeesTo32ByteAccount</a></div><div class="desc docblock-short">XCM fee depositor to which we implement the <code>TakeRevenue</code> trait.
+Alternatively we could just return payment in the aforementioned case</div></li><li><div class="item-name"><a class="struct" href="struct.ToParentDeliveryHelper.html" title="struct cumulus_primitives_utility::ToParentDeliveryHelper">ToParentDeliveryHelper</a></div><div class="desc docblock-short">Implementation of <code>xcm_builder::EnsureDelivery</code> which helps to ensure delivery to the
+parent relay chain. Deposits existential deposit for origin (if needed).
+Deposits estimated fee to the origin account (if needed).
+Allows triggering of additional logic for a specific <code>ParaId</code> (e.g. to open an HRMP channel) if
+needed.</div></li><li><div class="item-name"><a class="struct" href="struct.XcmFeesTo32ByteAccount.html" title="struct cumulus_primitives_utility::XcmFeesTo32ByteAccount">XcmFeesTo32ByteAccount</a></div><div class="desc docblock-short">XCM fee depositor to which we implement the <code>TakeRevenue</code> trait.
 It receives a <code>Transact</code> implemented argument and a 32 byte convertible <code>AccountId</code>, and the fee
 receiver account’s <code>FungiblesMutateAdapter</code> should be identical to that implemented by
 <code>WithdrawAsset</code>.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.ChargeWeightInFungibles.html" title="trait cumulus_primitives_utility::ChargeWeightInFungibles">ChargeWeightInFungibles</a></div><div class="desc docblock-short">ChargeWeightInFungibles trait, which converts a given amount of weight
 and an assetId, and it returns the balance amount that should be charged
-in such assetId for that amount of weight</div></li></ul></section></div></main></body></html>
+in such assetId for that amount of weight</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

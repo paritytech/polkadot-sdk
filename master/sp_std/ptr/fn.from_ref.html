@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -149,4 +151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     T: ?<a class="trait" href="../marker/trait.Sized.html" title="trait sp_std::marker::Sized">Sized</a>,</span></code></pre><span class="item-info"><div class="stab unstable"><span class="emoji">🔬</span><span>This is a nightly-only experimental API. (<code>ptr_from_ref</code>)</span></div></span><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Convert a reference to a raw pointer.</p>
 <p>This is equivalent to <code>r as *const T</code>, but is a bit safer since it will never silently change
 type or mutability, in particular if the code is refactored.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

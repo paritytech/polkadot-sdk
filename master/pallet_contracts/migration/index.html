@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -186,4 +188,7 @@ account instead. Since <a href="frame_support::traits::Currency"><code>Currency<
 handled by the [<code>frame_support::traits::fungible</code>] traits instead. For this transfer the
 balance from the deposit account to the contract’s account and hold it in there.
 Then the deposit account is not needed anymore and we can get rid of it.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Migration.html" title="struct pallet_contracts::migration::Migration">Migration</a></div><div class="desc docblock-short">Performs all necessary migrations based on <code>StorageVersion</code>.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.IsFinished.html" title="enum pallet_contracts::migration::IsFinished">IsFinished</a></div><div class="desc docblock-short">IsFinished describes whether a migration is finished or not.</div></li><li><div class="item-name"><a class="enum" href="enum.MigrateResult.html" title="enum pallet_contracts::migration::MigrateResult">MigrateResult</a></div><div class="desc docblock-short">The result of running the migration.</div></li><li><div class="item-name"><a class="enum" href="enum.StepResult.html" title="enum pallet_contracts::migration::StepResult">StepResult</a></div><div class="desc docblock-short">The result of running a migration step.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.MigrateSequence.html" title="trait pallet_contracts::migration::MigrateSequence">MigrateSequence</a></div><div class="desc docblock-short">Defines a sequence of migrations.</div></li><li><div class="item-name"><a class="trait" href="trait.MigrationStep.html" title="trait pallet_contracts::migration::MigrationStep">MigrationStep</a></div><div class="desc docblock-short">A trait that allows to migrate storage from one version to another.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Cursor.html" title="type pallet_contracts::migration::Cursor">Cursor</a></div><div class="desc docblock-short">The cursor used to encode the position (usually the last iterated key) of the current migration
-step.</div></li></ul></section></div></main></body></html>
+step.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

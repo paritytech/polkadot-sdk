@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -155,4 +157,7 @@ pallet, in the list of <a href="../index.html#types"><em>Type Definitions</em></
 </div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.DecidingCount.html" title="struct pallet_referenda::pallet::storage_types::DecidingCount">DecidingCount</a></div><div class="desc docblock-short">The number of referenda being decided currently.</div></li><li><div class="item-name"><a class="struct" href="struct.MetadataOf.html" title="struct pallet_referenda::pallet::storage_types::MetadataOf">MetadataOf</a></div><div class="desc docblock-short">The metadata is a general information concerning the referendum.
 The <code>Hash</code> refers to the preimage of the <code>Preimages</code> provider which can be a JSON
 dump or IPFS hash of a JSON file.</div></li><li><div class="item-name"><a class="struct" href="struct.ReferendumCount.html" title="struct pallet_referenda::pallet::storage_types::ReferendumCount">ReferendumCount</a></div><div class="desc docblock-short">The next free referendum index, aka the number of referenda started so far.</div></li><li><div class="item-name"><a class="struct" href="struct.ReferendumInfoFor.html" title="struct pallet_referenda::pallet::storage_types::ReferendumInfoFor">ReferendumInfoFor</a></div><div class="desc docblock-short">Information concerning any given referendum.</div></li><li><div class="item-name"><a class="struct" href="struct.TrackQueue.html" title="struct pallet_referenda::pallet::storage_types::TrackQueue">TrackQueue</a></div><div class="desc docblock-short">The sorted list of referenda ready to be decided but not yet being decided, ordered by
-conviction-weighted approvals.</div></li></ul></section></div></main></body></html>
+conviction-weighted approvals.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

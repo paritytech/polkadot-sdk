@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -168,4 +170,7 @@ from docs.</div></li><li><div class="item-name"><a class="struct" href="struct.P
 functions within the pallet.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Call.html" title="enum pallet_tips::pallet::Call">Call</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum pallet_tips::pallet::Error">Error</a></div><div class="desc docblock-short">The <code>Error</code> enum of this pallet.</div></li><li><div class="item-name"><a class="enum" href="enum.Event.html" title="enum pallet_tips::pallet::Event">Event</a></div><div class="desc docblock-short">The <code>Event</code> enum of this pallet</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Config.html" title="trait pallet_tips::pallet::Config">Config</a></div><div class="desc docblock-short">Configuration trait of this pallet.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Module.html" title="type pallet_tips::pallet::Module">Module</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</div></li><li><div class="item-name"><a class="type" href="type.Reasons.html" title="type pallet_tips::pallet::Reasons">Reasons</a></div><div class="desc docblock-short">Simple preimage lookup from the reason’s hash to the original data. Again, has an
 insecure enumerable hash since the key is guaranteed to be the result of a secure hash.</div></li><li><div class="item-name"><a class="type" href="type.Tips.html" title="type pallet_tips::pallet::Tips">Tips</a></div><div class="desc docblock-short">TipsMap that are not yet completed. Keyed by the hash of <code>(reason, who)</code> from the value.
 This has the insecure enumerable hash function since the key itself is already
-guaranteed to be a secure hash.</div></li></ul></section></div></main></body></html>
+guaranteed to be a secure hash.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

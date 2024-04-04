@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -170,4 +172,7 @@ amalgamate all similarly-named enums from other pallets into an aggregate enum.<
 explicit generic syntax (<code>X = Y</code>). Alternatively:</div></li><li><div class="item-name"><a class="type" href="type.AlternativeSyntax2.html" title="type pallet_example_kitchensink::pallet::AlternativeSyntax2">AlternativeSyntax2</a></div><div class="desc docblock-short">Lastly, all storage items, as you saw, had to be generic over <code>T</code>. If they want to use an
 item from <code>Config</code>, <code>&lt;T: Config&gt;</code> should be used.</div></li><li><div class="item-name"><a class="type" href="type.Bar.html" title="type pallet_example_kitchensink::pallet::Bar">Bar</a></div><div class="desc docblock-short">A storage map. This creates a mapping from keys of type <code>u32</code> to values of type <code>u32</code>.</div></li><li><div class="item-name"><a class="type" href="type.Foo.html" title="type pallet_example_kitchensink::pallet::Foo">Foo</a></div><div class="desc docblock-short">A storage value. We mark this as unbounded, alter its prefix, and define a custom storage
 getter for it.</div></li><li><div class="item-name"><a class="type" href="type.FooWithDefault.html" title="type pallet_example_kitchensink::pallet::FooWithDefault">FooWithDefault</a></div><div class="desc docblock-short">Storage type is [<code>StorageValue</code>] with value type <code>u32</code>.</div></li><li><div class="item-name"><a class="type" href="type.Module.html" title="type pallet_example_kitchensink::pallet::Module">Module</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</div></li><li><div class="item-name"><a class="type" href="type.Origin.html" title="type pallet_example_kitchensink::pallet::Origin">Origin</a></div><div class="desc docblock-short">Allows you to define some origin for the pallet.</div></li><li><div class="item-name"><a class="type" href="type.Quux.html" title="type pallet_example_kitchensink::pallet::Quux">Quux</a></div><div class="desc docblock-short">Same as <code>StorageDoubleMap</code>, but with arbitrary number of keys.</div></li><li><div class="item-name"><a class="type" href="type.Qux.html" title="type pallet_example_kitchensink::pallet::Qux">Qux</a></div><div class="desc docblock-short">Conceptually same as <code>StorageMap&lt;&gt;</code> where the key is a tuple of <code>(u32, u32)</code>. On top, it
-provides some functions to iterate or remove items based on only the first key.</div></li></ul></section></div></main></body></html>
+provides some functions to iterate or remove items based on only the first key.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

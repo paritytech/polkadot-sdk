@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -153,4 +155,7 @@ purposes. To see the real version of each dispatchable, look for them in <a href
 </div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.add_lock.html" title="fn polkadot_runtime_common::paras_registrar::pallet::dispatchables::add_lock">add_lock</a></div><div class="desc docblock-short">Add a manager lock from a para. This will prevent the manager of a
 para to deregister or swap a para.</div></li><li><div class="item-name"><a class="fn" href="fn.deregister.html" title="fn polkadot_runtime_common::paras_registrar::pallet::dispatchables::deregister">deregister</a></div><div class="desc docblock-short">Deregister a Para Id, freeing all data and returning any deposit.</div></li><li><div class="item-name"><a class="fn" href="fn.force_register.html" title="fn polkadot_runtime_common::paras_registrar::pallet::dispatchables::force_register">force_register</a></div><div class="desc docblock-short">Force the registration of a Para Id on the relay chain.</div></li><li><div class="item-name"><a class="fn" href="fn.register.html" title="fn polkadot_runtime_common::paras_registrar::pallet::dispatchables::register">register</a></div><div class="desc docblock-short">Register head data and validation code for a reserved Para Id.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_lock.html" title="fn polkadot_runtime_common::paras_registrar::pallet::dispatchables::remove_lock">remove_lock</a></div><div class="desc docblock-short">Remove a manager lock from a para. This will allow the manager of a
 previously locked para to deregister or swap a para without using governance.</div></li><li><div class="item-name"><a class="fn" href="fn.reserve.html" title="fn polkadot_runtime_common::paras_registrar::pallet::dispatchables::reserve">reserve</a></div><div class="desc docblock-short">Reserve a Para Id on the relay chain.</div></li><li><div class="item-name"><a class="fn" href="fn.schedule_code_upgrade.html" title="fn polkadot_runtime_common::paras_registrar::pallet::dispatchables::schedule_code_upgrade">schedule_code_upgrade</a></div><div class="desc docblock-short">Schedule a parachain upgrade.</div></li><li><div class="item-name"><a class="fn" href="fn.set_current_head.html" title="fn polkadot_runtime_common::paras_registrar::pallet::dispatchables::set_current_head">set_current_head</a></div><div class="desc docblock-short">Set the parachain’s current head.</div></li><li><div class="item-name"><a class="fn" href="fn.swap.html" title="fn polkadot_runtime_common::paras_registrar::pallet::dispatchables::swap">swap</a></div><div class="desc docblock-short">Swap a lease holding parachain with another parachain, either on-demand or lease
-holding.</div></li></ul></section></div></main></body></html>
+holding.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

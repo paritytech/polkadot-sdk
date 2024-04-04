@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ContractInfo","DepositAccount","Migration"]};
+window.SIDEBAR_ITEMS = {"fn":["store_old_contract_info"],"struct":["ContractInfo","DepositAccount","Migration"]};

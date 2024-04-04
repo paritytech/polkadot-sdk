@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -226,4 +228,11 @@ as hexadecimal.</p>
     T: BitStore,
     O: BitOrder,</span></h3></section><section id="impl-Pointer-for-BitVec%3CT,+O%3E" class="impl"><a href="#impl-Pointer-for-BitVec%3CT,+O%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, O&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for BitVec&lt;T, O&gt;<span class="where fmt-newline">where
     O: BitOrder,
-    T: BitStore,</span></h3></section></div><script src="../../trait.impl/core/fmt/trait.Pointer.js" data-ignore-extern-crates="wyz,crossbeam_epoch,std,wasmtime_runtime,tinyvec,alloc,core,wasmtime,itertools,bitvec,env_logger" async></script></section></div></main></body></html>
+    T: BitStore,</span></h3></section><section id="impl-Pointer-for-Matrix%3CT,+R,+C,+S%3E" class="impl"><a class="src rightside" href="https://docs.rs/nalgebra/0.25.0/src/nalgebra/base/matrix.rs.html#1966">source</a><a href="#impl-Pointer-for-Matrix%3CT,+R,+C,+S%3E" class="anchor">§</a><h3 class="code-header">impl&lt;T, R, C, S&gt; <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a> for <a class="struct" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/matrix/struct.Matrix.html" title="struct nalgebra::base::matrix::Matrix">Matrix</a>&lt;T, R, C, S&gt;<span class="where fmt-newline">where
+    R: <a class="trait" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/dimension/trait.Dim.html" title="trait nalgebra::base::dimension::Dim">Dim</a>,
+    C: <a class="trait" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/dimension/trait.Dim.html" title="trait nalgebra::base::dimension::Dim">Dim</a>,
+    T: <a class="trait" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/scalar/trait.Scalar.html" title="trait nalgebra::base::scalar::Scalar">Scalar</a> + <a class="trait" href="trait.Pointer.html" title="trait xcm_emulator::fmt::Pointer">Pointer</a>,
+    S: <a class="trait" href="https://docs.rs/nalgebra/0.25.0/nalgebra/base/storage/trait.RawStorage.html" title="trait nalgebra::base::storage::RawStorage">RawStorage</a>&lt;T, R, C&gt;,</span></h3></section></div><script src="../../trait.impl/core/fmt/trait.Pointer.js" data-ignore-extern-crates="wyz,crossbeam_epoch,wasmtime_runtime,std,tinyvec,itertools,nalgebra,alloc,core,wasmtime,bitvec,env_logger" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

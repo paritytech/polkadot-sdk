@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -3380,6 +3382,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3233" id="3233">3233</a>
 <a href="#3234" id="3234">3234</a>
 <a href="#3235" id="3235">3235</a>
+<a href="#3236" id="3236">3236</a>
+<a href="#3237" id="3237">3237</a>
+<a href="#3238" id="3238">3238</a>
+<a href="#3239" id="3239">3239</a>
+<a href="#3240" id="3240">3240</a>
+<a href="#3241" id="3241">3241</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3701,6 +3709,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeTask = RuntimeTask;
 	<span class="kw">type </span>WeightInfo = pallet_example_tasks::weights::SubstrateWeight&lt;Runtime&gt;;
 }
+
+<span class="kw">impl </span>pallet_example_mbm::Config <span class="kw">for </span>Runtime {}
 
 <span class="kw">impl </span>pallet_utility::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
@@ -5821,6 +5831,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[runtime::pallet_index(<span class="number">77</span>)]
 	</span><span class="kw">pub type </span>SkipFeelessPayment = pallet_skip_feeless_payment;
+
+	<span class="attr">#[runtime::pallet_index(<span class="number">78</span>)]
+	</span><span class="kw">pub type </span>PalletExampleMbms = pallet_example_mbm;
 }
 
 <span class="doccomment">/// The address format for describing accounts.
@@ -5979,6 +5992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
+		[pallet_example_mbm, PalletExampleMbms]
 	);
 }
 
@@ -6615,4 +6629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 }
-</code></pre></div></section></main></body></html>
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

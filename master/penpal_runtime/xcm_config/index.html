@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -158,4 +160,7 @@ when determining ownership of accounts for asset transacting and when attempting
 <code>Transact</code> in order to determine the dispatch Origin.</div></li><li><div class="item-name"><a class="type" href="type.PriceForParentDelivery.html" title="type penpal_runtime::xcm_config::PriceForParentDelivery">PriceForParentDelivery</a></div></li><li><div class="item-name"><a class="type" href="type.TrustedReserves.html" title="type penpal_runtime::xcm_config::TrustedReserves">TrustedReserves</a></div></li><li><div class="item-name"><a class="type" href="type.TrustedTeleporters.html" title="type penpal_runtime::xcm_config::TrustedTeleporters">TrustedTeleporters</a></div></li><li><div class="item-name"><a class="type" href="type.XcmOriginToTransactDispatchOrigin.html" title="type penpal_runtime::xcm_config::XcmOriginToTransactDispatchOrigin">XcmOriginToTransactDispatchOrigin</a></div><div class="desc docblock-short">This is the type we use to convert an (incoming) XCM origin into a local <code>Origin</code> instance,
 ready for dispatching a transaction with Xcm’s <code>Transact</code>. There is an <code>OriginKind</code> which can
 biases the kind of local <code>Origin</code> it will become.</div></li><li><div class="item-name"><a class="type" href="type.XcmRouter.html" title="type penpal_runtime::xcm_config::XcmRouter">XcmRouter</a></div><div class="desc docblock-short">The means for routing XCM messages which are not for local execution into the right message
-queues.</div></li></ul></section></div></main></body></html>
+queues.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

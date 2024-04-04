@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     Stuck,
 }</code></pre><h2 id="variants" class="variants small-section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.Active" class="variant"><a href="#variant.Active" class="anchor">§</a><h3 class="code-header">Active(<a class="struct" href="struct.ActiveCursor.html" title="struct pallet_migrations::ActiveCursor">ActiveCursor</a>&lt;BoundedVec&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>, &lt;T as <a class="trait" href="pallet/trait.Config.html" title="trait pallet_migrations::pallet::Config">Config</a>&gt;::<a class="associatedtype" href="pallet/trait.Config.html#associatedtype.CursorMaxLen" title="type pallet_migrations::pallet::Config::CursorMaxLen">CursorMaxLen</a>&gt;, &lt;&lt;&lt;T as Config&gt;::Block as HeaderProvider&gt;::HeaderT as Header&gt;::Number&gt;)</h3></section><div class="docblock"><p>Points to the currently active migration and its inner cursor.</p>
 </div><section id="variant.Stuck" class="variant"><a href="#variant.Stuck" class="anchor">§</a><h3 class="code-header">Stuck</h3></section><div class="docblock"><p>Migration got stuck and cannot proceed. This is bad.</p>
-</div></div><script src="../type.impl/pallet_migrations/enum.MigrationCursor.js" data-self-path="pallet_migrations::CursorOf" async></script></section></div></main></body></html>
+</div></div><script src="../type.impl/pallet_migrations/enum.MigrationCursor.js" data-self-path="pallet_migrations::CursorOf" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

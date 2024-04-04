@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AllianceProposalProvider","EqualOrGreatestRootCmp"],"type":["BalanceOf"]};
+window.SIDEBAR_ITEMS = {"mod":["benchmarks"],"struct":["AllianceProposalProvider","EqualOrGreatestRootCmp"],"type":["BalanceOf"]};

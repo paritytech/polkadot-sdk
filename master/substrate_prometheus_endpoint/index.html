@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -160,4 +162,7 @@ used for the Buckets field of <a href="struct.HistogramOpts.html" title="struct 
 to serve metrics.</div></li><li><div class="item-name"><a class="fn" href="fn.register.html" title="fn substrate_prometheus_endpoint::register">register</a></div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.CounterVec.html" title="type substrate_prometheus_endpoint::CounterVec">CounterVec</a></div><div class="desc docblock-short">The underlying implementation for [<code>CounterVec</code>] and [<code>IntCounterVec</code>].</div></li><li><div class="item-name"><a class="type" href="type.GaugeVec.html" title="type substrate_prometheus_endpoint::GaugeVec">GaugeVec</a></div><div class="desc docblock-short">The underlying implementation for [<code>GaugeVec</code>] and [<code>IntGaugeVec</code>].</div></li><li><div class="item-name"><a class="type" href="type.HistogramVec.html" title="type substrate_prometheus_endpoint::HistogramVec">HistogramVec</a></div><div class="desc docblock-short">A [<code>Collector</code>] that bundles a set of Histograms that all share the
 same [<code>Desc</code>], but have different values for their variable labels. This is used
 if you want to count the same thing partitioned by various dimensions
-(e.g. HTTP request latencies, partitioned by status code and method).</div></li><li><div class="item-name"><a class="type" href="type.SourcedCounter.html" title="type substrate_prometheus_endpoint::SourcedCounter">SourcedCounter</a></div><div class="desc docblock-short">A counter whose values are obtained from an existing source.</div></li><li><div class="item-name"><a class="type" href="type.SourcedGauge.html" title="type substrate_prometheus_endpoint::SourcedGauge">SourcedGauge</a></div><div class="desc docblock-short">A gauge whose values are obtained from an existing source.</div></li></ul></section></div></main></body></html>
+(e.g. HTTP request latencies, partitioned by status code and method).</div></li><li><div class="item-name"><a class="type" href="type.SourcedCounter.html" title="type substrate_prometheus_endpoint::SourcedCounter">SourcedCounter</a></div><div class="desc docblock-short">A counter whose values are obtained from an existing source.</div></li><li><div class="item-name"><a class="type" href="type.SourcedGauge.html" title="type substrate_prometheus_endpoint::SourcedGauge">SourcedGauge</a></div><div class="desc docblock-short">A gauge whose values are obtained from an existing source.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

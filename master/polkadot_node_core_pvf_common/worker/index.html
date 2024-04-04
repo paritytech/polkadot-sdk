@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -150,4 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 functionality for pipe operations.</div></li><li><div class="item-name"><a class="struct" href="struct.WorkerInfo.html" title="struct polkadot_node_core_pvf_common::worker::WorkerInfo">WorkerInfo</a></div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.WorkerKind.html" title="enum polkadot_node_core_pvf_common::worker::WorkerKind">WorkerKind</a></div></li></ul><h2 id="constants" class="small-section-header"><a href="#constants">Constants</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.JOB_TIMEOUT_OVERHEAD.html" title="constant polkadot_node_core_pvf_common::worker::JOB_TIMEOUT_OVERHEAD">JOB_TIMEOUT_OVERHEAD</a></div><div class="desc docblock-short">Some allowed overhead that we account for in the “CPU time monitor” thread’s sleeps, on the
 child process.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.cpu_time_monitor_loop.html" title="fn polkadot_node_core_pvf_common::worker::cpu_time_monitor_loop">cpu_time_monitor_loop</a></div><div class="desc docblock-short">Loop that runs in the CPU time monitor thread on prepare and execute jobs. Continuously wakes up
 and then either blocks for the remaining CPU time, or returns if we exceed the CPU timeout.</div></li><li><div class="item-name"><a class="fn" href="fn.pipe2_cloexec.html" title="fn polkadot_node_core_pvf_common::worker::pipe2_cloexec">pipe2_cloexec</a></div></li><li><div class="item-name"><a class="fn" href="fn.run_worker.html" title="fn polkadot_node_core_pvf_common::worker::run_worker">run_worker</a></div><div class="desc docblock-short">Initializes the worker process, then runs the given event loop, which spawns a new job process
-to securely handle each incoming request.</div></li><li><div class="item-name"><a class="fn" href="fn.stringify_panic_payload.html" title="fn polkadot_node_core_pvf_common::worker::stringify_panic_payload">stringify_panic_payload</a></div><div class="desc docblock-short">Attempt to convert an opaque panic payload to a string.</div></li></ul></section></div></main></body></html>
+to securely handle each incoming request.</div></li><li><div class="item-name"><a class="fn" href="fn.stringify_panic_payload.html" title="fn polkadot_node_core_pvf_common::worker::stringify_panic_payload">stringify_panic_payload</a></div><div class="desc docblock-short">Attempt to convert an opaque panic payload to a string.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

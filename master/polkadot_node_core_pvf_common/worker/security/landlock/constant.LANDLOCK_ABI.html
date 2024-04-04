@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -183,4 +185,7 @@ vector: they can exploit this indeterminism between landlock ABIs!</p>
 from attackers. And, the risk with indeterminacy is low and there are other indeterminacy
 vectors anyway. So we will only upgrade to a new ABI if either the reference kernel version
 supports it or if it introduces some new feature that is beneficial to security.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

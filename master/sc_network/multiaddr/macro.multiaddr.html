@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -154,4 +156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <p>Each element passed to <code>multiaddr!</code> should be a variant of the <code>Protocol</code> enum. The
 optional parameter is turned into the proper type with the <code>Into</code> trait.</p>
 <p>For example, <code>Ip4([127, 0, 0, 1])</code> works because <code>Ipv4Addr</code> implements <code>From&lt;[u8; 4]&gt;</code>.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

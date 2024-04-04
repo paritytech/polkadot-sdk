@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -160,4 +162,7 @@ for transitioning from legacy state. In the future we will make this a pure
 <code>Dummy</code> item storing only the final <code>dummy</code> field.</p>
 </div><section id="variant.Inline" class="variant"><a href="#variant.Inline" class="anchor">§</a><h3 class="code-header">Inline(BoundedVec&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>, ConstU32&lt;128&gt;&gt;)</h3></section><div class="docblock"><p>A an bounded <code>Call</code>. Its encoding must be at most 128 bytes.</p>
 </div><section id="variant.Lookup" class="variant"><a href="#variant.Lookup" class="anchor">§</a><h3 class="code-header">Lookup</h3></section><div class="sub-variant" id="variant.Lookup.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Lookup.field.hash" class="small-section-header"><a href="#variant.Lookup.field.hash" class="anchor field">§</a><code>hash: &lt;&lt;T as Config&gt;::Hashing as Hash&gt;::Output</code></span></div><div class="sub-variant-field"><span id="variant.Lookup.field.len" class="small-section-header"><a href="#variant.Lookup.field.len" class="anchor field">§</a><code>len: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a></code></span></div></div><div class="docblock"><p>A hash of the call together with an upper limit for its size.`</p>
-</div></div><script src="../type.impl/frame_support/traits/preimages/enum.Bounded.js" data-self-path="pallet_referenda::types::BoundedCallOf" async></script></section></div></main></body></html>
+</div></div><script src="../type.impl/frame_support/traits/preimages/enum.Bounded.js" data-self-path="pallet_referenda::types::BoundedCallOf" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -157,4 +159,7 @@ that the string contains valid UTF-8; mutable version.</p>
 <span class="kw">let </span>heart = <span class="kw">unsafe </span>{ str::from_utf8_unchecked_mut(<span class="kw-2">&amp;mut </span>heart) };
 
 <span class="macro">assert_eq!</span>(<span class="string">&quot;💖&quot;</span>, heart);</code></pre></div>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

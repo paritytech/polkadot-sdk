@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_current_time"],"struct":["Counter","CounterVec","Histogram"]};
+window.SIDEBAR_ITEMS = {"fn":["get_current_time"],"struct":["Counter","CounterVec","Histogram","LabeledMetric"]};

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -152,4 +154,7 @@ or in const contexts where static data types have strings that could also end up
 <h2 id="example"><a href="#example">Example</a></h2>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">const </span>MY_STR: [u8; <span class="number">6</span>] = str_array(<span class="string">&quot;data&quot;</span>);
 <span class="macro">assert_eq!</span>(MY_STR, <span class="kw-2">*</span><span class="string">b&quot;data\0\0&quot;</span>);</code></pre></div>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

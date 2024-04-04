@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ This implementation ensures that messages with non-reanchored assets return high
 prices than messages with reanchored assets.
 Useful for <code>deposit_reserve_asset_works_for_any_xcm_sender</code> integration test.</div></li><li><div class="item-name"><a class="struct" href="struct.TokenLocation.html" title="struct polkadot_test_runtime::xcm_config::TokenLocation">TokenLocation</a></div></li><li><div class="item-name"><a class="struct" href="struct.UniversalLocation.html" title="struct polkadot_test_runtime::xcm_config::UniversalLocation">UniversalLocation</a></div></li><li><div class="item-name"><a class="struct" href="struct.XcmConfig.html" title="struct polkadot_test_runtime::xcm_config::XcmConfig">XcmConfig</a></div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Barrier.html" title="type polkadot_test_runtime::xcm_config::Barrier">Barrier</a></div></li><li><div class="item-name"><a class="type" href="type.LocalOriginToLocation.html" title="type polkadot_test_runtime::xcm_config::LocalOriginToLocation">LocalOriginToLocation</a></div><div class="desc docblock-short">Type to convert an <code>Origin</code> type value into a <code>Location</code> value which represents an interior
 location of this chain.</div></li><li><div class="item-name"><a class="type" href="type.PriceForChildParachainDelivery.html" title="type polkadot_test_runtime::xcm_config::PriceForChildParachainDelivery">PriceForChildParachainDelivery</a></div></li><li><div class="item-name"><a class="type" href="type.XcmRouter.html" title="type polkadot_test_runtime::xcm_config::XcmRouter">XcmRouter</a></div><div class="desc docblock-short">The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
-individual routers.</div></li></ul></section></div></main></body></html>
+individual routers.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

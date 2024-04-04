@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -168,4 +170,7 @@ Specifically this means that <a href="../../../trait.Future.html#tymethod.poll" 
 <span class="macro">pin_mut!</span>(f);
 <span class="macro">assert_eq!</span>(<span class="prelude-val">None</span>, future::poll_immediate(<span class="kw-2">&amp;mut </span>f).<span class="kw">await</span>);
 <span class="macro">assert_eq!</span>(<span class="number">42</span>, f.<span class="kw">await</span>);</code></pre></div>
-</div></details><script type="text/json" id="notable-traits-data">{"PollImmediate<F>":"<h3>Notable traits for <code><a class=\"struct\" href=\"struct.PollImmediate.html\" title=\"struct polkadot_node_subsystem::gen::futures::prelude::future::PollImmediate\">PollImmediate</a>&lt;F&gt;</code></h3><pre><code><span class=\"where fmt-newline\">impl&lt;T, F&gt; <a class=\"trait\" href=\"../../../trait.Future.html\" title=\"trait polkadot_node_subsystem::gen::Future\">Future</a> for <a class=\"struct\" href=\"struct.PollImmediate.html\" title=\"struct polkadot_node_subsystem::gen::futures::prelude::future::PollImmediate\">PollImmediate</a>&lt;F&gt;<span class=\"where fmt-newline\">where\n    F: <a class=\"trait\" href=\"../../../trait.Future.html\" title=\"trait polkadot_node_subsystem::gen::Future\">Future</a>&lt;Output = T&gt;,</span></span><span class=\"where fmt-newline\">    type <a href=\"../../../trait.Future.html#associatedtype.Output\" class=\"associatedtype\">Output</a> = <a class=\"enum\" href=\"https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html\" title=\"enum core::option::Option\">Option</a>&lt;T&gt;;</span>"}</script></section></div></main></body></html>
+</div></details><script type="text/json" id="notable-traits-data">{"PollImmediate<F>":"<h3>Notable traits for <code><a class=\"struct\" href=\"struct.PollImmediate.html\" title=\"struct polkadot_node_subsystem::gen::futures::prelude::future::PollImmediate\">PollImmediate</a>&lt;F&gt;</code></h3><pre><code><span class=\"where fmt-newline\">impl&lt;T, F&gt; <a class=\"trait\" href=\"../../../trait.Future.html\" title=\"trait polkadot_node_subsystem::gen::Future\">Future</a> for <a class=\"struct\" href=\"struct.PollImmediate.html\" title=\"struct polkadot_node_subsystem::gen::futures::prelude::future::PollImmediate\">PollImmediate</a>&lt;F&gt;<span class=\"where fmt-newline\">where\n    F: <a class=\"trait\" href=\"../../../trait.Future.html\" title=\"trait polkadot_node_subsystem::gen::Future\">Future</a>&lt;Output = T&gt;,</span></span><span class=\"where fmt-newline\">    type <a href=\"../../../trait.Future.html#associatedtype.Output\" class=\"associatedtype\">Output</a> = <a class=\"enum\" href=\"https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html\" title=\"enum core::option::Option\">Option</a>&lt;T&gt;;</span>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

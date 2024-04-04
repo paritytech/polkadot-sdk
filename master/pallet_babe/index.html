@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -156,4 +158,7 @@ for epoch changes (e.g. pallet-session) is used.</div></li><li><div class="item-
 action based upon on-chain commitments made during the previous epoch.</div></li><li><div class="item-name"><a class="struct" href="struct.RandomnessFromTwoEpochsAgo.html" title="struct pallet_babe::RandomnessFromTwoEpochsAgo">RandomnessFromTwoEpochsAgo</a></div><div class="desc docblock-short">Randomness usable by consensus protocols that <strong>depend</strong> upon finality and take action
 based upon on-chain commitments made during the epoch before the previous epoch.</div></li><li><div class="item-name"><a class="struct" href="struct.SameAuthoritiesForever.html" title="struct pallet_babe::SameAuthoritiesForever">SameAuthoritiesForever</a></div><div class="desc docblock-short">A type signifying to BABE that it should perform epoch changes
 with an internal trigger, recycling the same authorities forever.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.EpochChangeTrigger.html" title="trait pallet_babe::EpochChangeTrigger">EpochChangeTrigger</a></div><div class="desc docblock-short">Trigger an epoch change, if any should take place.</div></li><li><div class="item-name"><a class="trait" href="trait.WeightInfo.html" title="trait pallet_babe::WeightInfo">WeightInfo</a></div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.AuthorityId.html" title="type pallet_babe::AuthorityId">AuthorityId</a></div><div class="desc docblock-short">A Babe authority identifier. Necessarily equivalent to the schnorrkel public key used in
-the main Babe module. If that ever changes, then this must, too.</div></li></ul></section></div></main></body></html>
+the main Babe module. If that ever changes, then this must, too.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

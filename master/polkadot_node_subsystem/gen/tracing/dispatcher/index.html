@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -210,4 +212,7 @@ default dispatcher when dropped.</div></li><li><div class="item-name"><a class="
 to a <a href="../trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::Subscriber"><code>Subscriber</code></a>.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.get_default.html" title="fn polkadot_node_subsystem::gen::tracing::dispatcher::get_default">get_default</a></div><div class="desc docblock-short">Executes a closure with a reference to this thread’s current <a href="../struct.Dispatch.html" title="struct polkadot_node_subsystem::gen::tracing::Dispatch">dispatcher</a>.</div></li><li><div class="item-name"><a class="fn" href="fn.set_default.html" title="fn polkadot_node_subsystem::gen::tracing::dispatcher::set_default">set_default</a></div><div class="desc docblock-short">Sets the dispatch as the default dispatch for the duration of the lifetime
 of the returned DefaultGuard</div></li><li><div class="item-name"><a class="fn" href="fn.set_global_default.html" title="fn polkadot_node_subsystem::gen::tracing::dispatcher::set_global_default">set_global_default</a></div><div class="desc docblock-short">Sets this dispatch as the global default for the duration of the entire program.
 Will be used as a fallback if no thread-local dispatch has been set in a thread
-(using <code>with_default</code>.)</div></li><li><div class="item-name"><a class="fn" href="fn.with_default.html" title="fn polkadot_node_subsystem::gen::tracing::dispatcher::with_default">with_default</a></div><div class="desc docblock-short">Sets this dispatch as the default for the duration of a closure.</div></li></ul></section></div></main></body></html>
+(using <code>with_default</code>.)</div></li><li><div class="item-name"><a class="fn" href="fn.with_default.html" title="fn polkadot_node_subsystem::gen::tracing::dispatcher::with_default">with_default</a></div><div class="desc docblock-short">Sets this dispatch as the default for the duration of a closure.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -158,4 +160,7 @@ scheduled on that core. The value contained here will not be valid after the end
 a block. Runtime APIs should be used to determine scheduled cores for the upcoming block.</div></li><li><div class="item-name"><a class="struct" href="struct.SessionStartBlock.html" title="struct polkadot_runtime_parachains::scheduler::pallet::storage_types::SessionStartBlock">SessionStartBlock</a></div><div class="desc docblock-short">The block number where the session start occurred. Used to track how many group rotations
 have occurred.</div></li><li><div class="item-name"><a class="struct" href="struct.ValidatorGroups.html" title="struct polkadot_runtime_parachains::scheduler::pallet::storage_types::ValidatorGroups">ValidatorGroups</a></div><div class="desc docblock-short">All the validator groups. One for each core. Indices are into <code>ActiveValidators</code> - not the
 broader set of Polkadot validators, but instead just the subset used for parachains during
-this session.</div></li></ul></section></div></main></body></html>
+this session.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

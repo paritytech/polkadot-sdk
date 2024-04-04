@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["PaysFee"],"mod":["api","migration","pallet","weights"],"type":["AccountIdOf","BalanceOf","PricingParametersOf"]};
+window.SIDEBAR_ITEMS = {"enum":["PaysFee"],"mod":["api","migration","pallet","weights"],"trait":["BenchmarkHelper"],"type":["AccountIdOf","BalanceOf","PricingParametersOf"]};

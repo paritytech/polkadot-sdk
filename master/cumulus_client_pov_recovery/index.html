@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -182,4 +184,7 @@ Randomizing the start of the recovery within this interval
 can be used to prevent self-DOSing if the recovery request is part of a
 distributed protocol and there is the possibility that multiple actors are
 requiring to perform the recovery action at approximately the same time.</div></li><li><div class="item-name"><a class="struct" href="struct.RecoveryRequest.html" title="struct cumulus_client_pov_recovery::RecoveryRequest">RecoveryRequest</a></div><div class="desc docblock-short">Structure used to trigger an explicit recovery request via <code>PoVRecovery</code>.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.RecoveryKind.html" title="enum cumulus_client_pov_recovery::RecoveryKind">RecoveryKind</a></div><div class="desc docblock-short">Type of recovery to trigger.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.RecoveryHandle.html" title="trait cumulus_client_pov_recovery::RecoveryHandle">RecoveryHandle</a></div><div class="desc docblock-short">Test-friendly wrapper trait for the overseer handle.
-Can be used to simulate failing recovery requests.</div></li></ul></section></div></main></body></html>
+Can be used to simulate failing recovery requests.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

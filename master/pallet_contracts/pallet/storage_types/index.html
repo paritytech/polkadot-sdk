@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -154,4 +156,7 @@ purposes.</p>
 pallet, in the list of <a href="../index.html#types"><em>Type Definitions</em></a>.</p>
 </div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.CodeInfoOf.html" title="struct pallet_contracts::pallet::storage_types::CodeInfoOf">CodeInfoOf</a></div><div class="desc docblock-short">A mapping from a contract’s code hash to its code info.</div></li><li><div class="item-name"><a class="struct" href="struct.ContractInfoOf.html" title="struct pallet_contracts::pallet::storage_types::ContractInfoOf">ContractInfoOf</a></div><div class="desc docblock-short">The code associated with a given account.</div></li><li><div class="item-name"><a class="struct" href="struct.DeletionQueue.html" title="struct pallet_contracts::pallet::storage_types::DeletionQueue">DeletionQueue</a></div><div class="desc docblock-short">Evicted contracts that await child trie deletion.</div></li><li><div class="item-name"><a class="struct" href="struct.DeletionQueueCounter.html" title="struct pallet_contracts::pallet::storage_types::DeletionQueueCounter">DeletionQueueCounter</a></div><div class="desc docblock-short">A pair of monotonic counters used to track the latest contract marked for deletion
 and the latest deleted contract in queue.</div></li><li><div class="item-name"><a class="struct" href="struct.MigrationInProgress.html" title="struct pallet_contracts::pallet::storage_types::MigrationInProgress">MigrationInProgress</a></div><div class="desc docblock-short">A migration can span across multiple blocks. This storage defines a cursor to track the
-progress of the migration, enabling us to resume from the last completed position.</div></li><li><div class="item-name"><a class="struct" href="struct.Nonce.html" title="struct pallet_contracts::pallet::storage_types::Nonce">Nonce</a></div><div class="desc docblock-short">This is a <strong>monotonic</strong> counter incremented on contract instantiation.</div></li><li><div class="item-name"><a class="struct" href="struct.PristineCode.html" title="struct pallet_contracts::pallet::storage_types::PristineCode">PristineCode</a></div><div class="desc docblock-short">A mapping from a contract’s code hash to its code.</div></li></ul></section></div></main></body></html>
+progress of the migration, enabling us to resume from the last completed position.</div></li><li><div class="item-name"><a class="struct" href="struct.Nonce.html" title="struct pallet_contracts::pallet::storage_types::Nonce">Nonce</a></div><div class="desc docblock-short">This is a <strong>monotonic</strong> counter incremented on contract instantiation.</div></li><li><div class="item-name"><a class="struct" href="struct.PristineCode.html" title="struct pallet_contracts::pallet::storage_types::PristineCode">PristineCode</a></div><div class="desc docblock-short">A mapping from a contract’s code hash to its code.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

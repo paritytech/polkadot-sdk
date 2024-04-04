@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -154,4 +156,7 @@ TODO: <a href="https://github.com/rust-lang/rust/issues/53485">https://github.co
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><section id="tymethod.is_sorted_by" class="method"><a class="src rightside" href="../../src/polkadot_runtime_parachains/paras_inherent/misc.rs.html#45-47">source</a><h4 class="code-header">fn <a href="#tymethod.is_sorted_by" class="fn">is_sorted_by</a>&lt;F&gt;(self, cmp: F) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a><span class="where fmt-newline">where
     F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnMut.html" title="trait core::ops::function::FnMut">FnMut</a>(<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;T</a>, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;T</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/cmp/enum.Ordering.html" title="enum core::cmp::Ordering">Ordering</a>,</span></h4></section></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-IsSortedBy%3CT%3E-for-X" class="impl"><a class="src rightside" href="../../src/polkadot_runtime_parachains/paras_inherent/misc.rs.html#50-77">source</a><a href="#impl-IsSortedBy%3CT%3E-for-X" class="anchor">§</a><h3 class="code-header">impl&lt;'x, T, X&gt; <a class="trait" href="trait.IsSortedBy.html" title="trait polkadot_runtime_parachains::paras_inherent::IsSortedBy">IsSortedBy</a>&lt;T&gt; for X<span class="where fmt-newline">where
     X: 'x + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/iter/traits/collect/trait.IntoIterator.html" title="trait core::iter::traits::collect::IntoIterator">IntoIterator</a>&lt;Item = <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;'x T</a>&gt;,
-    T: 'x,</span></h3></section></div><script src="../../trait.impl/polkadot_runtime_parachains/paras_inherent/misc/trait.IsSortedBy.js" async></script></section></div></main></body></html>
+    T: 'x,</span></h3></section></div><script src="../../trait.impl/polkadot_runtime_parachains/paras_inherent/misc/trait.IsSortedBy.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

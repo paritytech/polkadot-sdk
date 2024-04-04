@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -181,4 +183,7 @@ closure to tell <a href="struct.SelectWithStrategy.html" title="struct polkadot_
 store state on <code>SelectWithStrategy</code> to which it will receive a <code>&amp;mut</code> on every
 invocation. This allows basing the strategy on prior choices.</div></li><li><div class="item-name"><a class="fn" href="fn.try_unfold.html" title="fn polkadot_node_subsystem::gen::futures::prelude::stream::try_unfold">try_unfold</a></div><div class="desc docblock-short">Creates a <code>TryStream</code> from a seed and a closure returning a <code>TryFuture</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.unfold.html" title="fn polkadot_node_subsystem::gen::futures::prelude::stream::unfold">unfold</a></div><div class="desc docblock-short">Creates a <code>Stream</code> from a seed and a closure returning a <code>Future</code>.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.BoxStream.html" title="type polkadot_node_subsystem::gen::futures::prelude::stream::BoxStream">BoxStream</a></div><div class="desc docblock-short">An owned dynamically typed <a href="../../trait.Stream.html" title="trait polkadot_node_subsystem::gen::futures::Stream"><code>Stream</code></a> for use in cases where you can’t
 statically type your result or need to add some indirection.</div></li><li><div class="item-name"><a class="type" href="type.FlattenUnordered.html" title="type polkadot_node_subsystem::gen::futures::prelude::stream::FlattenUnordered">FlattenUnordered</a></div><div class="desc docblock-short">Stream for the <a href="../../../trait.StreamExt.html#method.flatten_unordered" title="method polkadot_node_subsystem::gen::StreamExt::flatten_unordered"><code>flatten_unordered</code></a>
-method.</div></li><li><div class="item-name"><a class="type" href="type.LocalBoxStream.html" title="type polkadot_node_subsystem::gen::futures::prelude::stream::LocalBoxStream">LocalBoxStream</a></div><div class="desc docblock-short"><code>BoxStream</code>, but without the <code>Send</code> requirement.</div></li></ul></section></div></main></body></html>
+method.</div></li><li><div class="item-name"><a class="type" href="type.LocalBoxStream.html" title="type polkadot_node_subsystem::gen::futures::prelude::stream::LocalBoxStream">LocalBoxStream</a></div><div class="desc docblock-short"><code>BoxStream</code>, but without the <code>Send</code> requirement.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

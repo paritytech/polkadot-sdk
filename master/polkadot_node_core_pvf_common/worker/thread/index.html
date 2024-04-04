@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -150,4 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.WaitOutcome.html" title="enum polkadot_node_core_pvf_common::worker::thread::WaitOutcome">WaitOutcome</a></div><div class="desc docblock-short">Contains the outcome of waiting on threads, or <code>Pending</code> if none are ready.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.get_condvar.html" title="fn polkadot_node_core_pvf_common::worker::thread::get_condvar">get_condvar</a></div><div class="desc docblock-short">Gets a condvar initialized to <code>Pending</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.spawn_worker_thread.html" title="fn polkadot_node_core_pvf_common::worker::thread::spawn_worker_thread">spawn_worker_thread</a></div><div class="desc docblock-short">Runs a worker thread. Will run the requested function, and afterwards notify the threads
 waiting on the condvar. Catches panics during execution and resumes the panics after
 triggering the condvar, so that the waiting thread is notified on panics.</div></li><li><div class="item-name"><a class="fn" href="fn.spawn_worker_thread_with_stack_size.html" title="fn polkadot_node_core_pvf_common::worker::thread::spawn_worker_thread_with_stack_size">spawn_worker_thread_with_stack_size</a></div><div class="desc docblock-short">Runs a worker thread with the given stack size. See <a href="fn.spawn_worker_thread.html" title="fn polkadot_node_core_pvf_common::worker::thread::spawn_worker_thread"><code>spawn_worker_thread</code></a>.</div></li><li><div class="item-name"><a class="fn" href="fn.wait_for_threads.html" title="fn polkadot_node_core_pvf_common::worker::thread::wait_for_threads">wait_for_threads</a></div><div class="desc docblock-short">Block the thread while it waits on the condvar.</div></li><li><div class="item-name"><a class="fn" href="fn.wait_for_threads_with_timeout.html" title="fn polkadot_node_core_pvf_common::worker::thread::wait_for_threads_with_timeout">wait_for_threads_with_timeout</a></div><div class="desc docblock-short">Block the thread while it waits on the condvar or on a timeout. If the timeout is hit,
-returns <code>None</code>.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Cond.html" title="type polkadot_node_core_pvf_common::worker::thread::Cond">Cond</a></div><div class="desc docblock-short">Helper type.</div></li></ul></section></div></main></body></html>
+returns <code>None</code>.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Cond.html" title="type polkadot_node_core_pvf_common::worker::thread::Cond">Cond</a></div><div class="desc docblock-short">Helper type.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

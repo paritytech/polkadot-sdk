@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -353,4 +355,7 @@ mutability</em>: a method to achieve mutability through a shared reference.
 </div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.UniqueRc.html" title="struct sp_std::rc::UniqueRc">UniqueRc</a><span class="stab unstable" title="">Experimental</span></div><div class="desc docblock-short">A uniquely owned <code>Rc</code></div></li><li><div class="item-name"><a class="struct" href="struct.Rc.html" title="struct sp_std::rc::Rc">Rc</a></div><div class="desc docblock-short">A single-threaded reference-counting pointer. ‘Rc’ stands for ‘Reference
 Counted’.</div></li><li><div class="item-name"><a class="struct" href="struct.Weak.html" title="struct sp_std::rc::Weak">Weak</a></div><div class="desc docblock-short"><code>Weak</code> is a version of <a href="struct.Rc.html" title="struct sp_std::rc::Rc"><code>Rc</code></a> that holds a non-owning reference to the
 managed allocation. The allocation is accessed by calling <a href="struct.Weak.html#method.upgrade" title="method sp_std::rc::Weak::upgrade"><code>upgrade</code></a> on the <code>Weak</code>
-pointer, which returns an <code><a href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a href="struct.Rc.html" title="struct sp_std::rc::Rc">Rc</a>&lt;T&gt;&gt;</code>.</div></li></ul></section></div></main></body></html>
+pointer, which returns an <code><a href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a href="struct.Rc.html" title="struct sp_std::rc::Rc">Rc</a>&lt;T&gt;&gt;</code>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

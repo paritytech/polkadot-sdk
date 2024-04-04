@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -161,4 +163,7 @@ tuple. Where a <code>current</code> of <code>None</code> is provided, any curren
 Root.</div></li><li><div class="item-name"><a class="fn" href="fn.set_metadata.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_metadata">set_metadata</a></div><div class="desc docblock-short">Set a new metadata for the pool.</div></li><li><div class="item-name"><a class="fn" href="fn.set_state.html" title="fn pallet_nomination_pools::pallet::dispatchables::set_state">set_state</a></div><div class="desc docblock-short">Set a new state for the pool.</div></li><li><div class="item-name"><a class="fn" href="fn.unbond.html" title="fn pallet_nomination_pools::pallet::dispatchables::unbond">unbond</a></div><div class="desc docblock-short">Unbond up to <code>unbonding_points</code> of the <code>member_account</code>’s funds from the pool. It
 implicitly collects the rewards one last time, since not doing so would mean some
 rewards would be forfeited.</div></li><li><div class="item-name"><a class="fn" href="fn.update_roles.html" title="fn pallet_nomination_pools::pallet::dispatchables::update_roles">update_roles</a></div><div class="desc docblock-short">Update the roles of the pool.</div></li><li><div class="item-name"><a class="fn" href="fn.withdraw_unbonded.html" title="fn pallet_nomination_pools::pallet::dispatchables::withdraw_unbonded">withdraw_unbonded</a></div><div class="desc docblock-short">Withdraw unbonded funds from <code>member_account</code>. If no bonded funds can be unbonded, an
-error is returned.</div></li></ul></section></div></main></body></html>
+error is returned.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

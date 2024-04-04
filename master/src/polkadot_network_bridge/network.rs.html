@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -851,4 +853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.flat_map(|list| list.into_iter())
 		.find_map(|addr| parse_addr(addr).ok().map(|(p, <span class="kw">_</span>)| p))
 }
-</code></pre></div></section></main></body></html>
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

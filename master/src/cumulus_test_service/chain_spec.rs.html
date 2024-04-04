@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -306,7 +308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.public()
 }
 
-<span class="doccomment">/// The extensions for the [`ChainSpec`](crate::ChainSpec).
+<span class="doccomment">/// The extensions for the [`ChainSpec`].
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
 #[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>Extensions {
@@ -395,4 +397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="string">&quot;testPallet&quot;</span>: cumulus_test_runtime::TestPalletConfig { self_para_id, ..Default::default() }
 	})
 }
-</code></pre></div></section></main></body></html>
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

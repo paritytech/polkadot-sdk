@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -354,4 +356,7 @@ call the <a href="../../alloc/alloc/fn.handle_alloc_error.html"><code>handle_all
     Self: <a class="trait" href="../marker/trait.Sized.html" title="trait sp_std::marker::Sized">Sized</a>,</span></h4></section></summary><span class="item-info"><div class="stab unstable"><span class="emoji">🔬</span><span>This is a nightly-only experimental API. (<code>allocator_api</code>)</span></div></span><div class="docblock"><p>Creates a “by reference” adapter for this instance of <code>Allocator</code>.</p>
 <p>The returned adapter also implements <code>Allocator</code> and will simply borrow this.</p>
 </div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-Allocator-for-Global" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.75.0/src/alloc/alloc.rs.html#238">source</a><a href="#impl-Allocator-for-Global" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Allocator.html" title="trait sp_std::alloc::Allocator">Allocator</a> for <a class="struct" href="struct.Global.html" title="struct sp_std::alloc::Global">Global</a></h3></section><section id="impl-Allocator-for-System" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.75.0/src/std/alloc.rs.html#203">source</a><a href="#impl-Allocator-for-System" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="trait.Allocator.html" title="trait sp_std::alloc::Allocator">Allocator</a> for <a class="struct" href="struct.System.html" title="struct sp_std::alloc::System">System</a></h3></section><section id="impl-Allocator-for-%26A" class="impl"><a class="src rightside" href="https://doc.rust-lang.org/1.75.0/src/core/alloc/mod.rs.html#369-371">source</a><a href="#impl-Allocator-for-%26A" class="anchor">§</a><h3 class="code-header">impl&lt;A&gt; <a class="trait" href="trait.Allocator.html" title="trait sp_std::alloc::Allocator">Allocator</a> for <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;A</a><span class="where fmt-newline">where
-    A: <a class="trait" href="trait.Allocator.html" title="trait sp_std::alloc::Allocator">Allocator</a> + ?<a class="trait" href="../marker/trait.Sized.html" title="trait sp_std::marker::Sized">Sized</a>,</span></h3></section></div><script src="../../trait.impl/core/alloc/trait.Allocator.js" data-ignore-extern-crates="std,alloc" async></script></section></div></main></body></html>
+    A: <a class="trait" href="trait.Allocator.html" title="trait sp_std::alloc::Allocator">Allocator</a> + ?<a class="trait" href="../marker/trait.Sized.html" title="trait sp_std::marker::Sized">Sized</a>,</span></h3></section></div><script src="../../trait.impl/core/alloc/trait.Allocator.js" data-ignore-extern-crates="std,alloc" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -154,4 +156,7 @@ and calls the given <code>FnMut(&amp;T) -&gt; Option&lt;T&gt;</code> closure to 
 
 <span class="kw">let </span>powers_of_10 = successors(<span class="prelude-val">Some</span>(<span class="number">1_u16</span>), |n| n.checked_mul(<span class="number">10</span>));
 <span class="macro">assert_eq!</span>(powers_of_10.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">10</span>, <span class="number">100</span>, <span class="number">1_000</span>, <span class="number">10_000</span>]);</code></pre></div>
-</div></details><script type="text/json" id="notable-traits-data">{"Successors<T, F>":"<h3>Notable traits for <code><a class=\"struct\" href=\"struct.Successors.html\" title=\"struct sp_std::iter::Successors\">Successors</a>&lt;T, F&gt;</code></h3><pre><code><span class=\"where fmt-newline\">impl&lt;T, F&gt; <a class=\"trait\" href=\"trait.Iterator.html\" title=\"trait sp_std::iter::Iterator\">Iterator</a> for <a class=\"struct\" href=\"struct.Successors.html\" title=\"struct sp_std::iter::Successors\">Successors</a>&lt;T, F&gt;<span class=\"where fmt-newline\">where\n    F: <a class=\"trait\" href=\"../ops/trait.FnMut.html\" title=\"trait sp_std::ops::FnMut\">FnMut</a>(<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.75.0/std/primitive.reference.html\">&amp;T</a>) -&gt; <a class=\"enum\" href=\"https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html\" title=\"enum core::option::Option\">Option</a>&lt;T&gt;,</span></span><span class=\"where fmt-newline\">    type <a href=\"trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</span>"}</script></section></div></main></body></html>
+</div></details><script type="text/json" id="notable-traits-data">{"Successors<T, F>":"<h3>Notable traits for <code><a class=\"struct\" href=\"struct.Successors.html\" title=\"struct sp_std::iter::Successors\">Successors</a>&lt;T, F&gt;</code></h3><pre><code><span class=\"where fmt-newline\">impl&lt;T, F&gt; <a class=\"trait\" href=\"trait.Iterator.html\" title=\"trait sp_std::iter::Iterator\">Iterator</a> for <a class=\"struct\" href=\"struct.Successors.html\" title=\"struct sp_std::iter::Successors\">Successors</a>&lt;T, F&gt;<span class=\"where fmt-newline\">where\n    F: <a class=\"trait\" href=\"../ops/trait.FnMut.html\" title=\"trait sp_std::ops::FnMut\">FnMut</a>(<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.75.0/std/primitive.reference.html\">&amp;T</a>) -&gt; <a class=\"enum\" href=\"https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html\" title=\"enum core::option::Option\">Option</a>&lt;T&gt;,</span></span><span class=\"where fmt-newline\">    type <a href=\"trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</span>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

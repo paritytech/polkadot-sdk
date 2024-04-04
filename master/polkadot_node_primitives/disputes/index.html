@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ statements.</div></li><li><div class="item-name"><a class="struct" href="struct.
 is not worth considering anymore. Changing this value has little to no bearing on consensus,
 and really only affects the work that the node might do on startup during periods of many
 disputes.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.dispute_is_inactive.html" title="fn polkadot_node_primitives::disputes::dispute_is_inactive">dispute_is_inactive</a></div><div class="desc docblock-short">Returns true if the dispute has concluded for longer than <a href="constant.ACTIVE_DURATION_SECS.html" title="constant polkadot_node_primitives::disputes::ACTIVE_DURATION_SECS"><code>ACTIVE_DURATION_SECS</code></a>.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.InvalidVoteData.html" title="type polkadot_node_primitives::disputes::InvalidVoteData">InvalidVoteData</a></div><div class="desc docblock-short">Type alias for retrieving invalid votes from <code>CandidateVotes</code></div></li><li><div class="item-name"><a class="type" href="type.Timestamp.html" title="type polkadot_node_primitives::disputes::Timestamp">Timestamp</a></div><div class="desc docblock-short">Timestamp based on the 1 Jan 1970 UNIX base, which is persistent across node restarts and OS
-reboots.</div></li><li><div class="item-name"><a class="type" href="type.ValidVoteData.html" title="type polkadot_node_primitives::disputes::ValidVoteData">ValidVoteData</a></div><div class="desc docblock-short">Type alias for retrieving valid votes from <code>CandidateVotes</code></div></li></ul></section></div></main></body></html>
+reboots.</div></li><li><div class="item-name"><a class="type" href="type.ValidVoteData.html" title="type polkadot_node_primitives::disputes::ValidVoteData">ValidVoteData</a></div><div class="desc docblock-short">Type alias for retrieving valid votes from <code>CandidateVotes</code></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["_runtime_benchmarks_enabled"],"mod":["pallet","weights"],"struct":["Ascending","Chain","PoolInfo","WithFirstAsset"],"trait":["AssetConversionApi","PoolLocator","Swap","SwapCredit"],"type":["CreditOf"]};
+window.SIDEBAR_ITEMS = {"macro":["_runtime_benchmarks_enabled"],"mod":["pallet","weights"],"struct":["Ascending","Chain","NativeOrWithIdFactory","PoolInfo","WithFirstAsset"],"trait":["AssetConversionApi","BenchmarkHelper","PoolLocator","Swap","SwapCredit"],"type":["CreditOf"]};

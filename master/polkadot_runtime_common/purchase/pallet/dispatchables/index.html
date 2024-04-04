@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 purposes. To see the real version of each dispatchable, look for them in <a href="../struct.Pallet.html" title="struct polkadot_runtime_common::purchase::pallet::Pallet"><code>Pallet</code></a> or
 <a href="../enum.Call.html" title="enum polkadot_runtime_common::purchase::pallet::Call"><code>Call</code></a>.</p>
 </div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.create_account.html" title="fn polkadot_runtime_common::purchase::pallet::dispatchables::create_account">create_account</a></div><div class="desc docblock-short">Create a new account. Proof of existence through a valid signed message.</div></li><li><div class="item-name"><a class="fn" href="fn.payout.html" title="fn polkadot_runtime_common::purchase::pallet::dispatchables::payout">payout</a></div><div class="desc docblock-short">Pay the user and complete the purchase process.</div></li><li><div class="item-name"><a class="fn" href="fn.set_payment_account.html" title="fn polkadot_runtime_common::purchase::pallet::dispatchables::set_payment_account">set_payment_account</a></div><div class="desc docblock-short">Set the account that will be used to payout users in the DOT purchase process.</div></li><li><div class="item-name"><a class="fn" href="fn.set_statement.html" title="fn polkadot_runtime_common::purchase::pallet::dispatchables::set_statement">set_statement</a></div><div class="desc docblock-short">Set the statement that must be signed for a user to participate on the DOT sale.</div></li><li><div class="item-name"><a class="fn" href="fn.set_unlock_block.html" title="fn polkadot_runtime_common::purchase::pallet::dispatchables::set_unlock_block">set_unlock_block</a></div><div class="desc docblock-short">Set the block where locked DOTs will become unlocked.</div></li><li><div class="item-name"><a class="fn" href="fn.update_balance.html" title="fn polkadot_runtime_common::purchase::pallet::dispatchables::update_balance">update_balance</a></div><div class="desc docblock-short">Update the balance of a valid account.</div></li><li><div class="item-name"><a class="fn" href="fn.update_validity_status.html" title="fn polkadot_runtime_common::purchase::pallet::dispatchables::update_validity_status">update_validity_status</a></div><div class="desc docblock-short">Update the validity status of an existing account. If set to completed, the account
-will no longer be able to continue through the crowdfund process.</div></li></ul></section></div></main></body></html>
+will no longer be able to continue through the crowdfund process.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

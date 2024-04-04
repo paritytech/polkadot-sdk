@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ binary is not accessible with <code>cargo_bin(&quot;substrate-node&quot;)</code>
 passed in.</div></li><li><div class="item-name"><a class="fn" href="fn.wait_for_stream_pattern_match.html" title="fn substrate_cli_test_utils::wait_for_stream_pattern_match">wait_for_stream_pattern_match</a></div><div class="desc docblock-short">Takes a readable tokio stream (e.g. from a child process <code>ChildStderr</code> or <code>ChildStdout</code>) and
 a <code>Regex</code> pattern, and checks each line against the given pattern as it is produced.
 The function returns OK(()) as soon as a line matching the pattern is found, or an Err if
-the stream ends without any lines matching the pattern.</div></li><li><div class="item-name"><a class="fn" href="fn.wait_n_finalized_blocks.html" title="fn substrate_cli_test_utils::wait_n_finalized_blocks">wait_n_finalized_blocks</a></div><div class="desc docblock-short">Wait for at least n blocks to be finalized from a specified node</div></li></ul></section></div></main></body></html>
+the stream ends without any lines matching the pattern.</div></li><li><div class="item-name"><a class="fn" href="fn.wait_n_finalized_blocks.html" title="fn substrate_cli_test_utils::wait_n_finalized_blocks">wait_n_finalized_blocks</a></div><div class="desc docblock-short">Wait for at least n blocks to be finalized from a specified node</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

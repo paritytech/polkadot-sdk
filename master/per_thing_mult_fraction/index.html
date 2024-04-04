@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -152,4 +154,7 @@ options can be used by setting <code>HFUZZ_RUN_ARGS</code>, such as <code>-n 4</
 <h2 id="debugging-a-panic"><a href="#debugging-a-panic">Debugging a panic</a></h2>
 <p>Once a panic is found, it can be debugged with
 <code>cargo hfuzz run-debug per_thing_mult_fraction hfuzz_workspace/per_thing_mult_fraction/*.fuzz</code>.</p>
-</div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.check_mul.html" title="fn per_thing_mult_fraction::check_mul">check_mul</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Checks that <code>(n / d) * d &lt;= n</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.check_reciprocal_mul.html" title="fn per_thing_mult_fraction::check_reciprocal_mul">check_reciprocal_mul</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Checks that <code>n / (n / d) &gt;= d</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.main.html" title="fn per_thing_mult_fraction::main">main</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Tries to disprove <code>(n / d) * d &lt;= n</code> for any <code>PerThing</code>s.</div></li></ul></section></div></main></body></html>
+</div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.check_mul.html" title="fn per_thing_mult_fraction::check_mul">check_mul</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Checks that <code>(n / d) * d &lt;= n</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.check_reciprocal_mul.html" title="fn per_thing_mult_fraction::check_reciprocal_mul">check_reciprocal_mul</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Checks that <code>n / (n / d) &gt;= d</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.main.html" title="fn per_thing_mult_fraction::main">main</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">Tries to disprove <code>(n / d) * d &lt;= n</code> for any <code>PerThing</code>s.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -166,4 +168,7 @@ relay-chain state.</div></li><li><div class="item-name"><a class="struct" href="
 In other words, if this is <code>Some</code> and <a href="struct.NewValidationCode.html" title="struct cumulus_pallet_parachain_system::pallet::storage_types::NewValidationCode"><code>NewValidationCode</code></a> is <code>Some</code> then the produced
 candidate will be invalid.</div></li><li><div class="item-name"><a class="struct" href="struct.UpwardDeliveryFeeFactor.html" title="struct cumulus_pallet_parachain_system::pallet::storage_types::UpwardDeliveryFeeFactor">UpwardDeliveryFeeFactor</a></div><div class="desc docblock-short">The factor to multiply the base delivery fee by for UMP.</div></li><li><div class="item-name"><a class="struct" href="struct.UpwardMessages.html" title="struct cumulus_pallet_parachain_system::pallet::storage_types::UpwardMessages">UpwardMessages</a></div><div class="desc docblock-short">Upward messages that were sent in a block.</div></li><li><div class="item-name"><a class="struct" href="struct.ValidationData.html" title="struct cumulus_pallet_parachain_system::pallet::storage_types::ValidationData">ValidationData</a></div><div class="desc docblock-short">The [<code>PersistedValidationData</code>] set for this block.
 This value is expected to be set only once per block and it’s never stored
-in the trie.</div></li></ul></section></div></main></body></html>
+in the trie.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -168,4 +170,7 @@ of this pallet.</div></li><li><div class="item-name"><a class="struct" href="str
 functions within the pallet.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Call.html" title="enum pallet_beefy::pallet::Call">Call</a></div><div class="desc docblock-short">Contains a variant per dispatchable extrinsic that this pallet has.</div></li><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum pallet_beefy::pallet::Error">Error</a></div><div class="desc docblock-short">The <code>Error</code> enum of this pallet.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Config.html" title="trait pallet_beefy::pallet::Config">Config</a></div><div class="desc docblock-short">Configuration trait of this pallet.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Authorities.html" title="type pallet_beefy::pallet::Authorities">Authorities</a></div><div class="desc docblock-short">The current authorities set</div></li><li><div class="item-name"><a class="type" href="type.GenesisBlock.html" title="type pallet_beefy::pallet::GenesisBlock">GenesisBlock</a></div><div class="desc docblock-short">Block number where BEEFY consensus is enabled/started.
 By changing this (through privileged <code>set_new_genesis()</code>), BEEFY consensus is effectively
 restarted from the newly set block number.</div></li><li><div class="item-name"><a class="type" href="type.Module.html" title="type pallet_beefy::pallet::Module">Module</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</div></li><li><div class="item-name"><a class="type" href="type.NextAuthorities.html" title="type pallet_beefy::pallet::NextAuthorities">NextAuthorities</a></div><div class="desc docblock-short">Authorities set scheduled to be used with the next session</div></li><li><div class="item-name"><a class="type" href="type.SetIdSession.html" title="type pallet_beefy::pallet::SetIdSession">SetIdSession</a></div><div class="desc docblock-short">A mapping from BEEFY set ID to the index of the <em>most recent</em> session for which its
-members were responsible.</div></li><li><div class="item-name"><a class="type" href="type.ValidatorSetId.html" title="type pallet_beefy::pallet::ValidatorSetId">ValidatorSetId</a></div><div class="desc docblock-short">The current validator set id</div></li></ul></section></div></main></body></html>
+members were responsible.</div></li><li><div class="item-name"><a class="type" href="type.ValidatorSetId.html" title="type pallet_beefy::pallet::ValidatorSetId">ValidatorSetId</a></div><div class="desc docblock-short">The current validator set id</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

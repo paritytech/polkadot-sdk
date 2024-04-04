@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -161,4 +163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.broadcast_message" class="method"><a class="src rightside" href="../src/sc_network_gossip/validator.rs.html#58">source</a><h4 class="code-header">fn <a href="#tymethod.broadcast_message" class="fn">broadcast_message</a>(&amp;mut self, topic: B::Hash, message: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;, force: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>)</h4></section></summary><div class="docblock"><p>Broadcast a message to all peers that have not received it previously.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.send_message" class="method"><a class="src rightside" href="../src/sc_network_gossip/validator.rs.html#60">source</a><h4 class="code-header">fn <a href="#tymethod.send_message" class="fn">send_message</a>(&amp;mut self, who: &amp;PeerId, message: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;)</h4></section></summary><div class="docblock"><p>Send addressed message to a peer.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.send_topic" class="method"><a class="src rightside" href="../src/sc_network_gossip/validator.rs.html#62">source</a><h4 class="code-header">fn <a href="#tymethod.send_topic" class="fn">send_topic</a>(&amp;mut self, who: &amp;PeerId, topic: B::Hash, force: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>)</h4></section></summary><div class="docblock"><p>Send all messages with given topic to a peer.</p>
-</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sc_network_gossip/validator/trait.ValidatorContext.js" async></script></section></div></main></body></html>
+</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sc_network_gossip/validator/trait.ValidatorContext.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

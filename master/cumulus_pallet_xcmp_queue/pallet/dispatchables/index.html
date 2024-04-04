@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -153,4 +155,7 @@ purposes. To see the real version of each dispatchable, look for them in <a href
 </div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.resume_xcm_execution.html" title="fn cumulus_pallet_xcmp_queue::pallet::dispatchables::resume_xcm_execution">resume_xcm_execution</a></div><div class="desc docblock-short">Resumes all XCM executions for the XCMP queue.</div></li><li><div class="item-name"><a class="fn" href="fn.suspend_xcm_execution.html" title="fn cumulus_pallet_xcmp_queue::pallet::dispatchables::suspend_xcm_execution">suspend_xcm_execution</a></div><div class="desc docblock-short">Suspends all XCM executions for the XCMP queue, regardless of the sender’s origin.</div></li><li><div class="item-name"><a class="fn" href="fn.update_drop_threshold.html" title="fn cumulus_pallet_xcmp_queue::pallet::dispatchables::update_drop_threshold">update_drop_threshold</a></div><div class="desc docblock-short">Overwrites the number of pages which must be in the queue after which we drop any
 further messages from the channel.</div></li><li><div class="item-name"><a class="fn" href="fn.update_resume_threshold.html" title="fn cumulus_pallet_xcmp_queue::pallet::dispatchables::update_resume_threshold">update_resume_threshold</a></div><div class="desc docblock-short">Overwrites the number of pages which the queue must be reduced to before it signals
 that message sending may recommence after it has been suspended.</div></li><li><div class="item-name"><a class="fn" href="fn.update_suspend_threshold.html" title="fn cumulus_pallet_xcmp_queue::pallet::dispatchables::update_suspend_threshold">update_suspend_threshold</a></div><div class="desc docblock-short">Overwrites the number of pages which must be in the queue for the other side to be
-told to suspend their sending.</div></li></ul></section></div></main></body></html>
+told to suspend their sending.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

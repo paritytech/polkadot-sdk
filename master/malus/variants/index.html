@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -154,4 +156,7 @@ against valid candidates. Additionally, the malus node can be configured to
 fake candidate validation and return a static result for candidate checking.</div></li><li><div class="item-name"><a class="mod" href="suggest_garbage_candidate/index.html" title="mod malus::variants::suggest_garbage_candidate">suggest_garbage_candidate</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">A malicious node that stores bogus availability chunks, preventing others from
 doing approval voting. This should lead to disputes depending if the validator
 has fetched a malicious chunk.</div></li><li><div class="item-name"><a class="mod" href="support_disabled/index.html" title="mod malus::variants::support_disabled">support_disabled</a><span title="Restricted Visibility">&nbsp;🔒</span> </div><div class="desc docblock-short">This variant of Malus overrides the <code>disabled_validators</code> runtime API
-to always return an empty set of disabled validators.</div></li></ul></section></div></main></body></html>
+to always return an empty set of disabled validators.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

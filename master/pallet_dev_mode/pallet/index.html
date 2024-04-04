@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -170,4 +172,7 @@ When the dev_mode is removed, we would need to specify the hasher like so:
 <code>pub type Bar&lt;T: Config&gt; = StorageMap&lt;_, Blake2_128Concat, T::AccountId, T::Balance&gt;;</code>.</div></li><li><div class="item-name"><a class="type" href="type.Dummy.html" title="type pallet_dev_mode::pallet::Dummy">Dummy</a></div><div class="desc docblock-short">The MEL requirement for bounded pallets is skipped by <code>dev_mode</code>.
 This means that all storages are marked as unbounded.
 This is equivalent to specifying <code>#[pallet::unbounded]</code> on this type definitions.
-When the dev_mode is removed, we would need to implement implement <code>MaxEncodedLen</code>.</div></li><li><div class="item-name"><a class="type" href="type.Module.html" title="type pallet_dev_mode::pallet::Module">Module</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</div></li></ul></section></div></main></body></html>
+When the dev_mode is removed, we would need to implement implement <code>MaxEncodedLen</code>.</div></li><li><div class="item-name"><a class="type" href="type.Module.html" title="type pallet_dev_mode::pallet::Module">Module</a><span class="stab deprecated" title="">Deprecated</span></div><div class="desc docblock-short">Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -152,4 +154,7 @@ implementers’ guide.</p>
 </div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ApprovalDistribution.html" title="struct polkadot_approval_distribution::ApprovalDistribution">ApprovalDistribution</a></div><div class="desc docblock-short">The Approval Distribution subsystem.</div></li></ul><h2 id="constants" class="small-section-header"><a href="#constants">Constants</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.MAX_APPROVAL_BATCH_SIZE.html" title="constant polkadot_approval_distribution::MAX_APPROVAL_BATCH_SIZE">MAX_APPROVAL_BATCH_SIZE</a></div><div class="desc docblock-short">The maximum amount of approvals per batch is 33% of maximum allowed by protocol.</div></li><li><div class="item-name"><a class="constant" href="constant.MAX_ASSIGNMENT_BATCH_SIZE.html" title="constant polkadot_approval_distribution::MAX_ASSIGNMENT_BATCH_SIZE">MAX_ASSIGNMENT_BATCH_SIZE</a></div><div class="desc docblock-short">The maximum amount of assignments per batch is 33% of maximum allowed by protocol.
 This is an arbitrary value. Bumping this up increases the maximum amount of approvals or
 assignments we send in a single message to peers. Exceeding <code>MAX_NOTIFICATION_SIZE</code> will violate
-the protocol configuration.</div></li></ul></section></div></main></body></html>
+the protocol configuration.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

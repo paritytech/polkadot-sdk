@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -221,4 +223,7 @@ transaction life cycle.</p>
     Client: HeaderBackend&lt;P::Block&gt; + ProvideRuntimeApi&lt;P::Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     Client::Api: SessionKeys&lt;P::Block&gt;,
     P::Hash: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
-    &lt;P::Block as BlockT&gt;::Hash: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h3></section></div><script src="../../trait.impl/sc_rpc_api/author/trait.AuthorApiServer.js" async></script></section></div></main></body></html>
+    &lt;P::Block as BlockT&gt;::Hash: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h3></section></div><script src="../../trait.impl/sc_rpc_api/author/trait.AuthorApiServer.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

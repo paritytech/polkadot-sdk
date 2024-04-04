@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -207,4 +209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Aggregator trait for a PerThing that can be multiplied by u128 (ExtendedBalance).
 </span><span class="kw">pub trait </span>PerThing128: PerThing + Mul&lt;ExtendedBalance, Output = ExtendedBalance&gt; {}
 <span class="kw">impl</span>&lt;T: PerThing + Mul&lt;ExtendedBalance, Output = ExtendedBalance&gt;&gt; PerThing128 <span class="kw">for </span>T {}
-</code></pre></div></section></main></body></html>
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

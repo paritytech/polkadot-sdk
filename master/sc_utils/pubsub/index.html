@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -162,4 +164,7 @@ and to send the broadcast messages.</p>
 <p>As a result of subscription <code>Hub::subscribe</code> method returns an instance of
 <a href="struct.Receiver.html" title="struct sc_utils::pubsub::Receiver"><code>Receiver&lt;Message,Registry&gt;</code></a>. That can be used as a [<code>Stream</code>] to receive the messages.
 Upon drop the <a href="struct.Receiver.html" title="struct sc_utils::pubsub::Receiver"><code>Receiver&lt;Message, Registry&gt;</code></a> shall unregister itself from the <code>Hub</code>.</p>
-</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Hub.html" title="struct sc_utils::pubsub::Hub">Hub</a></div><div class="desc docblock-short">A subscription hub.</div></li><li><div class="item-name"><a class="struct" href="struct.Receiver.html" title="struct sc_utils::pubsub::Receiver">Receiver</a></div><div class="desc docblock-short">The receiving side of the subscription.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Dispatch.html" title="trait sc_utils::pubsub::Dispatch">Dispatch</a></div><div class="desc docblock-short">Dispatch a message of type <code>M</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.Subscribe.html" title="trait sc_utils::pubsub::Subscribe">Subscribe</a></div><div class="desc docblock-short">Subscribe using a key of type <code>K</code></div></li><li><div class="item-name"><a class="trait" href="trait.Unsubscribe.html" title="trait sc_utils::pubsub::Unsubscribe">Unsubscribe</a></div><div class="desc docblock-short">Unsubscribe: unregisters a previously created subscription.</div></li></ul></section></div></main></body></html>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Hub.html" title="struct sc_utils::pubsub::Hub">Hub</a></div><div class="desc docblock-short">A subscription hub.</div></li><li><div class="item-name"><a class="struct" href="struct.Receiver.html" title="struct sc_utils::pubsub::Receiver">Receiver</a></div><div class="desc docblock-short">The receiving side of the subscription.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Dispatch.html" title="trait sc_utils::pubsub::Dispatch">Dispatch</a></div><div class="desc docblock-short">Dispatch a message of type <code>M</code>.</div></li><li><div class="item-name"><a class="trait" href="trait.Subscribe.html" title="trait sc_utils::pubsub::Subscribe">Subscribe</a></div><div class="desc docblock-short">Subscribe using a key of type <code>K</code></div></li><li><div class="item-name"><a class="trait" href="trait.Unsubscribe.html" title="trait sc_utils::pubsub::Unsubscribe">Unsubscribe</a></div><div class="desc docblock-short">Unsubscribe: unregisters a previously created subscription.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

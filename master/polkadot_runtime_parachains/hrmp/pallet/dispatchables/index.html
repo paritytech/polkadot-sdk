@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -161,4 +163,7 @@ configured limits.</div></li><li><div class="item-name"><a class="fn" href="fn.f
 or the recipient for that request. The origin must be either of those.</div></li><li><div class="item-name"><a class="fn" href="fn.hrmp_close_channel.html" title="fn polkadot_runtime_parachains::hrmp::pallet::dispatchables::hrmp_close_channel">hrmp_close_channel</a></div><div class="desc docblock-short">Initiate unilateral closing of a channel. The origin must be either the sender or the
 recipient in the channel being closed.</div></li><li><div class="item-name"><a class="fn" href="fn.hrmp_init_open_channel.html" title="fn polkadot_runtime_parachains::hrmp::pallet::dispatchables::hrmp_init_open_channel">hrmp_init_open_channel</a></div><div class="desc docblock-short">Initiate opening a channel from a parachain to a given recipient with given channel
 parameters.</div></li><li><div class="item-name"><a class="fn" href="fn.poke_channel_deposits.html" title="fn polkadot_runtime_parachains::hrmp::pallet::dispatchables::poke_channel_deposits">poke_channel_deposits</a></div><div class="desc docblock-short">Update the deposits held for an HRMP channel to the latest <code>Configuration</code>. Channels
-with system chains do not require a deposit.</div></li></ul></section></div></main></body></html>
+with system chains do not require a deposit.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

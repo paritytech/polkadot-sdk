@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -188,4 +190,7 @@ This may lead to duplicate accounts if the size of <code>AccountId</code> is les
     T: <a class="trait" href="../derive/trait.Encode.html" title="trait polkadot_sdk_frame::derive::Encode">Encode</a> + <a class="trait" href="../derive/trait.Decode.html" title="trait polkadot_sdk_frame::derive::Decode">Decode</a>,
     Id: <a class="trait" href="../derive/trait.Encode.html" title="trait polkadot_sdk_frame::derive::Encode">Encode</a> + <a class="trait" href="../derive/trait.Decode.html" title="trait polkadot_sdk_frame::derive::Decode">Decode</a> + <a class="trait" href="../../sp_core/trait.TypeId.html" title="trait sp_core::TypeId">TypeId</a>,</span></h3></section><div class="docblock"><p>Format is TYPE_ID ++ encode(sub-seed) ++ 00…. where 00… is indefinite trailing zeroes to
 fill AccountId.</p>
-</div></div><script src="../../trait.impl/sp_runtime/traits/trait.AccountIdConversion.js" async></script></section></div></main></body></html>
+</div></div><script src="../../trait.impl/sp_runtime/traits/trait.AccountIdConversion.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ This struct only handles the proof representation, i.e. a child is either empty
 or a 32-byte hash of its subtree.</div></li><li><div class="item-name"><a class="struct" href="struct.ShortNode.html" title="struct snowbridge_ethereum::mpt::ShortNode">ShortNode</a></div><div class="desc docblock-short">Trie node where <code>value</code> is either the RLP-encoded item we’re
 proving or an intermediate hash (refers to node with same name in Geth)
 Proof verification should return <code>value</code>. <code>key</code> is an implementation
-detail of the trie.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Node.html" title="trait snowbridge_ethereum::mpt::Node">Node</a></div></li></ul></section></div></main></body></html>
+detail of the trie.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Node.html" title="trait snowbridge_ethereum::mpt::Node">Node</a></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

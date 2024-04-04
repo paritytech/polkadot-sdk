@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -153,4 +155,7 @@ purposes. To see the real version of each dispatchable, look for them in <a href
 </div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.claim.html" title="fn pallet_indices::pallet::dispatchables::claim">claim</a></div><div class="desc docblock-short">Assign an previously unassigned index.</div></li><li><div class="item-name"><a class="fn" href="fn.force_transfer.html" title="fn pallet_indices::pallet::dispatchables::force_transfer">force_transfer</a></div><div class="desc docblock-short">Force an index to an account. This doesn’t require a deposit. If the index is already
 held, then any deposit is reimbursed to its current owner.</div></li><li><div class="item-name"><a class="fn" href="fn.free.html" title="fn pallet_indices::pallet::dispatchables::free">free</a></div><div class="desc docblock-short">Free up an index owned by the sender.</div></li><li><div class="item-name"><a class="fn" href="fn.freeze.html" title="fn pallet_indices::pallet::dispatchables::freeze">freeze</a></div><div class="desc docblock-short">Freeze an index so it will always point to the sender account. This consumes the
 deposit.</div></li><li><div class="item-name"><a class="fn" href="fn.transfer.html" title="fn pallet_indices::pallet::dispatchables::transfer">transfer</a></div><div class="desc docblock-short">Assign an index already owned by the sender to another account. The balance reservation
-is effectively transferred to the new account.</div></li></ul></section></div></main></body></html>
+is effectively transferred to the new account.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

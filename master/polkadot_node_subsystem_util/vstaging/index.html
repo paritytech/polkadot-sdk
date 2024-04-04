@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -154,4 +156,7 @@ Returns <code>ClaimQueueSnapshot</code> or <code>None</code> if claim queue API 
 Any specific <code>RuntimeApiError</code> is bubbled up to the caller.</div></li><li><div class="item-name"><a class="fn" href="fn.get_disabled_validators_with_fallback.html" title="fn polkadot_node_subsystem_util::vstaging::get_disabled_validators_with_fallback">get_disabled_validators_with_fallback</a></div><div class="desc docblock-short">Returns disabled validators list if the runtime supports it. Otherwise logs a debug messages and
 returns an empty vec.
 Once runtime ver <code>DISABLED_VALIDATORS_RUNTIME_REQUIREMENT</code> is released remove this function and
-replace all usages with <code>request_disabled_validators</code></div></li></ul></section></div></main></body></html>
+replace all usages with <code>request_disabled_validators</code></div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

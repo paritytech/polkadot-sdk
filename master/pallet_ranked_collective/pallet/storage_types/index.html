@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -154,4 +156,7 @@ purposes.</p>
 pallet, in the list of <a href="../index.html#types"><em>Type Definitions</em></a>.</p>
 </div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.IdToIndex.html" title="struct pallet_ranked_collective::pallet::storage_types::IdToIndex">IdToIndex</a></div><div class="desc docblock-short">The index of each ranks’s member into the group of members who have at least that rank.</div></li><li><div class="item-name"><a class="struct" href="struct.IndexToId.html" title="struct pallet_ranked_collective::pallet::storage_types::IndexToId">IndexToId</a></div><div class="desc docblock-short">The members in the collective by index. All indices in the range <code>0..MemberCount</code> will
 return <code>Some</code>, however a member’s index is not guaranteed to remain unchanged over time.</div></li><li><div class="item-name"><a class="struct" href="struct.MemberCount.html" title="struct pallet_ranked_collective::pallet::storage_types::MemberCount">MemberCount</a></div><div class="desc docblock-short">The number of members in the collective who have at least the rank according to the index
-of the vec.</div></li><li><div class="item-name"><a class="struct" href="struct.Members.html" title="struct pallet_ranked_collective::pallet::storage_types::Members">Members</a></div><div class="desc docblock-short">The current members of the collective.</div></li><li><div class="item-name"><a class="struct" href="struct.Voting.html" title="struct pallet_ranked_collective::pallet::storage_types::Voting">Voting</a></div><div class="desc docblock-short">Votes on a given proposal, if it is ongoing.</div></li><li><div class="item-name"><a class="struct" href="struct.VotingCleanup.html" title="struct pallet_ranked_collective::pallet::storage_types::VotingCleanup">VotingCleanup</a></div><div class="desc docblock-short">Warning: Doc-Only</div></li></ul></section></div></main></body></html>
+of the vec.</div></li><li><div class="item-name"><a class="struct" href="struct.Members.html" title="struct pallet_ranked_collective::pallet::storage_types::Members">Members</a></div><div class="desc docblock-short">The current members of the collective.</div></li><li><div class="item-name"><a class="struct" href="struct.Voting.html" title="struct pallet_ranked_collective::pallet::storage_types::Voting">Voting</a></div><div class="desc docblock-short">Votes on a given proposal, if it is ongoing.</div></li><li><div class="item-name"><a class="struct" href="struct.VotingCleanup.html" title="struct pallet_ranked_collective::pallet::storage_types::VotingCleanup">VotingCleanup</a></div><div class="desc docblock-short">Warning: Doc-Only</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

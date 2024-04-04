@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["ed25519","sr25519","test"]};
+window.SIDEBAR_ITEMS = {"mod":["bandersnatch","ed25519","sr25519","test"]};

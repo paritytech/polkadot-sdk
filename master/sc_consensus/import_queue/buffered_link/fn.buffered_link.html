@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -150,4 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; (<a class="struct" href="struct.BufferedLinkSender.html" title="struct sc_consensus::import_queue::buffered_link::BufferedLinkSender">BufferedLinkSender</a>&lt;B&gt;, <a class="struct" href="struct.BufferedLinkReceiver.html" title="struct sc_consensus::import_queue::buffered_link::BufferedLinkReceiver">BufferedLinkReceiver</a>&lt;B&gt;)</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Wraps around an unbounded channel from the <code>futures</code> crate. The sender implements <code>Link</code> and
 can be used to buffer commands, and the receiver can be used to poll said commands and transfer
 them to another link. <code>queue_size_warning</code> sets the warning threshold of the channel queue size.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -154,4 +156,7 @@ Default for <code>CreditOf</code> from the assets pallet is to burn and
 decrease total issuance.</p>
 </div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="foreign-impls" class="small-section-header">Implementations on Foreign Types<a href="#foreign-impls" class="anchor">§</a></h2><details class="toggle implementors-toggle"><summary><section id="impl-HandleCredit%3CA,+B%3E-for-()" class="impl"><a class="src rightside" href="../src/pallet_asset_tx_payment/payment.rs.html#86-88">source</a><a href="#impl-HandleCredit%3CA,+B%3E-for-()" class="anchor">§</a><h3 class="code-header">impl&lt;A, B: Balanced&lt;A&gt;&gt; <a class="trait" href="trait.HandleCredit.html" title="trait pallet_asset_tx_payment::HandleCredit">HandleCredit</a>&lt;A, B&gt; for <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a></h3></section></summary><div class="docblock"><p>Default implementation that just drops the credit according to the <code>OnDrop</code> in the underlying
 imbalance type.</p>
-</div><div class="impl-items"><section id="method.handle_credit" class="method trait-impl"><a class="src rightside" href="../src/pallet_asset_tx_payment/payment.rs.html#87">source</a><a href="#method.handle_credit" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.handle_credit" class="fn">handle_credit</a>(_credit: Credit&lt;A, B&gt;)</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/pallet_asset_tx_payment/payment/trait.HandleCredit.js" data-ignore-extern-crates="std" async></script></section></div></main></body></html>
+</div><div class="impl-items"><section id="method.handle_credit" class="method trait-impl"><a class="src rightside" href="../src/pallet_asset_tx_payment/payment.rs.html#87">source</a><a href="#method.handle_credit" class="anchor">§</a><h4 class="code-header">fn <a href="#tymethod.handle_credit" class="fn">handle_credit</a>(_credit: Credit&lt;A, B&gt;)</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/pallet_asset_tx_payment/payment/trait.HandleCredit.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

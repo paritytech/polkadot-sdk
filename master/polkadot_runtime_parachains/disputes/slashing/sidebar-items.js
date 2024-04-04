@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["BenchConfig","SlashValidatorsForDisputes","SlashingOffence","SlashingReportHandler","TestWeightInfo"],"trait":["BenchmarkingConfiguration","HandleReports","WeightInfo"]};
+window.SIDEBAR_ITEMS = {"mod":["benchmarking","pallet"],"struct":["BenchConfig","SlashValidatorsForDisputes","SlashingOffence","SlashingReportHandler","TestWeightInfo"],"trait":["BenchmarkingConfiguration","HandleReports","WeightInfo"]};

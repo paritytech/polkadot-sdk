@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -174,4 +176,7 @@ future to completion on the current thread.</p>
 entered.</div></li><li><div class="item-name"><a class="struct" href="struct.LocalPool.html" title="struct polkadot_node_subsystem::gen::futures::executor::LocalPool">LocalPool</a></div><div class="desc docblock-short">A single-threaded task pool for polling futures to completion.</div></li><li><div class="item-name"><a class="struct" href="struct.LocalSpawner.html" title="struct polkadot_node_subsystem::gen::futures::executor::LocalSpawner">LocalSpawner</a></div><div class="desc docblock-short">A handle to a <a href="struct.LocalPool.html" title="struct polkadot_node_subsystem::gen::futures::executor::LocalPool"><code>LocalPool</code></a> that implements
 <a href="../task/trait.Spawn.html" title="trait polkadot_node_subsystem::gen::futures::task::Spawn"><code>Spawn</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.ThreadPool.html" title="struct polkadot_node_subsystem::gen::futures::executor::ThreadPool">ThreadPool</a></div><div class="desc docblock-short">A general-purpose thread pool for scheduling tasks that poll futures to
 completion.</div></li><li><div class="item-name"><a class="struct" href="struct.ThreadPoolBuilder.html" title="struct polkadot_node_subsystem::gen::futures::executor::ThreadPoolBuilder">ThreadPoolBuilder</a></div><div class="desc docblock-short">Thread pool configuration object.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.block_on.html" title="fn polkadot_node_subsystem::gen::futures::executor::block_on">block_on</a></div><div class="desc docblock-short">Run a future to completion on the current thread.</div></li><li><div class="item-name"><a class="fn" href="fn.block_on_stream.html" title="fn polkadot_node_subsystem::gen::futures::executor::block_on_stream">block_on_stream</a></div><div class="desc docblock-short">Turn a stream into a blocking iterator.</div></li><li><div class="item-name"><a class="fn" href="fn.enter.html" title="fn polkadot_node_subsystem::gen::futures::executor::enter">enter</a></div><div class="desc docblock-short">Marks the current thread as being within the dynamic extent of an
-executor.</div></li></ul></section></div></main></body></html>
+executor.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

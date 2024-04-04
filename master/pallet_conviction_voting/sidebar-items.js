@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AccountVote","Conviction","UnvoteScope","Voting"],"mod":["pallet","weights"],"struct":["Casting","Delegating","Delegations","Tally","Vote"],"type":["TallyOf","VotesOf"]};
+window.SIDEBAR_ITEMS = {"enum":["AccountVote","Conviction","UnvoteScope","Voting"],"mod":["benchmarking","pallet","weights"],"struct":["Casting","Delegating","Delegations","Tally","Vote"],"type":["TallyOf","VotesOf"]};

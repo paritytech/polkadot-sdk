@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -158,4 +160,7 @@ the chain will not accept any new parachain blocks for backing or inclusion,
 and its value indicates the last valid block number in the chain.
 It can only be set back to <code>None</code> by governance intervention.</div></li><li><div class="item-name"><a class="struct" href="struct.Included.html" title="struct polkadot_runtime_parachains::disputes::pallet::storage_types::Included">Included</a></div><div class="desc docblock-short">All included blocks on the chain, as well as the block number in this chain that
 should be reverted back to if the candidate is disputed and determined to be invalid.</div></li><li><div class="item-name"><a class="struct" href="struct.LastPrunedSession.html" title="struct polkadot_runtime_parachains::disputes::pallet::storage_types::LastPrunedSession">LastPrunedSession</a></div><div class="desc docblock-short">The last pruned session, if any. All data stored by this module
-references sessions.</div></li></ul></section></div></main></body></html>
+references sessions.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

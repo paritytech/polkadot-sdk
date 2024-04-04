@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -175,4 +177,7 @@ Returns <code>Ok</code> if memory was grown successfully.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.as_ptr" class="method"><h4 class="code-header">fn <a href="#tymethod.as_ptr" class="fn">as_ptr</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a></h4></section></summary><div class="docblock"><p>Return the allocated memory as a mutable pointer to u8.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.wasm_accessible" class="method"><h4 class="code-header">fn <a href="#tymethod.wasm_accessible" class="fn">wasm_accessible</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/ops/range/struct.Range.html" title="struct core::ops::range::Range">Range</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the range of native addresses that WebAssembly can natively
 access from this linear memory, including guard pages.</p>
-</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../../../trait.impl/wasmtime/memory/trait.LinearMemory.js" async></script></section></div></main></body></html>
+</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../../../trait.impl/wasmtime/memory/trait.LinearMemory.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

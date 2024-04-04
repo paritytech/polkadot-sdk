@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -162,4 +164,7 @@ across operations on different [<code>trie_db::TrieDB</code>] instances.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.as_trie_recorder" class="method"><a class="src rightside" href="../src/sp_trie/lib.rs.html#169">source</a><h4 class="code-header">fn <a href="#tymethod.as_trie_recorder" class="fn">as_trie_recorder</a>(&amp;self, storage_root: H::Out) -&gt; Self::<a class="associatedtype" href="trait.TrieRecorderProvider.html#associatedtype.Recorder" title="type sp_trie::TrieRecorderProvider::Recorder">Recorder</a>&lt;'_&gt;</h4></section></summary><div class="docblock"><p>Provide a recorder implementing <a href="trait.TrieRecorder.html" title="trait sp_trie::TrieRecorder"><code>trie_db::TrieRecorder</code></a>.</p>
 </div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><details class="toggle implementors-toggle"><summary><section id="impl-TrieRecorderProvider%3CH%3E-for-Recorder%3CH%3E" class="impl"><a class="src rightside" href="../src/sp_trie/recorder.rs.html#254-264">source</a><a href="#impl-TrieRecorderProvider%3CH%3E-for-Recorder%3CH%3E" class="anchor">§</a><h3 class="code-header">impl&lt;H: Hasher&gt; <a class="trait" href="trait.TrieRecorderProvider.html" title="trait sp_trie::TrieRecorderProvider">TrieRecorderProvider</a>&lt;H&gt; for <a class="struct" href="recorder/struct.Recorder.html" title="struct sp_trie::recorder::Recorder">Recorder</a>&lt;H&gt;</h3></section></summary><div class="impl-items"><section id="associatedtype.Recorder-1" class="associatedtype trait-impl"><a href="#associatedtype.Recorder-1" class="anchor">§</a><h4 class="code-header">type <a href="#associatedtype.Recorder" class="associatedtype">Recorder</a>&lt;'a&gt; = <a class="struct" href="recorder/struct.TrieRecorder.html" title="struct sp_trie::recorder::TrieRecorder">TrieRecorder</a>&lt;'a, H&gt;
 <span class="where">where
-    H: 'a</span></h4></section></div></details></div><script src="../trait.impl/sp_trie/trait.TrieRecorderProvider.js" async></script></section></div></main></body></html>
+    H: 'a</span></h4></section></div></details></div><script src="../trait.impl/sp_trie/trait.TrieRecorderProvider.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

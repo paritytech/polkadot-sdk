@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -230,4 +232,7 @@ erring on the side of (double-)dropping.</p>
 <p>Also, <code>ManuallyDrop</code> prevents us from having to “touch” <code>v</code> after transferring the
 ownership to <code>s</code> — the final step of interacting with <code>v</code> to dispose of it without
 running its destructor is entirely avoided.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

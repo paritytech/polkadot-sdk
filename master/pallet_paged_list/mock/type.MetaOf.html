@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -160,4 +162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div><span id="structfield.last_page_len" class="structfield small-section-header"><a href="#structfield.last_page_len" class="anchor field">§</a><code>last_page_len: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a></code></span><div class="docblock"><p>The last value inside <code>last_page</code> that could contain a value.</p>
 <p>Appending starts at this index. If the page does not hold a value at this index, then the
 whole list is empty. The only case where this can happen is when both are <code>0</code>.</p>
-</div></section></div></main></body></html>
+</div></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

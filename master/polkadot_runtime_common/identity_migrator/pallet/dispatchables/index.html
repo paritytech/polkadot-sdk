@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -152,4 +154,7 @@ purposes. To see the real version of each dispatchable, look for them in <a href
 <a href="../enum.Call.html" title="enum polkadot_runtime_common::identity_migrator::pallet::Call"><code>Call</code></a>.</p>
 </div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.poke_deposit.html" title="fn polkadot_runtime_common::identity_migrator::pallet::dispatchables::poke_deposit">poke_deposit</a></div><div class="desc docblock-short">Update the deposit of <code>who</code>. Meant to be called by the system with an XCM <code>Transact</code>
 Instruction.</div></li><li><div class="item-name"><a class="fn" href="fn.reap_identity.html" title="fn polkadot_runtime_common::identity_migrator::pallet::dispatchables::reap_identity">reap_identity</a></div><div class="desc docblock-short">Reap the <code>IdentityInfo</code> of <code>who</code> from the Identity pallet of <code>T</code>, unreserving any
-deposits held and removing storage items associated with <code>who</code>.</div></li></ul></section></div></main></body></html>
+deposits held and removing storage items associated with <code>who</code>.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

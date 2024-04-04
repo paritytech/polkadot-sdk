@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.ClaimQueueSnapshot.html" title="struct polkadot_node_subsystem_util::vstaging::ClaimQueueSnapshot">ClaimQueueSnapshot</a>&gt;, <a class="enum" href="../runtime/enum.Error.html" title="enum polkadot_node_subsystem_util::runtime::Error">Error</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Checks if the runtime supports <code>request_claim_queue</code> and attempts to fetch the claim queue.
 Returns <code>ClaimQueueSnapshot</code> or <code>None</code> if claim queue API is not supported by runtime.
 Any specific <code>RuntimeApiError</code> is bubbled up to the caller.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

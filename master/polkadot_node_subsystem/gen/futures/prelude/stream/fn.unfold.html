@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -176,4 +178,7 @@ will turn it into a <code>Stream</code> by repeating the operation.</p>
 
 <span class="kw">let </span>result = stream.collect::&lt;Vec&lt;i32&gt;&gt;().<span class="kw">await</span>;
 <span class="macro">assert_eq!</span>(result, <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">2</span>, <span class="number">4</span>]);</code></pre></div>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

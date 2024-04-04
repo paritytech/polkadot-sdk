@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -150,4 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     F: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, E&gt;,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Execute the supplied function, ensuring we are at least in one storage layer.</p>
 <p>If we are already in a storage layer, we just execute the provided closure.
 If we are not, we execute the closure within a <a href="fn.with_storage_layer.html" title="fn frame_support::storage::transactional::with_storage_layer"><code>with_storage_layer</code></a>.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -163,4 +165,7 @@ be normally allowed to drop. Generally, freezers will provide an “update” fu
 if the total balance does drop below the limit, then the freezer can update their housekeeping
 accordingly.</div></li><li><div class="item-name"><a class="trait" href="trait.InspectHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::InspectHold">InspectHold</a></div><div class="desc docblock-short">Trait for inspecting a fungible asset whose accounts support partitioning and slashing.</div></li><li><div class="item-name"><a class="trait" href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Mutate">Mutate</a></div><div class="desc docblock-short">Trait for providing a basic fungible asset.</div></li><li><div class="item-name"><a class="trait" href="trait.MutateFreeze.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::MutateFreeze">MutateFreeze</a></div><div class="desc docblock-short">Trait for introducing, altering and removing locks to freeze an account’s funds so they never
 go below a set minimum.</div></li><li><div class="item-name"><a class="trait" href="trait.MutateHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::MutateHold">MutateHold</a></div><div class="desc docblock-short">Trait for mutating a fungible asset which can be placed on hold.</div></li><li><div class="item-name"><a class="trait" href="trait.Unbalanced.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::Unbalanced">Unbalanced</a></div><div class="desc docblock-short">A fungible token class where the balance can be set arbitrarily.</div></li><li><div class="item-name"><a class="trait" href="trait.UnbalancedHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungibles::UnbalancedHold">UnbalancedHold</a></div><div class="desc docblock-short">A fungible, holdable token class where the balance on hold can be set arbitrarily.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Credit.html" title="type polkadot_sdk_frame::traits::tokens::fungibles::Credit">Credit</a></div><div class="desc docblock-short">Imbalance implying that the total_issuance value is greater than the sum of all account
-balances.</div></li><li><div class="item-name"><a class="type" href="type.Debt.html" title="type polkadot_sdk_frame::traits::tokens::fungibles::Debt">Debt</a></div><div class="desc docblock-short">Imbalance implying that the total_issuance value is less than the sum of all account balances.</div></li></ul></section></div></main></body></html>
+balances.</div></li><li><div class="item-name"><a class="type" href="type.Debt.html" title="type polkadot_sdk_frame::traits::tokens::fungibles::Debt">Debt</a></div><div class="desc docblock-short">Imbalance implying that the total_issuance value is less than the sum of all account balances.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

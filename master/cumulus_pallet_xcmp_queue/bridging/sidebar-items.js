@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["InAndOutXcmpChannelStatusProvider","OutXcmpChannelStatusProvider"]};
+window.SIDEBAR_ITEMS = {"fn":["suspend_channel_for_benchmarks"],"struct":["InAndOutXcmpChannelStatusProvider","OutXcmpChannelStatusProvider"]};

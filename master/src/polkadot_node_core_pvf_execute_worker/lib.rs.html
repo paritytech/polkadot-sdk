@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -1449,4 +1451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">fn </span>job_error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, errno: Errno) -&gt; JobResult {
 	<span class="prelude-val">Err</span>(JobError::Kernel(<span class="macro">format!</span>(<span class="string">&quot;{}: {}: {}&quot;</span>, context, errno, io::Error::last_os_error())))
 }
-</code></pre></div></section></main></body></html>
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

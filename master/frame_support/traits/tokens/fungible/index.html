@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -279,4 +281,7 @@ and for <a href="enum.NativeOrWithId.html#variant.WithId" title="variant frame_s
 asset with a specific ID.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Balanced.html" title="trait frame_support::traits::tokens::fungible::Balanced">Balanced</a></div><div class="desc docblock-short">A fungible token class where any creation and deletion of tokens is semi-explicit and where the
 total supply is maintained automatically.</div></li><li><div class="item-name"><a class="trait" href="trait.HandleImbalanceDrop.html" title="trait frame_support::traits::tokens::fungible::HandleImbalanceDrop">HandleImbalanceDrop</a></div><div class="desc docblock-short">Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
 debt (positive) imbalance.</div></li><li><div class="item-name"><a class="trait" href="trait.Inspect.html" title="trait frame_support::traits::tokens::fungible::Inspect">Inspect</a></div><div class="desc docblock-short">Trait for providing balance-inspection access to a fungible asset.</div></li><li><div class="item-name"><a class="trait" href="trait.Mutate.html" title="trait frame_support::traits::tokens::fungible::Mutate">Mutate</a></div><div class="desc docblock-short">Trait for providing a basic fungible asset.</div></li><li><div class="item-name"><a class="trait" href="trait.Unbalanced.html" title="trait frame_support::traits::tokens::fungible::Unbalanced">Unbalanced</a></div><div class="desc docblock-short">A fungible token class where the balance can be set arbitrarily.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Credit.html" title="type frame_support::traits::tokens::fungible::Credit">Credit</a></div><div class="desc docblock-short">Imbalance implying that the total_issuance value is greater than the sum of all account
-balances.</div></li><li><div class="item-name"><a class="type" href="type.Debt.html" title="type frame_support::traits::tokens::fungible::Debt">Debt</a></div><div class="desc docblock-short">Imbalance implying that the total_issuance value is less than the sum of all account balances.</div></li></ul></section></div></main></body></html>
+balances.</div></li><li><div class="item-name"><a class="type" href="type.Debt.html" title="type frame_support::traits::tokens::fungible::Debt">Debt</a></div><div class="desc docblock-short">Imbalance implying that the total_issuance value is less than the sum of all account balances.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

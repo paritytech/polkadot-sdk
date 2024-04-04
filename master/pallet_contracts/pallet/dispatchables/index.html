@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -154,4 +156,7 @@ purposes. To see the real version of each dispatchable, look for them in <a href
 some balance.</div></li><li><div class="item-name"><a class="fn" href="fn.instantiate_with_code_old_weight.html" title="fn pallet_contracts::pallet::dispatchables::instantiate_with_code_old_weight">instantiate_with_code_old_weight</a></div><div class="desc docblock-short">Deprecated version if [<code>Self::instantiate_with_code</code>] for use in an in-storage <code>Call</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.migrate.html" title="fn pallet_contracts::pallet::dispatchables::migrate">migrate</a></div><div class="desc docblock-short">When a migration is in progress, this dispatchable can be used to run migration steps.
 Calls that contribute to advancing the migration have their fees waived, as it’s helpful
 for the chain. Note that while the migration is in progress, the pallet will also
-leverage the <code>on_idle</code> hooks to run migration steps.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_code.html" title="fn pallet_contracts::pallet::dispatchables::remove_code">remove_code</a></div><div class="desc docblock-short">Remove the code stored under <code>code_hash</code> and refund the deposit to its owner.</div></li><li><div class="item-name"><a class="fn" href="fn.set_code.html" title="fn pallet_contracts::pallet::dispatchables::set_code">set_code</a></div><div class="desc docblock-short">Privileged function that changes the code of an existing contract.</div></li><li><div class="item-name"><a class="fn" href="fn.upload_code.html" title="fn pallet_contracts::pallet::dispatchables::upload_code">upload_code</a></div><div class="desc docblock-short">Upload new <code>code</code> without instantiating a contract from it.</div></li></ul></section></div></main></body></html>
+leverage the <code>on_idle</code> hooks to run migration steps.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_code.html" title="fn pallet_contracts::pallet::dispatchables::remove_code">remove_code</a></div><div class="desc docblock-short">Remove the code stored under <code>code_hash</code> and refund the deposit to its owner.</div></li><li><div class="item-name"><a class="fn" href="fn.set_code.html" title="fn pallet_contracts::pallet::dispatchables::set_code">set_code</a></div><div class="desc docblock-short">Privileged function that changes the code of an existing contract.</div></li><li><div class="item-name"><a class="fn" href="fn.upload_code.html" title="fn pallet_contracts::pallet::dispatchables::upload_code">upload_code</a></div><div class="desc docblock-short">Upload new <code>code</code> without instantiating a contract from it.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

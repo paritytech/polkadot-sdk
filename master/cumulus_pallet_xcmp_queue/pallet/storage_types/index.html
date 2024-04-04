@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -157,4 +159,7 @@ and last outbound message. If the two indices are equal, then it indicates an em
 queue and there must be a non-<code>Ok</code> <code>OutboundStatus</code>. We assume queues grow no greater
 than 65535 items. Queue indices for normal messages begin at one; zero is reserved in
 case of the need to send a high-priority signal message this block.
-The bool is true if there is a signal message waiting to be sent.</div></li><li><div class="item-name"><a class="struct" href="struct.QueueConfig.html" title="struct cumulus_pallet_xcmp_queue::pallet::storage_types::QueueConfig">QueueConfig</a></div><div class="desc docblock-short">The configuration which controls the dynamics of the outbound queue.</div></li><li><div class="item-name"><a class="struct" href="struct.QueueSuspended.html" title="struct cumulus_pallet_xcmp_queue::pallet::storage_types::QueueSuspended">QueueSuspended</a></div><div class="desc docblock-short">Whether or not the XCMP queue is suspended from executing incoming XCMs or not.</div></li><li><div class="item-name"><a class="struct" href="struct.SignalMessages.html" title="struct cumulus_pallet_xcmp_queue::pallet::storage_types::SignalMessages">SignalMessages</a></div><div class="desc docblock-short">Any signal messages waiting to be sent.</div></li></ul></section></div></main></body></html>
+The bool is true if there is a signal message waiting to be sent.</div></li><li><div class="item-name"><a class="struct" href="struct.QueueConfig.html" title="struct cumulus_pallet_xcmp_queue::pallet::storage_types::QueueConfig">QueueConfig</a></div><div class="desc docblock-short">The configuration which controls the dynamics of the outbound queue.</div></li><li><div class="item-name"><a class="struct" href="struct.QueueSuspended.html" title="struct cumulus_pallet_xcmp_queue::pallet::storage_types::QueueSuspended">QueueSuspended</a></div><div class="desc docblock-short">Whether or not the XCMP queue is suspended from executing incoming XCMs or not.</div></li><li><div class="item-name"><a class="struct" href="struct.SignalMessages.html" title="struct cumulus_pallet_xcmp_queue::pallet::storage_types::SignalMessages">SignalMessages</a></div><div class="desc docblock-short">Any signal messages waiting to be sent.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

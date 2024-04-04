@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -193,4 +195,7 @@ applied.</p>
 </span><span class="kw">let </span>f1_ptr = <span class="kw">unsafe </span>{ <span class="macro">ptr::addr_of_mut!</span>((<span class="kw-2">*</span>uninit.as_mut_ptr()).field) };
 <span class="kw">unsafe </span>{ f1_ptr.write(<span class="bool-val">true</span>); }
 <span class="kw">let </span>init = <span class="kw">unsafe </span>{ uninit.assume_init() };</code></pre></div>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

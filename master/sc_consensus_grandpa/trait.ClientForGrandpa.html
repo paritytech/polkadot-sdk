@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -153,4 +155,7 @@ tracking issue <a href="https://github.com/rust-lang/rust/issues/41517">https://
 </div></details><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-ClientForGrandpa%3CBlock,+BE%3E-for-T" class="impl"><a class="src rightside" href="../src/sc_consensus_grandpa/lib.rs.html#319-334">source</a><a href="#impl-ClientForGrandpa%3CBlock,+BE%3E-for-T" class="anchor">§</a><h3 class="code-header">impl&lt;Block, BE, T&gt; <a class="trait" href="trait.ClientForGrandpa.html" title="trait sc_consensus_grandpa::ClientForGrandpa">ClientForGrandpa</a>&lt;Block, BE&gt; for T<span class="where fmt-newline">where
     BE: Backend&lt;Block&gt;,
     Block: BlockT,
-    T: LockImportRun&lt;Block, BE&gt; + Finalizer&lt;Block, BE&gt; + AuxStore + HeaderMetadata&lt;Block, Error = Error&gt; + HeaderBackend&lt;Block&gt; + BlockchainEvents&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + ExecutorProvider&lt;Block&gt; + BlockImport&lt;Block, Error = Error&gt; + StorageProvider&lt;Block, BE&gt;,</span></h3></section></div><script src="../trait.impl/sc_consensus_grandpa/trait.ClientForGrandpa.js" async></script></section></div></main></body></html>
+    T: LockImportRun&lt;Block, BE&gt; + Finalizer&lt;Block, BE&gt; + AuxStore + HeaderMetadata&lt;Block, Error = Error&gt; + HeaderBackend&lt;Block&gt; + BlockchainEvents&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + ExecutorProvider&lt;Block&gt; + BlockImport&lt;Block, Error = Error&gt; + StorageProvider&lt;Block, BE&gt;,</span></h3></section></div><script src="../trait.impl/sc_consensus_grandpa/trait.ClientForGrandpa.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

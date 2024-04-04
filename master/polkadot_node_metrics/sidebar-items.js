@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["logger_hook"],"mod":["metrics","metronome"]};
+window.SIDEBAR_ITEMS = {"mod":["metrics","metronome","runtime"]};

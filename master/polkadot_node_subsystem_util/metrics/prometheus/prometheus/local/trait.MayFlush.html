@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -156,4 +158,7 @@ Not intend to be implemented by user manually, used in macro generated code.</p>
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.may_flush" class="method"><h4 class="code-header">fn <a href="#tymethod.may_flush" class="fn">may_flush</a>(&amp;self)</h4></section></summary><div class="docblock"><p>Open to implementation to fill try_flush parameters</p>
 </div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.try_flush" class="method"><h4 class="code-header">fn <a href="#method.try_flush" class="fn">try_flush</a>(&amp;self, last_flush: &amp;<a class="struct" href="https://doc.rust-lang.org/1.75.0/core/cell/struct.Cell.html" title="struct core::cell::Cell">Cell</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u64.html">u64</a>&gt;, flush_interval_millis: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u64.html">u64</a>)</h4></section></summary><div class="docblock"><p>If the LocalMetric is already flushed in last <code>flush_interval_sec</code> seconds, then do nothing,
 else flush and update last flush time.</p>
-</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../../../../trait.impl/prometheus/metrics/trait.MayFlush.js" async></script></section></div></main></body></html>
+</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../../../../trait.impl/prometheus/metrics/trait.MayFlush.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -153,4 +155,7 @@ purposes. To see the real version of each dispatchable, look for them in <a href
 </div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.as_recovered.html" title="fn pallet_recovery::pallet::dispatchables::as_recovered">as_recovered</a></div><div class="desc docblock-short">Send a call through a recovered account.</div></li><li><div class="item-name"><a class="fn" href="fn.cancel_recovered.html" title="fn pallet_recovery::pallet::dispatchables::cancel_recovered">cancel_recovered</a></div><div class="desc docblock-short">Cancel the ability to use <code>as_recovered</code> for <code>account</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.claim_recovery.html" title="fn pallet_recovery::pallet::dispatchables::claim_recovery">claim_recovery</a></div><div class="desc docblock-short">Allow a successful rescuer to claim their recovered account.</div></li><li><div class="item-name"><a class="fn" href="fn.close_recovery.html" title="fn pallet_recovery::pallet::dispatchables::close_recovery">close_recovery</a></div><div class="desc docblock-short">As the controller of a recoverable account, close an active recovery
 process for your account.</div></li><li><div class="item-name"><a class="fn" href="fn.create_recovery.html" title="fn pallet_recovery::pallet::dispatchables::create_recovery">create_recovery</a></div><div class="desc docblock-short">Create a recovery configuration for your account. This makes your account recoverable.</div></li><li><div class="item-name"><a class="fn" href="fn.initiate_recovery.html" title="fn pallet_recovery::pallet::dispatchables::initiate_recovery">initiate_recovery</a></div><div class="desc docblock-short">Initiate the process for recovering a recoverable account.</div></li><li><div class="item-name"><a class="fn" href="fn.remove_recovery.html" title="fn pallet_recovery::pallet::dispatchables::remove_recovery">remove_recovery</a></div><div class="desc docblock-short">Remove the recovery process for your account. Recovered accounts are still accessible.</div></li><li><div class="item-name"><a class="fn" href="fn.set_recovered.html" title="fn pallet_recovery::pallet::dispatchables::set_recovered">set_recovered</a></div><div class="desc docblock-short">Allow ROOT to bypass the recovery process and set an a rescuer account
 for a lost account directly.</div></li><li><div class="item-name"><a class="fn" href="fn.vouch_recovery.html" title="fn pallet_recovery::pallet::dispatchables::vouch_recovery">vouch_recovery</a></div><div class="desc docblock-short">Allow a “friend” of a recoverable account to vouch for an active recovery
-process for that account.</div></li></ul></section></div></main></body></html>
+process for that account.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

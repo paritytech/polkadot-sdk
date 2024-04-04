@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -151,4 +153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(&lt;T as <a class="trait" href="../trait.SendXcm.html" title="trait cumulus_primitives_core::SendXcm">SendXcm</a>&gt;::<a class="associatedtype" href="../trait.SendXcm.html#associatedtype.Ticket" title="type cumulus_primitives_core::SendXcm::Ticket">Ticket</a>, <a class="struct" href="../struct.Assets.html" title="struct cumulus_primitives_core::Assets">Assets</a>), <a class="enum" href="../enum.SendError.html" title="enum cumulus_primitives_core::SendError">SendError</a>&gt;<span class="where fmt-newline">where
     T: <a class="trait" href="../trait.SendXcm.html" title="trait cumulus_primitives_core::SendXcm">SendXcm</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Convenience function for using a <code>SendXcm</code> implementation. Just interprets the <code>dest</code> and wraps
 both in <code>Some</code> before passing them as as mutable references into <code>T::send_xcm</code>.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

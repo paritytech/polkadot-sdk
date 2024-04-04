@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -150,4 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 default dispatcher when dropped.</div></li><li><div class="item-name"><a class="struct" href="struct.Interest.html" title="struct polkadot_node_subsystem::gen::tracing::subscriber::Interest">Interest</a></div><div class="desc docblock-short">Indicates a <a href="../trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::Subscriber"><code>Subscriber</code></a>’s interest in a particular callsite.</div></li><li><div class="item-name"><a class="struct" href="struct.NoSubscriber.html" title="struct polkadot_node_subsystem::gen::tracing::subscriber::NoSubscriber">NoSubscriber</a></div><div class="desc docblock-short">A no-op <a href="../trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::Subscriber"><code>Subscriber</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.SetGlobalDefaultError.html" title="struct polkadot_node_subsystem::gen::tracing::subscriber::SetGlobalDefaultError">SetGlobalDefaultError</a></div><div class="desc docblock-short">Returned if setting the global dispatcher fails.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::subscriber::Subscriber">Subscriber</a></div><div class="desc docblock-short">Trait representing the functions required to collect trace data.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.set_default.html" title="fn polkadot_node_subsystem::gen::tracing::subscriber::set_default">set_default</a></div><div class="desc docblock-short">Sets the <a href="../trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::Subscriber"><code>Subscriber</code></a> as the default for the current thread for the
 duration of the lifetime of the returned <a href="struct.DefaultGuard.html" title="struct polkadot_node_subsystem::gen::tracing::subscriber::DefaultGuard"><code>DefaultGuard</code></a>.</div></li><li><div class="item-name"><a class="fn" href="fn.set_global_default.html" title="fn polkadot_node_subsystem::gen::tracing::subscriber::set_global_default">set_global_default</a></div><div class="desc docblock-short">Sets this subscriber as the global default for the duration of the entire program.
 Will be used as a fallback if no thread-local subscriber has been set in a thread (using <code>with_default</code>.)</div></li><li><div class="item-name"><a class="fn" href="fn.with_default.html" title="fn polkadot_node_subsystem::gen::tracing::subscriber::with_default">with_default</a></div><div class="desc docblock-short">Sets this <a href="../trait.Subscriber.html" title="trait polkadot_node_subsystem::gen::tracing::Subscriber"><code>Subscriber</code></a> as the default for the current thread for the
-duration of a closure.</div></li></ul></section></div></main></body></html>
+duration of a closure.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

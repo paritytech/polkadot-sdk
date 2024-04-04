@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -157,4 +159,7 @@ to the information in the <code>Pool</code>. But the Map enables us to easily
 check if a candidate is already in the pool, without having to
 iterate over the entire pool (the <code>Pool</code> is not sorted by
 <code>T::AccountId</code>, but by <code>T::Score</code> instead).</div></li><li><div class="item-name"><a class="struct" href="struct.MemberCount.html" title="struct pallet_scored_pool::pallet::storage_types::MemberCount">MemberCount</a></div><div class="desc docblock-short">Size of the <code>Members</code> set.</div></li><li><div class="item-name"><a class="struct" href="struct.Members.html" title="struct pallet_scored_pool::pallet::storage_types::Members">Members</a></div><div class="desc docblock-short">The current membership, stored as an ordered Vec.</div></li><li><div class="item-name"><a class="struct" href="struct.Pool.html" title="struct pallet_scored_pool::pallet::storage_types::Pool">Pool</a></div><div class="desc docblock-short">The current pool of candidates, stored as an ordered Bounded Vec
-(ordered descending by score, <code>None</code> last, highest first).</div></li></ul></section></div></main></body></html>
+(ordered descending by score, <code>None</code> last, highest first).</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

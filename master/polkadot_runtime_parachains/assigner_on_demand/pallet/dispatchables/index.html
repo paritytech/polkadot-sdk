@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -152,4 +154,7 @@ purposes. To see the real version of each dispatchable, look for them in <a href
 <a href="../enum.Call.html" title="enum polkadot_runtime_parachains::assigner_on_demand::pallet::Call"><code>Call</code></a>.</p>
 </div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.place_order_allow_death.html" title="fn polkadot_runtime_parachains::assigner_on_demand::pallet::dispatchables::place_order_allow_death">place_order_allow_death</a></div><div class="desc docblock-short">Create a single on demand core order.
 Will use the spot price for the current block and will reap the account if needed.</div></li><li><div class="item-name"><a class="fn" href="fn.place_order_keep_alive.html" title="fn polkadot_runtime_parachains::assigner_on_demand::pallet::dispatchables::place_order_keep_alive">place_order_keep_alive</a></div><div class="desc docblock-short">Same as the <a href="Self::place_order_allow_death"><code>place_order_allow_death</code></a> call , but with a
-check that placing the order will not reap the account.</div></li></ul></section></div></main></body></html>
+check that placing the order will not reap the account.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

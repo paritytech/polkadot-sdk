@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -156,4 +158,7 @@ previous <code>store</code> or <code>renew</code> call and transaction index wit
 Transaction index is emitted in the <code>Stored</code> or <code>Renewed</code> event.
 Applies same fees as <code>store</code>.</div></li><li><div class="item-name"><a class="fn" href="fn.store.html" title="fn pallet_transaction_storage::pallet::dispatchables::store">store</a></div><div class="desc docblock-short">Index and store data off chain. Minimum data size is 1 bytes, maximum is
 <code>MaxTransactionSize</code>. Data will be removed after <code>STORAGE_PERIOD</code> blocks, unless <code>renew</code>
-is called.</div></li></ul></section></div></main></body></html>
+is called.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

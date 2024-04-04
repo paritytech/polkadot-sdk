@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -157,4 +159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </div><span id="structfield.hash" class="structfield small-section-header"><a href="#structfield.hash" class="anchor field">§</a><code>hash: &lt;&lt;L as <a class="trait" href="trait.TrieLayout.html" title="trait sp_trie::TrieLayout">TrieLayout</a>&gt;::<a class="associatedtype" href="trait.TrieLayout.html#associatedtype.Hash" title="type sp_trie::TrieLayout::Hash">Hash</a> as Hasher&gt;::Out</code></span><div class="docblock"><p>Hash to start at</p>
 </div><span id="structfield.cache" class="structfield small-section-header"><a href="#structfield.cache" class="anchor field">§</a><code>cache: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'cache mut dyn <a class="trait" href="trait.TrieCache.html" title="trait sp_trie::TrieCache">TrieCache</a>&lt;&lt;L as <a class="trait" href="trait.TrieLayout.html" title="trait sp_trie::TrieLayout">TrieLayout</a>&gt;::<a class="associatedtype" href="trait.TrieLayout.html#associatedtype.Codec" title="type sp_trie::TrieLayout::Codec">Codec</a>&gt;&gt;</code></span><div class="docblock"><p>Optional cache that should be used to speed up the lookup.</p>
 </div><span id="structfield.recorder" class="structfield small-section-header"><a href="#structfield.recorder" class="anchor field">§</a><code>recorder: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;'cache mut dyn <a class="trait" href="trait.TrieRecorder.html" title="trait sp_trie::TrieRecorder">TrieRecorder</a>&lt;&lt;&lt;L as <a class="trait" href="trait.TrieLayout.html" title="trait sp_trie::TrieLayout">TrieLayout</a>&gt;::<a class="associatedtype" href="trait.TrieLayout.html#associatedtype.Hash" title="type sp_trie::TrieLayout::Hash">Hash</a> as Hasher&gt;::Out&gt;&gt;</code></span><div class="docblock"><p>Optional recorder that will be called to record all trie accesses.</p>
-</div><script src="../type.impl/trie_db/lookup/struct.Lookup.js" data-self-path="sp_trie::Lookup" async></script></section></div></main></body></html>
+</div><script src="../type.impl/trie_db/lookup/struct.Lookup.js" data-self-path="sp_trie::Lookup" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -152,4 +154,7 @@ sets up a panic hook that prints a backtrace and invites the user to open an iss
 given URL.</p>
 <p>By default, the panic handler aborts the process by calling <a href="https://doc.rust-lang.org/1.75.0/std/process/fn.exit.html" title="fn std::process::exit"><code>std::process::exit</code></a>. This can
 temporarily be disabled by using an <a href="struct.AbortGuard.html" title="struct sp_panic_handler::AbortGuard"><code>AbortGuard</code></a>.</p>
-</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AbortGuard.html" title="struct sp_panic_handler::AbortGuard">AbortGuard</a></div><div class="desc docblock-short">RAII guard for whether panics in the current thread should unwind or abort.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.set.html" title="fn sp_panic_handler::set">set</a></div><div class="desc docblock-short">Set the panic hook.</div></li></ul></section></div></main></body></html>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AbortGuard.html" title="struct sp_panic_handler::AbortGuard">AbortGuard</a></div><div class="desc docblock-short">RAII guard for whether panics in the current thread should unwind or abort.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.set.html" title="fn sp_panic_handler::set">set</a></div><div class="desc docblock-short">Set the panic hook.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {};
+window.SIDEBAR_ITEMS = {"struct":["Pallet"],"trait":["Config","IdTupleConvert"]};

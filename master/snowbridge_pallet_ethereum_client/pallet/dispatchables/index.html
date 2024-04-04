@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -152,4 +154,7 @@ purposes. To see the real version of each dispatchable, look for them in <a href
 <a href="../enum.Call.html" title="enum snowbridge_pallet_ethereum_client::pallet::Call"><code>Call</code></a>.</p>
 </div></details><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.force_checkpoint.html" title="fn snowbridge_pallet_ethereum_client::pallet::dispatchables::force_checkpoint">force_checkpoint</a></div><div class="desc docblock-short">Used for pallet initialization and light client resetting. Needs to be called by
 the root origin.</div></li><li><div class="item-name"><a class="fn" href="fn.set_operating_mode.html" title="fn snowbridge_pallet_ethereum_client::pallet::dispatchables::set_operating_mode">set_operating_mode</a></div><div class="desc docblock-short">Halt or resume all pallet operations. May only be called by root.</div></li><li><div class="item-name"><a class="fn" href="fn.submit.html" title="fn snowbridge_pallet_ethereum_client::pallet::dispatchables::submit">submit</a></div><div class="desc docblock-short">Submits a new finalized beacon header update. The update may contain the next
-sync committee.</div></li></ul></section></div></main></body></html>
+sync committee.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

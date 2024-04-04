@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -150,4 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 of the epoch.</div></li><li><div class="item-name"><a class="struct" href="struct.PrimaryPreDigest.html" title="struct sp_consensus_babe::digests::PrimaryPreDigest">PrimaryPreDigest</a></div><div class="desc docblock-short">Raw BABE primary slot assignment pre-digest.</div></li><li><div class="item-name"><a class="struct" href="struct.SecondaryPlainPreDigest.html" title="struct sp_consensus_babe::digests::SecondaryPlainPreDigest">SecondaryPlainPreDigest</a></div><div class="desc docblock-short">BABE secondary slot assignment pre-digest.</div></li><li><div class="item-name"><a class="struct" href="struct.SecondaryVRFPreDigest.html" title="struct sp_consensus_babe::digests::SecondaryVRFPreDigest">SecondaryVRFPreDigest</a></div><div class="desc docblock-short">BABE secondary deterministic slot assignment with VRF outputs.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.NextConfigDescriptor.html" title="enum sp_consensus_babe::digests::NextConfigDescriptor">NextConfigDescriptor</a></div><div class="desc docblock-short">Information about the next epoch config, if changed. This is broadcast in the first
 block of the epoch, and applies using the same rules as <code>NextEpochDescriptor</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.PreDigest.html" title="enum sp_consensus_babe::digests::PreDigest">PreDigest</a></div><div class="desc docblock-short">A BABE pre-runtime digest. This contains all data required to validate a
 block and for the BABE runtime module. Slots can be assigned to a primary
-(VRF based) and to a secondary (slot number based).</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.CompatibleDigestItem.html" title="trait sp_consensus_babe::digests::CompatibleDigestItem">CompatibleDigestItem</a></div><div class="desc docblock-short">A digest item which is usable with BABE consensus.</div></li></ul></section></div></main></body></html>
+(VRF based) and to a secondary (slot number based).</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.CompatibleDigestItem.html" title="trait sp_consensus_babe::digests::CompatibleDigestItem">CompatibleDigestItem</a></div><div class="desc docblock-short">A digest item which is usable with BABE consensus.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

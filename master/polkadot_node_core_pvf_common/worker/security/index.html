@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -163,4 +165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 changing the root.</div></li><li><div class="item-name"><a class="mod" href="clone/index.html" title="mod polkadot_node_core_pvf_common::worker::security::clone">clone</a></div><div class="desc docblock-short">Functionality for securing the job processes spawned by the workers using <code>clone</code>. If
 unsupported, falls back to <code>fork</code>.</div></li><li><div class="item-name"><a class="mod" href="landlock/index.html" title="mod polkadot_node_core_pvf_common::worker::security::landlock">landlock</a></div><div class="desc docblock-short">The <a href="https://docs.rs/landlock/latest/landlock/index.html">landlock</a> docs say it best:</div></li><li><div class="item-name"><a class="mod" href="seccomp/index.html" title="mod polkadot_node_core_pvf_common::worker::security::seccomp">seccomp</a></div><div class="desc docblock-short">Functionality for sandboxing workers by restricting their capabilities by blocking certain
 syscalls with seccomp.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.check_env_vars_were_cleared.html" title="fn polkadot_node_core_pvf_common::worker::security::check_env_vars_were_cleared">check_env_vars_were_cleared</a></div><div class="desc docblock-short">Require env vars to have been removed when spawning the process, to prevent malicious code from
-accessing them.</div></li></ul></section></div></main></body></html>
+accessing them.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

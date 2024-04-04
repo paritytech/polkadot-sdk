@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -149,4 +151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     ( <span class="macro-nonterminal">$x</span>:expr, <span class="macro-nonterminal">$y</span>:expr $(,)<span class="question-mark">? </span>) =&gt; { ... };
 }</pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Evaluate <code>$x:expr</code> and if not true return <code>Err($y:expr)</code>.</p>
 <p>Used as <code>ensure!(expression_to_ensure, expression_to_return_on_false)</code>.</p>
-</div></details></section></div></main></body></html>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

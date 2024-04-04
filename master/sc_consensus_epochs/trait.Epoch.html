@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -162,4 +164,7 @@ changed. Consensus engine may modify any other data in the epoch, if needed.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.end_slot" class="method"><a class="src rightside" href="../src/sc_consensus_epochs/lib.rs.html#91">source</a><h4 class="code-header">fn <a href="#tymethod.end_slot" class="fn">end_slot</a>(&amp;self) -&gt; Self::<a class="associatedtype" href="trait.Epoch.html#associatedtype.Slot" title="type sc_consensus_epochs::Epoch::Slot">Slot</a></h4></section></summary><div class="docblock"><p>Produce the “end slot” of the epoch. This is NOT inclusive to the epoch,
 i.e. the slots covered by the epoch are <code>self.start_slot() .. self.end_slot()</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.increment" class="method"><a class="src rightside" href="../src/sc_consensus_epochs/lib.rs.html#93">source</a><h4 class="code-header">fn <a href="#tymethod.increment" class="fn">increment</a>(&amp;self, descriptor: Self::<a class="associatedtype" href="trait.Epoch.html#associatedtype.NextEpochDescriptor" title="type sc_consensus_epochs::Epoch::NextEpochDescriptor">NextEpochDescriptor</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Increment the epoch data, using the next epoch descriptor.</p>
-</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sc_consensus_epochs/trait.Epoch.js" async></script></section></div></main></body></html>
+</div></details></div><h2 id="object-safety" class="small-section-header">Object Safety<a href="#object-safety" class="anchor">§</a></h2><div class="object-safety-info">This trait is <b>not</b> <a href="https://doc.rust-lang.org/1.75.0/reference/items/traits.html#object-safety">object safe</a>.</div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/sc_consensus_epochs/trait.Epoch.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

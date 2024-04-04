@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -368,7 +370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>count: u32 =
 			cursor.as_ref().and_then(|c| Decode::decode(<span class="kw-2">&amp;mut &amp;</span>c[..]).ok()).unwrap_or(<span class="number">0</span>);
-		<span class="macro">log::debug!</span>(<span class="string">&quot;MockedMigration: Step {}&quot;</span>, count);
+		<span class="macro">log::debug!</span>(<span class="string">&quot;MockedMigration: Step {count} vs max {steps}&quot;</span>);
 		<span class="kw">if </span>count != steps || <span class="macro">matches!</span>(kind, TimeoutAfter) {
 			count += <span class="number">1</span>;
 			<span class="kw">return </span><span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(count.encode())))
@@ -429,4 +431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MIGRATIONS::set(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[(SucceedAfter, steps)]);
 	}
 }
-</code></pre></div></section></main></body></html>
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

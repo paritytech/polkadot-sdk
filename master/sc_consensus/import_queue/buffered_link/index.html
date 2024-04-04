@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -159,4 +161,7 @@ tx.blocks_processed(<span class="number">0</span>, <span class="number">0</span>
 });</code></pre></div>
 </div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.BufferedLinkReceiver.html" title="struct sc_consensus::import_queue::buffered_link::BufferedLinkReceiver">BufferedLinkReceiver</a></div><div class="desc docblock-short">See <a href="fn.buffered_link.html" title="fn sc_consensus::import_queue::buffered_link::buffered_link"><code>buffered_link</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.BufferedLinkSender.html" title="struct sc_consensus::import_queue::buffered_link::BufferedLinkSender">BufferedLinkSender</a></div><div class="desc docblock-short">See <a href="fn.buffered_link.html" title="fn sc_consensus::import_queue::buffered_link::buffered_link"><code>buffered_link</code></a>.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.BlockImportWorkerMsg.html" title="enum sc_consensus::import_queue::buffered_link::BlockImportWorkerMsg">BlockImportWorkerMsg</a></div><div class="desc docblock-short">Internal buffered message.</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.buffered_link.html" title="fn sc_consensus::import_queue::buffered_link::buffered_link">buffered_link</a></div><div class="desc docblock-short">Wraps around an unbounded channel from the <code>futures</code> crate. The sender implements <code>Link</code> and
 can be used to buffer commands, and the receiver can be used to poll said commands and transfer
-them to another link. <code>queue_size_warning</code> sets the warning threshold of the channel queue size.</div></li></ul></section></div></main></body></html>
+them to another link. <code>queue_size_warning</code> sets the warning threshold of the channel queue size.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

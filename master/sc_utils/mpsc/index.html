@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -150,4 +152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 measure when a message is polled.</div></li><li><div class="item-name"><a class="struct" href="struct.TracingUnboundedSender.html" title="struct sc_utils::mpsc::TracingUnboundedSender">TracingUnboundedSender</a></div><div class="desc docblock-short">Wrapper Type around [<code>async_channel::Sender</code>] that increases the global
 measure when a message is added.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.TryRecvError.html" title="enum sc_utils::mpsc::TryRecvError">TryRecvError</a></div><div class="desc docblock-short">An error returned from [<code>Receiver::try_recv()</code>].</div></li><li><div class="item-name"><a class="enum" href="enum.TrySendError.html" title="enum sc_utils::mpsc::TrySendError">TrySendError</a></div><div class="desc docblock-short">An error returned from [<code>Sender::try_send()</code>].</div></li></ul><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.tracing_unbounded.html" title="fn sc_utils::mpsc::tracing_unbounded">tracing_unbounded</a></div><div class="desc docblock-short">Wrapper around [<code>async_channel::unbounded</code>] that tracks the in- and outflow via
 <code>UNBOUNDED_CHANNELS_COUNTER</code> and warns if the message queue grows
-above the warning threshold.</div></li></ul></section></div></main></body></html>
+above the warning threshold.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

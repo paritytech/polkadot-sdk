@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -891,6 +893,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#744" id="744">744</a>
 <a href="#745" id="745">745</a>
 <a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1169,9 +1213,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
-	<span class="attr">#[pallet::config]
+	<span class="attr">#[pallet::config(with_default)]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
 		<span class="doccomment">/// The overarching event type of the runtime.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
 		<span class="doccomment">/// All the multi-block migrations to run.
@@ -1179,12 +1224,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Should only be updated in a runtime-upgrade once all the old migrations have completed.
 		/// (Check that [`Cursor`] is `None`).
 		</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+		#[pallet::no_default]
 		</span><span class="kw">type </span>Migrations: SteppedMigrations;
 
 		<span class="doccomment">/// Mocked migrations for benchmarking only.
 		///
 		/// Should be configured to [`crate::mock_helpers::MockedMigrations`] in benchmarks.
 		</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		#[pallet::no_default]
 		</span><span class="kw">type </span>Migrations: MockedMigrations;
 
 		<span class="doccomment">/// The maximal length of an encoded cursor.
@@ -1214,6 +1261,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Weight information for the calls and functions of this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
+	}
+
+	<span class="doccomment">/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	</span><span class="kw">pub mod </span>config_preludes {
+		<span class="kw">use super</span>::{inject_runtime_type, DefaultConfig};
+		<span class="kw">use </span>frame_support::{
+			derive_impl,
+			migrations::FreezeChainOnFailedMigration,
+			pallet_prelude::{ConstU32, <span class="kw-2">*</span>},
+		};
+		<span class="kw">use </span>frame_system::limits::BlockWeights;
+
+		<span class="doccomment">/// Provides a viable default config that can be used with
+		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
+		/// based on this one.
+		///
+		/// See `Test` in the `default-config` example pallet&#39;s `test.rs` for an example of
+		/// a downstream user of this particular `TestDefaultConfig`
+		</span><span class="kw">pub struct </span>TestDefaultConfig;
+
+		<span class="macro">frame_support::parameter_types! </span>{
+			<span class="doccomment">/// Maximal weight per block that can be spent on migrations in tests.
+			</span><span class="kw">pub </span>TestMaxServiceWeight: Weight = &lt;&lt;TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig&gt;::BlockWeights <span class="kw">as </span>Get&lt;BlockWeights&gt;&gt;::get().max_block.div(<span class="number">2</span>);
+		}
+
+		<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+		</span><span class="kw">impl </span>frame_system::DefaultConfig <span class="kw">for </span>TestDefaultConfig {}
+
+		<span class="attr">#[frame_support::register_default_impl(TestDefaultConfig)]
+		</span><span class="kw">impl </span>DefaultConfig <span class="kw">for </span>TestDefaultConfig {
+			<span class="attr">#[inject_runtime_type]
+			</span><span class="kw">type </span>RuntimeEvent = ();
+			<span class="kw">type </span>CursorMaxLen = ConstU32&lt;{ <span class="number">1 </span>&lt;&lt; <span class="number">16 </span>}&gt;;
+			<span class="kw">type </span>IdentifierMaxLen = ConstU32&lt;{ <span class="number">256 </span>}&gt;;
+			<span class="kw">type </span>MigrationStatusHandler = ();
+			<span class="kw">type </span>FailedMigrationHandler = FreezeChainOnFailedMigration;
+			<span class="kw">type </span>MaxServiceWeight = TestMaxServiceWeight;
+			<span class="kw">type </span>WeightInfo = ();
+		}
 	}
 
 	<span class="doccomment">/// The currently active migration to run and its cursor.
@@ -1314,12 +1400,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="comment">// The per-block service weight is sane.
-			</span><span class="attr">#[cfg(not(test))]
 			</span>{
 				<span class="kw">let </span>want = T::MaxServiceWeight::get();
 				<span class="kw">let </span>max = &lt;T <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block;
 
-				<span class="macro">assert!</span>(want.all_lte(max), <span class="string">&quot;Service weight is larger than a block: {want} &gt; {max}&quot;</span>,);
+				<span class="macro">assert!</span>(want.all_lte(max), <span class="string">&quot;Service weight is larger than a block: {want} &gt; {max}&quot;</span>);
 			}
 
 			<span class="comment">// Cursor MEL
@@ -1619,7 +1704,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>exec_migration_max_weight() -&gt; Weight {
+	<span class="doccomment">/// The maximal weight of calling the private `Self::exec_migration` function.
+	</span><span class="kw">pub fn </span>exec_migration_max_weight() -&gt; Weight {
 		T::WeightInfo::exec_migration_complete()
 			.max(T::WeightInfo::exec_migration_completed())
 			.max(T::WeightInfo::exec_migration_skipped_historic())
@@ -1637,4 +1723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::progress_mbms(System::&lt;T&gt;::block_number())
 	}
 }
-</code></pre></div></section></main></body></html>
+</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

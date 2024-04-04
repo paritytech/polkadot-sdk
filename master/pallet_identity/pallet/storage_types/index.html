@@ -86,6 +86,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
 <style>
 	body.sdk-docs {
 		nav.side-bar {
@@ -159,4 +161,7 @@ that they want it. Used primarily in cases where the <code>AccountId</code> cann
 because they are a pure proxy, multisig, etc. In order to confirm it, they should call
 <a href="../enum.Call.html#variant.accept_username" title="variant pallet_identity::pallet::Call::accept_username"><code>Call::accept_username</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.Registrars.html" title="struct pallet_identity::pallet::storage_types::Registrars">Registrars</a></div><div class="desc docblock-short">The set of registrars. Not expected to get very big as can only be added through a
 special origin (likely a council motion).</div></li><li><div class="item-name"><a class="struct" href="struct.SubsOf.html" title="struct pallet_identity::pallet::storage_types::SubsOf">SubsOf</a></div><div class="desc docblock-short">Alternative “sub” identities of this account.</div></li><li><div class="item-name"><a class="struct" href="struct.SuperOf.html" title="struct pallet_identity::pallet::storage_types::SuperOf">SuperOf</a></div><div class="desc docblock-short">The super-identity of an alternative “sub” identity together with its name, within that
-context. If the account is not some other account’s sub-identity, then just <code>None</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.UsernameAuthorities.html" title="struct pallet_identity::pallet::storage_types::UsernameAuthorities">UsernameAuthorities</a></div><div class="desc docblock-short">A map of the accounts who are authorized to grant usernames.</div></li></ul></section></div></main></body></html>
+context. If the account is not some other account’s sub-identity, then just <code>None</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.UsernameAuthorities.html" title="struct pallet_identity::pallet::storage_types::UsernameAuthorities">UsernameAuthorities</a></div><div class="desc docblock-short">A map of the accounts who are authorized to grant usernames.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
