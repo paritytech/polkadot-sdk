@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712161161721,
+  "lastUpdate": 1712202204182,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1049,6 +1049,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17951487063333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "gupnik",
+            "username": "gupnik",
+            "email": "nikhilgupta.iitk@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "3836376965104d7723a1659d52ee26232019b929",
+          "message": "Renames `frame` crate to `polkadot-sdk-frame` (#3813)\n\nStep in https://github.com/paritytech/polkadot-sdk/issues/3155\n\nNeeded for https://github.com/paritytech/eng-automation/issues/6\n\nThis PR renames `frame` crate to `polkadot-sdk-frame` as `frame` is not\navailable on crates.io\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-04-04T02:20:15Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3836376965104d7723a1659d52ee26232019b929"
+        },
+        "date": 1712202180016,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.112623188226669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17415638780666667,
             "unit": "seconds"
           }
         ]
