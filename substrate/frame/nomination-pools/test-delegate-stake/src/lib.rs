@@ -821,3 +821,59 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 		);
 	});
 }
+#[test]
+fn pool_migration_e2e() {
+	new_test_ext().execute_with(|| {
+		LegacyAdapter::set(true);
+		assert_eq!(Balances::minimum_balance(), 5);
+		assert_eq!(Staking::current_era(), None);
+
+		// create the pool with TransferStake strategy.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		assert_eq!(LastPoolId::<Runtime>::get(), 1);
+
+		// have the pool nominate.
+		assert_ok!(Pools::nominate(RuntimeOrigin::signed(10), 1, vec![1, 2, 3]));
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![StakingEvent::Bonded { stash: POOL1_BONDED, amount: 50 }]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Created { depositor: 10, pool_id: 1 },
+				PoolsEvent::Bonded { member: 10, pool_id: 1, bonded: 50, joined: true },
+			]
+		);
+
+		// have two members join
+		let pre_20 = Balances::free_balance(20);
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 10, 1));
+		let pre_21 = Balances::free_balance(21);
+		assert_ok!(Pools::join(RuntimeOrigin::signed(21), 10, 1));
+
+		// verify members balance is moved to pool.
+		assert_eq!(Balances::free_balance(20), pre_20 - 10);
+		assert_eq!(Balances::free_balance(21), pre_21 - 10);
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 },
+			]
+		);
+		assert_eq!(
+			pool_events_since_last_call(),
+			vec![
+				PoolsEvent::Bonded { member: 20, pool_id: 1, bonded: 10, joined: true },
+				PoolsEvent::Bonded { member: 21, pool_id: 1, bonded: 10, joined: true },
+			]
+		);
+
+		// we migrate to the new strategy `DelegateStake`
+		LegacyAdapter::set(false);
+		// fixme(ank4n): wip.
+	})
+}

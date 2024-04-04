@@ -120,12 +120,12 @@ pub trait StakeStrategy {
 	) -> DispatchResult;
 
 	fn migrate_nominator_to_agent(
-		agent: &Self::AccountId,
+		pool_account: &Self::AccountId,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult;
 
 	fn migrate_delegation(
-		agent: &Self::AccountId,
+		pool: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult;
@@ -211,14 +211,14 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	}
 
 	fn migrate_nominator_to_agent(
-		_agent: &Self::AccountId,
+		_pool: &Self::AccountId,
 		_reward_account: &Self::AccountId,
 	) -> DispatchResult {
 		Err(Error::<T>::Defensive(DefensiveError::DelegationUnsupported).into())
 	}
 
 	fn migrate_delegation(
-		_agent: &Self::AccountId,
+		_pool: &Self::AccountId,
 		_delegator: &Self::AccountId,
 		_value: Self::Balance,
 	) -> DispatchResult {
@@ -302,17 +302,17 @@ impl<
 	}
 
 	fn migrate_nominator_to_agent(
-		agent: &Self::AccountId,
+		pool: &Self::AccountId,
 		reward_account: &Self::AccountId,
 	) -> DispatchResult {
-		Delegation::migrate_nominator_to_agent(agent, reward_account)
+		Delegation::migrate_nominator_to_agent(pool, reward_account)
 	}
 
 	fn migrate_delegation(
-		agent: &Self::AccountId,
+		pool: &Self::AccountId,
 		delegator: &Self::AccountId,
 		value: Self::Balance,
 	) -> DispatchResult {
-		Delegation::migrate_delegation(agent, delegator, value)
+		Delegation::migrate_delegation(pool, delegator, value)
 	}
 }
