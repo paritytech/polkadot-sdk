@@ -1062,3 +1062,44 @@ fn buy_item_should_work() {
 		}
 	});
 }
+
+#[test]
+fn clear_collection_metadata_works() {
+	new_test_ext().execute_with(|| {
+		// Start with an account with 100 balance, 10 of which are reserved
+		Balances::make_free_balance_be(&1, 100);
+		Balances::reserve(&1, 10).unwrap();
+
+		// Create a Unique which increases reserved balance by 2.
+		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 123));
+		assert_eq!(Balances::reserved_balance(&1), 12);
+
+		// Set collection metadata which increases reserved balance by 10.
+		assert_ok!(Uniques::set_collection_metadata(
+			RuntimeOrigin::signed(1),
+			0,
+			bvec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+			false
+		));
+
+		assert_eq!(Balances::reserved_balance(&1), 22);
+
+		// The total deposit of the collection is now 12
+		assert_eq!(Collection::<Test>::get(0).unwrap().total_deposit, 12);
+
+		assert_ok!(Uniques::clear_collection_metadata(RuntimeOrigin::signed(1), 0));
+		// Reserved balance and total_deposit decreased by the collection metadata deposit (-10)
+		assert_eq!(Balances::reserved_balance(&1), 12);
+		assert_eq!(Collection::<Test>::get(0).unwrap().total_deposit, 2);
+
+		// Destroy the collection and get the final 2 back
+		assert_ok!(Uniques::destroy(
+			RuntimeOrigin::signed(1),
+			0,
+			DestroyWitness { items: 0, item_metadatas: 0, attributes: 0 }
+		));
+
+		// Reserved balance back to the original 10
+		assert_eq!(Balances::reserved_balance(&1), 10);
+	});
+}
