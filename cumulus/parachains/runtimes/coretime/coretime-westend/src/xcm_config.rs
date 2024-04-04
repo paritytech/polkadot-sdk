@@ -249,7 +249,7 @@ impl xcm_executor::Config for XcmConfig {
 		TokenRelayLocation,
 		AccountId,
 		Balances,
-		ToStakingPot<Runtime>,
+		ResolveTo<StakingPotAccountId<Runtime>, Balances>,
 	>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
