@@ -20,12 +20,12 @@ use super::{
 use crate::{TransactionByteFee, CENTS};
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
+use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
 	},
@@ -258,8 +258,13 @@ impl xcm_executor::Config for XcmConfig {
 		RuntimeCall,
 		MaxInstructions,
 	>;
-	type Trader =
-		UsingComponents<WeightToFee, RelayLocation, AccountId, Balances, ToStakingPot<Runtime>>;
+	type Trader = UsingComponents<
+		WeightToFee,
+		RelayLocation,
+		AccountId,
+		Balances,
+		ResolveTo<StakingPotAccountId<Runtime>, Balances>,
+	>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;
