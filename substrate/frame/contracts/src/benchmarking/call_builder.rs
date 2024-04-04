@@ -116,7 +116,7 @@ where
 			&mut self.gas_meter,
 			&mut self.storage_meter,
 			&self.schedule,
-			self.value.clone(),
+			self.value,
 			self.debug_message.as_mut(),
 			self.determinism,
 		)
