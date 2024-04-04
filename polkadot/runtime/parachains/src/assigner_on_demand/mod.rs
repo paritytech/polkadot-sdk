@@ -51,11 +51,12 @@ use frame_support::{
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
 		Imbalance, OnUnbalanced, WithdrawReasons,
 	},
+	PalletId,
 };
 use frame_system::pallet_prelude::*;
 use primitives::{CoreIndex, Id as ParaId};
 use sp_runtime::{
-	traits::{One, SaturatedConversion},
+	traits::{One, SaturatedConversion, Zero},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
 use sp_std::prelude::*;
@@ -601,13 +602,13 @@ where
 	}
 
 	pub fn get_revenue(now: BlockNumberFor<T>, when: BlockNumberFor<T>) -> BalanceOf<T> {
-		let mut amount: BalanceOf<T> = 0.into();
+		let mut amount: BalanceOf<T> = BalanceOf::<T>::zero();
 		Revenue::<T>::mutate(|revenue| {
 			revenue.into_iter().enumerate().for_each(|(index, mut block_revenue)| {
 				//
 				if when >= now.saturating_sub((index as u32).into()) {
 					amount.saturating_add(*block_revenue);
-					block_revenue = 0.into();
+					*block_revenue = BalanceOf::<T>::zero();
 				}
 			})
 		});

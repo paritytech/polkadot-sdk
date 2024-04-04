@@ -269,18 +269,25 @@ impl<T: Config> Pallet<T> {
 
 		// TODO actual revenue
 		let revenue = <assigner_on_demand::Pallet<T>>::get_revenue(now, when);
-		let message = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
+		match TryInto::<Balance>::try_into(revenue) {
+			Ok(raw_revenue) => {
+				let message = Xcm(vec![
+					Instruction::UnpaidExecution {
+						weight_limit: WeightLimit::Unlimited,
+						check_origin: None,
+					},
+					mk_coretime_call(CoretimeCalls::NotifyRevenue(raw_revenue)),
+				]);
+				if let Err(err) = send_xcm::<T::SendXcm>(
+					Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
+					message,
+				) {
+					log::error!("Sending `NotifyRevenue` to coretime chain failed: {:?}", err);
+				}
 			},
-			mk_coretime_call(CoretimeCalls::NotifyRevenue(revenue.inner())),
-		]);
-		if let Err(err) = send_xcm::<T::SendXcm>(
-			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
-			message,
-		) {
-			log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
+			Err(_err) => {
+				log::error!("Converting on demand revenue for `NotifyRevenue`failed");
+			},
 		}
 
 		Ok(())
