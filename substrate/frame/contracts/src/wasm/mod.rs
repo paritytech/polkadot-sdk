@@ -1820,6 +1820,7 @@ mod tests {
 	const CODE_GAS_LEFT: &str = r#"
 (module
 	(import "seal1" "gas_left" (func $seal_gas_left (param i32 i32)))
+	(import "seal0" "clear_storage" (func $clear_storage (param i32)))
 	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
 	(import "env" "memory" (memory 1 1))
 
@@ -1836,6 +1837,9 @@ mod tests {
 	)
 
 	(func (export "call")
+	    ;; Burn some PoV
+		(call $clear_storage (i32.const 0))
+
 		;; This stores the weight left to the buffer
 		(call $seal_gas_left (i32.const 0) (i32.const 20))
 
@@ -1846,6 +1850,9 @@ mod tests {
 				(i32.const 16)
 			)
 		)
+
+	    ;; Burn some PoV
+		(call $clear_storage (i32.const 0))
 
 		;; Return weight left and its encoded value len
 		(call $seal_return (i32.const 0) (i32.const 0) (i32.load (i32.const 20)))

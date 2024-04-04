@@ -1187,22 +1187,12 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
-
+		let mut setup = CallSetup::<T>::new(code);
+		setup.enable_debug_message();
+		call_builder!(func, setup: setup);
 		#[block]
 		{
-			<Contracts<T>>::bare_call(
-				instance.caller,
-				instance.account_id,
-				0u32.into(),
-				Weight::MAX,
-				None,
-				vec![],
-				DebugInfo::UnsafeDebug,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result?;
+			func.call();
 		}
 		Ok(())
 	}
@@ -1247,22 +1237,14 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		let instance = Contract::<T>::new(code, vec![])?;
+		let mut setup = CallSetup::<T>::new(code);
+		setup.enable_debug_message();
+		call_builder!(func, setup: setup);
 		#[block]
 		{
-			<Contracts<T>>::bare_call(
-				instance.caller,
-				instance.account_id,
-				0u32.into(),
-				Weight::MAX,
-				None,
-				vec![],
-				DebugInfo::UnsafeDebug,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result?;
+			func.call();
 		}
+		assert_eq!(setup.debug_message().unwrap().len() as u32, i);
 		Ok(())
 	}
 

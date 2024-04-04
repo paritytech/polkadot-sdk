@@ -104,6 +104,16 @@ where
 		self.data = value;
 	}
 
+	/// Set the debug message.
+	pub fn enable_debug_message(&mut self) {
+		self.debug_message = Some(Default::default());
+	}
+
+	/// Get the debug message.
+	pub fn debug_message(&self) -> Option<DebugBufferVec<T>> {
+		self.debug_message.clone()
+	}
+
 	/// Get the call's input data.
 	pub fn data(&self) -> Vec<u8> {
 		self.data.clone()
