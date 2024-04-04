@@ -22,7 +22,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = [
 scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 ] }
-frame = { path = "../../../../substrate/frame", default-features = false, features = [
+frame = { package = "polkadot-sdk-frame", path = "../../../../substrate/frame", default-features = false, features = [
 	"experimental",
 	"runtime",
 ] }
