@@ -31,7 +31,7 @@ use std::{
 	collections::{HashMap, HashSet},
 };
 
-use fragment_tree::FragmentChain;
+use fragment_chain::FragmentChain;
 use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
@@ -56,13 +56,13 @@ use polkadot_primitives::{
 
 use crate::{
 	error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
-	fragment_tree::{
+	fragment_chain::{
 		CandidateState, CandidateStorage, CandidateStorageInsertionError, Scope as TreeScope,
 	},
 };
 
 mod error;
-mod fragment_tree;
+mod fragment_chain;
 #[cfg(test)]
 mod tests;
 
@@ -329,14 +329,14 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 	let mut live_candidates = HashSet::new();
 	let mut live_paras = HashSet::new();
 	for sub_view in active_leaves.values() {
-		for (para_id, fragment_tree) in &sub_view.fragment_chains {
-			live_candidates.extend(fragment_tree.candidates());
+		for (para_id, fragment_chain) in &sub_view.fragment_chains {
+			live_candidates.extend(fragment_chain.candidates());
 			live_paras.insert(*para_id);
 
 			if let Some(storage) = view.candidate_storage.get(para_id) {
 				for candidate in storage.candidates() {
 					if !live_candidates.contains(&candidate.hash()) {
-						if fragment_tree.can_add_candidate_as_potential(
+						if fragment_chain.can_add_candidate_as_potential(
 							storage,
 							&storage
 								.relay_parent_by_candidate_hash(&candidate.hash())
@@ -371,7 +371,7 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 struct ImportablePendingAvailability {
 	candidate: CommittedCandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
-	compact: crate::fragment_tree::PendingAvailability,
+	compact: crate::fragment_chain::PendingAvailability,
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -416,7 +416,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 				relay_parent_number: relay_parent.number,
 				relay_parent_storage_root: relay_parent.storage_root,
 			},
-			compact: crate::fragment_tree::PendingAvailability {
+			compact: crate::fragment_chain::PendingAvailability {
 				candidate_hash: pending.candidate_hash,
 				relay_parent,
 			},
@@ -496,6 +496,12 @@ async fn handle_introduce_seconded_candidate<Context>(
 				parent_head_hash,
 				output_head_hash,
 			) {
+				gum::debug!(
+					target: LOG_TARGET,
+					para = ?para,
+					"kept unconnected candidate",
+				);
+
 				keep_in_storage = true;
 			}
 		}
@@ -659,14 +665,14 @@ fn answer_hypothetical_frontier_request(
 		response.push((candidate, vec![]));
 	}
 
-	let required_active_leaf = request.fragment_tree_relay_parent;
+	let required_active_leaf = request.fragment_chain_relay_parent;
 	for (active_leaf, leaf_view) in view
 		.active_leaves
 		.iter()
 		.filter(|(h, _)| required_active_leaf.as_ref().map_or(true, |x| h == &x))
 	{
 		for &mut (ref c, ref mut membership) in &mut response {
-			let fragment_tree = match leaf_view.fragment_chains.get(&c.candidate_para()) {
+			let fragment_chain = match leaf_view.fragment_chains.get(&c.candidate_para()) {
 				None => continue,
 				Some(f) => f,
 			};
@@ -678,7 +684,7 @@ fn answer_hypothetical_frontier_request(
 			let candidate_hash = c.candidate_hash();
 			let hypothetical = match c {
 				HypotheticalCandidate::Complete { receipt, persisted_validation_data, .. } =>
-					fragment_tree::HypotheticalCandidate::Complete {
+					fragment_chain::HypotheticalCandidate::Complete {
 						receipt: Cow::Borrowed(receipt),
 						persisted_validation_data: Cow::Borrowed(persisted_validation_data),
 					},
@@ -686,7 +692,7 @@ fn answer_hypothetical_frontier_request(
 					parent_head_data_hash,
 					candidate_relay_parent,
 					..
-				} => fragment_tree::HypotheticalCandidate::Incomplete {
+				} => fragment_chain::HypotheticalCandidate::Incomplete {
 					relay_parent: *candidate_relay_parent,
 					parent_head_data_hash: *parent_head_data_hash,
 				},
@@ -694,7 +700,7 @@ fn answer_hypothetical_frontier_request(
 
 			membership.push((
 				*active_leaf,
-				fragment_tree.hypothetical_depths(candidate_hash, hypothetical, candidate_storage),
+				fragment_chain.hypothetical_depths(candidate_hash, hypothetical, candidate_storage),
 			));
 		}
 	}
@@ -709,8 +715,8 @@ fn answer_minimum_relay_parents_request(
 ) {
 	let mut v = Vec::new();
 	if let Some(leaf_data) = view.active_leaves.get(&relay_parent) {
-		for (para_id, fragment_tree) in &leaf_data.fragment_chains {
-			v.push((*para_id, fragment_tree.scope().earliest_relay_parent().number));
+		for (para_id, fragment_chain) in &leaf_data.fragment_chains {
+			v.push((*para_id, fragment_chain.scope().earliest_relay_parent().number));
 		}
 	}
 
@@ -745,7 +751,7 @@ fn answer_prospective_validation_data_request(
 	let mut relay_parent_info = None;
 	let mut max_pov_size = None;
 
-	for fragment_tree in view
+	for fragment_chain in view
 		.active_leaves
 		.values()
 		.filter_map(|x| x.fragment_chains.get(&request.para_id))
@@ -755,22 +761,22 @@ fn answer_prospective_validation_data_request(
 		}
 		if relay_parent_info.is_none() {
 			relay_parent_info =
-				fragment_tree.scope().ancestor_by_hash(&request.candidate_relay_parent);
+				fragment_chain.scope().ancestor_by_hash(&request.candidate_relay_parent);
 		}
 		if head_data.is_none() {
-			let required_parent = &fragment_tree.scope().base_constraints().required_parent;
+			let required_parent = &fragment_chain.scope().base_constraints().required_parent;
 			if required_parent.hash() == parent_head_data_hash {
 				head_data = Some(required_parent.clone());
 			} else {
 				if let Some(found_head_data) =
-					fragment_tree.head_data_by_hash(storage, &parent_head_data_hash)
+					fragment_chain.head_data_by_hash(storage, &parent_head_data_hash)
 				{
 					head_data = Some(found_head_data);
 				}
 			}
 		}
 		if max_pov_size.is_none() {
-			let contains_ancestor = fragment_tree
+			let contains_ancestor = fragment_chain
 				.scope()
 				.ancestor_by_hash(&request.candidate_relay_parent)
 				.is_some();
@@ -779,7 +785,7 @@ fn answer_prospective_validation_data_request(
 				// 1. That the fragment tree never contains allowed relay-parents whose session for
 				//    children is different from that of the base block's.
 				// 2. That the max_pov_size is only configurable per session.
-				max_pov_size = Some(fragment_tree.scope().base_constraints().max_pov_size);
+				max_pov_size = Some(fragment_chain.scope().base_constraints().max_pov_size);
 			}
 		}
 	}

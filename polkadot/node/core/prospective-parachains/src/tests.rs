@@ -429,7 +429,7 @@ async fn get_hypothetical_frontier(
 	candidate_hash: CandidateHash,
 	receipt: CommittedCandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
-	fragment_tree_relay_parent: Hash,
+	fragment_chain_relay_parent: Hash,
 	backed_in_path_only: bool,
 	expected_depths: Vec<usize>,
 ) {
@@ -440,7 +440,7 @@ async fn get_hypothetical_frontier(
 	};
 	let request = HypotheticalMembershipRequest {
 		candidates: vec![hypothetical_candidate.clone()],
-		fragment_tree_relay_parent: Some(fragment_tree_relay_parent),
+		fragment_chain_relay_parent: Some(fragment_chain_relay_parent),
 		backed_in_path_only,
 	};
 	let (tx, rx) = oneshot::channel();
@@ -453,7 +453,7 @@ async fn get_hypothetical_frontier(
 	let expected_frontier = if expected_depths.is_empty() {
 		vec![(hypothetical_candidate, vec![])]
 	} else {
-		vec![(hypothetical_candidate, vec![(fragment_tree_relay_parent, expected_depths)])]
+		vec![(hypothetical_candidate, vec![(fragment_chain_relay_parent, expected_depths)])]
 	};
 	assert_eq!(resp, expected_frontier);
 }

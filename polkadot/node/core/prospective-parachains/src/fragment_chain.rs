@@ -676,10 +676,12 @@ impl FragmentChain {
 		const MAX_UNCONNECTED: usize = 5;
 
 		if unconnected < MAX_UNCONNECTED {
-			gum::debug!(
-				target: LOG_TARGET,
-				"Can add candidate as unconnected",
-			);
+			if unconnected > 0 {
+				gum::debug!(
+					target: LOG_TARGET,
+					"Can add candidate as unconnected",
+				);
+			}
 			true
 		} else {
 			gum::debug!(

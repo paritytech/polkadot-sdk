@@ -665,7 +665,7 @@ async fn handle_leaf_activation(
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx),
 			) => {
-				assert_eq!(req.fragment_tree_relay_parent, Some(*hash));
+				assert_eq!(req.fragment_chain_relay_parent, Some(*hash));
 				assert!(!req.backed_in_path_only);
 				for (i, (candidate, _)) in hypothetical_frontier.iter().enumerate() {
 					assert!(
@@ -725,7 +725,7 @@ async fn answer_expected_hypothetical_depth_request(
 		AllMessages::ProspectiveParachains(
 			ProspectiveParachainsMessage::GetHypotheticalMembership(req, tx)
 		) => {
-			assert_eq!(req.fragment_tree_relay_parent, None);
+			assert_eq!(req.fragment_chain_relay_parent, None);
 			assert!(!req.backed_in_path_only);
 			for (i, (candidate, _)) in responses.iter().enumerate() {
 				assert!(

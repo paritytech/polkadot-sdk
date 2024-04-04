@@ -742,7 +742,7 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		}
 	}
 
-	new_leaf_fragment_tree_updates(ctx, state, activated.hash).await;
+	new_leaf_fragment_chain_updates(ctx, state, activated.hash).await;
 
 	Ok(())
 }
@@ -1136,17 +1136,22 @@ async fn send_pending_grid_messages<Context>(
 	if messages.is_empty() {
 		return
 	}
-	use polkadot_node_subsystem::SubsystemSender;
-	use rand::SeedableRng;
 	use futures::FutureExt;
-	use rand::Rng;
+	use polkadot_node_subsystem::SubsystemSender;
+	use rand::{Rng, SeedableRng};
 	let mut sender = ctx.sender().clone();
-	let _ = ctx.spawn_blocking("delayed_send", async move {
-		let mut rng = rand::rngs::StdRng::from_entropy();
-		let delay = rng.gen_range(0u64..500);
-		std::thread::sleep(Duration::from_millis(delay));
-		sender.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages)).await;
-	}.boxed());
+	let _ = ctx.spawn_blocking(
+		"delayed_send",
+		async move {
+			let mut rng = rand::rngs::StdRng::from_entropy();
+			let delay = rng.gen_range(0u64..500);
+			std::thread::sleep(Duration::from_millis(delay));
+			sender
+				.send_message(NetworkBridgeTxMessage::SendValidationMessages(messages))
+				.await;
+		}
+		.boxed(),
+	);
 }
 
 // Imports a locally originating statement and distributes it to peers.
@@ -2100,25 +2105,31 @@ async fn provide_candidate_to_grid<Context>(
 		// ))
 		// .await;
 
-		use polkadot_node_subsystem::SubsystemSender;
-		use rand::SeedableRng;
 		use futures::FutureExt;
-		use rand::Rng;
+		use polkadot_node_subsystem::SubsystemSender;
+		use rand::{Rng, SeedableRng};
 		let mut sender = ctx.sender().clone();
-		let _ = ctx.spawn_blocking("delayed_send", async move {
-			let mut rng = rand::rngs::StdRng::from_entropy();
-			let delay = rng.gen_range(0u64..500);
-			std::thread::sleep(Duration::from_millis(delay));
+		let _ = ctx.spawn_blocking(
+			"delayed_send",
+			async move {
+				let mut rng = rand::rngs::StdRng::from_entropy();
+				let delay = rng.gen_range(0u64..500);
+				std::thread::sleep(Duration::from_millis(delay));
 
-			sender.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-				manifest_peers_v3,
-				Versioned::V3(protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
-					manifest,
-				))
-				.into(),
-			))
-			.await;
-		}.boxed());
+				sender
+					.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+						manifest_peers_v3,
+						Versioned::V3(
+							protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
+								manifest,
+							),
+						)
+						.into(),
+					))
+					.await;
+			}
+			.boxed(),
+		);
 	}
 
 	let ack_peers_v2 = filter_by_peer_version(&ack_peers, ValidationVersion::V2.into());
@@ -2227,7 +2238,7 @@ async fn determine_groups_per_para(
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn fragment_tree_update_inner<Context>(
+async fn fragment_chain_update_inner<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	active_leaf_hash: Option<Hash>,
@@ -2246,7 +2257,7 @@ async fn fragment_tree_update_inner<Context>(
 		ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
 			HypotheticalMembershipRequest {
 				candidates: hypotheticals,
-				fragment_tree_relay_parent: active_leaf_hash,
+				fragment_chain_relay_parent: active_leaf_hash,
 			},
 			tx,
 		))
@@ -2316,31 +2327,31 @@ async fn fragment_tree_update_inner<Context>(
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn new_leaf_fragment_tree_updates<Context>(
+async fn new_leaf_fragment_chain_updates<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	leaf_hash: Hash,
 ) {
-	fragment_tree_update_inner(ctx, state, Some(leaf_hash), None, None).await
+	fragment_chain_update_inner(ctx, state, Some(leaf_hash), None, None).await
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn prospective_backed_notification_fragment_tree_updates<Context>(
+async fn prospective_backed_notification_fragment_chain_updates<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	para_id: ParaId,
 	para_head: Hash,
 ) {
-	fragment_tree_update_inner(ctx, state, None, Some((para_head, para_id)), None).await
+	fragment_chain_update_inner(ctx, state, None, Some((para_head, para_id)), None).await
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-async fn new_confirmed_candidate_fragment_tree_updates<Context>(
+async fn new_confirmed_candidate_fragment_chain_updates<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	candidate: HypotheticalCandidate,
 ) {
-	fragment_tree_update_inner(ctx, state, None, None, Some(vec![candidate])).await
+	fragment_chain_update_inner(ctx, state, None, None, Some(vec![candidate])).await
 }
 
 struct ManifestImportSuccess<'a> {
@@ -2883,7 +2894,7 @@ pub(crate) async fn handle_backed_candidate_message<Context>(
 	.await;
 
 	// Search for children of the backed candidate to request.
-	prospective_backed_notification_fragment_tree_updates(
+	prospective_backed_notification_fragment_chain_updates(
 		ctx,
 		state,
 		confirmed.para_id(),
@@ -2974,7 +2985,8 @@ async fn apply_post_confirmation<Context>(
 		post_confirmation.hypothetical.relay_parent(),
 	)
 	.await;
-	new_confirmed_candidate_fragment_tree_updates(ctx, state, post_confirmation.hypothetical).await;
+	new_confirmed_candidate_fragment_chain_updates(ctx, state, post_confirmation.hypothetical)
+		.await;
 }
 
 /// Dispatch pending requests for candidate data & statements.

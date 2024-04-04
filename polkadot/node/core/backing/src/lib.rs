@@ -1243,7 +1243,7 @@ async fn seconding_sanity_check<Context>(
 			ctx.send_message(ProspectiveParachainsMessage::GetHypotheticalMembership(
 				HypotheticalMembershipRequest {
 					candidates: vec![hypothetical_candidate.clone()],
-					fragment_tree_relay_parent: Some(*head),
+					fragment_chain_relay_parent: Some(*head),
 				},
 				tx,
 			))
@@ -1417,7 +1417,7 @@ async fn handle_validated_candidate_command<Context>(
 						// sanity check that we're allowed to second the candidate
 						// and that it doesn't conflict with other candidates we've
 						// seconded.
-						let fragment_tree_membership = match seconding_sanity_check(
+						let hypothetical_membership = match seconding_sanity_check(
 							ctx,
 							&state.per_leaf,
 							&state.implicit_view,
@@ -1476,8 +1476,8 @@ async fn handle_validated_candidate_command<Context>(
 								Some(p) => p.seconded_locally = true,
 							}
 
-							// update seconded depths in active leaves.
-							for leaf in fragment_tree_membership {
+							// record seconded candidates for non-prospective-parachains mode.
+							for leaf in hypothetical_membership {
 								let leaf_data = match state.per_leaf.get_mut(&leaf) {
 									None => {
 										gum::warn!(

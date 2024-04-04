@@ -414,7 +414,7 @@ fn seconding_sanity_check_allowed() {
 		};
 		let expected_request_a = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
-			fragment_tree_relay_parent: Some(leaf_a_hash),
+			fragment_chain_relay_parent: Some(leaf_a_hash),
 			backed_in_path_only: false,
 		};
 		let expected_response_a = make_hypothetical_frontier_response(
@@ -424,7 +424,7 @@ fn seconding_sanity_check_allowed() {
 		);
 		let expected_request_b = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
-			fragment_tree_relay_parent: Some(leaf_b_hash),
+			fragment_chain_relay_parent: Some(leaf_b_hash),
 			backed_in_path_only: false,
 		};
 		let expected_response_b =
@@ -559,7 +559,7 @@ fn seconding_sanity_check_disallowed() {
 		};
 		let expected_request_a = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
-			fragment_tree_relay_parent: Some(leaf_a_hash),
+			fragment_chain_relay_parent: Some(leaf_a_hash),
 			backed_in_path_only: false,
 		};
 		let expected_response_a = make_hypothetical_frontier_response(
@@ -661,7 +661,7 @@ fn seconding_sanity_check_disallowed() {
 		};
 		let expected_request_a = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
-			fragment_tree_relay_parent: Some(leaf_a_hash),
+			fragment_chain_relay_parent: Some(leaf_a_hash),
 			backed_in_path_only: false,
 		};
 		let expected_response_a = make_hypothetical_frontier_response(
@@ -671,7 +671,7 @@ fn seconding_sanity_check_disallowed() {
 		);
 		let expected_request_b = HypotheticalMembershipRequest {
 			candidates: vec![hypothetical_candidate.clone()],
-			fragment_tree_relay_parent: Some(leaf_b_hash),
+			fragment_chain_relay_parent: Some(leaf_b_hash),
 			backed_in_path_only: false,
 		};
 		let expected_response_b =
@@ -762,7 +762,7 @@ fn prospective_parachains_reject_candidate() {
 		let expected_request_a = vec![(
 			HypotheticalMembershipRequest {
 				candidates: vec![hypothetical_candidate.clone()],
-				fragment_tree_relay_parent: Some(leaf_a_hash),
+				fragment_chain_relay_parent: Some(leaf_a_hash),
 				backed_in_path_only: false,
 			},
 			make_hypothetical_frontier_response(
@@ -947,7 +947,7 @@ fn second_multiple_candidates_per_relay_parent() {
 			let expected_request_a = vec![(
 				HypotheticalMembershipRequest {
 					candidates: vec![hypothetical_candidate.clone()],
-					fragment_tree_relay_parent: Some(leaf_hash),
+					fragment_chain_relay_parent: Some(leaf_hash),
 					backed_in_path_only: false,
 				},
 				make_hypothetical_frontier_response(
@@ -1508,7 +1508,7 @@ fn seconding_sanity_check_occupy_same_depth() {
 			let expected_request_a = vec![(
 				HypotheticalMembershipRequest {
 					candidates: vec![hypothetical_candidate.clone()],
-					fragment_tree_relay_parent: Some(leaf_hash),
+					fragment_chain_relay_parent: Some(leaf_hash),
 					backed_in_path_only: false,
 				},
 				// Send the same membership for both candidates.
@@ -1650,7 +1650,7 @@ fn occupied_core_assignment() {
 		let expected_request = vec![(
 			HypotheticalMembershipRequest {
 				candidates: vec![hypothetical_candidate.clone()],
-				fragment_tree_relay_parent: Some(leaf_a_hash),
+				fragment_chain_relay_parent: Some(leaf_a_hash),
 				backed_in_path_only: false,
 			},
 			make_hypothetical_frontier_response(

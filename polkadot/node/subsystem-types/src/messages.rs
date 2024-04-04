@@ -1108,7 +1108,7 @@ pub struct HypotheticalMembershipRequest {
 	/// possible membership in fragment trees.
 	pub candidates: Vec<HypotheticalCandidate>,
 	/// Either a specific fragment tree to check, otherwise all.
-	pub fragment_tree_relay_parent: Option<Hash>,
+	pub fragment_chain_relay_parent: Option<Hash>,
 }
 
 /// A request for the persisted validation data stored in the prospective
