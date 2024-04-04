@@ -142,7 +142,8 @@ pub trait StakeStrategy {
 /// pool account and stakes through the pool account on `Staking`.
 ///
 /// This is the older Staking strategy used by pools. To switch to the newer [`DelegateStake`]
-/// strategy, storage migration is required.
+/// strategy, storage migration is required. See
+/// [`migration::unversioned::DelegationStakeMigration`].
 pub struct TransferStake<T: Config, Staking: StakingInterface>(PhantomData<(T, Staking)>);
 
 impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T::AccountId>>
