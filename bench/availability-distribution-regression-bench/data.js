@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712227802512,
+  "lastUpdate": 1712236070379,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1403,6 +1403,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02652186586666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Juan Girini",
+            "username": "juangirini",
+            "email": "juangirini@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "bcb4d137c9efffde8f27c3906177519da031552c",
+          "message": "[doc] Example MBM pallet (#2119)\n\n## Basic example showcasing a migration using the MBM framework\n\nThis PR has been built on top of\nhttps://github.com/paritytech/polkadot-sdk/pull/1781 and adds two new\nexample crates to the `examples` pallet\n\n### Changes Made:\n\nAdded the `pallet-example-mbm` crate: This crate provides a minimal\nexample of a pallet that uses MBM. It showcases a storage migration\nwhere values are migrated from a `u32` to a `u64`.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Liam Aharon <liam.aharon@hotmail.com>",
+          "timestamp": "2024-04-04T11:47:24Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bcb4d137c9efffde8f27c3906177519da031552c"
+        },
+        "date": 1712236048463,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.899999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15776303835999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026543350853333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012428478939999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010459442440000001,
             "unit": "seconds"
           }
         ]
