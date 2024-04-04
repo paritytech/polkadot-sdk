@@ -276,7 +276,7 @@ subsystem-regression-tests-distribution-regression:
     - if [ -s fails ]; then cat fails; exit 1; fi
 
   tags:
-    - benchmark
+    - benchmark-v2
   allow_failure: true
 
 .cancel-pipeline-template:
