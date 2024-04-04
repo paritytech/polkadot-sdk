@@ -112,19 +112,18 @@ impl pallet_assets::Config for Test {
 	type BenchmarkHelper = ();
 }
 
-#[derive(Decode, Encode, MaxEncodedLen, PartialEq, Eq, Ord, PartialOrd, TypeInfo, Debug, Clone)]
+#[derive(
+	Decode, Encode, MaxEncodedLen, PartialEq, Eq, Ord, PartialOrd, TypeInfo, Debug, Clone, Copy,
+)]
 pub enum DummyFreezeReason {
 	Governance,
 	Staking,
 	Other,
 }
 
-impl frame_support::traits::VariantCount for DummyFreezeReason {
-	const VARIANT_COUNT: u32 = 2;
-}
-
 impl Config for Test {
-	type RuntimeFreezeReason = DummyFreezeReason;
+	type FreezeIdentifier = DummyFreezeReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 	type MaxFreezes = ConstU32<2>;
 }

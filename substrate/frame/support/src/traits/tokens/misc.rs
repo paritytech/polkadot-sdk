@@ -17,6 +17,7 @@
 
 //! Miscellaneous types.
 
+use crate::TypeInfo;
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_core::RuntimeDebug;
@@ -328,4 +329,13 @@ impl<A, R, B, C: Convert<R, B>> GetSalary<R, A, B> for ConvertRank<C> {
 	fn get_salary(rank: R, _: &A) -> B {
 		C::convert(rank)
 	}
+}
+
+/// An identifier and balance.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub struct IdAmount<Id, Balance> {
+	/// An identifier for this item.
+	pub id: Id,
+	/// Some amount for this item.
+	pub amount: Balance,
 }

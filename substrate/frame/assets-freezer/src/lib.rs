@@ -44,8 +44,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::pallet_prelude::DispatchResult;
+use frame_support::{
+	pallet_prelude::*,
+	traits::{tokens::IdAmount, VariantCount},
+	BoundedVec,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_assets::{AccountIdOf, AssetBalanceOf, AssetIdOf};
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	BoundedSlice,
@@ -59,35 +64,26 @@ mod mock;
 mod tests;
 
 mod impls;
-mod types;
-pub use types::*;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
-	use codec::FullCodec;
-	use core::fmt::Debug;
-	use frame_support::{pallet_prelude::*, traits::VariantCount, BoundedVec};
-
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_assets::Config<I> {
+		/// The ID type for freezes.
+		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+
 		/// The overarching freeze reason.
-		type RuntimeFreezeReason: VariantCount
-			+ FullCodec
-			+ TypeInfo
-			+ PartialEq
-			+ Ord
-			+ MaxEncodedLen
-			+ Clone
-			+ Debug
-			+ 'static;
+		#[pallet::no_default_bounds]
+		type RuntimeFreezeReason: VariantCount;
 
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The maximum number of individual freeze locks that can exist on an account at any time.
+		/// The maximum number of individual freezes that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
 	}
@@ -105,12 +101,12 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		// A reducible balance has been increased due to a freeze action.
-		AssetFrozen { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
+		Frozen { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
 		// A reducible balance has been reduced due to a thaw action.
-		AssetThawed { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
+		Thawed { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
 	}
 
-	/// A map that stores all the current freezes applied on an account for a given AssetId.
+	/// A map that stores freezes applied on an account for a given AssetId.
 	#[pallet::storage]
 	pub(super) type Freezes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
@@ -118,11 +114,11 @@ pub mod pallet {
 		AssetIdOf<T, I>,
 		Blake2_128Concat,
 		AccountIdOf<T>,
-		BoundedVec<IdAmount<T::RuntimeFreezeReason, AssetBalanceOf<T, I>>, T::MaxFreezes>,
+		BoundedVec<IdAmount<T::FreezeIdentifier, AssetBalanceOf<T, I>>, T::MaxFreezes>,
 		ValueQuery,
 	>;
 
-	/// A map that stores the current reducible balance for every account on a given AssetId.
+	/// A map that stores the current frozen balance for every account on a given AssetId.
 	#[pallet::storage]
 	pub(super) type FrozenBalances<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
@@ -139,6 +135,14 @@ pub mod pallet {
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
+
+		fn integrity_test() {
+			assert!(
+				T::MaxFreezes::get() >= <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
+				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
+				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
+			);
+		}
 	}
 }
 
@@ -146,10 +150,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn update_freezes(
 		asset: AssetIdOf<T, I>,
 		who: &AccountIdOf<T>,
-		freezes: BoundedSlice<
-			IdAmount<T::RuntimeFreezeReason, AssetBalanceOf<T, I>>,
-			T::MaxFreezes,
-		>,
+		freezes: BoundedSlice<IdAmount<T::FreezeIdentifier, AssetBalanceOf<T, I>>, T::MaxFreezes>,
 	) -> DispatchResult {
 		let prev_frozen = FrozenBalances::<T, I>::get(asset.clone(), who).unwrap_or_default();
 		let mut after_frozen: AssetBalanceOf<T, I> = Zero::zero();
@@ -165,10 +166,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		if prev_frozen > after_frozen {
 			let amount = prev_frozen.saturating_sub(after_frozen);
-			Self::deposit_event(Event::AssetThawed { asset_id: asset, who: who.clone(), amount });
+			Self::deposit_event(Event::Thawed { asset_id: asset, who: who.clone(), amount });
 		} else if after_frozen > prev_frozen {
 			let amount = after_frozen.saturating_sub(prev_frozen);
-			Self::deposit_event(Event::AssetFrozen { asset_id: asset, who: who.clone(), amount });
+			Self::deposit_event(Event::Frozen { asset_id: asset, who: who.clone(), amount });
 		}
 		Ok(())
 	}
@@ -177,8 +178,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		for (asset, who, _) in FrozenBalances::<T, I>::iter() {
 			let max_frozen_amount = Freezes::<T, I>::get(asset.clone(), who.clone())
-				.into_iter()
-				.reduce(IdAmount::<T::RuntimeFreezeReason, AssetBalanceOf<T, I>>::max)
+				.iter()
+				.reduce(|max, i| if i.amount >= max.amount { i } else { max })
 				.map(|l| l.amount);
 
 			frame_support::ensure!(

@@ -158,6 +158,7 @@ use frame_support::{
 		tokens::{
 			fungible, BalanceStatus as Status, DepositConsequence,
 			Fortitude::{self, Force, Polite},
+			IdAmount,
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
@@ -177,8 +178,7 @@ use sp_runtime::{
 };
 use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
 pub use types::{
-	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons,
-	ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, Reasons, ReserveData,
 };
 pub use weights::WeightInfo;
 
@@ -681,7 +681,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			if who.is_empty() {
-				return Ok(Pays::Yes.into())
+				return Ok(Pays::Yes.into());
 			}
 			let mut upgrade_count = 0;
 			for i in &who {
@@ -779,7 +779,7 @@ pub mod pallet {
 		pub fn ensure_upgraded(who: &T::AccountId) -> bool {
 			let mut a = T::AccountStore::get(who);
 			if a.flags.is_new_logic() {
-				return false
+				return false;
 			}
 			a.flags.set_new_logic();
 			if !a.reserved.is_zero() && a.frozen.is_zero() {
@@ -803,7 +803,7 @@ pub mod pallet {
 				Ok(())
 			});
 			Self::deposit_event(Event::Upgraded { who: who.clone() });
-			return true
+			return true;
 		}
 
 		/// Get the free balance of an account.
@@ -1109,7 +1109,7 @@ pub mod pallet {
 			status: Status,
 		) -> Result<T::Balance, DispatchError> {
 			if value.is_zero() {
-				return Ok(Zero::zero())
+				return Ok(Zero::zero());
 			}
 
 			let max = <Self as fungible::InspectHold<_>>::reducible_total_balance_on_hold(
@@ -1124,7 +1124,7 @@ pub mod pallet {
 				return match status {
 					Status::Free => Ok(actual.saturating_sub(Self::unreserve(slashed, actual))),
 					Status::Reserved => Ok(actual),
-				}
+				};
 			}
 
 			let ((_, maybe_dust_1), maybe_dust_2) = Self::try_mutate_account(

@@ -19,7 +19,7 @@ use super::*;
 
 use frame_support::traits::fungibles::{Inspect, InspectFreeze, MutateFreeze};
 use pallet_assets::FrozenBalance;
-use sp_runtime::traits::{Get, Zero};
+use sp_runtime::traits::Zero;
 
 impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, AssetBalanceOf<T, I>>
 	for Pallet<T, I>
@@ -37,10 +37,10 @@ impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, As
 	}
 }
 
-/// Implement [`frame_support::traits::fungibles::Inspect`] as it is bound by
-/// [`frame_support::traits::fungibles::InspectFreeze`] and
-/// [`frame_support::traits::fungibles::MutateFreeze`]. To do so, we'll re-export all of
-/// `pallet-assets` implementation of the same trait.
+/// Implement [`fungibles::Inspect`](frame_support::traits::fungibles::Inspect) as it is bound by
+/// [`fungibles::InspectFreeze`](frame_support::traits::fungibles::InspectFreeze) and
+/// [`fungibles::MutateFreeze`](frame_support::traits::fungibles::MutateFreeze). To do so, we'll
+/// re-export all of `pallet-assets` implementation of the same trait.
 impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 	type AssetId = AssetIdOf<T, I>;
 	type Balance = AssetBalanceOf<T, I>;
@@ -93,7 +93,7 @@ impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> InspectFreeze<AccountIdOf<T>> for Pallet<T, I> {
-	type Id = T::RuntimeFreezeReason;
+	type Id = T::FreezeIdentifier;
 
 	fn balance_frozen(asset: Self::AssetId, id: &Self::Id, who: &AccountIdOf<T>) -> Self::Balance {
 		if let Some(i) = Freezes::<T, I>::get(asset, who).iter().find(|i| i.id == *id) {
@@ -105,11 +105,7 @@ impl<T: Config<I>, I: 'static> InspectFreeze<AccountIdOf<T>> for Pallet<T, I> {
 
 	fn can_freeze(asset: Self::AssetId, id: &Self::Id, who: &AccountIdOf<T>) -> bool {
 		let freezes = Freezes::<T, I>::get(asset, who);
-		freezes.len() <
-			T::MaxFreezes::get()
-				.try_into()
-				.expect("MaxFreezes is the same type as S within Freezes<S>; qed") ||
-			freezes.into_iter().any(|i| i.id == *id)
+		!freezes.is_full() || freezes.into_iter().any(|i| i.id == *id)
 	}
 }
 
@@ -128,7 +124,7 @@ impl<T: Config<I>, I: 'static> MutateFreeze<AccountIdOf<T>> for Pallet<T, I> {
 			i.amount = amount;
 		} else {
 			freezes
-				.try_push(IdAmount { id: id.clone(), amount })
+				.try_push(IdAmount { id: *id, amount })
 				.map_err(|_| Error::<T, I>::TooManyFreezes)?;
 		}
 		Self::update_freezes(asset, who, freezes.as_bounded_slice())
@@ -148,7 +144,7 @@ impl<T: Config<I>, I: 'static> MutateFreeze<AccountIdOf<T>> for Pallet<T, I> {
 			i.amount = i.amount.max(amount);
 		} else {
 			freezes
-				.try_push(IdAmount { id: id.clone(), amount })
+				.try_push(IdAmount { id: *id, amount })
 				.map_err(|_| Error::<T, I>::TooManyFreezes)?;
 		}
 		Self::update_freezes(asset, who, freezes.as_bounded_slice())

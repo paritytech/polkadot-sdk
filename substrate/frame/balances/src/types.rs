@@ -51,7 +51,7 @@ impl BitOr for Reasons {
 	type Output = Reasons;
 	fn bitor(self, other: Reasons) -> Reasons {
 		if self == other {
-			return self
+			return self;
 		}
 		Reasons::All
 	}
@@ -75,15 +75,6 @@ pub struct ReserveData<ReserveIdentifier, Balance> {
 	/// The identifier for the named reserve.
 	pub id: ReserveIdentifier,
 	/// The amount of the named reserve.
-	pub amount: Balance,
-}
-
-/// An identifier and balance.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
-pub struct IdAmount<Id, Balance> {
-	/// An identifier for this item.
-	pub id: Id,
-	/// Some amount for this item.
 	pub amount: Balance,
 }
 

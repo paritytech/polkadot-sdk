@@ -42,136 +42,183 @@ fn test_set_freeze(id: DummyFreezeReason, amount: Balance) {
 	assert_ok!(AssetsFreezer::update_freezes(ASSET_ID, &WHO, freezes.as_bounded_slice()));
 }
 
-#[test]
-fn it_works_returning_balance_frozen() {
-	new_test_ext(|| {
-		test_set_freeze(DummyFreezeReason::Governance, 1);
-		assert_eq!(
-			AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Governance, &WHO),
-			1u64
-		);
-	});
+mod impls_frozen_balance {
+	use super::*;
+
+	#[test]
+	fn it_works_returning_frozen_balance() {
+		new_test_ext(|| {
+			test_set_freeze(DummyFreezeReason::Governance, 1);
+			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(1u64));
+			test_set_freeze(DummyFreezeReason::Staking, 3);
+			FrozenBalances::<Test>::insert(ASSET_ID, WHO, 3);
+			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
+		});
+	}
+
+	#[test]
+	fn calling_died_works() {
+		new_test_ext(|| {
+			test_set_freeze(DummyFreezeReason::Governance, 1);
+			AssetsFreezer::died(ASSET_ID, &WHO);
+			assert!(FrozenBalances::<Test>::get(ASSET_ID, WHO).is_none());
+			assert!(Freezes::<Test>::get(ASSET_ID, WHO).is_empty());
+		});
+	}
 }
 
-#[test]
-fn it_works_returning_frozen_balances() {
-	new_test_ext(|| {
-		test_set_freeze(DummyFreezeReason::Governance, 1);
-		assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(1u64));
-		test_set_freeze(DummyFreezeReason::Staking, 3);
-		FrozenBalances::<Test>::insert(ASSET_ID, WHO, 3);
-		assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
-	});
+mod impl_inspect_freeze {
+	use super::*;
+
+	#[test]
+	fn it_works_returning_balance_frozen() {
+		new_test_ext(|| {
+			test_set_freeze(DummyFreezeReason::Governance, 1);
+			assert_eq!(
+				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Governance, &WHO),
+				1u64
+			);
+		});
+	}
+
+	#[test]
+	fn it_works_returning_can_freeze() {
+		new_test_ext(|| {
+			test_set_freeze(DummyFreezeReason::Governance, 1);
+			assert!(AssetsFreezer::can_freeze(ASSET_ID, &DummyFreezeReason::Staking, &WHO));
+			test_set_freeze(DummyFreezeReason::Staking, 1);
+			assert!(!AssetsFreezer::can_freeze(ASSET_ID, &DummyFreezeReason::Other, &WHO));
+		});
+	}
 }
 
-#[test]
-fn it_works_returning_can_freeze() {
-	new_test_ext(|| {
-		test_set_freeze(DummyFreezeReason::Governance, 1);
-		assert!(AssetsFreezer::can_freeze(ASSET_ID, &DummyFreezeReason::Staking, &WHO));
-		test_set_freeze(DummyFreezeReason::Staking, 1);
-		assert!(!AssetsFreezer::can_freeze(ASSET_ID, &DummyFreezeReason::Other, &WHO));
-	});
-}
+mod impl_mutate_freeze {
+	use super::*;
 
-#[test]
-fn set_freeze_works() {
-	new_test_ext(|| {
-		assert_ok!(AssetsFreezer::set_freeze(ASSET_ID, &DummyFreezeReason::Governance, &WHO, 10));
-		assert_eq!(
-			AssetsFreezer::reducible_balance(
+	#[test]
+	fn set_freeze_works() {
+		new_test_ext(|| {
+			assert_ok!(AssetsFreezer::set_freeze(
 				ASSET_ID,
+				&DummyFreezeReason::Governance,
 				&WHO,
-				frame_support::traits::tokens::Preservation::Preserve,
-				frame_support::traits::tokens::Fortitude::Polite,
-			),
-			89
-		);
-		System::assert_last_event(
-			Event::<Test>::AssetFrozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
-		);
-		assert_ok!(AssetsFreezer::set_freeze(ASSET_ID, &DummyFreezeReason::Governance, &WHO, 8));
-		assert_eq!(
-			AssetsFreezer::reducible_balance(
+				10
+			));
+			assert_eq!(
+				AssetsFreezer::reducible_balance(
+					ASSET_ID,
+					&WHO,
+					frame_support::traits::tokens::Preservation::Preserve,
+					frame_support::traits::tokens::Fortitude::Polite,
+				),
+				89
+			);
+			System::assert_last_event(
+				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
+			);
+			assert_ok!(AssetsFreezer::set_freeze(
 				ASSET_ID,
+				&DummyFreezeReason::Governance,
 				&WHO,
-				frame_support::traits::tokens::Preservation::Preserve,
-				frame_support::traits::tokens::Fortitude::Polite,
-			),
-			91
-		);
-		System::assert_last_event(
-			Event::<Test>::AssetThawed { asset_id: ASSET_ID, who: WHO, amount: 2 }.into(),
-		);
-	});
-}
+				8
+			));
+			assert_eq!(
+				AssetsFreezer::reducible_balance(
+					ASSET_ID,
+					&WHO,
+					frame_support::traits::tokens::Preservation::Preserve,
+					frame_support::traits::tokens::Fortitude::Polite,
+				),
+				91
+			);
+			System::assert_last_event(
+				Event::<Test>::Thawed { asset_id: ASSET_ID, who: WHO, amount: 2 }.into(),
+			);
+		});
+	}
 
-#[test]
-fn extend_freeze_works() {
-	new_test_ext(|| {
-		assert_ok!(AssetsFreezer::set_freeze(ASSET_ID, &DummyFreezeReason::Governance, &WHO, 10));
-		assert_ok!(AssetsFreezer::extend_freeze(ASSET_ID, &DummyFreezeReason::Governance, &WHO, 8));
-		System::assert_last_event(
-			Event::<Test>::AssetFrozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
-		);
-		assert_eq!(
-			AssetsFreezer::reducible_balance(
+	#[test]
+	fn extend_freeze_works() {
+		new_test_ext(|| {
+			assert_ok!(AssetsFreezer::set_freeze(
 				ASSET_ID,
+				&DummyFreezeReason::Governance,
 				&WHO,
-				frame_support::traits::tokens::Preservation::Preserve,
-				frame_support::traits::tokens::Fortitude::Polite,
-			),
-			89
-		);
-		assert_ok!(AssetsFreezer::extend_freeze(
-			ASSET_ID,
-			&DummyFreezeReason::Governance,
-			&WHO,
-			11
-		));
-		System::assert_last_event(
-			Event::<Test>::AssetFrozen { asset_id: ASSET_ID, who: WHO, amount: 1 }.into(),
-		);
-		assert_eq!(
-			AssetsFreezer::reducible_balance(
+				10
+			));
+			assert_ok!(AssetsFreezer::extend_freeze(
 				ASSET_ID,
+				&DummyFreezeReason::Governance,
 				&WHO,
-				frame_support::traits::tokens::Preservation::Preserve,
-				frame_support::traits::tokens::Fortitude::Polite,
-			),
-			88
-		);
-	});
-}
+				8
+			));
+			System::assert_last_event(
+				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
+			);
+			assert_eq!(
+				AssetsFreezer::reducible_balance(
+					ASSET_ID,
+					&WHO,
+					frame_support::traits::tokens::Preservation::Preserve,
+					frame_support::traits::tokens::Fortitude::Polite,
+				),
+				89
+			);
+			assert_ok!(AssetsFreezer::extend_freeze(
+				ASSET_ID,
+				&DummyFreezeReason::Governance,
+				&WHO,
+				11
+			));
+			System::assert_last_event(
+				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 1 }.into(),
+			);
+			assert_eq!(
+				AssetsFreezer::reducible_balance(
+					ASSET_ID,
+					&WHO,
+					frame_support::traits::tokens::Preservation::Preserve,
+					frame_support::traits::tokens::Fortitude::Polite,
+				),
+				88
+			);
+		});
+	}
 
-#[test]
-fn thaw_works() {
-	new_test_ext(|| {
-		assert_ok!(AssetsFreezer::set_freeze(ASSET_ID, &DummyFreezeReason::Governance, &WHO, 10));
-		System::assert_has_event(
-			Event::<Test>::AssetFrozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
-		);
-		assert_eq!(
-			AssetsFreezer::reducible_balance(
+	#[test]
+	fn thaw_works() {
+		new_test_ext(|| {
+			assert_ok!(AssetsFreezer::set_freeze(
 				ASSET_ID,
+				&DummyFreezeReason::Governance,
 				&WHO,
-				frame_support::traits::tokens::Preservation::Preserve,
-				frame_support::traits::tokens::Fortitude::Polite,
-			),
-			89
-		);
-		assert_ok!(AssetsFreezer::thaw(ASSET_ID, &DummyFreezeReason::Governance, &WHO));
-		System::assert_has_event(
-			Event::<Test>::AssetThawed { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
-		);
-		assert_eq!(
-			AssetsFreezer::reducible_balance(
-				ASSET_ID,
-				&WHO,
-				frame_support::traits::tokens::Preservation::Preserve,
-				frame_support::traits::tokens::Fortitude::Polite,
-			),
-			99
-		);
-	});
+				10
+			));
+			System::assert_has_event(
+				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
+			);
+			assert_eq!(
+				AssetsFreezer::reducible_balance(
+					ASSET_ID,
+					&WHO,
+					frame_support::traits::tokens::Preservation::Preserve,
+					frame_support::traits::tokens::Fortitude::Polite,
+				),
+				89
+			);
+			assert_ok!(AssetsFreezer::thaw(ASSET_ID, &DummyFreezeReason::Governance, &WHO));
+			System::assert_has_event(
+				Event::<Test>::Thawed { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
+			);
+			assert_eq!(
+				AssetsFreezer::reducible_balance(
+					ASSET_ID,
+					&WHO,
+					frame_support::traits::tokens::Preservation::Preserve,
+					frame_support::traits::tokens::Fortitude::Polite,
+				),
+				99
+			);
+		});
+	}
 }

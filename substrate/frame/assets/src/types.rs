@@ -120,7 +120,7 @@ where
 {
 	pub(crate) fn take_deposit(&mut self) -> Option<Balance> {
 		if !matches!(self, ExistenceReason::DepositHeld(_)) {
-			return None
+			return None;
 		}
 		if let ExistenceReason::DepositHeld(deposit) =
 			core::mem::replace(self, ExistenceReason::DepositRefunded)
@@ -133,7 +133,7 @@ where
 
 	pub(crate) fn take_deposit_from(&mut self) -> Option<(AccountId, Balance)> {
 		if !matches!(self, ExistenceReason::DepositFrom(..)) {
-			return None
+			return None;
 		}
 		if let ExistenceReason::DepositFrom(depositor, deposit) =
 			core::mem::replace(self, ExistenceReason::DepositRefunded)
@@ -276,10 +276,10 @@ pub enum ConversionError {
 }
 
 // Type alias for `frame_system`'s account id.
-type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 // This pallet's asset id and balance type.
-type AssetIdOf<T, I> = <T as Config<I>>::AssetId;
-type AssetBalanceOf<T, I> = <T as Config<I>>::Balance;
+pub type AssetIdOf<T, I> = <T as Config<I>>::AssetId;
+pub type AssetBalanceOf<T, I> = <T as Config<I>>::Balance;
 // Generic fungible balance type.
 type BalanceOf<F, T> = <F as fungible::Inspect<AccountIdOf<T>>>::Balance;
 
