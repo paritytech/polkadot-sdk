@@ -16,6 +16,8 @@
 
 //! Pallet to process purchase of DOTs.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, EnsureOrigin, ExistenceRequirement, Get, VestingSchedule},
@@ -482,7 +484,7 @@ mod tests {
 	use sp_core::{crypto::AccountId32, ed25519, Pair, Public, H256};
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
-	use crate::purchase;
+	use crate as purchase;
 	use frame_support::{
 		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 		traits::{Currency, WithdrawReasons},
