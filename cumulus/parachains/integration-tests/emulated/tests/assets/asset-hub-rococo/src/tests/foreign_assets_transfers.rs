@@ -63,6 +63,21 @@ fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 	)
 }
 
+fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
+	let fee_idx = t.args.fee_asset_item as usize;
+	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
+	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_reserve(
+		t.signed_origin,
+		bx!(t.args.dest.into()),
+		bx!(t.args.beneficiary.into()),
+		bx!(t.args.assets.into()),
+		bx!(TransferType::DestinationReserve),
+		bx!(fee.into()),
+		bx!(TransferType::DestinationReserve),
+		t.args.weight_limit,
+	)
+}
+
 fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> DispatchResult {
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
@@ -198,6 +213,156 @@ fn transfer_foreign_assets_from_asset_hub_to_para() {
 	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
 	// should be non-zero
 	assert!(receiver_assets_after < receiver_assets_before + native_amount_to_send);
+	// Receiver's balance is increased by foreign amount sent
+	assert_eq!(receiver_wnds_after, receiver_wnds_before + foreign_amount_to_send);
+}
+
+/// Reserve Transfers of native asset from Parachain to System Parachain should work
+// ===========================================================================
+// ======= Transfer - Native + Bridged Assets - Parachain->AssetHub ==========
+// ===========================================================================
+/// Transfers of native asset plus bridged asset from some Parachain to AssetHub
+/// while paying fees using native asset.
+#[test]
+fn transfer_foreign_assets_from_para_to_asset_hub() {
+	// Init values for Parachain
+	let destination = PenpalA::sibling_location_of(AssetHubRococo::para_id());
+	let sender = PenpalASender::get();
+	let native_amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 10000;
+	let native_asset_location = v3::Location::try_from(RelayLocation::get()).unwrap();
+	let assets_owner = PenpalAssetOwner::get();
+
+	// Foreign asset used: bridged WND
+	let foreign_amount_to_send = ASSET_HUB_ROCOCO_ED * 10_000_000;
+	let wnd_at_rococo_parachains =
+		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Westend)]);
+	let wnd_at_rococo_parachains_latest: Location = wnd_at_rococo_parachains.try_into().unwrap();
+
+	// Configure destination chain to trust AH as reserve of WND
+	PenpalA::execute_with(|| {
+		assert_ok!(<PenpalA as Chain>::System::set_storage(
+			<PenpalA as Chain>::RuntimeOrigin::root(),
+			vec![(
+				penpal_runtime::xcm_config::CustomizableAssetFromSystemAssetHub::key().to_vec(),
+				Location::new(2, [GlobalConsensus(Westend)]).encode(),
+			)],
+		));
+	});
+	PenpalA::force_create_foreign_asset(
+		wnd_at_rococo_parachains,
+		assets_owner.clone(),
+		false,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
+	AssetHubRococo::force_create_foreign_asset(
+		wnd_at_rococo_parachains,
+		assets_owner.clone(),
+		false,
+		ASSET_MIN_BALANCE,
+		vec![],
+	);
+
+	// fund Parachain's sender account
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
+		native_asset_location,
+		sender.clone(),
+		native_amount_to_send * 2,
+	);
+	PenpalA::mint_foreign_asset(
+		<PenpalA as Chain>::RuntimeOrigin::signed(assets_owner.clone()),
+		wnd_at_rococo_parachains,
+		sender.clone(),
+		foreign_amount_to_send * 2,
+	);
+
+	// Init values for System Parachain
+	let receiver = AssetHubRococoReceiver::get();
+	let penpal_location_as_seen_by_ahr = AssetHubRococo::sibling_location_of(PenpalA::para_id());
+	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_location_as_seen_by_ahr);
+
+	// fund Parachain's SA on AssetHub with the assets held in reserve
+	AssetHubRococo::fund_accounts(vec![(
+		sov_penpal_on_ahr.clone().into(),
+		native_amount_to_send * 2,
+	)]);
+	AssetHubRococo::mint_foreign_asset(
+		<AssetHubRococo as Chain>::RuntimeOrigin::signed(assets_owner),
+		wnd_at_rococo_parachains,
+		sov_penpal_on_ahr,
+		foreign_amount_to_send * 2,
+	);
+
+	// Assets to send
+	let assets: Vec<Asset> = vec![
+		(Parent, native_amount_to_send).into(),
+		(wnd_at_rococo_parachains_latest, foreign_amount_to_send).into(),
+	];
+	let fee_asset_id = AssetId(Parent.into());
+	let fee_asset_item = assets.iter().position(|a| a.id == fee_asset_id).unwrap() as u32;
+
+	// Init Test
+	let test_args = TestContext {
+		sender: sender.clone(),
+		receiver: receiver.clone(),
+		args: TestArgs::new_para(
+			destination.clone(),
+			receiver.clone(),
+			native_amount_to_send,
+			assets.into(),
+			None,
+			fee_asset_item,
+		),
+	};
+	let mut test = ParaToSystemParaTest::new(test_args);
+
+	// Query initial balances
+	let sender_native_before = PenpalA::execute_with(|| {
+		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(native_asset_location, &sender)
+	});
+	let sender_wnds_before = PenpalA::execute_with(|| {
+		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(wnd_at_rococo_parachains, &sender)
+	});
+	let receiver_native_before = test.receiver.balance;
+	let receiver_wnds_before = AssetHubRococo::execute_with(|| {
+		type ForeignAssets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(wnd_at_rococo_parachains, &receiver)
+	});
+
+	// Set assertions and dispatchables
+	test.set_assertion::<PenpalA>(para_to_system_para_sender_assertions);
+	test.set_assertion::<AssetHubRococo>(para_to_system_para_receiver_assertions);
+	test.set_dispatchable::<PenpalA>(para_to_ah_transfer_assets);
+	test.assert();
+
+	// Query final balances
+	let sender_native_after = PenpalA::execute_with(|| {
+		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(native_asset_location, &sender)
+	});
+	let sender_wnds_after = PenpalA::execute_with(|| {
+		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(wnd_at_rococo_parachains, &sender)
+	});
+	let receiver_native_after = test.receiver.balance;
+	let receiver_wnds_after = AssetHubRococo::execute_with(|| {
+		type ForeignAssets = <AssetHubRococo as AssetHubRococoPallet>::ForeignAssets;
+		<ForeignAssets as Inspect<_>>::balance(wnd_at_rococo_parachains, &receiver)
+	});
+
+	// Sender's balance is reduced by amount sent plus delivery fees
+	assert!(sender_native_after < sender_native_before - native_amount_to_send);
+	// Sender's balance is reduced by foreign amount sent
+	assert_eq!(sender_wnds_after, sender_wnds_before - foreign_amount_to_send);
+	// Receiver's balance is increased
+	assert!(receiver_native_after > receiver_native_before);
+	// Receiver's balance increased by `amount_to_send - delivery_fees - bought_execution`;
+	// `delivery_fees` might be paid from transfer or JIT, also `bought_execution` is unknown but
+	// should be non-zero
+	assert!(receiver_native_after < receiver_native_before + native_amount_to_send);
 	// Receiver's balance is increased by foreign amount sent
 	assert_eq!(receiver_wnds_after, receiver_wnds_before + foreign_amount_to_send);
 }

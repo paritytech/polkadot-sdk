@@ -125,22 +125,26 @@ pub fn system_para_to_para_receiver_assertions(t: SystemParaToParaTest) {
 	}
 }
 
-fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
+pub fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	PenpalA::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(864_610_000, 8_799)));
-	assert_expected_events!(
-		PenpalA,
-		vec![
-			// Amount to reserve transfer is transferred to Parachain's Sovereign account
-			RuntimeEvent::ForeignAssets(
-				pallet_assets::Event::Burned { asset_id, owner, balance, .. }
-			) => {
-				asset_id: *asset_id == v3::Location::try_from(RelayLocation::get()).unwrap(),
-				owner: *owner == t.sender.account_id,
-				balance: *balance == t.args.amount,
-			},
-		]
-	);
+
+	PenpalA::assert_xcm_pallet_attempted_complete(None);
+	for asset in t.args.assets.into_inner().into_iter() {
+		let expected_id = asset.id.0.try_into().unwrap();
+		let asset_amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
+		assert_expected_events!(
+			PenpalA,
+			vec![
+				RuntimeEvent::ForeignAssets(
+					pallet_assets::Event::Burned { asset_id, owner, balance }
+				) => {
+					asset_id: *asset_id == expected_id,
+					owner: *owner == t.sender.account_id,
+					balance: *balance == asset_amount,
+				},
+			]
+		);
+	}
 }
 
 fn para_to_relay_receiver_assertions(t: ParaToRelayTest) {
@@ -172,25 +176,57 @@ fn para_to_relay_receiver_assertions(t: ParaToRelayTest) {
 	);
 }
 
-fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
+pub fn para_to_system_para_receiver_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(
-		AssetHubRococo::sibling_location_of(PenpalA::para_id()),
-	);
-
 	AssetHubRococo::assert_xcmp_queue_success(None);
 
+	let sov_acc_of_penpal = AssetHubRococo::sovereign_account_id_of(t.args.dest.clone());
+	for (idx, asset) in t.args.assets.into_inner().into_iter().enumerate() {
+		let expected_id = asset.id.0.clone().try_into().unwrap();
+		let asset_amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
+		if idx == t.args.fee_asset_item as usize {
+			assert_expected_events!(
+				AssetHubRococo,
+				vec![
+					// Amount of native is withdrawn from Parachain's Sovereign account
+					RuntimeEvent::Balances(
+						pallet_balances::Event::Burned { who, amount }
+					) => {
+						who: *who == sov_acc_of_penpal.clone().into(),
+						amount: *amount == asset_amount,
+					},
+					RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
+						who: *who == t.receiver.account_id,
+					},
+				]
+			);
+		} else {
+			assert_expected_events!(
+				AssetHubRococo,
+				vec![
+					// Amount of foreign asset is transferred from Parachain's Sovereign account
+					// to Receiver's account
+					RuntimeEvent::ForeignAssets(
+						pallet_assets::Event::Burned { asset_id, owner, balance },
+					) => {
+						asset_id: *asset_id == expected_id,
+						owner: *owner == sov_acc_of_penpal,
+						balance: *balance == asset_amount,
+					},
+					RuntimeEvent::ForeignAssets(
+						pallet_assets::Event::Issued { asset_id, owner, amount },
+					) => {
+						asset_id: *asset_id == expected_id,
+						owner: *owner == t.receiver.account_id,
+						amount: *amount == asset_amount,
+					},
+				]
+			);
+		}
+	}
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
-			// Amount to reserve transfer is withdrawn from Parachain's Sovereign account
-			RuntimeEvent::Balances(
-				pallet_balances::Event::Burned { who, amount }
-			) => {
-				who: *who == sov_penpal_on_ahr.clone().into(),
-				amount: *amount == t.args.amount,
-			},
-			RuntimeEvent::Balances(pallet_balances::Event::Minted { .. }) => {},
 			RuntimeEvent::MessageQueue(
 				pallet_message_queue::Event::Processed { success: true, .. }
 			) => {},
