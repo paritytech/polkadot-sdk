@@ -26,6 +26,7 @@ mod imports {
 		v3,
 		v4::NetworkId::Rococo as RococoId,
 	};
+	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use emulated_integration_tests_common::{

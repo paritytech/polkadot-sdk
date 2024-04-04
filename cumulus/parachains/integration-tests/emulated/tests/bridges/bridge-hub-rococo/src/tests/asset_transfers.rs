@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::tests::*;
-use xcm_executor::traits::TransferType;
 
 fn send_asset_from_asset_hub_rococo_to_asset_hub_westend(id: Location, amount: u128) {
 	let destination = asset_hub_westend_location();
@@ -113,7 +112,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 		vec![],
 	);
 	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-		NetworkId::Westend,
+		Westend,
 		AssetHubWestend::para_id(),
 	);
 
@@ -223,7 +222,7 @@ fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 
 	// fund the AHR's SA on AHW with the WND tokens held in reserve
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
-		NetworkId::Rococo,
+		Rococo,
 		AssetHubRococo::para_id(),
 	);
 	AssetHubWestend::fund_accounts(vec![(sov_ahr_on_ahw.clone(), prefund_amount)]);
@@ -301,7 +300,7 @@ fn send_rocs_from_penpal_rococo_through_asset_hub_rococo_to_asset_hub_westend() 
 		vec![],
 	);
 	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-		NetworkId::Westend,
+		Westend,
 		AssetHubWestend::para_id(),
 	);
 

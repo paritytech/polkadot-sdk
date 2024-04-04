@@ -57,7 +57,6 @@ fn para_to_relay_sender_assertions(t: ParaToRelayTest) {
 
 pub fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-
 	AssetHubRococo::assert_xcm_pallet_attempted_complete(None);
 
 	let sov_acc_of_dest = AssetHubRococo::sovereign_account_id_of(t.args.dest.clone());
@@ -99,9 +98,7 @@ pub fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 		AssetHubRococo,
 		vec![
 			// Transport fees are paid
-			RuntimeEvent::PolkadotXcm(
-				pallet_xcm::Event::FeesPaid { .. }
-			) => {},
+			RuntimeEvent::PolkadotXcm(pallet_xcm::Event::FeesPaid { .. }) => {},
 		]
 	);
 	AssetHubRococo::assert_xcm_pallet_sent();
@@ -109,7 +106,6 @@ pub fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 
 pub fn system_para_to_para_receiver_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-
 	PenpalA::assert_xcmp_queue_success(None);
 	for asset in t.args.assets.into_inner().into_iter() {
 		let expected_id = asset.id.0.try_into().unwrap();
@@ -127,7 +123,6 @@ pub fn system_para_to_para_receiver_assertions(t: SystemParaToParaTest) {
 
 pub fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-
 	PenpalA::assert_xcm_pallet_attempted_complete(None);
 	for asset in t.args.assets.into_inner().into_iter() {
 		let expected_id = asset.id.0.try_into().unwrap();

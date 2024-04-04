@@ -111,7 +111,7 @@ fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
 		vec![],
 	);
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
-		NetworkId::Rococo,
+		Rococo,
 		AssetHubRococo::para_id(),
 	);
 
@@ -220,7 +220,7 @@ fn send_rocs_from_asset_hub_westend_to_asset_hub_rococo() {
 
 	// fund the AHW's SA on AHR with the ROC tokens held in reserve
 	let sov_ahw_on_ahr = AssetHubRococo::sovereign_account_of_parachain_on_other_global_consensus(
-		NetworkId::Westend,
+		Westend,
 		AssetHubWestend::para_id(),
 	);
 	AssetHubRococo::fund_accounts(vec![(sov_ahw_on_ahr.clone(), prefund_amount)]);
@@ -298,52 +298,9 @@ fn send_wnds_from_penpal_westend_through_asset_hub_westend_to_asset_hub_rococo()
 		vec![],
 	);
 	let sov_ahr_on_ahw = AssetHubWestend::sovereign_account_of_parachain_on_other_global_consensus(
-		NetworkId::Rococo,
+		Rococo,
 		AssetHubRococo::para_id(),
 	);
-
-	AssetHubRococo::execute_with(|| {
-		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
-
-		// setup a pool to pay xcm fees with `wnd_at_asset_hub_rococo` tokens
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			wnd_at_asset_hub_rococo.into(),
-			AssetHubRococoSender::get().into(),
-			3_000_000_000_000,
-		));
-
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(xcm::v3::Parent.into()),
-			Box::new(wnd_at_asset_hub_rococo),
-		));
-
-		assert_expected_events!(
-			AssetHubRococo,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
-			]
-		);
-
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(xcm::v3::Parent.into()),
-			Box::new(wnd_at_asset_hub_rococo),
-			1_000_000_000_000,
-			2_000_000_000_000,
-			1,
-			1,
-			AssetHubRococoSender::get().into()
-		));
-
-		assert_expected_events!(
-			AssetHubRococo,
-			vec![
-				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
-			]
-		);
-	});
 
 	let amount = ASSET_HUB_WESTEND_ED * 10_000_000;
 	let penpal_location = AssetHubWestend::sibling_location_of(PenpalB::para_id());

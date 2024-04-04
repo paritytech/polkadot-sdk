@@ -412,10 +412,12 @@ fn teleport_to_other_system_parachains_works() {
 	);
 }
 
-/// Bidirectional teleports of local Penpal assets to Asset Hub as foreign assets should work
-/// (using native reserve-based transfer for fees)
-#[test]
-fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
+/// Bidirectional teleports of local Penpal assets to Asset Hub as foreign assets while paying
+/// fees using (reserve transferred) native asset.
+pub fn do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt(
+	para_to_ah_dispatchable: fn(ParaToSystemParaTest) -> DispatchResult,
+	ah_to_para_dispatchable: fn(SystemParaToParaTest) -> DispatchResult,
+) {
 	// Init values for Parachain
 	let fee_amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 100;
 	let asset_location_on_penpal =
@@ -515,7 +517,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 
 	penpal_to_ah.set_assertion::<PenpalA>(penpal_to_ah_foreign_assets_sender_assertions);
 	penpal_to_ah.set_assertion::<AssetHubWestend>(penpal_to_ah_foreign_assets_receiver_assertions);
-	penpal_to_ah.set_dispatchable::<PenpalA>(para_to_system_para_transfer_assets);
+	penpal_to_ah.set_dispatchable::<PenpalA>(para_to_ah_dispatchable);
 	penpal_to_ah.assert();
 
 	let penpal_sender_balance_after = PenpalA::execute_with(|| {
@@ -622,7 +624,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 
 	ah_to_penpal.set_assertion::<AssetHubWestend>(ah_to_penpal_foreign_assets_sender_assertions);
 	ah_to_penpal.set_assertion::<PenpalA>(ah_to_penpal_foreign_assets_receiver_assertions);
-	ah_to_penpal.set_dispatchable::<AssetHubWestend>(system_para_to_para_transfer_assets);
+	ah_to_penpal.set_dispatchable::<AssetHubWestend>(ah_to_para_dispatchable);
 	ah_to_penpal.assert();
 
 	let ah_sender_balance_after = ah_to_penpal.sender.balance;
@@ -659,4 +661,14 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	assert_eq!(ah_sender_assets_before - asset_amount_to_send, ah_sender_assets_after);
 	// Receiver's balance is increased by exact amount
 	assert_eq!(penpal_receiver_assets_after, penpal_receiver_assets_before + asset_amount_to_send);
+}
+
+/// Bidirectional teleports of local Penpal assets to Asset Hub as foreign assets should work
+/// (using native reserve-based transfer for fees)
+#[test]
+fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
+	do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt(
+		para_to_system_para_transfer_assets,
+		system_para_to_para_transfer_assets,
+	);
 }

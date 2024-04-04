@@ -25,6 +25,7 @@ mod imports {
 		prelude::{AccountId32 as AccountId32Junction, *},
 		v3::{self, NetworkId::Westend as WestendId},
 	};
+	pub use xcm_executor::traits::TransferType;
 
 	// Cumulus
 	pub use emulated_integration_tests_common::{
