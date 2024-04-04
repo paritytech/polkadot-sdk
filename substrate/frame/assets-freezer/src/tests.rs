@@ -19,6 +19,7 @@
 
 use crate::mock::*;
 
+use codec::Compact;
 use frame_support::{
 	assert_ok,
 	traits::fungibles::{Inspect, InspectFreeze, MutateFreeze},
@@ -223,6 +224,29 @@ mod impl_mutate_freeze {
 				),
 				99
 			);
+		});
+	}
+}
+
+mod with_pallet_assets {
+	use frame_support::assert_noop;
+
+	use super::*;
+
+	#[test]
+	fn frozen_balance_aftects_balance_transferring() {
+		new_test_ext(|| {
+			assert_ok!(AssetsFreezer::set_freeze(
+				ASSET_ID,
+				&DummyFreezeReason::Governance,
+				&WHO,
+				20
+			));
+			assert_noop!(
+				Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 80),
+				pallet_assets::Error::<Test>::BalanceLow,
+			);
+			assert_ok!(Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 79));
 		});
 	}
 }
