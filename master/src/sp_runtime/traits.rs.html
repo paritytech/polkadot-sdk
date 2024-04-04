@@ -4970,12 +4970,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// .
 	</span><span class="kw">fn </span>current_block_number() -&gt; <span class="self">Self</span>::BlockNumber;
 
-	<span class="doccomment">/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
-	/// else a noop.
+	<span class="doccomment">/// Utility function only to be used in benchmarking scenarios or tests, to be implemented
+	/// optionally, else a noop.
 	///
 	/// It allows for setting the block number that will later be fetched
 	/// This is useful in case the block number provider is different than System
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 	</span><span class="kw">fn </span>set_block_number(_block: <span class="self">Self</span>::BlockNumber) {}
 }
 
