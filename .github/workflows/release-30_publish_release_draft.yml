@@ -55,7 +55,6 @@ jobs:
       - name: Prepare draft
         id: draft
         env:
-          REL_TAG: ${{ inputs.version || github.ref }}
           RUSTC_STABLE: ${{ needs.get-rust-versions.outputs.rustc-stable }}
           RUSTC_NIGHTLY: ${{ needs.get-rust-versions.outputs.rustc-nightly }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -76,8 +75,13 @@ jobs:
           . ./.github/scripts/common/lib.sh
 
           export REF1=$(get_latest_release_tag)
-          export REF2=$REL_TAG
-          export VERSION=$(echo "$REL_TAG" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
+          if [[ -z "${{ inputs.version }}" ]]; then
+            export REF2="${{ github.ref }}"
+          else
+            export REF2="${{ inputs.version }}"
+          fi
+          echo "REL_TAG=$REF2" >> $GITHUB_ENV
+          export VERSION=$(echo "$REF2" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*$/\1/')
 
           ./scripts/release/build-changelogs.sh
 
