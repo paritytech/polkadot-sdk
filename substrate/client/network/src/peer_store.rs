@@ -237,11 +237,28 @@ impl PeerStoreInner {
 
 	fn report_peer(&mut self, peer_id: PeerId, change: ReputationChange) {
 		let peer_info = self.peers.entry(peer_id).or_default();
+
+		let is_banned_before = peer_info.is_banned();
 		peer_info.add_reputation(change.value);
+		let is_banned_now = peer_info.is_banned();
 
-		if peer_info.reputation < BANNED_THRESHOLD {
-			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id));
+		// Banned -> Unbanned.
+		if is_banned_before && !is_banned_now {
+			log::info!(
+				target: LOG_TARGET,
+				"Report {}: {:+} to {}. Reason: {}. Unbanned.",
+				peer_id,
+				change.value,
+				peer_info.reputation,
+				change.reason,
+			);
 
+			return
+		}
+
+		// Unbanned -> Banned.
+		// Disconnect the peer if the reputation is crossing the ban threshold.
+		if !is_banned_before && is_banned_now {
 			log::warn!(
 				target: LOG_TARGET,
 				"Report {}: {:+} to {}. Reason: {}. Banned, disconnecting.",
@@ -250,16 +267,20 @@ impl PeerStoreInner {
 				peer_info.reputation,
 				change.reason,
 			);
-		} else {
-			log::trace!(
-				target: LOG_TARGET,
-				"Report {}: {:+} to {}. Reason: {}.",
-				peer_id,
-				change.value,
-				peer_info.reputation,
-				change.reason,
-			);
+
+			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id));
+
+			return
 		}
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Report {}: {:+} to {}. Reason: {}.",
+			peer_id,
+			change.value,
+			peer_info.reputation,
+			change.reason,
+		);
 	}
 
 	fn set_peer_role(&mut self, peer_id: &PeerId, role: ObservedRole) {
