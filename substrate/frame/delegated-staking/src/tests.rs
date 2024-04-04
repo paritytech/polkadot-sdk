@@ -589,11 +589,8 @@ mod staking_integration {
 				Balances::balance_on_hold(&HoldReason::Delegating.into(), &proxy_delegator),
 				expected_proxy_delegated_amount
 			);
-			// ED + stake amount is transferred from delegate to proxy delegator account.
-			assert_eq!(
-				Balances::free_balance(200),
-				5000 - staked_amount - ExistentialDeposit::get()
-			);
+			// stake amount is transferred from delegate to proxy delegator account.
+			assert_eq!(Balances::free_balance(200), 5000 - staked_amount);
 			assert_eq!(Staking::stake(&200).unwrap(), init_stake);
 			assert_eq!(get_agent(&200).ledger.effective_balance(), 4000);
 			assert_eq!(get_agent(&200).available_to_bond(), 0);
