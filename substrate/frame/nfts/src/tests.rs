@@ -3863,7 +3863,6 @@ fn clear_collection_metadata_works() {
 
 		// Clearing collection metadata decreases owner deposit by 10
 		assert_ok!(Nfts::clear_collection_metadata(RuntimeOrigin::signed(account(1)), 0));
-		// Reserved balance decreased by the collection metadata deposit (-10)
 		assert_eq!(Collection::<Test>::get(0).unwrap().owner_deposit, 2);
 		assert_eq!(Balances::reserved_balance(&account(1)), 12);
 
