@@ -152,7 +152,7 @@ where
 #[macro_export]
 macro_rules! call_builder(
 	($func: ident, $module:expr) => {
-		$crate::call_builder!($func, _info, $module);
+		$crate::call_builder!($func, _contract, $module);
 	};
 	($func: ident, $contract: ident, $module:expr) => {
 		let mut setup = CallSetup::<T>::new($module);
