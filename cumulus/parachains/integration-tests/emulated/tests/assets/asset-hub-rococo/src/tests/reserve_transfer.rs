@@ -55,27 +55,49 @@ fn para_to_relay_sender_assertions(t: ParaToRelayTest) {
 	);
 }
 
-fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
+pub fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 
-	AssetHubRococo::assert_xcm_pallet_attempted_complete(Some(Weight::from_parts(
-		864_610_000,
-		8_799,
-	)));
+	AssetHubRococo::assert_xcm_pallet_attempted_complete(None);
 
+	let sov_acc_of_dest = AssetHubRococo::sovereign_account_id_of(t.args.dest.clone());
+	for (idx, asset) in t.args.assets.into_inner().into_iter().enumerate() {
+		let expected_id = asset.id.0.clone().try_into().unwrap();
+		let asset_amount = if let Fungible(a) = asset.fun { Some(a) } else { None }.unwrap();
+		if idx == t.args.fee_asset_item as usize {
+			assert_expected_events!(
+				AssetHubRococo,
+				vec![
+					// Amount of native asset is transferred to Parachain's Sovereign account
+					RuntimeEvent::Balances(
+						pallet_balances::Event::Transfer { from, to, amount }
+					) => {
+						from: *from == t.sender.account_id,
+						to: *to == sov_acc_of_dest,
+						amount: *amount == asset_amount,
+					},
+				]
+			);
+		} else {
+			assert_expected_events!(
+				AssetHubRococo,
+				vec![
+					// Amount of foreign asset is transferred to Parachain's Sovereign account
+					RuntimeEvent::ForeignAssets(
+						pallet_assets::Event::Transferred { asset_id, from, to, amount },
+					) => {
+						asset_id: *asset_id == expected_id,
+						from: *from == t.sender.account_id,
+						to: *to == sov_acc_of_dest,
+						amount: *amount == asset_amount,
+					},
+				]
+			);
+		}
+	}
 	assert_expected_events!(
 		AssetHubRococo,
 		vec![
-			// Amount to reserve transfer is transferred to Parachain's Sovereign account
-			RuntimeEvent::Balances(
-				pallet_balances::Event::Transfer { from, to, amount }
-			) => {
-				from: *from == t.sender.account_id,
-				to: *to == AssetHubRococo::sovereign_account_id_of(
-					t.args.dest.clone()
-				),
-				amount: *amount == t.args.amount,
-			},
 			// Transport fees are paid
 			RuntimeEvent::PolkadotXcm(
 				pallet_xcm::Event::FeesPaid { .. }
@@ -85,21 +107,22 @@ fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 	AssetHubRococo::assert_xcm_pallet_sent();
 }
 
-fn system_para_to_para_receiver_assertions(t: SystemParaToParaTest) {
+pub fn system_para_to_para_receiver_assertions(t: SystemParaToParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	let system_para_native_asset_location = v3::Location::try_from(RelayLocation::get()).unwrap();
 
 	PenpalA::assert_xcmp_queue_success(None);
-
-	assert_expected_events!(
-		PenpalA,
-		vec![
-			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
-				asset_id: *asset_id == system_para_native_asset_location,
-				owner: *owner == t.receiver.account_id,
-			},
-		]
-	);
+	for asset in t.args.assets.into_inner().into_iter() {
+		let expected_id = asset.id.0.try_into().unwrap();
+		assert_expected_events!(
+			PenpalA,
+			vec![
+				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, .. }) => {
+					asset_id: *asset_id == expected_id,
+					owner: *owner == t.receiver.account_id,
+				},
+			]
+		);
+	}
 }
 
 fn para_to_system_para_sender_assertions(t: ParaToSystemParaTest) {
