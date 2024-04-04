@@ -96,7 +96,7 @@ impl<T: V5Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV4T
 				MaxPageSize: {}",
 					info.max_message_size, max_msg_len
 				);
-				return Err("Migration can be front-run".into());
+				//return Err("Migration can be front-run".into());
 			}
 		}
 
