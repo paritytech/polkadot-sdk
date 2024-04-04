@@ -874,6 +874,13 @@ fn pool_migration_e2e() {
 
 		// we migrate to the new strategy `DelegateStake`
 		LegacyAdapter::set(false);
-		// fixme(ank4n): wip.
+		// migrate the pool.
+		assert_ok!(Pools::migrate_to_delegate_stake(1));
+		assert_ok!(Pools::claim_delegation(RuntimeOrigin::signed(10), 20));
+
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 10));
+
+		CurrentEra::<Runtime>::set(Some(10));
+		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 10));
 	})
 }
