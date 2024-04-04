@@ -15,3 +15,4 @@ doc:
 
 crates:
   - name: sc-network-sync
+    bump: minor
