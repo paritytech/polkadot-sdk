@@ -264,6 +264,8 @@ subsystem-regression-tests-distribution-regression:
     - .docker-env
     - .common-refs
     # - .run-immediately
+  variables:
+    FORKLIFT_BYPASS: "true"
   parallel: 6
   script:
     - for i in {1..10}; do cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks || echo fail_${i} >> fails ; done
