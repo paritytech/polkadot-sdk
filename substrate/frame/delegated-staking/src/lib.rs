@@ -467,18 +467,14 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn do_migrate_to_agent(who: &T::AccountId, reward_account: &T::AccountId) -> DispatchResult {
+		Self::do_register_agent(who, reward_account);
+
 		// We create a proxy delegator that will keep all the delegation funds until funds are
 		// transferred to actual delegator.
 		let proxy_delegator = Self::sub_account(AccountType::ProxyDelegator, who.clone());
 
-		// Transfer minimum balance to proxy delegator.
-		T::Currency::transfer(
-			who,
-			&proxy_delegator,
-			T::Currency::minimum_balance(),
-			Preservation::Protect,
-		)
-		.map_err(|_| Error::<T>::NotEnoughFunds)?;
+		// Keep proxy delegator alive until all funds are migrated.
+		frame_system::Pallet::<T>::inc_providers(&proxy_delegator);
 
 		// Get current stake
 		let stake = T::CoreStaking::stake(who)?;
@@ -488,12 +484,10 @@ impl<T: Config> Pallet<T> {
 
 		// transferring just released staked amount. This should never fail but if it does, it
 		// indicates bad state and we abort.
-		T::Currency::transfer(who, &proxy_delegator, stake.total, Preservation::Protect)
+		T::Currency::transfer(who, &proxy_delegator, stake.total, Preservation::Expendable)
 			.map_err(|_| Error::<T>::BadState)?;
 
-		Self::do_register_agent(who, reward_account);
 		T::CoreStaking::update_payee(who, reward_account)?;
-
 		Self::do_delegate(&proxy_delegator, who, stake.total)
 	}
 
@@ -624,7 +618,6 @@ impl<T: Config> Pallet<T> {
 
 		// update delegations
 		Delegation::<T>::from(&source_delegation.agent, amount).save_or_kill(destination_delegator);
-
 		source_delegation
 			.decrease_delegation(amount)
 			.defensive_ok_or(Error::<T>::BadState)?
@@ -641,14 +634,18 @@ impl<T: Config> Pallet<T> {
 		defensive_assert!(released == amount, "hold should have been released fully");
 
 		// transfer the released amount to `destination_delegator`.
-		// Note: The source should have been funded ED in the beginning so it should not be dusted.
-		T::Currency::transfer(
+		let post_balance = T::Currency::transfer(
 			source_delegator,
 			destination_delegator,
 			amount,
-			Preservation::Preserve,
+			Preservation::Expendable,
 		)
 		.map_err(|_| Error::<T>::BadState)?;
+
+		// if balance is zero, clear provider for source (proxy) delegator.
+		if post_balance == Zero::zero() {
+			let _ = frame_system::Pallet::<T>::dec_providers(source_delegator).defensive();
+		}
 
 		// hold the funds again in the new delegator account.
 		T::Currency::hold(&HoldReason::Delegating.into(), destination_delegator, amount)?;
