@@ -1394,7 +1394,7 @@ dependencies = [
 name = "binary-merkle-tree"
 version = "13.0.0"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.2",
  "env_logger 0.11.3",
  "hash-db",
  "log",
@@ -10207,7 +10207,7 @@ dependencies = [
 name = "pallet-mmr"
 version = "27.0.0"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.2",
  "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-support",
@@ -15678,7 +15678,7 @@ dependencies = [
 name = "sc-chain-spec"
 version = "28.0.0"
 dependencies = [
- "array-bytes 6.1.0",
+ "array-bytes 6.2.2",
  "docify",
  "log",
  "memmap2 0.9.3",
@@ -20129,6 +20129,7 @@ dependencies = [
  "sc-executor-wasmtime",
  "sp-io",
  "sp-maybe-compressed-blob",
+ "sp-tracing 16.0.0",
  "strum 0.26.2",
  "tempfile",
  "toml 0.8.8",
