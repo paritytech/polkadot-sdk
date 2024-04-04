@@ -1922,7 +1922,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-common"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -7053,6 +7053,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
+ "pallet-example-mbm",
  "pallet-example-tasks",
  "pallet-fast-unstake",
  "pallet-glutton",
@@ -9838,6 +9839,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-mbm"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-migrations",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+]
+
+[[package]]
 name = "pallet-example-offchain-worker"
 version = "28.0.0"
 dependencies = [
@@ -10469,7 +10484,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-parameters"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -18728,7 +18743,7 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-hashing"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -18742,7 +18757,7 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-hashing-proc-macro"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "quote",
  "sp-crypto-hashing",
