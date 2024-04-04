@@ -26,4 +26,6 @@ doc:
 
 crates:
 - name: "xcm-procedural"
+  bump: minor
 - name: "staging-xcm"
+  bump: minor
