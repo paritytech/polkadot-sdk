@@ -71,6 +71,9 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use pallet_tx_pause::RuntimeCallNameOf;
@@ -320,6 +323,8 @@ impl pallet_example_tasks::Config for Runtime {
 	type WeightInfo = pallet_example_tasks::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_example_mbm::Config for Runtime {}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -547,6 +552,9 @@ parameter_types! {
 	pub MaximumMultiplier: Multiplier = Bounded::max_value();
 }
 
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
@@ -2439,6 +2447,9 @@ mod runtime {
 
 	#[runtime::pallet_index(77)]
 	pub type SkipFeelessPayment = pallet_skip_feeless_payment;
+
+	#[runtime::pallet_index(78)]
+	pub type PalletExampleMbms = pallet_example_mbm;
 }
 
 /// The address format for describing accounts.
@@ -2597,6 +2608,7 @@ mod benches {
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
+		[pallet_example_mbm, PalletExampleMbms]
 	);
 }
 
