@@ -1184,6 +1184,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1035" id="1035">1035</a>
 <a href="#1036" id="1036">1036</a>
 <a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1945,6 +1953,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.map_err(Into::into),
 
 					Coretime(coretime_runtime_type) =&gt; <span class="kw">match </span>coretime_runtime_type {
+						chain_spec::coretime::CoretimeRuntimeType::Kusama |
+						chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
+						chain_spec::coretime::CoretimeRuntimeType::Polkadot |
+						chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
 						chain_spec::coretime::CoretimeRuntimeType::Rococo |
 						chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
 						chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
@@ -1976,6 +1988,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.map_err(Into::into),
 
 					People(people_runtime_type) =&gt; <span class="kw">match </span>people_runtime_type {
+						chain_spec::people::PeopleRuntimeType::Kusama |
+						chain_spec::people::PeopleRuntimeType::KusamaLocal |
+						chain_spec::people::PeopleRuntimeType::Polkadot |
+						chain_spec::people::PeopleRuntimeType::PolkadotLocal |
 						chain_spec::people::PeopleRuntimeType::Rococo |
 						chain_spec::people::PeopleRuntimeType::RococoLocal |
 						chain_spec::people::PeopleRuntimeType::RococoDevelopment |
