@@ -135,7 +135,7 @@ fn runtime(id: &str) -> Runtime {
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 	let (id, _, para_id) = extract_parachain_id(id);
 	Ok(match id {
-		// - Defaul-like
+		// - Default-like
 		"staging" =>
 			Box::new(chain_spec::rococo_parachain::staging_rococo_parachain_local_config()),
 		"tick" => Box::new(GenericChainSpec::from_json_bytes(
@@ -759,6 +759,10 @@ pub fn run() -> Result<()> {
 					.map_err(Into::into),
 
 					Coretime(coretime_runtime_type) => match coretime_runtime_type {
+						chain_spec::coretime::CoretimeRuntimeType::Kusama |
+						chain_spec::coretime::CoretimeRuntimeType::KusamaLocal |
+						chain_spec::coretime::CoretimeRuntimeType::Polkadot |
+						chain_spec::coretime::CoretimeRuntimeType::PolkadotLocal |
 						chain_spec::coretime::CoretimeRuntimeType::Rococo |
 						chain_spec::coretime::CoretimeRuntimeType::RococoLocal |
 						chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
@@ -790,6 +794,10 @@ pub fn run() -> Result<()> {
 						.map_err(Into::into),
 
 					People(people_runtime_type) => match people_runtime_type {
+						chain_spec::people::PeopleRuntimeType::Kusama |
+						chain_spec::people::PeopleRuntimeType::KusamaLocal |
+						chain_spec::people::PeopleRuntimeType::Polkadot |
+						chain_spec::people::PeopleRuntimeType::PolkadotLocal |
 						chain_spec::people::PeopleRuntimeType::Rococo |
 						chain_spec::people::PeopleRuntimeType::RococoLocal |
 						chain_spec::people::PeopleRuntimeType::RococoDevelopment |

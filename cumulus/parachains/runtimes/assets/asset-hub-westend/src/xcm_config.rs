@@ -27,14 +27,13 @@ use assets_common::{
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Equals, Everything, Nothing,
-		PalletInfoAccess,
+		tokens::imbalance::{ResolveAssetTo, ResolveTo},
+		ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
 		ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
@@ -185,7 +184,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// We dont need to check teleports here.
+	// We don't need to check teleports here.
 	NoChecking,
 	// The account to use for tracking teleports.
 	CheckingAccount,
@@ -591,7 +590,13 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader = (
-		UsingComponents<WeightToFee, WestendLocation, AccountId, Balances, ToStakingPot<Runtime>>,
+		UsingComponents<
+			WeightToFee,
+			WestendLocation,
+			AccountId,
+			Balances,
+			ResolveTo<StakingPot, Balances>,
+		>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			WestendLocationV3,
 			crate::AssetConversion,
@@ -649,6 +654,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 /// Local origins on this chain are allowed to dispatch XCM sends/executions.

@@ -352,7 +352,7 @@ mod tests {
 		assert!(gas_meter.charge(SimpleToken(1)).is_err());
 	}
 
-	// Make sure that the gas meter does not charge in case of overcharger
+	// Make sure that the gas meter does not charge in case of overcharge
 	#[test]
 	fn overcharge_does_not_charge() {
 		let mut gas_meter = GasMeter::<Test>::new(Weight::from_parts(200, 0));

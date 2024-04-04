@@ -154,7 +154,7 @@ pub enum NetworkMessage {
 	MessageFromNode(AuthorityDiscoveryId, VersionedValidationProtocol),
 	/// A request originating from our node
 	RequestFromNode(AuthorityDiscoveryId, Requests),
-	/// A request originating from an emultated peer
+	/// A request originating from an emulated peer
 	RequestFromPeer(IncomingRequest),
 }
 
@@ -219,7 +219,7 @@ impl Future for ProxiedRequest {
 			Poll::Ready(response) => Poll::Ready(ProxiedResponse {
 				sender: self.sender.take().expect("sender already used"),
 				result: response
-					.expect("Response is always succesfully received.")
+					.expect("Response is always successfully received.")
 					.result
 					.map_err(|_| RequestFailure::Refused),
 			}),
@@ -761,7 +761,7 @@ pub fn new_network(
 	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}", config.connectivity, config.latency).bright_black());
 
 	let metrics =
-		Metrics::new(&dependencies.registry).expect("Metrics always register succesfully");
+		Metrics::new(&dependencies.registry).expect("Metrics always register successfully");
 	let mut validator_authority_id_mapping = HashMap::new();
 
 	// Create the channel from `peer` to `NetworkInterface` .
@@ -790,9 +790,9 @@ pub fn new_network(
 
 	let connected_count = config.connected_count();
 
-	let mut peers_indicies = (0..n_peers).collect_vec();
+	let mut peers_indices = (0..n_peers).collect_vec();
 	let (_connected, to_disconnect) =
-		peers_indicies.partial_shuffle(&mut thread_rng(), connected_count);
+		peers_indices.partial_shuffle(&mut thread_rng(), connected_count);
 
 	// Node under test is always mark as disconnected.
 	peers[NODE_UNDER_TEST as usize].disconnect();
@@ -958,7 +958,7 @@ impl Metrics {
 			.inc_by(bytes as u64);
 	}
 
-	/// Increment total receioved for a peer.
+	/// Increment total received for a peer.
 	pub fn on_peer_received(&self, peer_index: usize, bytes: usize) {
 		self.peer_total_received
 			.with_label_values(vec![format!("node{}", peer_index).as_str()].as_slice())
@@ -1041,7 +1041,7 @@ mod tests {
 	async fn test_expected_rate() {
 		let tick_rate = 200;
 		let budget = 1_000_000;
-		// rate must not exceeed 100 credits per second
+		// rate must not exceed 100 credits per second
 		let mut rate_limiter = RateLimit::new(tick_rate, budget);
 		let mut total_sent = 0usize;
 		let start = Instant::now();
