@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712202204182,
+  "lastUpdate": 1712228097730,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1091,6 +1091,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17415638780666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Lulu",
+            "username": "Morganamilo",
+            "email": "morgan@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0bbda78d86bc6210cda123042d817aeaf45b3d77",
+          "message": "Use 0.1.0 as minimum version for crates (#3941)\n\nCI will be enforcing this with next parity-publish release",
+          "timestamp": "2024-04-04T09:26:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bbda78d86bc6210cda123042d817aeaf45b3d77"
+        },
+        "date": 1712228073598,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.473803762820003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20081802856666667,
             "unit": "seconds"
           }
         ]
