@@ -83,9 +83,10 @@ pub struct NodeKeyParams {
 
 	/// Forces key generation if node-key-file file does not exist.
 	///
-	/// This is an unsafe feature for producation networks because the previous
-	/// node address would still live in the DHT for 36h and the node would suffer
-	/// from bad connectivity to other nodes untill the old record expires.
+	/// This is an unsafe feature for production networks, because as an active authority
+	/// other authorities may depend on your node having a stable identity and they might
+	/// not being able to reach you if your identity changes after entering the active set.
+	///
 	/// For minimal node downtime if no custom `node-key-file` argument is provided
 	/// the network-key is usually persisted accross nodes restarts,
 	/// in the `network` folder from directory provided in `--base-path`

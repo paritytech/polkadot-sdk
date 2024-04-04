@@ -17,7 +17,7 @@
 
 //! Implementation of the `generate-node-key` subcommand
 
-use crate::{build_network_key_dir_or_default, Error, SubstrateCli, NODE_KEY_ED25519_FILE};
+use crate::{build_network_key_dir_or_default, Error, NODE_KEY_ED25519_FILE};
 use clap::Parser;
 use libp2p_identity::{ed25519, Keypair};
 use sc_service::BasePath;
@@ -63,7 +63,7 @@ pub struct GenerateNodeKeyCmd {
 
 impl GenerateNodeKeyCmd {
 	/// Run the command
-	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<(), Error> {
+	pub fn run(&self, chain_spec_id: &str, executable_name: &String) -> Result<(), Error> {
 		let keypair = ed25519::Keypair::generate();
 
 		let secret = keypair.secret();
@@ -77,12 +77,10 @@ impl GenerateNodeKeyCmd {
 		match (&self.file, &self.base_path, self.default_base_path) {
 			(Some(file), None, false) => fs::write(file, file_data)?,
 			(None, Some(_), false) | (None, None, true) => {
-				let chain_spec = cli.load_spec(self.chain.as_deref().unwrap_or(""))?;
-
 				let network_path = build_network_key_dir_or_default(
 					self.base_path.clone().map(BasePath::new),
-					&chain_spec,
-					cli,
+					chain_spec_id,
+					executable_name,
 				);
 
 				fs::create_dir_all(network_path.as_path())?;
@@ -90,7 +88,7 @@ impl GenerateNodeKeyCmd {
 				let key_path = network_path.join(NODE_KEY_ED25519_FILE);
 				if key_path.exists() {
 					eprintln!("Skip generation, a key already exists in {:?}", key_path);
-					return Ok(());
+					return Err(Error::KeyAlreadyExistsInPath(key_path));
 				} else {
 					eprintln!("Generating key in {:?}", key_path);
 					fs::write(key_path, file_data)?
@@ -114,55 +112,15 @@ pub mod tests {
 	use crate::DEFAULT_NETWORK_CONFIG_PATH;
 
 	use super::*;
-	use sc_service::{ChainSpec, ChainType, GenericChainSpec, NoExtension};
 	use std::io::Read;
 	use tempfile::Builder;
-
-	struct Cli;
-
-	impl SubstrateCli for Cli {
-		fn impl_name() -> String {
-			"test".into()
-		}
-
-		fn impl_version() -> String {
-			"2.0".into()
-		}
-
-		fn description() -> String {
-			"test".into()
-		}
-
-		fn support_url() -> String {
-			"test.test".into()
-		}
-
-		fn copyright_start_year() -> i32 {
-			2021
-		}
-
-		fn author() -> String {
-			"test".into()
-		}
-
-		fn load_spec(&self, _: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
-			Ok(Box::new(
-				GenericChainSpec::<()>::builder(Default::default(), NoExtension::None)
-					.with_name("test")
-					.with_id("test_id")
-					.with_chain_type(ChainType::Development)
-					.with_genesis_config_patch(Default::default())
-					.build(),
-			))
-		}
-	}
 
 	#[test]
 	fn generate_node_key() {
 		let mut file = Builder::new().prefix("keyfile").tempfile().unwrap();
 		let file_path = file.path().display().to_string();
 		let generate = GenerateNodeKeyCmd::parse_from(&["generate-node-key", "--file", &file_path]);
-		assert!(generate.run(&Cli).is_ok());
+		assert!(generate.run("test", &String::from("test")).is_ok());
 		let mut buf = String::new();
 		assert!(file.read_to_string(&mut buf).is_ok());
 		assert!(array_bytes::hex2bytes(&buf).is_ok());
@@ -179,11 +137,11 @@ pub mod tests {
 		let base_path = base_dir.path().display().to_string();
 		let generate =
 			GenerateNodeKeyCmd::parse_from(&["generate-node-key", "--base-path", &base_path]);
-		assert!(generate.run(&Cli).is_ok());
+		assert!(generate.run("test", &String::from("test")).is_ok());
 		let buf = fs::read_to_string(key_path.as_path()).unwrap();
 		assert!(array_bytes::hex2bytes(&buf).is_ok());
 
-		assert!(generate.run(&Cli).is_ok());
+		assert!(generate.run("test", &String::from("test")).is_ok());
 		let new_buf = fs::read_to_string(key_path).unwrap();
 		assert_eq!(
 			array_bytes::hex2bytes(&new_buf).unwrap(),

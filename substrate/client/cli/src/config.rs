@@ -465,8 +465,8 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let is_dev = self.is_dev()?;
 		let chain_id = self.chain_id(is_dev)?;
 		let chain_spec = cli.load_spec(&chain_id)?;
-		let base_path = base_path_or_default(self.base_path()?, cli);
-		let config_dir = build_config_dir(&base_path, &chain_spec);
+		let base_path = base_path_or_default(self.base_path()?, &C::executable_name());
+		let config_dir = build_config_dir(&base_path, chain_spec.id());
 		let net_config_dir = build_net_config_dir(&config_dir);
 		let client_id = C::client_id();
 		let database_cache_size = self.database_cache_size()?.unwrap_or(1024);
@@ -667,16 +667,16 @@ pub fn generate_node_name() -> String {
 }
 
 /// Returns the value of `base_path` or the default_path if it is None
-pub(crate) fn base_path_or_default<C: SubstrateCli>(
+pub(crate) fn base_path_or_default(
 	base_path: Option<BasePath>,
-	_cli: &C,
+	executable_name: &String,
 ) -> BasePath {
-	base_path.unwrap_or_else(|| BasePath::from_project("", "", &C::executable_name()))
+	base_path.unwrap_or_else(|| BasePath::from_project("", "", executable_name))
 }
 
 /// Returns the default path for configuration  directory based on the chain_spec
-pub(crate) fn build_config_dir(base_path: &BasePath, chain_spec: &Box<dyn ChainSpec>) -> PathBuf {
-	base_path.config_dir(chain_spec.id())
+pub(crate) fn build_config_dir(base_path: &BasePath, chain_spec_id: &str) -> PathBuf {
+	base_path.config_dir(chain_spec_id)
 }
 
 /// Returns the default path for the network configuration inside the configuration dir
@@ -686,11 +686,12 @@ pub(crate) fn build_net_config_dir(config_dir: &PathBuf) -> PathBuf {
 
 /// Returns the default path for the network directory starting from the provided base_path
 /// or from the default base_path.
-pub(crate) fn build_network_key_dir_or_default<C: SubstrateCli>(
+pub(crate) fn build_network_key_dir_or_default(
 	base_path: Option<BasePath>,
-	chain_spec: &Box<dyn ChainSpec>,
-	cli: &C,
+	chain_spec_id: &str,
+	executable_name: &String,
 ) -> PathBuf {
-	let config_dir = build_config_dir(&base_path_or_default(base_path, cli), chain_spec);
+	let config_dir =
+		build_config_dir(&base_path_or_default(base_path, executable_name), chain_spec_id);
 	build_net_config_dir(&config_dir)
 }

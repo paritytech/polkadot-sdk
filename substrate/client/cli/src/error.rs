@@ -83,16 +83,18 @@ pub enum Error {
 
 	#[error(
 		"Starting an authorithy without network key in {0}.
-		\n This is not a safe operation because the old identity still lives in the dht for 36 hours.
-		\n Because of it your node might suffer from not being properly connected to other nodes for validation purposes.
+		\n This is not a safe operation because other authorities in the network may depend on your node having a stable identity.
+		\n Otherwise these other authorities may not being able to reach you.
 		\n If it is the first time running your node you could use one of the following methods:
-		\n 1. [Preferred] Separately generate the key with: polkadot key generate-node-key --default-base-path
-		\n 2. [Preferred] Separately generate the key with: polkadot key generate-node-key --base-path <YOUR_BASE_PATH>
-		\n 3. [Preferred] Separately generate the key with: polkadot key generate-node-key --file <YOUR_PATH_TO_NODE_KEY>
+		\n 1. [Preferred] Separately generate the key with: <NODE_BINARY> key generate-node-key --base-path <YOUR_BASE_PATH>
+		\n 2. [Preferred] Separately generate the key with: <NODE_BINARY> key generate-node-key --file <YOUR_PATH_TO_NODE_KEY>
+		\n 3. [Preferred] Separately generate the key with: <NODE_BINARY> key generate-node-key --default-base-path
 		\n 4. [Unsafe] Pass --unsafe-force-node-key-generation and make sure you remove it for subsequent node restarts"
 
 	)]
 	NetworkKeyNotFound(PathBuf),
+	#[error("A network key already exists in path {0}")]
+	KeyAlreadyExistsInPath(PathBuf),
 }
 
 impl From<&str> for Error {
