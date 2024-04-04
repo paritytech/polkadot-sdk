@@ -42,22 +42,21 @@ fn test_set_freeze(id: DummyFreezeReason, amount: Balance) {
 	assert_ok!(AssetsFreezer::update_freezes(ASSET_ID, &WHO, freezes.as_bounded_slice()));
 }
 
-mod impls_frozen_balance {
+mod impl_frozen_balance {
 	use super::*;
 
 	#[test]
-	fn it_works_returning_frozen_balance() {
+	fn frozen_balance_works() {
 		new_test_ext(|| {
 			test_set_freeze(DummyFreezeReason::Governance, 1);
 			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(1u64));
 			test_set_freeze(DummyFreezeReason::Staking, 3);
-			FrozenBalances::<Test>::insert(ASSET_ID, WHO, 3);
 			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
 		});
 	}
 
 	#[test]
-	fn calling_died_works() {
+	fn died_works() {
 		new_test_ext(|| {
 			test_set_freeze(DummyFreezeReason::Governance, 1);
 			AssetsFreezer::died(ASSET_ID, &WHO);
@@ -71,18 +70,23 @@ mod impl_inspect_freeze {
 	use super::*;
 
 	#[test]
-	fn it_works_returning_balance_frozen() {
+	fn balance_frozen_works() {
 		new_test_ext(|| {
 			test_set_freeze(DummyFreezeReason::Governance, 1);
 			assert_eq!(
 				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Governance, &WHO),
 				1u64
 			);
+			test_set_freeze(DummyFreezeReason::Governance, 3);
+			assert_eq!(
+				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Governance, &WHO),
+				3u64
+			);
 		});
 	}
 
 	#[test]
-	fn it_works_returning_can_freeze() {
+	fn can_freeze_works() {
 		new_test_ext(|| {
 			test_set_freeze(DummyFreezeReason::Governance, 1);
 			assert!(AssetsFreezer::can_freeze(ASSET_ID, &DummyFreezeReason::Staking, &WHO));
@@ -105,7 +109,7 @@ mod impl_mutate_freeze {
 				10
 			));
 			assert_eq!(
-				AssetsFreezer::reducible_balance(
+				Assets::reducible_balance(
 					ASSET_ID,
 					&WHO,
 					frame_support::traits::tokens::Preservation::Preserve,
@@ -123,7 +127,7 @@ mod impl_mutate_freeze {
 				8
 			));
 			assert_eq!(
-				AssetsFreezer::reducible_balance(
+				Assets::reducible_balance(
 					ASSET_ID,
 					&WHO,
 					frame_support::traits::tokens::Preservation::Preserve,
@@ -156,7 +160,7 @@ mod impl_mutate_freeze {
 				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
 			);
 			assert_eq!(
-				AssetsFreezer::reducible_balance(
+				Assets::reducible_balance(
 					ASSET_ID,
 					&WHO,
 					frame_support::traits::tokens::Preservation::Preserve,
@@ -174,7 +178,7 @@ mod impl_mutate_freeze {
 				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 1 }.into(),
 			);
 			assert_eq!(
-				AssetsFreezer::reducible_balance(
+				Assets::reducible_balance(
 					ASSET_ID,
 					&WHO,
 					frame_support::traits::tokens::Preservation::Preserve,
@@ -198,7 +202,7 @@ mod impl_mutate_freeze {
 				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
 			);
 			assert_eq!(
-				AssetsFreezer::reducible_balance(
+				Assets::reducible_balance(
 					ASSET_ID,
 					&WHO,
 					frame_support::traits::tokens::Preservation::Preserve,
@@ -211,7 +215,7 @@ mod impl_mutate_freeze {
 				Event::<Test>::Thawed { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
 			);
 			assert_eq!(
-				AssetsFreezer::reducible_balance(
+				Assets::reducible_balance(
 					ASSET_ID,
 					&WHO,
 					frame_support::traits::tokens::Preservation::Preserve,
