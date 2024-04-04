@@ -867,6 +867,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -990,6 +991,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -1393,7 +1395,7 @@ name = "binary-merkle-tree"
 version = "13.0.0"
 dependencies = [
  "array-bytes 6.1.0",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "hash-db",
  "log",
  "sp-core",
@@ -2010,6 +2012,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -2181,6 +2184,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -2739,6 +2743,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -2994,6 +2999,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -3088,6 +3094,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -3152,6 +3159,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -4992,10 +5000,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_logger"
-version = "0.8.4"
+name = "env_filter"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
+checksum = "a009aa4810eb158359dda09d0c87378e4bbb89b5a801f016885a4707ba24f7ea"
 dependencies = [
  "log",
  "regex",
@@ -5003,15 +5011,12 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.9.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
+checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
 dependencies = [
- "atty",
- "humantime",
  "log",
  "regex",
- "termcolor",
 ]
 
 [[package]]
@@ -5025,6 +5030,19 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38b35839ba51819680ba087cd351788c9a3c476841207e0b8cee0b04722343b9"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "env_filter",
+ "humantime",
+ "log",
 ]
 
 [[package]]
@@ -5437,35 +5455,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
-name = "frame"
-version = "0.0.1-dev"
-dependencies = [
- "docify",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "log",
- "pallet-examples",
- "parity-scale-codec",
- "scale-info",
- "sp-api",
- "sp-arithmetic",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-inherents",
- "sp-io",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-std 14.0.0",
- "sp-transaction-pool",
- "sp-version",
-]
-
-[[package]]
 name = "frame-benchmarking"
 version = "28.0.0"
 dependencies = [
@@ -5802,8 +5791,8 @@ dependencies = [
 name = "frame-support-test-stg-frame-crate"
 version = "0.1.0"
 dependencies = [
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -8114,11 +8103,11 @@ name = "minimal-template-node"
 version = "0.0.0"
 dependencies = [
  "clap 4.5.3",
- "frame",
  "futures",
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
+ "polkadot-sdk-frame",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
@@ -8148,7 +8137,6 @@ dependencies = [
 name = "minimal-template-runtime"
 version = "0.0.0"
 dependencies = [
- "frame",
  "pallet-balances",
  "pallet-minimal-template",
  "pallet-sudo",
@@ -8156,6 +8144,7 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
  "sp-genesis-builder",
  "substrate-wasm-builder",
@@ -9521,7 +9510,7 @@ dependencies = [
  "array-bytes 6.1.0",
  "assert_matches",
  "bitflags 1.3.2",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "environmental",
  "frame-benchmarking",
  "frame-support",
@@ -9768,7 +9757,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
- "strum 0.24.1",
+ "strum 0.26.2",
 ]
 
 [[package]]
@@ -9826,8 +9815,8 @@ dependencies = [
 name = "pallet-example-frame-crate"
 version = "0.0.1"
 dependencies = [
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -10160,8 +10149,8 @@ dependencies = [
 name = "pallet-minimal-template"
 version = "0.0.0"
 dependencies = [
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -10189,7 +10178,7 @@ name = "pallet-mmr"
 version = "27.0.0"
 dependencies = [
  "array-bytes 6.1.0",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11754,6 +11743,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "enumflags2",
  "frame-benchmarking",
@@ -11853,6 +11843,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "enumflags2",
  "frame-benchmarking",
@@ -12081,7 +12072,7 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "itertools 0.10.5",
@@ -12111,7 +12102,7 @@ dependencies = [
  "always-assert",
  "assert_matches",
  "bitvec",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "log",
@@ -12167,7 +12158,7 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "fatality",
  "futures",
  "futures-timer",
@@ -12229,7 +12220,7 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "fatality",
  "futures",
  "futures-timer",
@@ -12401,7 +12392,7 @@ dependencies = [
  "async-trait",
  "bitvec",
  "derive_more",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "itertools 0.10.5",
@@ -12443,7 +12434,7 @@ version = "7.0.0"
 dependencies = [
  "assert_matches",
  "bitvec",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "kvdb",
@@ -12885,7 +12876,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "sc-authority-discovery",
  "sc-network",
- "strum 0.24.1",
+ "strum 0.26.2",
  "thiserror",
  "tracing-gum",
 ]
@@ -12977,7 +12968,7 @@ dependencies = [
  "assert_matches",
  "async-trait",
  "derive_more",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "fatality",
  "futures",
  "futures-channel",
@@ -13357,7 +13348,6 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "docify",
- "frame",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -13385,6 +13375,7 @@ dependencies = [
  "pallet-uniques",
  "pallet-utility",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "sc-cli",
  "sc-client-db",
  "sc-consensus-aura",
@@ -13415,13 +13406,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-sdk-frame"
+version = "0.1.0"
+dependencies = [
+ "docify",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "pallet-examples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std 14.0.0",
+ "sp-transaction-pool",
+ "sp-version",
+]
+
+[[package]]
 name = "polkadot-service"
 version = "7.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
  "bitvec",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-support",
@@ -13597,7 +13617,7 @@ dependencies = [
  "clap-num",
  "color-eyre",
  "colored",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "futures",
  "futures-timer",
  "hex",
@@ -16131,7 +16151,7 @@ dependencies = [
  "array-bytes 6.1.0",
  "assert_matches",
  "criterion 0.4.0",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "num_cpus",
  "parity-scale-codec",
  "parking_lot 0.12.1",
@@ -16567,7 +16587,7 @@ name = "sc-rpc"
 version = "29.0.0"
 dependencies = [
  "assert_matches",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "futures",
  "jsonrpsee",
  "log",
@@ -16809,7 +16829,7 @@ dependencies = [
 name = "sc-statement-store"
 version = "10.0.0"
 dependencies = [
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "log",
  "parity-db",
  "parking_lot 0.12.1",
@@ -17892,7 +17912,7 @@ name = "snowbridge-outbound-queue-merkle-tree"
 version = "0.3.0"
 dependencies = [
  "array-bytes 4.2.0",
- "env_logger 0.9.3",
+ "env_logger 0.11.3",
  "hex",
  "hex-literal",
  "parity-scale-codec",
@@ -18538,7 +18558,7 @@ dependencies = [
  "sp-keystore",
  "sp-mmr-primitives",
  "sp-runtime",
- "strum 0.24.1",
+ "strum 0.26.2",
  "w3f-bls",
 ]
 
@@ -18829,7 +18849,7 @@ version = "31.0.0"
 dependencies = [
  "sp-core",
  "sp-runtime",
- "strum 0.24.1",
+ "strum 0.26.2",
 ]
 
 [[package]]
@@ -19716,6 +19736,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
 
 [[package]]
+name = "strum"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
+dependencies = [
+ "strum_macros 0.26.2",
+]
+
+[[package]]
 name = "strum_macros"
 version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19733,6 +19762,19 @@ name = "strum_macros"
 version = "0.25.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23dc1fa9ac9c169a78ba62f0b841814b7abae11bdd047b9c58f893439e309ea0"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.53",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6cf59daf282c0a494ba14fd21610a0325f9f90ec9d1231dea26bcb1d696c946"
 dependencies = [
  "heck 0.4.1",
  "proc-macro2",
@@ -20006,7 +20048,7 @@ dependencies = [
  "parity-wasm",
  "polkavm-linker",
  "sp-maybe-compressed-blob",
- "strum 0.24.1",
+ "strum 0.26.2",
  "tempfile",
  "toml 0.8.8",
  "walkdir",
