@@ -59,7 +59,7 @@ sc-network-common = { version = "0.36.0", path = "../network/common" }
 sc-network-light = { version = "0.36.0", path = "../network/light" }
 sc-network-sync = { version = "0.36.0", path = "../network/sync" }
 sc-network-transactions = { version = "0.36.0", path = "../network/transactions" }
-sc-chain-spec = { version = "30.0.0", path = "../chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../chain-spec" }
 sc-client-api = { version = "31.0.0", path = "../api" }
 sp-api = { version = "29.0.0", path = "../../primitives/api" }
 sc-client-db = { path = "../db", default-features = false, version = "0.38.0" }

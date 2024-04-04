@@ -17,13 +17,10 @@ workspace = true
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = [
-	"experimental",
-	"runtime",
-] }
-pallet-examples = { path = "../../substrate/frame/examples" }
-pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
-pallet-example-offchain-worker = { path = "../../substrate/frame/examples/offchain-worker" }
+frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = ["experimental", "runtime"], version = "0.1.1" }
+pallet-examples = { version = "0.1.0", path = "../../substrate/frame/examples" }
+pallet-default-config-example = { version = "13.0.0", path = "../../substrate/frame/examples/default-config" }
+pallet-example-offchain-worker = { version = "31.0.0", path = "../../substrate/frame/examples/offchain-worker" }
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"

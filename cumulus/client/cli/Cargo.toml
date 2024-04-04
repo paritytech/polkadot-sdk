@@ -15,7 +15,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0" }
 url = "2.4.0"
 sc-cli = { version = "0.39.0", path = "../../../substrate/client/cli" }
 sc-client-api = { version = "31.0.0", path = "../../../substrate/client/api" }
-sc-chain-spec = { version = "30.0.0", path = "../../../substrate/client/chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../../substrate/client/chain-spec" }
 sc-service = { version = "0.38.0", path = "../../../substrate/client/service" }
 sp-core = { version = "31.0.0", path = "../../../substrate/primitives/core" }
 sp-runtime = { version = "34.0.0", path = "../../../substrate/primitives/runtime" }

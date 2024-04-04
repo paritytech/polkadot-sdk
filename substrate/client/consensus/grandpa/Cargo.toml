@@ -33,7 +33,7 @@ thiserror = { workspace = true }
 fork-tree = { version = "12.0.0", path = "../../../utils/fork-tree" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
 sc-block-builder = { version = "0.36.0", path = "../../block-builder" }
-sc-chain-spec = { version = "30.0.0", path = "../../chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../chain-spec" }
 sc-client-api = { version = "31.0.0", path = "../../api" }
 sc-transaction-pool-api = { version = "31.0.0", path = "../../transaction-pool/api" }
 sc-consensus = { version = "0.36.0", path = "../common" }

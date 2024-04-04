@@ -42,7 +42,7 @@ people-westend-runtime = { version = "0.4.0", path = "../parachains/runtimes/peo
 parachains-common = { version = "10.0.0", path = "../parachains/common" }
 testnet-parachains-constants = { path = "../parachains/runtimes/constants", default-features = false, features = ["rococo", "westend"], version = "3.0.0" }
 frame-benchmarking = { version = "31.0.0", path = "../../substrate/frame/benchmarking" }
-frame-benchmarking-cli = { version = "35.0.0", path = "../../substrate/utils/frame/benchmarking-cli" }
+frame-benchmarking-cli = { version = "35.0.1", path = "../../substrate/utils/frame/benchmarking-cli" }
 sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, version = "34.0.0" }
 sp-io = { version = "33.0.0", path = "../../substrate/primitives/io" }
 sp-core = { version = "31.0.0", path = "../../substrate/primitives/core" }
@@ -66,7 +66,7 @@ sp-blockchain = { version = "31.0.0", path = "../../substrate/primitives/blockch
 sp-genesis-builder = { path = "../../substrate/primitives/genesis-builder", default-features = false, version = "0.10.0" }
 sp-block-builder = { version = "29.0.0", path = "../../substrate/primitives/block-builder" }
 sp-keystore = { version = "0.37.0", path = "../../substrate/primitives/keystore" }
-sc-chain-spec = { version = "30.0.0", path = "../../substrate/client/chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../substrate/client/chain-spec" }
 sc-rpc = { version = "32.0.0", path = "../../substrate/client/rpc" }
 sp-version = { version = "32.0.0", path = "../../substrate/primitives/version" }
 sc-tracing = { version = "31.0.0", path = "../../substrate/client/tracing" }

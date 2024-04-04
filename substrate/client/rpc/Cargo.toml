@@ -23,7 +23,7 @@ log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 serde_json = { workspace = true, default-features = true }
 sc-block-builder = { version = "0.36.0", path = "../block-builder" }
-sc-chain-spec = { version = "30.0.0", path = "../chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../chain-spec" }
 sc-client-api = { version = "31.0.0", path = "../api" }
 sc-mixnet = { version = "0.7.0", path = "../mixnet" }
 sc-rpc-api = { version = "0.36.0", path = "../rpc-api" }

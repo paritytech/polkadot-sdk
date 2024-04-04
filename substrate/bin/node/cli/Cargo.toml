@@ -66,7 +66,7 @@ sp-mixnet = { version = "0.7.0", path = "../../../primitives/mixnet" }
 sp-mmr-primitives = { version = "29.0.0", path = "../../../primitives/merkle-mountain-range" }
 sp-statement-store = { version = "13.0.0", path = "../../../primitives/statement-store" }
 sc-client-api = { version = "31.0.0", path = "../../../client/api" }
-sc-chain-spec = { version = "30.0.0", path = "../../../client/chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../../client/chain-spec" }
 sc-consensus = { version = "0.36.0", path = "../../../client/consensus/common" }
 sc-transaction-pool = { version = "31.0.0", path = "../../../client/transaction-pool" }
 sc-transaction-pool-api = { version = "31.0.0", path = "../../../client/transaction-pool/api" }
@@ -105,7 +105,7 @@ node-primitives = { version = "2.0.0", path = "../primitives" }
 
 # CLI-specific dependencies
 sc-cli = { path = "../../../client/cli", optional = true, version = "0.39.0" }
-frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true, version = "35.0.0" }
+frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true, version = "35.0.1" }
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true, version = "0.15.0" }
 try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true, version = "0.41.0" }
 serde_json = { workspace = true, default-features = true }
@@ -160,7 +160,7 @@ sp-state-machine = { path = "../../../primitives/state-machine" }
 clap = { version = "4.5.1", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true, version = "0.15.0" }
-frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true, version = "35.0.0" }
+frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true, version = "35.0.1" }
 substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true, version = "11.0.0" }
 substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true, version = "35.0.0" }
 try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true, version = "0.41.0" }

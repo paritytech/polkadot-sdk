@@ -30,7 +30,7 @@ frame-system = { version = "31.0.0", path = "../../../substrate/frame/system" }
 frame-system-rpc-runtime-api = { version = "29.0.0", path = "../../../substrate/frame/system/rpc/runtime-api" }
 pallet-transaction-payment = { version = "31.0.0", path = "../../../substrate/frame/transaction-payment" }
 sc-basic-authorship = { version = "0.37.0", path = "../../../substrate/client/basic-authorship" }
-sc-chain-spec = { version = "30.0.0", path = "../../../substrate/client/chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../../substrate/client/chain-spec" }
 sc-client-api = { version = "31.0.0", path = "../../../substrate/client/api" }
 sc-consensus = { version = "0.36.0", path = "../../../substrate/client/consensus/common" }
 sc-executor = { version = "0.35.0", path = "../../../substrate/client/executor" }

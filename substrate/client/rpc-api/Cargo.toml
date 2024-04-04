@@ -21,7 +21,7 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-sc-chain-spec = { version = "30.0.0", path = "../chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../chain-spec" }
 sc-mixnet = { version = "0.7.0", path = "../mixnet" }
 sc-transaction-pool-api = { version = "31.0.0", path = "../transaction-pool/api" }
 sp-core = { version = "31.0.0", path = "../../primitives/core" }

@@ -31,7 +31,7 @@ sp-core = { version = "31.0.0", path = "../../substrate/primitives/core" }
 sp-io = { version = "33.0.0", path = "../../substrate/primitives/io" }
 sp-keyring = { version = "34.0.0", path = "../../substrate/primitives/keyring" }
 sp-maybe-compressed-blob = { version = "11.0.0", path = "../../substrate/primitives/maybe-compressed-blob" }
-frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli", optional = true, version = "35.0.0" }
+frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli", optional = true, version = "35.0.1" }
 try-runtime-cli = { path = "../../substrate/utils/frame/try-runtime/cli", optional = true, version = "0.41.0" }
 sc-cli = { path = "../../substrate/client/cli", optional = true, version = "0.39.0" }
 sc-service = { path = "../../substrate/client/service", optional = true, version = "0.38.0" }

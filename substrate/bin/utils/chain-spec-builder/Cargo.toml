@@ -26,6 +26,6 @@ crate-type = ["rlib"]
 [dependencies]
 clap = { version = "4.5.1", features = ["derive"] }
 log = { workspace = true, default-features = true }
-sc-chain-spec = { version = "30.0.0", path = "../../../client/chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../../client/chain-spec" }
 serde_json = { workspace = true, default-features = true }
 sp-tracing = { version = "16.0.0", path = "../../../primitives/tracing" }

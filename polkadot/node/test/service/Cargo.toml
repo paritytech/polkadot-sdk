@@ -41,7 +41,7 @@ inherents = { package = "sp-inherents", path = "../../../../substrate/primitives
 pallet-staking = { version = "31.0.0", path = "../../../../substrate/frame/staking" }
 pallet-balances = { version = "31.0.0", path = "../../../../substrate/frame/balances" }
 pallet-transaction-payment = { version = "31.0.0", path = "../../../../substrate/frame/transaction-payment" }
-sc-chain-spec = { version = "30.0.0", path = "../../../../substrate/client/chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../../../substrate/client/chain-spec" }
 sc-cli = { version = "0.39.0", path = "../../../../substrate/client/cli" }
 sc-client-api = { version = "31.0.0", path = "../../../../substrate/client/api" }
 sc-consensus = { version = "0.36.0", path = "../../../../substrate/client/consensus/common" }

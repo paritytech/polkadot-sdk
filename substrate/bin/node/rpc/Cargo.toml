@@ -20,7 +20,7 @@ jsonrpsee = { version = "0.22", features = ["server"] }
 node-primitives = { version = "2.0.0", path = "../primitives" }
 pallet-transaction-payment-rpc = { version = "33.0.0", path = "../../../frame/transaction-payment/rpc" }
 mmr-rpc = { version = "31.0.0", path = "../../../client/merkle-mountain-range/rpc" }
-sc-chain-spec = { version = "30.0.0", path = "../../../client/chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../../client/chain-spec" }
 sc-client-api = { version = "31.0.0", path = "../../../client/api" }
 sc-consensus-babe = { version = "0.37.0", path = "../../../client/consensus/babe" }
 sc-consensus-babe-rpc = { version = "0.37.0", path = "../../../client/consensus/babe/rpc" }

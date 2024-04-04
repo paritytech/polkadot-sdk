@@ -26,10 +26,10 @@ futures = "0.3.28"
 serde_json = { workspace = true, default-features = true }
 parachain-template-runtime = { version = "0.1.0", path = "../runtime" }
 frame-benchmarking = { version = "31.0.0", path = "../../../substrate/frame/benchmarking" }
-frame-benchmarking-cli = { version = "35.0.0", path = "../../../substrate/utils/frame/benchmarking-cli" }
+frame-benchmarking-cli = { version = "35.0.1", path = "../../../substrate/utils/frame/benchmarking-cli" }
 pallet-transaction-payment-rpc = { version = "33.0.0", path = "../../../substrate/frame/transaction-payment/rpc" }
 sc-basic-authorship = { version = "0.37.0", path = "../../../substrate/client/basic-authorship" }
-sc-chain-spec = { version = "30.0.0", path = "../../../substrate/client/chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../../substrate/client/chain-spec" }
 sc-cli = { version = "0.39.0", path = "../../../substrate/client/cli" }
 sc-client-api = { version = "31.0.0", path = "../../../substrate/client/api" }
 sc-offchain = { version = "32.0.0", path = "../../../substrate/client/offchain" }

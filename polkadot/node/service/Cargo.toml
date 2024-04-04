@@ -18,7 +18,7 @@ grandpa = { package = "sc-consensus-grandpa", path = "../../../substrate/client/
 mmr-gadget = { version = "32.0.0", path = "../../../substrate/client/merkle-mountain-range" }
 sp-mmr-primitives = { version = "29.0.0", path = "../../../substrate/primitives/merkle-mountain-range" }
 sc-block-builder = { version = "0.36.0", path = "../../../substrate/client/block-builder" }
-sc-chain-spec = { version = "30.0.0", path = "../../../substrate/client/chain-spec" }
+sc-chain-spec = { version = "30.0.1", path = "../../../substrate/client/chain-spec" }
 sc-client-api = { version = "31.0.0", path = "../../../substrate/client/api" }
 sc-client-db = { version = "0.38.0", path = "../../../substrate/client/db" }
 sc-consensus = { version = "0.36.0", path = "../../../substrate/client/consensus/common" }
@@ -67,7 +67,7 @@ frame-system = { version = "31.0.0", path = "../../../substrate/frame/system" }
 frame-system-rpc-runtime-api = { version = "29.0.0", path = "../../../substrate/frame/system/rpc/runtime-api" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus", version = "0.17.0" }
 frame-support = { version = "31.0.0", path = "../../../substrate/frame/support" }
-frame-benchmarking-cli = { version = "35.0.0", path = "../../../substrate/utils/frame/benchmarking-cli" }
+frame-benchmarking-cli = { version = "35.0.1", path = "../../../substrate/utils/frame/benchmarking-cli" }
 frame-benchmarking = { version = "31.0.0", path = "../../../substrate/frame/benchmarking" }
 
 # External Crates

@@ -51,7 +51,7 @@ frame-system = { version = "31.0.0", path = "../../../substrate/frame/system" }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false, version = "31.0.0" }
 pallet-transaction-payment-rpc = { version = "33.0.0", path = "../../../substrate/frame/transaction-payment/rpc" }
 substrate-frame-rpc-system = { version = "31.0.0", path = "../../../substrate/utils/frame/rpc/system" }
-frame-benchmarking-cli = { version = "35.0.0", path = "../../../substrate/utils/frame/benchmarking-cli" }
+frame-benchmarking-cli = { version = "35.0.1", path = "../../../substrate/utils/frame/benchmarking-cli" }
 solochain-template-runtime = { version = "0.1.0", path = "../runtime" }
 
 # CLI-specific dependencies
