@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::log;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
@@ -70,7 +70,7 @@ pub mod unversioned {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
 
-			// recalcuate the `TotalValueLocked` to compare with the current on-chain TVL which may
+			// recalculate the `TotalValueLocked` to compare with the current on-chain TVL which may
 			// be out of sync.
 			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
 			let onchain_tvl = TotalValueLocked::<T>::get();
@@ -132,7 +132,7 @@ pub mod v8 {
 	}
 
 	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			Ok(Vec::new())
@@ -211,7 +211,7 @@ pub(crate) mod v7 {
 		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, V7BondedPoolInner<T>>;
 
 	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
 			// The TVL should be the sum of all the funds that are actively staked and in the
@@ -282,7 +282,7 @@ mod v6 {
 			})
 		}
 	}
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV6<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV6<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut success = 0u64;
 			let mut fail = 0u64;

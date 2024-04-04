@@ -807,6 +807,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	let shared_voter_state = rpc_setup;
 	let auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
+	let auth_disc_public_addresses = config.network.public_addresses.clone();
 	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
 
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
@@ -1061,6 +1062,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			let (worker, service) = sc_authority_discovery::new_worker_and_service_with_config(
 				sc_authority_discovery::WorkerConfig {
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
+					public_addresses: auth_disc_public_addresses,
 					// Require that authority discovery records are signed.
 					strict_record_validation: true,
 					..Default::default()
@@ -1231,6 +1233,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			prometheus_registry: prometheus_registry.clone(),
 			links: beefy_links,
 			on_demand_justifications_handler: beefy_on_demand_justifications_handler,
+			is_authority: role.is_authority(),
 		};
 
 		let gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
@@ -1240,18 +1243,18 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		task_manager
 			.spawn_essential_handle()
 			.spawn_blocking("beefy-gadget", None, gadget);
-		// When offchain indexing is enabled, MMR gadget should also run.
-		if is_offchain_indexing_enabled {
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"mmr-gadget",
-				None,
-				MmrGadget::start(
-					client.clone(),
-					backend.clone(),
-					sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
-				),
-			);
-		}
+	}
+	// When offchain indexing is enabled, MMR gadget should also run.
+	if is_offchain_indexing_enabled {
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"mmr-gadget",
+			None,
+			MmrGadget::start(
+				client.clone(),
+				backend.clone(),
+				sp_mmr_primitives::INDEXING_PREFIX.to_vec(),
+			),
+		);
 	}
 
 	let config = grandpa::Config {
