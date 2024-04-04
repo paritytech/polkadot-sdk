@@ -601,6 +601,15 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn seal_caller(r: Linear<0, API_BENCHMARK_RUNS>) {
+		call_builder!(func, WasmModule::getter("seal0", "seal_caller", r));
+		#[block]
+		{
+			func.call();
+		}
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_is_contract(r: Linear<0, API_BENCHMARK_RUNS>) {
 		let accounts = (0..r).map(|n| account::<T::AccountId>("account", n, 0)).collect::<Vec<_>>();
 		let account_len = accounts.get(0).map(|i| i.encode().len()).unwrap_or(0);
