@@ -32,13 +32,12 @@ use parity_scale_codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
-		slashing,
-		vstaging::{ApprovalVotingParams, NodeFeatures},
-		BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
-		GroupRotationInfo, Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
-		ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+		CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+		ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
+		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement,
+		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+		ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };

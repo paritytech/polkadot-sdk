@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! `V6` Primitives.
+//! `V7` Primitives.
 
 use bitvec::{field::BitField, slice::BitSlice, vec::BitVec};
 use parity_scale_codec::{Decode, Encode};
@@ -1184,6 +1184,32 @@ impl<'a> ApprovalVoteMultipleCandidates<'a> {
 	}
 }
 
+/// Approval voting configuration parameters
+#[derive(
+	RuntimeDebug,
+	Copy,
+	Clone,
+	PartialEq,
+	Encode,
+	Decode,
+	TypeInfo,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+pub struct ApprovalVotingParams {
+	/// The maximum number of candidates `approval-voting` can vote for with
+	/// a single signatures.
+	///
+	/// Setting it to 1, means we send the approval as soon as we have it available.
+	pub max_approval_coalesce_count: u32,
+}
+
+impl Default for ApprovalVotingParams {
+	fn default() -> Self {
+		Self { max_approval_coalesce_count: 1 }
+	}
+}
+
 /// Custom validity errors used in Polkadot while validating transactions.
 #[repr(u8)]
 pub enum ValidityError {
@@ -1945,6 +1971,29 @@ pub enum PvfExecKind {
 	Backing,
 	/// For approval and dispute request.
 	Approval,
+}
+
+/// Bit indices in the `HostConfiguration.node_features` that correspond to different node features.
+pub type NodeFeatures = BitVec<u8, bitvec::order::Lsb0>;
+
+/// Module containing feature-specific bit indices into the `NodeFeatures` bitvec.
+pub mod node_features {
+	/// A feature index used to identify a bit into the node_features array stored
+	/// in the HostConfiguration.
+	#[repr(u8)]
+	pub enum FeatureIndex {
+		/// Tells if tranch0 assignments could be sent in a single certificate.
+		/// Reserved for: `<https://github.com/paritytech/polkadot-sdk/issues/628>`
+		EnableAssignmentsV2 = 0,
+		/// This feature enables the extension of `BackedCandidate::validator_indices` by 8 bits.
+		/// The value stored there represents the assumed core index where the candidates
+		/// are backed. This is needed for the elastic scaling MVP.
+		ElasticScalingMVP = 1,
+		/// First unassigned feature bit.
+		/// Every time a new feature flag is assigned it should take this value.
+		/// and this should be incremented.
+		FirstUnassigned = 2,
+	}
 }
 
 #[cfg(test)]
