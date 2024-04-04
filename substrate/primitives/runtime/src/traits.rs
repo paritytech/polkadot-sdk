@@ -2327,7 +2327,7 @@ pub trait BlockNumberProvider {
 	///
 	/// It allows for setting the block number that will later be fetched
 	/// This is useful in case the block number provider is different than System
-	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 	fn set_block_number(_block: Self::BlockNumber) {}
 }
 
