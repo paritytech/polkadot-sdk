@@ -777,7 +777,7 @@ fn find_active_validator_state(
 	} else {
 		availability_cores
 			.get(core_index.0 as usize)
-			.map(|core_state| match core_state {
+			.and_then(|core_state| match core_state {
 				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
 				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
 					.next_up_on_available
@@ -785,7 +785,6 @@ fn find_active_validator_state(
 					.map(|scheduled_core| scheduled_core.para_id),
 				CoreState::Free | CoreState::Occupied(_) => None,
 			})
-			.flatten()
 	};
 	let group_validators = groups.get(our_group)?.to_owned();
 
