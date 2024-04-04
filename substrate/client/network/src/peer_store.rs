@@ -242,33 +242,20 @@ impl PeerStoreInner {
 		peer_info.add_reputation(change.value);
 		let is_banned_now = peer_info.is_banned();
 
-		// Banned -> Unbanned.
-		if is_banned_before && !is_banned_now {
-			log::info!(
-				target: LOG_TARGET,
-				"Report {}: {:+} to {}. Reason: {}. Unbanned.",
-				peer_id,
-				change.value,
-				peer_info.reputation,
-				change.reason,
-			);
-
-			return
-		}
-
-		// Unbanned -> Banned.
-		// Disconnect the peer if the reputation is crossing the ban threshold.
-		if !is_banned_before && is_banned_now {
-			log::warn!(
-				target: LOG_TARGET,
-				"Report {}: {:+} to {}. Reason: {}. Banned, disconnecting.",
-				peer_id,
-				change.value,
-				peer_info.reputation,
-				change.reason,
-			);
-
+		if is_banned_now {
 			self.protocols.iter().for_each(|handle| handle.disconnect_peer(peer_id));
+
+			// Log warning only when reputation crosses the ban threshold.
+			if !is_banned_before {
+				log::warn!(
+					target: LOG_TARGET,
+					"Report {}: {:+} to {}. Reason: {}. Banned, disconnecting.",
+					peer_id,
+					change.value,
+					peer_info.reputation,
+					change.reason,
+				);
+			}
 
 			return
 		}
