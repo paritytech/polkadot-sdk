@@ -772,7 +772,7 @@ fn find_active_validator_state(
 	let our_group = groups.by_validator_index(validator_index)?;
 
 	let core_index = group_rotation_info.core_for_group(our_group, availability_cores.len());
-	let core_assignment = if let Some(claim_queue) = maybe_claim_queue {
+	let para_assigned_to_core = if let Some(claim_queue) = maybe_claim_queue {
 		claim_queue.get_claim_for(core_index, 0)
 	} else {
 		availability_cores
@@ -792,7 +792,7 @@ fn find_active_validator_state(
 		active: Some(ActiveValidatorState {
 			index: validator_index,
 			group: our_group,
-			assignment: core_assignment,
+			assignment: para_assigned_to_core,
 			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
 				.expect("group is non-empty because we are in it; qed"),
 		}),
