@@ -693,7 +693,10 @@ fn nominating_and_rewards_should_work() {
 			assert_eq!(Balances::total_balance(&3), initial_balance);
 			// 333 is the reward destination for 3.
 			assert_eq_error_rate!(
-				Balances::total_balance(&333), 2 * payout_for_11 / 9 + 3 * payout_for_21 / 11, 2);
+				Balances::total_balance(&333),
+				2 * payout_for_11 / 9 + 3 * payout_for_21 / 11,
+				2
+			);
 
 			// Validator 11: got 800 / 1800 external stake => 8/18 =? 4/9 => Validator's share = 5/9
 			assert_eq_error_rate!(
@@ -7042,8 +7045,14 @@ mod staking_unsafe {
 			assert!(nominator_share > 0);
 
 			// both stakes must have been decreased pro-rata.
-			assert_eq!(Staking::ledger(101.into()).unwrap().active, nominator_stake - nominator_share);
-			assert_eq!(Staking::ledger(11.into()).unwrap().active, validator_stake - validator_share);
+			assert_eq!(
+				Staking::ledger(101.into()).unwrap().active,
+				nominator_stake - nominator_share
+			);
+			assert_eq!(
+				Staking::ledger(11.into()).unwrap().active,
+				validator_stake - validator_share
+			);
 
 			// validator balance is slashed as usual
 			assert_eq!(balances(&11).0, validator_balance - validator_share);
@@ -7054,8 +7063,6 @@ mod staking_unsafe {
 			assert_eq!(Balances::free_balance(&101), nominator_balance);
 			// but slash is broadcasted to slash observers.
 			assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_share);
-
-
 		})
 	}
 }
