@@ -307,10 +307,7 @@ pub trait BlockImport<B: BlockT> {
 	type Error: std::error::Error + Send + 'static;
 
 	/// Check block preconditions.
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error>;
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error>;
 
 	/// Import a block.
 	async fn import_block(
@@ -320,15 +317,12 @@ pub trait BlockImport<B: BlockT> {
 }
 
 #[async_trait::async_trait]
-impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
+impl<B: BlockT> BlockImport<B> for crate::import_queue::SharedBlockImport<B> {
 	type Error = sp_consensus::error::Error;
 
 	/// Check block preconditions.
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error> {
-		(**self).check_block(block).await
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
+		self.read().await.check_block(block).await
 	}
 
 	/// Import a block.
@@ -336,7 +330,7 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 		&mut self,
 		block: BlockImportParams<B>,
 	) -> Result<ImportResult, Self::Error> {
-		(**self).import_block(block).await
+		self.write().await.import_block(block).await
 	}
 }
 
@@ -348,10 +342,7 @@ where
 {
 	type Error = E;
 
-	async fn check_block(
-		&mut self,
-		block: BlockCheckParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
 		(&**self).check_block(block).await
 	}
 

@@ -47,7 +47,7 @@ use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use futures::{lock::Mutex, prelude::*};
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImportParams, ImportQueue,
+	BlockImportParams, ImportQueue, SharedBlockImport,
 };
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBlock};
@@ -1197,7 +1197,7 @@ where
 
 struct Verifier<Client, AuraId> {
 	client: Arc<Client>,
-	aura_verifier: BuildOnAccess<Box<dyn VerifierT<Block>>>,
+	aura_verifier: Mutex<BuildOnAccess<Box<dyn VerifierT<Block>>>>,
 	relay_chain_verifier: Box<dyn VerifierT<Block>>,
 	_phantom: PhantomData<AuraId>,
 }
@@ -1210,7 +1210,7 @@ where
 	AuraId: Send + Sync + Codec,
 {
 	async fn verify(
-		&mut self,
+		&self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
 		if self
@@ -1219,7 +1219,7 @@ where
 			.has_api::<dyn AuraApi<Block, AuraId>>(*block_import.header.parent_hash())
 			.unwrap_or(false)
 		{
-			self.aura_verifier.get_mut().verify(block_import).await
+			self.aura_verifier.lock().await.get_mut().verify(block_import).await
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
 		}
@@ -1279,14 +1279,14 @@ where
 	let verifier = Verifier {
 		client,
 		relay_chain_verifier,
-		aura_verifier: BuildOnAccess::Uninitialized(Some(Box::new(aura_verifier))),
+		aura_verifier: Mutex::new(BuildOnAccess::Uninitialized(Some(Box::new(aura_verifier)))),
 		_phantom: PhantomData,
 	};
 
 	let registry = config.prometheus_registry();
 	let spawner = task_manager.spawn_essential_handle();
 
-	Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
+	Ok(BasicQueue::new(verifier, SharedBlockImport::new(block_import), None, &spawner, registry))
 }
 
 /// Start an aura powered parachain node. Some system chains use this.

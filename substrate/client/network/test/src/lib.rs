@@ -47,7 +47,7 @@ use sc_client_api::{
 use sc_consensus::{
 	BasicQueue, BlockCheckParams, BlockImport, BlockImportParams, BoxJustificationImport,
 	ForkChoiceStrategy, ImportQueue, ImportResult, JustificationImport, JustificationSyncLink,
-	LongestChain, Verifier,
+	LongestChain, SharedBlockImport, Verifier,
 };
 use sc_network::{
 	config::{
@@ -113,7 +113,7 @@ impl PassThroughVerifier {
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for PassThroughVerifier {
 	async fn verify(
-		&mut self,
+		&self,
 		mut block: BlockImportParams<B>,
 	) -> Result<BlockImportParams<B>, String> {
 		if block.fork_choice.is_none() {
@@ -209,7 +209,7 @@ impl BlockImport<Block> for PeersClient {
 	type Error = ConsensusError;
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.client.check_block(block).await
@@ -594,7 +594,7 @@ where
 	type Error = ConsensusError;
 
 	async fn check_block(
-		&mut self,
+		&self,
 		block: BlockCheckParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		self.inner.check_block(block).await
@@ -616,10 +616,7 @@ struct VerifierAdapter<B: BlockT> {
 
 #[async_trait::async_trait]
 impl<B: BlockT> Verifier<B> for VerifierAdapter<B> {
-	async fn verify(
-		&mut self,
-		block: BlockImportParams<B>,
-	) -> Result<BlockImportParams<B>, String> {
+	async fn verify(&self, block: BlockImportParams<B>) -> Result<BlockImportParams<B>, String> {
 		let hash = block.header.hash();
 		self.verifier.lock().await.verify(block).await.map_err(|e| {
 			self.failed_verifications.lock().insert(hash, e.clone());
@@ -778,7 +775,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let import_queue = Box::new(BasicQueue::new(
 			verifier.clone(),
-			Box::new(block_import.clone()),
+			SharedBlockImport::new(block_import.clone()),
 			justification_import,
 			&sp_core::testing::TaskExecutor::new(),
 			None,
