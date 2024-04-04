@@ -63,6 +63,9 @@ pub use sp_runtime::BuildStorage;
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub use impls::ToAuthor;
 
+#[deprecated(
+	note = "Please use fungible::Credit instead. This type will be removed some time after March 2024."
+)]
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
