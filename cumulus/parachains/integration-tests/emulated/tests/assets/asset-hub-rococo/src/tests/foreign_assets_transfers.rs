@@ -14,7 +14,10 @@
 // limitations under the License.
 
 use super::reserve_transfer::*;
-use crate::imports::*;
+use crate::{
+	imports::*,
+	tests::teleport::do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt,
+};
 
 fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 	type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
@@ -90,6 +93,36 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		bx!(TransferType::RemoteReserve(asset_hub_location.clone().into())),
 		bx!(fee.into()),
 		bx!(TransferType::RemoteReserve(asset_hub_location.into())),
+		t.args.weight_limit,
+	)
+}
+
+fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> DispatchResult {
+	let fee_idx = t.args.fee_asset_item as usize;
+	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
+	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_reserve(
+		t.signed_origin,
+		bx!(t.args.dest.into()),
+		bx!(t.args.beneficiary.into()),
+		bx!(t.args.assets.into()),
+		bx!(TransferType::Teleport),
+		bx!(fee.into()),
+		bx!(TransferType::DestinationReserve),
+		t.args.weight_limit,
+	)
+}
+
+fn asset_hub_to_para_teleport_foreign_assets(t: SystemParaToParaTest) -> DispatchResult {
+	let fee_idx = t.args.fee_asset_item as usize;
+	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
+	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_reserve(
+		t.signed_origin,
+		bx!(t.args.dest.into()),
+		bx!(t.args.beneficiary.into()),
+		bx!(t.args.assets.into()),
+		bx!(TransferType::Teleport),
+		bx!(fee.into()),
+		bx!(TransferType::LocalReserve),
 		t.args.weight_limit,
 	)
 }
@@ -559,4 +592,17 @@ fn transfer_foreign_assets_from_para_to_para_through_asset_hub() {
 	// Receiver's balance is increased
 	assert!(receiver_rocs_after > receiver_rocs_before);
 	assert_eq!(receiver_wnds_after, receiver_wnds_before + wnd_to_send);
+}
+
+// ==============================================================================================
+// ==== Bidirectional Transfer - Native + Teleportable Foreign Assets - Parachain<->AssetHub ====
+// ==============================================================================================
+/// Transfers of native asset plus teleportable foreign asset from Parachain to AssetHub and back
+/// with fees paid using native asset.
+#[test]
+fn bidirectional_teleport_foreign_asset_between_para_and_asset_hub_using_explicit_transfer_types() {
+	do_bidirectional_teleport_foreign_assets_between_para_and_asset_hub_using_xt(
+		para_to_asset_hub_teleport_foreign_assets,
+		asset_hub_to_para_teleport_foreign_assets,
+	);
 }

@@ -827,9 +827,9 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	assert!(receiver_balance_after < receiver_balance_before + amount_to_send);
 }
 
-// =========================================================================
-// ======= Reserve Transfers - Non-system Asset - AssetHub<>Parachain ======
-// =========================================================================
+// ==================================================================================
+// ======= Reserve Transfers - Native + Non-system Asset - AssetHub<>Parachain ======
+// ==================================================================================
 /// Reserve Transfers of a local asset and native asset from System Parachain to Parachain should
 /// work
 #[test]
