@@ -60,7 +60,7 @@ pub struct KeyLenOf<M>(PhantomData<M>);
 
 /// A trait for working with macro-generated storage values under the substrate storage API.
 ///
-/// Details on implementation can be found at [`generator::StorageValue`].
+/// Details on implementation can be found at [`types::StorageValue`].
 pub trait StorageValue<T: FullCodec> {
 	/// The type that get/take return.
 	type Query;
@@ -266,7 +266,7 @@ pub trait StorageAppender<V: FullCodec> {
 
 /// A strongly-typed map in storage.
 ///
-/// Details on implementation can be found at [`generator::StorageMap`].
+/// Details on implementation can be found at [`types::StorageMap`].
 pub trait StorageMap<K: FullEncode, V: FullCodec> {
 	/// The type that get/take return.
 	type Query;
@@ -609,7 +609,7 @@ pub trait IterableStorageNMap<K: ReversibleKeyGenerator, V: FullCodec>: StorageN
 
 /// An implementation of a map with a two keys.
 ///
-/// Details on implementation can be found at [`generator::StorageDoubleMap`].
+/// Details on implementation can be found at [`types::StorageDoubleMap`].
 pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 	/// The type that get/take returns.
 	type Query;
@@ -827,7 +827,7 @@ pub trait StorageDoubleMap<K1: FullEncode, K2: FullEncode, V: FullCodec> {
 
 /// An implementation of a map with an arbitrary number of keys.
 ///
-/// Details of implementation can be found at [`generator::StorageNMap`].
+/// Details of implementation can be found at [`types::StorageNMap`].
 pub trait StorageNMap<K: KeyGenerator, V: FullCodec> {
 	/// The type that get/take returns.
 	type Query;
