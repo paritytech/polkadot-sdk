@@ -691,7 +691,7 @@ fn nominating_and_rewards_should_work() {
 			// Nominator 3: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 21]'s reward. ==>
 			// 2/9 + 3/11
 			assert_eq!(Balances::total_balance(&3), initial_balance);
-			/// 333 is the reward destination for 3.
+			// 333 is the reward destination for 3.
 			assert_eq_error_rate!(
 				Balances::total_balance(&333), 2 * payout_for_11 / 9 + 3 * payout_for_21 / 11, 2);
 
@@ -7001,6 +7001,62 @@ mod staking_unsafe {
 			// and they are marked as virtual stakers
 			assert_eq!(Pallet::<Test>::is_virtual_staker(&200), true);
 		});
+	}
+
+	#[test]
+	fn virtual_nominators_are_lazily_slashed() {
+		ExtBuilder::default().build_and_execute(|| {
+			mock::start_active_era(1);
+			let slash_percent = Perbill::from_percent(5);
+			let initial_exposure = Staking::eras_stakers(active_era(), &11);
+			// 101 is a nominator for 11
+			assert_eq!(initial_exposure.others.first().unwrap().who, 101);
+			// make 101 a virtual nominator
+			<Staking as StakingUnsafe>::migrate_to_virtual_staker(&101);
+			// set payee different to self.
+			assert_ok!(<Staking as StakingInterface>::update_payee(&101, &102));
+
+			// cache values
+			let nominator_stake = Staking::ledger(101.into()).unwrap().active;
+			let nominator_balance = balances(&101).0;
+			let validator_stake = Staking::ledger(11.into()).unwrap().active;
+			let validator_balance = balances(&11).0;
+			let exposed_stake = initial_exposure.total;
+			let exposed_validator = initial_exposure.own;
+			let exposed_nominator = initial_exposure.others.first().unwrap().value;
+
+			// 11 goes offline
+			on_offence_now(
+				&[OffenceDetails { offender: (11, initial_exposure.clone()), reporters: vec![] }],
+				&[slash_percent],
+			);
+
+			let slash_amount = slash_percent * exposed_stake;
+			let validator_share =
+				Perbill::from_rational(exposed_validator, exposed_stake) * slash_amount;
+			let nominator_share =
+				Perbill::from_rational(exposed_nominator, exposed_stake) * slash_amount;
+
+			// both slash amounts need to be positive for the test to make sense.
+			assert!(validator_share > 0);
+			assert!(nominator_share > 0);
+
+			// both stakes must have been decreased pro-rata.
+			assert_eq!(Staking::ledger(101.into()).unwrap().active, nominator_stake - nominator_share);
+			assert_eq!(Staking::ledger(11.into()).unwrap().active, validator_stake - validator_share);
+
+			// validator balance is slashed as usual
+			assert_eq!(balances(&11).0, validator_balance - validator_share);
+			// Because slashing happened.
+			assert!(is_disabled(11));
+
+			// but virtual nominator's balance is not slashed.
+			assert_eq!(Balances::free_balance(&101), nominator_balance);
+			// but slash is broadcasted to slash observers.
+			assert_eq!(SlashObserver::get().get(&101).unwrap(), &nominator_share);
+
+
+		})
 	}
 }
 mod ledger {
