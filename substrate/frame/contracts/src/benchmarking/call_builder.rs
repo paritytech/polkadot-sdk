@@ -139,7 +139,6 @@ where
 	}
 
 	/// Prepare a call to the module.
-	/// Returns a a closure used to invoke the call.
 	pub fn prepare_call<'a>(
 		ext: &'a mut StackExt<'a, T>,
 		module: WasmBlob<T>,
