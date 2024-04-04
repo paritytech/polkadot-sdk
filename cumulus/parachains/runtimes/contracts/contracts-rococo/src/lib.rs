@@ -232,7 +232,7 @@ parameter_types! {
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
 	type WeightToFee = WeightToFee;
 	/// Relay Chain `TransactionByteFee` / 10
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
