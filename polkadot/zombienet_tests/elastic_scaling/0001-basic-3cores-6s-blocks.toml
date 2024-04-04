@@ -35,7 +35,7 @@ addToGenesis = true
 
     [parachains.collator]
     name = "some-parachain"
-    image = "{{CUMULUS_IMAGE}}"
+    image = "{{COL_IMAGE}}"
     command = "adder-collator"
     args = ["-lparachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug"]
 {% endfor %}
