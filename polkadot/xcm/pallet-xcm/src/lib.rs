@@ -1397,7 +1397,6 @@ pub mod pallet {
 		///
 		/// The message is passed in encoded. It needs to be decodable as a [`VersionedXcm`].
 		#[pallet::call_index(14)]
-		#[pallet::weight(T::WeightInfo::send_blob())]
 		pub fn send_blob(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
