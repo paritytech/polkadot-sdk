@@ -483,6 +483,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -592,7 +598,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.collect();
 				<span class="kw">let </span>arg_types: Vec&lt;<span class="kw">_</span>&gt; = fields.unnamed.iter().map(|field| <span class="kw-2">&amp;</span>field.ty).collect();
 				<span class="macro">quote! </span>{
-					<span class="kw">pub fn </span>#method_name(<span class="kw-2">mut </span><span class="self">self</span>, #(#arg_names: #arg_types),<span class="kw-2">*</span>) -&gt; <span class="self">Self </span>{
+					<span class="kw">pub fn </span>#method_name(<span class="kw-2">mut </span><span class="self">self</span>, #(#arg_names: <span class="kw">impl </span>Into&lt;#arg_types&gt;),<span class="kw-2">*</span>) -&gt; <span class="self">Self </span>{
+						#(<span class="kw">let </span>#arg_names = #arg_names.into();)*
 						<span class="self">self</span>.instructions.push(#name::&lt;Call&gt;::#variant_name(#(#arg_names),<span class="kw-2">*</span>));
 						<span class="self">self
 					</span>}
@@ -602,7 +609,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>arg_names: Vec&lt;<span class="kw">_</span>&gt; = fields.named.iter().map(|field| <span class="kw-2">&amp;</span>field.ident).collect();
 				<span class="kw">let </span>arg_types: Vec&lt;<span class="kw">_</span>&gt; = fields.named.iter().map(|field| <span class="kw-2">&amp;</span>field.ty).collect();
 				<span class="macro">quote! </span>{
-					<span class="kw">pub fn </span>#method_name(<span class="kw-2">mut </span><span class="self">self</span>, #(#arg_names: #arg_types),<span class="kw-2">*</span>) -&gt; <span class="self">Self </span>{
+					<span class="kw">pub fn </span>#method_name(<span class="kw-2">mut </span><span class="self">self</span>, #(#arg_names: <span class="kw">impl </span>Into&lt;#arg_types&gt;),<span class="kw-2">*</span>) -&gt; <span class="self">Self </span>{
+						#(<span class="kw">let </span>#arg_names = #arg_names.into();)*
 						<span class="self">self</span>.instructions.push(#name::&lt;Call&gt;::#variant_name { #(#arg_names),* });
 						<span class="self">self
 					</span>}
@@ -673,8 +681,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>arg_types: Vec&lt;<span class="kw">_</span>&gt; = fields.unnamed.iter().map(|field| <span class="kw-2">&amp;</span>field.ty).collect();
 					<span class="macro">quote! </span>{
 						#(#docs)*
-						<span class="kw">pub fn </span>#method_name(<span class="self">self</span>, #(#arg_names: #arg_types),<span class="kw-2">*</span>) -&gt; XcmBuilder&lt;Call, LoadedHolding&gt; {
+						<span class="kw">pub fn </span>#method_name(<span class="self">self</span>, #(#arg_names: <span class="kw">impl </span>Into&lt;#arg_types&gt;),<span class="kw-2">*</span>) -&gt; XcmBuilder&lt;Call, LoadedHolding&gt; {
 							<span class="kw">let </span><span class="kw-2">mut </span>new_instructions = <span class="self">self</span>.instructions;
+							#(<span class="kw">let </span>#arg_names = #arg_names.into();)*
 							new_instructions.push(#name::&lt;Call&gt;::#variant_name(#(#arg_names),<span class="kw-2">*</span>));
 							XcmBuilder {
 								instructions: new_instructions,
@@ -688,8 +697,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>arg_types: Vec&lt;<span class="kw">_</span>&gt; = fields.named.iter().map(|field| <span class="kw-2">&amp;</span>field.ty).collect();
 					<span class="macro">quote! </span>{
 						#(#docs)*
-						<span class="kw">pub fn </span>#method_name(<span class="self">self</span>, #(#arg_names: #arg_types),<span class="kw-2">*</span>) -&gt; XcmBuilder&lt;Call, LoadedHolding&gt; {
+						<span class="kw">pub fn </span>#method_name(<span class="self">self</span>, #(#arg_names: <span class="kw">impl </span>Into&lt;#arg_types&gt;),<span class="kw-2">*</span>) -&gt; XcmBuilder&lt;Call, LoadedHolding&gt; {
 							<span class="kw">let </span><span class="kw-2">mut </span>new_instructions = <span class="self">self</span>.instructions;
+							#(<span class="kw">let </span>#arg_names = #arg_names.into();)*
 							new_instructions.push(#name::&lt;Call&gt;::#variant_name { #(#arg_names),* });
 							XcmBuilder {
 								instructions: new_instructions,
@@ -734,8 +744,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							fields.named.iter().map(|field| <span class="kw-2">&amp;</span>field.ty).collect();
 						<span class="macro">quote! </span>{
 							#(#docs)*
-							<span class="kw">pub fn </span>#method_name(<span class="self">self</span>, #(#arg_names: #arg_types),<span class="kw-2">*</span>) -&gt; XcmBuilder&lt;Call, AnythingGoes&gt; {
+							<span class="kw">pub fn </span>#method_name(<span class="self">self</span>, #(#arg_names: <span class="kw">impl </span>Into&lt;#arg_types&gt;),<span class="kw-2">*</span>) -&gt; XcmBuilder&lt;Call, AnythingGoes&gt; {
 								<span class="kw">let </span><span class="kw-2">mut </span>new_instructions = <span class="self">self</span>.instructions;
+								#(<span class="kw">let </span>#arg_names = #arg_names.into();)*
 								new_instructions.push(#name::&lt;Call&gt;::#variant_name { #(#arg_names),* });
 								XcmBuilder {
 									instructions: new_instructions,
@@ -793,8 +804,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(<span class="macro">quote! </span>{
 		<span class="kw">impl</span>&lt;Call&gt; XcmBuilder&lt;Call, ExplicitUnpaidRequired&gt; {
 			#(#docs)*
-			<span class="kw">pub fn </span>#unpaid_execution_method_name(<span class="self">self</span>, #(#arg_names: #arg_types),<span class="kw-2">*</span>) -&gt; XcmBuilder&lt;Call, AnythingGoes&gt; {
+			<span class="kw">pub fn </span>#unpaid_execution_method_name(<span class="self">self</span>, #(#arg_names: <span class="kw">impl </span>Into&lt;#arg_types&gt;),<span class="kw-2">*</span>) -&gt; XcmBuilder&lt;Call, AnythingGoes&gt; {
 				<span class="kw">let </span><span class="kw-2">mut </span>new_instructions = <span class="self">self</span>.instructions;
+				#(<span class="kw">let </span>#arg_names = #arg_names.into();)*
 				new_instructions.push(#name::&lt;Call&gt;::#unpaid_execution_ident { #(#arg_names),* });
 				XcmBuilder {
 					instructions: new_instructions,

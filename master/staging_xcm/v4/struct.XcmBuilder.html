@@ -151,7 +151,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     pub state: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/marker/struct.PhantomData.html" title="struct core::marker::PhantomData">PhantomData</a>&lt;S&gt;,
     /* private fields */
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Type used to build XCM programs</p>
-</div></details><h2 id="fields" class="fields small-section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.state" class="structfield small-section-header"><a href="#structfield.state" class="anchor field">§</a><code>state: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/marker/struct.PhantomData.html" title="struct core::marker::PhantomData">PhantomData</a>&lt;S&gt;</code></span><h2 id="implementations" class="small-section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-XcmBuilder%3CCall,+PaymentRequired%3E" class="impl"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><a href="#impl-XcmBuilder%3CCall,+PaymentRequired%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Call&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.PaymentRequired.html" title="enum staging_xcm::v4::PaymentRequired">PaymentRequired</a>&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.withdraw_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.withdraw_asset" class="fn">withdraw_asset</a>(self, arg0: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>) -&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.LoadedHolding.html" title="enum staging_xcm::v4::LoadedHolding">LoadedHolding</a>&gt;</h4></section></summary><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place them into the Holding
+</div></details><h2 id="fields" class="fields small-section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.state" class="structfield small-section-header"><a href="#structfield.state" class="anchor field">§</a><code>state: <a class="struct" href="https://doc.rust-lang.org/1.75.0/core/marker/struct.PhantomData.html" title="struct core::marker::PhantomData">PhantomData</a>&lt;S&gt;</code></span><h2 id="implementations" class="small-section-header">Implementations<a href="#implementations" class="anchor">§</a></h2><div id="implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-XcmBuilder%3CCall,+PaymentRequired%3E" class="impl"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><a href="#impl-XcmBuilder%3CCall,+PaymentRequired%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Call&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.PaymentRequired.html" title="enum staging_xcm::v4::PaymentRequired">PaymentRequired</a>&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.withdraw_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.withdraw_asset" class="fn">withdraw_asset</a>(
+    self,
+    arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;
+) -&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.LoadedHolding.html" title="enum staging_xcm::v4::LoadedHolding">LoadedHolding</a>&gt;</h4></section></summary><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place them into the Holding
 Register.</p>
 <ul>
 <li><code>assets</code>: The asset(s) to be withdrawn into holding.</li>
@@ -160,7 +163,7 @@ Register.</p>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.reserve_asset_deposited" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.reserve_asset_deposited" class="fn">reserve_asset_deposited</a>(
     self,
-    arg0: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>
+    arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;
 ) -&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.LoadedHolding.html" title="enum staging_xcm::v4::LoadedHolding">LoadedHolding</a>&gt;</h4></section></summary><div class="docblock"><p>Asset(s) (<code>assets</code>) have been received into the ownership of this system on the <code>origin</code>
 system and equivalent derivatives should be placed into the Holding Register.</p>
 <ul>
@@ -172,7 +175,7 @@ may later be withdrawn should this system send a corresponding message.</p>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.receive_teleported_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.receive_teleported_asset" class="fn">receive_teleported_asset</a>(
     self,
-    arg0: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>
+    arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;
 ) -&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.LoadedHolding.html" title="enum staging_xcm::v4::LoadedHolding">LoadedHolding</a>&gt;</h4></section></summary><div class="docblock"><p>Asset(s) (<code>assets</code>) have been destroyed on the <code>origin</code> system and equivalent assets should
 be created and placed into the Holding Register.</p>
 <ul>
@@ -184,8 +187,8 @@ prior as a consequence of sending this message.</p>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.claim_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.claim_asset" class="fn">claim_asset</a>(
     self,
-    assets: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>,
-    ticket: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>
+    assets: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;,
+    ticket: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
 ) -&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.LoadedHolding.html" title="enum staging_xcm::v4::LoadedHolding">LoadedHolding</a>&gt;</h4></section></summary><div class="docblock"><p>Create some assets which are being held on behalf of the origin.</p>
 <ul>
 <li><code>assets</code>: The assets which are to be claimed. This must match exactly with the assets
@@ -197,8 +200,8 @@ asset.</li>
 <p>Errors:</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-XcmBuilder%3CCall,+LoadedHolding%3E" class="impl"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><a href="#impl-XcmBuilder%3CCall,+LoadedHolding%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Call&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.LoadedHolding.html" title="enum staging_xcm::v4::LoadedHolding">LoadedHolding</a>&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.buy_execution" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.buy_execution" class="fn">buy_execution</a>(
     self,
-    fees: <a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>,
-    weight_limit: <a class="enum" href="../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>
+    fees: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>&gt;,
+    weight_limit: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>&gt;
 ) -&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.AnythingGoes.html" title="enum staging_xcm::v4::AnythingGoes">AnythingGoes</a>&gt;</h4></section></summary><div class="docblock"><p>Pay for the execution of some XCM <code>xcm</code> and <code>orders</code> with up to <code>weight</code>
 picoseconds of execution time, paying for this with up to <code>fees</code> from the Holding Register.</p>
 <ul>
@@ -211,8 +214,8 @@ expected maximum weight of the total XCM to be executed for the
 <p>Errors:</p>
 </div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-XcmBuilder%3CCall,+ExplicitUnpaidRequired%3E" class="impl"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><a href="#impl-XcmBuilder%3CCall,+ExplicitUnpaidRequired%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Call&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.ExplicitUnpaidRequired.html" title="enum staging_xcm::v4::ExplicitUnpaidRequired">ExplicitUnpaidRequired</a>&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.unpaid_execution" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.unpaid_execution" class="fn">unpaid_execution</a>(
     self,
-    weight_limit: <a class="enum" href="../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>,
-    check_origin: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+    weight_limit: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>&gt;,
+    check_origin: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;&gt;
 ) -&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.AnythingGoes.html" title="enum staging_xcm::v4::AnythingGoes">AnythingGoes</a>&gt;</h4></section></summary><div class="docblock"><p>A directive to indicate that the origin expects free execution of the message.</p>
 <p>At execution time, this instruction just does a check on the Origin register.
 However, at the barrier stage messages starting with this instruction can be disregarded if
@@ -220,14 +223,14 @@ the origin is not acceptable for free execution or the <code>weight_limit</code>
 insufficient.</p>
 <p>Kind: <em>Indication</em></p>
 <p>Errors: If the given origin is <code>Some</code> and not equal to the current Origin register.</p>
-</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-XcmBuilder%3CCall,+AnythingGoes%3E" class="impl"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><a href="#impl-XcmBuilder%3CCall,+AnythingGoes%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Call&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.AnythingGoes.html" title="enum staging_xcm::v4::AnythingGoes">AnythingGoes</a>&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.withdraw_asset-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.withdraw_asset-1" class="fn">withdraw_asset</a>(self, arg0: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place them into the Holding
+</div></details></div></details><details class="toggle implementors-toggle" open><summary><section id="impl-XcmBuilder%3CCall,+AnythingGoes%3E" class="impl"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><a href="#impl-XcmBuilder%3CCall,+AnythingGoes%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Call&gt; <a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v4::XcmBuilder">XcmBuilder</a>&lt;Call, <a class="enum" href="enum.AnythingGoes.html" title="enum staging_xcm::v4::AnythingGoes">AnythingGoes</a>&gt;</h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.withdraw_asset-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.withdraw_asset-1" class="fn">withdraw_asset</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place them into the Holding
 Register.</p>
 <ul>
 <li><code>assets</code>: The asset(s) to be withdrawn into holding.</li>
 </ul>
 <p>Kind: <em>Command</em>.</p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.reserve_asset_deposited-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.reserve_asset_deposited-1" class="fn">reserve_asset_deposited</a>(self, arg0: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Asset(s) (<code>assets</code>) have been received into the ownership of this system on the <code>origin</code>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.reserve_asset_deposited-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.reserve_asset_deposited-1" class="fn">reserve_asset_deposited</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Asset(s) (<code>assets</code>) have been received into the ownership of this system on the <code>origin</code>
 system and equivalent derivatives should be placed into the Holding Register.</p>
 <ul>
 <li><code>assets</code>: The asset(s) that are minted into holding.</li>
@@ -236,7 +239,7 @@ system and equivalent derivatives should be placed into the Holding Register.</p
 may later be withdrawn should this system send a corresponding message.</p>
 <p>Kind: <em>Trusted Indication</em>.</p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.receive_teleported_asset-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.receive_teleported_asset-1" class="fn">receive_teleported_asset</a>(self, arg0: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Asset(s) (<code>assets</code>) have been destroyed on the <code>origin</code> system and equivalent assets should
+</div></details><details class="toggle method-toggle" open><summary><section id="method.receive_teleported_asset-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.receive_teleported_asset-1" class="fn">receive_teleported_asset</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Asset(s) (<code>assets</code>) have been destroyed on the <code>origin</code> system and equivalent assets should
 be created and placed into the Holding Register.</p>
 <ul>
 <li><code>assets</code>: The asset(s) that are minted into the Holding Register.</li>
@@ -247,10 +250,10 @@ prior as a consequence of sending this message.</p>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.query_response" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.query_response" class="fn">query_response</a>(
     self,
-    query_id: <a class="type" href="type.QueryId.html" title="type staging_xcm::v4::QueryId">QueryId</a>,
-    response: <a class="enum" href="enum.Response.html" title="enum staging_xcm::v4::Response">Response</a>,
-    max_weight: <a class="struct" href="struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>,
-    querier: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+    query_id: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="type" href="type.QueryId.html" title="type staging_xcm::v4::QueryId">QueryId</a>&gt;,
+    response: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.Response.html" title="enum staging_xcm::v4::Response">Response</a>&gt;,
+    max_weight: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>&gt;,
+    querier: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Respond with information that the local system is expecting.</p>
 <ul>
 <li><code>query_id</code>: The identifier of the query that resulted in this message being sent.</li>
@@ -266,7 +269,11 @@ a response to a third-party chain who may or may not be expecting the response. 
 the <code>querier</code> should be checked to match the expected value.</p>
 <p>Kind: <em>Information</em>.</p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.transfer_asset" class="fn">transfer_asset</a>(self, assets: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>, beneficiary: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place equivalent assets
+</div></details><details class="toggle method-toggle" open><summary><section id="method.transfer_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.transfer_asset" class="fn">transfer_asset</a>(
+    self,
+    assets: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;,
+    beneficiary: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+) -&gt; Self</h4></section></summary><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place equivalent assets
 under the ownership of <code>beneficiary</code>.</p>
 <ul>
 <li><code>assets</code>: The asset(s) to be withdrawn.</li>
@@ -277,9 +284,9 @@ under the ownership of <code>beneficiary</code>.</p>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.transfer_reserve_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.transfer_reserve_asset" class="fn">transfer_reserve_asset</a>(
     self,
-    assets: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>,
-    dest: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
-    xcm: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;
+    assets: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;,
+    dest: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;,
+    xcm: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Withdraw asset(s) (<code>assets</code>) from the ownership of <code>origin</code> and place equivalent assets
 under the ownership of <code>dest</code> within this consensus system (i.e. its sovereign account).</p>
 <p>Send an onward XCM message to <code>dest</code> of <code>ReserveAssetDeposited</code> with the given
@@ -297,9 +304,9 @@ is sent onwards to <code>dest</code>.</li>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.transact" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.transact" class="fn">transact</a>(
     self,
-    origin_kind: <a class="enum" href="../v2/enum.OriginKind.html" title="enum staging_xcm::v2::OriginKind">OriginKind</a>,
-    require_weight_at_most: <a class="struct" href="struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>,
-    call: <a class="struct" href="../struct.DoubleEncoded.html" title="struct staging_xcm::DoubleEncoded">DoubleEncoded</a>&lt;Call&gt;
+    origin_kind: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="../v2/enum.OriginKind.html" title="enum staging_xcm::v2::OriginKind">OriginKind</a>&gt;,
+    require_weight_at_most: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>&gt;,
+    call: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="../struct.DoubleEncoded.html" title="struct staging_xcm::DoubleEncoded">DoubleEncoded</a>&lt;Call&gt;&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Apply the encoded transaction <code>call</code>, whose dispatch-origin should be <code>origin</code> as expressed
 by the kind of origin <code>origin_kind</code>.</p>
 <p>The Transact Status Register is set according to the result of dispatching the call.</p>
@@ -314,9 +321,9 @@ calculated weight and will be used in the weight determination arithmetic.</li>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.hrmp_new_channel_open_request" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.hrmp_new_channel_open_request" class="fn">hrmp_new_channel_open_request</a>(
     self,
-    sender: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>,
-    max_message_size: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>,
-    max_capacity: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>
+    sender: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;,
+    max_message_size: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;,
+    max_capacity: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>A message to notify about a new incoming HRMP channel. This message is meant to be sent by
 the relay-chain to a para.</p>
 <ul>
@@ -327,7 +334,7 @@ opening.</li>
 </ul>
 <p>Safety: The message should originate directly from the relay-chain.</p>
 <p>Kind: <em>System Notification</em></p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.hrmp_channel_accepted" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.hrmp_channel_accepted" class="fn">hrmp_channel_accepted</a>(self, recipient: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>A message to notify about that a previously sent open channel request has been accepted by
+</div></details><details class="toggle method-toggle" open><summary><section id="method.hrmp_channel_accepted" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.hrmp_channel_accepted" class="fn">hrmp_channel_accepted</a>(self, recipient: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>A message to notify about that a previously sent open channel request has been accepted by
 the recipient. That means that the channel will be opened during the next relay-chain
 session change. This message is meant to be sent by the relay-chain to a para.</p>
 <p>Safety: The message should originate directly from the relay-chain.</p>
@@ -335,9 +342,9 @@ session change. This message is meant to be sent by the relay-chain to a para.</
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.hrmp_channel_closing" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.hrmp_channel_closing" class="fn">hrmp_channel_closing</a>(
     self,
-    initiator: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>,
-    sender: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>,
-    recipient: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>
+    initiator: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;,
+    sender: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;,
+    recipient: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>A message to notify that the other party in an open channel decided to close it. In
 particular, <code>initiator</code> is going to close the channel opened from <code>sender</code> to the
 <code>recipient</code>. The close will be enacted at the next relay-chain session change. This message
@@ -352,17 +359,21 @@ the case with <code>ReserveAssetDeposited</code>).</p>
 <p>Safety: No concerns.</p>
 <p>Kind: <em>Command</em>.</p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.descend_origin" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.descend_origin" class="fn">descend_origin</a>(self, arg0: <a class="type" href="type.InteriorLocation.html" title="type staging_xcm::v4::InteriorLocation">InteriorLocation</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Mutate the origin to some interior location.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.descend_origin" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.descend_origin" class="fn">descend_origin</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="type" href="type.InteriorLocation.html" title="type staging_xcm::v4::InteriorLocation">InteriorLocation</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Mutate the origin to some interior location.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.report_error" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.report_error" class="fn">report_error</a>(self, arg0: <a class="struct" href="struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Immediately report the contents of the Error Register to the given destination via XCM.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.report_error" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.report_error" class="fn">report_error</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Immediately report the contents of the Error Register to the given destination via XCM.</p>
 <p>A <code>QueryResponse</code> message of type <code>ExecutionOutcome</code> is sent to the described destination.</p>
 <ul>
 <li><code>response_info</code>: Information for making the response.</li>
 </ul>
 <p>Kind: <em>Command</em></p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.deposit_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.deposit_asset" class="fn">deposit_asset</a>(self, assets: <a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>, beneficiary: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Remove the asset(s) (<code>assets</code>) from the Holding Register and place equivalent assets under
+</div></details><details class="toggle method-toggle" open><summary><section id="method.deposit_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.deposit_asset" class="fn">deposit_asset</a>(
+    self,
+    assets: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>&gt;,
+    beneficiary: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+) -&gt; Self</h4></section></summary><div class="docblock"><p>Remove the asset(s) (<code>assets</code>) from the Holding Register and place equivalent assets under
 the ownership of <code>beneficiary</code> within this consensus system.</p>
 <ul>
 <li><code>assets</code>: The asset(s) to remove from holding.</li>
@@ -372,9 +383,9 @@ the ownership of <code>beneficiary</code> within this consensus system.</p>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.deposit_reserve_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.deposit_reserve_asset" class="fn">deposit_reserve_asset</a>(
     self,
-    assets: <a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
-    dest: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
-    xcm: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;
+    assets: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>&gt;,
+    dest: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;,
+    xcm: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Remove the asset(s) (<code>assets</code>) from the Holding Register and place equivalent assets under
 the ownership of <code>dest</code> within this consensus system (i.e. deposit them into its sovereign
 account).</p>
@@ -391,9 +402,9 @@ sent onwards to <code>dest</code>.</li>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.exchange_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.exchange_asset" class="fn">exchange_asset</a>(
     self,
-    give: <a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
-    want: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>,
-    maximal: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>
+    give: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>&gt;,
+    want: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;,
+    maximal: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Remove the asset(s) (<code>want</code>) from the Holding Register and replace them with alternative
 assets.</p>
 <p>The minimum amount of assets to be received into the Holding Register for the order not to
@@ -409,9 +420,9 @@ order to receive as little as possible while receiving at least <code>want</code
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.initiate_reserve_withdraw" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.initiate_reserve_withdraw" class="fn">initiate_reserve_withdraw</a>(
     self,
-    assets: <a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
-    reserve: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
-    xcm: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;
+    assets: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>&gt;,
+    reserve: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;,
+    xcm: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Remove the asset(s) (<code>assets</code>) from holding and send a <code>WithdrawAsset</code> XCM message to a
 reserve location.</p>
 <ul>
@@ -427,9 +438,9 @@ location</em>.</li>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.initiate_teleport" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.initiate_teleport" class="fn">initiate_teleport</a>(
     self,
-    assets: <a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>,
-    dest: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>,
-    xcm: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;
+    assets: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>&gt;,
+    dest: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;,
+    xcm: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Remove the asset(s) (<code>assets</code>) from holding and send a <code>ReceiveTeleportedAsset</code> XCM message
 to a <code>dest</code> location.</p>
 <ul>
@@ -444,8 +455,8 @@ all <code>assets</code>. If it does not, then the assets may be lost.</p>
 <p>Errors:</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.report_holding" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.report_holding" class="fn">report_holding</a>(
     self,
-    response_info: <a class="struct" href="struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>,
-    assets: <a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>
+    response_info: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>&gt;,
+    assets: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.AssetFilter.html" title="enum staging_xcm::v4::AssetFilter">AssetFilter</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Report to a given destination the contents of the Holding Register.</p>
 <p>A <code>QueryResponse</code> message of type <code>Assets</code> is sent to the described destination.</p>
 <ul>
@@ -456,7 +467,11 @@ will be used when reporting assets back.</li>
 </ul>
 <p>Kind: <em>Command</em></p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.buy_execution-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.buy_execution-1" class="fn">buy_execution</a>(self, fees: <a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>, weight_limit: <a class="enum" href="../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Pay for the execution of some XCM <code>xcm</code> and <code>orders</code> with up to <code>weight</code>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.buy_execution-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.buy_execution-1" class="fn">buy_execution</a>(
+    self,
+    fees: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>&gt;,
+    weight_limit: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>&gt;
+) -&gt; Self</h4></section></summary><div class="docblock"><p>Pay for the execution of some XCM <code>xcm</code> and <code>orders</code> with up to <code>weight</code>
 picoseconds of execution time, paying for this with up to <code>fees</code> from the Holding Register.</p>
 <ul>
 <li><code>fees</code>: The asset(s) to remove from the Holding Register to pay for fees.</li>
@@ -469,7 +484,7 @@ expected maximum weight of the total XCM to be executed for the
 </div></details><details class="toggle method-toggle" open><summary><section id="method.refund_surplus" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.refund_surplus" class="fn">refund_surplus</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Refund any surplus weight previously bought with <code>BuyExecution</code>.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors: None.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.set_error_handler" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.set_error_handler" class="fn">set_error_handler</a>(self, arg0: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;Call&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Set the Error Handler Register. This is code that should be called in the case of an error
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_error_handler" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.set_error_handler" class="fn">set_error_handler</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;Call&gt;&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Set the Error Handler Register. This is code that should be called in the case of an error
 happening.</p>
 <p>An error occurring within execution of this code will <em>NOT</em> result in the error register
 being set, nor will an error handler be called due to it. The error handler and appendix
@@ -479,7 +494,7 @@ weight however includes only the difference between the previous handler and the
 handler, which can reasonably be negative, which would result in a surplus.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors: None.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.set_appendix" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.set_appendix" class="fn">set_appendix</a>(self, arg0: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;Call&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Set the Appendix Register. This is code that should be called after code execution
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_appendix" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.set_appendix" class="fn">set_appendix</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;Call&gt;&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Set the Appendix Register. This is code that should be called after code execution
 (including the error handler if any) is finished. This will be called regardless of whether
 an error occurred.</p>
 <p>Any error occurring due to execution of this code will result in the error register being
@@ -492,7 +507,11 @@ appendix, which can reasonably be negative, which would result in a surplus.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.clear_error" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.clear_error" class="fn">clear_error</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Clear the Error Register.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors: None.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.claim_asset-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.claim_asset-1" class="fn">claim_asset</a>(self, assets: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>, ticket: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Create some assets which are being held on behalf of the origin.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.claim_asset-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.claim_asset-1" class="fn">claim_asset</a>(
+    self,
+    assets: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;,
+    ticket: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+) -&gt; Self</h4></section></summary><div class="docblock"><p>Create some assets which are being held on behalf of the origin.</p>
 <ul>
 <li><code>assets</code>: The assets which are to be claimed. This must match exactly with the assets
 claimable by the origin of the ticket.</li>
@@ -501,7 +520,7 @@ asset.</li>
 </ul>
 <p>Kind: <em>Command</em></p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.trap" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.trap" class="fn">trap</a>(self, arg0: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u64.html">u64</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Always throws an error of type <code>Trap</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.trap" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.trap" class="fn">trap</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u64.html">u64</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Always throws an error of type <code>Trap</code>.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors:</p>
 <ul>
@@ -509,8 +528,8 @@ asset.</li>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.subscribe_version" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.subscribe_version" class="fn">subscribe_version</a>(
     self,
-    query_id: <a class="type" href="type.QueryId.html" title="type staging_xcm::v4::QueryId">QueryId</a>,
-    max_response_weight: <a class="struct" href="struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>
+    query_id: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="type" href="type.QueryId.html" title="type staging_xcm::v4::QueryId">QueryId</a>&gt;,
+    max_response_weight: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Weight.html" title="struct staging_xcm::v4::Weight">Weight</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Ask the destination system to respond with the most recent version of XCM that they
 support in a <code>QueryResponse</code> instruction. Any changes to this should also elicit similar
 responses when they happen.</p>
@@ -525,31 +544,31 @@ response may not execute at all.</li>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.unsubscribe_version" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.unsubscribe_version" class="fn">unsubscribe_version</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Cancel the effect of a previous <code>SubscribeVersion</code> instruction.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors: <em>Fallible</em></p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.burn_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.burn_asset" class="fn">burn_asset</a>(self, arg0: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Reduce Holding by up to the given assets.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.burn_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.burn_asset" class="fn">burn_asset</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Reduce Holding by up to the given assets.</p>
 <p>Holding is reduced by as much as possible up to the assets in the parameter. It is not an
 error if the Holding does not contain the assets (to make this an error, use <code>ExpectAsset</code>
 prior).</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors: <em>Infallible</em></p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.expect_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.expect_asset" class="fn">expect_asset</a>(self, arg0: <a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Throw an error if Holding does not contain at least the given assets.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.expect_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.expect_asset" class="fn">expect_asset</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Assets.html" title="struct staging_xcm::v4::Assets">Assets</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Throw an error if Holding does not contain at least the given assets.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors:</p>
 <ul>
 <li><code>ExpectationFalse</code>: If Holding Register does not contain the assets in the parameter.</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.expect_origin" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.expect_origin" class="fn">expect_origin</a>(self, arg0: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Ensure that the Origin Register equals some given value and throw an error if not.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.expect_origin" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.expect_origin" class="fn">expect_origin</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Ensure that the Origin Register equals some given value and throw an error if not.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors:</p>
 <ul>
 <li><code>ExpectationFalse</code>: If Origin Register is not equal to the parameter.</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.expect_error" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.expect_error" class="fn">expect_error</a>(self, arg0: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>, <a class="enum" href="../v3/enum.Error.html" title="enum staging_xcm::v3::Error">Error</a>)&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Ensure that the Error Register equals some given value and throw an error if not.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.expect_error" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.expect_error" class="fn">expect_error</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>, <a class="enum" href="../v3/enum.Error.html" title="enum staging_xcm::v3::Error">Error</a>)&gt;&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Ensure that the Error Register equals some given value and throw an error if not.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors:</p>
 <ul>
 <li><code>ExpectationFalse</code>: If the value of the Error Register is not equal to the parameter.</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.expect_transact_status" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.expect_transact_status" class="fn">expect_transact_status</a>(self, arg0: <a class="enum" href="../v3/enum.MaybeErrorCode.html" title="enum staging_xcm::v3::MaybeErrorCode">MaybeErrorCode</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Ensure that the Transact Status Register equals some given value and throw an error if
+</div></details><details class="toggle method-toggle" open><summary><section id="method.expect_transact_status" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.expect_transact_status" class="fn">expect_transact_status</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="../v3/enum.MaybeErrorCode.html" title="enum staging_xcm::v3::MaybeErrorCode">MaybeErrorCode</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Ensure that the Transact Status Register equals some given value and throw an error if
 not.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors:</p>
@@ -559,8 +578,8 @@ parameter.</li>
 </ul>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.query_pallet" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.query_pallet" class="fn">query_pallet</a>(
     self,
-    module_name: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;,
-    response_info: <a class="struct" href="struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>
+    module_name: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;&gt;,
+    response_info: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Query the existence of a particular pallet type.</p>
 <ul>
 <li><code>module_name</code>: The module name of the pallet to query.</li>
@@ -574,11 +593,11 @@ that the local chain is not based on Substrate Frame.</p>
 <p>Errors: <em>Fallible</em>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.expect_pallet" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.expect_pallet" class="fn">expect_pallet</a>(
     self,
-    index: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>,
-    name: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;,
-    module_name: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;,
-    crate_major: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>,
-    min_crate_minor: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>
+    index: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;,
+    name: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;&gt;,
+    module_name: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;&gt;,
+    crate_major: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;,
+    min_crate_minor: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Ensure that a particular pallet with a particular version exists.</p>
 <ul>
 <li><code>index: Compact</code>: The index which identifies the pallet. An error if no pallet exists at
@@ -597,7 +616,7 @@ crate which implements the pallet.</li>
 <ul>
 <li><code>ExpectationFalse</code>: In case any of the expectations are broken.</li>
 </ul>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.report_transact_status" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.report_transact_status" class="fn">report_transact_status</a>(self, arg0: <a class="struct" href="struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Send a <code>QueryResponse</code> message containing the value of the Transact Status Register to some
+</div></details><details class="toggle method-toggle" open><summary><section id="method.report_transact_status" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.report_transact_status" class="fn">report_transact_status</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.QueryResponseInfo.html" title="struct staging_xcm::v4::QueryResponseInfo">QueryResponseInfo</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Send a <code>QueryResponse</code> message containing the value of the Transact Status Register to some
 destination.</p>
 <ul>
 <li><code>query_response_info</code>: The information needed for constructing and sending the
@@ -610,7 +629,7 @@ destination.</p>
 <p>Safety: No concerns.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors: <em>Infallible</em>.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.universal_origin" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.universal_origin" class="fn">universal_origin</a>(self, arg0: <a class="enum" href="enum.Junction.html" title="enum staging_xcm::v4::Junction">Junction</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Set the Origin Register to be some child of the Universal Ancestor.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.universal_origin" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.universal_origin" class="fn">universal_origin</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.Junction.html" title="enum staging_xcm::v4::Junction">Junction</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Set the Origin Register to be some child of the Universal Ancestor.</p>
 <p>Safety: Should only be usable if the Origin is trusted to represent the Universal Ancestor
 child in general. In general, no Origin should be able to represent the Universal Ancestor
 child which is the root of the local consensus system since it would by extension
@@ -621,9 +640,9 @@ these which are children of the Universal Ancestor.</p>
 <p>Errors: <em>Fallible</em>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.export_message" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.export_message" class="fn">export_message</a>(
     self,
-    network: <a class="enum" href="enum.NetworkId.html" title="enum staging_xcm::v4::NetworkId">NetworkId</a>,
-    destination: <a class="type" href="type.InteriorLocation.html" title="type staging_xcm::v4::InteriorLocation">InteriorLocation</a>,
-    xcm: <a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;
+    network: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="enum.NetworkId.html" title="enum staging_xcm::v4::NetworkId">NetworkId</a>&gt;,
+    destination: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="type" href="type.InteriorLocation.html" title="type staging_xcm::v4::InteriorLocation">InteriorLocation</a>&gt;,
+    xcm: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v4::Xcm">Xcm</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt;&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Send a message on to Non-Local Consensus system.</p>
 <p>This will tend to utilize some extra-consensus mechanism, the obvious one being a bridge.
 A fee may be charged; this may be determined based on the contents of <code>xcm</code>. It will be
@@ -640,7 +659,11 @@ Kusama network), you would call with <code>network: NetworkId::Kusama</code> and
 on Polkadot, you would call with <code>network: NetworkId:: Polkadot</code> and <code>destination: Here</code>.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors: <em>Fallible</em>.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.lock_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.lock_asset" class="fn">lock_asset</a>(self, asset: <a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>, unlocker: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Lock the locally held asset and prevent further transfer or withdrawal.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.lock_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.lock_asset" class="fn">lock_asset</a>(
+    self,
+    asset: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>&gt;,
+    unlocker: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+) -&gt; Self</h4></section></summary><div class="docblock"><p>Lock the locally held asset and prevent further transfer or withdrawal.</p>
 <p>This restriction may be removed by the <code>UnlockAsset</code> instruction being called with an
 Origin of <code>unlocker</code> and a <code>target</code> equal to the current <code>Origin</code>.</p>
 <p>If the locking is successful, then a <code>NoteUnlockable</code> instruction is sent to <code>unlocker</code>.</p>
@@ -651,7 +674,11 @@ instruction to work.</li>
 </ul>
 <p>Kind: <em>Command</em>.</p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.unlock_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.unlock_asset" class="fn">unlock_asset</a>(self, asset: <a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>, target: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Remove the lock over <code>asset</code> on this chain and (if nothing else is preventing it) allow the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.unlock_asset" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.unlock_asset" class="fn">unlock_asset</a>(
+    self,
+    asset: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>&gt;,
+    target: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+) -&gt; Self</h4></section></summary><div class="docblock"><p>Remove the lock over <code>asset</code> on this chain and (if nothing else is preventing it) allow the
 asset to be transferred.</p>
 <ul>
 <li><code>asset</code>: The asset to be unlocked.</li>
@@ -660,7 +687,11 @@ asset to be transferred.</p>
 <p>Safety: No concerns.</p>
 <p>Kind: <em>Command</em>.</p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.note_unlockable" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.note_unlockable" class="fn">note_unlockable</a>(self, asset: <a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>, owner: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Asset (<code>asset</code>) has been locked on the <code>origin</code> system and may not be transferred. It may
+</div></details><details class="toggle method-toggle" open><summary><section id="method.note_unlockable" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.note_unlockable" class="fn">note_unlockable</a>(
+    self,
+    asset: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>&gt;,
+    owner: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+) -&gt; Self</h4></section></summary><div class="docblock"><p>Asset (<code>asset</code>) has been locked on the <code>origin</code> system and may not be transferred. It may
 only be unlocked with the receipt of the <code>UnlockAsset</code> instruction from this chain.</p>
 <ul>
 <li><code>asset</code>: The asset(s) which are now unlockable from this origin.</li>
@@ -671,7 +702,11 @@ location specific to the origin network.</li>
 prior as a consequence of sending this message.</p>
 <p>Kind: <em>Trusted Indication</em>.</p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.request_unlock" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.request_unlock" class="fn">request_unlock</a>(self, asset: <a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>, locker: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Send an <code>UnlockAsset</code> instruction to the <code>locker</code> for the given <code>asset</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.request_unlock" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.request_unlock" class="fn">request_unlock</a>(
+    self,
+    asset: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm::v4::Asset">Asset</a>&gt;,
+    locker: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+) -&gt; Self</h4></section></summary><div class="docblock"><p>Send an <code>UnlockAsset</code> instruction to the <code>locker</code> for the given <code>asset</code>.</p>
 <p>This may fail if the local system is making use of the fact that the asset is locked or,
 of course, if there is no record that the asset actually is locked.</p>
 <ul>
@@ -681,14 +716,14 @@ of course, if there is no record that the asset actually is locked.</p>
 </ul>
 <p>Kind: <em>Command</em>.</p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.set_fees_mode" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.set_fees_mode" class="fn">set_fees_mode</a>(self, jit_withdraw: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Sets the Fees Mode Register.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_fees_mode" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.set_fees_mode" class="fn">set_fees_mode</a>(self, jit_withdraw: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.bool.html">bool</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Sets the Fees Mode Register.</p>
 <ul>
 <li><code>jit_withdraw</code>: The fees mode item; if set to <code>true</code> then fees for any instructions are
 withdrawn as needed using the same mechanism as <code>WithdrawAssets</code>.</li>
 </ul>
 <p>Kind: <em>Command</em>.</p>
 <p>Errors:</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.set_topic" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.set_topic" class="fn">set_topic</a>(self, arg0: [<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.array.html">32</a>]) -&gt; Self</h4></section></summary><div class="docblock"><p>Set the Topic Register.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.set_topic" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.set_topic" class="fn">set_topic</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.array.html">32</a>]&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Set the Topic Register.</p>
 <p>The 32-byte array identifier in the parameter is not guaranteed to be
 unique; if such a property is desired, it is up to the code author to
 enforce uniqueness.</p>
@@ -698,13 +733,13 @@ enforce uniqueness.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.clear_topic" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.clear_topic" class="fn">clear_topic</a>(self) -&gt; Self</h4></section></summary><div class="docblock"><p>Clear the Topic Register.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors: None.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.alias_origin" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.alias_origin" class="fn">alias_origin</a>(self, arg0: <a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>) -&gt; Self</h4></section></summary><div class="docblock"><p>Alter the current Origin to another given origin.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.alias_origin" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.alias_origin" class="fn">alias_origin</a>(self, arg0: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;) -&gt; Self</h4></section></summary><div class="docblock"><p>Alter the current Origin to another given origin.</p>
 <p>Kind: <em>Command</em></p>
 <p>Errors: If the existing state would not allow such a change.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.unpaid_execution-1" class="method"><a class="src rightside" href="../../src/staging_xcm/v4/mod.rs.html#387">source</a><h4 class="code-header">pub fn <a href="#method.unpaid_execution-1" class="fn">unpaid_execution</a>(
     self,
-    weight_limit: <a class="enum" href="../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>,
-    check_origin: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;
+    weight_limit: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="../v3/enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">WeightLimit</a>&gt;,
+    check_origin: impl <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm::v4::Location">Location</a>&gt;&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>A directive to indicate that the origin expects free execution of the message.</p>
 <p>At execution time, this instruction just does a check on the Origin register.
 However, at the barrier stage messages starting with this instruction can be disregarded if
