@@ -28,6 +28,7 @@ use pallet_nomination_pools::{
 use pallet_staking::{
 	CurrentEra, Error as StakingError, Event as StakingEvent, Payee, RewardDestination,
 };
+
 use sp_runtime::{bounded_btree_map, traits::Zero};
 
 #[test]
@@ -876,11 +877,27 @@ fn pool_migration_e2e() {
 		LegacyAdapter::set(false);
 		// migrate the pool.
 		assert_ok!(Pools::migrate_to_delegate_stake(1));
-		assert_ok!(Pools::claim_delegation(RuntimeOrigin::signed(10), 20));
-
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 10));
 
+		// progress to a future era where funds are unlocked
 		CurrentEra::<Runtime>::set(Some(10));
+
+		let pre_claim_balance_20 = Balances::total_balance(&20);
+		assert_eq!(Balances::total_balance_on_hold(&20), 0);
+
+		// lets claim delegation
+		assert_ok!(Pools::claim_delegation(RuntimeOrigin::signed(10), 20));
+
+		// tokens moved to 20's account and held there.
+		assert_eq!(Balances::total_balance(&20), pre_claim_balance_20 + 10);
+		use frame_support::traits::fungible::InspectHold;
+		assert_eq!(Balances::total_balance_on_hold(&20), 10);
+
+		// withdraw works now
 		assert_ok!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 10));
+
+		// balance unlocked in 20's account
+		assert_eq!(Balances::total_balance_on_hold(&20), 0);
+		assert_eq!(Balances::total_balance(&20), pre_claim_balance_20 + 10);
 	})
 }
