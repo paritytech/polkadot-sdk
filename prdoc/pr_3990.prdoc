@@ -1,0 +1,14 @@
+title: "Support multiple audiences in prdocs."
+
+doc:
+  - audience: [Runtime Dev, Node Dev]
+    description: |
+      adsf
+  - audience: Runtime Dev
+    description: |
+      adsf
+  - audience: [Runtime Dev]
+    description: |
+      Single in array
+
+crates: [ ]
