@@ -463,9 +463,11 @@ pub mod pallet {
 			}
 
 			// Check to see if we should spend some funds!
-			let last_spend_period =
-				// AUDIT REVIEW TODO! Needs to handle migration story for this better.
-				LastSpendPeriod::<T, I>::get().unwrap_or(BlockNumberFor::<T>::zero());
+			let last_spend_period = LastSpendPeriod::<T, I>::get()
+				// This unwrap should only occur one time on any blockchain.
+				// `update_last_spend_period` will populate the `LastSpendPeriod` storage if it is
+				// empty.
+				.unwrap_or(Self::update_last_spend_period());
 			let blocks_since_last_spend_period = block_number.saturating_sub(last_spend_period);
 			let safe_spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T>::one());
 
@@ -961,6 +963,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			r = r.min(m);
 		}
 		r
+	}
+
+	// Backfill the `LastSpendPeriod` storage, assuming that no configuration has changed
+	// since introducing this code. Used specifically for a migration-less switch to populate
+	// `LastSpendPeriod`.
+	fn update_last_spend_period() -> BlockNumberFor<T> {
+		let block_number = T::BlockNumberProvider::current_block_number();
+		let spend_period = T::SpendPeriod::get().max(BlockNumberFor::<T>::one());
+		let time_since_last_spend = block_number % spend_period;
+		// If it happens that this logic runs directly on a spend period block, we need to backdate
+		// to the last spend period so a spend still occurs this block.
+		let last_spend_period = if time_since_last_spend.is_zero() {
+			block_number.saturating_sub(spend_period)
+		} else {
+			// Otherwise, this is the last time we had a spend period.
+			block_number.saturating_sub(time_since_last_spend)
+		};
+		LastSpendPeriod::<T, I>::put(last_spend_period);
+		last_spend_period
 	}
 
 	/// Spend some money! returns number of approvals before spend.
