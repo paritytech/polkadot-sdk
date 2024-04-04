@@ -472,7 +472,7 @@ where
 		let lag = initial_leaf_number.saturating_sub(subchain_number);
 		self.metrics.note_approval_checking_finality_lag(lag);
 
-		// Messages sent to `approval-distrbution` are known to have high `ToF`, we need to spawn a
+		// Messages sent to `approval-distribution` are known to have high `ToF`, we need to spawn a
 		// task for sending the message to not block here and delay finality.
 		if let Some(spawn_handle) = &self.spawn_handle {
 			let mut overseer_handle = self.overseer.clone();
@@ -524,7 +524,7 @@ where
 			// and not push it up the stack to cause additional issues in GRANDPA/BABE.
 			let (lag, subchain_head) =
 				match rx.await.map_err(Error::DetermineUndisputedChainCanceled) {
-					// If request succeded we will receive (block number, block hash).
+					// If request succeeded we will receive (block number, block hash).
 					Ok((subchain_number, subchain_head)) => {
 						// The total lag accounting for disputes.
 						let lag_disputes = initial_leaf_number.saturating_sub(subchain_number);

@@ -17,7 +17,7 @@ This module contains two basic pieces of functionality:
   need multiple distinct accounts (e.g. as controllers for many staking accounts), but where
   it's perfectly fine to have each of them controlled by the same underlying keypair.
   Derivative accounts are, for the purposes of proxy filtering considered exactly the same as
-  the oigin and are thus hampered with the origin's filters.
+  the origin and are thus hampered with the origin's filters.
 
 Since proxy filters are respected in all dispatches of this module, it should never need to be
 filtered by any proxy.

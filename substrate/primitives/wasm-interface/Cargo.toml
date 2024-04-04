@@ -25,5 +25,5 @@ anyhow = { version = "1.0.81", optional = true }
 
 [features]
 default = ["std"]
-std = ["codec/std", "log/std", "wasmtime"]
+std = ["codec/std", "log/std"]
 wasmtime = ["anyhow", "dep:wasmtime"]
