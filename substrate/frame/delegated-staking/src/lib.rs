@@ -17,9 +17,10 @@
 
 //! # Delegated Staking Pallet
 //!
-//! This pallet implements [`sp_staking::DelegationInterface`] that provides delegation functionality
-//! to `delegators` and `agents`. It is designed to be used in conjunction with [`StakingInterface`]
-//! and relies on [`Config::CoreStaking`] to provide primitive staking functions.
+//! This pallet implements [`sp_staking::DelegationInterface`] that provides delegation
+//! functionality to `delegators` and `agents`. It is designed to be used in conjunction with
+//! [`StakingInterface`] and relies on [`Config::CoreStaking`] to provide primitive staking
+//! functions.
 //!
 //! Currently, it does not expose any dispatchable calls but is written with a vision to expose them
 //! in the future such that it can be utilised by any external account, off-chain entity or xcm
@@ -213,6 +214,8 @@ pub mod pallet {
 		BadState,
 		/// Unapplied pending slash restricts operation on `Agent`.
 		UnappliedSlash,
+		/// `Agent` has no pending slash to be applied.
+		NothingToSlash,
 		/// Failed to withdraw amount from Core Staking.
 		WithdrawFailed,
 		/// Operation not supported by this pallet.
@@ -685,8 +688,10 @@ impl<T: Config> Pallet<T> {
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
 		let agent = Agent::<T>::from(&agent_acc)?;
-		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
+		// ensure there is something to slash
+		ensure!(agent.ledger.pending_slash > Zero::zero(), Error::<T>::NothingToSlash);
 
+		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 		ensure!(delegation.agent == agent_acc, Error::<T>::NotAgent);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 

@@ -191,10 +191,81 @@ fn agent_restrictions() {
 	});
 }
 
+use sp_staking::DelegationInterface;
 #[test]
 fn apply_pending_slash() {
 	ExtBuilder::default().build_and_execute(|| {
-		// fixme(ank4n): add tests for apply_pending_slash
+		start_era(1);
+		let agent: AccountId = 200;
+		let reward_acc: AccountId = 201;
+		let delegators: Vec<AccountId> = (301..=350).collect();
+		let reporter: AccountId = 400;
+
+		let total_staked = setup_delegation_stake(agent, reward_acc, delegators.clone(), 10, 10);
+
+		start_era(4);
+		// slash half of the stake
+		pallet_staking::slashing::do_slash::<T>(
+			&agent,
+			total_staked / 2,
+			&mut Default::default(),
+			&mut Default::default(),
+			3,
+		);
+
+		// agent cannot slash an account that is not its delegator.
+		setup_delegation_stake(210, 211, (351..=352).collect(), 100, 0);
+		assert_noop!(
+			<DelegatedStaking as DelegationInterface>::delegator_slash(&agent, &351, 1, Some(400)),
+			Error::<T>::NotAgent
+		);
+		// or a non delegator account
+		fund(&353, 100);
+		assert_noop!(
+			<DelegatedStaking as DelegationInterface>::delegator_slash(&agent, &353, 1, Some(400)),
+			Error::<T>::NotDelegator
+		);
+
+		// ensure bookkept pending slash is correct.
+		assert_eq!(get_agent(&agent).ledger.pending_slash, total_staked / 2);
+		let mut old_reporter_balance = Balances::free_balance(reporter);
+
+		// lets apply the pending slash on delegators.
+		for i in delegators {
+			// balance before slash
+			let initial_pending_slash = get_agent(&agent).ledger.pending_slash;
+			assert!(initial_pending_slash > 0);
+			let unslashed_balance = held_balance(&i);
+			let slash = unslashed_balance / 2;
+			// slash half of delegator's delegation.
+			assert_ok!(<DelegatedStaking as DelegationInterface>::delegator_slash(
+				&agent,
+				&i,
+				slash,
+				Some(400)
+			));
+
+			// balance after slash.
+			assert_eq!(held_balance(&i), unslashed_balance - slash);
+			// pending slash is reduced by the amount slashed.
+			assert_eq!(get_agent(&agent).ledger.pending_slash, initial_pending_slash - slash);
+			// reporter get 10% of the slash amount.
+			assert_eq!(
+				Balances::free_balance(reporter) - old_reporter_balance,
+				<Staking as StakingInterface>::slash_reward_fraction() * slash,
+			);
+			// update old balance
+			old_reporter_balance = Balances::free_balance(reporter);
+		}
+
+		// nothing to slash anymore
+		assert_eq!(get_agent(&agent).ledger.pending_slash, 0);
+
+		// cannot slash anymore
+		assert_noop!(
+			<DelegatedStaking as DelegationInterface>::delegator_slash(&agent, &350, 1, None),
+			Error::<T>::NothingToSlash
+		);
 	});
 }
 
