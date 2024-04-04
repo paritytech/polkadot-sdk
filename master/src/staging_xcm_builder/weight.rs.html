@@ -407,6 +407,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -425,7 +428,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>frame_support::{
 	dispatch::GetDispatchInfo,
-	traits::{tokens::currency::Currency <span class="kw">as </span>CurrencyT, Get, OnUnbalanced <span class="kw">as </span>OnUnbalancedT},
+	traits::{
+		fungible::{Balanced, Credit, Inspect},
+		Get, OnUnbalanced <span class="kw">as </span>OnUnbalancedT,
+	},
 	weights::{
 		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
 		WeightToFee <span class="kw">as </span>WeightToFeeT,
@@ -602,23 +608,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Weight trader which uses the configured `WeightToFee` to set the right price for weight and then
 /// places any weight bought into the right account.
 </span><span class="kw">pub struct </span>UsingComponents&lt;
-	WeightToFee: WeightToFeeT&lt;Balance = Currency::Balance&gt;,
+	WeightToFee: WeightToFeeT&lt;Balance = &lt;Fungible <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::Balance&gt;,
 	AssetIdValue: Get&lt;Location&gt;,
 	AccountId,
-	Currency: CurrencyT&lt;AccountId&gt;,
-	OnUnbalanced: OnUnbalancedT&lt;Currency::NegativeImbalance&gt;,
+	Fungible: Balanced&lt;AccountId&gt; + Inspect&lt;AccountId&gt;,
+	OnUnbalanced: OnUnbalancedT&lt;Credit&lt;AccountId, Fungible&gt;&gt;,
 &gt;(
 	Weight,
-	Currency::Balance,
-	PhantomData&lt;(WeightToFee, AssetIdValue, AccountId, Currency, OnUnbalanced)&gt;,
+	Fungible::Balance,
+	PhantomData&lt;(WeightToFee, AssetIdValue, AccountId, Fungible, OnUnbalanced)&gt;,
 );
 <span class="kw">impl</span>&lt;
-		WeightToFee: WeightToFeeT&lt;Balance = Currency::Balance&gt;,
+		WeightToFee: WeightToFeeT&lt;Balance = &lt;Fungible <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::Balance&gt;,
 		AssetIdValue: Get&lt;Location&gt;,
 		AccountId,
-		Currency: CurrencyT&lt;AccountId&gt;,
-		OnUnbalanced: OnUnbalancedT&lt;Currency::NegativeImbalance&gt;,
-	&gt; WeightTrader <span class="kw">for </span>UsingComponents&lt;WeightToFee, AssetIdValue, AccountId, Currency, OnUnbalanced&gt;
+		Fungible: Balanced&lt;AccountId&gt; + Inspect&lt;AccountId&gt;,
+		OnUnbalanced: OnUnbalancedT&lt;Credit&lt;AccountId, Fungible&gt;&gt;,
+	&gt; WeightTrader <span class="kw">for </span>UsingComponents&lt;WeightToFee, AssetIdValue, AccountId, Fungible, OnUnbalanced&gt;
 {
 	<span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(Weight::zero(), Zero::zero(), PhantomData)
@@ -656,15 +662,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 <span class="kw">impl</span>&lt;
-		WeightToFee: WeightToFeeT&lt;Balance = Currency::Balance&gt;,
+		WeightToFee: WeightToFeeT&lt;Balance = &lt;Fungible <span class="kw">as </span>Inspect&lt;AccountId&gt;&gt;::Balance&gt;,
 		AssetId: Get&lt;Location&gt;,
 		AccountId,
-		Currency: CurrencyT&lt;AccountId&gt;,
-		OnUnbalanced: OnUnbalancedT&lt;Currency::NegativeImbalance&gt;,
-	&gt; Drop <span class="kw">for </span>UsingComponents&lt;WeightToFee, AssetId, AccountId, Currency, OnUnbalanced&gt;
+		Fungible: Balanced&lt;AccountId&gt; + Inspect&lt;AccountId&gt;,
+		OnUnbalanced: OnUnbalancedT&lt;Credit&lt;AccountId, Fungible&gt;&gt;,
+	&gt; Drop <span class="kw">for </span>UsingComponents&lt;WeightToFee, AssetId, AccountId, Fungible, OnUnbalanced&gt;
 {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		OnUnbalanced::on_unbalanced(Currency::issue(<span class="self">self</span>.<span class="number">1</span>));
+		OnUnbalanced::on_unbalanced(Fungible::issue(<span class="self">self</span>.<span class="number">1</span>));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

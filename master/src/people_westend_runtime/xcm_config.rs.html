@@ -481,6 +481,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -503,12 +508,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{TransactionByteFee, CENTS};
 <span class="kw">use </span>frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
+<span class="kw">use </span>pallet_collator_selection::StakingPotAccountId;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>parachains_common::{
-	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
@@ -740,8 +745,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeCall,
 		MaxInstructions,
 	&gt;;
-	<span class="kw">type </span>Trader =
-		UsingComponents&lt;WeightToFee, RelayLocation, AccountId, Balances, ToStakingPot&lt;Runtime&gt;&gt;;
+	<span class="kw">type </span>Trader = UsingComponents&lt;
+		WeightToFee,
+		RelayLocation,
+		AccountId,
+		Balances,
+		ResolveTo&lt;StakingPotAccountId&lt;Runtime&gt;, Balances&gt;,
+	&gt;;
 	<span class="kw">type </span>ResponseHandler = PolkadotXcm;
 	<span class="kw">type </span>AssetTrap = PolkadotXcm;
 	<span class="kw">type </span>AssetClaims = PolkadotXcm;

@@ -464,6 +464,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2023 Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -488,12 +493,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::PalletInfoAccess,
 	parameter_types,
-	traits::{ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
+<span class="kw">use </span>pallet_collator_selection::StakingPotAccountId;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>parachains_common::{
-	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
@@ -703,8 +708,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeCall,
 		MaxInstructions,
 	&gt;;
-	<span class="kw">type </span>Trader =
-		UsingComponents&lt;WeightToFee, RocRelayLocation, AccountId, Balances, ToStakingPot&lt;Runtime&gt;&gt;;
+	<span class="kw">type </span>Trader = UsingComponents&lt;
+		WeightToFee,
+		RocRelayLocation,
+		AccountId,
+		Balances,
+		ResolveTo&lt;StakingPotAccountId&lt;Runtime&gt;, Balances&gt;,
+	&gt;;
 	<span class="kw">type </span>ResponseHandler = PolkadotXcm;
 	<span class="kw">type </span>AssetTrap = PolkadotXcm;
 	<span class="kw">type </span>AssetClaims = PolkadotXcm;

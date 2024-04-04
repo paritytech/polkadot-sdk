@@ -1269,6 +1269,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1120" id="1120">1120</a>
 <a href="#1121" id="1121">1121</a>
 <a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1347,6 +1361,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 <span class="kw">pub mod </span>weights;
+<span class="kw">use </span>core::marker::PhantomData;
+
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">pub use </span>benchmarking::ArgumentsFactory;
 
@@ -2389,6 +2405,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let _ </span>= T::Currency::resolve_creating(<span class="kw-2">&amp;</span><span class="self">Self</span>::account_id(), amount);
 
 		<span class="self">Self</span>::deposit_event(Event::Deposit { value: numeric_amount });
+	}
+}
+
+<span class="doccomment">/// TypedGet implementaion to get the AccountId of the Treasury.
+</span><span class="kw">pub struct </span>TreasuryAccountId&lt;R&gt;(PhantomData&lt;R&gt;);
+<span class="kw">impl</span>&lt;R&gt; sp_runtime::traits::TypedGet <span class="kw">for </span>TreasuryAccountId&lt;R&gt;
+<span class="kw">where
+	</span>R: <span class="kw">crate</span>::Config,
+{
+	<span class="kw">type </span>Type = &lt;R <span class="kw">as </span>frame_system::Config&gt;::AccountId;
+	<span class="kw">fn </span>get() -&gt; <span class="self">Self</span>::Type {
+		&lt;<span class="kw">crate</span>::Pallet&lt;R&gt;&gt;::account_id()
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

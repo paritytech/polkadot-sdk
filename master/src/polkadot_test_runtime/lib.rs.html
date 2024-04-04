@@ -1351,7 +1351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
 
-</span><span class="kw">use </span>pallet_transaction_payment::CurrencyAdapter;
+</span><span class="kw">use </span>pallet_transaction_payment::FungibleAdapter;
 <span class="kw">use </span>parity_scale_codec::Encode;
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
 
@@ -1564,7 +1564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>pallet_transaction_payment::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>OnChargeTransaction = CurrencyAdapter&lt;Balances, ()&gt;;
+	<span class="kw">type </span>OnChargeTransaction = FungibleAdapter&lt;Balances, ()&gt;;
 	<span class="kw">type </span>OperationalFeeMultiplier = OperationalFeeMultiplier;
 	<span class="kw">type </span>WeightToFee = WeightToFee;
 	<span class="kw">type </span>LengthToFee = frame_support::weights::ConstantMultiplier&lt;Balance, TransactionByteFee&gt;;

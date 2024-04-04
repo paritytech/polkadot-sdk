@@ -2419,10 +2419,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2270" id="2270">2270</a>
 <a href="#2271" id="2271">2271</a>
 <a href="#2272" id="2272">2272</a>
-<a href="#2273" id="2273">2273</a>
-<a href="#2274" id="2274">2274</a>
-<a href="#2275" id="2275">2275</a>
-<a href="#2276" id="2276">2276</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2507,10 +2503,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">type </span>CurrencyOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Auctioneer <span class="kw">as </span>Auctioneer&lt;BlockNumberFor&lt;T&gt;&gt;&gt;::Currency;
 <span class="kw">type </span>LeasePeriodOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Auctioneer <span class="kw">as </span>Auctioneer&lt;BlockNumberFor&lt;T&gt;&gt;&gt;::LeasePeriod;
 <span class="kw">type </span>BalanceOf&lt;T&gt; = &lt;CurrencyOf&lt;T&gt; <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
-
-<span class="attr">#[allow(dead_code)]
-</span><span class="kw">type </span>NegativeImbalanceOf&lt;T&gt; =
-	&lt;CurrencyOf&lt;T&gt; <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::NegativeImbalance;
 
 <span class="kw">type </span>FundIndex = u32;
 

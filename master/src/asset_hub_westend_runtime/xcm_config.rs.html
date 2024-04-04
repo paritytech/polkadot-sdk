@@ -1013,6 +1013,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#864" id="864">864</a>
 <a href="#865" id="865">865</a>
 <a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1042,14 +1047,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::{
 	parameter_types,
 	traits::{
-		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Equals, Everything, Nothing,
-		PalletInfoAccess,
+		tokens::imbalance::{ResolveAssetTo, ResolveTo},
+		ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess,
 	},
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>parachains_common::{
-	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
 		ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
@@ -1606,7 +1610,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MaxInstructions,
 	&gt;;
 	<span class="kw">type </span>Trader = (
-		UsingComponents&lt;WeightToFee, WestendLocation, AccountId, Balances, ToStakingPot&lt;Runtime&gt;&gt;,
+		UsingComponents&lt;
+			WeightToFee,
+			WestendLocation,
+			AccountId,
+			Balances,
+			ResolveTo&lt;StakingPot, Balances&gt;,
+		&gt;,
 		cumulus_primitives_utility::SwapFirstAssetTrader&lt;
 			WestendLocationV3,
 			<span class="kw">crate</span>::AssetConversion,

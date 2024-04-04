@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["migration","pallet","weights"]};
+window.SIDEBAR_ITEMS = {"mod":["migration","pallet","weights"],"struct":["StakingPotAccountId"]};

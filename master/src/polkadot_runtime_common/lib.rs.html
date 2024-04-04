@@ -427,6 +427,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -492,7 +495,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Implementations of some helper traits passed into runtime modules as associated types.
 </span><span class="kw">pub use </span>impls::ToAuthor;
 
-<span class="kw">pub type </span>NegativeImbalance&lt;T&gt; = &lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;
+<span class="attr">#[deprecated(
+	note = <span class="string">&quot;Please use fungible::Credit instead. This type will be removed some time after March 2024.&quot;
+</span>)]
+</span><span class="kw">pub type </span>NegativeImbalance&lt;T&gt; = &lt;pallet_balances::Pallet&lt;T&gt; <span class="kw">as </span>Currency&lt;
 	&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
 &gt;&gt;::NegativeImbalance;
 
