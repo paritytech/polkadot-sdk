@@ -690,6 +690,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(delegation.agent == agent_acc, Error::<T>::NotAgent);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
+		// slash delegator
 		let (mut credit, missing) =
 			T::Currency::slash(&HoldReason::Delegating.into(), &delegator, amount);
 
@@ -709,9 +710,11 @@ impl<T: Config> Pallet<T> {
 			let reward_payout: BalanceOf<T> =
 				T::CoreStaking::slash_reward_fraction() * actual_slash;
 			let (reporter_reward, rest) = credit.split(reward_payout);
+
+			// credit is the amount that we provide to `T::OnSlash`.
 			credit = rest;
 
-			// fixme(ank4n): handle error
+			// reward reporter or drop it.
 			let _ = T::Currency::resolve(&reporter, reporter_reward);
 		}
 
