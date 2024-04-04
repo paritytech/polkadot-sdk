@@ -148,6 +148,7 @@ where
 impl<Block> RevalidationWorker<Block>
 where
 	Block: BlockT,
+	<Block as BlockT>::Hash: Unpin,
 {
 	fn new() -> Self {
 		Self { scheduled: Default::default() }
@@ -195,6 +196,7 @@ impl<Api, Block> RevalidationQueue<Api, Block>
 where
 	Api: ChainApi<Block = Block> + 'static,
 	Block: BlockT,
+	<Block as BlockT>::Hash: Unpin,
 {
 	/// New revalidation queue without background worker.
 	pub fn new() -> Self {

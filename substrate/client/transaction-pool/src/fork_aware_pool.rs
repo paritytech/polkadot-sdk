@@ -148,7 +148,7 @@ where
 {
 	api: Arc<PoolApi>,
 	views: RwLock<HashMap<Block::Hash, Arc<View<PoolApi>>>>,
-	listener: MultiViewListener<PoolApi>,
+	listener: Arc<MultiViewListener<PoolApi>>,
 }
 
 impl<PoolApi, Block> ViewStore<PoolApi, Block>
@@ -157,8 +157,8 @@ where
 	PoolApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	fn new(api: Arc<PoolApi>, finalized_hash: Block::Hash) -> Self {
-		Self { api, views: Default::default(), listener: MultiViewListener::new() }
+	fn new(api: Arc<PoolApi>, listener: Arc<MultiViewListener<PoolApi>>) -> Self {
+		Self { api, views: Default::default(), listener }
 	}
 
 	/// Imports a bunch of unverified extrinsics to every view
@@ -167,7 +167,7 @@ where
 		source: TransactionSource,
 		xts: impl IntoIterator<Item = Block::Extrinsic> + Clone,
 	) -> HashMap<Block::Hash, Vec<Result<ExtrinsicHash<PoolApi>, PoolApi::Error>>> {
-		let futs = {
+		let results = {
 			let views = self.views.read();
 			let futs = views
 				.iter()
@@ -180,7 +180,7 @@ where
 				.collect::<Vec<_>>();
 			futs
 		};
-		let results = futures::future::join_all(futs).await;
+		let results = futures::future::join_all(results).await;
 
 		HashMap::<_, _>::from_iter(results.into_iter())
 	}
@@ -213,7 +213,7 @@ where
 	) -> Result<multi_view_listener::TxStatusStream<PoolApi>, PoolApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let external_watcher = self.listener.create_external_watcher_for_tx(tx_hash).await;
-		let futs = {
+		let results = {
 			let views = self.views.read();
 			let futs = views
 				.iter()
@@ -240,7 +240,7 @@ where
 				.collect::<Vec<_>>();
 			futs
 		};
-		let maybe_watchers = futures::future::join_all(futs).await;
+		let maybe_watchers = futures::future::join_all(results).await;
 		log::info!("submit_and_watch: maybe_watchers: {}", maybe_watchers.len());
 
 		let maybe_error = maybe_watchers.into_iter().reduce(|mut r, v| {
@@ -385,6 +385,7 @@ where
 	api: Arc<PoolApi>,
 	xts: RwLock<Vec<Block::Extrinsic>>,
 	watched_xts: RwLock<Vec<Block::Extrinsic>>,
+	listener: Arc<MultiViewListener<PoolApi>>,
 	// todo:
 	// xts2: HashMap<graph::ExtrinsicHash<PoolApi>, TxInMemPool<PoolApi, Block>>,
 }
@@ -393,9 +394,10 @@ impl<PoolApi, Block> TxMemPool<PoolApi, Block>
 where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	<Block as BlockT>::Hash: Unpin,
 {
-	fn new(api: Arc<PoolApi>) -> Self {
-		Self { api, xts: Default::default(), watched_xts: Default::default() }
+	fn new(api: Arc<PoolApi>, listener: Arc<MultiViewListener<PoolApi>>) -> Self {
+		Self { api, xts: Default::default(), watched_xts: Default::default(), listener }
 	}
 
 	fn watched_xts(&self) -> impl Iterator<Item = Block::Extrinsic> {
@@ -420,6 +422,10 @@ where
 
 	fn clone_unwatched(&self) -> Vec<Block::Extrinsic> {
 		self.xts.read().clone()
+	}
+
+	fn remove_watched(&self, xt: &Block::Extrinsic) {
+		self.watched_xts.write().retain(|t| t != xt);
 	}
 
 	//returns vec of invalid hashes
@@ -470,11 +476,13 @@ where
 		self.xts
 			.write()
 			.retain(|xt| !invalid_hashes.contains(&self.api.hash_and_length(xt).0));
+		self.listener.invalidate_transactions(invalid_hashes).await;
 
 		let invalid_hashes = self.validate_array(self.watched_xts(), finalized_block).await;
 		self.watched_xts
 			.write()
 			.retain(|xt| !invalid_hashes.contains(&self.api.hash_and_length(xt).0));
+		self.listener.invalidate_transactions(invalid_hashes).await;
 	}
 }
 
@@ -517,10 +525,11 @@ where
 		best_block_hash: Block::Hash,
 		finalized_hash: Block::Hash,
 	) -> Self {
+		let listener = Arc::from(MultiViewListener::new());
 		Self {
-			mempool: Arc::from(TxMemPool::new(pool_api.clone())),
+			mempool: Arc::from(TxMemPool::new(pool_api.clone(), listener.clone())),
 			api: pool_api.clone(),
-			view_store: Arc::new(ViewStore::new(pool_api, finalized_hash)),
+			view_store: Arc::new(ViewStore::new(pool_api, listener)),
 			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
 			enactment_state: Arc::new(Mutex::new(EnactmentState::new(
 				best_block_hash,
@@ -1033,33 +1042,8 @@ where
 		let new_block_hash = at.hash;
 		let mut view = View::new_from_other(&origin_view, at);
 
-		//todo: this cloning probably has some flaws. It is possible that tx should be watched, but
-		//was removed from original view (e.g. runtime upgrade)
-		//so we need to have watched transactions in FAPool, question is how and when remove them.
-		let futs = origin_view
-			.pool
-			.validated_pool()
-			.watched_transactions()
-			.iter()
-			.map(|tx_hash| {
-				let watcher = view.create_watcher(*tx_hash);
-				self.view_store.listener.add_view_watcher_for_tx(
-					*tx_hash,
-					at.hash,
-					watcher.into_stream().boxed(),
-				)
-			})
-			.collect::<Vec<_>>();
-
-		future::join_all(futs).await;
-
-		//In this order we won't send additional Ready for each view
-		//tests affected if swapped:
-		// - fap_watcher_fork_retract_and_finalize
-		// - fap_watcher_switching_fork_multiple_times_works
-		// todo: can be swapped to align with new create_new_view_at, once events are merged.
-		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
 		self.update_view(&mut view).await;
+		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
 		let view = Arc::from(view);
 		self.view_store.views.write().insert(new_block_hash, view.clone());
 
@@ -1090,63 +1074,82 @@ where
 		let _ = view.submit_many(source, xts).await;
 		let view = Arc::from(view);
 
-		let futs = {
-			let futs = self
-				.mempool
-				.watched_xts()
-				.map(|t| {
-					let view = view.clone();
-					async move {
-						let tx_hash = self.hash_of(&t);
-						let result = view.submit_and_watch(source, t.clone()).await;
-						let watcher = result.map_or_else(
-							|error| {
-								let error = error.into_pool_error();
-								log::info!(
-									"update_view: submit_and_watch result: {:?} {:?}",
-									tx_hash,
-									error,
-								);
-								match error {
-									// We need to install listener for stale xt: in case of
-									// transaction being already included in the block we want to
-									// send inblock + finalization event.
-									Ok(Error::InvalidTransaction(InvalidTransaction::Stale)) =>
-										Some(view.create_watcher(tx_hash)),
-									//ignore
-									Ok(
-										Error::TemporarilyBanned |
-										Error::AlreadyImported(_) |
-										Error::InvalidTransaction(InvalidTransaction::Custom(_)),
-									) => None,
-									//todo: panic while testing
-									_ => {
-										panic!(
-											"txpool: update_view: somehing went wrong: {error:?}"
-										);
-									},
-								}
-							},
-							Into::into,
-						);
+		let results = self
+			.mempool
+			.watched_xts()
+			.map(|t| {
+				let view = view.clone();
+				async move {
+					let tx_hash = self.hash_of(&t);
+					let result = view.submit_and_watch(source, t.clone()).await;
+					let result = result.map_or_else(
+						|error| {
+							let error = error.into_pool_error();
+							log::info!(
+								"update_view: submit_and_watch result: {:?} {:?}",
+								tx_hash,
+								error,
+							);
+							match error {
+								// We need to install listener for stale xt: in case of
+								// transaction being already included in the block we want to
+								// send inblock + finalization event.
+								// The same applies for TemporarilyBanned / AlreadyImported. We
+								// need to create listener.
+								Ok(
+									Error::InvalidTransaction(InvalidTransaction::Stale) |
+									Error::TemporarilyBanned |
+									Error::AlreadyImported(_),
+								) => Ok(view.create_watcher(tx_hash)),
+								//ignore
+								Ok(
+									//todo: shall be: Error::InvalidTransaction(_)
+									Error::InvalidTransaction(InvalidTransaction::Custom(_)),
+								) => Err((error.expect("already in Ok arm. qed."), tx_hash, t)),
+								//todo: panic while testing
+								_ => {
+									panic!("txpool: update_view: somehing went wrong: {error:?}");
+								},
+							}
+						},
+						|x| Ok(x),
+					);
 
-						if let Some(watcher) = watcher {
-							self.view_store
-								.listener
-								.add_view_watcher_for_tx(
-									tx_hash,
-									view.at.hash,
-									watcher.into_stream().boxed(),
-								)
-								.await;
-						}
-						()
+					if let Ok(watcher) = result {
+						log::info!("adding watcher {:#?}", tx_hash);
+						self.view_store
+							.listener
+							.add_view_watcher_for_tx(
+								tx_hash,
+								view.at.hash,
+								watcher.into_stream().boxed(),
+							)
+							.await;
+						Ok(())
+					} else {
+						result.map(|_| ())
 					}
-				})
-				.collect::<Vec<_>>();
-			futs
-		};
-		future::join_all(futs).await;
+				}
+			})
+			.collect::<Vec<_>>();
+
+		let results = future::join_all(results).await;
+
+		// if there are no views yet, and a single newly created view is reporting error, just send
+		// out the invalid event, and remove transaction.
+		if self.view_store.is_empty() {
+			for result in results {
+				match result {
+					Err((Error::TemporarilyBanned | Error::AlreadyImported(_), ..)) => {},
+					Err((Error::InvalidTransaction(_), tx_hash, tx)) => {
+						self.view_store.listener.invalidate_transactions(vec![tx_hash]).await;
+						self.mempool.remove_watched(&tx);
+					},
+
+					_ => {},
+				}
+			}
+		}
 	}
 
 	//copied from handle_enactment
