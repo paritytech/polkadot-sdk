@@ -40,7 +40,7 @@ where
 	/// nodes within the current `MemoryDB` are insufficient to query the item.
 	fn query(&self, key: Key) -> Option<Value>;
 	/// Create the full verification data needed to prove a key and its value in the trie. Returns
-	/// `None` if the nodes nodes within the current `MemoryDB` are insufficient to create a proof.
+	/// `None` if the nodes within the current `MemoryDB` are insufficient to create a proof.
 	fn create_proof(&self, key: Key) -> Option<Vec<Vec<u8>>>;
 	/// Create a new instance of `ProvingTrie` from raw nodes. Nodes can be generated using the
 	/// `create_proof` function.
