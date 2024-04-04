@@ -3867,12 +3867,13 @@ fn clear_collection_metadata_works() {
 		assert_eq!(Collection::<Test>::get(0).unwrap().owner_deposit, 2);
 		assert_eq!(Balances::reserved_balance(&account(1)), 12);
 
+		// Destroying the collection removes it from storage
 		assert_ok!(Nfts::destroy(
-			// Destroying the collection decreases reserved balance back to the original
 			RuntimeOrigin::signed(account(1)),
 			0,
 			DestroyWitness { item_configs: 0, item_metadatas: 0, attributes: 0 }
 		));
+		assert_eq!(Collection::<Test>::get(0), None);
 		assert_eq!(Balances::reserved_balance(&account(1)), 10);
 	});
 }

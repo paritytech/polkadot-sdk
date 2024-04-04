@@ -1090,12 +1090,13 @@ fn clear_collection_metadata_works() {
 		assert_eq!(Collection::<Test>::get(0).unwrap().total_deposit, 2);
 		assert_eq!(Balances::reserved_balance(&1), 12);
 
-		// Destroying the collection reduces the reserved balance by the remaining total_deposit
+		// Destroying the collection removes it from storage
 		assert_ok!(Uniques::destroy(
 			RuntimeOrigin::signed(1),
 			0,
 			DestroyWitness { items: 0, item_metadatas: 0, attributes: 0 }
 		));
+		assert_eq!(Collection::<Test>::get(0), None);
 		assert_eq!(Balances::reserved_balance(&1), 10);
 	});
 }
