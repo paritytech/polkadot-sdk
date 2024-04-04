@@ -48,7 +48,7 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_xcm`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
-	fn transfer_assets_using_reserve() -> Weight {
+	fn transfer_assets_using_type() -> Weight {
 		// TODO: benchmark
 		Weight::from_parts(0, 0)
 	}

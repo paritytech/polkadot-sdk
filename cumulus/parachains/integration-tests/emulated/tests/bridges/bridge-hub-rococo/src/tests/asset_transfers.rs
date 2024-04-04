@@ -62,7 +62,7 @@ fn send_asset_from_penpal_rococo_through_local_asset_hub_to_westend_asset_hub(
 		let fees: Asset = (id.clone(), transfer_amount).into();
 		let assets: Assets = vec![fees.clone()].into();
 
-		<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_reserve(
+		<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type(
 			signed_origin,
 			bx!(destination.into()),
 			bx!(beneficiary.into()),

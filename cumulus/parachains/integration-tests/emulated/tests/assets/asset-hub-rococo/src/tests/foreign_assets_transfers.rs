@@ -54,7 +54,7 @@ fn para_to_para_assethub_hop_assertions(t: ParaToParaThroughAHTest) {
 fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
-	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_reserve(
+	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
@@ -69,7 +69,7 @@ fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_reserve(
+	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
@@ -85,7 +85,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
 	let asset_hub_location: Location = PenpalA::sibling_location_of(AssetHubRococo::para_id());
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_reserve(
+	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
@@ -100,7 +100,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> DispatchResult {
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
-	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_reserve(
+	<PenpalA as PenpalAPallet>::PolkadotXcm::transfer_assets_using_type(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),
@@ -115,7 +115,7 @@ fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> Dispatc
 fn asset_hub_to_para_teleport_foreign_assets(t: SystemParaToParaTest) -> DispatchResult {
 	let fee_idx = t.args.fee_asset_item as usize;
 	let fee: Asset = t.args.assets.inner().get(fee_idx).cloned().unwrap();
-	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_reserve(
+	<AssetHubRococo as AssetHubRococoPallet>::PolkadotXcm::transfer_assets_using_type(
 		t.signed_origin,
 		bx!(t.args.dest.into()),
 		bx!(t.args.beneficiary.into()),

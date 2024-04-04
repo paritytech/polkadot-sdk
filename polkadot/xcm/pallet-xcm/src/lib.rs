@@ -89,7 +89,7 @@ pub trait WeightInfo {
 	fn claim_assets() -> Weight;
 	fn execute_blob() -> Weight;
 	fn send_blob() -> Weight;
-	fn transfer_assets_using_reserve() -> Weight;
+	fn transfer_assets_using_type() -> Weight;
 }
 
 /// fallback implementation
@@ -183,7 +183,7 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(100_000_000, 0)
 	}
 
-	fn transfer_assets_using_reserve() -> Weight {
+	fn transfer_assets_using_type() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
 }
@@ -1406,25 +1406,31 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Transfer some assets from the local chain to the destination chain through using an
-		/// explicit reserve location (typically local Asset Hub).
+		/// Transfer assets from the local chain to the destination chain using explicit transfer
+		/// types for assets and fees.
 		///
-		/// `assets` must have same reserve location and may not be teleportable to `dest`,
-		/// but may be teleportable to their `force_reserve` location.
-		///  - `assets` have local reserve: transfer assets to sovereign account of destination
+		/// `assets` must have same reserve location or may be teleportable to `dest`. Caller must
+		/// provide the `assets_transfer_type` to be used for `assets`:
+		///  - `TransferType::LocalReserve`: transfer assets to sovereign account of destination
 		///    chain and forward a notification XCM to `dest` to mint and deposit reserve-based
 		///    assets to `beneficiary`.
-		///  - `assets` have destination reserve: burn local assets and forward a notification to
+		///  - `TransferType::DestinationReserve`: burn local assets and forward a notification to
 		///    `dest` chain to withdraw the reserve assets from this chain's sovereign account and
 		///    deposit them to `beneficiary`.
-		///  - `assets` have remote reserve: burn local assets, forward XCM to reserve chain to move
-		///    reserves from this chain's SA to `dest` chain's SA, and forward another XCM to `dest`
-		///    to mint and deposit reserve-based assets to `beneficiary`.
+		///  - `TransferType::RemoteReserve(reserve)`: burn local assets, forward XCM to `reserve`
+		///    chain to move reserves from this chain's SA to `dest` chain's SA, and forward another
+		///    XCM to `dest` to mint and deposit reserve-based assets to `beneficiary`. Typically
+		///    the remote `reserve` is Asset Hub.
+		///  - `TransferType::Teleport`: burn local assets and forward XCM to `dest` chain to
+		///    mint/teleport assets and deposit them to `beneficiary`.
 		///
 		/// Fee payment on the source, destination and all intermediary hops, is specified through
 		/// `fees`, but make sure enough of the specified `fees` asset is included in the given list
 		/// of `assets`. `fees` should be enough to pay for `weight_limit`. If more weight is needed
 		/// than `weight_limit`, then the operation will fail and the sent assets may be at risk.
+		///
+		/// `fees` may use different transfer type than rest of `assets` and can be specified
+		/// through `fees_transfer_type`.
 		///
 		/// - `origin`: Must be capable of withdrawing the `assets` and executing XCM.
 		/// - `dest`: Destination context for the assets. Will typically be `[Parent,
@@ -1435,13 +1441,12 @@ pub mod pallet {
 		///   generally be an `AccountId32` value.
 		/// - `assets`: The assets to be withdrawn. This should include the assets used to pay the
 		///   fee on the `dest` (and possibly reserve) chains.
+		/// - `assets_transfer_type`: The XCM `TransferType` used to transfer the `assets`.
 		/// - `fees`: One of the included `assets` to be be used to pay fees.
-		/// - `using_reserve`: Forces this transfer to use `using_reserve` location as the reserve
-		///   location for `assets`. Will typically be `None`, or `Some(LocalAssetHubLocation)` for
-		///   transferring ForeignAssets going through Asset Hub.
+		/// - `fees_transfer_type`: The XCM `TransferType` used to transfer the `fees` assets.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(15)]
-		pub fn transfer_assets_using_reserve(
+		pub fn transfer_assets_using_type(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
 			beneficiary: Box<VersionedLocation>,
@@ -1458,7 +1463,7 @@ pub mod pallet {
 			let assets: Assets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			let fees: Asset = (*fees).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			log::debug!(
-				target: "xcm::pallet_xcm::transfer_assets_using_reserve",
+				target: "xcm::pallet_xcm::transfer_assets_using_type",
 				"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?} through {:?}, fees {:?} through {:?}",
 				origin_location, dest, beneficiary, assets, assets_transfer_type, fees, fees_transfer_type,
 			);

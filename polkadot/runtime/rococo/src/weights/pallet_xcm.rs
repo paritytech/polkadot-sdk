@@ -372,7 +372,7 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	fn transfer_assets_using_reserve() -> Weight {
+	fn transfer_assets_using_type() -> Weight {
 		// TODO: benchmark
 		Weight::from_parts(0, 0)
 	}

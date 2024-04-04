@@ -60,13 +60,14 @@ fn send_asset_from_penpal_westend_through_local_asset_hub_to_rococo_asset_hub(
 		let fees: Asset = (id, transfer_amount).into();
 		let assets: Assets = fees.clone().into();
 
-		<PenpalB as PenpalBPallet>::PolkadotXcm::transfer_assets_using_reserve(
+		<PenpalB as PenpalBPallet>::PolkadotXcm::transfer_assets_using_type(
 			signed_origin,
 			bx!(destination.into()),
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
+			bx!(TransferType::RemoteReserve(local_asset_hub.clone().into())),
 			bx!(fees.into()),
-			bx!(local_asset_hub.into()),
+			bx!(TransferType::RemoteReserve(local_asset_hub.into())),
 			WeightLimit::Unlimited,
 		)
 	}));
