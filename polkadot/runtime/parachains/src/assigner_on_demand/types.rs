@@ -140,13 +140,13 @@ impl QueueStatusType {
 //  NOTE: The `Ord` implementation for this type is unsound in the general case.
 //        Do not use it for anything but it's intended purpose.
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq, Copy)]
-pub struct QueueIndex(u32);
+pub struct QueueIndex(pub u32);
 
 /// QueueIndex with reverse ordering.
 ///
 /// Same as `Reverse(QueueIndex)`, but with all the needed traits implemented.
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq, Copy)]
-pub struct ReverseQueueIndex(u32);
+pub struct ReverseQueueIndex(pub u32);
 
 impl QueueIndex {
 	fn reverse(self) -> ReverseQueueIndex {
