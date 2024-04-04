@@ -6971,6 +6971,23 @@ mod staking_unsafe {
 	}
 
 	#[test]
+	fn normal_staker_cannot_virtual_bond() {
+		ExtBuilder::default().build_and_execute(|| {
+			// 101 is a nominator trying to virtual bond
+			assert_noop!(
+				<Staking as StakingUnsafe>::virtual_bond(&101, 200, &102),
+				Error::<Test>::AlreadyBonded
+			);
+
+			// validator 21 tries to virtual bond
+			assert_noop!(
+				<Staking as StakingUnsafe>::virtual_bond(&21, 200, &22),
+				Error::<Test>::AlreadyBonded
+			);
+		});
+	}
+
+	#[test]
 	fn migrate_virtual_staker() {
 		ExtBuilder::default().build_and_execute(|| {
 			// give some balance to 200
