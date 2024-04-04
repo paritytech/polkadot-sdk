@@ -18,8 +18,7 @@
 //! # Assets Pallet
 //!
 //! A simple, secure module for dealing with sets of assets implementing
-//! [`fungible`](frame_support::traits::fungible) traits, via
-//! [`fungibles`](frame_support::traits::fungibles) traits.
+//! [`fungible`](frame_support::traits::fungible) traits, via [`fungibles`] traits.
 //!
 //! The pallet makes heavy use of concepts such as Holds and Freezes from the
 //! [`frame_support::traits::fungible`] traits, therefore you should read and understand those docs
