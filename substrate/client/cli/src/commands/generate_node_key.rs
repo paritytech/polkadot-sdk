@@ -137,11 +137,11 @@ pub mod tests {
 		let base_path = base_dir.path().display().to_string();
 		let generate =
 			GenerateNodeKeyCmd::parse_from(&["generate-node-key", "--base-path", &base_path]);
-		assert!(generate.run("test", &String::from("test")).is_ok());
+		assert!(generate.run("test_id", &String::from("test")).is_ok());
 		let buf = fs::read_to_string(key_path.as_path()).unwrap();
 		assert!(array_bytes::hex2bytes(&buf).is_ok());
 
-		assert!(generate.run("test", &String::from("test")).is_ok());
+		assert!(generate.run("test_id", &String::from("test")).is_err());
 		let new_buf = fs::read_to_string(key_path).unwrap();
 		assert_eq!(
 			array_bytes::hex2bytes(&new_buf).unwrap(),
