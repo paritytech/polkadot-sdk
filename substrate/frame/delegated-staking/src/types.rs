@@ -283,8 +283,6 @@ impl<T: Config> Agent<T> {
 	}
 
 	/// Reloads self from storage.
-	#[cfg(test)]
-	#[allow(unused)]
 	pub(crate) fn refresh(&self) -> Result<Agent<T>, DispatchError> {
 		Self::from(&self.key)
 	}

@@ -434,7 +434,7 @@ mod staking_integration {
 		ExtBuilder::default().build_and_execute(|| {
 			start_era(1);
 			let agent = 200;
-			setup_delegation_stake(agent, 201, (300..350).collect(), 10, 10);
+			setup_delegation_stake(agent, 201, (300..350).collect(), 100, 0);
 
 			// verify withdraw not possible yet
 			assert_noop!(
@@ -454,25 +454,33 @@ mod staking_integration {
 			// another unbond would trigger withdrawal
 			start_era(12);
 			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
+
 			// 8 previous unbonds would be withdrawn as they were already unlocked. Unlocking period
 			// is 3 eras.
+			assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 8 * 10);
 
-			// FIXME(ank4n): Since staking implicitly withdraws ledger, unclaimed withdrawals are
-			// not updated. This is bad since it can lead those funds to be re-bonded.
+			// release some delegation now.
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				300,
+				40,
+				0
+			));
+			assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 80 - 40);
 
-			// assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 8 * 10);
+			// cannot release more than available
+			assert_noop!(
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300, 50, 0),
+				Error::<T>::NotEnoughFunds
+			);
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				300,
+				40,
+				0
+			));
 
-
-			// fund(&300, 1000);
-			// assert_ok!(DelegatedStaking::delegate_to_agent(RawOrigin::Signed(300.into()),
-			// delegate, 100));
-			//
-			// // verify unbonded balance
-			// assert_eq!(get_agent(&agent).available_to_bond(), 100);
-			//
-			// // withdraw works now without unbonding
-			// assert_ok!(DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300,
-			// 100, 0)); assert_eq!(get_agent(&agent).available_to_bond(), 0);
+			assert_eq!(held_balance(&300), 100 - 80);
 		});
 	}
 

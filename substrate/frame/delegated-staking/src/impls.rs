@@ -79,17 +79,6 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 		)
 	}
 
-	/// Withdraw unbonding funds until current era.
-	///
-	/// Funds are moved to unclaimed_withdrawals register of the `AgentLedger`.
-	fn withdraw_unclaimed(
-		agent_acc: Self::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError> {
-		Pallet::<T>::withdraw_unbonded(&agent_acc, num_slashing_spans)
-			.map(|agent| agent.ledger.total_delegated.is_zero())
-	}
-
 	/// Returns true if the `Agent` have any slash pending to be applied.
 	fn has_pending_slash(agent: &Self::AccountId) -> bool {
 		Agent::<T>::from(agent)
@@ -143,5 +132,17 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				// nothing to do
 			},
 		});
+	}
+
+	fn on_withdraw(stash: &T::AccountId, amount: BalanceOf<T>) {
+		// if there is a withdraw to the agent, then add it to the unclaimed withdrawals.
+		if let Ok(agent) = Agent::<T>::from(stash) {
+			let agent = agent.add_unclaimed_withdraw(amount).defensive();
+
+			// can't do anything if there is an overflow error.
+			if agent.is_ok() {
+				agent.expect("checked above; qed").save();
+			}
+		}
 	}
 }

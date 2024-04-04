@@ -512,17 +512,6 @@ pub trait DelegationInterface {
 		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Withdraw any unlocking funds in `CoreStaking` that can be claimed later by a delegator.
-	///
-	/// `CoreStaking` has a limitation on maximum unlocking chunks at any given time. If the limit
-	/// is reached, we want to implicitly unlock these funds even though a delegator is not
-	/// present to claim it. Not doing this would block any unbonding until unlocking funds are
-	/// claimed.
-	fn withdraw_unclaimed(
-		agent: Self::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError>;
-
 	/// Returns true if there are pending slashes posted to the `Agent` account.
 	///
 	/// Slashes to `Agent` account are not immediate and are applied lazily. Since `Agent`

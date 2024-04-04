@@ -562,8 +562,10 @@ impl<T: Config> Pallet<T> {
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
 		if agent.ledger.unclaimed_withdrawals < amount {
-			// get the updated agent.
-			agent = Self::withdraw_unbonded(who, num_slashing_spans)?;
+			// withdraw account.
+			let _ = T::CoreStaking::withdraw_unbonded(who.clone(), num_slashing_spans)
+				.map_err(|_| Error::<T>::WithdrawFailed)?;
+			agent = agent.refresh()?;
 		}
 
 		// if we still do not have enough funds to release, abort.
@@ -600,36 +602,6 @@ impl<T: Config> Pallet<T> {
 		});
 
 		Ok(())
-	}
-
-	fn withdraw_unbonded(
-		agent_acc: &T::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<Agent<T>, DispatchError> {
-		let agent = Agent::<T>::from(agent_acc)?;
-		let pre_total = T::CoreStaking::stake(agent_acc).defensive()?.total;
-
-		let stash_killed: bool =
-			T::CoreStaking::withdraw_unbonded(agent_acc.clone(), num_slashing_spans)
-				.map_err(|_| Error::<T>::WithdrawFailed)?;
-
-		let maybe_post_total = T::CoreStaking::stake(agent_acc);
-		// One of them should be true
-		defensive_assert!(
-			!(stash_killed && maybe_post_total.is_ok()),
-			"something horrible happened while withdrawing"
-		);
-
-		let post_total = maybe_post_total.map_or(Zero::zero(), |s| s.total);
-
-		let new_withdrawn =
-			pre_total.checked_sub(&post_total).defensive_ok_or(Error::<T>::BadState)?;
-
-		let agent = agent.add_unclaimed_withdraw(new_withdrawn)?;
-
-		agent.clone().save();
-
-		Ok(agent)
 	}
 
 	/// Migrates delegation of `amount` from `source` account to `destination` account.
