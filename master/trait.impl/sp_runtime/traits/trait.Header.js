@@ -1,5 +1,5 @@
 (function() {var implementors = {
-"frame":[],
+"polkadot_sdk_frame":[],
 "polkadot_service":[],
 "sp_runtime":[],
 "xcm_emulator":[]

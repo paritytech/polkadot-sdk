@@ -1,5 +1,4 @@
 (function() {var implementors = {
-"frame":[],
 "frame_system":[],
 "pallet_assets":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_assets/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_assets::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
 "pallet_balances":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_balances/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_balances::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
@@ -8,5 +7,6 @@
 "pallet_state_trie_migration":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_state_trie_migration/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_state_trie_migration::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
 "pallet_sudo":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_sudo/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_sudo::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
 "pallet_timestamp":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_timestamp/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_timestamp::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
-"pallet_transaction_payment":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_transaction_payment/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_transaction_payment::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]]
+"pallet_transaction_payment":[["impl DefaultConfig for <a class=\"struct\" href=\"pallet_transaction_payment/pallet/config_preludes/struct.TestDefaultConfig.html\" title=\"struct pallet_transaction_payment::pallet::config_preludes::TestDefaultConfig\">TestDefaultConfig</a>"]],
+"polkadot_sdk_frame":[]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

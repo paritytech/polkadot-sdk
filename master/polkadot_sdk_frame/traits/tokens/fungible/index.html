@@ -1,0 +1,287 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The traits for dealing with a single fungible token class and any associated types."><title>polkadot_sdk_frame::traits::tokens::fungible - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../polkadot_sdk_frame/index.html">polkadot_sdk_frame</a><span class="version">0.1.0</span></h2></div><h2 class="location"><a href="#">Module fungible</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_frame::traits::tokens</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../../index.html">traits</a>::<wbr><a href="../index.html">tokens</a>::<wbr><a class="mod" href="#">fungible</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The traits for dealing with a single fungible token class and any associated types.</p>
+<p>Also see the <a href="../../../../polkadot_sdk_docs/reference_docs/frame_tokens/index.html"><code>frame_tokens</code></a> reference docs for more information about the place of
+<code>fungible</code> traits in Substrate.</p>
+<h2 id="avaliable-traits"><a href="#avaliable-traits">Avaliable Traits</a></h2>
+<ul>
+<li><a href="trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Inspect"><code>Inspect</code></a>: Regular balance inspector functions.</li>
+<li><a href="trait.Unbalanced.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Unbalanced"><code>Unbalanced</code></a>: Low-level balance mutating functions. Does not guarantee proper book-keeping
+and so should not be called into directly from application code. Other traits depend on this
+and provide default implementations based on it.</li>
+<li><a href="trait.UnbalancedHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::UnbalancedHold"><code>UnbalancedHold</code></a>: Low-level balance mutating functions for balances placed on hold. Does not
+guarantee proper book-keeping and so should not be called into directly from application code.
+Other traits depend on this and provide default implementations based on it.</li>
+<li><a href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Mutate"><code>Mutate</code></a>: Regular balance mutator functions. Pre-implemented using <a href="trait.Unbalanced.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Unbalanced"><code>Unbalanced</code></a>, though
+the <code>done_*</code> functions should likely be reimplemented in case you want to do something
+following the operation such as emit events.</li>
+<li><a href="trait.InspectHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::InspectHold"><code>InspectHold</code></a>: Inspector functions for balances on hold.</li>
+<li><a href="trait.MutateHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::MutateHold"><code>MutateHold</code></a>: Mutator functions for balances on hold. Mostly pre-implemented using
+<a href="trait.UnbalancedHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::UnbalancedHold"><code>UnbalancedHold</code></a>.</li>
+<li><a href="trait.InspectFreeze.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::InspectFreeze"><code>InspectFreeze</code></a>: Inspector functions for frozen balance.</li>
+<li><a href="trait.MutateFreeze.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::MutateFreeze"><code>MutateFreeze</code></a>: Mutator functions for frozen balance.</li>
+<li><a href="trait.Balanced.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Balanced"><code>Balanced</code></a>: One-sided mutator functions for regular balances, which return imbalance objects
+which guarantee eventual book-keeping. May be useful for some sophisticated operations where
+funds must be removed from an account before it is known precisely what should be done with
+them.</li>
+</ul>
+<h3 id="terminology"><a href="#terminology">Terminology</a></h3>
+<ul>
+<li>
+<p><strong>Total Issuance</strong>: The total number of units in existence in a system.</p>
+</li>
+<li>
+<p><strong>Total Balance</strong>: The sum of an account’s free and held balances.</p>
+</li>
+<li>
+<p><strong>Free Balance</strong>: A portion of an account’s total balance that is not held. Note this is
+distinct from the Spendable Balance, which represents how much Balance the user can actually
+transfer.</p>
+</li>
+<li>
+<p><strong>Held Balance</strong>: Held balance still belongs to the account holder, but is suspended. It can
+be slashed, but only after all the free balance has been slashed.</p>
+<p>Multiple holds stack rather than overlay. This means that if an account has
+3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
+which point the holds will start to come into play.</p>
+</li>
+<li>
+<p><strong>Frozen Balance</strong>: A freeze on a specified amount of an account’s free balance until a
+specified block number.</p>
+<p>Multiple freezes always operate over the same funds, so they “overlay” rather than
+“stack”. This means that if an account has 3 freezes for 100 units, the account can spend its
+funds for any reason down to 100 units, at which point the freezes will start to come into
+play.</p>
+</li>
+<li>
+<p><strong>Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)</strong>: The minimum balance required to
+create or keep an account open. This is to prevent “dust accounts” from filling storage. When
+the free plus the held balance (i.e. the total balance) falls below this, then the account is
+said to be dead. It loses its functionality as well as any prior history and all information
+on it is removed from the chain’s state. No account should ever have a total balance that is
+strictly between 0 and the existential deposit (exclusive). If this ever happens, it indicates
+either a bug in the implementation of this trait or an erroneous raw mutation of storage.</p>
+</li>
+<li>
+<p><strong>Untouchable Balance</strong>: The part of a user’s free balance they cannot spend, due to ED or
+Freeze(s).</p>
+</li>
+<li>
+<p><strong>Spendable Balance</strong>: The part of a user’s free balance they can actually transfer, after
+accounting for Holds and Freezes.</p>
+</li>
+<li>
+<p><strong>Imbalance</strong>: A condition when some funds were credited or debited without equal and opposite
+accounting (i.e. a difference between total issuance and account balances). Functions that
+result in an imbalance will return an object of the <a href="type.Credit.html" title="type polkadot_sdk_frame::traits::tokens::fungible::Credit"><code>imbalance::Credit</code></a> or
+<a href="type.Debt.html" title="type polkadot_sdk_frame::traits::tokens::fungible::Debt"><code>imbalance::Debt</code></a> traits that can be managed within your runtime logic.</p>
+<p>If an imbalance is simply dropped, it should automatically maintain any book-keeping such as
+total issuance.</p>
+</li>
+</ul>
+<h3 id="visualising-balance-components-together-"><a href="#visualising-balance-components-together-">Visualising Balance Components Together 💫</a></h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>|__total__________________________________|
+|__on_hold__|_____________free____________|
+|__________frozen___________|
+|__on_hold__|__ed__|
+            |__untouchable__|__spendable__|</code></pre></div>
+<h3 id="holds-and-freezes"><a href="#holds-and-freezes">Holds and Freezes</a></h3>
+<p>Both holds and freezes are used to prevent an account from using some of its balance.</p>
+<p>The primary distinction between the two are that:</p>
+<ul>
+<li>Holds are cumulative (do not overlap) and are distinct from the free balance</li>
+<li>Freezes are not cumulative, and can overlap with each other or with holds</li>
+</ul>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>|__total_____________________________|
+|__hold_a__|__hold_b__|_____free_____|
+|__on_hold____________|     <span class="comment">// &lt;- the sum of all holds
+</span>|__freeze_a_______________|
+|__freeze_b____|
+|__freeze_c________|
+|__frozen_________________| <span class="comment">// &lt;- the max of all freezes</span></code></pre></div>
+<p>Holds are designed to be infallibly slashed, meaning that any logic using a <code>Freeze</code>
+must handle the possibility of the frozen amount being reduced, potentially to zero. A
+permissionless function should be provided in order to allow bookkeeping to be updated in this
+instance. E.g. some balance is frozen when it is used for voting, one could use held balance for
+voting, but nothing prevents this frozen balance from being reduced if the overlapping hold is
+slashed.</p>
+<p>Every Hold and Freeze is accompanied by a unique <code>Reason</code>, making it clear for each instance
+what the originating pallet and purpose is. These reasons are amalgomated into a single enum
+<code>RuntimeHoldReason</code> and <code>RuntimeFreezeReason</code> respectively, when the runtime is compiled.</p>
+<p>Note that <code>Hold</code> and <code>Freeze</code> reasons should remain in your runtime for as long as storage
+could exist in your runtime with those reasons, otherwise your runtime state could become
+undecodable.</p>
+<h4 id="should-i-use-a-hold-or-freeze"><a href="#should-i-use-a-hold-or-freeze">Should I use a Hold or Freeze?</a></h4>
+<p>If you require a balance to be infaillibly slashed, then you should use Holds.</p>
+<p>If you require setting a minimum account balance amount, then you should use a Freezes. Note
+Freezes do not carry the same guarantees as Holds. Although the account cannot voluntarily
+reduce their balance below the largest freeze, if Holds on the account are slashed then the
+balance could drop below the freeze amount.</p>
+<h3 id="sets-of-tokens"><a href="#sets-of-tokens">Sets of Tokens</a></h3>
+<p>For managing sets of tokens, see the <a href="../fungibles/index.html" title="mod polkadot_sdk_frame::traits::tokens::fungibles"><code>fungibles</code></a> trait
+which is a wrapper around this trait but supporting multiple asset instances.</p>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="conformance_tests/index.html" title="mod polkadot_sdk_frame::traits::tokens::fungible::conformance_tests">conformance_tests</a></div></li><li><div class="item-name"><a class="mod" href="freeze/index.html" title="mod polkadot_sdk_frame::traits::tokens::fungible::freeze">freeze</a></div><div class="desc docblock-short">The traits for putting freezes within a single fungible token class.</div></li><li><div class="item-name"><a class="mod" href="hold/index.html" title="mod polkadot_sdk_frame::traits::tokens::fungible::hold">hold</a></div><div class="desc docblock-short">The traits for putting holds within a single fungible token class.</div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.DecreaseIssuance.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::DecreaseIssuance">DecreaseIssuance</a></div><div class="desc docblock-short">Simple handler for an imbalance drop which decreases the total issuance of the system by the
+imbalance amount. Used for leftover credit.</div></li><li><div class="item-name"><a class="struct" href="struct.Dust.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::Dust">Dust</a></div><div class="desc docblock-short">Special dust type which can be type-safely converted into a <a href="type.Credit.html" title="type polkadot_sdk_frame::traits::tokens::fungible::Credit"><code>Credit</code></a>.</div></li><li><div class="item-name"><a class="struct" href="struct.FreezeConsideration.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::FreezeConsideration">FreezeConsideration</a></div><div class="desc docblock-short">Consideration method using a <code>fungible</code> balance frozen as the cost exacted for the footprint.</div></li><li><div class="item-name"><a class="struct" href="struct.HoldConsideration.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::HoldConsideration">HoldConsideration</a></div><div class="desc docblock-short">Consideration method using a <code>fungible</code> balance frozen as the cost exacted for the footprint.</div></li><li><div class="item-name"><a class="struct" href="struct.Imbalance.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::Imbalance">Imbalance</a></div><div class="desc docblock-short">An imbalance in the system, representing a divergence of recorded token supply from the sum of
+the balances of all accounts. This is <code>must_use</code> in order to ensure it gets handled (placing
+into an account, settling from an account or altering the supply).</div></li><li><div class="item-name"><a class="struct" href="struct.IncreaseIssuance.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::IncreaseIssuance">IncreaseIssuance</a></div><div class="desc docblock-short">Simple handler for an imbalance drop which increases the total issuance of the system by the
+imbalance amount. Used for leftover debt.</div></li><li><div class="item-name"><a class="struct" href="struct.ItemOf.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::ItemOf">ItemOf</a></div><div class="desc docblock-short">Convert a <code>fungibles</code> trait implementation into a <code>fungible</code> trait implementation by identifying
+a single item.</div></li><li><div class="item-name"><a class="struct" href="struct.LoneFreezeConsideration.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::LoneFreezeConsideration">LoneFreezeConsideration</a></div><div class="desc docblock-short">Basic consideration method using a <code>fungible</code> balance frozen as the cost exacted for the
+footprint.</div></li><li><div class="item-name"><a class="struct" href="struct.LoneHoldConsideration.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::LoneHoldConsideration">LoneHoldConsideration</a></div><div class="desc docblock-short">Basic consideration method using a <code>fungible</code> balance placed on hold as the cost exacted for the
+footprint.</div></li><li><div class="item-name"><a class="struct" href="struct.NativeFromLeft.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::NativeFromLeft">NativeFromLeft</a></div><div class="desc docblock-short">Criterion for <a href="struct.UnionOf.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::UnionOf"><code>UnionOf</code></a> where a set for <a href="enum.NativeOrWithId.html#variant.Native" title="variant polkadot_sdk_frame::traits::tokens::fungible::NativeOrWithId::Native"><code>NativeOrWithId::Native</code></a> asset located from the left
+and for <a href="enum.NativeOrWithId.html#variant.WithId" title="variant polkadot_sdk_frame::traits::tokens::fungible::NativeOrWithId::WithId"><code>NativeOrWithId::WithId</code></a> from the right.</div></li><li><div class="item-name"><a class="struct" href="struct.UnionOf.html" title="struct polkadot_sdk_frame::traits::tokens::fungible::UnionOf">UnionOf</a></div><div class="desc docblock-short">Type to combine some <code>fungible::*</code> and <code>fungibles::*</code> implementations into one union
+<code>fungibles::*</code> implementation.</div></li></ul><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.NativeOrWithId.html" title="enum polkadot_sdk_frame::traits::tokens::fungible::NativeOrWithId">NativeOrWithId</a></div><div class="desc docblock-short">The <code>NativeOrWithId</code> enum classifies an asset as either <code>Native</code> to the current chain or as an
+asset with a specific ID.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Balanced.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Balanced">Balanced</a></div><div class="desc docblock-short">A fungible token class where any creation and deletion of tokens is semi-explicit and where the
+total supply is maintained automatically.</div></li><li><div class="item-name"><a class="trait" href="trait.BalancedHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::BalancedHold">BalancedHold</a></div><div class="desc docblock-short">Trait for slashing a fungible asset which can be place on hold.</div></li><li><div class="item-name"><a class="trait" href="trait.HandleImbalanceDrop.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::HandleImbalanceDrop">HandleImbalanceDrop</a></div><div class="desc docblock-short">Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
+debt (positive) imbalance.</div></li><li><div class="item-name"><a class="trait" href="trait.Inspect.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Inspect">Inspect</a></div><div class="desc docblock-short">Trait for providing balance-inspection access to a fungible asset.</div></li><li><div class="item-name"><a class="trait" href="trait.InspectFreeze.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::InspectFreeze">InspectFreeze</a></div><div class="desc docblock-short">Trait for inspecting a fungible asset which can be frozen. Freezing is essentially setting a
+minimum balance bellow which the total balance (inclusive of any funds placed on hold) may not
+be normally allowed to drop. Generally, freezers will provide an “update” function such that
+if the total balance does drop below the limit, then the freezer can update their housekeeping
+accordingly.</div></li><li><div class="item-name"><a class="trait" href="trait.InspectHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::InspectHold">InspectHold</a></div><div class="desc docblock-short">Trait for inspecting a fungible asset whose accounts support partitioning and slashing.</div></li><li><div class="item-name"><a class="trait" href="trait.Mutate.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Mutate">Mutate</a></div><div class="desc docblock-short">Trait for providing a basic fungible asset.</div></li><li><div class="item-name"><a class="trait" href="trait.MutateFreeze.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::MutateFreeze">MutateFreeze</a></div><div class="desc docblock-short">Trait for introducing, altering and removing freezes for an account for its funds never
+go below a set minimum.</div></li><li><div class="item-name"><a class="trait" href="trait.MutateHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::MutateHold">MutateHold</a></div><div class="desc docblock-short">Trait for mutating a fungible asset which can be placed on hold.</div></li><li><div class="item-name"><a class="trait" href="trait.Unbalanced.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::Unbalanced">Unbalanced</a></div><div class="desc docblock-short">A fungible token class where the balance can be set arbitrarily.</div></li><li><div class="item-name"><a class="trait" href="trait.UnbalancedHold.html" title="trait polkadot_sdk_frame::traits::tokens::fungible::UnbalancedHold">UnbalancedHold</a></div><div class="desc docblock-short">A fungible, holdable token class where the balance on hold can be set arbitrarily.</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Credit.html" title="type polkadot_sdk_frame::traits::tokens::fungible::Credit">Credit</a></div><div class="desc docblock-short">Imbalance implying that the total_issuance value is greater than the sum of all account
+balances.</div></li><li><div class="item-name"><a class="type" href="type.Debt.html" title="type polkadot_sdk_frame::traits::tokens::fungible::Debt">Debt</a></div><div class="desc docblock-short">Imbalance implying that the total_issuance value is less than the sum of all account balances.</div></li></ul></section></div></main></body></html>
