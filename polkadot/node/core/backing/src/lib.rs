@@ -243,7 +243,6 @@ struct PerRelayParentState {
 struct PerCandidateState {
 	persisted_validation_data: PersistedValidationData,
 	seconded_locally: bool,
-	para_id: ParaId,
 	relay_parent: Hash,
 }
 
@@ -1258,7 +1257,17 @@ async fn seconding_sanity_check<Context>(
 						.find_map(|(relay_parent, state)| (&relay_parent == head).then_some(state))
 					{
 						res = (state, head);
+					} else {
+						gum::error!(
+							target: LOG_TARGET,
+							"unexpected 1"
+						);
 					}
+				} else {
+					gum::error!(
+						target: LOG_TARGET,
+						"unexpected 2"
+					);
 				}
 
 				res
@@ -1344,6 +1353,11 @@ async fn handle_can_second_request<Context>(
 			candidate_relay_parent: relay_parent,
 		};
 
+		gum::debug!(
+			target: LOG_TARGET,
+			"Calling getHypotheticalMembership from CanSecond"
+		);
+
 		let result = seconding_sanity_check(
 			ctx,
 			&state.per_leaf,
@@ -1417,6 +1431,10 @@ async fn handle_validated_candidate_command<Context>(
 						// sanity check that we're allowed to second the candidate
 						// and that it doesn't conflict with other candidates we've
 						// seconded.
+						gum::debug!(
+							target: LOG_TARGET,
+							"Calling getHypotheticalMembership from backing, before seconding"
+						);
 						let hypothetical_membership = match seconding_sanity_check(
 							ctx,
 							&state.per_leaf,
@@ -1669,7 +1687,6 @@ async fn import_statement<Context>(
 					persisted_validation_data: pvd.clone(),
 					// This is set after importing when seconding locally.
 					seconded_locally: false,
-					para_id: candidate.descriptor().para_id,
 					relay_parent: candidate.descriptor().relay_parent,
 				},
 			);

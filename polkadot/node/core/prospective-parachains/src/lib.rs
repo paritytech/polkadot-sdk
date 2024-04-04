@@ -21,7 +21,7 @@
 //! This is the main coordinator of work within the node for the collation and
 //! backing phases of parachain consensus.
 //!
-//! This is primarily an implementation of "Fragment Trees", as described in
+//! This is primarily an implementation of "Fragment Chains", as described in
 //! [`polkadot_node_subsystem_util::inclusion_emulator`].
 //!
 //! This subsystem also handles concerns such as the relay-chain being forkful and session changes.
@@ -37,9 +37,9 @@ use futures::{channel::oneshot, prelude::*};
 use polkadot_node_subsystem::{
 	messages::{
 		Ancestors, ChainApiMessage, HypotheticalCandidate, HypotheticalMembership,
-		HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest, ParentHeadData,
-		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
-		RuntimeApiRequest,
+		HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest, MemberState,
+		ParentHeadData, ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
+		RuntimeApiMessage, RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -57,7 +57,8 @@ use polkadot_primitives::{
 use crate::{
 	error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
 	fragment_chain::{
-		CandidateState, CandidateStorage, CandidateStorageInsertionError, Scope as TreeScope,
+		CandidateState, CandidateStorage, CandidateStorageInsertionError,
+		Scope as FragmentChainScope,
 	},
 };
 
@@ -154,7 +155,7 @@ async fn run_iteration<Context>(
 					tx,
 				) => answer_get_backable_candidates(&view, relay_parent, para, count, ancestors, tx),
 				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx) =>
-					answer_hypothetical_frontier_request(&view, request, tx),
+					answer_hypothetical_membership_request(&view, request, tx),
 				ProspectiveParachainsMessage::GetMinimumRelayParents(relay_parent, tx) =>
 					answer_minimum_relay_parents_request(&view, relay_parent, tx),
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) =>
@@ -172,8 +173,8 @@ async fn handle_active_leaves_update<Context>(
 	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
 	// 1. clean up inactive leaves
-	// 2. determine all scheduled para at new block
-	// 3. construct new fragment tree for each para for each new leaf
+	// 2. determine all scheduled paras at the new block
+	// 3. construct new fragment chain for each para for each new leaf
 	// 4. prune candidate storage.
 
 	for deactivated in &update.deactivated {
@@ -285,7 +286,7 @@ async fn handle_active_leaves_update<Context>(
 				compact_pending.push(c.compact);
 			}
 
-			let scope = TreeScope::with_ancestors(
+			let scope = FragmentChainScope::with_ancestors(
 				para,
 				block_info.clone(),
 				constraints,
@@ -300,12 +301,20 @@ async fn handle_active_leaves_update<Context>(
 				relay_parent = ?hash,
 				min_relay_parent = scope.earliest_relay_parent().number,
 				para_id = ?para,
-				"Creating fragment tree"
+				"Creating fragment chain"
 			);
 
-			let tree = FragmentChain::populate(scope, &*candidate_storage);
+			let chain = FragmentChain::populate(scope, &*candidate_storage);
 
-			fragment_chains.insert(para, tree);
+			gum::trace!(
+				target: LOG_TARGET,
+				relay_parent = ?hash,
+				para_id = ?para,
+				"Populated fragment chain with {} candidates",
+				chain.len()
+			);
+
+			fragment_chains.insert(para, chain);
 		}
 
 		view.active_leaves.insert(
@@ -329,6 +338,8 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 	let mut live_candidates = HashSet::new();
 	let mut live_paras = HashSet::new();
 	for sub_view in active_leaves.values() {
+		live_candidates.extend(sub_view.pending_availability.iter().cloned());
+
 		for (para_id, fragment_chain) in &sub_view.fragment_chains {
 			live_candidates.extend(fragment_chain.candidates());
 			live_paras.insert(*para_id);
@@ -343,15 +354,20 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 								.expect("Candidate hash is taken from the storage iterator"),
 							candidate.parent_head_data_hash(),
 							Some(candidate.output_head_data_hash()),
+							false,
 						) {
+							gum::trace!(
+								target: LOG_TARGET,
+								candidate = ?candidate.hash(),
+								"Keeping unconnected candidate in storage"
+							);
+
 							live_candidates.insert(candidate.hash());
 						}
 					}
 				}
 			}
 		}
-
-		live_candidates.extend(sub_view.pending_availability.iter().cloned());
 	}
 
 	view.candidate_storage.retain(|para_id, storage| {
@@ -442,7 +458,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 	} = request;
 
 	// Add the candidate to storage.
-	// Then attempt to add it to all trees.
+	// Then attempt to add it to all chains.
 	let storage = match view.candidate_storage.get_mut(&para) {
 		None => {
 			gum::warn!(
@@ -458,57 +474,121 @@ async fn handle_introduce_seconded_candidate<Context>(
 		Some(storage) => storage,
 	};
 
-	let relay_parent = candidate.descriptor.relay_parent;
+	let actual_relay_parent = candidate.descriptor.relay_parent;
 	let parent_head_hash = pvd.parent_head.hash();
 	let output_head_hash = Some(candidate.commitments.head_data.hash());
-	let candidate_hash = match storage.add_candidate(candidate, pvd, CandidateState::Seconded) {
-		Ok(c) => c,
-		Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
-			// Candidate already known.
-			let _ = tx.send(true);
-			return
-		},
-		Err(CandidateStorageInsertionError::PersistedValidationDataMismatch) => {
-			// We can't log the candidate hash without either doing more ~expensive
-			// hashing but this branch indicates something is seriously wrong elsewhere
-			// so it's doubtful that it would affect debugging.
+	let candidate_hash =
+		match storage.add_candidate(candidate.clone(), pvd, CandidateState::Seconded) {
+			Ok(c) => c,
+			Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					para = ?para,
+					"Attempting to introduce an already known candidate: {:?}",
+					candidate.hash()
+				);
+				// Candidate already known.
+				let _ = tx.send(true);
+				return
+			},
+			Err(CandidateStorageInsertionError::PersistedValidationDataMismatch) => {
+				// We can't log the candidate hash without either doing more ~expensive
+				// hashing but this branch indicates something is seriously wrong elsewhere
+				// so it's doubtful that it would affect debugging.
 
-			gum::warn!(
-				target: LOG_TARGET,
-				para = ?para,
-				"Received seconded candidate had mismatching validation data",
-			);
+				gum::warn!(
+					target: LOG_TARGET,
+					para = ?para,
+					"Received seconded candidate had mismatching validation data",
+				);
 
-			let _ = tx.send(false);
-			return
-		},
-	};
+				let _ = tx.send(false);
+				return
+			},
+		};
 
 	let mut keep_in_storage = false;
-	for leaf_data in view.active_leaves.values_mut() {
-		if let Some(tree) = leaf_data.fragment_chains.get_mut(&para) {
-			tree.repopulate(&*storage);
-			if tree.contains_candidate(&candidate_hash) {
+	for (relay_parent, leaf_data) in view.active_leaves.iter_mut() {
+		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
+			// let can_add_as_potential = chain.can_add_candidate_as_potential(
+			// 	&*storage,
+			// 	&actual_relay_parent,
+			// 	parent_head_hash,
+			// 	output_head_hash,
+			// 	true,
+			// );
+
+			gum::debug!(
+				target: LOG_TARGET,
+				para = ?para,
+				?relay_parent,
+				"Candidates in chain before trying to introduce a new one: {:?}",
+				chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+			);
+			chain.repopulate(&*storage);
+			if chain.contains_candidate(&candidate_hash) {
 				keep_in_storage = true;
-			} else if tree.can_add_candidate_as_potential(
+
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					para = ?para,
+					?candidate_hash,
+					"Added candidate to chain",
+				);
+				gum::debug!(
+					target: LOG_TARGET,
+					para = ?para,
+					?relay_parent,
+					"Candidates in chain after introducing a new one: {:?}",
+					chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+				);
+			} else if chain.can_add_candidate_as_potential(
 				&storage,
-				&relay_parent,
+				&actual_relay_parent,
 				parent_head_hash,
 				output_head_hash,
+				false,
 			) {
 				gum::debug!(
 					target: LOG_TARGET,
 					para = ?para,
+					?relay_parent,
+					?candidate_hash,
 					"kept unconnected candidate",
 				);
 
+				gum::debug!(
+					target: LOG_TARGET,
+					para = ?para,
+					"Candidates in chain after introducing a new one: {:?}",
+					chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+				);
+
 				keep_in_storage = true;
+			} else {
+				gum::debug!(
+					target: LOG_TARGET,
+					para = ?para,
+					?relay_parent,
+					"Not introducing a new one: {:?}",
+					candidate_hash
+				);
 			}
 		}
 	}
 
+	// If there is at least one leaf where this candidate can be added or potentially added in the
+	// future, keep it in storage.
 	if !keep_in_storage {
 		storage.remove_candidate(&candidate_hash);
+
+		gum::debug!(
+			target: LOG_TARGET,
+			para = ?para,
+			candidate = ?candidate_hash,
+			"Newly-seconded candidate cannot be kept",
+		);
 	}
 
 	let _ = tx.send(keep_in_storage);
@@ -584,7 +664,7 @@ fn answer_get_backable_candidates(
 		Some(d) => d,
 	};
 
-	let tree = match data.fragment_chains.get(&para) {
+	let chain = match data.fragment_chains.get(&para) {
 		None => {
 			gum::debug!(
 				target: LOG_TARGET,
@@ -596,7 +676,7 @@ fn answer_get_backable_candidates(
 			let _ = tx.send(vec![]);
 			return
 		},
-		Some(tree) => tree,
+		Some(chain) => chain,
 	};
 
 	let storage = match view.candidate_storage.get(&para) {
@@ -614,7 +694,23 @@ fn answer_get_backable_candidates(
 		Some(s) => s,
 	};
 
-	let backable_candidates: Vec<_> = tree
+	gum::debug!(
+		target: LOG_TARGET,
+		?relay_parent,
+		para_id = ?para,
+		"Candidate storage for para: {:?}",
+		storage.candidates().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+	);
+
+	gum::debug!(
+		target: LOG_TARGET,
+		?relay_parent,
+		para_id = ?para,
+		"Candidate chain for para: {:?}",
+		chain.chain.iter().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+	);
+
+	let backable_candidates: Vec<_> = chain
 		.find_backable_chain(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
 		.into_iter()
 		.filter_map(|child_hash| {
@@ -626,7 +722,7 @@ fn answer_get_backable_candidates(
 						target: LOG_TARGET,
 						?child_hash,
 						para_id = ?para,
-						"Candidate is present in fragment tree but not in candidate's storage!",
+						"Candidate is present in fragment chain but not in candidate's storage!",
 					);
 					None
 				},
@@ -648,6 +744,7 @@ fn answer_get_backable_candidates(
 			target: LOG_TARGET,
 			?relay_parent,
 			?backable_candidates,
+			?ancestors,
 			"Found backable candidates",
 		);
 	}
@@ -655,7 +752,7 @@ fn answer_get_backable_candidates(
 	let _ = tx.send(backable_candidates);
 }
 
-fn answer_hypothetical_frontier_request(
+fn answer_hypothetical_membership_request(
 	view: &View,
 	request: HypotheticalMembershipRequest,
 	tx: oneshot::Sender<Vec<(HypotheticalCandidate, HypotheticalMembership)>>,
@@ -682,6 +779,7 @@ fn answer_hypothetical_frontier_request(
 			};
 
 			let candidate_hash = c.candidate_hash();
+			// TODO: create a Into impl for this
 			let hypothetical = match c {
 				HypotheticalCandidate::Complete { receipt, persisted_validation_data, .. } =>
 					fragment_chain::HypotheticalCandidate::Complete {
@@ -700,7 +798,11 @@ fn answer_hypothetical_frontier_request(
 
 			membership.push((
 				*active_leaf,
-				fragment_chain.hypothetical_depths(candidate_hash, hypothetical, candidate_storage),
+				fragment_chain.hypothetical_membership(
+					candidate_hash,
+					hypothetical,
+					candidate_storage,
+				),
 			));
 		}
 	}
@@ -730,9 +832,9 @@ fn answer_prospective_validation_data_request(
 ) {
 	// 1. Try to get the head-data from the candidate store if known.
 	// 2. Otherwise, it might exist as the base in some relay-parent and we can find it by iterating
-	//    fragment trees.
+	//    fragment chains.
 	// 3. Otherwise, it is unknown.
-	// 4. Also try to find the relay parent block info by scanning fragment trees.
+	// 4. Also try to find the relay parent block info by scanning fragment chains.
 	// 5. If head data and relay parent block info are found - success. Otherwise, failure.
 
 	let storage = match view.candidate_storage.get(&request.para_id) {
@@ -782,10 +884,22 @@ fn answer_prospective_validation_data_request(
 				.is_some();
 			if contains_ancestor {
 				// We are leaning hard on two assumptions here.
-				// 1. That the fragment tree never contains allowed relay-parents whose session for
+				// 1. That the fragment chain never contains allowed relay-parents whose session for
 				//    children is different from that of the base block's.
 				// 2. That the max_pov_size is only configurable per session.
 				max_pov_size = Some(fragment_chain.scope().base_constraints().max_pov_size);
+			}
+		}
+	}
+
+	if head_data.is_none() {
+		for candidate in storage.candidates() {
+			if candidate.output_head_data_hash() == parent_head_data_hash {
+				head_data = Some(candidate.candidate.commitments.head_data.clone());
+				break
+			} else if candidate.parent_head_data_hash() == parent_head_data_hash {
+				head_data = Some(candidate.candidate.persisted_validation_data.parent_head.clone());
+				break
 			}
 		}
 	}

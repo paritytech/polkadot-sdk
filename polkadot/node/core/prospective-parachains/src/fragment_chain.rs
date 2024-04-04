@@ -154,7 +154,6 @@ impl CandidateStorage {
 			},
 		};
 
-		// This has been sanity checked already.
 		self.by_candidate_hash.insert(candidate_hash, entry);
 
 		Ok(candidate_hash)
@@ -205,6 +204,10 @@ impl CandidateStorage {
 		self.by_candidate_hash.get(candidate_hash).map(|entry| entry.relay_parent)
 	}
 
+	/// Returns the candidates which have the given head data hash as parent.
+	/// We don't allow forks in a parachain, but we may have multiple candidates with same parent
+	/// across different relay chain forks. That's why it returns an iterator (but only one will be
+	/// valid and used in the end).
 	fn possible_para_children<'a>(
 		&'a self,
 		parent_head_hash: &'a Hash,
@@ -235,9 +238,9 @@ pub(crate) enum CandidateState {
 
 #[derive(Debug)]
 pub(crate) struct CandidateEntry {
-	candidate_hash: CandidateHash,
+	pub candidate_hash: CandidateHash,
 	relay_parent: Hash,
-	candidate: ProspectiveCandidate<'static>,
+	pub candidate: ProspectiveCandidate<'static>,
 	state: CandidateState,
 }
 
@@ -265,7 +268,7 @@ pub(crate) struct PendingAvailability {
 	pub relay_parent: RelayChainBlockInfo,
 }
 
-/// The scope of a [`FragmentTree`].
+/// The scope of a [`FragmentChain`].
 #[derive(Debug)]
 pub(crate) struct Scope {
 	para: ParaId,
@@ -342,7 +345,7 @@ impl Scope {
 		})
 	}
 
-	/// Get the earliest relay-parent allowed in the scope of the fragment tree.
+	/// Get the earliest relay-parent allowed in the scope of the fragment chain.
 	pub fn earliest_relay_parent(&self) -> RelayChainBlockInfo {
 		self.ancestors
 			.iter()
@@ -351,7 +354,7 @@ impl Scope {
 			.unwrap_or_else(|| self.relay_parent.clone())
 	}
 
-	/// Get the ancestor of the fragment tree by hash.
+	/// Get the relay ancestor of the fragment chain by hash.
 	pub fn ancestor_by_hash(&self, hash: &Hash) -> Option<RelayChainBlockInfo> {
 		if hash == &self.relay_parent.hash {
 			return Some(self.relay_parent.clone())
@@ -375,7 +378,7 @@ impl Scope {
 }
 
 /// A hypothetical candidate, which may or may not exist in
-/// the fragment tree already.
+/// the fragment chain already.
 pub(crate) enum HypotheticalCandidate<'a> {
 	Complete {
 		receipt: Cow<'a, CommittedCandidateReceipt>,
@@ -414,14 +417,26 @@ impl<'a> HypotheticalCandidate<'a> {
 	}
 }
 
-/// This is a tree of candidates based on some underlying storage of candidates and a scope.
+pub struct FragmentNode {
+	fragment: Fragment<'static>,
+	pub candidate_hash: CandidateHash,
+	cumulative_modifications: ConstraintModifications,
+}
+
+impl FragmentNode {
+	fn relay_parent(&self) -> Hash {
+		self.fragment.relay_parent().hash
+	}
+}
+
+/// This is a chain of candidates based on some underlying storage of candidates and a scope.
 ///
-/// All nodes in the tree must be either pending availability or within the scope. Within the scope
+/// All nodes in the chain must be either pending availability or within the scope. Within the scope
 /// means it's built off of the relay-parent or an ancestor.
 pub(crate) struct FragmentChain {
 	scope: Scope,
 
-	chain: Vec<FragmentNode>,
+	pub chain: Vec<FragmentNode>,
 
 	candidates: HashSet<CandidateHash>,
 
@@ -456,15 +471,20 @@ impl FragmentChain {
 		fragment_chain
 	}
 
-	/// Get the scope of the Fragment Tree.
+	/// Get the scope of the Fragment Chain.
 	pub fn scope(&self) -> &Scope {
 		&self.scope
 	}
 
 	/// Returns an O(n) iterator over the hashes of candidates contained in the
-	/// tree.
+	/// chain.
 	pub(crate) fn candidates(&self) -> impl Iterator<Item = CandidateHash> + '_ {
 		self.candidates.iter().cloned()
+	}
+
+	/// Returns the number of candidates in the chain
+	pub(crate) fn len(&self) -> usize {
+		self.candidates.len()
 	}
 
 	/// Whether the candidate exists.
@@ -479,19 +499,14 @@ impl FragmentChain {
 		self.populate_chain(storage);
 	}
 
-	/// Returns the hypothetical depths where a candidate with the given hash and parent head data
-	/// would be added to the tree, without applying other candidates recursively on top of it.
-	///
-	/// If the candidate is already known, this returns the actual depths where this
-	/// candidate is part of the tree.
-	pub(crate) fn hypothetical_depths(
+	/// Returns the hypothetical state of a candidate with the given hash and parent head data
+	/// in regards to the existing chain.
+	pub(crate) fn hypothetical_membership(
 		&self,
 		candidate_hash: CandidateHash,
 		candidate: HypotheticalCandidate,
 		candidate_storage: &CandidateStorage,
 	) -> MemberState {
-		let mut can_be_chained = false;
-
 		// If we've already used this candidate in the chain
 		if self.candidates.contains(&candidate_hash) {
 			return MemberState::Present
@@ -502,21 +517,19 @@ impl FragmentChain {
 			&candidate.relay_parent(),
 			candidate.parent_head_data_hash(),
 			candidate.output_head_data_hash(),
+			true,
 		) {
 			gum::debug!(
 				target: LOG_TARGET,
-				"Check potential returned false",
+				"Check potential returned false in hypothetical membership for {:?}",
+				candidate_hash
 			);
 			return MemberState::None
 		}
 
 		let Some(candidate_relay_parent) = self.scope.ancestor_by_hash(&candidate.relay_parent())
 		else {
-			gum::debug!(
-				target: LOG_TARGET,
-				"check_potential already checked for this, but just to be safe.",
-			);
-			// check_potential already checked for this, but just to be safe.
+			// can_add_candidate_as_potential already checked for this, but just to be safe.
 			return MemberState::None
 		};
 
@@ -572,37 +585,20 @@ impl FragmentChain {
 				}
 			}
 
-			can_be_chained = true;
+			return MemberState::Potential
 		}
 
-		if can_be_chained {
-			MemberState::Potential
+		// Check if this is already an unconnected candidate
+		if candidate_storage.contains(&candidate_hash) {
+			MemberState::Unconnected
 		} else {
-			// Check if this is already an unconnected candidate
-			if candidate_storage.contains(&candidate_hash) {
-				MemberState::Unconnected
-			} else {
-				MemberState::Potential
-			}
+			// Otherwise, it already passed the checks for a potential candidate.
+			MemberState::Potential
 		}
 	}
 
 	/// Select `count` candidates after the given `ancestors` which pass
 	/// the predicate and have not already been backed on chain.
-	///
-	/// Does an exhaustive search into the tree after traversing the ancestors path.
-	/// If the ancestors draw out a path that can be traversed in multiple ways, no
-	/// candidates will be returned.
-	/// If the ancestors do not draw out a full path (the path contains holes), candidates will be
-	/// suggested that may fill these holes.
-	/// If the ancestors don't draw out a valid path, no candidates will be returned. If there are
-	/// multiple possibilities of the same size, this will select the first one. If there is no
-	/// chain of size `count` that matches the criteria, this will return the largest chain it could
-	/// find with the criteria. If there are no candidates meeting those criteria, returns an empty
-	/// `Vec`.
-	/// Cycles are accepted, but this code expects that the runtime will deduplicate
-	/// identical candidates when occupying the cores (when proposing to back A->B->A, only A will
-	/// be backed on chain).
 	///
 	/// The intention of the `ancestors` is to allow queries on the basis of
 	/// one or more candidates which were previously pending availability becoming
@@ -634,29 +630,34 @@ impl FragmentChain {
 		res
 	}
 
-	// Orders the ancestors into a viable path from root to the last one.
-	// Returns a pointer to the last node in the path.
-	// We assume that the ancestors form a chain (that the
-	// av-cores do not back parachain forks), None is returned otherwise.
-	// If we cannot use all ancestors, stop at the first found hole in the chain. This usually
-	// translates to a timed out candidate.
+	// Tries to orders the ancestors into a viable path from root to the last one.
+	// Stops when the ancestors are all used or when a node in the chain is not present in the
+	// ancestor set. Returns the index in the chain were the search stopped.
 	fn find_ancestor_path(&self, mut ancestors: Ancestors) -> usize {
+		if self.chain.is_empty() {
+			return 0;
+		}
+
 		for (index, candidate) in self.chain.iter().enumerate() {
 			if !ancestors.remove(&candidate.candidate_hash) {
 				return index
 			}
 		}
 
-		0
+		// This means that we found the entire chain in the ancestor set. There won't be anything
+		// left to back.
+		self.chain.len()
 	}
 
-	// This assumes that the tree does not already contain this candidate.
-	pub fn can_add_candidate_as_potential(
+	// Checks if this candidate could be added in the future to this chain.
+	// This assumes that the chain does not already contain this candidate.
+	pub(crate) fn can_add_candidate_as_potential(
 		&self,
 		storage: &CandidateStorage,
 		relay_parent: &Hash,
 		parent_head_hash: Hash,
 		output_head_hash: Option<Hash>,
+		display_log: bool,
 	) -> bool {
 		// If we've got enough candidates for the configured depth, no point in adding more.
 		if self.chain.len() >= self.scope.max_depth {
@@ -665,6 +666,15 @@ impl FragmentChain {
 				"Enough candidates for the configured depth",
 			);
 			return false
+		}
+
+		if !self.check_forks_and_cycles(parent_head_hash, output_head_hash) {
+			if display_log {
+				gum::debug!(
+					target: LOG_TARGET,
+					"Refusing to add candidate to the fragment chain, it would introduce a fork or a cycle",
+				);
+			}
 		}
 
 		if !self.check_potential(relay_parent, parent_head_hash, output_head_hash) {
@@ -676,12 +686,12 @@ impl FragmentChain {
 		const MAX_UNCONNECTED: usize = 5;
 
 		if unconnected < MAX_UNCONNECTED {
-			if unconnected > 0 {
-				gum::debug!(
-					target: LOG_TARGET,
-					"Can add candidate as unconnected",
-				);
-			}
+			// if unconnected > 0 {
+			// 	gum::debug!(
+			// 		target: LOG_TARGET,
+			// 		"Can add candidate as unconnected",
+			// 	);
+			// }
 			true
 		} else {
 			gum::debug!(
@@ -692,7 +702,9 @@ impl FragmentChain {
 		}
 	}
 
-	pub fn count_unconnected_potential_candidates(&self, storage: &CandidateStorage) -> usize {
+	// How many candidates are present in CandidateStorage, are not part of this chain but could
+	// become part of this chain in the future.
+	fn count_unconnected_potential_candidates(&self, storage: &CandidateStorage) -> usize {
 		let mut count = 0;
 		for candidate in storage.candidates() {
 			if !self.candidates.contains(&candidate.candidate_hash) {
@@ -709,13 +721,22 @@ impl FragmentChain {
 		count
 	}
 
+	// Check if adding a candidate which transitions `parent_head_hash` to `output_head_hash` would
+	// introduce a fork or a cycle in the parachain.
+	// `output_head_hash` is optional because we sometimes make this check before retrieving the
+	// collation.
 	fn check_forks_and_cycles(
 		&self,
 		parent_head_hash: Hash,
+		// TODO: deserves a comment.
 		output_head_hash: Option<Hash>,
 	) -> bool {
 		if self.by_parent_head.contains_key(&parent_head_hash) {
 			// fork. our parent has another child already
+			gum::debug!(
+				target: LOG_TARGET,
+				"FORK"
+			);
 			return false;
 		}
 
@@ -755,28 +776,26 @@ impl FragmentChain {
 			self.scope
 				.ancestor_by_hash(&last_candidate.relay_parent())
 				.or_else(|| {
-					// if the relay-parent is out of scope _and_ it is in the tree,
+					// if the relay-parent is out of scope _and_ it is in the chain,
 					// it must be a candidate pending availability.
 					self.scope
 						.get_pending_availability(&last_candidate.candidate_hash)
 						.map(|c| c.relay_parent.clone())
 				})
-				.expect("All nodes in tree are either pending availability or within scope; qed")
+				.expect("All nodes in chain are either pending availability or within scope; qed")
 		} else {
 			self.scope.earliest_relay_parent()
 		};
 
 		let Some(relay_parent) = self.scope.ancestor_by_hash(relay_parent) else {
-			gum::debug!(
-				target: LOG_TARGET,
-				"Ancestor by hash not fouund",
-			);
+			// gum::debug!(
+			// 	target: LOG_TARGET,
+			// 	"Ancestor by hash not fouund",
+			// );
 			return false
 		};
 
-		let min_relay_parent_number =
-			std::cmp::max(earliest_rp.number, self.scope.earliest_relay_parent().number);
-		if relay_parent.number < min_relay_parent_number {
+		if relay_parent.number < earliest_rp.number {
 			gum::debug!(
 				target: LOG_TARGET,
 				"Relay parent moved backwards",
@@ -787,6 +806,10 @@ impl FragmentChain {
 		true
 	}
 
+	// Populate the fragment chain with candidates from CandidateStorage.
+	// Can be called by the constructor or when introducing a new candidate.
+	// If we're introducing a new candidate onto an existing chain, we may introduce more than one,
+	// since we may connect already existing candidates to the chain.
 	fn populate_chain(&mut self, storage: &CandidateStorage) {
 		let mut cumulative_modifications = if let Some(last_candidate) = self.chain.last() {
 			last_candidate.cumulative_modifications.clone()
@@ -797,13 +820,13 @@ impl FragmentChain {
 			self.scope
 				.ancestor_by_hash(&last_candidate.relay_parent())
 				.or_else(|| {
-					// if the relay-parent is out of scope _and_ it is in the tree,
+					// if the relay-parent is out of scope _and_ it is in the chain,
 					// it must be a candidate pending availability.
 					self.scope
 						.get_pending_availability(&last_candidate.candidate_hash)
 						.map(|c| c.relay_parent.clone())
 				})
-				.expect("All nodes in tree are either pending availability or within scope; qed")
+				.expect("All nodes in chain are either pending availability or within scope; qed")
 		} else {
 			self.scope.earliest_relay_parent()
 		};
@@ -834,18 +857,24 @@ impl FragmentChain {
 			let possible_children = storage.possible_para_children(&required_head_hash);
 			let mut added_child = false;
 			for candidate in possible_children {
+				// Add one node to chain if
+				// 1. it does not introduce a fork or a cycle.
+				// 2. parent hash is correct.
+				// 3. relay-parent does not move backwards.
+				// 4. all non-pending-availability candidates have relay-parent in scope.
+				// 5. candidate outputs fulfill constraints
+
 				if !self.check_forks_and_cycles(
 					candidate.parent_head_data_hash(),
 					Some(candidate.output_head_data_hash()),
 				) {
+					gum::debug!(
+						target: LOG_TARGET,
+						candidate_hash = ?candidate.candidate_hash,
+						"Refusing to add candidate to the fragment chain, it would introduce a fork or a cycle",
+					);
 					continue
 				}
-
-				// Add one node to chain if
-				// 1. parent hash is correct
-				// 2. relay-parent does not move backwards.
-				// 3. all non-pending-availability candidates have relay-parent in scope.
-				// 4. candidate outputs fulfill constraints
 
 				let pending = self.scope.get_pending_availability(&candidate.candidate_hash);
 				let Some(relay_parent) = pending
@@ -866,9 +895,7 @@ impl FragmentChain {
 						0 => p.relay_parent.number,
 						_ => earliest_rp.number,
 					})
-					.unwrap_or_else(|| {
-						std::cmp::max(earliest_rp.number, self.scope.earliest_relay_parent().number)
-					});
+					.unwrap_or_else(|| earliest_rp.number);
 
 				if relay_parent.number < min_relay_parent_number {
 					continue // relay parent moved backwards.
@@ -965,18 +992,6 @@ impl FragmentChain {
 					.map(|e| &e.candidate.persisted_validation_data.parent_head)
 			})
 			.cloned()
-	}
-}
-
-struct FragmentNode {
-	fragment: Fragment<'static>,
-	candidate_hash: CandidateHash,
-	cumulative_modifications: ConstraintModifications,
-}
-
-impl FragmentNode {
-	fn relay_parent(&self) -> Hash {
-		self.fragment.relay_parent().hash
 	}
 }
 
