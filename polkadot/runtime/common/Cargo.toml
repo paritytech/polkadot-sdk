@@ -56,6 +56,7 @@ libsecp256k1 = { version = "0.7.0", default-features = false }
 runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parachains", default-features = false }
 
 slot-range-helper = { path = "slot_range_helper", default-features = false }
+pallet-claims = { path = "pallets/claims", default-features = false }	
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, optional = true }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
@@ -87,6 +88,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-balances/std",
 	"pallet-broker/std",
+	"pallet-claims/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
 	"pallet-identity/std",
@@ -127,6 +129,7 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-broker/runtime-benchmarks",
+	"pallet-claims/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
@@ -151,6 +154,7 @@ try-runtime = [
 	"pallet-babe?/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-broker/try-runtime",
+	"pallet-claims/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-identity/try-runtime",

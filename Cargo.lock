@@ -9449,6 +9449,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-claims"
+version = "7.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "libsecp256k1",
+ "pallet-balances",
+ "pallet-vesting",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "rustc-hex",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-collator-selection"
 version = "9.0.0"
 dependencies = [
@@ -13247,6 +13269,7 @@ dependencies = [
  "pallet-babe",
  "pallet-balances",
  "pallet-broker",
+ "pallet-claims",
  "pallet-election-provider-multi-phase",
  "pallet-fast-unstake",
  "pallet-identity",
