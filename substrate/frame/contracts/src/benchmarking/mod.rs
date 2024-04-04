@@ -22,7 +22,7 @@ mod call_builder;
 mod code;
 mod sandbox;
 use self::{
-	call_builder::BenchCall,
+	call_builder::CallSetup,
 	code::{
 		body::{self, DynInstr::*},
 		DataSegment, ImportedFunction, ImportedMemory, Location, ModuleDefinition, WasmModule,
@@ -598,15 +598,6 @@ mod benchmarks {
 		_(RawOrigin::Root, callee, hash);
 		assert_eq!(instance.info()?.code_hash, hash);
 		Ok(())
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn seal_caller(r: Linear<0, API_BENCHMARK_RUNS>) {
-		call_builder!(func, WasmModule::getter("seal0", "seal_caller", r));
-		#[block]
-		{
-			func.call();
-		}
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -2149,8 +2140,9 @@ mod benchmarks {
 			)),
 			..Default::default()
 		});
-		call_builder!(func, instance, code);
-		instance.set_balance((value + Pallet::<T>::min_balance()) * (r + 1).into());
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_balance((value + Pallet::<T>::min_balance()) * (r + 1).into());
+		call_builder!(func, instance, setup: setup);
 		let addresses = hashes
 			.iter()
 			.map(|hash| Contracts::<T>::contract_address(&instance.account_id, hash, &[], &[]))
@@ -2233,8 +2225,9 @@ mod benchmarks {
 			])),
 			..Default::default()
 		});
-		call_builder!(func, instance, code);
-		instance.set_balance(value + (Pallet::<T>::min_balance() * 2u32.into()));
+		let mut setup = CallSetup::<T>::new(code);
+		setup.set_balance(value + (Pallet::<T>::min_balance() * 2u32.into()));
+		call_builder!(func,  setup: setup);
 		#[block]
 		{
 			func.call();

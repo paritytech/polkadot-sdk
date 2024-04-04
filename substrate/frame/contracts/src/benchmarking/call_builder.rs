@@ -20,7 +20,8 @@ use crate::{
 	exec::Stack,
 	storage::meter::Meter,
 	wasm::Runtime,
-	BalanceOf, Config, Determinism, GasMeter, Origin, Schedule, TypeInfo, WasmBlob, Weight,
+	BalanceOf, Config, DebugBufferVec, Determinism, GasMeter, Origin, Schedule, TypeInfo, WasmBlob,
+	Weight,
 };
 use codec::{Encode, HasCompact};
 use core::fmt::Debug;
@@ -28,15 +29,6 @@ use sp_core::Get;
 use sp_std::prelude::*;
 
 type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
-
-/// A builder used to prepare a contract call.
-pub struct BenchCall<T: Config> {
-	contract: Contract<T>,
-	gas_meter: GasMeter<T>,
-	storage_meter: Meter<T>,
-	schedule: Schedule<T>,
-	input: Vec<u8>,
-}
 
 /// A prepared contract call ready to be executed.
 pub struct PreparedCall<'a, T: Config> {
@@ -50,7 +42,21 @@ impl<'a, T: Config> PreparedCall<'a, T> {
 	}
 }
 
-impl<T> BenchCall<T>
+/// A builder used to prepare a contract call.
+pub struct CallSetup<T: Config> {
+	contract: Contract<T>,
+	dest: T::AccountId,
+	origin: Origin<T>,
+	gas_meter: GasMeter<T>,
+	storage_meter: Meter<T>,
+	schedule: Schedule<T>,
+	value: BalanceOf<T>,
+	debug_message: Option<DebugBufferVec<T>>,
+	determinism: Determinism,
+	input: Vec<u8>,
+}
+
+impl<T> CallSetup<T>
 where
 	T: Config + pallet_balances::Config,
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
@@ -58,14 +64,25 @@ where
 	/// Create a new builder for the given module.
 	pub fn new(module: WasmModule<T>) -> Self {
 		let contract = Contract::<T>::new(module.clone(), vec![]).unwrap();
+		let dest = contract.account_id.clone();
+		let origin = Origin::from_account_id(contract.caller.clone());
 
 		Self {
 			contract,
-			schedule: T::Schedule::get(),
+			dest,
+			origin,
 			gas_meter: GasMeter::new(Weight::MAX),
 			storage_meter: Default::default(),
+			schedule: T::Schedule::get(),
+			value: 0u32.into(),
+			debug_message: None,
+			determinism: Determinism::Enforced,
 			input: vec![],
 		}
+	}
+
+	pub fn set_balance(&mut self, value: BalanceOf<T>) {
+		self.contract.set_balance(value);
 	}
 
 	pub fn input(&self) -> Vec<u8> {
@@ -78,18 +95,15 @@ where
 
 	/// Build the call stack.
 	pub fn ext(&mut self) -> (StackExt<'_, T>, WasmBlob<T>) {
-		let caller = self.contract.caller.clone();
-		let dest = self.contract.account_id.clone();
-
 		StackExt::bench_new_call(
-			dest,
-			Origin::from_account_id(caller),
+			self.dest.clone(),
+			self.origin.clone(),
 			&mut self.gas_meter,
 			&mut self.storage_meter,
 			&self.schedule,
-			0u32.into(),
-			None,
-			Determinism::Enforced,
+			self.value.clone(),
+			self.debug_message.as_mut(),
+			self.determinism,
 		)
 	}
 
@@ -107,14 +121,20 @@ where
 
 #[macro_export]
 macro_rules! call_builder(
-	($func: ident, $contract: ident, $module:expr) => {
-		let mut bench_call = BenchCall::<T>::new($module);
-		let input = bench_call.input();
-		let $contract = bench_call.contract();
-		let (mut ext, module) = bench_call.ext();
-		let $func = BenchCall::<T>::prepare_call(&mut ext, module, input);
-	};
 	($func: ident, $module:expr) => {
 		$crate::call_builder!($func, _info, $module);
-	}
+	};
+	($func: ident, $contract: ident, $module:expr) => {
+		let mut setup = CallSetup::<T>::new($module);
+		$crate::call_builder!($func, $contract, setup: setup);
+	};
+    ($func:ident, setup: $setup: ident) => {
+		$crate::call_builder!($func, _contract, setup: $setup);
+	};
+    ($func:ident, $contract: ident, setup: $setup: ident) => {
+		let input = $setup.input();
+		let $contract = $setup.contract();
+		let (mut ext, module) = $setup.ext();
+		let $func = CallSetup::<T>::prepare_call(&mut ext, module, input);
+	};
 );
