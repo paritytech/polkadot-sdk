@@ -7,8 +7,5 @@ doc:
   - audience: Runtime Dev
     description: |
       adsf
-  - audience: [Runtime Dev]
-    description: |
-      Single in array
 
 crates: [ ]

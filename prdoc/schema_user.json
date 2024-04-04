@@ -126,7 +126,8 @@
         "type": "array",
         "items": {
           "$ref": "#/$defs/audience_id"
-        }
+        },
+        "minItems": 2
       },
       "crate": {
         "type": "object",
