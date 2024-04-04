@@ -92,16 +92,6 @@ jobs:
           echo "Compact Runtime: ${{ steps.srtool_build.outputs.wasm }}"
           echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
 
-      # # it takes a while to build the runtime, so let's save the artifact as soon as we have it
-      # - name: Archive Artifacts for ${{ matrix.chain }}
-      #   uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
-      #   with:
-      #     name: ${{ matrix.chain }}-runtime
-      #     path: |
-      #       ${{ steps.srtool_build.outputs.wasm }}
-      #       ${{ steps.srtool_build.outputs.wasm_compressed }}
-      #       ${{ matrix.chain }}-srtool-digest.json
-
       # We now get extra information thanks to subwasm
       - name: Install subwasm
         run: |
