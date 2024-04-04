@@ -2062,7 +2062,6 @@ impl<T: Config> Pallet<T> {
 		// handle fees
 		Self::add_fees_to_xcm(dest, fees, weight_limit, &mut local_execute_xcm, &mut xcm_on_dest)?;
 
-		// TODO: custom action
 		// deposit all remaining assets in holding to `beneficiary` location
 		xcm_on_dest
 			.inner_mut()
