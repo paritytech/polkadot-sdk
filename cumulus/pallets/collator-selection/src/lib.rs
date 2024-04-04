@@ -988,7 +988,7 @@ pub mod pallet {
 pub struct StakingPotAccountId<R>(PhantomData<R>);
 impl<R> TypedGet for StakingPotAccountId<R>
 where
-	R: crate::Config + frame_system::Config,
+	R: crate::Config,
 {
 	type Type = <R as frame_system::Config>::AccountId;
 	fn get() -> Self::Type {

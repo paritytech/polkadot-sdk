@@ -1127,7 +1127,7 @@ impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Palle
 pub struct TreasuryAccountId<R>(PhantomData<R>);
 impl<R> sp_runtime::traits::TypedGet for TreasuryAccountId<R>
 where
-	R: crate::Config + frame_system::Config,
+	R: crate::Config,
 {
 	type Type = <R as frame_system::Config>::AccountId;
 	fn get() -> Self::Type {
