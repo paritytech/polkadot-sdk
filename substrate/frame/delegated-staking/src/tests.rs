@@ -432,8 +432,9 @@ mod staking_integration {
 	#[test]
 	fn withdraw_happens_with_unbonded_balance_first() {
 		ExtBuilder::default().build_and_execute(|| {
+			start_era(1);
 			let agent = 200;
-			setup_delegation_stake(agent, 201, (300..350).collect(), 100, 0);
+			setup_delegation_stake(agent, 201, (300..350).collect(), 10, 10);
 
 			// verify withdraw not possible yet
 			assert_noop!(
@@ -441,10 +442,26 @@ mod staking_integration {
 				Error::<T>::NotEnoughFunds
 			);
 
-			// add new delegation that is not staked
+			// fill up unlocking chunks in core staking.
+			// 10 is the max chunks
+			for i in 2..=11 {
+				start_era(i);
+				assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
+				// no withdrawals from core staking yet.
+				assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 0);
+			}
 
-			// FIXME(ank4n): add scenario where staked funds are withdrawn from ledger but not
-			// withdrawn and test its claimed from there first.
+			// another unbond would trigger withdrawal
+			start_era(12);
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
+			// 8 previous unbonds would be withdrawn as they were already unlocked. Unlocking period
+			// is 3 eras.
+
+			// FIXME(ank4n): Since staking implicitly withdraws ledger, unclaimed withdrawals are
+			// not updated. This is bad since it can lead those funds to be re-bonded.
+
+			// assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 8 * 10);
+
 
 			// fund(&300, 1000);
 			// assert_ok!(DelegatedStaking::delegate_to_agent(RawOrigin::Signed(300.into()),
@@ -528,15 +545,6 @@ mod staking_integration {
 				DelegatedStaking::register_agent(RawOrigin::Signed(GENESIS_VALIDATOR).into(), 201),
 				Error::<T>::AlreadyStaking
 			);
-		});
-	}
-
-	#[test]
-	fn slash_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			setup_delegation_stake(200, 201, (210..250).collect(), 100, 0);
-			start_era(1);
-			// fixme(ank4n): add tests for slashing
 		});
 	}
 
