@@ -623,12 +623,8 @@ fn nominating_and_rewards_should_work() {
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(1), vec![11, 21, 31]));
 
-			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(3),
-				1000,
-				RewardDestination::Account(3)
-			));
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![11, 21, 41]));
+			// the second nominator is virtual.
+			bond_virtual_nominator(3, 333, 1000, vec![11, 21, 41]);
 
 			// the total reward for era 0
 			let total_payout_0 = current_total_payout_for_duration(reward_time_per_era());
@@ -694,11 +690,10 @@ fn nominating_and_rewards_should_work() {
 			);
 			// Nominator 3: has [400/1800 ~ 2/9 from 10] + [600/2200 ~ 3/11 from 21]'s reward. ==>
 			// 2/9 + 3/11
+			assert_eq!(Balances::total_balance(&3), initial_balance);
+			/// 333 is the reward destination for 3.
 			assert_eq_error_rate!(
-				Balances::total_balance(&3),
-				initial_balance + (2 * payout_for_11 / 9 + 3 * payout_for_21 / 11),
-				2,
-			);
+				Balances::total_balance(&333), 2 * payout_for_11 / 9 + 3 * payout_for_21 / 11, 2);
 
 			// Validator 11: got 800 / 1800 external stake => 8/18 =? 4/9 => Validator's share = 5/9
 			assert_eq_error_rate!(
