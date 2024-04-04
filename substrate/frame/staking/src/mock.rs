@@ -263,7 +263,7 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
 		// update the observer.
 		let mut slash_observer = SlashObserver::get();
-		slash_observer.insert(pool_account.clone(), total_slashed);
+		slash_observer.insert(*pool_account, total_slashed);
 		SlashObserver::set(slash_observer);
 	}
 }
