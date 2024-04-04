@@ -17,9 +17,10 @@
 
 //! # Delegated Staking Pallet
 //!
-//! This pallet implements [`sp_staking::DelegationInterface`] that extends [`StakingInterface`]
-//! to support delegation of stake. It consumes [`Config::CoreStaking`] to provide primitive staking
-//! functions and only implements the delegation features.
+//! This pallet implements [`sp_staking::DelegationInterface`] that provides delegation
+//! functionality to `delegators` and `agents`. It is designed to be used in conjunction with
+//! [`StakingInterface`] and relies on [`Config::CoreStaking`] to provide primitive staking
+//! functions.
 //!
 //! Currently, it does not expose any dispatchable calls but is written with a vision to expose them
 //! in the future such that it can be utilised by any external account, off-chain entity or xcm
@@ -68,12 +69,6 @@
 //! agent, the funds are held in a proxy account. This function allows the delegator to claim their
 //! share of the funds from the proxy account. See [`Pallet::claim_delegation`].
 //!
-//! #### [Staking Interface](StakingInterface)
-//! This pallet reimplements the staking interface as a wrapper implementation over
-//! [Config::CoreStaking] to provide delegation based staking. Concretely, a pallet like
-//! `NominationPools` can switch to this pallet as its Staking provider to support delegation based
-//! staking from pool accounts, allowing its members to lock funds in their own account.
-//!
 //! ## Lazy Slashing
 //! One of the reasons why direct nominators on staking pallet cannot scale well is because all
 //! nominators are slashed at the same time. This is expensive and needs to be bounded operation.
@@ -89,7 +84,7 @@
 //! [DelegationInterface::delegator_slash](sp_staking::DelegationInterface::delegator_slash).
 //!
 //! ## Migration from Nominator to Agent
-//! More details [here](https://hackmd.io/@ak0n/np-delegated-staking-migration).
+//! More details [here](https://hackmd.io/@ak0n/454-np-governance).
 //!
 //! ## Nomination Pool vs Delegation Staking
 //! This pallet is not a replacement for Nomination Pool but adds a new primitive over staking
@@ -219,6 +214,8 @@ pub mod pallet {
 		BadState,
 		/// Unapplied pending slash restricts operation on `Agent`.
 		UnappliedSlash,
+		/// `Agent` has no pending slash to be applied.
+		NothingToSlash,
 		/// Failed to withdraw amount from Core Staking.
 		WithdrawFailed,
 		/// Operation not supported by this pallet.
@@ -568,8 +565,10 @@ impl<T: Config> Pallet<T> {
 
 		// if we do not already have enough funds to be claimed, try withdraw some more.
 		if agent.ledger.unclaimed_withdrawals < amount {
-			// get the updated agent.
-			agent = Self::withdraw_unbonded(who, num_slashing_spans)?;
+			// withdraw account.
+			let _ = T::CoreStaking::withdraw_unbonded(who.clone(), num_slashing_spans)
+				.map_err(|_| Error::<T>::WithdrawFailed)?;
+			agent = agent.refresh()?;
 		}
 
 		// if we still do not have enough funds to release, abort.
@@ -606,36 +605,6 @@ impl<T: Config> Pallet<T> {
 		});
 
 		Ok(())
-	}
-
-	fn withdraw_unbonded(
-		agent_acc: &T::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<Agent<T>, DispatchError> {
-		let agent = Agent::<T>::from(agent_acc)?;
-		let pre_total = T::CoreStaking::stake(agent_acc).defensive()?.total;
-
-		let stash_killed: bool =
-			T::CoreStaking::withdraw_unbonded(agent_acc.clone(), num_slashing_spans)
-				.map_err(|_| Error::<T>::WithdrawFailed)?;
-
-		let maybe_post_total = T::CoreStaking::stake(agent_acc);
-		// One of them should be true
-		defensive_assert!(
-			!(stash_killed && maybe_post_total.is_ok()),
-			"something horrible happened while withdrawing"
-		);
-
-		let post_total = maybe_post_total.map_or(Zero::zero(), |s| s.total);
-
-		let new_withdrawn =
-			pre_total.checked_sub(&post_total).defensive_ok_or(Error::<T>::BadState)?;
-
-		let agent = agent.add_unclaimed_withdraw(new_withdrawn)?;
-
-		agent.clone().save();
-
-		Ok(agent)
 	}
 
 	/// Migrates delegation of `amount` from `source` account to `destination` account.
@@ -694,11 +663,14 @@ impl<T: Config> Pallet<T> {
 		maybe_reporter: Option<T::AccountId>,
 	) -> DispatchResult {
 		let agent = Agent::<T>::from(&agent_acc)?;
-		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
+		// ensure there is something to slash
+		ensure!(agent.ledger.pending_slash > Zero::zero(), Error::<T>::NothingToSlash);
 
+		let delegation = <Delegators<T>>::get(&delegator).ok_or(Error::<T>::NotDelegator)?;
 		ensure!(delegation.agent == agent_acc, Error::<T>::NotAgent);
 		ensure!(delegation.amount >= amount, Error::<T>::NotEnoughFunds);
 
+		// slash delegator
 		let (mut credit, missing) =
 			T::Currency::slash(&HoldReason::Delegating.into(), &delegator, amount);
 
@@ -718,9 +690,11 @@ impl<T: Config> Pallet<T> {
 			let reward_payout: BalanceOf<T> =
 				T::CoreStaking::slash_reward_fraction() * actual_slash;
 			let (reporter_reward, rest) = credit.split(reward_payout);
+
+			// credit is the amount that we provide to `T::OnSlash`.
 			credit = rest;
 
-			// fixme(ank4n): handle error
+			// reward reporter or drop it.
 			let _ = T::Currency::resolve(&reporter, reporter_reward);
 		}
 

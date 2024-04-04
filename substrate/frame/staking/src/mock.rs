@@ -249,17 +249,22 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
+	pub static SlashObserver: BTreeMap<AccountId, BalanceOf<Test>> = BTreeMap::new();
 }
 
 pub struct EventListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
-		_pool_account: &AccountId,
+		pool_account: &AccountId,
 		slashed_bonded: Balance,
 		slashed_chunks: &BTreeMap<EraIndex, Balance>,
-		_total_slashed: Balance,
+		total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
+		// update the observer.
+		let mut slash_observer = SlashObserver::get();
+		slash_observer.insert(pool_account.clone(), total_slashed);
+		SlashObserver::set(slash_observer);
 	}
 }
 

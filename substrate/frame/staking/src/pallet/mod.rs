@@ -385,7 +385,8 @@ pub mod pallet {
 	/// are expected to be keyless accounts and hence should not be allowed to mutate their ledger
 	/// directly via this pallet. Instead, these accounts are managed by other pallets and accessed
 	/// via low level apis. We keep track of them to do minimal integrity checks.
-	// TODO(ank4n): Can we keep this entry in `Ledger`? Worth a migration?
+	// TODO(ank4n): Can we keep this entry in `Ledger`? Or migrate later in conjunction with
+	// fungible migration?
 	#[pallet::storage]
 	pub type VirtualStakers<T: Config> = CountedStorageMap<_, Twox64Concat, T::AccountId, ()>;
 

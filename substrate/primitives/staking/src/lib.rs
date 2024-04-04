@@ -449,12 +449,14 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub page_count: Page,
 }
 
-/// Extension of [`StakingInterface`] with delegation functionality.
+/// Trait to provide delegation functionality for stakers.
 ///
-/// Introduces two new actors:
+/// Introduces two new terms to the staking system:
 /// - `Delegator`: An account that delegates funds to a `Agent`.
 /// - `Agent`: An account that receives delegated funds from `Delegators`. It can then use these
-/// funds to participate in the staking system. It can never use its own funds to stake.
+/// funds to participate in the staking system. It can never use its own funds to stake. They
+/// (virtually bond)[`StakingUnsafe::virtual_bond`] into the staking system and can also be termed
+/// as `Virtual Nominators`.
 ///
 /// The `Agent` is responsible for managing rewards and slashing for all the `Delegators` that
 /// have delegated funds to it.
@@ -509,17 +511,6 @@ pub trait DelegationInterface {
 		agent: &Self::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult;
-
-	/// Withdraw any unlocking funds in `CoreStaking` that can be claimed later by a delegator.
-	///
-	/// `CoreStaking` has a limitation on maximum unlocking chunks at any given time. If the limit
-	/// is reached, we want to implicitly unlock these funds even though a delegator is not
-	/// present to claim it. Not doing this would block any unbonding until unlocking funds are
-	/// claimed.
-	fn withdraw_unclaimed(
-		agent: Self::AccountId,
-		num_slashing_spans: u32,
-	) -> Result<bool, DispatchError>;
 
 	/// Returns true if there are pending slashes posted to the `Agent` account.
 	///

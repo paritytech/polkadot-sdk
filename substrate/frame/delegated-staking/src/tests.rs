@@ -192,10 +192,81 @@ fn agent_restrictions() {
 	});
 }
 
+use sp_staking::DelegationInterface;
 #[test]
 fn apply_pending_slash() {
 	ExtBuilder::default().build_and_execute(|| {
-		// fixme(ank4n): add tests for apply_pending_slash
+		start_era(1);
+		let agent: AccountId = 200;
+		let reward_acc: AccountId = 201;
+		let delegators: Vec<AccountId> = (301..=350).collect();
+		let reporter: AccountId = 400;
+
+		let total_staked = setup_delegation_stake(agent, reward_acc, delegators.clone(), 10, 10);
+
+		start_era(4);
+		// slash half of the stake
+		pallet_staking::slashing::do_slash::<T>(
+			&agent,
+			total_staked / 2,
+			&mut Default::default(),
+			&mut Default::default(),
+			3,
+		);
+
+		// agent cannot slash an account that is not its delegator.
+		setup_delegation_stake(210, 211, (351..=352).collect(), 100, 0);
+		assert_noop!(
+			<DelegatedStaking as DelegationInterface>::delegator_slash(&agent, &351, 1, Some(400)),
+			Error::<T>::NotAgent
+		);
+		// or a non delegator account
+		fund(&353, 100);
+		assert_noop!(
+			<DelegatedStaking as DelegationInterface>::delegator_slash(&agent, &353, 1, Some(400)),
+			Error::<T>::NotDelegator
+		);
+
+		// ensure bookkept pending slash is correct.
+		assert_eq!(get_agent(&agent).ledger.pending_slash, total_staked / 2);
+		let mut old_reporter_balance = Balances::free_balance(reporter);
+
+		// lets apply the pending slash on delegators.
+		for i in delegators {
+			// balance before slash
+			let initial_pending_slash = get_agent(&agent).ledger.pending_slash;
+			assert!(initial_pending_slash > 0);
+			let unslashed_balance = held_balance(&i);
+			let slash = unslashed_balance / 2;
+			// slash half of delegator's delegation.
+			assert_ok!(<DelegatedStaking as DelegationInterface>::delegator_slash(
+				&agent,
+				&i,
+				slash,
+				Some(400)
+			));
+
+			// balance after slash.
+			assert_eq!(held_balance(&i), unslashed_balance - slash);
+			// pending slash is reduced by the amount slashed.
+			assert_eq!(get_agent(&agent).ledger.pending_slash, initial_pending_slash - slash);
+			// reporter get 10% of the slash amount.
+			assert_eq!(
+				Balances::free_balance(reporter) - old_reporter_balance,
+				<Staking as StakingInterface>::slash_reward_fraction() * slash,
+			);
+			// update old balance
+			old_reporter_balance = Balances::free_balance(reporter);
+		}
+
+		// nothing to slash anymore
+		assert_eq!(get_agent(&agent).ledger.pending_slash, 0);
+
+		// cannot slash anymore
+		assert_noop!(
+			<DelegatedStaking as DelegationInterface>::delegator_slash(&agent, &350, 1, None),
+			Error::<T>::NothingToSlash
+		);
 	});
 }
 
@@ -362,6 +433,7 @@ mod staking_integration {
 	#[test]
 	fn withdraw_happens_with_unbonded_balance_first() {
 		ExtBuilder::default().build_and_execute(|| {
+			start_era(1);
 			let agent = 200;
 			setup_delegation_stake(agent, 201, (300..350).collect(), 100, 0);
 
@@ -371,21 +443,45 @@ mod staking_integration {
 				Error::<T>::NotEnoughFunds
 			);
 
-			// add new delegation that is not staked
+			// fill up unlocking chunks in core staking.
+			// 10 is the max chunks
+			for i in 2..=11 {
+				start_era(i);
+				assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
+				// no withdrawals from core staking yet.
+				assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 0);
+			}
 
-			// FIXME(ank4n): add scenario where staked funds are withdrawn from ledger but not
-			// withdrawn and test its claimed from there first.
+			// another unbond would trigger withdrawal
+			start_era(12);
+			assert_ok!(Staking::unbond(RawOrigin::Signed(agent).into(), 10));
 
-			// fund(&300, 1000);
-			// assert_ok!(DelegatedStaking::delegate_to_agent(RawOrigin::Signed(300.into()),
-			// delegate, 100));
-			//
-			// // verify unbonded balance
-			// assert_eq!(get_agent(&agent).available_to_bond(), 100);
-			//
-			// // withdraw works now without unbonding
-			// assert_ok!(DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300,
-			// 100, 0)); assert_eq!(get_agent(&agent).available_to_bond(), 0);
+			// 8 previous unbonds would be withdrawn as they were already unlocked. Unlocking period
+			// is 3 eras.
+			assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 8 * 10);
+
+			// release some delegation now.
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				300,
+				40,
+				0
+			));
+			assert_eq!(get_agent(&agent).ledger.unclaimed_withdrawals, 80 - 40);
+
+			// cannot release more than available
+			assert_noop!(
+				DelegatedStaking::release_delegation(RawOrigin::Signed(agent).into(), 300, 50, 0),
+				Error::<T>::NotEnoughFunds
+			);
+			assert_ok!(DelegatedStaking::release_delegation(
+				RawOrigin::Signed(agent).into(),
+				300,
+				40,
+				0
+			));
+
+			assert_eq!(held_balance(&300), 100 - 80);
 		});
 	}
 
@@ -458,15 +554,6 @@ mod staking_integration {
 				DelegatedStaking::register_agent(RawOrigin::Signed(GENESIS_VALIDATOR).into(), 201),
 				Error::<T>::AlreadyStaking
 			);
-		});
-	}
-
-	#[test]
-	fn slash_works() {
-		ExtBuilder::default().build_and_execute(|| {
-			setup_delegation_stake(200, 201, (210..250).collect(), 100, 0);
-			start_era(1);
-			// fixme(ank4n): add tests for slashing
 		});
 	}
 
