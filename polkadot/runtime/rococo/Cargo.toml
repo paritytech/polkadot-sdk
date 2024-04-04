@@ -40,6 +40,7 @@ sp-storage = { path = "../../../substrate/primitives/storage", default-features 
 sp-version = { path = "../../../substrate/primitives/version", default-features = false }
 tx-pool-api = { package = "sp-transaction-pool", path = "../../../substrate/primitives/transaction-pool", default-features = false }
 block-builder-api = { package = "sp-block-builder", path = "../../../substrate/primitives/block-builder", default-features = false }
+sp-sidechains-session = { path = "../../../substrate/primitives/sidechains-session", default-features = false }
 
 pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }

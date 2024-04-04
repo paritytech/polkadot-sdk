@@ -461,6 +461,7 @@ members = [
 	"substrate/primitives/runtime-interface/test-wasm",
 	"substrate/primitives/runtime-interface/test-wasm-deprecated",
 	"substrate/primitives/session",
+	"substrate/primitives/sidechains-session",
 	"substrate/primitives/staking",
 	"substrate/primitives/state-machine",
 	"substrate/primitives/statement-store",

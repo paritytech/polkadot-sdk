@@ -1,0 +1,18 @@
+[package]
+name = "sp-sidechains-session"
+version = "4.0.0-dev"
+license = "Apache-2.0"
+repository.workspace = true
+description = "Primitives for sidechains sessions"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+sp-staking = { path = "../staking", default-features = false}
+
+[features]
+default = [ "std" ]
+std = [
+    "sp-staking/std",
+]

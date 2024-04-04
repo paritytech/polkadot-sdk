@@ -41,8 +41,12 @@ use sp_arithmetic::traits::BaseArithmetic;
 use sp_consensus::{Proposal, Proposer, SelectChain, SyncOracle};
 use sp_consensus_slots::{Slot, SlotDuration};
 use sp_inherents::CreateInherentDataProviders;
-use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
+use sp_runtime::{
+	traits::{Block as BlockT, HashingFor, Header as HeaderT},
+	DigestItem,
+};
 use std::{
+	error::Error,
 	fmt::Debug,
 	ops::Deref,
 	time::{Duration, Instant},
@@ -77,6 +81,36 @@ pub trait SlotWorker<B: BlockT, Proof> {
 	async fn on_slot(&mut self, slot_info: SlotInfo<B>) -> Option<SlotResult<B, Proof>>;
 }
 
+/// Defines parts of inherent data that should be included in header digest
+pub trait InherentDigest {
+	/// Rust type of the inherent digest value
+	type Value: Send + Sync + 'static;
+
+	/// Construct digest items from block's inherent data
+	fn from_inherent_data(
+		inherent_data: &sp_consensus::InherentData,
+	) -> Result<Vec<sp_runtime::DigestItem>, Box<dyn Error + Send + Sync>>;
+
+	/// Retrieve value from digests
+	fn value_from_digest(
+		digests: &[DigestItem],
+	) -> Result<Self::Value, Box<dyn Error + Send + Sync>>;
+}
+
+impl InherentDigest for () {
+	type Value = ();
+
+	fn from_inherent_data(
+		_inherent_data: &sp_consensus::InherentData,
+	) -> Result<Vec<sp_runtime::DigestItem>, Box<dyn Error + Send + Sync>> {
+		Ok(vec![])
+	}
+
+	fn value_from_digest(_digests: &[DigestItem]) -> Result<(), Box<dyn Error + Send + Sync>> {
+		Ok(())
+	}
+}
+
 /// A skeleton implementation for `SlotWorker` which tries to claim a slot at
 /// its beginning and tries to produce a block if successfully claimed, timing
 /// out if block production takes too long.
@@ -106,6 +140,9 @@ pub trait SimpleSlotWorker<B: BlockT> {
 
 	/// Auxiliary data necessary for authoring.
 	type AuxData: Send + Sync + 'static;
+
+	/// Definition of inherent data that should be put in the digest
+	type InherentDigest: InherentDigest + Send + Sync + 'static;
 
 	/// The logging target to use when logging messages.
 	fn logging_target(&self) -> &'static str;
@@ -195,7 +232,15 @@ pub trait SimpleSlotWorker<B: BlockT> {
 
 		let proposing_remaining_duration =
 			end_proposing_at.saturating_duration_since(Instant::now());
-		let logs = self.pre_digest_data(slot, claim);
+		let mut logs = self.pre_digest_data(slot, claim);
+		let mut inherent_logs = match Self::InherentDigest::from_inherent_data(&inherent_data) {
+			Ok(inherent_logs) => inherent_logs,
+			Err(err) => {
+				info!("Proposing failed: {err}");
+				return None;
+			},
+		};
+		logs.append(&mut inherent_logs);
 
 		// deadline our production to 98% of the total time left for proposing. As we deadline
 		// the proposing below to the same total time left, the 2% margin should be enough for
@@ -517,15 +562,10 @@ pub async fn start_slot_worker<B, C, W, SO, CIDP, Proof>(
 	CIDP: CreateInherentDataProviders<B, ()> + Send + 'static,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 {
-	let mut slots = Slots::new(slot_duration.as_duration(), create_inherent_data_providers, client);
+	let mut slots = Slots::new(slot_duration.as_duration(), create_inherent_data_providers, client, sync_oracle);
 
 	loop {
 		let slot_info = slots.next_slot().await;
-
-		if sync_oracle.is_major_syncing() {
-			debug!(target: LOG_TARGET, "Skipping proposal slot due to sync.");
-			continue
-		}
 
 		let _ = worker.on_slot(slot_info).await;
 	}

@@ -30,6 +30,7 @@ sp-core = { path = "../../primitives/core", default-features = false, features =
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
 sp-session = { path = "../../primitives/session", default-features = false }
+sp-sidechains-session = { path = "../../primitives/sidechains-session", default-features = false }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
 sp-std = { path = "../../primitives/std", default-features = false }
 
@@ -66,6 +67,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-session/std",
+	"sp-sidechains-session/std",
 	"sp-staking/std",
 	"sp-std/std",
 ]

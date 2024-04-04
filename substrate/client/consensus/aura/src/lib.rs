@@ -60,7 +60,7 @@ pub use import_queue::{
 	build_verifier, import_queue, AuraVerifier, BuildVerifierParams, CheckForEquivocation,
 	ImportQueueParams,
 };
-pub use sc_consensus_slots::SlotProportion;
+pub use sc_consensus_slots::{InherentDigest, SlotProportion};
 pub use sp_consensus::SyncOracle;
 pub use sp_consensus_aura::{
 	digests::CompatibleDigestItem,
@@ -151,7 +151,7 @@ pub struct StartAuraParams<C, SC, I, PF, SO, L, CIDP, BS, N> {
 }
 
 /// Start the aura worker. The returned future should be run in a futures executor.
-pub fn start_aura<P, B, C, SC, I, PF, SO, L, CIDP, BS, Error>(
+pub fn start_aura<P, B, C, SC, I, PF, SO, L, CIDP, BS, Error, ID>(
 	StartAuraParams {
 		slot_duration,
 		client,
@@ -187,8 +187,9 @@ where
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
 	Error: std::error::Error + Send + From<ConsensusError> + 'static,
+	ID: InherentDigest + Send + Sync + 'static,
 {
-	let worker = build_aura_worker::<P, _, _, _, _, _, _, _, _>(BuildAuraWorkerParams {
+	let worker = build_aura_worker::<P, _, _, _, _, _, _, _, _, ID>(BuildAuraWorkerParams {
 		client,
 		block_import,
 		proposer_factory,
@@ -250,7 +251,7 @@ pub struct BuildAuraWorkerParams<C, I, PF, SO, L, BS, N> {
 /// Build the aura worker.
 ///
 /// The caller is responsible for running this worker, otherwise it will do nothing.
-pub fn build_aura_worker<P, B, C, PF, I, SO, L, BS, Error>(
+pub fn build_aura_worker<P, B, C, PF, I, SO, L, BS, Error, ID>(
 	BuildAuraWorkerParams {
 		client,
 		block_import,
@@ -288,6 +289,7 @@ where
 	SO: SyncOracle + Send + Sync + Clone,
 	L: sc_consensus::JustificationSyncLink<B>,
 	BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
+	ID: InherentDigest + Send + Sync + 'static,
 {
 	AuraWorker {
 		client,
@@ -302,11 +304,11 @@ where
 		block_proposal_slot_portion,
 		max_block_proposal_slot_portion,
 		compatibility_mode,
-		_phantom: PhantomData::<fn() -> P>,
+		_phantom: PhantomData::<(fn() -> P, ID)>,
 	}
 }
 
-struct AuraWorker<C, E, I, P, SO, L, BS, N> {
+struct AuraWorker<C, E, I, P, SO, L, BS, N, ID> {
 	client: Arc<C>,
 	block_import: I,
 	env: E,
@@ -319,12 +321,12 @@ struct AuraWorker<C, E, I, P, SO, L, BS, N> {
 	max_block_proposal_slot_portion: Option<SlotProportion>,
 	telemetry: Option<TelemetryHandle>,
 	compatibility_mode: CompatibilityMode<N>,
-	_phantom: PhantomData<fn() -> P>,
+	_phantom: PhantomData<(fn() -> P, ID)>,
 }
 
 #[async_trait::async_trait]
-impl<B, C, E, I, P, Error, SO, L, BS> sc_consensus_slots::SimpleSlotWorker<B>
-	for AuraWorker<C, E, I, P, SO, L, BS, NumberFor<B>>
+impl<B, C, E, I, P, Error, SO, L, BS, ID> sc_consensus_slots::SimpleSlotWorker<B>
+	for AuraWorker<C, E, I, P, SO, L, BS, NumberFor<B>, ID>
 where
 	B: BlockT,
 	C: ProvideRuntimeApi<B> + BlockOf + HeaderBackend<B> + Sync,
@@ -339,6 +341,7 @@ where
 	L: sc_consensus::JustificationSyncLink<B>,
 	BS: BackoffAuthoringBlocksStrategy<NumberFor<B>> + Send + Sync + 'static,
 	Error: std::error::Error + Send + From<ConsensusError> + 'static,
+	ID: InherentDigest + Send + Sync + 'static,
 {
 	type BlockImport = I;
 	type SyncOracle = SO;
@@ -348,6 +351,7 @@ where
 	type Proposer = E::Proposer;
 	type Claim = P::Public;
 	type AuxData = Vec<AuthorityId<P>>;
+	type InherentDigest = ID;
 
 	fn logging_target(&self) -> &'static str {
 		"aura"
@@ -573,6 +577,7 @@ mod tests {
 		runtime::{Header, H256},
 		TestClient,
 	};
+	use crate::standalone::CurrentSlotProvider;
 
 	const SLOT_DURATION_MS: u64 = 1000;
 
@@ -621,23 +626,33 @@ mod tests {
 		}
 	}
 
-	type AuraVerifier = import_queue::AuraVerifier<
-		PeersFullClient,
-		AuthorityPair,
-		Box<
-			dyn CreateInherentDataProviders<
-				TestBlock,
-				(),
-				InherentDataProviders = (InherentDataProvider,),
-			>,
-		>,
-		u64,
-	>;
+	type AuraVerifier = import_queue::AuraVerifier<PeersFullClient, AuthorityPair, TestCIDP, u64>;
 	type AuraPeer = Peer<(), PeersClient>;
 
 	#[derive(Default)]
 	pub struct AuraTestNet {
 		peers: Vec<AuraPeer>,
+	}
+
+	pub struct TestCIDP;
+
+	#[async_trait::async_trait]
+	impl CreateInherentDataProviders<Block, Slot> for TestCIDP {
+		type InherentDataProviders = ();
+
+		async fn create_inherent_data_providers(
+			&self,
+			_parent: <Block as BlockT>::Hash,
+			_extra_args: Slot,
+		) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
+			Ok(())
+		}
+	}
+
+	impl CurrentSlotProvider for TestCIDP {
+		fn slot(&self) -> Slot {
+			Slot::from_timestamp(Timestamp::current(), SlotDuration::from_millis(SLOT_DURATION_MS))
+		}
 	}
 
 	impl TestNetFactory for AuraTestNet {
@@ -652,13 +667,7 @@ mod tests {
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
 			import_queue::AuraVerifier::new(
 				client,
-				Box::new(|_, _| async {
-					let slot = InherentDataProvider::from_timestamp_and_slot_duration(
-						Timestamp::current(),
-						SlotDuration::from_millis(SLOT_DURATION_MS),
-					);
-					Ok((slot,))
-				}),
+				TestCIDP,
 				CheckForEquivocation::Yes,
 				None,
 				CompatibilityMode::None,

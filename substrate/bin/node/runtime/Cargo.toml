@@ -53,6 +53,7 @@ sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-f
 sp-statement-store = { path = "../../../primitives/statement-store", default-features = false, features = ["serde"] }
 sp-version = { path = "../../../primitives/version", default-features = false, features = ["serde"] }
 sp-io = { path = "../../../primitives/io", default-features = false }
+sp-sidechains-session = { path = "../../../primitives/sidechains-session", default-features = false }
 
 # frame dependencies
 frame-executive = { path = "../../../frame/executive", default-features = false }

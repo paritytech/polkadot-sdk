@@ -24,8 +24,3 @@ sp-runtime = { path = "../runtime", default-features = false }
 [features]
 default = ["std"]
 std = ["sp-core/std", "sp-runtime/std", "strum/std"]
-
-# This feature adds Bandersnatch crypto primitives.
-# It should not be used in production since the implementation and interface may still
-# be subject to significant changes.
-bandersnatch-experimental = ["sp-core/bandersnatch-experimental"]

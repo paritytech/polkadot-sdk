@@ -41,6 +41,7 @@ use sp_runtime::{
 	traits::OpaqueKeys,
 	BuildStorage, DigestItem, Perbill,
 };
+use sp_sidechains_session::CurrentSessionIndex;
 use sp_staking::{EraIndex, SessionIndex};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -101,6 +102,12 @@ impl pallet_session::Config for Test {
 impl pallet_session::historical::Config for Test {
 	type FullIdentification = pallet_staking::Exposure<u64, u128>;
 	type FullIdentificationOf = pallet_staking::ExposureOf<Self>;
+}
+
+impl CurrentSessionIndex for Test {
+	fn current_session_index() -> SessionIndex {
+		<pallet_session::Pallet<Test>>::current_index()
+	}
 }
 
 impl pallet_authorship::Config for Test {

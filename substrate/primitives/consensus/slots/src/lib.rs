@@ -91,6 +91,11 @@ impl Slot {
 		Slot(timestamp.as_millis() / slot_duration.as_millis())
 	}
 
+	/// First timestamp of the slot
+	pub fn starting_timestamp(&self, slot_duration: SlotDuration) -> Option<Timestamp> {
+		slot_duration.as_millis().checked_mul(self.0).map(Timestamp::new)
+	}
+
 	/// Saturating addition.
 	pub fn saturating_add<T: Into<u64>>(self, rhs: T) -> Self {
 		Self(self.0.saturating_add(rhs.into()))

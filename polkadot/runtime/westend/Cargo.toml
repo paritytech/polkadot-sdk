@@ -42,6 +42,7 @@ sp-version = { path = "../../../substrate/primitives/version", default-features 
 tx-pool-api = { package = "sp-transaction-pool", path = "../../../substrate/primitives/transaction-pool", default-features = false }
 block-builder-api = { package = "sp-block-builder", path = "../../../substrate/primitives/block-builder", default-features = false }
 sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", default-features = false }
+sp-sidechains-session = { path = "../../../substrate/primitives/sidechains-session", default-features = false }
 
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }

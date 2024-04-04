@@ -89,4 +89,19 @@ impl Signals {
 
 		Ok(())
 	}
+
+	/// Run a future task until receive a signal and return the result.
+	pub async fn run_until_signal_f<F, R>(self, func: F) -> Option<R>
+	where
+		F: Future<Output = Option<R>> + future::FusedFuture,
+	{
+		let signals = self.future().fuse();
+
+		pin_mut!(func, signals);
+
+		select! {
+			_ = signals => None,
+			res = func => res,
+		}
+	}
 }

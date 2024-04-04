@@ -736,6 +736,7 @@ where
 	type Proposer = E::Proposer;
 	type BlockImport = I;
 	type AuxData = ViableEpochDescriptor<B::Hash, NumberFor<B>, Epoch>;
+	type InherentDigest = ();
 
 	fn logging_target(&self) -> &'static str {
 		LOG_TARGET
