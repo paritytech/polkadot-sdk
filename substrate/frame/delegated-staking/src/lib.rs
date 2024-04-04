@@ -17,9 +17,9 @@
 
 //! # Delegated Staking Pallet
 //!
-//! This pallet implements [`sp_staking::DelegationInterface`] that extends [`StakingInterface`]
-//! to support delegation of stake. It consumes [`Config::CoreStaking`] to provide primitive staking
-//! functions and only implements the delegation features.
+//! This pallet implements [`sp_staking::DelegationInterface`] that provides delegation functionality
+//! to `delegators` and `agents`. It is designed to be used in conjunction with [`StakingInterface`]
+//! and relies on [`Config::CoreStaking`] to provide primitive staking functions.
 //!
 //! Currently, it does not expose any dispatchable calls but is written with a vision to expose them
 //! in the future such that it can be utilised by any external account, off-chain entity or xcm
@@ -68,12 +68,6 @@
 //! agent, the funds are held in a proxy account. This function allows the delegator to claim their
 //! share of the funds from the proxy account. See [`Pallet::claim_delegation`].
 //!
-//! #### [Staking Interface](StakingInterface)
-//! This pallet reimplements the staking interface as a wrapper implementation over
-//! [Config::CoreStaking] to provide delegation based staking. Concretely, a pallet like
-//! `NominationPools` can switch to this pallet as its Staking provider to support delegation based
-//! staking from pool accounts, allowing its members to lock funds in their own account.
-//!
 //! ## Lazy Slashing
 //! One of the reasons why direct nominators on staking pallet cannot scale well is because all
 //! nominators are slashed at the same time. This is expensive and needs to be bounded operation.
@@ -89,7 +83,7 @@
 //! [DelegationInterface::delegator_slash](sp_staking::DelegationInterface::delegator_slash).
 //!
 //! ## Migration from Nominator to Agent
-//! More details [here](https://hackmd.io/@ak0n/np-delegated-staking-migration).
+//! More details [here](https://hackmd.io/@ak0n/454-np-governance).
 //!
 //! ## Nomination Pool vs Delegation Staking
 //! This pallet is not a replacement for Nomination Pool but adds a new primitive over staking
