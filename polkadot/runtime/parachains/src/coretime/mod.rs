@@ -65,19 +65,23 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
+/// Shorthand for the Balance type the runtime is using.
+pub type BalanceOf<T> =
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 /// Broker pallet index on the coretime chain. Used to
 ///
 /// construct remote calls. The codec index must correspond to the index of `Broker` in the
 /// `construct_runtime` of the coretime chain.
 #[derive(Encode, Decode)]
-pub(crate) enum BrokerRuntimePallets {
+enum BrokerRuntimePallets {
 	#[codec(index = 50)]
 	Broker(CoretimeCalls),
 }
 
 /// Call encoding for the calls needed from the Broker pallet.
 #[derive(Encode, Decode)]
-pub(crate) enum CoretimeCalls {
+enum CoretimeCalls {
 	#[codec(index = 1)]
 	Reserve(pallet_broker::Schedule),
 	#[codec(index = 3)]
@@ -128,6 +132,9 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The paraid making the call is not the coretime brokerage system parachain.
 		NotBroker,
+		/// Requested revenue information `when` parameter was in the future from the current
+		/// block height.
+		RequestedFutureRevenue,
 	}
 
 	#[pallet::hooks]
@@ -160,7 +167,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Ignore requests not coming from the broker parachain or root.
 			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-			assigner_on_demand::Pallet::<T>::notify_revenue(when)
+			Self::notify_revenue(when)
 		}
 
 		//// TODO Impl me!
@@ -245,6 +252,39 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 	}
+
+	/// Provide the amount of revenue accumulated from Instantaneous Coretime Sales from Relay-chain
+	/// block number last_until to until, not including until itself. last_until is defined as being
+	/// the until argument of the last notify_revenue message sent, or zero for the first call. If
+	/// revenue is None, this indicates that the information is no longer available. This explicitly
+	/// disregards the possibility of multiple parachains requesting and being notified of revenue
+	/// information.
+	///
+	/// The Relay-chain must be configured to ensure that only a single revenue information
+	/// destination exists.
+	pub fn notify_revenue(when: BlockNumberFor<T>) -> DispatchResult {
+		let now = <frame_system::Pallet<T>>::block_number();
+		// When cannot be in the future.
+		ensure!(when <= now, Error::<T>::RequestedFutureRevenue);
+
+		// TODO actual revenue
+		let revenue = <assigner_on_demand::Pallet<T>>::get_revenue(now, when);
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			mk_coretime_call(CoretimeCalls::NotifyRevenue(revenue.inner())),
+		]);
+		if let Err(err) = send_xcm::<T::SendXcm>(
+			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
+			message,
+		) {
+			log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
+		}
+
+		Ok(())
+	}
 }
 
 impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
@@ -253,7 +293,7 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 	}
 }
 
-pub(crate) fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
+fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
 		// Largest call is set_lease with 1526 byte:

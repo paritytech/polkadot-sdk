@@ -340,12 +340,6 @@ pub mod pallet {
 		/// information stored for.
 		#[pallet::constant]
 		type MaxHistoricalRevenue: Get<u32>;
-
-		type SendXcm: SendXcm;
-
-		/// The ParaId of the broker system parachain.
-		#[pallet::constant]
-		type BrokerId: Get<u32>;
 	}
 
 	/// Creates and empty revenue tracker if one isn't present in storage already.
@@ -418,9 +412,6 @@ pub mod pallet {
 		/// The current spot price is higher than the max amount specified in the `place_order`
 		/// call, making it invalid.
 		SpotPriceHigherThanMaxAmount,
-		/// Requested revenue information `when` parameter was in the future from the current
-		/// block height.
-		RequestedFutureRevenue,
 	}
 
 	#[pallet::hooks]
@@ -828,51 +819,18 @@ where
 		})
 	}
 
-	/// Provide the amount of revenue accumulated from Instantaneous Coretime Sales from Relay-chain
-	/// block number last_until to until, not including until itself. last_until is defined as being
-	/// the until argument of the last notify_revenue message sent, or zero for the first call. If
-	/// revenue is None, this indicates that the information is no longer available. This explicitly
-	/// disregards the possibility of multiple parachains requesting and being notified of revenue
-	/// information.
-	///
-	/// The Relay-chain must be configured to ensure that only a single revenue information
-	/// destination exists.
-	pub fn notify_revenue(when: BlockNumberFor<T>) -> DispatchResult {
-		let now = <frame_system::Pallet<T>>::block_number();
-		// When cannot be in the future.
-		ensure!(when <= now, Error::<T>::RequestedFutureRevenue);
-
-		// TODO actual revenue
-		let revenue: Balance = 0u128;
-		let message = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			mk_coretime_call(CoretimeCalls::NotifyRevenue(revenue)),
-		]);
-		if let Err(err) = send_xcm::<T::SendXcm>(
-			Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
-			message,
-		) {
-			log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
-		}
-
-		Ok(())
-	}
-
-	fn get_revenue(now: BlockNumberFor<T>, when: BlockNumberFor<T>) -> Balance {
-		let revenue: Balance = 0u128;
-		T::Revenue::mutate(|revenue| {
-			revenue.into_iter().enumerate().for_each(|(index, block_revenue)| {
+	pub fn get_revenue(now: BlockNumberFor<T>, when: BlockNumberFor<T>) -> BalanceOf<T> {
+		let mut amount: BalanceOf<T> = 0.into();
+		Revenue::<T>::mutate(|revenue| {
+			revenue.into_iter().enumerate().for_each(|(index, mut block_revenue)| {
 				//
-				if when >= now.saturating_sub(index) {
-					revenue.saturating_add(block_revenue);
-					block_revenue = 0;
+				if when >= now.saturating_sub((index as u32).into()) {
+					amount.saturating_add(*block_revenue);
+					block_revenue = 0.into();
 				}
 			})
 		});
-		revenue
+		amount
 	}
 
 	/// Getter for the affinity tracker.
