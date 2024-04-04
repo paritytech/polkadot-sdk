@@ -89,7 +89,6 @@ pub trait WeightInfo {
 	fn claim_assets() -> Weight;
 	fn execute_blob() -> Weight;
 	fn send_blob() -> Weight;
-	fn transfer_assets_using_type() -> Weight;
 }
 
 /// fallback implementation
@@ -180,10 +179,6 @@ impl WeightInfo for TestWeightInfo {
 	}
 
 	fn send_blob() -> Weight {
-		Weight::from_parts(100_000_000, 0)
-	}
-
-	fn transfer_assets_using_type() -> Weight {
 		Weight::from_parts(100_000_000, 0)
 	}
 }
@@ -1446,6 +1441,7 @@ pub mod pallet {
 		/// - `fees_transfer_type`: The XCM `TransferType` used to transfer the `fees` assets.
 		/// - `weight_limit`: The remote-side weight limit, if any, for the XCM fee purchase.
 		#[pallet::call_index(15)]
+		#[pallet::weight(T::WeightInfo::transfer_assets())]
 		pub fn transfer_assets_using_type(
 			origin: OriginFor<T>,
 			dest: Box<VersionedLocation>,
