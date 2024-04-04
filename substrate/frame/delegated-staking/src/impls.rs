@@ -137,10 +137,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_withdraw(stash: &T::AccountId, amount: BalanceOf<T>) {
 		// if there is a withdraw to the agent, then add it to the unclaimed withdrawals.
 		let _ = Agent::<T>::from(stash)
-			// if not agent, we can ignore
-			.and_then(|agent| agent.add_unclaimed_withdraw(amount))
 			// can't do anything if there is an overflow error. Just raise a defensive error.
-			.defensive()
+			.and_then(|agent| agent.add_unclaimed_withdraw(amount).defensive())
 			.map(|agent| agent.save());
 	}
 }
