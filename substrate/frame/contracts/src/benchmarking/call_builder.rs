@@ -62,7 +62,7 @@ where
 	T: Config + pallet_balances::Config,
 	<BalanceOf<T> as HasCompact>::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 {
-	/// Create a new builder for the given module.
+	/// Setup a new call for the given module.
 	pub fn new(module: WasmModule<T>) -> Self {
 		let contract = Contract::<T>::new(module.clone(), vec![]).unwrap();
 		let dest = contract.account_id.clone();
@@ -84,26 +84,32 @@ where
 		}
 	}
 
+	/// Set the meter's storage deposit limit.
 	pub fn set_storage_deposit_limit(&mut self, balance: BalanceOf<T>) {
 		self.storage_meter = Meter::new(&self.origin, Some(balance), 0u32.into()).unwrap();
 	}
 
+	/// Set the call's origin.
 	pub fn set_origin(&mut self, origin: Origin<T>) {
 		self.origin = origin;
 	}
 
+	/// Set the contract's balance.
 	pub fn set_balance(&mut self, value: BalanceOf<T>) {
 		self.contract.set_balance(value);
 	}
 
+	/// Set the call's input data.
 	pub fn set_data(&mut self, value: Vec<u8>) {
 		self.data = value;
 	}
 
+	/// Get the call's input data.
 	pub fn data(&self) -> Vec<u8> {
 		self.data.clone()
 	}
 
+	/// Get the call's contract.
 	pub fn contract(&self) -> Contract<T> {
 		self.contract.clone()
 	}
