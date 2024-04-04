@@ -35,6 +35,7 @@ use frame_support::{
 		Currency, ProcessMessage, ProcessMessageError, ValidatorSet, ValidatorSetWithIdentification,
 	},
 	weights::{Weight, WeightMeter},
+	PalletId,
 };
 use frame_support_test::TestRandomness;
 use frame_system::limits;
@@ -374,6 +375,7 @@ parameter_types! {
 	// Production chains should keep this numbar around twice the
 	// defined Timeslice for Coretime.
 	pub const MaxHistoricalRevenue: BlockNumber = 2 * 5;
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 }
 
 impl assigner_on_demand::Config for Test {
@@ -382,6 +384,7 @@ impl assigner_on_demand::Config for Test {
 	type TrafficDefaultValue = OnDemandTrafficDefaultValue;
 	type WeightInfo = crate::assigner_on_demand::TestWeightInfo;
 	type MaxHistoricalRevenue = MaxHistoricalRevenue;
+	type PalletId = OnDemandPalletId;
 }
 
 impl assigner_coretime::Config for Test {}

@@ -117,6 +117,10 @@ pub mod pallet {
 		/// information stored for.
 		#[pallet::constant]
 		type MaxHistoricalRevenue: Get<u32>;
+
+		/// Identifier for the internal revenue balance.
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 	}
 
 	/// Creates and empty revenue tracker if one isn't present in storage already.
