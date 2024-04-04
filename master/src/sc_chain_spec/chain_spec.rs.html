@@ -1410,6 +1410,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1261" id="1261">1261</a>
 <a href="#1262" id="1262">1262</a>
 <a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1452,15 +1501,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	sync::Arc,
 };
 
-<span class="attr">#[derive(Serialize, Deserialize, Clone)]
+<span class="attr">#[derive(Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
-</span><span class="kw">enum </span>GenesisBuildAction {
+</span><span class="kw">enum </span>GenesisBuildAction&lt;EHF&gt; {
 	Patch(json::Value),
 	Full(json::Value),
+	NamedPreset(String, PhantomData&lt;EHF&gt;),
+}
+
+<span class="kw">impl</span>&lt;EHF&gt; Clone <span class="kw">for </span>GenesisBuildAction&lt;EHF&gt; {
+	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Patch(<span class="kw-2">ref </span>p) =&gt; <span class="self">Self</span>::Patch(p.clone()),
+			<span class="self">Self</span>::Full(<span class="kw-2">ref </span>f) =&gt; <span class="self">Self</span>::Full(f.clone()),
+			<span class="self">Self</span>::NamedPreset(<span class="kw-2">ref </span>p, <span class="kw">_</span>) =&gt; <span class="self">Self</span>::NamedPreset(p.clone(), Default::default()),
+		}
+	}
 }
 
 <span class="attr">#[allow(deprecated)]
-</span><span class="kw">enum </span>GenesisSource&lt;G&gt; {
+</span><span class="kw">enum </span>GenesisSource&lt;G, EHF&gt; {
 	File(PathBuf),
 	Binary(Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;),
 	<span class="doccomment">/// factory function + code
@@ -1468,10 +1528,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Factory(Arc&lt;<span class="kw">dyn </span>Fn() -&gt; G + Send + Sync&gt;, Vec&lt;u8&gt;),
 	Storage(Storage),
 	<span class="doccomment">/// build action + code
-	</span>GenesisBuilderApi(GenesisBuildAction, Vec&lt;u8&gt;),
+	</span>GenesisBuilderApi(GenesisBuildAction&lt;EHF&gt;, Vec&lt;u8&gt;),
 }
 
-<span class="kw">impl</span>&lt;G&gt; Clone <span class="kw">for </span>GenesisSource&lt;G&gt; {
+<span class="kw">impl</span>&lt;G, EHF&gt; Clone <span class="kw">for </span>GenesisSource&lt;G, EHF&gt; {
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			<span class="self">Self</span>::File(<span class="kw-2">ref </span>path) =&gt; <span class="self">Self</span>::File(path.clone()),
@@ -1483,7 +1543,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;G: RuntimeGenesis&gt; GenesisSource&lt;G&gt; {
+<span class="kw">impl</span>&lt;G: RuntimeGenesis, EHF: HostFunctions&gt; GenesisSource&lt;G, EHF&gt; {
 	<span class="kw">fn </span>resolve(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Genesis&lt;G&gt;, String&gt; {
 		<span class="doccomment">/// helper container for deserializing genesis from the JSON file (ChainSpec JSON file is
 		/// also supported here)
@@ -1530,6 +1590,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					json_blob: RuntimeGenesisConfigJson::Patch(patch.clone()),
 					code: code.clone(),
 				})),
+			<span class="self">Self</span>::GenesisBuilderApi(GenesisBuildAction::NamedPreset(name, <span class="kw">_</span>), code) =&gt; {
+				<span class="kw">let </span>patch = RuntimeCaller::&lt;EHF&gt;::new(<span class="kw-2">&amp;</span>code[..]).get_named_preset(<span class="prelude-val">Some</span>(name))<span class="question-mark">?</span>;
+				<span class="prelude-val">Ok</span>(Genesis::RuntimeGenesis(RuntimeGenesisInner {
+					json_blob: RuntimeGenesisConfigJson::Patch(patch),
+					code: code.clone(),
+				}))
+			},
 		}
 	}
 }
@@ -1743,13 +1810,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	name: String,
 	id: String,
 	chain_type: ChainType,
-	genesis_build_action: GenesisBuildAction,
+	genesis_build_action: GenesisBuildAction&lt;EHF&gt;,
 	boot_nodes: <span class="prelude-ty">Option</span>&lt;Vec&lt;MultiaddrWithPeerId&gt;&gt;,
 	telemetry_endpoints: <span class="prelude-ty">Option</span>&lt;TelemetryEndpoints&gt;,
 	protocol_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	fork_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	properties: <span class="prelude-ty">Option</span>&lt;Properties&gt;,
-	_genesis: PhantomData&lt;(G, EHF)&gt;,
+	_genesis: PhantomData&lt;G&gt;,
 }
 
 <span class="kw">impl</span>&lt;G, E, EHF&gt; ChainSpecBuilder&lt;G, E, EHF&gt; {
@@ -1837,6 +1904,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self
 	</span>}
 
+	<span class="doccomment">/// Sets the name of runtime-provided JSON patch for runtime&#39;s GenesisConfig.
+	</span><span class="kw">pub fn </span>with_genesis_config_preset_name(<span class="kw-2">mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.genesis_build_action =
+			GenesisBuildAction::NamedPreset(name.to_string(), Default::default());
+		<span class="self">self
+	</span>}
+
 	<span class="doccomment">/// Sets the full runtime&#39;s GenesisConfig JSON.
 	</span><span class="kw">pub fn </span>with_genesis_config(<span class="kw-2">mut </span><span class="self">self</span>, config: json::Value) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.genesis_build_action = GenesisBuildAction::Full(config);
@@ -1875,7 +1949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// runtime is using the non-standard host function during genesis state creation.
 </span><span class="kw">pub struct </span>ChainSpec&lt;G, E = NoExtension, EHF = ()&gt; {
 	client_spec: ClientSpec&lt;E&gt;,
-	genesis: GenesisSource&lt;G&gt;,
+	genesis: GenesisSource&lt;G, EHF&gt;,
 	_host_functions: PhantomData&lt;EHF&gt;,
 }
 
@@ -2421,8 +2495,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(raw_chain_spec.is_ok());
 	}
 
-	<span class="attr">#[docify::export]
-	#[test]
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>generate_chain_spec_with_named_preset_works() {
+		sp_tracing::try_init_simple();
+		<span class="kw">let </span>output: ChainSpec&lt;()&gt; = ChainSpec::builder(
+			substrate_test_runtime::wasm_binary_unwrap().into(),
+			Default::default(),
+		)
+		.with_name(<span class="string">&quot;TestName&quot;</span>)
+		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_chain_type(ChainType::Local)
+		.with_genesis_config_preset_name(<span class="string">&quot;staging&quot;</span>)
+		.build();
+
+		<span class="kw">let </span>actual = output.as_json(<span class="bool-val">false</span>).unwrap();
+		<span class="kw">let </span>expected =
+			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">&quot;../res/substrate_test_runtime_from_named_preset.json&quot;</span>))
+				.unwrap();
+
+		<span class="comment">//wasm blob may change overtime so let&#39;s zero it. Also ensure it is there:
+		</span><span class="kw">let </span>actual = zeroize_code_key_in_json(<span class="bool-val">false</span>, actual.as_str());
+
+		<span class="macro">assert_eq!</span>(actual, expected);
+	}
+
+	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_chain_spec_with_patch_works() {
 		<span class="kw">let </span>output = ChainSpec::&lt;()&gt;::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
@@ -2501,6 +2598,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>chain_spec_as_json_fails_with_invalid_config() {
+		<span class="kw">let </span>expected_error_message =
+			<span class="macro">include_str!</span>(<span class="string">&quot;../res/chain_spec_as_json_fails_with_invalid_config.err&quot;</span>);
 		<span class="kw">let </span>j =
 			<span class="macro">include_str!</span>(<span class="string">&quot;../../../test-utils/runtime/res/default_genesis_config_invalid_2.json&quot;</span>);
 		<span class="kw">let </span>output = ChainSpec::&lt;()&gt;::builder(
@@ -2513,10 +2612,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.with_genesis_config(from_str(j).unwrap())
 		.build();
 
-		<span class="macro">assert_eq!</span>(
-			output.as_json(<span class="bool-val">true</span>),
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 1 column 8&quot;</span>.to_string())
-		);
+		<span class="kw">let </span>result = output.as_json(<span class="bool-val">true</span>);
+
+		<span class="macro">assert_eq!</span>(result.err().unwrap(), expected_error_message);
 	}
 
 	<span class="attr">#[test]

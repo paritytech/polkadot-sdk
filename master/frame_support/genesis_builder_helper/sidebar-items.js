@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["build_config","create_default_config"]};
+window.SIDEBAR_ITEMS = {"fn":["build_state","get_preset"]};

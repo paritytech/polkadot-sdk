@@ -223,6 +223,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -243,14 +283,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>chain_spec_builder::{
 	generate_chain_spec_for_runtime, ChainSpecBuilder, ChainSpecBuilderCmd, ConvertToRawCmd,
-	UpdateCodeCmd, VerifyCmd,
+	DisplayPresetCmd, ListPresetsCmd, UpdateCodeCmd, VerifyCmd,
 };
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>sc_chain_spec::{update_code_in_json_chain_spec, GenericChainSpec};
+<span class="kw">use </span>sc_chain_spec::{
+	update_code_in_json_chain_spec, GenericChainSpec, GenesisConfigBuilderRuntimeCaller,
+};
 <span class="kw">use </span>staging_chain_spec_builder <span class="kw">as </span>chain_spec_builder;
 <span class="kw">use </span>std::fs;
 
-<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+<span class="comment">//avoid error message escaping
+</span><span class="kw">fn </span>main() {
+	<span class="kw">match </span>inner_main() {
+		<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{e}&quot;</span>)),
+		<span class="kw">_ </span>=&gt; {},
+	}
+}
+
+<span class="kw">fn </span>inner_main() -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 	sp_tracing::try_init_simple();
 
 	<span class="kw">let </span>builder = ChainSpecBuilder::parse();
@@ -295,6 +345,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>chain_spec = GenericChainSpec::&lt;()&gt;::from_json_file(input_chain_spec.clone())<span class="question-mark">?</span>;
 			<span class="kw">let _ </span>= serde_json::from_str::&lt;serde_json::Value&gt;(<span class="kw-2">&amp;</span>chain_spec.as_json(<span class="bool-val">true</span>)<span class="question-mark">?</span>)
 				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Conversion to json failed: {e}&quot;</span>))<span class="question-mark">?</span>;
+		},
+		ChainSpecBuilderCmd::ListPresets(ListPresetsCmd { runtime_wasm_path }) =&gt; {
+			<span class="kw">let </span>code = fs::read(runtime_wasm_path.as_path())
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;wasm blob shall be readable {e}&quot;</span>))<span class="question-mark">?</span>;
+			<span class="kw">let </span>caller: GenesisConfigBuilderRuntimeCaller =
+				GenesisConfigBuilderRuntimeCaller::new(<span class="kw-2">&amp;</span>code[..]);
+			<span class="kw">let </span>presets = caller
+				.preset_names()
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;getting default config from runtime should work: {e}&quot;</span>))<span class="question-mark">?</span>;
+			<span class="kw">let </span>presets: Vec&lt;String&gt; = presets
+				.into_iter()
+				.map(|preset| {
+					String::from(
+						TryInto::&lt;<span class="kw-2">&amp;</span>str&gt;::try_into(<span class="kw-2">&amp;</span>preset)
+							.unwrap_or_else(|<span class="kw">_</span>| <span class="string">&quot;cannot display preset id&quot;</span>)
+							.to_string(),
+					)
+				})
+				.collect();
+			<span class="macro">println!</span>(<span class="string">&quot;{presets:#?}&quot;</span>);
+		},
+		ChainSpecBuilderCmd::DisplayPreset(DisplayPresetCmd { runtime_wasm_path, preset_name }) =&gt; {
+			<span class="kw">let </span>code = fs::read(runtime_wasm_path.as_path())
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;wasm blob shall be readable {e}&quot;</span>))<span class="question-mark">?</span>;
+			<span class="kw">let </span>caller: GenesisConfigBuilderRuntimeCaller =
+				GenesisConfigBuilderRuntimeCaller::new(<span class="kw-2">&amp;</span>code[..]);
+			<span class="kw">let </span>preset = caller
+				.get_named_preset(preset_name.as_ref())
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;getting default config from runtime should work: {e}&quot;</span>))<span class="question-mark">?</span>;
+			<span class="macro">println!</span>(<span class="string">&quot;{preset}&quot;</span>);
 		},
 	};
 	<span class="prelude-val">Ok</span>(())

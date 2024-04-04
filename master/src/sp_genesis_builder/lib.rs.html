@@ -204,6 +204,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -225,40 +269,84 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Substrate genesis config builder
 //!
-//! This Runtime API allows to construct `RuntimeGenesisConfig`, in particular:
-//! - serialize the runtime default `RuntimeGenesisConfig` struct into json format,
-//! - put the RuntimeGenesisConfig struct into the storage. Internally this operation calls
-//!   `GenesisBuild::build` function for all runtime pallets, which is typically provided by
-//!   pallet&#39;s author.
-//! - deserialize the `RuntimeGenesisConfig` from given json blob and put `RuntimeGenesisConfig`
-//!   into the state storage. Allows to build customized configuration.
+//! For FRAME based runtimes, this runtime interface provides means to interact with
+//! `RuntimeGenesisConfig`. Runtime provides a default `RuntimeGenesisConfig` structure in a form of
+//! the JSON blob.
 //!
-//! Providing externalities with empty storage and putting `RuntimeGenesisConfig` into storage
-//! allows to catch and build the raw storage of `RuntimeGenesisConfig` which is the foundation for
-//! genesis block.
+//! For non-FRAME runtimes this interface is intended to build genesis state of the runtime basing
+//! on some input arbitrary bytes array. This documentation uses term `RuntimeGenesisConfig`, which
+//! for non-FRAME runtimes may be understood as the runtime-side entity representing initial runtime
+//! configuration. The representation of the preset is an arbitrary `Vec&lt;u8&gt;` and does not
+//! necessarily have to represent a JSON blob.
+//!
+//! The runtime may provide a number of partial predefined `RuntimeGenesisConfig` configurations in
+//! the form of patches which shall be applied on top of the default `RuntimeGenesisConfig`. The
+//! patch is a JSON blob, which essentially comprises the list of key-value pairs that are to be
+//! customized in the default runtime genesis config. These predefined configurations are referred
+//! to as presets.
+//!
+//! This allows the runtime to provide a number of predefined configs (e.g. for different
+//! testnets or development) without neccessity to leak the runtime types outside the itself (e.g.
+//! node or chain-spec related tools).
+//!
+//! This Runtime API allows to interact with `RuntimeGenesisConfig`, in particular:
+//! - provide the list of available preset names,
+//! - provide a number of named presets of `RuntimeGenesisConfig`,
+//! - provide a JSON represention of the default `RuntimeGenesisConfig` (by simply serializing the
+//!   default `RuntimeGenesisConfig` struct into JSON format),
+//! - deserialize the full `RuntimeGenesisConfig` from given JSON blob and put the resulting
+//!   `RuntimeGenesisConfig` structure into the state storage creating the initial runtime&#39;s state.
+//!   Allows to build customized genesis. This operation internally calls `GenesisBuild::build`
+//!   function for all runtime pallets.
+//!
+//! Providing externalities with an empty storage and putting `RuntimeGenesisConfig` into storage
+//! (by calling `build_state`) allows to construct the raw storage of `RuntimeGenesisConfig`
+//! which is the foundation for genesis block.
 
 </span><span class="kw">extern crate </span>alloc;
+<span class="kw">use </span>alloc::vec::Vec;
 
 <span class="doccomment">/// The result type alias, used in build methods. `Err` contains formatted error message.
 </span><span class="kw">pub type </span><span class="prelude-ty">Result </span>= core::result::Result&lt;(), sp_runtime::RuntimeString&gt;;
 
+<span class="doccomment">/// The type representing preset ID.
+</span><span class="kw">pub type </span>PresetId = sp_runtime::RuntimeString;
+
 <span class="macro">sp_api::decl_runtime_apis! </span>{
 	<span class="doccomment">/// API to interact with RuntimeGenesisConfig for the runtime
 	</span><span class="kw">pub trait </span>GenesisBuilder {
-		<span class="doccomment">/// Creates the default `RuntimeGenesisConfig` and returns it as a JSON blob.
+		<span class="doccomment">/// Build `RuntimeGenesisConfig` from a JSON blob not using any defaults and store it in the
+		/// storage.
 		///
-		/// This function instantiates the default `RuntimeGenesisConfig` struct for the runtime and serializes it into a JSON
-		/// blob. It returns a `Vec&lt;u8&gt;` containing the JSON representation of the default `RuntimeGenesisConfig`.
-		</span><span class="kw">fn </span>create_default_config() -&gt; alloc::vec::Vec&lt;u8&gt;;
+		/// In the case of a FRAME-based runtime, this function deserializes the full `RuntimeGenesisConfig` from the given JSON blob and
+		/// puts it into the storage. If the provided JSON blob is incorrect or incomplete or the
+		/// deserialization fails, an error is returned.
+		///
+		/// Please note that provided JSON blob must contain all `RuntimeGenesisConfig` fields, no
+		/// defaults will be used.
+		</span><span class="kw">fn </span>build_state(json: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>;
 
-		<span class="doccomment">/// Build `RuntimeGenesisConfig` from a JSON blob not using any defaults and store it in the storage.
+		<span class="doccomment">/// Returns a JSON blob representation of the built-in `RuntimeGenesisConfig` identified by
+		/// `id`.
 		///
-		/// This function deserializes the full `RuntimeGenesisConfig` from the given JSON blob and puts it into the storage.
-		/// If the provided JSON blob is incorrect or incomplete or the deserialization fails, an error is returned.
-		/// It is recommended to log any errors encountered during the process.
+		/// If `id` is `None` the function returns JSON blob representation of the default
+		/// `RuntimeGenesisConfig` struct of the runtime. Implementation must provide default
+		/// `RuntimeGenesisConfig`.
 		///
-		/// Please note that provided json blob must contain all `RuntimeGenesisConfig` fields, no defaults will be used.
-		</span><span class="kw">fn </span>build_config(json: alloc::vec::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>;
+		/// Otherwise function returns a JSON representation of the built-in, named
+		/// `RuntimeGenesisConfig` preset identified by `id`, or `None` if such preset does not
+		/// exists. Returned `Vec&lt;u8&gt;` contains bytes of JSON blob (patch) which comprises a list of
+		/// (potentially nested) key-value pairs that are intended for customizing the default
+		/// runtime genesis config. The patch shall be merged (rfc7386) with the JSON representation
+		/// of the default `RuntimeGenesisConfig` to create a comprehensive genesis config that can
+		/// be used in `build_state` method.
+		</span><span class="kw">fn </span>get_preset(id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;;
+
+		<span class="doccomment">/// Returns a list of identifiers for available builtin `RuntimeGenesisConfig` presets.
+		///
+		/// The presets from the list can be queried with [`GenesisBuilder::get_preset`] method. If
+		/// no named presets are provided by the runtime the list is empty.
+		</span><span class="kw">fn </span>preset_names() -&gt; Vec&lt;PresetId&gt;;
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

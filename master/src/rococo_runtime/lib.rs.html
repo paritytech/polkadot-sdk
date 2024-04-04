@@ -2560,6 +2560,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2411" id="2411">2411</a>
 <a href="#2412" id="2412">2412</a>
 <a href="#2413" id="2413">2413</a>
+<a href="#2414" id="2414">2414</a>
+<a href="#2415" id="2415">2415</a>
+<a href="#2416" id="2416">2416</a>
+<a href="#2417" id="2417">2417</a>
+<a href="#2418" id="2418">2418</a>
+<a href="#2419" id="2419">2419</a>
+<a href="#2420" id="2420">2420</a>
+<a href="#2421" id="2421">2421</a>
+<a href="#2422" id="2422">2422</a>
+<a href="#2423" id="2423">2423</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2582,7 +2592,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;512&quot;</span>]
 
-</span><span class="kw">use </span>pallet_nis::WithMaximumOf;
+</span><span class="kw">use </span>authority_discovery_primitives::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
+<span class="kw">use </span>beefy_primitives::{
+	ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature},
+	mmr::{BeefyDataProvider, MmrLeafVersion},
+};
+<span class="kw">use </span>pallet_nis::WithMaximumOf;
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>primitives::{
 	slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateEvent,
@@ -2602,9 +2617,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{Leaser, OnSwap},
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
-<span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
-
 <span class="kw">use </span>runtime_parachains::{
 	assigner_coretime <span class="kw">as </span>parachains_assigner_coretime,
 	assigner_on_demand <span class="kw">as </span>parachains_assigner_on_demand, configuration <span class="kw">as </span>parachains_configuration,
@@ -2618,16 +2630,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	scheduler <span class="kw">as </span>parachains_scheduler, session_info <span class="kw">as </span>parachains_session_info,
 	shared <span class="kw">as </span>parachains_shared,
 };
-
-<span class="kw">use </span>authority_discovery_primitives::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
-<span class="kw">use </span>beefy_primitives::{
-	ecdsa_crypto::{AuthorityId <span class="kw">as </span>BeefyId, Signature <span class="kw">as </span>BeefySignature},
-	mmr::{BeefyDataProvider, MmrLeafVersion},
-};
+<span class="kw">use </span>scale_info::TypeInfo;
+<span class="kw">use </span>sp_genesis_builder::PresetId;
+<span class="kw">use </span>sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>frame_support::{
 	construct_runtime, derive_impl,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
@@ -2689,6 +2698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
+<span class="kw">mod </span>genesis_config_presets;
 <span class="kw">mod </span>validator_manager;
 
 <span class="macro">impl_runtime_weights!</span>(rococo_runtime_constants);
@@ -4925,12 +4935,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>create_default_config() -&gt; Vec&lt;u8&gt; {
-			create_default_config::&lt;RuntimeGenesisConfig&gt;()
+		<span class="kw">fn </span>build_state(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+			build_state::&lt;RuntimeGenesisConfig&gt;(config)
 		}
 
-		<span class="kw">fn </span>build_config(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
-			build_config::&lt;RuntimeGenesisConfig&gt;(config)
+		<span class="kw">fn </span>get_preset(id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+			get_preset::&lt;RuntimeGenesisConfig&gt;(id, <span class="kw-2">&amp;</span>genesis_config_presets::get_preset)
+		}
+
+		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;PresetId&gt; {
+			<span class="macro">vec!</span>[
+				PresetId::from(<span class="string">&quot;local_testnet&quot;</span>),
+				PresetId::from(<span class="string">&quot;development&quot;</span>),
+				PresetId::from(<span class="string">&quot;staging_testnet&quot;</span>),
+				PresetId::from(<span class="string">&quot;wococo_local_testnet&quot;</span>),
+				PresetId::from(<span class="string">&quot;versi_local_testnet&quot;</span>),
+			]
 		}
 	}
 }

@@ -1615,6 +1615,79 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1466" id="1466">1466</a>
 <a href="#1467" id="1467">1467</a>
 <a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1644,11 +1717,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>genesismap;
 <span class="kw">pub mod </span>substrate_test_pallet;
 
+<span class="kw">use </span>alloc::boxed::Box;
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{
@@ -1661,10 +1737,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CheckNonce, CheckWeight,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
-
-<span class="kw">use </span>alloc::boxed::Box;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>sp_application_crypto::Ss58Codec;
+<span class="kw">use </span>sp_keyring::AccountKeyring;
 
 <span class="kw">use </span>sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 <span class="kw">use </span>sp_core::{OpaqueMetadata, RuntimeDebug};
@@ -1674,8 +1748,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>trie_db::{Trie, TrieMut};
 
+<span class="kw">use </span>serde_json::json;
 <span class="kw">use </span>sp_api::{decl_runtime_apis, impl_runtime_apis};
 <span class="kw">pub use </span>sp_core::hash::H256;
+<span class="kw">use </span>sp_genesis_builder::PresetId;
 <span class="kw">use </span>sp_inherents::{CheckInherentsResult, InherentData};
 <span class="kw">use </span>sp_runtime::{
 	create_runtime_str, impl_opaque_keys,
@@ -1710,7 +1786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub fn </span>wasm_binary_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 	WASM_BINARY.expect(
-		<span class="string">&quot;Development wasm binary is not available. Testing is only supported with the flag \
+		<span class="string">&quot;Development wasm binary is not available. Testing is only supported with the flag
 		 disabled.&quot;</span>,
 	)
 }
@@ -1719,7 +1795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub fn </span>wasm_binary_logging_disabled_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
 	wasm_binary_logging_disabled::WASM_BINARY.expect(
-		<span class="string">&quot;Development wasm binary is not available. Testing is only supported with the flag \
+		<span class="string">&quot;Development wasm binary is not available. Testing is only supported with the flag
 		 disabled.&quot;</span>,
 	)
 }
@@ -2342,12 +2418,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl </span>sp_genesis_builder::GenesisBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
-		<span class="kw">fn </span>create_default_config() -&gt; Vec&lt;u8&gt; {
-			create_default_config::&lt;RuntimeGenesisConfig&gt;()
+		<span class="kw">fn </span>build_state(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
+			build_state::&lt;RuntimeGenesisConfig&gt;(config)
 		}
 
-		<span class="kw">fn </span>build_config(config: Vec&lt;u8&gt;) -&gt; sp_genesis_builder::Result {
-			build_config::&lt;RuntimeGenesisConfig&gt;(config)
+		<span class="kw">fn </span>get_preset(name: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+			get_preset::&lt;RuntimeGenesisConfig&gt;(name, |name| {
+				<span class="kw">let </span>patch = <span class="kw">match </span>name.try_into() {
+					<span class="prelude-val">Ok</span>(<span class="string">&quot;staging&quot;</span>) =&gt; {
+						<span class="kw">let </span>endowed_accounts: Vec&lt;AccountId&gt; = <span class="macro">vec!</span>[
+							AccountKeyring::Bob.public().into(),
+							AccountKeyring::Charlie.public().into(),
+						];
+
+						<span class="macro">json!</span>({
+							<span class="string">&quot;balances&quot;</span>: {
+								<span class="string">&quot;balances&quot;</span>: endowed_accounts.into_iter().map(|k| (k, <span class="number">10 </span>* currency::DOLLARS)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+							},
+							<span class="string">&quot;substrateTest&quot;</span>: {
+								<span class="string">&quot;authorities&quot;</span>: [
+									AccountKeyring::Alice.public().to_ss58check(),
+									AccountKeyring::Ferdie.public().to_ss58check()
+								],
+							}
+						})
+					},
+					<span class="prelude-val">Ok</span>(<span class="string">&quot;foobar&quot;</span>) =&gt; <span class="macro">json!</span>({<span class="string">&quot;foo&quot;</span>:<span class="string">&quot;bar&quot;</span>}),
+					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+				};
+				<span class="prelude-val">Some</span>(serde_json::to_string(<span class="kw-2">&amp;</span>patch)
+					.expect(<span class="string">&quot;serialization to json is expected to work. qed.&quot;</span>)
+					.into_bytes())
+			})
+		}
+
+		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;PresetId&gt; {
+			<span class="macro">vec!</span>[PresetId::from(<span class="string">&quot;foobar&quot;</span>), PresetId::from(<span class="string">&quot;staging&quot;</span>)]
 		}
 	}
 }
@@ -2453,7 +2559,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>storage_key_generator {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sp_core::Pair;
-	<span class="kw">use </span>sp_keyring::AccountKeyring;
 
 	<span class="doccomment">/// Generate hex string without prefix
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>hex&lt;T&gt;(x: T) -&gt; String
@@ -2643,7 +2748,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_api::{ApiExt, ProvideRuntimeApi};
 	<span class="kw">use </span>sp_consensus::BlockOrigin;
 	<span class="kw">use </span>sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
-	<span class="kw">use </span>sp_keyring::AccountKeyring;
 	<span class="kw">use </span>sp_runtime::{
 		traits::{Hash <span class="kw">as _</span>, SignedExtension},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
@@ -2794,7 +2898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			<span class="kw">let </span>x = sp_keyring::AccountKeyring::Alice.into();
+			<span class="kw">let </span>x = AccountKeyring::Alice.into();
 			<span class="kw">let </span>info = DispatchInfo::default();
 			<span class="kw">let </span>len = <span class="number">0_usize</span>;
 			<span class="macro">assert_eq!</span>(
@@ -2859,7 +2963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>default_minimal_json = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:{&quot;c&quot;: [ 3, 10 ],&quot;allowed_slots&quot;:&quot;PrimaryAndSecondaryPlainSlots&quot;}},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 
-			executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>default_minimal_json.encode())
+			executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>default_minimal_json.encode())
 				.unwrap();
 
 			<span class="kw">let </span><span class="kw-2">mut </span>keys = t.into_storages().top.keys().cloned().map(hex).collect::&lt;Vec&lt;String&gt;&gt;();
@@ -2907,12 +3011,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>default_config_as_json_works() {
 			sp_tracing::try_init_simple();
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_create_default_config&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[]).unwrap();
-			<span class="kw">let </span>r = Vec::&lt;u8&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_get_preset&quot;</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>PresetId&gt;.encode())
+				.unwrap();
+			<span class="kw">let </span>r = <span class="prelude-ty">Option</span>::&lt;Vec&lt;u8&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..])
+				.unwrap()
+				.expect(<span class="string">&quot;default config is there&quot;</span>);
 			<span class="kw">let </span>json = String::from_utf8(r.into()).expect(<span class="string">&quot;returned value is json. qed.&quot;</span>);
 
 			<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:{&quot;c&quot;:[1,4],&quot;allowed_slots&quot;:&quot;PrimaryAndSecondaryVRFSlots&quot;}},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
 			<span class="macro">assert_eq!</span>(expected.to_string(), json);
+		}
+
+		<span class="attr">#[test]
+		</span><span class="kw">fn </span>preset_names_listing_works() {
+			sp_tracing::try_init_simple();
+			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_preset_names&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[]).unwrap();
+			<span class="kw">let </span>r = Vec::&lt;PresetId&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
+			<span class="macro">assert_eq!</span>(r, <span class="macro">vec!</span>[PresetId::from(<span class="string">&quot;foobar&quot;</span>), PresetId::from(<span class="string">&quot;staging&quot;</span>),]);
+			<span class="macro">log::info!</span>(<span class="string">&quot;r: {:#?}&quot;</span>, r);
+		}
+
+		<span class="attr">#[test]
+		</span><span class="kw">fn </span>named_config_works() {
+			sp_tracing::try_init_simple();
+			<span class="kw">let </span>f = |cfg_name: <span class="kw-2">&amp;</span>str, expected: <span class="kw-2">&amp;</span>str| {
+				<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
+				<span class="kw">let </span>name = cfg_name.to_string();
+				<span class="kw">let </span>r = executor_call(
+					<span class="kw-2">&amp;mut </span>t,
+					<span class="string">&quot;GenesisBuilder_get_preset&quot;</span>,
+					<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(name.as_bytes()).encode(),
+				)
+				.unwrap();
+				<span class="kw">let </span>r = <span class="prelude-ty">Option</span>::&lt;Vec&lt;u8&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
+				<span class="kw">let </span>json =
+					String::from_utf8(r.unwrap().into()).expect(<span class="string">&quot;returned value is json. qed.&quot;</span>);
+				<span class="macro">log::info!</span>(<span class="string">&quot;json: {:#?}&quot;</span>, json);
+				<span class="macro">assert_eq!</span>(expected.to_string(), json);
+			};
+
+			f(<span class="string">&quot;foobar&quot;</span>, <span class="string">r#&quot;{&quot;foo&quot;:&quot;bar&quot;}&quot;#</span>);
+			f(
+				<span class="string">&quot;staging&quot;</span>,
+				<span class="string">r#&quot;{&quot;balances&quot;:{&quot;balances&quot;:[[&quot;5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty&quot;,1000000000000000],[&quot;5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y&quot;,1000000000000000]]},&quot;substrateTest&quot;:{&quot;authorities&quot;:[&quot;5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY&quot;,&quot;5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL&quot;]}}&quot;#</span>,
+			);
 		}
 
 		<span class="attr">#[test]
@@ -2921,7 +3064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config.json&quot;</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r = BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]);
 			<span class="macro">assert!</span>(r.is_ok());
 
@@ -2940,7 +3083,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sp_tracing::try_init_simple();
 			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config_invalid.json&quot;</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r = BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
 			<span class="macro">log::info!</span>(<span class="string">&quot;result: {:#?}&quot;</span>, r);
 			<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Err</span>(
@@ -2955,7 +3098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sp_tracing::try_init_simple();
 			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config_invalid_2.json&quot;</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r = BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
 			<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Err</span>(
 				sp_runtime::RuntimeString::Owned(
@@ -2970,7 +3113,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config_incomplete.json&quot;</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_config&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r =
 				core::result::Result::&lt;(), sp_runtime::RuntimeString&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
 			<span class="macro">assert_eq!</span>(
@@ -3005,8 +3148,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>sp_tracing::try_init_simple();
 
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_create_default_config&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[]).unwrap();
-			<span class="kw">let </span>r = Vec::&lt;u8&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_get_preset&quot;</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>PresetId&gt;.encode())
+				.unwrap();
+			<span class="kw">let </span>r = <span class="prelude-ty">Option</span>::&lt;Vec&lt;u8&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..])
+				.unwrap()
+				.expect(<span class="string">&quot;default config is there&quot;</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>default_config: serde_json::Value =
 				serde_json::from_slice(<span class="kw-2">&amp;</span>r[..]).expect(<span class="string">&quot;returned value is json. qed.&quot;</span>);
 
@@ -3035,7 +3181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 			executor_call(
 				<span class="kw-2">&amp;mut </span>t,
-				<span class="string">&quot;GenesisBuilder_build_config&quot;</span>,
+				<span class="string">&quot;GenesisBuilder_build_state&quot;</span>,
 				<span class="kw-2">&amp;</span>default_config.to_string().encode(),
 			)
 			.unwrap();
@@ -3053,8 +3199,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>authority_key_vec =
 				Vec::&lt;sp_core::sr25519::Public&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>value[..]).unwrap();
 			<span class="macro">assert_eq!</span>(authority_key_vec.len(), <span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(authority_key_vec[<span class="number">0</span>], sp_keyring::AccountKeyring::Ferdie.public());
-			<span class="macro">assert_eq!</span>(authority_key_vec[<span class="number">1</span>], sp_keyring::AccountKeyring::Alice.public());
+			<span class="macro">assert_eq!</span>(authority_key_vec[<span class="number">0</span>], AccountKeyring::Ferdie.public());
+			<span class="macro">assert_eq!</span>(authority_key_vec[<span class="number">1</span>], AccountKeyring::Alice.public());
 
 			<span class="comment">//Babe|Authorities
 			</span><span class="kw">let </span>value: Vec&lt;u8&gt; = get_from_storage(

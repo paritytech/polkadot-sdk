@@ -393,6 +393,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -423,51 +479,84 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! See [`ChainSpecBuilderCmd`] for a list of available commands.
 //!
 //! ## Typical use-cases.
-//! ##### Get default config from runtime.
+//! ##### Generate chains-spec using default config from runtime.
 //!
-//! Query the default genesis config from the provided `runtime.wasm` and use it in the chain
-//! spec. The tool allows specifying where to write the chain spec, and optionally also where the
-//! write the default genesis state config (which is `/dev/stdout` in the following example):
-//! ```text
-//! chain-spec-builder --chain_spec_path ./my_chain_spec.json create -r runtime.wasm default /dev/stdout
+//!	Query the default genesis config from the provided `runtime.wasm` and use it in the chain
+//! spec.
+//!	```bash
+//! chain-spec-builder create -r runtime.wasm default
 //! ```
-//!
-//! _Note:_ [`GenesisBuilder::create_default_config`][sp-genesis-builder-create] runtime function is
+//! 
+//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is
 //! called.
 //!
+//!
+//! ##### Display the runtime&#39;s default `GenesisConfig`
+//!
+//! Displays the content of the runtime&#39;s default `GenesisConfig`
+//! ```bash
+//! chain-spec-builder display-preset -r runtime.wasm
+//! ```
+//! 
+//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
+//!
+//! ##### Display the `GenesisConfig` preset with given name
+//!
+//! Displays the content of the `GenesisConfig` preset for given name
+//! ```bash
+//! chain-spec-builder display-preset -r runtime.wasm -p &quot;staging&quot;
+//! ```
+//! 
+//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
+//!
+//! ##### List the names of `GenesisConfig` presets provided by runtime.
+//!
+//! Displays the names of the presets of `GenesisConfigs` provided by runtime.
+//! ```bash
+//! chain-spec-builder list-presets -r runtime.wasm
+//! ```
+//! 
+//! _Note:_ [`GenesisBuilder::preset_names`][sp-genesis-builder-list] runtime function is called.
+//!
+//! ##### Generate chain spec using runtime provided genesis config preset.
+//!
+//! Patch the runtime&#39;s default genesis config with the named preset provided by the runtime and generate the plain
+//! version of chain spec:
+//! ```bash
+//! chain-spec-builder create -r runtime.wasm named-preset &quot;staging&quot;
+//! ```
+//! 
+//! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] and [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime functions are called.
 //!
 //! ##### Generate raw storage chain spec using genesis config patch.
 //!
 //! Patch the runtime&#39;s default genesis config with provided `patch.json` and generate raw
 //! storage (`-s`) version of chain spec:
-//!
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
 //! ```
-//!
-//! _Note:_ [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
+//! 
+//! _Note:_ [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate raw storage chain spec using full genesis config.
 //!
 //! Build the chain spec using provided full genesis config json file. No defaults will be used:
-//!
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
-//! _Note_: [`GenesisBuilder::build_config`][sp-genesis-builder-build] runtime function is called.
+//! 
+//! _Note_: [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime function is called.
 //!
 //! ##### Generate human readable chain spec using provided genesis config patch.
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm patch patch.json
 //! ```
-//!
+//! 
 //! ##### Generate human readable chain spec using provided full genesis config.
-//!
 //! ```bash
 //! chain-spec-builder create -r runtime.wasm full full-genesis-config.json
 //! ```
-//!
+//! 
 //! ##### Extra tools.
 //! The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`], [`ConvertToRawCmd`],
 //! [`UpdateCodeCmd`].
@@ -475,8 +564,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! [`sc-chain-spec`]: ../sc_chain_spec/index.html
 //! [`node-cli`]: ../node_cli/index.html
 //! [`sp-genesis-builder`]: ../sp_genesis_builder/index.html
-//! [sp-genesis-builder-create]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.create_default_config
-//! [sp-genesis-builder-build]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.build_config
+//! [sp-genesis-builder-build]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state
+//! [sp-genesis-builder-list]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names
+//! [sp-genesis-builder-get-preset]: ../sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset
 
 </span><span class="kw">use </span>std::{fs, path::PathBuf};
 
@@ -502,6 +592,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Verify(VerifyCmd),
 	UpdateCode(UpdateCodeCmd),
 	ConvertToRaw(ConvertToRawCmd),
+	ListPresets(ListPresetsCmd),
+	DisplayPreset(DisplayPresetCmd),
 }
 
 <span class="doccomment">/// Create a new chain spec by interacting with the provided runtime wasm blob.
@@ -532,6 +624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Patch(PatchCmd),
 	Full(FullCmd),
 	Default(DefaultCmd),
+	NamedPreset(NamedPresetCmd),
 }
 
 <span class="doccomment">/// Patches the runtime&#39;s default genesis config with provided patch.
@@ -552,10 +645,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// default genesis config may not be valid. For some runtimes initial values should be added there
 /// (e.g. session keys, babe epoch).
 </span><span class="attr">#[derive(Parser, Debug, Clone)]
-</span><span class="kw">struct </span>DefaultCmd {
-	<span class="doccomment">/// If provided stores the default genesis config json file at given path (in addition to
-	/// chain-spec).
-	</span>default_config_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+</span><span class="kw">struct </span>DefaultCmd {}
+
+<span class="doccomment">/// Uses named preset provided by runtime to build the chains spec.
+</span><span class="attr">#[derive(Parser, Debug, Clone)]
+</span><span class="kw">struct </span>NamedPresetCmd {
+	preset_name: String,
 }
 
 <span class="doccomment">/// Updates the code in the provided input chain spec.
@@ -575,6 +670,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>ConvertToRawCmd {
 	<span class="doccomment">/// Chain spec to be converted.
 	</span><span class="kw">pub </span>input_chain_spec: PathBuf,
+}
+
+<span class="doccomment">/// Lists available presets
+</span><span class="attr">#[derive(Parser, Debug, Clone)]
+</span><span class="kw">pub struct </span>ListPresetsCmd {
+	<span class="doccomment">/// The path to runtime wasm blob.
+	</span><span class="attr">#[arg(long, short)]
+	</span><span class="kw">pub </span>runtime_wasm_path: PathBuf,
+}
+
+<span class="doccomment">/// Displays given preset
+</span><span class="attr">#[derive(Parser, Debug, Clone)]
+</span><span class="kw">pub struct </span>DisplayPresetCmd {
+	<span class="doccomment">/// The path to runtime wasm blob.
+	</span><span class="attr">#[arg(long, short)]
+	</span><span class="kw">pub </span>runtime_wasm_path: PathBuf,
+	<span class="doccomment">/// Preset to be displayed. If none is given default will be displayed.
+	</span><span class="attr">#[arg(long, short)]
+	</span><span class="kw">pub </span>preset_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
 <span class="doccomment">/// Verifies the provided input chain spec.
@@ -599,6 +713,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.with_chain_type(sc_chain_spec::ChainType::Live);
 
 	<span class="kw">let </span>builder = <span class="kw">match </span>cmd.action {
+		GenesisBuildAction::NamedPreset(NamedPresetCmd { <span class="kw-2">ref </span>preset_name }) =&gt;
+			builder.with_genesis_config_preset_name(<span class="kw-2">&amp;</span>preset_name),
 		GenesisBuildAction::Patch(PatchCmd { <span class="kw-2">ref </span>patch_path }) =&gt; {
 			<span class="kw">let </span>patch = fs::read(patch_path.as_path())
 				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;patch file {patch_path:?} shall be readable: {e}&quot;</span>))<span class="question-mark">?</span>;
@@ -613,16 +729,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				|e| <span class="macro">format!</span>(<span class="string">&quot;config file {config_path:?} shall contain a valid json: {e}&quot;</span>),
 			)<span class="question-mark">?</span>)
 		},
-		GenesisBuildAction::Default(DefaultCmd { <span class="kw-2">ref </span>default_config_path }) =&gt; {
+		GenesisBuildAction::Default(DefaultCmd {}) =&gt; {
 			<span class="kw">let </span>caller: GenesisConfigBuilderRuntimeCaller =
 				GenesisConfigBuilderRuntimeCaller::new(<span class="kw-2">&amp;</span>code[..]);
 			<span class="kw">let </span>default_config = caller
 				.get_default_config()
 				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;getting default config from runtime should work: {e}&quot;</span>))<span class="question-mark">?</span>;
-			default_config_path.clone().map(|path| {
-				fs::write(path.as_path(), serde_json::to_string_pretty(<span class="kw-2">&amp;</span>default_config).unwrap())
-					.map_err(|err| err.to_string())
-			});
 			builder.with_genesis_config(default_config)
 		},
 	};

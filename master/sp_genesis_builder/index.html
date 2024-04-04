@@ -147,21 +147,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_genesis_builder/index.html">sp_genesis_builder</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><ul class="block">
-            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sp_genesis_builder</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/sp_genesis_builder/lib.rs.html#18-57">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate genesis config builder</p>
-<p>This Runtime API allows to construct <code>RuntimeGenesisConfig</code>, in particular:</p>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_genesis_builder/index.html">sp_genesis_builder</a><span class="version">0.8.0</span></h2></div><div class="sidebar-elems"><ul class="block">
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#traits">Traits</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">sp_genesis_builder</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/sp_genesis_builder/lib.rs.html#18-101">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate genesis config builder</p>
+<p>For FRAME based runtimes, this runtime interface provides means to interact with
+<code>RuntimeGenesisConfig</code>. Runtime provides a default <code>RuntimeGenesisConfig</code> structure in a form of
+the JSON blob.</p>
+<p>For non-FRAME runtimes this interface is intended to build genesis state of the runtime basing
+on some input arbitrary bytes array. This documentation uses term <code>RuntimeGenesisConfig</code>, which
+for non-FRAME runtimes may be understood as the runtime-side entity representing initial runtime
+configuration. The representation of the preset is an arbitrary <code>Vec&lt;u8&gt;</code> and does not
+necessarily have to represent a JSON blob.</p>
+<p>The runtime may provide a number of partial predefined <code>RuntimeGenesisConfig</code> configurations in
+the form of patches which shall be applied on top of the default <code>RuntimeGenesisConfig</code>. The
+patch is a JSON blob, which essentially comprises the list of key-value pairs that are to be
+customized in the default runtime genesis config. These predefined configurations are referred
+to as presets.</p>
+<p>This allows the runtime to provide a number of predefined configs (e.g. for different
+testnets or development) without neccessity to leak the runtime types outside the itself (e.g.
+node or chain-spec related tools).</p>
+<p>This Runtime API allows to interact with <code>RuntimeGenesisConfig</code>, in particular:</p>
 <ul>
-<li>serialize the runtime default <code>RuntimeGenesisConfig</code> struct into json format,</li>
-<li>put the RuntimeGenesisConfig struct into the storage. Internally this operation calls
-<code>GenesisBuild::build</code> function for all runtime pallets, which is typically provided by
-pallet’s author.</li>
-<li>deserialize the <code>RuntimeGenesisConfig</code> from given json blob and put <code>RuntimeGenesisConfig</code>
-into the state storage. Allows to build customized configuration.</li>
+<li>provide the list of available preset names,</li>
+<li>provide a number of named presets of <code>RuntimeGenesisConfig</code>,</li>
+<li>provide a JSON represention of the default <code>RuntimeGenesisConfig</code> (by simply serializing the
+default <code>RuntimeGenesisConfig</code> struct into JSON format),</li>
+<li>deserialize the full <code>RuntimeGenesisConfig</code> from given JSON blob and put the resulting
+<code>RuntimeGenesisConfig</code> structure into the state storage creating the initial runtime’s state.
+Allows to build customized genesis. This operation internally calls <code>GenesisBuild::build</code>
+function for all runtime pallets.</li>
 </ul>
-<p>Providing externalities with empty storage and putting <code>RuntimeGenesisConfig</code> into storage
-allows to catch and build the raw storage of <code>RuntimeGenesisConfig</code> which is the foundation for
-genesis block.</p>
-</div></details><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder">GenesisBuilder</a></div><div class="desc docblock-short">API to interact with RuntimeGenesisConfig for the runtime</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Result.html" title="type sp_genesis_builder::Result">Result</a></div><div class="desc docblock-short">The result type alias, used in build methods. <code>Err</code> contains formatted error message.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+<p>Providing externalities with an empty storage and putting <code>RuntimeGenesisConfig</code> into storage
+(by calling <code>build_state</code>) allows to construct the raw storage of <code>RuntimeGenesisConfig</code>
+which is the foundation for genesis block.</p>
+</div></details><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder">GenesisBuilder</a></div><div class="desc docblock-short">API to interact with RuntimeGenesisConfig for the runtime</div></li></ul><h2 id="types" class="small-section-header"><a href="#types">Type Aliases</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.PresetId.html" title="type sp_genesis_builder::PresetId">PresetId</a></div><div class="desc docblock-short">The type representing preset ID.</div></li><li><div class="item-name"><a class="type" href="type.Result.html" title="type sp_genesis_builder::Result">Result</a></div><div class="desc docblock-short">The result type alias, used in build methods. <code>Err</code> contains formatted error message.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
 </body></html>
