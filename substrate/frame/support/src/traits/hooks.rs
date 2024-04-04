@@ -227,6 +227,30 @@ pub trait OnRuntimeUpgrade {
 	}
 }
 
+/// This trait is intended for use within `VersionedMigration` to execute storage migrations without
+/// automatic version checks. Implementations should ensure migration logic is safe and idempotent.
+pub trait UncheckedOnRuntimeUpgrade {
+	/// Called within `VersionedMigration` to execute the actual migration. It is also
+	/// expected that no version checks are performed within this function.
+	///
+	/// See also [`Hooks::on_runtime_upgrade`].
+	fn on_runtime_upgrade() -> Weight {
+		Weight::zero()
+	}
+
+	/// See [`Hooks::pre_upgrade`].
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		Ok(Vec::new())
+	}
+
+	/// See [`Hooks::post_upgrade`].
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		Ok(())
+	}
+}
+
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
@@ -318,6 +342,7 @@ pub trait IntegrityTest {
 	fn integrity_test() {}
 }
 
+#[cfg_attr(doc, aquamarine::aquamarine)]
 /// The pallet hooks trait. This is merely an umbrella trait for:
 ///
 /// - [`OnInitialize`]
@@ -369,16 +394,16 @@ pub trait IntegrityTest {
 /// end
 /// ```
 ///
-/// * [`OnRuntimeUpgrade`](crate::traits::OnRuntimeUpgrade) hooks are only executed when a code
-///   change is detected.
-/// * [`OnRuntimeUpgrade`](crate::traits::OnRuntimeUpgrade) hooks are mandatorily executed at the
-///   very beginning of the block body, before any extrinsics are processed.
+/// * [`OnRuntimeUpgrade`](Hooks::OnRuntimeUpgrade) hooks are only executed when a code change is
+///   detected.
+/// * [`OnRuntimeUpgrade`](Hooks::OnRuntimeUpgrade) hooks are mandatorily executed at the very
+///   beginning of the block body, before any extrinsics are processed.
 /// * [`Inherents`](sp_inherents) are always executed before any other other signed or unsigned
 ///   extrinsics.
-/// * [`OnIdle`](crate::traits::OnIdle) hooks are executed after extrinsics if there is weight
-///   remaining in the block.
-/// * [`OnFinalize`](crate::traits::OnFinalize) hooks are mandatorily executed after
-///   [`OnIdle`](crate::traits::OnIdle).
+/// * [`OnIdle`](Hooks::OnIdle) hooks are executed after extrinsics if there is weight remaining in
+///   the block.
+/// * [`OnFinalize`](Hooks::OnFinalize) hooks are mandatorily executed after
+///   [`OnIdle`](Hooks::OnIdle).
 ///
 /// > [`OffchainWorker`](crate::traits::misc::OffchainWorker) hooks are not part of this flow,
 /// > because they are not part of the consensus/main block building logic. See
@@ -458,7 +483,9 @@ pub trait Hooks<BlockNumber> {
 	/// ## Implementation Note: Standalone Migrations
 	///
 	/// Additional migrations can be created by directly implementing [`OnRuntimeUpgrade`] on
-	/// structs and passing them to `Executive`.
+	/// structs and passing them to `Executive`. Or alternatively, by implementing
+	/// [`UncheckedOnRuntimeUpgrade`], passing it to [`crate::migrations::VersionedMigration`],
+	/// which already implements [`OnRuntimeUpgrade`].
 	///
 	/// ## Implementation Note: Pallet Versioning
 	///

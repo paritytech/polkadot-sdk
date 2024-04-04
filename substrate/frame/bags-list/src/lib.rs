@@ -85,6 +85,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(doc)]
+#[cfg_attr(doc, aquamarine::aquamarine)]
 ///
 /// In this example, assuming each node has an equal id and score (eg. node 21 has a score of 21),
 /// the node 22 can be moved from bag 1 to bag 0 with the `rebag` operation.
