@@ -17,11 +17,14 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-strum = { version = "0.24.1", features = ["derive"], default-features = false }
-sp-core = { path = "../core" }
-sp-runtime = { path = "../runtime" }
+strum = { version = "0.26.2", features = ["derive"], default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
 
 [features]
+default = ["std"]
+std = ["sp-core/std", "sp-runtime/std", "strum/std"]
+
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.

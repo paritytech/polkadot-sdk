@@ -26,9 +26,9 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
-	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
+	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
+	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
+	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -186,7 +186,7 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// Must be at least 1.
 	pub no_show_slots: u32,
-	/// The number of delay tranches in total.
+	/// The number of delay tranches in total. Must be at least 1.
 	pub n_delay_tranches: u32,
 	/// The width of the zeroth delay tranche for approval assignments. This many delay tranches
 	/// beyond 0 are all consolidated to form a wide 0 tranche.
@@ -246,7 +246,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_validators: None,
 			dispute_period: 6,
 			dispute_post_conclusion_acceptance_period: 100.into(),
-			n_delay_tranches: Default::default(),
+			n_delay_tranches: 1,
 			zeroth_delay_tranche_width: Default::default(),
 			needed_approvals: Default::default(),
 			relay_vrf_modulo_samples: Default::default(),
@@ -312,6 +312,10 @@ pub enum InconsistentError<BlockNumber> {
 	InconsistentExecutorParams { inner: ExecutorParamError },
 	/// TTL should be bigger than lookahead
 	LookaheadExceedsTTL,
+	/// Passed in queue size for on-demand was too large.
+	OnDemandQueueSizeTooLarge,
+	/// Number of delay tranches cannot be 0.
+	ZeroDelayTranches,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -403,6 +407,14 @@ where
 
 		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
 			return Err(LookaheadExceedsTTL)
+		}
+
+		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
+			return Err(OnDemandQueueSizeTooLarge)
+		}
+
+		if self.n_delay_tranches.is_zero() {
+			return Err(ZeroDelayTranches)
 		}
 
 		Ok(())
@@ -630,7 +642,7 @@ pub mod pallet {
 
 		/// Set the number of coretime execution cores.
 		///
-		/// Note that this configuration is managed by the coretime chain. Only manually change
+		/// NOTE: that this configuration is managed by the coretime chain. Only manually change
 		/// this, if you really know what you are doing!
 		#[pallet::call_index(6)]
 		#[pallet::weight((
@@ -1133,6 +1145,7 @@ pub mod pallet {
 				config.scheduler_params.on_demand_queue_max_size = new;
 			})
 		}
+
 		/// Set the on demand (parathreads) fee variability.
 		#[pallet::call_index(50)]
 		#[pallet::weight((

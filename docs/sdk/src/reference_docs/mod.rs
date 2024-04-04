@@ -39,16 +39,15 @@ pub mod runtime_vs_smart_contract;
 /// Learn about how extrinsics are encoded to be transmitted to a node and stored in blocks.
 pub mod extrinsic_encoding;
 
-/// Learn about the transaction extensions that form a part of extrinsics.
+/// Learn about the signed extensions that form a part of extrinsics.
 // TODO: @jsdw https://github.com/paritytech/polkadot-sdk-docs/issues/42
-pub mod transaction_extensions;
+pub mod signed_extensions;
 
 /// Learn about *Origins*, a topic in FRAME that enables complex account abstractions to be built.
 pub mod frame_origin;
 
 /// Learn about how to write safe and defensive code in your FRAME runtime.
-// TODO: @CrackTheCode016 https://github.com/paritytech/polkadot-sdk-docs/issues/44
-pub mod safe_defensive_programming;
+pub mod defensive_programming;
 
 /// Learn about composite enums and other runtime level types, such as "RuntimeEvent" and
 /// "RuntimeCall".
@@ -66,15 +65,15 @@ pub mod metadata;
 /// Learn about how frame-system handles `account-ids`, nonces, consumers and providers.
 pub mod frame_system_accounts;
 
-/// Learn about the currency-related abstractions provided in FRAME.
-pub mod frame_currency;
-
 /// Advice for configuring your development environment for Substrate development.
 pub mod development_environment_advice;
 
 /// Learn about benchmarking and weight.
 // TODO: @shawntabrizi @ggwpez https://github.com/paritytech/polkadot-sdk-docs/issues/50
 pub mod frame_benchmarking_weight;
+
+/// Learn about the token-related logic in FRAME and how to apply it to your use case.
+pub mod frame_tokens;
 
 /// Learn about chain specification file and the genesis state of the blockchain.
 // TODO: @michalkucharczyk https://github.com/paritytech/polkadot-sdk-docs/issues/51

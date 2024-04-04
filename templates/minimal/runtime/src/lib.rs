@@ -54,7 +54,7 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-type TxExtension = (
+type SignedExtra = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -83,7 +83,7 @@ parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
-#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type Version = Version;
@@ -91,27 +91,27 @@ impl frame_system::Config for Runtime {
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
 }
 
-#[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig as pallet_sudo::DefaultConfig)]
+#[derive_impl(pallet_sudo::config_preludes::TestDefaultConfig)]
 impl pallet_sudo::Config for Runtime {}
 
-#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig as pallet_timestamp::DefaultConfig)]
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Runtime {}
 
-#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig as pallet_transaction_payment::DefaultConfig)]
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	type WeightToFee = NoFee<<Self as pallet_balances::Config>::Balance>;
 	type LengthToFee = FixedFee<1, <Self as pallet_balances::Config>::Balance>;
 }
 
 impl pallet_minimal_template::Config for Runtime {}
 
-type Block = frame::runtime::types_common::BlockOf<Runtime, TxExtension>;
+type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
 type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =

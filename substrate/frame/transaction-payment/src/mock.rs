@@ -25,7 +25,7 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	parameter_types,
-	traits::{ConstU32, ConstU64, Imbalance, OnUnbalanced},
+	traits::{fungible, ConstU32, ConstU64, Imbalance, OnUnbalanced},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use frame_system as system;
@@ -70,7 +70,7 @@ parameter_types! {
 	pub static OperationalFeeMultiplier: u8 = 5;
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -137,9 +137,13 @@ parameter_types! {
 }
 
 pub struct DealWithFees;
-impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for DealWithFees {
+impl OnUnbalanced<fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>>
+	for DealWithFees
+{
 	fn on_unbalanceds<B>(
-		mut fees_then_tips: impl Iterator<Item = pallet_balances::NegativeImbalance<Runtime>>,
+		mut fees_then_tips: impl Iterator<
+			Item = fungible::Credit<<Runtime as frame_system::Config>::AccountId, Balances>,
+		>,
 	) {
 		if let Some(fees) = fees_then_tips.next() {
 			FeeUnbalancedAmount::mutate(|a| *a += fees.peek());
@@ -152,19 +156,9 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for DealWithFees 
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFees>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
-	type WeightInfo = ();
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	crate::tests::ExtBuilder::default()
-		.base_weight(Weight::from_parts(100, 0))
-		.byte_fee(10)
-		.balance_factor(0)
-		.build()
 }
