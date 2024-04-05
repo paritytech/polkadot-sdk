@@ -17,7 +17,7 @@ doc:
 migrations: 
   db: []
   runtime: 
-    - reference: pallet-regions
+    - reference: pallet-broker
       description: |
         The region owner is optional.
 
