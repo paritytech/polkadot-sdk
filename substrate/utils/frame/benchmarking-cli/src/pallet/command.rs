@@ -27,6 +27,7 @@ use frame_benchmarking::{
 };
 use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
+use sc_chain_spec::json_patch::merge as json_merge;
 use sc_cli::{execution_method_from_cli, ChainSpec, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -38,6 +39,7 @@ use sp_core::{
 	traits::{CallContext, CodeExecutor, ReadRuntimeVersionExt, WrappedRuntimeCode},
 };
 use sp_externalities::Extensions;
+use sp_genesis_builder::{PresetId, Result as GenesisBuildResult};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
 use sp_state_machine::{OverlayedChanges, StateMachine};
@@ -157,6 +159,9 @@ const WARN_SPEC_GENESIS_CTOR: &'static str = "Using the chain spec instead of th
 generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`--local` argument, \
 point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
 become a hard error any time after December 2024.";
+
+/// The preset that we expect to find in the GenesisBuilder runtime API.
+const GENESIS_PRESET: &str = "development";
 
 impl PalletCmd {
 	/// Runs the command and benchmarks a pallet.
@@ -612,13 +617,36 @@ impl PalletCmd {
 		let runtime = self.runtime_blob(&state)?;
 		let runtime_code = runtime.code()?;
 
-		let genesis_json: Vec<u8> = Self::exec_state_machine(
+		// We cannot use the `GenesisConfigBuilderRuntimeCaller` here since it returns the changes
+		// as `Storage` item, but we need it as `OverlayedChanges`.
+		let presets: Vec<PresetId> = Self::exec_state_machine(
 			StateMachine::new(
 				&state,
 				&mut Default::default(),
 				&executor,
-				"GenesisBuilder_create_default_config",
-				&[], // no args for this call
+				"GenesisBuilder_preset_names",
+				&[], // no args
+				&mut Self::build_extensions(executor.clone()),
+				&runtime_code,
+				CallContext::Offchain,
+			),
+			"get the genesis preset names",
+		)?;
+
+		if !presets.contains(&"development".into()) {
+			log::error!("Available genesis presets: {:?}", presets);
+			return Err(
+				"GenesisBuilder::get_preset does not contain the `{GENESIS_PRESET}` preset".into()
+			)
+		}
+
+		let genesis_json: Option<Vec<u8>> = Self::exec_state_machine(
+			StateMachine::new(
+				&state,
+				&mut Default::default(),
+				&executor,
+				"GenesisBuilder_get_preset",
+				&None::<PresetId>.encode(), // Use the default preset
 				&mut Self::build_extensions(executor.clone()),
 				&runtime_code,
 				CallContext::Offchain,
@@ -626,19 +654,50 @@ impl PalletCmd {
 			"build the genesis spec",
 		)?;
 
+		let Some(base_genesis_json) = genesis_json else {
+			return Err("GenesisBuilder::get_preset returned no data".into())
+		};
+
+		let base_genesis_json = serde_json::from_slice::<serde_json::Value>(&base_genesis_json)
+			.map_err(|e| format!("GenesisBuilder::get_preset returned invalid JSON: {:?}", e))?;
+
+		let genesis_json: Option<Vec<u8>> = Self::exec_state_machine(
+			StateMachine::new(
+				&state,
+				&mut Default::default(),
+				&executor,
+				"GenesisBuilder_get_preset",
+				&Some::<PresetId>(GENESIS_PRESET.into()).encode(), // Use the default preset
+				&mut Self::build_extensions(executor.clone()),
+				&runtime_code,
+				CallContext::Offchain,
+			),
+			"build the genesis spec",
+		)?;
+
+		let Some(dev_genesis_json) = genesis_json else {
+			return Err("GenesisBuilder::get_preset returned no data".into())
+		};
+
 		// Sanity check that it is JSON before we plug it into the next call.
-		if !serde_json::from_slice::<serde_json::Value>(&genesis_json).is_ok() {
-			log::warn!("GenesisBuilder::create_default_config returned invalid JSON");
-		}
+		let dev_genesis_json = serde_json::from_slice::<serde_json::Value>(&dev_genesis_json)
+			.map_err(|e| format!("GenesisBuilder::get_preset returned invalid JSON: {:?}", e))?;
+
+		let mut genesis_json = serde_json::Value::default();
+		json_merge(&mut genesis_json, base_genesis_json);
+		json_merge(&mut genesis_json, dev_genesis_json);
+
+		let json_pretty_str = serde_json::to_string_pretty(&genesis_json)
+			.map_err(|e| format!("json to string failed: {e}"))?;
 
 		let mut changes = Default::default();
-		let build_config_ret: Vec<u8> = Self::exec_state_machine(
+		let build_res: GenesisBuildResult = Self::exec_state_machine(
 			StateMachine::new(
 				&state,
 				&mut changes,
 				&executor,
-				"GenesisBuilder_build_config",
-				&genesis_json.encode(),
+				"GenesisBuilder_build_state",
+				&json_pretty_str.encode(),
 				&mut Extensions::default(),
 				&runtime_code,
 				CallContext::Offchain,
@@ -646,8 +705,8 @@ impl PalletCmd {
 			"populate the genesis state",
 		)?;
 
-		if !build_config_ret.is_empty() {
-			log::warn!("GenesisBuilder::build_config returned unexpected data");
+		if let Err(e) = build_res {
+			return Err(format!("GenesisBuilder::build_state failed: {}", e).into())
 		}
 
 		Ok(changes)
