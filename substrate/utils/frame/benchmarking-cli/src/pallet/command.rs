@@ -634,10 +634,9 @@ impl PalletCmd {
 		)?;
 
 		if !presets.contains(&"development".into()) {
-			log::error!("Available genesis presets: {:?}", presets);
-			return Err(
-				"GenesisBuilder::get_preset does not contain the `{GENESIS_PRESET}` preset".into()
-			)
+			log::warn!(
+				"Could not find genesis preset '{GENESIS_PRESET}'. Falling back to default."
+			);
 		}
 
 		let genesis_json: Option<Vec<u8>> = Self::exec_state_machine(
