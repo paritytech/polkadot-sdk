@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Helpers for generating message storage proofs, that are used by tests and by benchmarks.
+//! Helpers for generating message storage proofs used by tests and benchmarks.
 
 use crate::messages::{AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, ThisChain};
 
@@ -53,7 +53,7 @@ where
 	B: MessageBridge,
 	HashOf<BridgedChain<B>>: Copy + Default,
 {
-	// prepare Bridged chain storage with messages and (optionally) outbound lane state
+	// Prepare bridged chain storage with messages and (optionally) outbound lane state.
 	let message_count = message_nonces.end().saturating_sub(*message_nonces.start()) + 1;
 	let mut storage_keys = Vec::with_capacity(message_count as usize + 1);
 	let mut root = Default::default();
@@ -62,7 +62,7 @@ where
 		let mut trie =
 			TrieDBMutBuilderV1::<HasherOf<BridgedChain<B>>>::new(&mut mdb, &mut root).build();
 
-		// insert messages
+		// Insert messages.
 		for (i, nonce) in message_nonces.into_iter().enumerate() {
 			let message_key = MessageKey { lane_id: lane, nonce };
 			let message_payload = match encode_message(nonce, &message_payload) {
@@ -86,7 +86,7 @@ where
 			storage_keys.push(storage_key);
 		}
 
-		// insert outbound lane state
+		// Insert outbound lane state.
 		if let Some(outbound_lane_data) = outbound_lane_data.as_ref().map(encode_outbound_lane_data)
 		{
 			let storage_key =
@@ -98,7 +98,7 @@ where
 		}
 	}
 
-	// generate storage proof to be delivered to This chain
+	// Generate storage proof to be delivered to this chain.
 	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
@@ -116,7 +116,7 @@ pub fn prepare_message_delivery_storage_proof<B>(
 where
 	B: MessageBridge,
 {
-	// prepare Bridged chain storage with inbound lane state
+	// Prepare bridged chain storage with inbound lane state.
 	let storage_key = storage_keys::inbound_lane_data_key(B::BRIDGED_MESSAGES_PALLET_NAME, &lane).0;
 	let mut root = Default::default();
 	let mut mdb = MemoryDB::default();
@@ -129,7 +129,7 @@ where
 			.expect("TrieMut::insert should not fail in benchmarks");
 	}
 
-	// generate storage proof to be delivered to This chain
+	// Generate storage proof to be delivered to this chain.
 	let storage_proof = record_all_trie_keys::<LayoutV1<HasherOf<BridgedChain<B>>>, _>(&mdb, &root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
