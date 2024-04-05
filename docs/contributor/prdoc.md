@@ -7,7 +7,7 @@ version bumps and to generate the CHANGELOG of the next release.
 ## Requirements
 
 When creating a PR, the author needs to decide with the `R0-silent` label whether the PR has to contain a prdoc. The
-`R0` label should only be placed for No-OP changes like correcting a typo in a comment or a doc file. If unsure, ping
+`R0` label should only be placed for No-OP changes like correcting a typo in a comment or CI stuff. If unsure, ping
 the [CODEOWNERS](../../.github/CODEOWNERS) for advice.
 
 ## PRDoc How-To
