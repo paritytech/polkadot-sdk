@@ -328,6 +328,7 @@ impl<T: Config> Pallet<T> {
 		mut region: RegionId,
 		max_timeslices: Timeslice,
 	) -> DispatchResult {
+		ensure!(max_timeslices > 0, Error::<T>::NoClaimTimeslices);
 		let mut contribution =
 			InstaPoolContribution::<T>::take(region).ok_or(Error::<T>::UnknownContribution)?;
 		let contributed_parts = region.mask.count_ones();
