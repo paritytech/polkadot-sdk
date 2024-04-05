@@ -25,4 +25,4 @@ relay-substrate-client = { path = "../client-substrate" }
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 relay-substrate-client = { path = "../client-substrate", features = ["test-helpers"] }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+sp-core = { path = "../../../substrate/primitives/core" }
