@@ -24,8 +24,9 @@ use frame_support::traits::{
 use pallet_assets::FrozenBalance;
 use sp_runtime::traits::Zero;
 
-/// Implements [`FrozenBalance`] from [`pallet-assets`], so it can understands how much of an account
-/// balance is frozen, and is able to signal to this pallet when to clear the state of an account.
+/// Implements [`FrozenBalance`] from [`pallet-assets`], so it can understands how much of an
+/// account balance is frozen, and is able to signal to this pallet when to clear the state of an
+/// account.
 impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, AssetBalanceOf<T, I>>
 	for Pallet<T, I>
 {
