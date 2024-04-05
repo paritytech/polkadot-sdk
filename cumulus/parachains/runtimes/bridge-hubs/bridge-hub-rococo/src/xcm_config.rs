@@ -56,12 +56,13 @@ use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeToAccount,
+	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin,
+	FrameTransactionalProcessor, FungibleAdapter, HandleFee, IsConcrete, ParentAsSuperuser,
+	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset, WithOriginFilter},
@@ -258,6 +259,8 @@ pub type Barrier = TrailingSetTopicAsId<
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
+					// HRMP notifications from the relay chain are OK.
+					AllowHrmpNotificationsFromRelayChain,
 				),
 				UniversalLocation,
 				ConstU32<8>,
