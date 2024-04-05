@@ -662,7 +662,7 @@ impl PalletCmd {
 			.execute()
 			.map_err(|e| format!("Could not call runtime API to {hint}: {}", e))?;
 		let res = R::decode(&mut &res[..])
-			.map_err(|e| format!("Failed to decode runtime API result: {:?}", e))?;
+			.map_err(|e| format!("Failed to decode runtime API result to {hint}: {:?}", e))?;
 		Ok(res)
 	}
 

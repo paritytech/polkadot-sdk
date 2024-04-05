@@ -177,8 +177,8 @@ pub struct PalletCmd {
 
 	/// How to construct the genesis state.
 	///
-	/// Uses [`GenesisBuilder::Spec`] by default and  [`GenesisConstructor::Runtime`] if `runtime` is
-	/// set.
+	/// Uses [`GenesisBuilder::Spec`] by default and  [`GenesisConstructor::Runtime`] if `runtime`
+	/// is set.
 	#[arg(long, value_enum)]
 	pub genesis_builder: Option<GenesisBuilder>,
 
@@ -238,7 +238,10 @@ pub struct PalletCmd {
 	#[arg(long)]
 	pub unsafe_overwrite_results: bool,
 
-	/// Suppresses most prints.
+	/// Do not print a summary at the end of the run.
+	///
+	/// These summaries can be very long when benchmarking multiple pallets at once. For CI
+	/// use-cases, this option reduces the noise.
 	#[arg(long)]
 	quiet: bool,
 }
