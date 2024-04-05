@@ -274,7 +274,6 @@ subsystem-regression-tests-distribution-regression:
         rm -rf target/ || echo "No target directory";
       done
     - if [ -s fails ]; then cat fails; exit 1; fi
-
   tags:
     - benchmark-v2
   allow_failure: true
