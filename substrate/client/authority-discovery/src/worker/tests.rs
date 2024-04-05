@@ -233,6 +233,7 @@ fn build_dht_event<Signer: NetworkSigner>(
 	public_key: AuthorityId,
 	key_store: &MemoryKeystore,
 	network: Option<&Signer>,
+	include_creation_time: bool,
 ) -> Vec<(KademliaKey, Vec<u8>)> {
 	let serialized_record =
 		serialize_authority_record(serialize_addresses(addresses.into_iter())).unwrap();
@@ -243,6 +244,7 @@ fn build_dht_event<Signer: NetworkSigner>(
 		peer_signature,
 		key_store,
 		vec![public_key.into()],
+		include_creation_time,
 	)
 	.unwrap();
 	// There is always a single item in it, because we signed it with a single key
@@ -500,6 +502,7 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 				remote_public_key.clone(),
 				&remote_key_store,
 				None,
+				true,
 			)
 			.into_iter()
 			.map(|(key, value)| PeerRecord {
@@ -570,15 +573,20 @@ impl DhtValueFoundTester {
 		let local_key_store = MemoryKeystore::new();
 
 		let (_to_worker, from_service) = mpsc::channel(0);
-		let mut local_worker = Worker::new(
-			from_service,
-			local_test_api,
-			local_network.clone(),
-			Box::pin(dht_event_rx),
-			Role::PublishAndDiscover(Arc::new(local_key_store)),
-			None,
-			WorkerConfig { strict_record_validation, ..Default::default() },
-		);
+		let local_worker = if let Some(local_work) = self.local_worker.as_mut() {
+			local_work
+		} else {
+			self.local_worker = Some(Worker::new(
+				from_service,
+				local_test_api,
+				local_network.clone(),
+				Box::pin(dht_event_rx),
+				Role::PublishAndDiscover(Arc::new(local_key_store)),
+				None,
+				WorkerConfig { strict_record_validation, ..Default::default() },
+			));
+			self.local_worker.as_mut().unwrap()
+		};
 
 		block_on(local_worker.refill_pending_lookups_queue()).unwrap();
 		local_worker.start_new_lookups();
@@ -588,14 +596,12 @@ impl DhtValueFoundTester {
 				values
 					.into_iter()
 					.map(|(key, value)| PeerRecord {
-						peer: None,
+						peer: Some(PeerId::random()),
 						record: Record { key, value, publisher: None, expires: None },
 					})
 					.collect(),
 			),
 		);
-
-		self.local_worker = Some(local_worker);
 
 		self.local_worker
 			.as_ref()
@@ -618,6 +624,7 @@ fn limit_number_of_addresses_added_to_cache_per_authority() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		None,
+		true,
 	);
 
 	let cached_remote_addresses = tester.process_value_found(false, kv_pairs);
@@ -633,6 +640,7 @@ fn strict_accept_address_with_peer_signature() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		true,
 	);
 
 	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
@@ -645,6 +653,238 @@ fn strict_accept_address_with_peer_signature() {
 }
 
 #[test]
+fn strict_accept_address_without_creation_time() {
+	let mut tester = DhtValueFoundTester::new();
+	let addr = tester.multiaddr_with_peer_id(1);
+	let kv_pairs = build_dht_event(
+		vec![addr.clone()],
+		tester.remote_authority_public.into(),
+		&tester.remote_key_store,
+		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		false,
+	);
+
+	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
+
+	assert_eq!(
+		Some(HashSet::from([addr])),
+		cached_remote_addresses,
+		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+	);
+}
+
+#[test]
+fn keep_last_received_if_no_creation_time() {
+	let mut tester: DhtValueFoundTester = DhtValueFoundTester::new();
+	let addr = tester.multiaddr_with_peer_id(1);
+	let kv_pairs = build_dht_event(
+		vec![addr.clone()],
+		tester.remote_authority_public.into(),
+		&tester.remote_key_store,
+		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		false,
+	);
+
+	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
+
+	assert_eq!(
+		Some(HashSet::from([addr])),
+		cached_remote_addresses,
+		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+	);
+
+	assert!(tester
+		.local_worker
+		.as_ref()
+		.map(|worker| worker.network.put_value_to_call.lock().unwrap().is_empty())
+		.unwrap_or_default());
+
+	let addr2 = tester.multiaddr_with_peer_id(2);
+	let kv_pairs = build_dht_event(
+		vec![addr2.clone()],
+		tester.remote_authority_public.into(),
+		&tester.remote_key_store,
+		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		false,
+	);
+
+	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
+
+	assert_eq!(
+		Some(HashSet::from([addr2])),
+		cached_remote_addresses,
+		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+	);
+	assert!(tester
+		.local_worker
+		.as_ref()
+		.map(|worker| worker.network.put_value_to_call.lock().unwrap().is_empty())
+		.unwrap_or_default());
+}
+
+#[test]
+fn records_with_incorrectly_signed_creation_time_are_ignored() {
+	let mut tester: DhtValueFoundTester = DhtValueFoundTester::new();
+	let addr = tester.multiaddr_with_peer_id(1);
+	let kv_pairs = build_dht_event(
+		vec![addr.clone()],
+		tester.remote_authority_public.into(),
+		&tester.remote_key_store,
+		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		true,
+	);
+
+	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
+
+	assert_eq!(
+		Some(HashSet::from([addr.clone()])),
+		cached_remote_addresses,
+		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+	);
+	assert!(tester
+		.local_worker
+		.as_ref()
+		.map(|worker| worker.network.put_value_to_call.lock().unwrap().len() == 1)
+		.unwrap_or_default());
+
+	let alternative_key = tester
+		.remote_key_store
+		.sr25519_generate_new(key_types::AUTHORITY_DISCOVERY, None)
+		.unwrap();
+
+	let addr2 = tester.multiaddr_with_peer_id(2);
+	let mut kv_pairs = build_dht_event(
+		vec![addr2.clone()],
+		alternative_key.into(),
+		&tester.remote_key_store,
+		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		true,
+	);
+	let kademlia_key = hash_authority_id(tester.remote_authority_public.as_slice());
+	for key in kv_pairs.iter_mut() {
+		key.0 = kademlia_key.clone();
+	}
+	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
+
+	assert_eq!(
+		Some(HashSet::from([addr])),
+		cached_remote_addresses,
+		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+	);
+	assert!(tester
+		.local_worker
+		.as_ref()
+		.map(|worker| worker.network.put_value_to_call.lock().unwrap().len() == 1)
+		.unwrap_or_default());
+}
+
+#[test]
+fn newer_records_overwrite_older_ones() {
+	let mut tester: DhtValueFoundTester = DhtValueFoundTester::new();
+	let old_record = tester.multiaddr_with_peer_id(1);
+	let kv_pairs = build_dht_event(
+		vec![old_record.clone()],
+		tester.remote_authority_public.into(),
+		&tester.remote_key_store,
+		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		true,
+	);
+
+	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
+
+	assert_eq!(
+		Some(HashSet::from([old_record])),
+		cached_remote_addresses,
+		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+	);
+
+	let update_peers_info = tester
+		.local_worker
+		.as_ref()
+		.map(|worker| worker.network.put_value_to_call.lock().unwrap().remove(0))
+		.unwrap();
+	assert!(matches!(update_peers_info, (_, _, true)));
+
+	let new_record = tester.multiaddr_with_peer_id(2);
+	let kv_pairs = build_dht_event(
+		vec![new_record.clone()],
+		tester.remote_authority_public.into(),
+		&tester.remote_key_store,
+		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		true,
+	);
+
+	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
+
+	assert_eq!(
+		Some(HashSet::from([new_record])),
+		cached_remote_addresses,
+		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+	);
+
+	let result = tester
+		.local_worker
+		.as_ref()
+		.map(|worker| worker.network.put_value_to_call.lock().unwrap().first().unwrap().clone())
+		.unwrap();
+	assert!(matches!(result, (_, _, false)));
+	assert_eq!(result.1, update_peers_info.0.peer.into_iter().collect());
+}
+
+#[test]
+fn older_records_dont_affect_newer_ones() {
+	let mut tester: DhtValueFoundTester = DhtValueFoundTester::new();
+	let old_record = tester.multiaddr_with_peer_id(1);
+	let old_kv_pairs = build_dht_event(
+		vec![old_record.clone()],
+		tester.remote_authority_public.into(),
+		&tester.remote_key_store,
+		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		true,
+	);
+
+	let new_record = tester.multiaddr_with_peer_id(2);
+	let kv_pairs = build_dht_event(
+		vec![new_record.clone()],
+		tester.remote_authority_public.into(),
+		&tester.remote_key_store,
+		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		true,
+	);
+
+	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
+
+	assert_eq!(
+		Some(HashSet::from([new_record.clone()])),
+		cached_remote_addresses,
+		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+	);
+
+	let update_peers_info = tester
+		.local_worker
+		.as_ref()
+		.map(|worker| worker.network.put_value_to_call.lock().unwrap().remove(0))
+		.unwrap();
+	assert!(matches!(update_peers_info, (_, _, true)));
+
+	let cached_remote_addresses = tester.process_value_found(true, old_kv_pairs);
+
+	assert_eq!(
+		Some(HashSet::from([new_record])),
+		cached_remote_addresses,
+		"Expect worker to only cache `Multiaddr`s with `PeerId`s.",
+	);
+
+	let update_peers_info = tester
+		.local_worker
+		.as_ref()
+		.map(|worker| worker.network.put_value_to_call.lock().unwrap().remove(0))
+		.unwrap();
+	assert!(matches!(update_peers_info, (_, _, false)));
+	assert_ne!(update_peers_info.1, update_peers_info.0.peer.into_iter().collect());
+}
+
+#[test]
 fn reject_address_with_rogue_peer_signature() {
 	let mut tester = DhtValueFoundTester::new();
 	let rogue_remote_node_key = Keypair::generate_ed25519();
@@ -653,6 +893,7 @@ fn reject_address_with_rogue_peer_signature() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &rogue_remote_node_key }),
+		true,
 	);
 
 	let cached_remote_addresses = tester.process_value_found(false, kv_pairs);
@@ -671,6 +912,7 @@ fn reject_address_with_invalid_peer_signature() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		Some(&TestSigner { keypair: &tester.remote_node_key }),
+		true,
 	);
 	// tamper with the signature
 	let mut record = schema::SignedAuthorityRecord::decode(kv_pairs[0].1.as_slice()).unwrap();
@@ -693,6 +935,7 @@ fn reject_address_without_peer_signature() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		None,
+		true,
 	);
 
 	let cached_remote_addresses = tester.process_value_found(true, kv_pairs);
@@ -711,6 +954,7 @@ fn do_not_cache_addresses_without_peer_id() {
 		tester.remote_authority_public.into(),
 		&tester.remote_key_store,
 		None,
+		true,
 	);
 
 	let cached_remote_addresses = tester.process_value_found(false, kv_pairs);
@@ -860,6 +1104,7 @@ fn lookup_throttling() {
 					remote_key,
 					&remote_key_store,
 					None,
+					true,
 				)
 				.into_iter()
 				.map(|(key, value)| PeerRecord {

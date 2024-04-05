@@ -467,6 +467,7 @@ where
 			Some(peer_signature),
 			key_store.as_ref(),
 			keys_vec,
+			true,
 		)?;
 
 		self.latest_published_kad_keys = kv_pairs.iter().map(|(k, _)| k.clone()).collect();
@@ -766,7 +767,7 @@ where
 					peers_that_need_updating.clone(),
 					// If this is empty it means we received the answer from our node local
 					// storage, so we need to update that as well.
-					new_record.peers_with_record.is_empty(),
+					current_record_info.peers_with_record.is_empty(),
 				);
 			}
 			debug!(
@@ -890,6 +891,7 @@ fn sign_record_with_authority_ids(
 	peer_signature: Option<schema::PeerSignature>,
 	key_store: &dyn Keystore,
 	keys: Vec<AuthorityId>,
+	include_creation_time: bool,
 ) -> Result<Vec<(KademliaKey, Vec<u8>)>> {
 	let mut result = Vec::with_capacity(keys.len());
 
@@ -903,29 +905,33 @@ fn sign_record_with_authority_ids(
 
 		// Scale encode
 		let auth_signature = auth_signature.encode();
-		let creation_time = SystemTime::now()
-			.duration_since(UNIX_EPOCH)
-			.map(|time| time.as_nanos())
-			.unwrap_or_default();
-		debug!(target: LOG_TARGET, "Publish address with creation time{:?}", creation_time);
-		let creation_time = creation_time.encode();
-		let creation_time_signature = key_store
-			.sr25519_sign(key_types::AUTHORITY_DISCOVERY, key.as_ref(), &creation_time)
-			.map_err(|e| Error::CannotSign(format!("{}. Key: {:?}", e, key)))?
-			.ok_or_else(|| {
-				Error::CannotSign(format!("Could not find key in keystore. Key: {:?}", key))
-			})?;
+		let creation_time = if include_creation_time {
+			let creation_time = SystemTime::now()
+				.duration_since(UNIX_EPOCH)
+				.map(|time| time.as_nanos())
+				.unwrap_or_default();
+			debug!(target: LOG_TARGET, "Publish address with creation time{:?}", creation_time);
+			let creation_time = creation_time.encode();
+			let creation_time_signature = key_store
+				.sr25519_sign(key_types::AUTHORITY_DISCOVERY, key.as_ref(), &creation_time)
+				.map_err(|e| Error::CannotSign(format!("{}. Key: {:?}", e, key)))?
+				.ok_or_else(|| {
+					Error::CannotSign(format!("Could not find key in keystore. Key: {:?}", key))
+				})?;
 
-		let creation_time = schema::TimestampInfo {
-			timestamp: creation_time,
-			signature: creation_time_signature.encode(),
+			let creation_time = schema::TimestampInfo {
+				timestamp: creation_time,
+				signature: creation_time_signature.encode(),
+			};
+			Some(creation_time)
+		} else {
+			None
 		};
-
 		let signed_record = schema::SignedAuthorityRecord {
 			record: serialized_record.clone(),
 			auth_signature,
 			peer_signature: peer_signature.clone(),
-			creation_time: Some(creation_time),
+			creation_time,
 		}
 		.encode_to_vec();
 
