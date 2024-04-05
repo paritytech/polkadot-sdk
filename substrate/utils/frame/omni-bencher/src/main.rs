@@ -23,7 +23,7 @@ use sc_cli::Result;
 
 fn main() -> Result<()> {
 	env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-	log::warn!("The Polkadot omni-bencher is not yet battle tested - double check the results.",);
+	log::warn!("The FRAME omni-bencher is not yet battle tested - double check the results.",);
 
 	command::Command::parse().run()
 }

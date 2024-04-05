@@ -340,7 +340,7 @@ quick-benchmarks-omni:
     WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
   script:
     - time cargo build --locked --quiet --release -p kitchensink-runtime --features runtime-benchmarks
-    - time cargo run --locked --release -p polkadot-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/kitchensink-runtime/kitchensink_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
+    - time cargo run --locked --release -p frame-omni-bencher --quiet -- v1 benchmark pallet --runtime target/release/wbuild/kitchensink-runtime/kitchensink_runtime.compact.compressed.wasm --all --steps 2 --repeat 1 --quiet
 
 test-frame-examples-compile-to-wasm:
   # into one job

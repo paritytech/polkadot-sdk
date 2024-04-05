@@ -36,7 +36,7 @@ use sp_runtime::traits::BlakeTwo256;
 /// Directly via crates.io:
 ///
 /// ```sh
-/// cargo install --locked polkadot-omni-bencher
+/// cargo install --locked frame-omni-bencher
 /// ```
 ///
 /// or when the sources are locally checked out:
@@ -48,7 +48,7 @@ use sp_runtime::traits::BlakeTwo256;
 /// Check the installed version and print the docs:
 ///
 /// ```sh
-/// polkadot-omni-bencher --help
+/// frame-omni-bencher --help
 /// ```
 ///
 /// ## Usage
@@ -63,7 +63,7 @@ use sp_runtime::traits::BlakeTwo256;
 /// Now as example we benchmark `pallet_balances`:
 ///
 /// ```sh
-/// polkadot-omni-bencher v1 benchmark pallet \
+/// frame-omni-bencher v1 benchmark pallet \
 ///     --runtime target/release/wbuild/westend-runtime/westend-runtime.compact.compressed.wasm \
 ///     --pallet "pallet_balances" --extrinsic ""
 /// ```

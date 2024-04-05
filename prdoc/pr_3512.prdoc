@@ -3,7 +3,7 @@ title: "Introduce Runtime Omni Bencher"
 doc:
   - audience: Node Dev
     description: |
-      Introduces a new freestanding binary; the `polkadot-omni-bencher`. This can be used as alternative to the node-integrated `benchmark pallet` command. It currently only supports pallet benchmarking.
+      Introduces a new freestanding binary; the `frame-omni-bencher`. This can be used as alternative to the node-integrated `benchmark pallet` command. It currently only supports pallet benchmarking.
 
       The optional change to integrate this MR is in the node. The `run` function is now deprecated in favour or `run_with_spec`. This should be rather easy to integrate:
 

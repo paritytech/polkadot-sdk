@@ -5676,6 +5676,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "frame-omni-bencher"
+version = "0.1.0"
+dependencies = [
+ "clap 4.5.3",
+ "cumulus-primitives-proof-size-hostfunction",
+ "env_logger 0.11.3",
+ "frame-benchmarking-cli",
+ "log",
+ "sc-cli",
+ "sp-runtime",
+ "sp-statement-store",
+]
+
+[[package]]
 name = "frame-remote-externalities"
 version = "0.35.0"
 dependencies = [
@@ -13045,20 +13059,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tracing-gum",
-]
-
-[[package]]
-name = "polkadot-omni-bencher"
-version = "0.1.0"
-dependencies = [
- "clap 4.5.3",
- "cumulus-primitives-proof-size-hostfunction",
- "env_logger 0.11.3",
- "frame-benchmarking-cli",
- "log",
- "sc-cli",
- "sp-runtime",
- "sp-statement-store",
 ]
 
 [[package]]
