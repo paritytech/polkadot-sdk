@@ -73,7 +73,11 @@ const BACKOFF_DURATION: Duration = Duration::from_millis(500);
 // so it make sense to run a bit more often than that to
 // detect changes as often as we can, but not too often since
 // it won't help.
+#[cfg(not(test))]
 const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(5 * 60);
+
+#[cfg(test)]
+const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(2);
 
 /// Duration after which we consider low connectivity a problem.
 ///
