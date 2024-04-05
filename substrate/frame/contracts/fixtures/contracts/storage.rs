@@ -31,8 +31,8 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	const KEY: [u8; 32] = [1u8; 32];
-	const VALUE_1: [u8; 4] = [2u8; 4];
-	const VALUE_2: [u8; 4] = [3u8; 4];
+	const VALUE_1: [u8; 4] = [1u8; 4];
+	const VALUE_2: [u8; 4] = [2u8; 4];
 	const VALUE_3: [u8; 4] = [3u8; 4];
 
 	api::set_storage(&KEY, &VALUE_1);
