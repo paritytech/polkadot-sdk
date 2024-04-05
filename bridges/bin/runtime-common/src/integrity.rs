@@ -16,8 +16,8 @@
 
 //! Integrity tests for chain constants and pallets configuration.
 //!
-//! Most of the tests in this module assume that the bridge is using standard (see `crate::messages`
-//! module for details) configuration.
+//! Most of the tests in this module assume that the bridge is using standard configuration (see `crate::messages`
+//! module for details).
 
 use crate::{messages, messages::MessageBridge};
 
@@ -34,9 +34,9 @@ use pallet_bridge_messages::WeightInfoExt as _;
 macro_rules! assert_chain_types(
 	( runtime: $r:path, this_chain: $this:path ) => {
 		{
-			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
-			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
-			// and relays will stop functioning)
+			// If one of the asserts fails, then either the bridge isn't configured properly (or alternatively, a non-standard
+			// configuration is used), or something has broken the existing configuration (meaning that all bridged chains
+			// and relays will stop functioning).
 			use frame_system::{Config as SystemConfig, pallet_prelude::{BlockNumberFor, HeaderFor}};
 			use static_assertions::assert_type_eq_all;
 
@@ -50,15 +50,15 @@ macro_rules! assert_chain_types(
 	}
 );
 
-/// Macro that ensures that the bridge GRANDPA pallet is configured properly to bridge with given
+/// Macro that ensures that the bridge GRANDPA pallet is configured properly to bridge with a given
 /// chain.
 #[macro_export]
 macro_rules! assert_bridge_grandpa_pallet_types(
 	( runtime: $r:path, with_bridged_chain_grandpa_instance: $i:path, bridged_chain: $bridged:path ) => {
 		{
-			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
-			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
-			// and relays will stop functioning)
+			// If one of the asserts fails, then either the bridge isn't configured properly (or alternatively, a non-standard
+			// configuration is used), or something has broken the existing configuration (meaning that all bridged chains
+			// and relays will stop functioning).
 			use pallet_bridge_grandpa::Config as GrandpaConfig;
 			use static_assertions::assert_type_eq_all;
 
@@ -67,7 +67,7 @@ macro_rules! assert_bridge_grandpa_pallet_types(
 	}
 );
 
-/// Macro that ensures that the bridge messages pallet is configured properly to bridge using given
+/// Macro that ensures that the bridge messages pallet is configured properly to bridge using a given
 /// configuration.
 #[macro_export]
 macro_rules! assert_bridge_messages_pallet_types(
@@ -77,9 +77,9 @@ macro_rules! assert_bridge_messages_pallet_types(
 		bridge: $bridge:path
 	) => {
 		{
-			// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
-			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
-			// and relays will stop functioning)
+			// If one of the asserts fails, then either the bridge isn't configured properly (or alternatively, a non-standard
+			// configuration is used), or something has broken the existing configuration (meaning that all bridged chains
+			// and relays will stop functioning).
 			use $crate::messages::{
 				source::{FromThisChainMessagePayload, TargetHeaderChainAdapter},
 				target::{FromBridgedChainMessagePayload, SourceHeaderChainAdapter},
@@ -100,7 +100,7 @@ macro_rules! assert_bridge_messages_pallet_types(
 
 /// Macro that combines four other macro calls - `assert_chain_types`, `assert_bridge_types`,
 /// `assert_bridge_grandpa_pallet_types` and `assert_bridge_messages_pallet_types`. It may be used
-/// at the chain that is implementing complete standard messages bridge (i.e. with bridge GRANDPA
+/// at the chain that is implementing a complete standard messages bridge (i.e. with bridge GRANDPA
 /// and messages pallets deployed).
 #[macro_export]
 macro_rules! assert_complete_bridge_types(
@@ -139,17 +139,17 @@ pub struct AssertChainConstants {
 ///
 /// In particular, this test ensures that:
 ///
-/// 1) block weight limits are matching;
-/// 2) block size limits are matching.
+/// 1) Block weight limits are matching;
+/// 2) Block size limits are matching.
 pub fn assert_chain_constants<R>(params: AssertChainConstants)
 where
 	R: frame_system::Config,
 {
-	// we don't check runtime version here, because in our case we'll be building relay from one
-	// repo and runtime will live in another repo, along with outdated relay version. To avoid
+	// We don't check runtime version here, because in our case we'll be building the relay from one
+	// repo and the runtime will live in another repo, along with an outdated relay version. To avoid
 	// unneeded commits, let's not raise an error in case of version mismatch.
 
-	// if one of following assert fails, it means that we may need to upgrade bridged chain and
+	// If one of the following asserts fails, it means that we may need to upgrade the bridged chain and
 	// relay to use updated constants. If constants are now smaller than before, it may lead to
 	// undeliverable messages.
 
@@ -161,7 +161,7 @@ where
 		R::BlockLength::get(),
 		params.block_length,
 	);
-	// `BlockWeights` struct is not implementing `PartialEq`, so we compare encoded values here
+	// `BlockWeights` struct is not implementing `PartialEq`, so we compare encoded values here.
 	assert_eq!(
 		R::BlockWeights::get().encode(),
 		params.block_weights.encode(),
@@ -171,7 +171,7 @@ where
 	);
 }
 
-/// Test that the constants, used in GRANDPA pallet configuration are valid.
+/// Test that the constants used in GRANDPA pallet configuration are valid.
 pub fn assert_bridge_grandpa_pallet_constants<R, GI>()
 where
 	R: pallet_bridge_grandpa::Config<GI>,
@@ -196,7 +196,7 @@ pub struct AssertBridgeMessagesPalletConstants {
 	pub bridged_chain_id: ChainId,
 }
 
-/// Test that the constants, used in messages pallet configuration are valid.
+/// Test that the constants used in messages pallet configuration are valid.
 pub fn assert_bridge_messages_pallet_constants<R, MI>(params: AssertBridgeMessagesPalletConstants)
 where
 	R: pallet_bridge_messages::Config<MI>,
@@ -297,18 +297,18 @@ pub fn check_message_lane_weights<
 	bridged_chain_extra_storage_proof_size: u32,
 	this_chain_max_unrewarded_relayers: MessageNonce,
 	this_chain_max_unconfirmed_messages: MessageNonce,
-	// whether `RefundBridgedParachainMessages` extension is deployed at runtime and is used for
-	// refunding this bridge transactions?
+	// Whether `RefundBridgedParachainMessages` extension is deployed at runtime and is used for
+	// refunding bridge transactions?
 	//
-	// in other words: pass true for all known production chains
+	// In other words: pass true for all known production chains.
 	runtime_includes_refund_extension: bool,
 ) {
 	type Weights<T, MI> = <T as pallet_bridge_messages::Config<MI>>::WeightInfo;
 
-	// check basic weight assumptions
+	// Check basic weight assumptions.
 	pallet_bridge_messages::ensure_weights_are_correct::<Weights<T, MessagesPalletInstance>>();
 
-	// check that weights allow us to receive messages
+	// Check that weights allow us to receive messages.
 	let max_incoming_message_proof_size = bridged_chain_extra_storage_proof_size
 		.saturating_add(messages::target::maximal_incoming_message_size(C::max_extrinsic_size()));
 	pallet_bridge_messages::ensure_able_to_receive_message::<Weights<T, MessagesPalletInstance>>(
@@ -318,7 +318,7 @@ pub fn check_message_lane_weights<
 		messages::target::maximal_incoming_message_dispatch_weight(C::max_extrinsic_weight()),
 	);
 
-	// check that weights allow us to receive delivery confirmations
+	// Check that weights allow us to receive delivery confirmations.
 	let max_incoming_inbound_lane_data_proof_size =
 		InboundLaneData::<()>::encoded_size_hint_u32(this_chain_max_unrewarded_relayers as _);
 	pallet_bridge_messages::ensure_able_to_receive_confirmation::<Weights<T, MessagesPalletInstance>>(
@@ -329,10 +329,10 @@ pub fn check_message_lane_weights<
 		this_chain_max_unconfirmed_messages,
 	);
 
-	// check that extra weights of delivery/confirmation transactions include the weight
+	// Check that extra weights of delivery/confirmation transactions include the weight
 	// of `RefundBridgedParachainMessages` operations. This signed extension assumes the worst case
 	// (i.e. slashing if delivery transaction was invalid) and refunds some weight if
-	// assumption was wrong (i.e. if we did refund instead of slashing). This check
+	// the assumption was wrong (i.e. if we did refund instead of slashing). This check
 	// ensures the extension will not refund weight when it doesn't need to (i.e. if pallet
 	// weights do not account weights of refund extension).
 	if runtime_includes_refund_extension {
