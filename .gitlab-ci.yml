@@ -268,6 +268,7 @@ subsystem-regression-tests-distribution-regression:
     FORKLIFT_BYPASS: "true"
   parallel: 6
   script:
+    - sleep 600
     - >
       for i in {1..10};
         do cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks || echo fail_${i} >> fails;
