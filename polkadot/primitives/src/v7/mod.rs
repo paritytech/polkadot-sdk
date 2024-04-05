@@ -1086,7 +1086,10 @@ pub enum CoreState<H = Hash, N = BlockNumber> {
 }
 
 impl<N> CoreState<N> {
-	/// If this core state has a `para_id`, return it.
+	/// Returns the scheduled `ParaId` for the core or `None` if nothing is scheduled.
+	///
+	/// This function is deprecated. `ClaimQueue` should be used to obtain the scheduled `ParaId`s
+	/// for each core.
 	#[deprecated(
 		note = "`para_id` will be removed. Use `ClaimQueue` to query the scheduled `para_id` instead."
 	)]
