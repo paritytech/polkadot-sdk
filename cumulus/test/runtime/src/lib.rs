@@ -94,7 +94,7 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
 const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
 #[cfg(feature = "elastic-scaling")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 9;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 6;
 #[cfg(feature = "elastic-scaling")]
 const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 

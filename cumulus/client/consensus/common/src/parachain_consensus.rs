@@ -385,7 +385,7 @@ async fn handle_new_best_parachain_head<Block, P>(
 			unset_best_header.take();
 			tracing::debug!(
 				target: LOG_TARGET,
-				?hash,
+				included = ?hash,
 				"Importing block as new best for parachain.",
 			);
 			import_block_as_new_best(hash, parachain_head, parachain).await;

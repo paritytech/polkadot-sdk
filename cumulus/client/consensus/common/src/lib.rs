@@ -250,7 +250,7 @@ pub struct ParentSearchParams {
 }
 
 /// A potential parent block returned from [`find_potential_parents`]
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct PotentialParent<B: BlockT> {
 	/// The hash of the block.
 	pub hash: B::Hash,
@@ -261,6 +261,17 @@ pub struct PotentialParent<B: BlockT> {
 	/// Whether the block is the included block, is itself pending on-chain, or descends
 	/// from the block pending availability.
 	pub aligned_with_pending: bool,
+}
+
+impl<B: BlockT> std::fmt::Debug for PotentialParent<B> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("PotentialParent")
+			.field("hash", &self.hash)
+			.field("depth", &self.depth)
+			.field("aligned_with_pending", &self.aligned_with_pending)
+			.field("number", &self.header.number())
+			.finish()
+	}
 }
 
 /// Perform a recursive search through blocks to find potential
@@ -280,10 +291,11 @@ pub struct PotentialParent<B: BlockT> {
 ///   * the block number is within `max_depth` blocks of the included block
 pub async fn find_potential_parents<B: BlockT>(
 	params: ParentSearchParams,
-	client: &impl Backend<B>,
+	backend: &impl Backend<B>,
 	relay_client: &impl RelayChainInterface,
 ) -> Result<Vec<PotentialParent<B>>, RelayChainError> {
 	// 1. Build up the ancestry record of the relay chain to compare against.
+	tracing::trace!("Parent search parameters: {params:?}");
 	let rp_ancestry = {
 		let mut ancestry = Vec::with_capacity(params.ancestry_lookback + 1);
 		let mut current_rp = params.relay_parent;
@@ -352,24 +364,96 @@ pub async fn find_potential_parents<B: BlockT>(
 	let included_hash = included_header.hash();
 	let pending_hash = pending_header.as_ref().map(|hdr| hdr.hash());
 
-	tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?included_hash, included_num = ?included_header.number(), ?pending_hash ,?rp_ancestry, "Searching relay chain ancestry.");
-	let mut frontier = vec![PotentialParent::<B> {
-		hash: included_hash,
-		header: included_header,
-		depth: 0,
-		aligned_with_pending: true,
-	}];
+	if params.max_depth == 0 {
+		return Ok(vec![PotentialParent::<B> {
+			hash: included_hash,
+			header: included_header,
+			depth: 0,
+			aligned_with_pending: true,
+		}])
+	};
 
-	// Recursive search through descendants of the included block which have acceptable
-	// relay parents.
-	let mut potential_parents = Vec::new();
+	let maybe_route = pending_hash
+		.map(|pending| sp_blockchain::tree_route(backend.blockchain(), included_hash, pending))
+		.transpose()?;
+
+	// The distance between pending and included block. Is later used to check if a child
+	// is aligned with pending when it is between pending and included block.
+	let pending_distance = maybe_route.as_ref().map(|route| route.enacted().len());
+
+	// If we want to ignore alternative branches there is no reason to start
+	// the parent search at the included block. We can add the included block and
+	// the path to the pending block to the potential parents directly (limited by max_depth).
+	let (mut frontier, mut potential_parents) = if let (Some(pending), true, Some(ref route)) =
+		(pending_header, params.ignore_alternative_branches, &maybe_route)
+	{
+		let mut potential_parents = Vec::new();
+		// Included block is always a potential parent
+		potential_parents.push(PotentialParent::<B> {
+			hash: included_hash,
+			header: included_header.clone(),
+			depth: 0,
+			aligned_with_pending: true,
+		});
+
+		// Add all items on the path included -> pending - 1 to the potential parents, but not
+		// more than `max_depth`.
+		let num_parents_on_path = route.enacted().len().saturating_sub(1).min(params.max_depth);
+		for (num, block) in route.enacted().iter().take(num_parents_on_path).enumerate() {
+			let header = match backend.blockchain().header(block.hash) {
+				Ok(Some(h)) => h,
+				Ok(None) => continue,
+				Err(_) => continue,
+			};
+
+			potential_parents.push(PotentialParent::<B> {
+				hash: block.hash,
+				header,
+				depth: 1 + num,
+				aligned_with_pending: true,
+			});
+		}
+
+		// The search for additional potential parents should now start at the
+		// pending block.
+		(
+			vec![PotentialParent::<B> {
+				hash: pending.hash(),
+				header: pending.clone(),
+				depth: route.enacted().len(),
+				aligned_with_pending: true,
+			}],
+			potential_parents,
+		)
+	} else {
+		(
+			vec![PotentialParent::<B> {
+				hash: included_hash,
+				header: included_header.clone(),
+				depth: 0,
+				aligned_with_pending: true,
+			}],
+			Default::default(),
+		)
+	};
+
+	if potential_parents.len() > params.max_depth {
+		return Ok(potential_parents);
+	}
+
+	// If a block is on the path included -> pending, we consider it `aligned_with_pending`.
+	let is_child_in_path_to_pending = |hash| {
+		maybe_route
+			.as_ref()
+			.map_or(true, |route| route.enacted().iter().any(|x| x.hash == hash))
+	};
+
+	tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?included_hash, included_num = ?included_header.number(), ?pending_hash ,?rp_ancestry, "Searching relay chain ancestry.");
 	while let Some(entry) = frontier.pop() {
-		// TODO find_potential_parents The assumption that entry.depth = 1 is the pending block is
-		// not correct if we produce sub 6s blocks.
+		// TODO Adjust once we can fetch multiple pending blocks.
 		// https://github.com/paritytech/polkadot-sdk/issues/3967
-		let is_pending =
-			entry.depth == 1 && pending_hash.as_ref().map_or(false, |h| &entry.hash == h);
-		let is_included = entry.depth == 0;
+		let is_pending = pending_hash.as_ref().map_or(false, |h| &entry.hash == h);
+		let is_included = included_hash == entry.hash;
 
 		// note: even if the pending block or included block have a relay parent
 		// outside of the expected part of the relay chain, they are always allowed
@@ -400,19 +484,19 @@ pub async fn find_potential_parents<B: BlockT>(
 		}
 
 		// push children onto search frontier.
-		for child in client.blockchain().children(hash).ok().into_iter().flatten() {
+		for child in backend.blockchain().children(hash).ok().into_iter().flatten() {
+			tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?child, child_depth, ?pending_distance, "Looking at child.");
 			let aligned_with_pending = parent_aligned_with_pending &&
-				if child_depth == 1 {
-					pending_hash.as_ref().map_or(true, |h| &child == h)
-				} else {
-					true
-				};
+				(pending_distance.map_or(true, |dist| child_depth > dist) ||
+					pending_hash.as_ref().map_or(true, |h| &child == h) ||
+					is_child_in_path_to_pending(child));
 
 			if params.ignore_alternative_branches && !aligned_with_pending {
+				tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?child, "Child is not aligned with pending block.");
 				continue
 			}
 
-			let header = match client.blockchain().header(child) {
+			let header = match backend.blockchain().header(child) {
 				Ok(Some(h)) => h,
 				Ok(None) => continue,
 				Err(_) => continue,

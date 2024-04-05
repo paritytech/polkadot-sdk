@@ -41,7 +41,7 @@ chain = "elastic-scaling"
   name = "collator-elastic"
   image = "{{CUMULUS_IMAGE}}"
   command = "test-parachain"
-  args = ["-laura=trace,runtime=info,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--use-slot-authoring"]
+  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--use-slot-authoring"]
 
 # Slot based authoring with 3 cores and 2s slot duration
 [[parachains]]
@@ -54,4 +54,4 @@ onboard_as_parachain = false
   name = "collator-single-core"
   image = "{{CUMULUS_IMAGE}}"
   command = "test-parachain"
-  args = ["-laura=trace,runtime=info,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--use-slot-authoring"]
+  args = ["-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug", "--force-authoring", "--use-slot-authoring"]
