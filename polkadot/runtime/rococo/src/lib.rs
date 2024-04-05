@@ -1180,7 +1180,7 @@ impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeParameters = RuntimeParameters;
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
 }
 
 parameter_types! {
