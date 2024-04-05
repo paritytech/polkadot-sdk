@@ -15,7 +15,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 # Substrate Dependencies
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
 
 # Bridge Dependencies
 bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false }
