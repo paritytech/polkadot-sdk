@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{Config, MaxPermanentSlots, MaxTemporarySlots, Pallet, LOG_TARGET};
-use frame_support::traits::{Get, GetStorageVersion, OnRuntimeUpgrade};
+use frame_support::traits::{Get, GetStorageVersion, UncheckedOnRuntimeUpgrade};
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
@@ -23,10 +23,9 @@ use frame_support::ensure;
 use sp_std::vec::Vec;
 
 pub mod v1 {
-
 	use super::*;
 	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 			let on_chain_version = Pallet::<T>::on_chain_storage_version();

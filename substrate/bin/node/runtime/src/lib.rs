@@ -320,6 +320,8 @@ impl pallet_example_tasks::Config for Runtime {
 	type WeightInfo = pallet_example_tasks::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_example_mbm::Config for Runtime {}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -1303,6 +1305,7 @@ impl pallet_message_queue::Config for Runtime {
 	type HeapSize = ConstU32<{ 64 * 1024 }>;
 	type MaxStale = ConstU32<128>;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = ();
 }
 
 parameter_types! {
@@ -2438,6 +2441,9 @@ mod runtime {
 
 	#[runtime::pallet_index(77)]
 	pub type SkipFeelessPayment = pallet_skip_feeless_payment;
+
+	#[runtime::pallet_index(78)]
+	pub type PalletExampleMbms = pallet_example_mbm;
 }
 
 /// The address format for describing accounts.
@@ -2596,6 +2602,7 @@ mod benches {
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
+		[pallet_example_mbm, PalletExampleMbms]
 	);
 }
 

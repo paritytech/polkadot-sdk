@@ -666,3 +666,19 @@ fn clear_metadata_works() {
 		}));
 	});
 }
+
+#[test]
+fn detects_incorrect_len() {
+	ExtBuilder::default().build_and_execute(|| {
+		let hash = note_preimage(1);
+		assert_noop!(
+			Referenda::submit(
+				RuntimeOrigin::signed(1),
+				Box::new(RawOrigin::Root.into()),
+				frame_support::traits::Bounded::Lookup { hash, len: 3 },
+				DispatchTime::At(1),
+			),
+			Error::<Test>::PreimageStoredWithDifferentLength
+		);
+	});
+}
