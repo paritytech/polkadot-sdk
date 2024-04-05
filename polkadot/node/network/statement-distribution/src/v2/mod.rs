@@ -705,10 +705,9 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 		});
 
 		let groups_per_para = determine_groups_per_para(
-			ctx.sender(),
-			new_relay_parent,
 			availability_cores,
 			group_rotation_info,
+			&maybe_claim_queue,
 			max_candidate_depth,
 		)
 		.await;
@@ -2159,24 +2158,11 @@ async fn provide_candidate_to_grid<Context>(
 
 // Utility function to populate per relay parent `ParaId` to `GroupIndex` mappings.
 async fn determine_groups_per_para(
-	sender: &mut impl overseer::StatementDistributionSenderTrait,
-	relay_parent: Hash,
 	availability_cores: Vec<CoreState>,
 	group_rotation_info: GroupRotationInfo,
+	maybe_claim_queue: &Option<ClaimQueueSnapshot>,
 	max_candidate_depth: usize,
 ) -> HashMap<ParaId, Vec<GroupIndex>> {
-	let maybe_claim_queue = fetch_claim_queue(sender, relay_parent)
-			.await
-			.unwrap_or_else(|err| {
-				gum::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					?err,
-					"determine_groups_per_para: `claim_queue` API not available, falling back to iterating availability cores"
-				);
-				None
-			});
-
 	let n_cores = availability_cores.len();
 
 	// Determine the core indices occupied by each para at the current relay parent. To support
