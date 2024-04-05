@@ -64,6 +64,7 @@ fn construct_extrinsic(
 			bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),
 			bridge_to_bulletin_config::OnBridgeHubRococoRefundRococoBulletinMessages::default(),
 		),
+		cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim::new(),
 	);
 	let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
 	let signature = payload.using_encoded(|e| sender.sign(e));

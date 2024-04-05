@@ -45,16 +45,20 @@
 //!
 //! In short, this crate only re-exports types and traits from multiple sources. All of these
 //! sources are listed (and re-exported again) in [`deps`].
+//!
+//! ## Usage
+//!
+//! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "experimental")]
 
 /// Exports the main pallet macro. This can wrap a `mod pallet` and will transform it into
-/// being a pallet, eg `#[frame::pallet] mod pallet { .. }`.
+/// being a pallet, eg `#[polkadot_sdk_frame::pallet] mod pallet { .. }`.
 ///
 /// Note that this is not part of the prelude, in order to make it such that the common way to
-/// define a macro is `#[frame::pallet] mod pallet { .. }`, followed by `#[pallet::foo]`,
-/// `#[pallet::bar]` inside the mod.
+/// define a macro is `#[polkadot_sdk_frame::pallet] mod pallet { .. }`, followed by
+/// `#[pallet::foo]`, `#[pallet::bar]` inside the mod.
 pub use frame_support::pallet;
 
 /// Export the main runtime macro. This is the new version of `construct_runtime!`.
@@ -78,7 +82,7 @@ pub mod pallet_macros {
 /// This prelude should almost always be the first line of code in any pallet or runtime.
 ///
 /// ```
-/// use frame::prelude::*;
+/// use polkadot_sdk_frame::prelude::*;
 ///
 /// // rest of your pallet..
 /// mod pallet {}
@@ -87,7 +91,7 @@ pub mod prelude {
 	/// `frame_system`'s parent crate, which is mandatory in all pallets build with this crate.
 	///
 	/// Conveniently, the keyword `frame_system` is in scope as one uses `use
-	/// frame::prelude::*`
+	/// polkadot_sdk_frame::prelude::*`
 	#[doc(inline)]
 	pub use frame_system;
 
@@ -115,7 +119,7 @@ pub mod prelude {
 /// A test setup typically starts with:
 ///
 /// ```
-/// use frame::testing_prelude::*;
+/// use polkadot_sdk_frame::testing_prelude::*;
 /// // rest of your test setup.
 /// ```
 #[cfg(feature = "std")]
@@ -144,7 +148,7 @@ pub mod runtime {
 	/// A runtime typically starts with:
 	///
 	/// ```
-	/// use frame::{prelude::*, runtime::prelude::*};
+	/// use polkadot_sdk_frame::{prelude::*, runtime::prelude::*};
 	/// ```
 	pub mod prelude {
 		/// All of the types related to the FRAME runtime executive.
@@ -193,7 +197,7 @@ pub mod runtime {
 	/// A non-testing runtime should have this enabled, as such:
 	///
 	/// ```
-	/// use frame::runtime::{prelude::*, apis::{*,}};
+	/// use polkadot_sdk_frame::runtime::{prelude::*, apis::{*,}};
 	/// ```
 	// TODO: This is because of wildcard imports, and it should be not needed once we can avoid
 	// that. Imports like that are needed because we seem to need some unknown types in the macro
@@ -338,8 +342,8 @@ pub mod derive {
 /// In most cases, hopefully the answer is yes.
 pub mod deps {
 	// TODO: It would be great to somehow instruct RA to prefer *not* suggesting auto-imports from
-	// these. For example, we prefer `frame::derive::CloneNoBound` rather than
-	// `frame::deps::frame_support::CloneNoBound`.
+	// these. For example, we prefer `polkadot_sdk_frame::derive::CloneNoBound` rather than
+	// `polkadot_sdk_frame::deps::frame_support::CloneNoBound`.
 	pub use frame_support;
 	pub use frame_system;
 

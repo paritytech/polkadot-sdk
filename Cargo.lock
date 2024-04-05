@@ -867,6 +867,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -990,6 +991,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -1920,7 +1922,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-common"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -2010,6 +2012,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -2181,6 +2184,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -2624,9 +2628,9 @@ dependencies = [
 
 [[package]]
 name = "clap-num"
-version = "1.1.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e063d263364859dc54fb064cedb7c122740cd4733644b14b176c097f51e8ab7"
+checksum = "488557e97528174edaa2ee268b23a809e0c598213a4bbcb4f34575a46fda147e"
 dependencies = [
  "num-traits",
 ]
@@ -2739,6 +2743,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -2844,10 +2849,11 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
 name = "colored"
-version = "2.1.0"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbf2150cce219b664a8a70df7a1f933836724b503f8a413af9365b4dcc4d90b8"
+checksum = "2674ec482fbc38012cf31e6c42ba0177b431a0cb6f15fe40efa5aab1bda516f6"
 dependencies = [
+ "is-terminal",
  "lazy_static",
  "windows-sys 0.48.0",
 ]
@@ -2993,6 +2999,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -3087,6 +3094,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -3151,6 +3159,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "frame-benchmarking",
  "frame-executive",
@@ -5446,6 +5455,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
+<<<<<<< HEAD
 name = "frame"
 version = "0.0.1-dev"
 dependencies = [
@@ -5476,6 +5486,38 @@ dependencies = [
 ]
 
 [[package]]
+||||||| 5d9826c262
+name = "frame"
+version = "0.0.1-dev"
+dependencies = [
+ "docify",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "pallet-examples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std 14.0.0",
+ "sp-transaction-pool",
+ "sp-version",
+]
+
+[[package]]
+=======
+>>>>>>> cb0748b6ecb84d16f595bfdaf7a98fb46aa5c590
 name = "frame-benchmarking"
 version = "28.0.0"
 dependencies = [
@@ -5812,8 +5854,8 @@ dependencies = [
 name = "frame-support-test-stg-frame-crate"
 version = "0.1.0"
 dependencies = [
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -7074,6 +7116,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
+ "pallet-example-mbm",
  "pallet-example-tasks",
  "pallet-fast-unstake",
  "pallet-glutton",
@@ -8124,11 +8167,11 @@ name = "minimal-template-node"
 version = "0.0.0"
 dependencies = [
  "clap 4.5.3",
- "frame",
  "futures",
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
+ "polkadot-sdk-frame",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
@@ -8158,7 +8201,6 @@ dependencies = [
 name = "minimal-template-runtime"
 version = "0.0.0"
 dependencies = [
- "frame",
  "pallet-balances",
  "pallet-minimal-template",
  "pallet-sudo",
@@ -8166,8 +8208,10 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
  "sp-genesis-builder",
+ "sp-runtime",
  "substrate-wasm-builder",
 ]
 
@@ -9848,8 +9892,8 @@ dependencies = [
 name = "pallet-example-frame-crate"
 version = "0.0.1"
 dependencies = [
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -9868,6 +9912,20 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+]
+
+[[package]]
+name = "pallet-example-mbm"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-migrations",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
 ]
 
 [[package]]
@@ -10182,8 +10240,8 @@ dependencies = [
 name = "pallet-minimal-template"
 version = "0.0.0"
 dependencies = [
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -10502,7 +10560,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-parameters"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11776,6 +11834,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "enumflags2",
  "frame-benchmarking",
@@ -11875,6 +11934,7 @@ dependencies = [
  "cumulus-pallet-xcmp-queue",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
+ "cumulus-primitives-storage-weight-reclaim",
  "cumulus-primitives-utility",
  "enumflags2",
  "frame-benchmarking",
@@ -13380,7 +13440,6 @@ dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "docify",
- "frame",
  "frame-executive",
  "frame-support",
  "frame-system",
@@ -13412,9 +13471,14 @@ dependencies = [
  "pallet-utility",
  "parachain-template-runtime",
  "parity-scale-codec",
+<<<<<<< HEAD
  "polkadot-sdk-docs-packages-guides-first-pallet",
  "polkadot-sdk-docs-packages-guides-first-runtime",
  "sc-chain-spec",
+||||||| 5d9826c262
+=======
+ "polkadot-sdk-frame",
+>>>>>>> cb0748b6ecb84d16f595bfdaf7a98fb46aa5c590
  "sc-cli",
  "sc-client-db",
  "sc-consensus-aura",
@@ -13446,6 +13510,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "polkadot-sdk-docs-packages-guides-first-pallet"
 version = "0.0.0"
 dependencies = [
@@ -13474,6 +13539,38 @@ dependencies = [
 ]
 
 [[package]]
+||||||| 5d9826c262
+=======
+name = "polkadot-sdk-frame"
+version = "0.1.0"
+dependencies = [
+ "docify",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "pallet-examples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-consensus-grandpa",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std 14.0.0",
+ "sp-transaction-pool",
+ "sp-version",
+]
+
+[[package]]
+>>>>>>> cb0748b6ecb84d16f595bfdaf7a98fb46aa5c590
 name = "polkadot-service"
 version = "7.0.0"
 dependencies = [
@@ -15072,6 +15169,7 @@ name = "rococo-runtime"
 version = "7.0.0"
 dependencies = [
  "binary-merkle-tree",
+ "bitvec",
  "frame-benchmarking",
  "frame-executive",
  "frame-remote-externalities",
@@ -15144,6 +15242,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-babe",
  "sp-consensus-beefy",
+ "sp-consensus-grandpa",
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",
@@ -15674,7 +15773,7 @@ dependencies = [
 
 [[package]]
 name = "sc-chain-spec"
-version = "27.0.0"
+version = "28.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "docify",
@@ -15698,6 +15797,7 @@ dependencies = [
  "sp-keyring",
  "sp-runtime",
  "sp-state-machine",
+ "sp-tracing 16.0.0",
  "substrate-test-runtime",
 ]
 
@@ -18768,7 +18868,7 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-hashing"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -18782,7 +18882,7 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-hashing-proc-macro"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "quote",
  "sp-crypto-hashing",
@@ -18838,8 +18938,10 @@ dependencies = [
 
 [[package]]
 name = "sp-genesis-builder"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
+ "parity-scale-codec",
+ "scale-info",
  "serde_json",
  "sp-api",
  "sp-runtime",
@@ -19475,7 +19577,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staging-chain-spec-builder"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
  "clap 4.5.3",
  "log",
@@ -19570,6 +19672,7 @@ dependencies = [
  "sp-core",
  "sp-crypto-hashing",
  "sp-externalities 0.25.0",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -19995,6 +20098,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
+ "hex-literal",
  "log",
  "pallet-babe",
  "pallet-balances",
