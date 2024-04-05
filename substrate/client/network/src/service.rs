@@ -530,7 +530,6 @@ where
 			boot_node_ids,
 			reported_invalid_boot_nodes: Default::default(),
 			peer_store_handle: params.peer_store,
-			peer_endpoints: HashMap::new(),
 			notif_protocol_handles,
 			_marker: Default::default(),
 			_block: Default::default(),
@@ -1201,8 +1200,6 @@ where
 	reported_invalid_boot_nodes: HashSet<PeerId>,
 	/// Peer reputation store handle.
 	peer_store_handle: PeerStoreHandle,
-	/// Peer dialer/listener roles, used to report external addresses.
-	peer_endpoints: HashMap<PeerId, ConnectedPoint>,
 	/// Notification protocol handles.
 	notif_protocol_handles: Vec<protocol::ProtocolHandle>,
 	/// Marker to pin the `H` generic. Serves no purpose except to not break backwards
@@ -1400,12 +1397,7 @@ where
 				peer_id,
 				info:
 					IdentifyInfo {
-						protocol_version,
-						agent_version,
-						mut listen_addrs,
-						protocols,
-						observed_addr,
-						..
+						protocol_version, agent_version, mut listen_addrs, protocols, ..
 					},
 			}) => {
 				if listen_addrs.len() > 30 {
@@ -1424,10 +1416,6 @@ where
 					);
 				}
 				self.peer_store_handle.add_known_peer(peer_id);
-
-				if let Some(ConnectedPoint::Listener { .. }) = self.peer_endpoints.get(&peer_id) {
-					self.network_service.add_external_address(observed_addr);
-				}
 			},
 			SwarmEvent::Behaviour(BehaviourOut::Discovered(peer_id)) => {
 				self.peer_store_handle.add_known_peer(peer_id);
@@ -1537,7 +1525,6 @@ where
 						metrics.distinct_peers_connections_opened_total.inc();
 					}
 				}
-				self.peer_endpoints.insert(peer_id, endpoint);
 			},
 			SwarmEvent::ConnectionClosed {
 				connection_id,
@@ -1573,7 +1560,6 @@ where
 						metrics.distinct_peers_connections_closed_total.inc();
 					}
 				}
-				self.peer_endpoints.remove(&peer_id);
 			},
 			SwarmEvent::NewListenAddr { address, .. } => {
 				trace!(target: "sub-libp2p", "Libp2p => NewListenAddr({})", address);

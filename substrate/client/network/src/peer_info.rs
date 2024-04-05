@@ -38,7 +38,8 @@ use libp2p::{
 			ExternalAddrConfirmed, FromSwarm, ListenFailure,
 		},
 		ConnectionDenied, ConnectionHandler, ConnectionHandlerSelect, ConnectionId,
-		NetworkBehaviour, PollParameters, THandler, THandlerInEvent, THandlerOutEvent, ToSwarm,
+		NetworkBehaviour, NewExternalAddrCandidate, PollParameters, THandler, THandlerInEvent,
+		THandlerOutEvent, ToSwarm,
 	},
 	Multiaddr, PeerId,
 };
@@ -47,7 +48,7 @@ use parking_lot::Mutex;
 use smallvec::SmallVec;
 
 use std::{
-	collections::{hash_map::Entry, HashSet},
+	collections::{hash_map::Entry, HashSet, VecDeque},
 	pin::Pin,
 	sync::Arc,
 	task::{Context, Poll},
@@ -71,6 +72,8 @@ pub struct PeerInfoBehaviour {
 	garbage_collect: Pin<Box<dyn Stream<Item = ()> + Send>>,
 	/// Record keeping of external addresses. Data is queried by the `NetworkService`.
 	external_addresses: ExternalAddresses,
+	/// Pending events to emit to [`Swarm`](libp2p::swarm::Swarm).
+	pending_actions: VecDeque<ToSwarm<PeerInfoEvent, THandlerInEvent<PeerInfoBehaviour>>>,
 }
 
 /// Information about a node we're connected to.
@@ -134,6 +137,7 @@ impl PeerInfoBehaviour {
 			nodes_info: FnvHashMap::default(),
 			garbage_collect: Box::pin(interval(GARBAGE_COLLECT_INTERVAL)),
 			external_addresses: ExternalAddresses { addresses: external_addresses },
+			pending_actions: Default::default(),
 		}
 	}
 
@@ -396,10 +400,18 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 				self.identify.on_swarm_event(FromSwarm::ExpiredListenAddr(e));
 				self.external_addresses.remove(e.addr);
 			},
-			FromSwarm::NewExternalAddrCandidate(e) => {
+			FromSwarm::NewExternalAddrCandidate(e @ NewExternalAddrCandidate { addr }) => {
 				self.ping.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
 				self.identify.on_swarm_event(FromSwarm::NewExternalAddrCandidate(e));
-				// self.external_addresses.add(e.addr.clone());
+
+				// Manually confirm all external address candidates.
+				// TODO: consider adding [AutoNAT protocol](https://docs.rs/libp2p/0.52.3/libp2p/autonat/index.html)
+				// (must go through the polkadot protocol spec) or implemeting heuristics for
+				// approving external address candidates. This can be done, for example, by
+				// approving only addresses reported by multiple peers.
+				// See also https://github.com/libp2p/rust-libp2p/pull/4721 introduced
+				// in libp2p v0.53 for heuristics approach.
+				self.pending_actions.push_back(ToSwarm::ExternalAddrConfirmed(addr.clone()));
 			},
 			FromSwarm::ExternalAddrConfirmed(e @ ExternalAddrConfirmed { addr }) => {
 				self.ping.on_swarm_event(FromSwarm::ExternalAddrConfirmed(e));
@@ -448,6 +460,10 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		cx: &mut Context,
 		params: &mut impl PollParameters,
 	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
+		while let Some(event) = self.pending_actions.pop_front() {
+			return Poll::Ready(event)
+		}
+
 		loop {
 			match self.ping.poll(cx, params) {
 				Poll::Pending => break,
