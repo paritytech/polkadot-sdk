@@ -1,19 +1,20 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: Remove `para_id()` from `CoreState` in polkadot primitives
+title: Deprecate `para_id()` from `CoreState` in polkadot primitives
 
 doc:
   - audience: "Node Dev"
     description: |
-     The motivation is that `para_id()` can be misused with Coretime which allows two parachains (A,B) to share a 
-     core at an arbitrary relay chain block. This happens when a candidate of parachain A is pending availability 
-     while parachain B is scheduled on the same core. In such a case the removed `para_id()` function would always
-     return the id of A. Implementers should now use the `ClaimQueue` to query the scheduled `para_id`.
+     The motivation is that the old implementation of `para_id()` can be misused with Coretime which allows two
+     parachains (A,B) to share a core at an arbitrary relay chain block. This happens when a candidate of parachain A
+     is pending availability while parachain B is scheduled on the same core. In such a case the deprecated `para_id()`
+     function would always return the id of A. This behavior is fixed by always returning the scheduled `ParaId` for
+     occupied cores. But nevertheless implementers should prefer using the `ClaimQueue` to query the scheduled `para_id`.
 
 crates:
   - name: polkadot-primitives
-    bump: major
+    bump: minor
   - name: polkadot-statement-distribution
     bump: minor
   - name: cumulus-client-consensus-aura
