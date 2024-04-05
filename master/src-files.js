@@ -242,7 +242,7 @@ var srcIndex = JSON.parse('{\
 "pallet_xcm_bridge_hub":["",[],["exporter.rs","lib.rs"]],\
 "pallet_xcm_bridge_hub_router":["",[],["benchmarking.rs","lib.rs","weights.rs"]],\
 "parachain_template_node":["",[],["chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
-"parachain_template_runtime":["",[["configs",[],["mod.rs","xcm_config.rs"]],["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["apis.rs","lib.rs"]],\
+"parachain_template_runtime":["",[["configs",[],["mod.rs","xcm_config.rs"]],["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["apis.rs","benchmarks.rs","lib.rs"]],\
 "parachains_common":["",[],["impls.rs","lib.rs","message_queue.rs","xcm_config.rs"]],\
 "parachains_runtimes_test_utils":["",[],["lib.rs","test_cases.rs"]],\
 "penpal_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
