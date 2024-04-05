@@ -1,12 +1,12 @@
 # Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
 # See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: `RUNTIME_API_VERSIONS` is now publicly accessible
+title: "RUNTIME_API_VERSIONS is now publicly accessible"
 
 doc:
   - audience: Runtime Dev
     description: |
-      - `RUNTIME_API_VERSIONS` is now publicly accessible, enhancing module-wide visibility.
+      `RUNTIME_API_VERSIONS` is now publicly accessible, enhancing module-wide visibility.
         
 crates: 
   - name: sp-api-proc-macro
