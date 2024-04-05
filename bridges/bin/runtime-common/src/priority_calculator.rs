@@ -16,29 +16,29 @@
 
 //! Bridge transaction priority calculator.
 //!
-//! We want to prioritize message delivery transactions with more messages over
-//! transactions with less messages. That's because we reject delivery transactions
-//! if it contains already delivered message. And if some transaction delivers
-//! single message with nonce `N`, then the transaction with nonces `N..=N+100` will
-//! be rejected. This can lower bridge throughput down to one message per block.
+//! We aim to prioritize message delivery transactions with more messages over
+//! those with fewer messages. That's because we reject delivery transactions
+//! containing already delivered messages. If a transaction delivers
+//! a single message with nonce `N`, then the transaction with nonces `N..=N+100` will
+//! be rejected. This can reduce bridge throughput to one message per block.
 
 use bp_messages::MessageNonce;
 use frame_support::traits::Get;
 use sp_runtime::transaction_validity::TransactionPriority;
 
-// reexport everything from `integrity_tests` module
+// Reexport everything from the `integrity_tests` module.
 #[allow(unused_imports)]
 pub use integrity_tests::*;
 
-/// Compute priority boost for message delivery transaction that delivers
-/// given number of messages.
+/// Compute the priority boost for a message delivery transaction that delivers
+/// a given number of messages.
 pub fn compute_priority_boost<PriorityBoostPerMessage>(
 	messages: MessageNonce,
 ) -> TransactionPriority
 where
 	PriorityBoostPerMessage: Get<TransactionPriority>,
 {
-	// we don't want any boost for transaction with single message => minus one
+	// We don't want any boost for a transaction with a single message => minus one.
 	PriorityBoostPerMessage::get().saturating_mul(messages.saturating_sub(1))
 }
 
@@ -71,8 +71,8 @@ mod integrity_tests {
 	/// Ensures that the value of `PriorityBoostPerMessage` matches the value of
 	/// `tip_boost_per_message`.
 	///
-	/// We want two transactions, `TX1` with `N` messages and `TX2` with `N+1` messages, have almost
-	/// the same priority if we'll add `tip_boost_per_message` tip to the `TX1`. We want to be sure
+	/// We want two transactions, `TX1` with `N` messages and `TX2` with `N+1` messages, to have almost
+	/// the same priority if we add `tip_boost_per_message` tip to `TX1`. We aim to ensure
 	/// that if we add plain `PriorityBoostPerMessage` priority to `TX1`, the priority will be close
 	/// to `TX2` as well.
 	pub fn ensure_priority_boost_is_sane<Runtime, MessagesInstance, PriorityBoostPerMessage>(
@@ -100,7 +100,7 @@ mod integrity_tests {
 			let priority_with_tip =
 				estimate_message_delivery_transaction_priority::<Runtime, MessagesInstance>(1, tip);
 
-			const ERROR_MARGIN: TransactionPriority = 5; // 5%
+			const ERROR_MARGIN: TransactionPriority = 5; // 5%.
 			if priority_with_boost.abs_diff(priority_with_tip).saturating_mul(100) /
 				priority_with_tip >
 				ERROR_MARGIN
@@ -116,7 +116,7 @@ mod integrity_tests {
 		}
 	}
 
-	/// Compute priority boost that we give to message delivery transaction for additional message.
+	/// Compute the priority boost that we give to a message delivery transaction for an additional message.
 	#[cfg(feature = "integrity-test")]
 	fn compute_priority_boost_per_message<Runtime, MessagesInstance>(
 		tip_boost_per_message: BalanceOf<Runtime>,
@@ -128,7 +128,7 @@ mod integrity_tests {
 		Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 		BalanceOf<Runtime>: Send + Sync + FixedPointOperand,
 	{
-		// estimate priority of transaction that delivers one message and has large tip
+		// Estimate the priority of a transaction that delivers one message and has a large tip.
 		let maximal_messages_in_delivery_transaction =
 			Runtime::MaxUnconfirmedMessagesAtInboundLane::get();
 		let small_with_tip_priority =
@@ -137,7 +137,7 @@ mod integrity_tests {
 				tip_boost_per_message
 					.saturating_mul(maximal_messages_in_delivery_transaction.saturated_into()),
 			);
-		// estimate priority of transaction that delivers maximal number of messages, but has no tip
+		// Estimate the priority of a transaction that delivers the maximum number of messages, but has no tip.
 		let large_without_tip_priority = estimate_message_delivery_transaction_priority::<
 			Runtime,
 			MessagesInstance,
@@ -148,7 +148,7 @@ mod integrity_tests {
 			.saturating_div(maximal_messages_in_delivery_transaction - 1)
 	}
 
-	/// Estimate message delivery transaction priority.
+	/// Estimate the priority of a message delivery transaction.
 	#[cfg(feature = "integrity-test")]
 	fn estimate_message_delivery_transaction_priority<Runtime, MessagesInstance>(
 		messages: MessageNonce,
@@ -161,26 +161,26 @@ mod integrity_tests {
 		Runtime::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 		BalanceOf<Runtime>: Send + Sync + FixedPointOperand,
 	{
-		// just an estimation of extra transaction bytes that are added to every transaction
-		// (including signature, signed extensions extra and etc + in our case it includes
-		// all call arguments except the proof itself)
+		// An estimation of extra transaction bytes added to every transaction
+		// (including signature, signed extensions, and extras + in our case, it includes
+		// all call arguments except the proof itself).
 		let base_tx_size = 512;
-		// let's say we are relaying similar small messages and for every message we add more trie
-		// nodes to the proof (x0.5 because we expect some nodes to be reused)
+		// Let's say we are relaying similar small messages and for every message, we add more trie
+		// nodes to the proof (x0.5 because we expect some nodes to be reused).
 		let estimated_message_size = 512;
-		// let's say all our messages have the same dispatch weight
+		// Let's say all our messages have the same dispatch weight.
 		let estimated_message_dispatch_weight =
 			Runtime::WeightInfo::message_dispatch_weight(estimated_message_size);
-		// messages proof argument size is (for every message) messages size + some additional
-		// trie nodes. Some of them are reused by different messages, so let's take 2/3 of default
-		// "overhead" constant
+		// Message proof argument size is, for every message, message size + some additional
+		// trie nodes. Some of them are reused by different messages, so let's take 2/3 of the default
+		// "overhead" constant.
 		let messages_proof_size = Runtime::WeightInfo::expected_extra_storage_proof_size()
 			.saturating_mul(2)
 			.saturating_div(3)
 			.saturating_add(estimated_message_size)
 			.saturating_mul(messages as _);
 
-		// finally we are able to estimate transaction size and weight
+		// Finally, we can estimate transaction size and weight.
 		let transaction_size = base_tx_size.saturating_add(messages_proof_size);
 		let transaction_weight = Runtime::WeightInfo::receive_messages_proof_weight(
 			&PreComputedSize(transaction_size as _),
