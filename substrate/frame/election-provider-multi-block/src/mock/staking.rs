@@ -48,7 +48,7 @@ frame_support::parameter_types! {
 		(80, 80, bounded_vec![80]),
 	];
 	pub static EpochLength: u64 = 30;
-	pub static DesiredTargets: u32 = 10;
+	pub static DesiredTargets: u32 = 3;
 
 	pub static LastIteratedTargetIndex: Option<usize> = None;
 	pub static LastIteratedVoterIndex: Option<usize> = None;

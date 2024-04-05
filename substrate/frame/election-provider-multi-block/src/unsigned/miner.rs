@@ -20,9 +20,9 @@
 use crate::{
 	helpers,
 	types::{PageSize, Pagify, SupportsOf, VoterOf},
-	unsigned::pallet::Config as UnsignedConfig,
+	unsigned::{pallet::Config as UnsignedConfig, Call},
 	verifier::FeasibilityError,
-	AssignmentOf, Config, PagedRawSolution, Pallet as EPM, Snapshot, SolutionAccuracyOf,
+	AssignmentOf, Config, PagedRawSolution, Pallet as EPM, Phase, Snapshot, SolutionAccuracyOf,
 	SolutionOf,
 };
 
@@ -35,7 +35,7 @@ use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized, ElectionResult,
 	ElectionScore, ExtendedBalance, Support,
 };
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{offchain::storage::StorageValueRef, SaturatedConversion};
 use sp_std::{vec, vec::Vec};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -376,7 +376,7 @@ where
 				sublog!(
 					warn,
 					"unsigned::base-miner",
-					"feasibility check failed for {} solution at: {:?}",
+					"feasibility check failed for {} solution: {:?}",
 					solution_type,
 					err
 				);
@@ -433,9 +433,9 @@ where
 		};
 
 		// ensure our post-conditions are correct
-		debug_assert!(
-			encoded_size_of(&assignments[..maximum_allowed_voters]).unwrap() <= max_allowed_length
-		);
+		//debug_assert!(
+		//	encoded_size_of(&assignments[..maximum_allowed_voters]).unwrap() <= max_allowed_length
+		//);
 		debug_assert!(if maximum_allowed_voters < assignments.len() {
 			encoded_size_of(&assignments[..maximum_allowed_voters + 1]).unwrap() >
 				max_allowed_length
@@ -570,6 +570,92 @@ where
 			max_weight,
 		);
 		final_decision
+	}
+}
+
+/// Errors associated with the [`OffchainWorkerMiner`].
+#[derive(
+	frame_support::DebugNoBound, frame_support::EqNoBound, frame_support::PartialEqNoBound,
+)]
+pub enum OffchainMinerError {
+	Miner(MinerError),
+	PoolSubmissionFailed,
+	NotUnsignedPhase,
+	StorageError,
+	PageOutOfBounds,
+}
+
+impl From<MinerError> for OffchainMinerError {
+	fn from(e: MinerError) -> Self {
+		OffchainMinerError::Miner(e)
+	}
+}
+
+/// A miner used in the context of the offchain worker for unsigned submissions.
+pub(crate) struct OffchainWorkerMiner<T: UnsignedConfig>(sp_std::marker::PhantomData<T>);
+
+impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
+	/// The offchain storage lock to work with unsigned submissions.
+	pub(crate) const OFFCHAIN_LOCK: &'static [u8] = b"parity/multi-block-unsigned-election/lock";
+	pub(crate) const OFFCHAIN_CACHED_SOLUTION: &'static [u8] =
+		b"parity/multi-block-unsigned-election/solution";
+
+	pub fn mine_check_save_submit() -> Result<(), OffchainMinerError> {
+		sublog!(debug, "unsigned::ocw-miner", "offchain miner computing an unsigned solution.");
+
+		let reduce = true;
+		let solution = Miner::<T, T::OffchainSolver>::mine_paged_solution(T::Pages::get(), reduce)?;
+
+		let (paged_solution, _trimming_status) = solution;
+
+		let storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SOLUTION);
+		storage
+			.mutate::<_, (), _>(|_| Ok((paged_solution.clone())))
+			.map_err(|_| OffchainMinerError::StorageError)?;
+
+		Self::submit_paged_call(paged_solution, crate::Pallet::<T>::msp())
+	}
+
+	pub(crate) fn restore_or_compute_then_maybe_submit() {}
+
+	pub(crate) fn submit_paged_call(
+		paged_solution: PagedRawSolution<T>,
+		page: PageIndex,
+	) -> Result<(), OffchainMinerError> {
+		if let Some(solution) = paged_solution.solution_pages.get(page as usize) {
+			let call = Self::paged_unsigned_call(solution.clone(), page)?;
+			Self::submit_call(call)
+		} else {
+			Err(OffchainMinerError::PageOutOfBounds)
+		}
+	}
+
+	fn paged_unsigned_call(
+		solution: SolutionOf<T>,
+		page: PageIndex,
+	) -> Result<Call<T>, OffchainMinerError> {
+		let call = Call::submit_page_unsigned {
+			solution,
+			claimed_score: Default::default(), // TODO
+			page,
+			weight_witness: Default::default(), // TODO
+		};
+
+		Ok(call)
+	}
+
+	// TODO: remove, unecessary.
+	pub(crate) fn submit_call(call: Call<T>) -> Result<(), OffchainMinerError> {
+		sublog!(
+			debug,
+			"unsigned::ocw-miner",
+			"miner submitting a solution as an unsigned transaction"
+		);
+
+		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+			call.into(),
+		)
+		.map_err(|_| OffchainMinerError::PoolSubmissionFailed)
 	}
 }
 

@@ -123,6 +123,10 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 		matches!(self, Phase::Unsigned(real) if *real == at)
 	}
 
+	pub(crate) fn is_unsigned(&self) -> bool {
+		matches!(self, Phase::Unsigned(_))
+	}
+
 	pub(crate) fn is_export(&self) -> bool {
 		matches!(self, Phase::Export(_))
 	}

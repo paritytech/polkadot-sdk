@@ -35,6 +35,7 @@ sp-npos-elections = { default-features = false, path = "../../primitives/npos-el
 [dev-dependencies]
 sp-tracing = { path = "../../primitives/tracing" }
 pallet-balances = { path = "../balances", default-features = false}
+parking_lot = "0.12.1"
 
 [features]
 default = [ "std" ]

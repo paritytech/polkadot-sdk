@@ -28,7 +28,15 @@ use crate::{
 	Config, *,
 };
 use frame_support::{derive_impl, pallet_prelude::*, parameter_types};
-use sp_runtime::{BuildStorage, Perbill};
+use parking_lot::RwLock;
+use sp_runtime::{
+	offchain::{
+		testing::{PoolState, TestOffchainExt, TestTransactionPoolExt},
+		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
+	},
+	BuildStorage, Perbill,
+};
+use std::sync::Arc;
 
 frame_support::construct_runtime!(
 	pub struct Runtime {
@@ -157,6 +165,7 @@ parameter_types! {
 
 impl crate::unsigned::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type OffchainSolver = SequentialPhragmen<AccountId, sp_runtime::PerU16, ()>;
 	type OffchainRepeatInterval = OffchainRepeatInterval;
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;
@@ -189,7 +198,7 @@ parameter_types! {
 
 impl onchain::Config for Runtime {
 	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, Perbill, ()>;
+	type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16, ()>;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type Bounds = OnChainElectionBounds;
@@ -287,6 +296,26 @@ impl ExtBuilder {
 
 		sp_io::TestExternalities::from(storage)
 	}
+
+	pub fn build_offchainify(
+		self,
+		iters: u32,
+	) -> (sp_io::TestExternalities, Arc<RwLock<PoolState>>) {
+		let mut ext = self.build();
+		let (offchain, offchain_state) = TestOffchainExt::new();
+		let (pool, pool_state) = TestTransactionPoolExt::new();
+
+		let mut seed = [0_u8; 32];
+		seed[0..4].copy_from_slice(&iters.to_le_bytes());
+		offchain_state.write().seed = seed;
+
+		ext.register_extension(OffchainDbExt::new(offchain.clone()));
+		ext.register_extension(OffchainWorkerExt::new(offchain));
+		ext.register_extension(TransactionPoolExt::new(pool));
+
+		(ext, pool_state)
+	}
+
 	pub(crate) fn build_and_execute(self, test: impl FnOnce() -> ()) {
 		let mut ext = self.build();
 		ext.execute_with(test);
@@ -310,9 +339,9 @@ pub(crate) fn roll_to(n: BlockNumber) {
 		VerifierPallet::on_initialize(bn);
 		SignedPallet::on_initialize(bn);
 		UnsignedPallet::on_initialize(bn);
+		UnsignedPallet::offchain_worker(bn);
 
-		// TODO: maybe add try-checks for all pallets here too, as we progress the blocks.
-
+		// TODO: add try-checks for all pallets here too, as we progress the blocks.
 		log!(
 			info,
 			"Block: {}, Phase: {:?}, Round: {:?}, Election at {:?}",
@@ -324,6 +353,10 @@ pub(crate) fn roll_to(n: BlockNumber) {
 	}
 }
 
+pub(crate) fn roll_one() {
+	roll_to(System::block_number() + 1);
+}
+
 // Fast forward until a given election phase.
 pub fn roll_to_phase(phase: Phase<BlockNumber>) {
 	while MultiPhase::current_phase() != phase {
@@ -331,8 +364,44 @@ pub fn roll_to_phase(phase: Phase<BlockNumber>) {
 	}
 }
 
+pub fn roll_one_with_ocw(maybe_pool: Option<Arc<RwLock<PoolState>>>) {
+	use sp_runtime::traits::Dispatchable;
+	let bn = System::block_number() + 1;
+	// if there's anything in the submission pool, submit it.
+	if let Some(ref pool) = maybe_pool {
+		pool.read()
+			.transactions
+			.clone()
+			.into_iter()
+			.map(|uxt| <Extrinsic as codec::Decode>::decode(&mut &*uxt).unwrap())
+			.for_each(|xt| {
+				xt.call.dispatch(frame_system::RawOrigin::None.into()).unwrap();
+			});
+		pool.try_write().unwrap().transactions.clear();
+	}
+
+	roll_to(bn);
+}
+
+pub fn roll_to_with_ocw(n: BlockNumber, maybe_pool: Option<Arc<RwLock<PoolState>>>) {
+	let now = System::block_number();
+	for _i in now + 1..=n {
+		roll_one_with_ocw(maybe_pool.clone());
+	}
+}
+
 pub fn election_prediction() -> BlockNumber {
 	<<Runtime as Config>::DataProvider as ElectionDataProvider>::next_election_prediction(
 		System::block_number(),
 	)
+}
+
+pub(crate) fn unsigned_events() -> Vec<crate::unsigned::Event<T>> {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.filter_map(
+			|e| if let RuntimeEvent::UnsignedPallet(inner) = e { Some(inner) } else { None },
+		)
+		.collect()
 }

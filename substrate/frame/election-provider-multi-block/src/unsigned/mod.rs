@@ -19,9 +19,18 @@
 
 pub mod miner;
 
-use crate::{unsigned::miner::MinerError, PageSize};
+use crate::{
+	unsigned::miner::{MinerError, OffchainWorkerMiner},
+	PageSize, Phase, SolutionAccuracyOf, Verifier,
+};
 use frame_election_provider_support::PageIndex;
-use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
+use frame_support::traits::Get;
+use frame_system::{
+	offchain::{SendTransactionTypes, SubmitTransaction},
+	pallet_prelude::BlockNumberFor,
+};
+use sp_npos_elections::ElectionScore;
+use sp_runtime::{SaturatedConversion, Saturating};
 use sp_std::boxed::Box;
 
 // public re-exports.
@@ -29,6 +38,8 @@ pub use pallet::{
 	Call, Config, Event, Pallet, __substrate_call_check, __substrate_event_check, tt_default_parts,
 	tt_error_token,
 };
+
+use self::miner::OffchainMinerError;
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
@@ -54,6 +65,12 @@ pub(crate) mod pallet {
 
 		/// The priority of the unsigned tx submitted.
 		type MinerTxPriority: Get<TransactionPriority>;
+
+		/// The solver used by the offchain worker miner.
+		type OffchainSolver: frame_election_provider_support::NposSolver<
+			AccountId = Self::AccountId,
+			Accuracy = SolutionAccuracyOf<Self>,
+		>;
 
 		/// Maximum length of the solution that the miner is allowed to generate.
 		///
@@ -103,16 +120,27 @@ pub(crate) mod pallet {
 		#[pallet::weight(0)]
 		pub fn submit_page_unsigned(
 			origin: OriginFor<T>,
-			raw_solution: Box<PagedRawSolution<T>>,
+			solution: SolutionOf<T>,
+			claimed_score: ElectionScore,
+			page: PageIndex,
 			weight_witness: PageSize,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
+			//let claimed_score = raw_solution.1;
+			//let page = crate::Pallet::<T>::msp();
+
+			let supports =
+				<T::Verifier as Verifier>::verify_synchronous(solution, claimed_score, page)
+					.expect(error_message);
+
+			println!("{:?}", supports);
+
 			// Check if score is an improvement, the current phase, page index and other paged
 			// solution metadata.
-			// Self::pre_dispatch_checks(&raw_solution).expect(error_message);
+			//Self::pre_dispatch_checks(&raw_solution).expect(error_message);
 
 			// Ensure the weight witness matches the paged solution provided.
 			// let SolutionOrSnapshotSize { voters, targets } =
@@ -134,15 +162,31 @@ pub(crate) mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			// TODO(gpestana)
-			Weight::zero()
-		}
-
 		fn offchain_worker(now: BlockNumberFor<T>) {
-			sublog!(info, "unsigned", " >> offchain worker called");
+			use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
 
-			Self::mine_and_submit().unwrap();
+			// get lock for the unsigned phase.
+			let mut lock =
+				StorageLock::<BlockAndTime<frame_system::Pallet<T>>>::with_block_deadline(
+					miner::OffchainWorkerMiner::<T>::OFFCHAIN_LOCK,
+					T::UnsignedPhase::get().saturated_into(),
+				);
+
+			if crate::Pallet::<T>::current_phase().is_unsigned() {
+				match lock.try_lock() {
+					Ok(_guard) => {
+						Self::do_synchronized_offchain_worker(now);
+					},
+					Err(deadline) => {
+						sublog!(
+							debug,
+							"unsigned",
+							"offchain worker lock not released, deadline is {:?}",
+							deadline
+						);
+					},
+				};
+			}
 		}
 
 		fn integrity_test() {
@@ -157,21 +201,45 @@ pub(crate) mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn mine_and_submit() -> Result<(), MinerError> {
-		let call = Self::mine_checked_call()?;
-		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-			.map_err(|_| MinerError::SubmissionFailed);
+	pub fn do_synchronized_offchain_worker(
+		now: BlockNumberFor<T>,
+	) -> Result<(), OffchainMinerError> {
+		match crate::Pallet::<T>::current_phase() {
+			Phase::Unsigned(opened) if opened == now => {
+				OffchainWorkerMiner::<T>::mine_check_save_submit()?;
+			},
+			Phase::Unsigned(opened) if opened < now => {
+				OffchainWorkerMiner::<T>::restore_or_compute_then_maybe_submit();
+			},
+			_ => {},
+		}
+
+		//miner::OffchainWorkerMiner::<T>::submit_call(call);
 
 		Ok(())
 	}
+}
 
-	pub fn mine_checked_call() -> Result<Call<T>, MinerError> {
-		// get solution
-		let call = Call::submit_page_unsigned {
-			raw_solution: Default::default(),
-			weight_witness: Default::default(),
-		};
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::*;
 
-		Ok(call)
+	#[test]
+	fn unsigned_submission_works() {
+		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
+		ext.execute_with(|| {
+			roll_to_with_ocw(25, Some(pool.clone()));
+
+			for p in (0..<T as crate::Config>::Pages::get()).rev() {
+				println!(
+					"page: {:?}, block: {:?}, events: {:?}",
+					p,
+					System::block_number(),
+					unsigned_events()
+				);
+				roll_one_with_ocw(Some(pool.clone()));
+			}
+		})
 	}
 }

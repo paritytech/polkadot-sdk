@@ -270,6 +270,7 @@ parameter_types! {
 
 impl epm_unsigned_pallet::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type OffchainSolver = Solver;
 	type OffchainRepeatInterval = OffchainRepeatInterval;
 	type MinerTxPriority = TransactionPriority;
 	type MaxLength = MinerMaxLength;
@@ -818,7 +819,6 @@ pub(crate) fn try_submit_paged_solution() -> Result<(), ()> {
 	let submit = || {
 		let (paged_solution, _) =
 			Miner::<Runtime, Solver>::mine_paged_solution(Pages::get(), false).unwrap();
-
 		let _ = SignedPallet::register(RuntimeOrigin::signed(10), paged_solution.score).unwrap();
 
 		for (idx, page) in paged_solution.solution_pages.into_iter().enumerate() {

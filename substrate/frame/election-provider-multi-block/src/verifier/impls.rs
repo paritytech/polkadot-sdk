@@ -429,11 +429,11 @@ impl<T: impls::pallet::Config> Pallet<T> {
 
 			if maybe_page_solution.is_none() {
 				sublog!(
-                    error,
-                    "verifier",
-                    "T::SolutionDataProvider failed to deliver page {}. This is an unexpected error and should not happen. Restarting election state..",
-                    current_page
-                );
+					error,
+					"verifier",
+					"T::SolutionDataProvider failed to deliver page {}.",
+					current_page
+				);
 				// reset election data and notify the `T::SolutionDataProvider`.
 				QueuedSolution::<T>::clear_invalid_and_backings();
 				VerificationStatus::<T>::put(Status::Nothing);
@@ -636,6 +636,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		// just a single page. But, they must hold in a single page as well.
 		let desired_targets =
 			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
+
 		ensure!((supports.len() as u32) <= desired_targets, FeasibilityError::WrongWinnerCount);
 
 		// almost-defensive-only: `MaxBackersPerWinner` is already checked. A sane value of
@@ -644,6 +645,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		let bounded_supports = supports
 			.try_into_bounded_supports()
 			.map_err(|_| FeasibilityError::WrongWinnerCount)?;
+
 		Ok(bounded_supports)
 	}
 }
