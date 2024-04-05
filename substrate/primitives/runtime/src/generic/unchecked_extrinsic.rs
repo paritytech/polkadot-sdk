@@ -128,7 +128,6 @@ pub struct UncheckedExtrinsic<Address, Call, Signature, Extension, Context = ()>
 	/// The function that should be called.
 	pub function: Call,
 	/// Phantom type for `Context`.
-	#[codec(skip)]
 	pub _phantom: PhantomData<Context>,
 }
 
@@ -269,7 +268,7 @@ where
 				// The `Implicit` is "implicitly" included in the payload.
 				let raw_payload = SignedPayload::new(self.function, tx_ext)?;
 				if !raw_payload.using_encoded(|payload| signature.verify(payload, &signed)) {
-					return Err(InvalidTransaction::BadProof.into())
+					return Err(InvalidTransaction::BadProof.into());
 				}
 				let (function, tx_ext, _) = raw_payload.deconstruct();
 				CheckedExtrinsic {
@@ -308,8 +307,9 @@ where
 				format: ExtrinsicFormat::General(extra),
 				function: self.function,
 			},
-			Preamble::Bare =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare => {
+				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function }
+			},
 		})
 	}
 }
@@ -350,7 +350,7 @@ where
 			let length = before_length.saturating_sub(after_length);
 
 			if length != expected_length.0 as usize {
-				return Err("Invalid length prefix".into())
+				return Err("Invalid length prefix".into());
 			}
 		}
 
@@ -567,7 +567,7 @@ mod legacy {
 			let is_signed = version & 0b1000_0000 != 0;
 			let version = version & 0b0111_1111;
 			if version != 4u8 {
-				return Err("Invalid transaction version".into())
+				return Err("Invalid transaction version".into());
 			}
 
 			let signature = is_signed.then(|| Decode::decode(input)).transpose()?;
@@ -579,7 +579,7 @@ mod legacy {
 				let length = before_length.saturating_sub(after_length);
 
 				if length != expected_length.0 as usize {
-					return Err("Invalid length prefix".into())
+					return Err("Invalid length prefix".into());
 				}
 			}
 
