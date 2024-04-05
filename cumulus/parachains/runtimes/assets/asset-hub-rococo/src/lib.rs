@@ -275,6 +275,16 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
+// Freezer for "Trust Backed" assets instance. This enables other pallets to
+// use this pallet to set freezes and thaws on balances over accounts on a given asset.
+pub type TrustBackedAssetsFreezerInstance = pallet_assets_freezer::Instance1;
+impl pallet_assets_freezer::Config<TrustBackedAssetsFreezerInstance> for Runtime {
+	type FreezeIdentifier = ();
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
+	type MaxFreezes = ConstU32<0>;
+}
+
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
@@ -931,6 +941,7 @@ construct_runtime!(
 		NftFractionalization: pallet_nft_fractionalization = 54,
 		PoolAssets: pallet_assets::<Instance3> = 55,
 		AssetConversion: pallet_asset_conversion = 56,
+		AssetsFreezer: pallet_assets_freezer::<Instance1> = 57,
 
 		#[cfg(feature = "state-trie-version-1")]
 		StateTrieMigration: pallet_state_trie_migration = 70,
