@@ -25,6 +25,7 @@ use beefy_primitives::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
+use frame_support::dynamic_params::{dynamic_pallet_params, dynamic_params};
 use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
@@ -225,6 +226,32 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 			// For every other origin we don't care, as they are not used for `ScheduleOrigin`.
 			_ => None,
 		}
+	}
+}
+
+/// Dynamic params that can be adjusted at runtime.
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
+pub mod dynamic_params {
+	use super::*;
+
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
+	pub mod nis {
+		use super::*;
+
+		/// The target of active total issuance fot the non-interactive-staking pallet.
+		#[codec(index = 0)]
+		pub static Target: Perquintill = Perquintill::zero();
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::Nis(dynamic_params::nis::Parameters::Target(
+			dynamic_params::nis::Target,
+			Some(Perquintill::from_percent(10)),
+		))
 	}
 }
 
@@ -1122,7 +1149,6 @@ parameter_types! {
 	pub const IntakePeriod: BlockNumber = 5 * MINUTES;
 	pub MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
 	pub const ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(25), 5);
-	pub storage NisTarget: Perquintill = Perquintill::zero();
 	pub const NisPalletId: PalletId = PalletId(*b"py/nis  ");
 }
 
@@ -1136,7 +1162,7 @@ impl pallet_nis::Config for Runtime {
 	type CounterpartAmount = WithMaximumOf<ConstU128<21_000_000_000_000_000_000u128>>;
 	type Deficit = (); // Mint
 	type IgnoredIssuance = ();
-	type Target = NisTarget;
+	type Target = dynamic_params::nis::Target;
 	type PalletId = NisPalletId;
 	type QueueCount = ConstU32<300>;
 	type MaxQueueLen = ConstU32<1000>;
@@ -1148,6 +1174,13 @@ impl pallet_nis::Config for Runtime {
 	type MaxIntakeWeight = MaxIntakeWeight;
 	type ThawThrottle = ThawThrottle;
 	type RuntimeHoldReason = RuntimeHoldReason;
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeParameters = RuntimeParameters;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -1275,6 +1308,7 @@ construct_runtime! {
 		Timestamp: pallet_timestamp = 2,
 		Indices: pallet_indices = 3,
 		Balances: pallet_balances = 4,
+		Parameters: pallet_parameters = 6,
 		TransactionPayment: pallet_transaction_payment = 33,
 
 		// Consensus support.
@@ -1615,6 +1649,7 @@ mod benches {
 		[pallet_indices, Indices]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
+		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_ranked_collective, FellowshipCollective]

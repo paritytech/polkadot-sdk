@@ -70,6 +70,7 @@ pallet-mmr = { path = "../../../substrate/frame/merkle-mountain-range", default-
 pallet-multisig = { path = "../../../substrate/frame/multisig", default-features = false }
 pallet-nis = { path = "../../../substrate/frame/nis", default-features = false }
 pallet-offences = { path = "../../../substrate/frame/offences", default-features = false }
+pallet-parameters = { path = "../../../substrate/frame/parameters", default-features = false }
 pallet-preimage = { path = "../../../substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "../../../substrate/frame/proxy", default-features = false }
 pallet-ranked-collective = { path = "../../../substrate/frame/ranked-collective", default-features = false }
@@ -215,6 +216,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-fee-payment-runtime-api/std",
 	"xcm/std",
+	"pallet-parameters/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -265,6 +267,7 @@ runtime-benchmarks = [
 	"sp-staking/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
@@ -317,6 +320,7 @@ try-runtime = [
 	"runtime-common/try-runtime",
 	"runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-parameters/try-runtime"
 ]
 
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
