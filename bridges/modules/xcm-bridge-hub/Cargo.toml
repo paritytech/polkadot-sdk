@@ -23,21 +23,21 @@ pallet-bridge-messages = { path = "../messages", default-features = false }
 bridge-runtime-common = { path = "../../bin/runtime-common", default-features = false }
 
 # Substrate Dependencies
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot Dependencies
-xcm = { package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
 
 [dev-dependencies]
 bp-header-chain = { path = "../../primitives/header-chain" }
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+sp-io = { path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]
