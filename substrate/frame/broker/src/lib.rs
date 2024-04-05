@@ -474,6 +474,8 @@ pub mod pallet {
 		AlreadyExpired,
 		/// The configuration could not be applied because it is invalid.
 		InvalidConfig,
+		/// The revenue must be claimed for 1 or more timeslices.
+		NoClaimTimeslices,
 	}
 
 	#[pallet::hooks]
