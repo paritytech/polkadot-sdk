@@ -50,9 +50,10 @@ All published crates that got modified need to have an entry in the `crates` sec
 the release team how to bump the crate version prior to the next release. It is very important that this information is
 correct, otherwise it could break downstream teams' code.
 
-The bump can either be `major`, `minor` or `patch`. There are exceptions for experimental and private API. These are
-exempt from bumping and can be broken at any time.
-Please read the [Crate Section](../RELEASE.md) of the RELEASE doc about this.
+The bump can either be `major`, `minor` or `patch`, as defined by
+[rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html). There are exceptions for experimental and
+private API. These are exempt from bumping and can be broken at any time. Please read the
+[Crate Section](../RELEASE.md) of the RELEASE doc about this.
 
 > **Note**: There is currently no CI in place to sanity check this information, but should be added soon.
 
