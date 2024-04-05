@@ -71,8 +71,8 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 		let region_id: RegionId = (*item).into();
 		let record = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
-		// 'Minting' can only occur if the asset has previously been burned(i.e. moved to the
-		// holding registrar)
+		// 'Minting' can only occur if the asset has previously been burned (i.e. moved to the
+		// holding register)
 		ensure!(record.owner.is_none(), Error::<T>::NotAllowed);
 		Self::issue(region_id.core, region_id.begin, record.end, Some(who.clone()), record.paid);
 
