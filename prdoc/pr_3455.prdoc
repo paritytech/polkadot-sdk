@@ -24,6 +24,5 @@ migrations:
 crates: 
   - name: pallet-broker
   - name: pallet-xcm
-  - name: contracts-rococo-runtime
   - name: coretime-rococo-runtime
   - name: coretime-westend-runtime
