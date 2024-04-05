@@ -1,5 +1,6 @@
-Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 2 column 9 for blob:
+Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9 for blob:
 {
+  "system": {},
   "babex": {
     "authorities": [
       [
@@ -16,12 +17,19 @@ Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `sub
       ]
     ],
     "epochConfig": {
-      "allowed_slots": "PrimaryAndSecondaryPlainSlots",
       "c": [
         3,
         10
-      ]
+      ],
+      "allowed_slots": "PrimaryAndSecondaryPlainSlots"
     }
+  },
+  "substrateTest": {
+    "authorities": [
+      "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+      "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+      "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y"
+    ]
   },
   "balances": {
     "balances": [
@@ -102,13 +110,5 @@ Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `sub
         100000000000000000
       ]
     ]
-  },
-  "substrateTest": {
-    "authorities": [
-      "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-      "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
-      "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y"
-    ]
-  },
-  "system": {}
+  }
 }
