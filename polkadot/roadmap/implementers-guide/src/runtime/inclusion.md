@@ -154,6 +154,8 @@ All failed checks should lead to an unrecoverable error making the block invalid
   where the changes to the state are expected to be discarded directly after.
 * `candidate_pending_availability(ParaId) -> Option<CommittedCandidateReceipt>`: returns the `CommittedCandidateReceipt`
   pending availability for the para provided, if any.
+* `candidates_pending_availability(ParaId) -> Vec<CommittedCandidateReceipt>`: returns the `CommittedCandidateReceipt`s
+  pending availability for the para provided, if any.
 * `pending_availability(ParaId) -> Option<CandidatePendingAvailability>`: returns the metadata around the candidate
   pending availability for the para, if any.
 * `free_disputed(disputed: Vec<CandidateHash>) -> Vec<CoreIndex>`: Sweeps through all paras pending availability. If
@@ -164,10 +166,10 @@ These functions were formerly part of the UMP pallet:
 
 * `check_upward_messages(P: ParaId, Vec<UpwardMessage>)`:
     1. Checks that the parachain is not currently offboarding and error otherwise.
-    1. Checks that there are at most `config.max_upward_message_num_per_candidate` messages to be enqueued.
-    1. Checks that no message exceeds `config.max_upward_message_size`.
-    1. Checks that the total resulting queue size would not exceed `co`.
-    1. Verify that queuing up the messages could not result in exceeding the queue's footprint according to the config
+    2. Checks that there are at most `config.max_upward_message_num_per_candidate` messages to be enqueued.
+    3. Checks that no message exceeds `config.max_upward_message_size`.
+    4. Checks that the total resulting queue size would not exceed `co`.
+    5. Verify that queuing up the messages could not result in exceeding the queue's footprint according to the config
     items `config.max_upward_queue_count` and `config.max_upward_queue_size`. The queue's current footprint is provided
     in `well_known_keys` in order to facilitate oraclisation on to the para.
 

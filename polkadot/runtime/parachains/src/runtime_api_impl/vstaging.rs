@@ -16,8 +16,8 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::scheduler;
-use primitives::{CoreIndex, Id as ParaId};
+use crate::{initializer, scheduler, inclusion};
+use primitives::{CoreIndex, Id as ParaId, CommittedCandidateReceipt};
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 
 /// Returns the claimqueue from the scheduler
@@ -28,4 +28,12 @@ pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaI
 			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
 		})
 		.collect()
+}
+
+/// Returns all the candidates that are pending availability for a given `ParaId`.
+/// Deprecates `candidate_pending_availability` in favor of supporting elastic scaling.
+pub fn candidates_pending_availability<T: initializer::Config>(
+	para_id: ParaId,
+) -> Vec<CommittedCandidateReceipt<T::Hash>> {
+	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
 }
