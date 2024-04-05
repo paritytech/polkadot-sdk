@@ -66,6 +66,21 @@ pub mod dynamic_params {
 		#[codec(index = 0)]
 		pub static Key3: u128 = 4;
 	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 2)]
+	pub mod nis {
+		#[codec(index = 0)]
+		pub static Target: u64 = 0;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 3)]
+	#[allow(non_snake_case)]
+	pub mod somE_weird_SPElLInG_s {
+		#[codec(index = 0)]
+		pub static V: u64 = 0;
+	}
 }
 
 #[docify::export(benchmarking_default)]
@@ -98,6 +113,8 @@ mod custom_origin {
 			}
 
 			match key {
+				RuntimeParametersKey::SomEWeirdSPElLInGS(_) |
+				RuntimeParametersKey::Nis(_) |
 				RuntimeParametersKey::Pallet1(_) => ensure_root(origin.clone()),
 				RuntimeParametersKey::Pallet2(_) => ensure_signed(origin.clone()).map(|_| ()),
 			}
