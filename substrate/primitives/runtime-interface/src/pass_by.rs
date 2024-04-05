@@ -424,17 +424,17 @@ impl<'a, T: codec::Encode> IntoFFIValue for PassSliceRefByCodec<&'a [T]> {
 }
 
 /// A trait signifying a primitive type.
-pub unsafe trait Primitive: Copy {}
+trait Primitive: Copy {}
 
-unsafe impl Primitive for u8 {}
-unsafe impl Primitive for u16 {}
-unsafe impl Primitive for u32 {}
-unsafe impl Primitive for u64 {}
+impl Primitive for u8 {}
+impl Primitive for u16 {}
+impl Primitive for u32 {}
+impl Primitive for u64 {}
 
-unsafe impl Primitive for i8 {}
-unsafe impl Primitive for i16 {}
-unsafe impl Primitive for i32 {}
-unsafe impl Primitive for i64 {}
+impl Primitive for i8 {}
+impl Primitive for i16 {}
+impl Primitive for i32 {}
+impl Primitive for i64 {}
 
 /// Pass `T` through the FFI boundary by first converting it to `U` in the runtime, and then
 /// converting it back to `T` on the host's side.
