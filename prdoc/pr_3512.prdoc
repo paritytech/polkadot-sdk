@@ -21,3 +21,27 @@ crates:
     bump: major
   - name: frame-benchmarking-cli
     bump: major
+  - name: polkadot-parachain-bin
+    bump: patch
+  - name: polkadot-cli
+    bump: patch
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: polkadot-runtime-parachains
+    bump: patch
+  - name: rococo-runtime
+    bump: patch
+  - name: staging-node-cli
+    bump: patch
+  - name: kitchensink-runtime
+    bump: patch
+  - name: pallet-babe
+    bump: patch
+  - name: frame-benchmarking
+    bump: patch
+  - name: pallet-election-provider-multi-phase
+    bump: patch
+  - name: pallet-fast-unstake
+    bump: patch
+  - name: pallet-contracts
+    bump: patch
