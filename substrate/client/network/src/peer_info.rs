@@ -460,7 +460,7 @@ impl NetworkBehaviour for PeerInfoBehaviour {
 		cx: &mut Context,
 		params: &mut impl PollParameters,
 	) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
-		while let Some(event) = self.pending_actions.pop_front() {
+		if let Some(event) = self.pending_actions.pop_front() {
 			return Poll::Ready(event)
 		}
 
