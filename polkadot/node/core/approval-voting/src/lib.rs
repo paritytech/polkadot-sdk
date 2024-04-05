@@ -54,10 +54,10 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::{ApprovalVoteMultipleCandidates, ApprovalVotingParams},
-	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, CoreIndex, DisputeStatement,
-	ExecutorParams, GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo,
-	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
+	CandidateIndex, CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex,
+	Hash, PvfExecKind, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId,
+	ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -1285,10 +1285,10 @@ fn cores_to_candidate_indices(
 
 	// Map from core index to candidate index.
 	for claimed_core_index in core_indices.iter_ones() {
-		// Candidates are sorted by core index.
-		if let Ok(candidate_index) = block_entry
+		if let Some(candidate_index) = block_entry
 			.candidates()
-			.binary_search_by_key(&(claimed_core_index as u32), |(core_index, _)| core_index.0)
+			.iter()
+			.position(|(core_index, _)| core_index.0 == claimed_core_index as u32)
 		{
 			candidate_indices.push(candidate_index as _);
 		}
