@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712260416930,
+  "lastUpdate": 1712276478110,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1343,6 +1343,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.20877738542,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ermal Kaleci",
+            "username": "ermalkaleci",
+            "email": "ermalkaleci@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5fb4397810e167a251d4c909e06784564452e56f",
+          "message": "Update pr_3844.prdoc (#3988)",
+          "timestamp": "2024-04-04T23:07:25Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5fb4397810e167a251d4c909e06784564452e56f"
+        },
+        "date": 1712276454586,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1673822599,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.379502649853332,
             "unit": "seconds"
           }
         ]
