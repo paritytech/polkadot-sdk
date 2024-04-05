@@ -19187,6 +19187,7 @@ dependencies = [
 name = "sp-core"
 version = "28.0.0"
 dependencies = [
+ "ark-serialize 0.4.2",
  "array-bytes 6.1.0",
  "bandersnatch_vrfs",
  "bitflags 1.3.2",
@@ -19196,6 +19197,7 @@ dependencies = [
  "criterion 0.4.0",
  "dyn-clonable",
  "ed25519-zebra 3.1.0",
+ "etf-crypto-primitives",
  "futures",
  "hash-db",
  "hash256-std-hasher",
@@ -20019,11 +20021,15 @@ dependencies = [
 name = "staging-node-cli"
 version = "3.0.0-dev"
 dependencies = [
+ "ark-bls12-377",
+ "ark-serialize 0.4.2",
+ "ark-std 0.4.0",
  "array-bytes 6.1.0",
  "assert_cmd",
  "clap 4.5.3",
  "clap_complete",
  "criterion 0.4.0",
+ "etf-crypto-primitives",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-support",
@@ -21894,7 +21900,6 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 [[package]]
 name = "w3f-bls"
 version = "0.1.3"
-source = "git+https://github.com/driemworks/bls.git?branch=etf#14561965ff7eeeb8b54c7120e11fca4fa8519ec0"
 dependencies = [
  "ark-bls12-377",
  "ark-bls12-381",

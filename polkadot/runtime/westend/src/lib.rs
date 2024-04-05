@@ -2127,6 +2127,9 @@ sp_api::impl_runtime_apis! {
 				.map(|p| p.encode())
 				.map(beefy_primitives::OpaqueKeyOwnershipProof::new)
 		}
+
+		fn read_share(_: u8) -> Option<Vec<u8>> { None }
+
 	}
 
 	impl mmr::MmrApi<Block, Hash, BlockNumber> for Runtime {
