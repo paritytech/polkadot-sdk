@@ -1,0 +1,32 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: `impl_runtime_apis!`: prevent the use of `Self`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+        Currently, if there is a type alias similar to `type HeaderFor<T>` in the scope, it makes sense to expect that
+        `HeaderFor<Runtime>` and `HeaderFor<Self>` are equivalent. However, this is not the case. It currently leads to 
+        a compilation error that `Self is not in scope`, which is confusing. This PR aims to altogether prevent the use of `Self`
+        inside `impl_runtime_apis!` macro.
+
+        For example, the following code is not allowed:
+        ```rust
+        impl apis::Core<Block> for Runtime {
+            fn initialize_block(header: &HeaderFor<Self>) -> ExtrinsicInclusionMode {
+                RuntimeExecutive::initialize_block(header)
+            }
+        }
+        ``` 
+        Instead, it should be written as:
+        ```rust
+        impl apis::Core<Block> for Runtime {
+            fn initialize_block(header: &HeaderFor<Runtime>) -> ExtrinsicInclusionMode {
+                RuntimeExecutive::initialize_block(header)
+            }
+        }
+        ```
+crates:
+  - name: sp-api
+    bump: minor
