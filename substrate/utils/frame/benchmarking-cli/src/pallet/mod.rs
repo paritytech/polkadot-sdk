@@ -177,7 +177,7 @@ pub struct PalletCmd {
 
 	/// How to construct the genesis state.
 	///
-	/// Uses `GenesisBuilder::Spec` by default and  `GenesisConstructor::Runtime` if `runtime` is
+	/// Uses [`GenesisBuilder::Spec`] by default and  [`GenesisConstructor::Runtime`] if `runtime` is
 	/// set.
 	#[arg(long, value_enum)]
 	pub genesis_builder: Option<GenesisBuilder>,
