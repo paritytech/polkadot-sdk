@@ -17,10 +17,15 @@
 
 use super::*;
 
-use frame_support::traits::fungibles::{Inspect, InspectFreeze, MutateFreeze};
+use frame_support::traits::{
+	fungibles::{Inspect, InspectFreeze, MutateFreeze},
+	tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
+};
 use pallet_assets::FrozenBalance;
 use sp_runtime::traits::Zero;
 
+/// Implements [`FrozenBalance`] from [`pallet-assets`], so it can understands how much of an account
+/// balance is frozen, and is able to signal to this pallet when to clear the state of an account.
 impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, AssetBalanceOf<T, I>>
 	for Pallet<T, I>
 {
@@ -64,8 +69,8 @@ impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 	fn reducible_balance(
 		asset: Self::AssetId,
 		who: &AccountIdOf<T>,
-		preservation: frame_support::traits::tokens::Preservation,
-		force: frame_support::traits::tokens::Fortitude,
+		preservation: Preservation,
+		force: Fortitude,
 	) -> Self::Balance {
 		pallet_assets::Pallet::<T, I>::reducible_balance(asset, who, preservation, force)
 	}
@@ -74,8 +79,8 @@ impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 		asset: Self::AssetId,
 		who: &AccountIdOf<T>,
 		amount: Self::Balance,
-		provenance: frame_support::traits::tokens::Provenance,
-	) -> frame_support::traits::tokens::DepositConsequence {
+		provenance: Provenance,
+	) -> DepositConsequence {
 		pallet_assets::Pallet::<T, I>::can_deposit(asset, who, amount, provenance)
 	}
 
@@ -83,7 +88,7 @@ impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 		asset: Self::AssetId,
 		who: &AccountIdOf<T>,
 		amount: Self::Balance,
-	) -> frame_support::traits::tokens::WithdrawConsequence<Self::Balance> {
+	) -> WithdrawConsequence<Self::Balance> {
 		pallet_assets::Pallet::<T, I>::can_withdraw(asset, who, amount)
 	}
 
@@ -96,11 +101,8 @@ impl<T: Config<I>, I: 'static> InspectFreeze<AccountIdOf<T>> for Pallet<T, I> {
 	type Id = T::FreezeIdentifier;
 
 	fn balance_frozen(asset: Self::AssetId, id: &Self::Id, who: &AccountIdOf<T>) -> Self::Balance {
-		if let Some(i) = Freezes::<T, I>::get(asset, who).iter().find(|i| i.id == *id) {
-			i.amount
-		} else {
-			Zero::zero()
-		}
+		let freezes = Freezes::<T, I>::get(asset, who);
+		freezes.into_iter().find(|l| &l.id == id).map_or(Zero::zero(), |l| l.amount)
 	}
 
 	fn can_freeze(asset: Self::AssetId, id: &Self::Id, who: &AccountIdOf<T>) -> bool {

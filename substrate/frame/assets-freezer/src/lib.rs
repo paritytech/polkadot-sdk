@@ -36,11 +36,12 @@
 //!
 //! This pallet provides the following functionality:
 //!
-//! - Pallet hooks that implement custom logic to let `pallet-assets` know whether an balance is
-//!   frozen for an account on a given asset (see: [`pallet_assets::FrozenBalance`]).
-//! - An implementation of the fungibles
-//!   [inspect][`frame_support::traits::fungibles::InspectFreeze`] and the
-//!   [mutation][`frame_support::traits::fungibles::InspectFreeze`] APIs for freezes.
+//! - Pallet hooks allowing [`pallet-assets`] to know the frozen balance
+//!   for an account on a given asset (see [`pallet_assets::FrozenBalance`]).
+//! - An implementation of
+//!   [`fungibles::InspectFreeze`)(frame_support::traits::fungibles::InspectFreeze) and
+//!   [`fungibles::MutateFreeze`](frame_support::traits::fungibles::MutateFreeze), allowing other
+//!   pallets to manage freezes for the `pallet-assets` assets.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -90,7 +91,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		/// Number of freezes exceed `MaxFreezes`.
+		/// Number of freezes on an account would exceed `MaxFreezes`.
 		TooManyFreezes,
 	}
 
@@ -100,9 +101,9 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		// A reducible balance has been reduced due to a freeze action.
+		// `who`s frozen balance was increased by `amount`.
 		Frozen { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
-		// A reducible balance has been increased due to a thaw action.
+		// `who`s frozen balance was decreased by `amount`.
 		Thawed { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
 	}
 
@@ -153,10 +154,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		freezes: BoundedSlice<IdAmount<T::FreezeIdentifier, AssetBalanceOf<T, I>>, T::MaxFreezes>,
 	) -> DispatchResult {
 		let prev_frozen = FrozenBalances::<T, I>::get(asset.clone(), who).unwrap_or_default();
-		let mut after_frozen: AssetBalanceOf<T, I> = Zero::zero();
-		for f in freezes.iter() {
-			after_frozen = after_frozen.max(f.amount);
-		}
+		let after_frozen = freezes.into_iter().map(|f| f.amount).max().unwrap_or_else(Zero::zero);
 		FrozenBalances::<T, I>::set(asset.clone(), who, Some(after_frozen));
 		if freezes.is_empty() {
 			Freezes::<T, I>::remove(asset.clone(), who);
@@ -177,10 +175,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	#[cfg(any(test, feature = "try-runtime"))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		for (asset, who, _) in FrozenBalances::<T, I>::iter() {
-			let max_frozen_amount = Freezes::<T, I>::get(asset.clone(), who.clone())
-				.iter()
-				.reduce(|max, i| if i.amount >= max.amount { i } else { max })
-				.map(|l| l.amount);
+			let max_frozen_amount =
+				Freezes::<T, I>::get(asset.clone(), who.clone()).iter().map(|l| l.amount).max();
 
 			frame_support::ensure!(
 				FrozenBalances::<T, I>::get(asset, who) == max_frozen_amount,

@@ -21,8 +21,11 @@ use crate::mock::*;
 
 use codec::Compact;
 use frame_support::{
-	assert_ok,
-	traits::fungibles::{Inspect, InspectFreeze, MutateFreeze},
+	assert_ok, assert_storage_noop,
+	traits::{
+		fungibles::{Inspect, InspectFreeze, MutateFreeze},
+		tokens::{Fortitude, Preservation},
+	},
 };
 use pallet_assets::FrozenBalance;
 
@@ -43,16 +46,31 @@ fn test_set_freeze(id: DummyFreezeReason, amount: Balance) {
 	assert_ok!(AssetsFreezer::update_freezes(ASSET_ID, &WHO, freezes.as_bounded_slice()));
 }
 
+fn test_thaw(id: DummyFreezeReason) {
+	let mut freezes = Freezes::<Test>::get(ASSET_ID, WHO);
+	freezes.retain(|l| l.id != id);
+
+	assert_ok!(AssetsFreezer::update_freezes(ASSET_ID, &WHO, freezes.as_bounded_slice()));
+}
+
 mod impl_frozen_balance {
 	use super::*;
 
 	#[test]
 	fn frozen_balance_works() {
 		new_test_ext(|| {
+			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), None);
 			test_set_freeze(DummyFreezeReason::Governance, 1);
 			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(1u64));
 			test_set_freeze(DummyFreezeReason::Staking, 3);
 			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
+			test_set_freeze(DummyFreezeReason::Governance, 2);
+			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
+			// also test thawing works to reduce a balance, and finally thawing everything resets to None
+			test_thaw(DummyFreezeReason::Governance);
+			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
+			test_thaw(DummyFreezeReason::Staking);
+			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), None);
 		});
 	}
 
@@ -73,19 +91,42 @@ mod impl_inspect_freeze {
 	#[test]
 	fn balance_frozen_works() {
 		new_test_ext(|| {
+			assert_eq!(
+				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Governance, &WHO),
+				0u64
+			);
 			test_set_freeze(DummyFreezeReason::Governance, 1);
 			assert_eq!(
 				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Governance, &WHO),
 				1u64
 			);
-			test_set_freeze(DummyFreezeReason::Governance, 3);
+			test_set_freeze(DummyFreezeReason::Staking, 3);
+			assert_eq!(
+				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Staking, &WHO),
+				3u64
+			);
+			test_set_freeze(DummyFreezeReason::Staking, 2);
+			assert_eq!(
+				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Staking, &WHO),
+				2u64
+			);
+			// also test thawing works to reduce a balance, and finally thawing everything resets to 0
+			test_thaw(DummyFreezeReason::Governance);
 			assert_eq!(
 				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Governance, &WHO),
-				3u64
+				0u64
+			);
+			test_thaw(DummyFreezeReason::Staking);
+			assert_eq!(
+				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Staking, &WHO),
+				0u64
 			);
 		});
 	}
 
+	/// This tests it's not possible to freeze once the freezes [`BoundedVec`] is full. This is,
+	/// the lenght of the vec is equal to [`Config::MaxFreezes`].
+	/// This test assumes a mock configuration where this parameter is set to `2`.
 	#[test]
 	fn can_freeze_works() {
 		new_test_ext(|| {
@@ -103,6 +144,15 @@ mod impl_mutate_freeze {
 	#[test]
 	fn set_freeze_works() {
 		new_test_ext(|| {
+			assert_eq!(
+				Assets::reducible_balance(
+					ASSET_ID,
+					&WHO,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				),
+				99
+			);
 			assert_ok!(AssetsFreezer::set_freeze(
 				ASSET_ID,
 				&DummyFreezeReason::Governance,
@@ -113,8 +163,8 @@ mod impl_mutate_freeze {
 				Assets::reducible_balance(
 					ASSET_ID,
 					&WHO,
-					frame_support::traits::tokens::Preservation::Preserve,
-					frame_support::traits::tokens::Fortitude::Polite,
+					Preservation::Preserve,
+					Fortitude::Polite,
 				),
 				89
 			);
@@ -151,12 +201,12 @@ mod impl_mutate_freeze {
 				&WHO,
 				10
 			));
-			assert_ok!(AssetsFreezer::extend_freeze(
+			assert_storage_noop!(assert_ok!(AssetsFreezer::extend_freeze(
 				ASSET_ID,
 				&DummyFreezeReason::Governance,
 				&WHO,
 				8
-			));
+			)));
 			System::assert_last_event(
 				Event::<Test>::Frozen { asset_id: ASSET_ID, who: WHO, amount: 10 }.into(),
 			);
@@ -234,7 +284,7 @@ mod with_pallet_assets {
 	use super::*;
 
 	#[test]
-	fn frozen_balance_aftects_balance_transferring() {
+	fn frozen_balance_affects_balance_transferring() {
 		new_test_ext(|| {
 			assert_ok!(AssetsFreezer::set_freeze(
 				ASSET_ID,
