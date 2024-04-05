@@ -6,9 +6,10 @@ title: Remove `para_id()` from `CoreState` in polkadot primitives
 doc:
   - audience: "Node Dev"
     description: |
-      With Coretime there is no more a static 1:1 mapping between core index and para id. This
-      mapping should be obtained from the scheduler/claimqueue on block by block basis. This change
-      removes `para_id()` from `CoreState` as it doesn't serve its purpose anymore.
+     The motivation is that `para_id()` can be misused with Coretime which allows two parachains (A,B) to share a 
+     core at an arbitrary relay chain block. This happens when a candidate of parachain A is pending availability 
+     while parachain B is scheduled on the same core. In such a case the removed `para_id()` function would always
+     return the id of A. Implementers should now use the `ClaimQueue` to query the scheduled `para_id`.
 
 crates:
   - name: polkadot-primitives
