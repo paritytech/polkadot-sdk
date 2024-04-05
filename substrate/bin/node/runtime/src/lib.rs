@@ -2174,7 +2174,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
 				return Ok(())
 			},
-			RuntimeParametersKey::Contract(_) => {
+			RuntimeParametersKey::Contracts(_) => {
 				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
 				return Ok(())
 			},

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #![cfg(any(test, feature = "runtime-benchmarks"))]
+#![allow(non_snake_case)]
 
 //! Mock runtime that configures the `pallet_example_basic` to use dynamic params for testing.
 
@@ -76,7 +77,6 @@ pub mod dynamic_params {
 
 	#[dynamic_pallet_params]
 	#[codec(index = 3)]
-	#[allow(non_snake_case)]
 	pub mod somE_weird_SPElLInG_s {
 		#[codec(index = 0)]
 		pub static V: u64 = 0;
