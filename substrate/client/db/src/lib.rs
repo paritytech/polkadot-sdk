@@ -68,8 +68,8 @@ use sc_client_api::{
 use sc_state_db::{IsPruned, LastCanonicalized, StateDb};
 use sp_arithmetic::traits::Saturating;
 use sp_blockchain::{
-	Backend as _, CachedHeaderMetadata, Error as ClientError, HeaderBackend, HeaderMetadata,
-	HeaderMetadataCache, Result as ClientResult,
+	Backend as _, CachedHeaderMetadata, DisplacedLeavesAfterFinalization, Error as ClientError,
+	HeaderBackend, HeaderMetadata, HeaderMetadataCache, Result as ClientResult,
 };
 use sp_core::{
 	offchain::OffchainOverlayedChange,
@@ -1801,17 +1801,12 @@ impl<Block: BlockT> Backend<Block> {
 		}
 
 		let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
-		let finalization_outcome = FinalizationOutcome::new(new_displaced.into_iter());
+		let finalization_outcome =
+			FinalizationOutcome::new(new_displaced.displaced_leaves.clone().into_iter());
 
 		self.blockchain.leaves.write().remove_displaced_leaves(&finalization_outcome);
 
-		self.prune_blocks(
-			transaction,
-			f_num,
-			f_hash,
-			&finalization_outcome,
-			current_transaction_justifications,
-		)?;
+		self.prune_blocks(transaction, f_num, &new_displaced, current_transaction_justifications)?;
 
 		Ok(())
 	}
@@ -1820,8 +1815,7 @@ impl<Block: BlockT> Backend<Block> {
 		&self,
 		transaction: &mut Transaction<DbHash>,
 		finalized_number: NumberFor<Block>,
-		finalized_hash: Block::Hash,
-		displaced: &FinalizationOutcome<Block::Hash, NumberFor<Block>>,
+		displaced: &DisplacedLeavesAfterFinalization<Block>,
 		current_transaction_justifications: &mut HashMap<Block::Hash, Justification>,
 	) -> ClientResult<()> {
 		match self.blocks_pruning {
@@ -1849,10 +1843,10 @@ impl<Block: BlockT> Backend<Block> {
 
 					self.prune_block(transaction, BlockId::<Block>::number(number))?;
 				}
-				self.prune_displaced_branches(transaction, finalized_hash, displaced)?;
+				self.prune_displaced_branches(transaction, displaced)?;
 			},
 			BlocksPruning::KeepFinalized => {
-				self.prune_displaced_branches(transaction, finalized_hash, displaced)?;
+				self.prune_displaced_branches(transaction, displaced)?;
 			},
 		}
 		Ok(())
@@ -1861,21 +1855,13 @@ impl<Block: BlockT> Backend<Block> {
 	fn prune_displaced_branches(
 		&self,
 		transaction: &mut Transaction<DbHash>,
-		finalized: Block::Hash,
-		displaced: &FinalizationOutcome<Block::Hash, NumberFor<Block>>,
+		displaced: &DisplacedLeavesAfterFinalization<Block>,
 	) -> ClientResult<()> {
 		// Discard all blocks from displaced branches
-		for h in displaced.leaves() {
-			match sp_blockchain::tree_route(&self.blockchain, *h, finalized) {
-				Ok(tree_route) =>
-					for r in tree_route.retracted() {
-						self.blockchain.insert_persisted_body_if_pinned(r.hash)?;
-						self.prune_block(transaction, BlockId::<Block>::hash(r.hash))?;
-					},
-				Err(sp_blockchain::Error::UnknownBlock(_)) => {
-					// Sometimes routes can't be calculated. E.g. after warp sync.
-				},
-				Err(e) => Err(e)?,
+		for (_, tree_route) in displaced.tree_routes.iter() {
+			for r in tree_route.retracted() {
+				self.blockchain.insert_persisted_body_if_pinned(r.hash)?;
+				self.prune_block(transaction, BlockId::<Block>::hash(r.hash))?;
 			}
 		}
 		Ok(())

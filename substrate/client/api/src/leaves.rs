@@ -68,9 +68,7 @@ impl<H: Copy, N: Ord> FinalizationOutcome<H, N> {
 	pub fn new(new_displaced: impl Iterator<Item = (H, N)>) -> Self {
 		let mut removed = BTreeMap::<Reverse<N>, Vec<H>>::new();
 		for (hash, number) in new_displaced {
-			removed
-				.entry(Reverse(number))
-				.or_default().push(hash);
+			removed.entry(Reverse(number)).or_default().push(hash);
 		}
 
 		FinalizationOutcome { removed }

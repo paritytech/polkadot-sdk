@@ -24,11 +24,14 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, Saturating, Zero},
 	Justifications,
 };
-use std::collections::btree_set::BTreeSet;
+use std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
 use crate::header_metadata::HeaderMetadata;
 
-use crate::error::{Error, Result};
+use crate::{
+	error::{Error, Result},
+	tree_route, TreeRoute,
+};
 
 /// Blockchain database header backend. Does not perform any validation.
 pub trait HeaderBackend<Block: BlockT>: Send + Sync {
@@ -253,48 +256,60 @@ pub trait Backend<Block: BlockT>:
 		&self,
 		finalized_block_hash: Block::Hash,
 		finalized_block_number: NumberFor<Block>,
-	) -> std::result::Result<Vec<(Block::Hash, NumberFor<Block>)>, Error> {
+	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
+		let mut result = DisplacedLeavesAfterFinalization::new();
+
 		if finalized_block_number == Zero::zero() {
-			return Ok(Vec::new())
+			return Ok(result)
 		}
 
-		let mut displaced_leaves = Vec::new();
-
-		let finalized_block_header = self.expect_header(finalized_block_hash)?;
 		// For each leaf determine whether it belongs to a non-canonical branch.
 		for leaf_hash in self.leaves()? {
-			let mut fork_block_header = self.expect_header(leaf_hash)?;
+			let leaf_block_header = self.expect_header(leaf_hash)?;
+			let leaf_number = *leaf_block_header.number();
 
-			let leaf_number = *fork_block_header.number();
-
-			// All leaves will eventually have as ancestor either the finalized block or its
-			// parent. All other forks were cleared on the previous block finalization.
-			let needs_pruning = loop {
-				// The block ends up in the finalized block. All forks are valid at this point.
-				if fork_block_header.hash() == finalized_block_hash {
-					break false
-				}
-
-				// The block ends up in the parent block of the finalized block. It's a stale fork.
-				if *fork_block_header.number() <= finalized_block_number {
-					break true
-				}
-
-				if let Some(parent_header) = self.header(*fork_block_header.parent_hash())? {
-					fork_block_header = parent_header;
-				} else {
+			let leaf_tree_route = match tree_route(self, leaf_hash, finalized_block_hash) {
+				Ok(tree_route) => tree_route,
+				Err(Error::UnknownBlock(_)) => {
 					// Sometimes routes can't be calculated. E.g. after warp sync.
-					break true
-				}
+					continue;
+				},
+				Err(e) => Err(e)?,
 			};
 
-			// Fork ended up in the parent of the finalized block.
+			// Is it a stale fork?
+			let needs_pruning = leaf_tree_route.common_block().hash != finalized_block_hash;
+
 			if needs_pruning {
-				displaced_leaves.push((leaf_hash, leaf_number));
+				result.displaced_leaves.insert(leaf_hash, leaf_number);
+				result.tree_routes.insert(leaf_hash, leaf_tree_route);
 			}
 		}
 
-		Ok(displaced_leaves)
+		Ok(result)
+	}
+}
+
+/// Calculation result of the displaced leaves after the block finalization.
+#[derive(Clone, Debug)]
+pub struct DisplacedLeavesAfterFinalization<Block: BlockT> {
+	/// A collection of hashes and block numbers for displaced leaves.
+	pub displaced_leaves: BTreeMap<Block::Hash, NumberFor<Block>>,
+
+	/// A collection of tree routes from the leaves to finalized block.
+	pub tree_routes: BTreeMap<Block::Hash, TreeRoute<Block>>,
+}
+
+impl<Block: BlockT> DisplacedLeavesAfterFinalization<Block> {
+	/// Returns a collection of hashes for the displaced leaves.
+	pub fn hashes(&self) -> Vec<Block::Hash> {
+		self.displaced_leaves.keys().map(|h| *h).collect()
+	}
+
+	/// Constructor. We need this explicit initialization to not introduce a requirement
+	/// `Block: Default`
+	pub fn new() -> Self {
+		Self { displaced_leaves: BTreeMap::new(), tree_routes: BTreeMap::new() }
 	}
 }
 
