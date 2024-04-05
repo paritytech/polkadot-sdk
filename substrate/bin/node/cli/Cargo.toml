@@ -118,6 +118,13 @@ node-inspect = { package = "staging-node-inspect", path = "../inspect", optional
 try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
 serde_json = { workspace = true, default-features = true }
 
+# etf dependencies
+etf-crypto-primitives = { git = "https://github.com/ideal-lab5/etf-sdk.git", branch = "dpss-noscale" }
+ark-std = "0.4.0"
+ark-serialize = "0.4.0"
+ark-bls12-377 = { version = "0.4.0", features = ["curve"] }
+sp-application-crypto = { path = "../../../primitives/application-crypto" }
+
 [dev-dependencies]
 sc-keystore = { path = "../../../client/keystore" }
 sc-client-db = { path = "../../../client/db" }

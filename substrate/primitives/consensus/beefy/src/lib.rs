@@ -467,7 +467,7 @@ sp_api::decl_runtime_apis! {
 		/// TODO
 		// fn submit_report_commitment_unsigned_extrinsic(value: u8) -> Option<()>;
 
-		#[cfg(feature = "etf")]
+		// #[cfg(feature = "etf")]
 		fn read_share(at: u8) -> Option<Vec<u8>>;
 	}
 

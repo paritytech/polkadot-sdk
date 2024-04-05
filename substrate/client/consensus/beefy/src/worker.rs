@@ -870,7 +870,6 @@ where
 
 		let rounds = self.persisted_state.voting_oracle.active_rounds().unwrap();
 
-		// #[cfg(all(feature = "etf", feature = "bls-experimental"))]
 		if let Some(id) = self.key_store.authority_id(rounds.validators()) {
 			info!(target: LOG_TARGET, "🎲 Local authority id: {:?}", id);
 			if let Some(Some(validator_set)) = runtime_api.validator_set(hash).ok() {

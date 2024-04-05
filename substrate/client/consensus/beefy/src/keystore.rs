@@ -200,7 +200,7 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 		BeefyAuthorityId::<BeefySignatureHasher>::verify(public, sig, message)
 	}
 
-	#[cfg(all(feature = "bls-experimental", feature = "etf"))]
+	/// ACSS Recovery over bls377
 	pub fn recover(
 		&self, 
 		public: &AuthorityId,

@@ -33,9 +33,16 @@ use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{crypto::UncheckedInto, sr25519, Pair, Public};
 use sp_mixnet::types::AuthorityId as MixnetId;
 use sp_runtime::{
-	traits::{IdentifyAccount, Verify},
+	traits::{IdentifyAccount, Verify, One},
 	Perbill,
+	RuntimeAppPublic,
 };
+
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::UniformRand;
+
+use rand::rngs::OsRng;
+use etf_crypto_primitives::dpss::acss::HighThresholdACSS;
 
 pub use kitchensink_runtime::RuntimeGenesisConfig;
 pub use node_primitives::{AccountId, Balance, Signature};
@@ -104,7 +111,9 @@ fn configure_accounts_for_staging_testnet() -> (
 	//
 	// and
 	//
-	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ecdsa "$secret"//fir//$j//$i; done; done
+	// TODO: This functionality doesn't exist yet but it would be nice to have...
+	// we can add this but we need to modify the sc_cli arg_enums to allow for the bls377 arg
+	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme bls377 "$secret"//fir//$j//$i; done; done
 
 	let initial_authorities: Vec<(
 		AccountId,
@@ -304,6 +313,7 @@ fn configure_accounts(
 	Vec<AccountId>,
 	usize,
 	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
+	Vec<(BeefyId, Vec<u8>)>
 ) {
 	let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
 		vec![
@@ -353,7 +363,32 @@ fn configure_accounts(
 
 	let num_endowed_accounts = endowed_accounts.len();
 
-	(initial_authorities, endowed_accounts, num_endowed_accounts, stakers)
+	let genesis_shares = etf_genesis(initial_authorities.iter().map(|x| x.7.clone()).collect::<Vec<_>>());
+	(initial_authorities, endowed_accounts, num_endowed_accounts, stakers, genesis_shares)
+}
+
+/// Helper function to prepare initial secrets and resharing for ETF conensus
+pub fn etf_genesis(initial_authorities: Vec<BeefyId>) -> Vec<(BeefyId, Vec<u8>)> {
+	let msk = ark_bls12_377::Fr::rand(&mut OsRng);
+	let msk_prime = ark_bls12_377::Fr::rand(&mut OsRng);
+	let genesis_resharing = HighThresholdACSS::reshare(
+		msk, 
+		msk_prime, 
+		&initial_authorities.iter().map(|authority| {
+			ark_bls12_377::G1Projective::deserialize_compressed(&authority.to_raw_vec()[..]).unwrap()
+		}).collect::<Vec<_>>(), 
+		initial_authorities.len() as u8, 
+		&mut OsRng,
+	);
+	// a little redundant
+	// if I can cleanup conversions between BeefyId and bls377 group elements
+	// then this could be much better
+	initial_authorities.iter().enumerate().map(|(idx, auth)| {
+		let data = &genesis_resharing[idx].1;
+		let mut bytes = Vec::new();
+		data.serialize_compressed(&mut bytes).unwrap();
+		(auth.clone(), bytes)
+	}).collect::<Vec<_>>()
 }
 
 /// Helper function to create RuntimeGenesisConfig json patch for testing.
@@ -372,7 +407,7 @@ pub fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
 ) -> serde_json::Value {
-	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers) =
+	let (initial_authorities, endowed_accounts, num_endowed_accounts, stakers, genesis_shares) =
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
 	serde_json::json!({
@@ -424,6 +459,11 @@ pub fn testnet_genesis(
 		"babe": {
 			"epochConfig": Some(kitchensink_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
+		"beefy": {
+			"authorities": Vec::<BeefyId>::new(),
+			"genesisBlock": Some(1),
+			"genesisResharing": genesis_shares,
+		},
 		"society": { "pot": 0 },
 		"assets": {
 			// This asset is used by the NIS pallet as counterpart currency.
@@ -438,7 +478,11 @@ pub fn testnet_genesis(
 
 fn development_config_genesis_json() -> serde_json::Value {
 	testnet_genesis(
-		vec![authority_keys_from_seed("Alice")],
+		vec![
+			authority_keys_from_seed("Alice"), 
+			// authority_keys_from_seed("Bob"), 
+			// authority_keys_from_seed("Charlie")
+		],
 		vec![],
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		None,

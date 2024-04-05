@@ -387,8 +387,9 @@ pub trait Keystore: Send + Sync {
 		msg: &[u8],
 	) -> Result<Option<ecdsa_bls377::Signature>, Error>;
 
-	#[cfg(feature = "etf")]
-	fn acss_recover(&self, 
+	#[cfg(feature = "bls-experimental")]
+	fn acss_recover(
+		&self, 
 		key_type: KeyTypeId,
 		public: &bls377::Public,
 		pok_bytes: &[u8]
@@ -710,8 +711,9 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		(**self).ecdsa_bls377_sign_with_keccak256(key_type, public, msg)
 	}
 
-	#[cfg(feature = "etf")]
-	fn acss_recover(&self, 
+	#[cfg(feature = "bls-experimental")]
+	fn acss_recover(
+		&self, 
 		key_type: KeyTypeId,
 		public: &bls377::Public,
 		pok_bytes: &[u8]
