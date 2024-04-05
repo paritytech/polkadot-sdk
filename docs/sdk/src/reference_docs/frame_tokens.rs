@@ -87,7 +87,7 @@
 //! [`fungible::Inspect`](`frame_support::traits::fungible::Inspect`) is not some arcane knowledge
 //! that you have to know by heart or memorize. One can simply look at the list of the implementors
 //! of any trait in the Rust Doc to find all implementors (e.g.
-//! <https://paritytech.github.io/polkadot-sdk/master/frame/traits/tokens/fungible/trait.Mutate.html#implementors>),
+//! <https://paritytech.github.io/polkadot-sdk/master/frame_support/traits/tokens/fungible/trait.Mutate.html#implementors>),
 //! or use the `rust-analyzer` `Implementations` action.
 //!
 //! ## Fungible Token Traits in FRAME
