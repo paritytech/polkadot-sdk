@@ -466,7 +466,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// If there is an ongoing sale returns the current price of a core.
-	pub fn api_sale_price() -> Result<BalanceOf<T>, DispatchError> {
+	pub fn current_price() -> Result<BalanceOf<T>, DispatchError> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 

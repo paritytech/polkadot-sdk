@@ -595,7 +595,7 @@ impl_runtime_apis! {
 
 	impl pallet_broker::runtime_api::BrokerApi<Block, Balance> for Runtime {
 		fn sale_price() -> Result<Balance, DispatchError> {
-			Broker::api_sale_price()
+			Broker::current_price()
 		}
 	}
 
