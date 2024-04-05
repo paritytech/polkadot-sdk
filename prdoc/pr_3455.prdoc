@@ -22,7 +22,7 @@ migrations:
         The region owner is optional.
 
 crates: 
-  - name: pallet-regions
+  - name: pallet-broker
   - name: pallet-xcm
   - name: contracts-rococo-runtime
   - name: coretime-rococo-runtime
