@@ -35,7 +35,6 @@ pub extern "C" fn call() {
 	const VALUE_2: [u8; 4] = [3u8; 4];
 	const VALUE_3: [u8; 4] = [3u8; 4];
 
-	// set storage APIS
 	api::set_storage(&KEY, &VALUE_1);
 	assert_eq!(api::contains_storage(&KEY), Some(VALUE_1.len() as _));
 	unwrap_output!(val, [0u8; 4], api::get_storage, &KEY);
