@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove `para_id()` from `CoreState` in polkadot primitives
+
+doc:
+  - audience: "Node Dev"
+    description: |
+      With Coretime there is no more a static 1:1 mapping between core index and para id. This
+      mapping should be obtained from the scheduler/claimqueue on block by block basis. This change
+      removes `para_id()` from `CoreState` as it doesn't serve its purpose anymore.
+
+crates:
+  - name: polkadot-primitives
+    bump: major
+  - name: polkadot-statement-distribution
+    bump: minor
+  - name: cumulus-client-consensus-aura
+    bump: minor
