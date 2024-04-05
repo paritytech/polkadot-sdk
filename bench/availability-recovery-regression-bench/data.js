@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712336945154,
+  "lastUpdate": 1712349057455,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1595,6 +1595,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.475710754086672,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]",
+            "email": "49699333+dependabot[bot]@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "05b97068f9a440f89246c5fdea532fda369e7794",
+          "message": "Bump h2 from 0.3.24 to 0.3.26 (#4008)\n\nBumps [h2](https://github.com/hyperium/h2) from 0.3.24 to 0.3.26.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/hyperium/h2/releases\">h2's\nreleases</a>.</em></p>\n<blockquote>\n<h2>v0.3.26</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>Limit number of CONTINUATION frames for misbehaving\nconnections.</li>\n</ul>\n<p>See <a\nhref=\"https://seanmonstar.com/blog/hyper-http2-continuation-flood/\">https://seanmonstar.com/blog/hyper-http2-continuation-flood/</a>\nfor more info.</p>\n<h2>v0.3.25</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>perf: optimize header list size calculations by <a\nhref=\"https://github.com/Noah-Kennedy\"><code>@​Noah-Kennedy</code></a>\nin <a\nhref=\"https://redirect.github.com/hyperium/h2/pull/750\">hyperium/h2#750</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/hyperium/h2/compare/v0.3.24...v0.3.25\">https://github.com/hyperium/h2/compare/v0.3.24...v0.3.25</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/hyperium/h2/blob/v0.3.26/CHANGELOG.md\">h2's\nchangelog</a>.</em></p>\n<blockquote>\n<h1>0.3.26 (April 3, 2024)</h1>\n<ul>\n<li>Limit number of CONTINUATION frames for misbehaving\nconnections.</li>\n</ul>\n<h1>0.3.25 (March 15, 2024)</h1>\n<ul>\n<li>Improve performance decoding many headers.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/hyperium/h2/commit/357127e279c06935830fe2140378312eac801494\"><code>357127e</code></a>\nv0.3.26</li>\n<li><a\nhref=\"https://github.com/hyperium/h2/commit/1a357aaefc7243fdfa9442f45d90be17794a4004\"><code>1a357aa</code></a>\nfix: limit number of CONTINUATION frames allowed</li>\n<li><a\nhref=\"https://github.com/hyperium/h2/commit/5b6c9e0da092728d702dff3607626aafb7809d77\"><code>5b6c9e0</code></a>\nrefactor: cleanup new unused warnings (<a\nhref=\"https://redirect.github.com/hyperium/h2/issues/757\">#757</a>)</li>\n<li><a\nhref=\"https://github.com/hyperium/h2/commit/3a798327211345b9b2bf797e2e4f3aca4e0ddfee\"><code>3a79832</code></a>\nv0.3.25</li>\n<li><a\nhref=\"https://github.com/hyperium/h2/commit/94e80b1c72bec282bb5d13596803e6fb341fec4c\"><code>94e80b1</code></a>\nperf: optimize header list size calculations (<a\nhref=\"https://redirect.github.com/hyperium/h2/issues/750\">#750</a>)</li>\n<li>See full diff in <a\nhref=\"https://github.com/hyperium/h2/compare/v0.3.24...v0.3.26\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility\nscore](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=h2&package-manager=cargo&previous-version=0.3.24&new-version=0.3.26)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't\nalter it yourself. You can also trigger a rebase manually by commenting\n`@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits\nthat have been made to it\n- `@dependabot merge` will merge this PR after your CI passes on it\n- `@dependabot squash and merge` will squash and merge this PR after\nyour CI passes on it\n- `@dependabot cancel merge` will cancel a previously requested merge\nand block automerging\n- `@dependabot reopen` will reopen this PR if it is closed\n- `@dependabot close` will close this PR and stop Dependabot recreating\nit. You can achieve the same result by closing it manually\n- `@dependabot show <dependency name> ignore conditions` will show all\nof the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop\nDependabot creating any more for this major version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop\nDependabot creating any more for this minor version (unless you reopen\nthe PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop\nDependabot creating any more for this dependency (unless you reopen the\nPR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the\n[Security Alerts\npage](https://github.com/paritytech/polkadot-sdk/network/alerts).\n\n</details>\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2024-04-05T18:37:08Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/05b97068f9a440f89246c5fdea532fda369e7794"
+        },
+        "date": 1712349034377,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.16516486598666671,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.648293687759999,
             "unit": "seconds"
           }
         ]
