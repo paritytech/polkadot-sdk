@@ -255,18 +255,18 @@ impl PeerStoreInner {
 					peer_info.reputation,
 					change.reason,
 				);
+				return
 			}
-
-			return
 		}
 
 		log::trace!(
 			target: LOG_TARGET,
-			"Report {}: {:+} to {}. Reason: {}.",
+			"Report {}: {:+} to {}. Reason: {}.{}",
 			peer_id,
 			change.value,
 			peer_info.reputation,
 			change.reason,
+			if is_banned_now { " Banned, disconnecting." } else { "" },
 		);
 	}
 
