@@ -6,11 +6,9 @@ title: Deprecate `para_id()` from `CoreState` in polkadot primitives
 doc:
   - audience: "Node Dev"
     description: |
-     The motivation is that the old implementation of `para_id()` can be misused with Coretime which allows two
-     parachains (A,B) to share a core at an arbitrary relay chain block. This happens when a candidate of parachain A
-     is pending availability while parachain B is scheduled on the same core. In such a case the deprecated `para_id()`
-     function would always return the id of A. This behavior is fixed by always returning the scheduled `ParaId` for
-     occupied cores. But nevertheless implementers should prefer using the `ClaimQueue` to query the scheduled `para_id`.
+     `CoreState`'s `para_id()` function is getting deprecated in favour of direct usage of the
+     `ClaimQueue`. This is the preferred approach because it provides a better view on what is
+     scheduled on each core.
 
 crates:
   - name: polkadot-primitives
