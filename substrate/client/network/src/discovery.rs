@@ -484,7 +484,7 @@ impl DiscoveryBehaviour {
 #[derive(Debug)]
 pub enum DiscoveryOut {
 	/// A connection to a peer has been established but the peer has not been
-	/// added to the routing table because [`BucketInserts::Manual`] is
+	/// added to the routing table because [`KademliaBucketInserts::Manual`] is
 	/// configured. If the peer is to be included in the routing table, it must
 	/// be explicitly added via
 	/// [`DiscoveryBehaviour::add_self_reported_address`].
