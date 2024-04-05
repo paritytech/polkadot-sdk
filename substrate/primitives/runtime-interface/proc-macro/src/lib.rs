@@ -18,14 +18,8 @@
 //! This crate provides procedural macros for usage within the context of the Substrate runtime
 //! interface.
 //!
-//! The following macros are provided:
-//!
-//! 1. The [`#[runtime_interface]`](attr.runtime_interface.html) attribute macro for generating the
-//!    runtime interfaces.
-//! 2. The [`PassByCodec`](derive.PassByCodec.html) derive macro for implementing `PassBy` with
-//! `Codec`. 3. The [`PassByEnum`](derive.PassByInner.html) derive macro for implementing `PassBy`
-//! with `Enum`. 4. The [`PassByInner`](derive.PassByInner.html) derive macro for implementing
-//! `PassBy` with `Inner`.
+//! It provides the [`#[runtime_interface]`](attr.runtime_interface.html) attribute macro
+//! for generating the runtime interfaces.
 
 use syn::{
 	parse::{Parse, ParseStream},
