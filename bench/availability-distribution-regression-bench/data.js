@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712316419104,
+  "lastUpdate": 1712322373520,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1767,6 +1767,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.026239054646666662,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "ordian",
+            "username": "ordian",
+            "email": "write@reusable.software"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "03e9dd77e945433a1835813b49492eb9a045cb64",
+          "message": "Update pr_3302.prdoc (#3985)\n\nProperly account for #3302, cc #3984.",
+          "timestamp": "2024-04-05T11:53:29Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/03e9dd77e945433a1835813b49492eb9a045cb64"
+        },
+        "date": 1712322349605,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.88666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010530766260000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15477605183333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012650191979999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026656638060000005,
             "unit": "seconds"
           }
         ]
