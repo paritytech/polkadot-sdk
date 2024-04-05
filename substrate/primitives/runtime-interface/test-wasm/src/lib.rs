@@ -22,8 +22,9 @@
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
-		PassByCodec, PassFatPointerAndRead, PassFatPointerAndReadWrite, PassPointerAndRead,
-		PassPointerAndReadCopy, PassPointerAndWrite, PassSliceRefByCodec, ReturnAs,
+		PassFatPointerAndDecode, PassFatPointerAndRead, PassFatPointerAndReadWrite,
+		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite, PassSliceRefByCodec,
+		ReturnAs,
 	},
 	runtime_interface,
 };
@@ -155,7 +156,7 @@ pub trait TestApi {
 	fn return_input_as_tuple(
 		a: PassFatPointerAndRead<Vec<u8>>,
 		b: u32,
-		c: PassByCodec<Option<Vec<u32>>>,
+		c: PassFatPointerAndDecode<Option<Vec<u32>>>,
 		d: u8,
 	) -> AllocateAndReturnByCodec<(Vec<u8>, u32, Option<Vec<u32>>, u8)> {
 		(a, b, c, d)
@@ -185,7 +186,7 @@ pub trait TestApi {
 		*value = [1, 2, 3];
 	}
 
-	fn pass_by_codec(value: PassByCodec<Vec<u16>>) {
+	fn pass_by_codec(value: PassFatPointerAndDecode<Vec<u16>>) {
 		assert_eq!(value, [1, 2, 3]);
 	}
 

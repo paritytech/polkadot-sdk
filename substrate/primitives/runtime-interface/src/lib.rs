@@ -88,7 +88,7 @@ pub use sp_std;
 /// ```
 /// # mod wrapper {
 /// # use sp_runtime_interface::runtime_interface;
-/// # use sp_runtime_interface::pass_by::{PassByCodec, PassFatPointerAndRead, AllocateAndReturnFatPointer};
+/// # use sp_runtime_interface::pass_by::{PassFatPointerAndDecode, PassFatPointerAndRead, AllocateAndReturnFatPointer};
 ///
 /// #[runtime_interface]
 /// trait Interface {
@@ -131,7 +131,7 @@ pub use sp_std;
 ///     /// A function can take a `&self` or `&mut self` argument to get access to the
 ///     /// `Externalities`. (The generated method does not require
 ///     /// this argument, so the function can be called just with the `optional` argument)
-///     fn set_or_clear(&mut self, optional: PassByCodec<Option<Vec<u8>>>) {
+///     fn set_or_clear(&mut self, optional: PassFatPointerAndDecode<Option<Vec<u8>>>) {
 ///         match optional {
 ///             Some(value) => self.set_storage([1, 2, 3, 4].to_vec(), value),
 ///             None => self.clear_storage(&[1, 2, 3, 4]),

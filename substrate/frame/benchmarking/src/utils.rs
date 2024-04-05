@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::TrailingZeroInput, DispatchError};
 use sp_runtime_interface::pass_by::{
-	AllocateAndReturnByCodec, PassByCodec, PassFatPointerAndRead, PassPointerAndWrite,
+	AllocateAndReturnByCodec, PassFatPointerAndDecode, PassFatPointerAndRead, PassPointerAndWrite,
 };
 use sp_std::{prelude::Box, vec::Vec};
 use sp_storage::TrackedStorageKey;
@@ -296,12 +296,12 @@ pub trait Benchmarking {
 	}
 
 	/// Set the DB whitelist.
-	fn set_whitelist(&mut self, new: PassByCodec<Vec<TrackedStorageKey>>) {
+	fn set_whitelist(&mut self, new: PassFatPointerAndDecode<Vec<TrackedStorageKey>>) {
 		self.set_whitelist(new)
 	}
 
 	// Add a new item to the DB whitelist.
-	fn add_to_whitelist(&mut self, add: PassByCodec<TrackedStorageKey>) {
+	fn add_to_whitelist(&mut self, add: PassFatPointerAndDecode<TrackedStorageKey>) {
 		let mut whitelist = self.get_whitelist();
 		match whitelist.iter_mut().find(|x| x.key == add.key) {
 			// If we already have this key in the whitelist, update to be the most constrained

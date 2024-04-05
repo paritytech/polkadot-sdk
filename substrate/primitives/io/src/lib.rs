@@ -116,8 +116,8 @@ use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
-		PassByCodec, PassFatPointerAndRead, PassFatPointerAndReadWrite, PassPointerAndRead,
-		PassPointerAndReadCopy, PassSliceRefByCodec, ReturnAs,
+		PassFatPointerAndDecode, PassFatPointerAndRead, PassFatPointerAndReadWrite,
+		PassPointerAndRead, PassPointerAndReadCopy, PassSliceRefByCodec, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -263,7 +263,7 @@ pub trait Storage {
 	fn clear_prefix(
 		&mut self,
 		prefix: PassFatPointerAndRead<&[u8]>,
-		limit: PassByCodec<Option<u32>>,
+		limit: PassFatPointerAndDecode<Option<u32>>,
 	) -> AllocateAndReturnByCodec<KillStorageResult> {
 		Externalities::clear_prefix(*self, prefix, limit, None).into()
 	}
@@ -303,8 +303,9 @@ pub trait Storage {
 	fn clear_prefix(
 		&mut self,
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
-		maybe_limit: PassByCodec<Option<u32>>,
-		maybe_cursor: PassByCodec<Option<Vec<u8>>>, //< TODO Make work or just Option<Vec<u8>>?
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>, /* TODO Make work or just
+		                                                         * Option<Vec<u8>>? */
 	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
 		Externalities::clear_prefix(
 			*self,
@@ -485,7 +486,7 @@ pub trait DefaultChildStorage {
 	fn storage_kill(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		limit: PassByCodec<Option<u32>>,
+		limit: PassFatPointerAndDecode<Option<u32>>,
 	) -> bool {
 		let child_info = ChildInfo::new_default(storage_key);
 		let r = self.kill_child_storage(&child_info, limit, None);
@@ -499,7 +500,7 @@ pub trait DefaultChildStorage {
 	fn storage_kill(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		limit: PassByCodec<Option<u32>>,
+		limit: PassFatPointerAndDecode<Option<u32>>,
 	) -> AllocateAndReturnByCodec<KillStorageResult> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.kill_child_storage(&child_info, limit, None).into()
@@ -512,8 +513,8 @@ pub trait DefaultChildStorage {
 	fn storage_kill(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		maybe_limit: PassByCodec<Option<u32>>,
-		maybe_cursor: PassByCodec<Option<Vec<u8>>>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
 	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.kill_child_storage(&child_info, maybe_limit, maybe_cursor.as_ref().map(|x| &x[..]))
@@ -552,7 +553,7 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		prefix: PassFatPointerAndRead<&[u8]>,
-		limit: PassByCodec<Option<u32>>,
+		limit: PassFatPointerAndDecode<Option<u32>>,
 	) -> AllocateAndReturnByCodec<KillStorageResult> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.clear_child_prefix(&child_info, prefix, limit, None).into()
@@ -566,8 +567,8 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		prefix: PassFatPointerAndRead<&[u8]>,
-		maybe_limit: PassByCodec<Option<u32>>,
-		maybe_cursor: PassByCodec<Option<Vec<u8>>>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
 	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
 		let child_info = ChildInfo::new_default(storage_key);
 		self.clear_child_prefix(
@@ -627,7 +628,7 @@ pub trait DefaultChildStorage {
 pub trait Trie {
 	/// A trie root formed from the iterated items.
 	fn blake2_256_root(
-		input: PassByCodec<Vec<(Vec<u8>, Vec<u8>)>>,
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 	) -> AllocateAndReturnPointer<H256, 32> {
 		LayoutV0::<sp_core::Blake2Hasher>::trie_root(input)
 	}
@@ -635,7 +636,7 @@ pub trait Trie {
 	/// A trie root formed from the iterated items.
 	#[version(2)]
 	fn blake2_256_root(
-		input: PassByCodec<Vec<(Vec<u8>, Vec<u8>)>>,
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 		version: PassAs<StateVersion, u8>,
 	) -> AllocateAndReturnPointer<H256, 32> {
 		match version {
@@ -646,7 +647,7 @@ pub trait Trie {
 
 	/// A trie root formed from the enumerated items.
 	fn blake2_256_ordered_root(
-		input: PassByCodec<Vec<Vec<u8>>>,
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<H256, 32> {
 		LayoutV0::<sp_core::Blake2Hasher>::ordered_trie_root(input)
 	}
@@ -654,7 +655,7 @@ pub trait Trie {
 	/// A trie root formed from the enumerated items.
 	#[version(2)]
 	fn blake2_256_ordered_root(
-		input: PassByCodec<Vec<Vec<u8>>>,
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 		version: PassAs<StateVersion, u8>,
 	) -> AllocateAndReturnPointer<H256, 32> {
 		match version {
@@ -665,7 +666,7 @@ pub trait Trie {
 
 	/// A trie root formed from the iterated items.
 	fn keccak_256_root(
-		input: PassByCodec<Vec<(Vec<u8>, Vec<u8>)>>,
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 	) -> AllocateAndReturnPointer<H256, 32> {
 		LayoutV0::<sp_core::KeccakHasher>::trie_root(input)
 	}
@@ -673,7 +674,7 @@ pub trait Trie {
 	/// A trie root formed from the iterated items.
 	#[version(2)]
 	fn keccak_256_root(
-		input: PassByCodec<Vec<(Vec<u8>, Vec<u8>)>>,
+		input: PassFatPointerAndDecode<Vec<(Vec<u8>, Vec<u8>)>>,
 		version: PassAs<StateVersion, u8>,
 	) -> AllocateAndReturnPointer<H256, 32> {
 		match version {
@@ -684,7 +685,7 @@ pub trait Trie {
 
 	/// A trie root formed from the enumerated items.
 	fn keccak_256_ordered_root(
-		input: PassByCodec<Vec<Vec<u8>>>,
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<H256, 32> {
 		LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(input)
 	}
@@ -692,7 +693,7 @@ pub trait Trie {
 	/// A trie root formed from the enumerated items.
 	#[version(2)]
 	fn keccak_256_ordered_root(
-		input: PassByCodec<Vec<Vec<u8>>>,
+		input: PassFatPointerAndDecode<Vec<Vec<u8>>>,
 		version: PassAs<StateVersion, u8>,
 	) -> AllocateAndReturnPointer<H256, 32> {
 		match version {
@@ -901,7 +902,7 @@ pub trait Crypto {
 	fn ed25519_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		seed: PassByCodec<Option<Vec<u8>>>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<ed25519::Public, 32> {
 		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
@@ -1080,7 +1081,7 @@ pub trait Crypto {
 	fn sr25519_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		seed: PassByCodec<Option<Vec<u8>>>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<sr25519::Public, 32> {
 		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
@@ -1137,7 +1138,7 @@ pub trait Crypto {
 	fn ecdsa_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		seed: PassByCodec<Option<Vec<u8>>>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<ecdsa::Public, 33> {
 		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
@@ -1354,7 +1355,7 @@ pub trait Crypto {
 	fn bls377_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		seed: PassByCodec<Option<Vec<u8>>>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<bls377::Public, 144> {
 		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
@@ -1373,7 +1374,7 @@ pub trait Crypto {
 	fn ecdsa_bls377_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		seed: PassByCodec<Option<Vec<u8>>>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<ecdsa_bls377::Public, { 144 + 33 }> {
 		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
@@ -1392,7 +1393,7 @@ pub trait Crypto {
 	fn bandersnatch_generate(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		seed: PassByCodec<Option<Vec<u8>>>,
+		seed: PassFatPointerAndDecode<Option<Vec<u8>>>,
 	) -> AllocateAndReturnPointer<bandersnatch::Public, 33> {
 		let seed = seed.as_ref().map(|s| core::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
@@ -1596,7 +1597,7 @@ pub trait Offchain {
 		&mut self,
 		kind: PassAs<StorageKind, u32>,
 		key: PassFatPointerAndRead<&[u8]>,
-		old_value: PassByCodec<Option<Vec<u8>>>,
+		old_value: PassFatPointerAndDecode<Option<Vec<u8>>>,
 		new_value: PassFatPointerAndRead<&[u8]>,
 	) -> bool {
 		self.extension::<OffchainDbExt>()
@@ -1662,7 +1663,7 @@ pub trait Offchain {
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
 		chunk: PassFatPointerAndRead<&[u8]>,
-		deadline: PassByCodec<Option<Timestamp>>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 	) -> AllocateAndReturnByCodec<Result<(), HttpError>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_request_write_body can be called only in the offchain worker context")
@@ -1679,7 +1680,7 @@ pub trait Offchain {
 	fn http_response_wait(
 		&mut self,
 		ids: PassSliceRefByCodec<&[HttpRequestId]>,
-		deadline: PassByCodec<Option<Timestamp>>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 	) -> AllocateAndReturnByCodec<Vec<HttpRequestStatus>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_wait can be called only in the offchain worker context")
@@ -1711,7 +1712,7 @@ pub trait Offchain {
 		&mut self,
 		request_id: PassAs<HttpRequestId, u16>,
 		buffer: PassFatPointerAndReadWrite<&mut [u8]>,
-		deadline: PassByCodec<Option<Timestamp>>,
+		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 	) -> AllocateAndReturnByCodec<Result<u32, HttpError>> {
 		self.extension::<OffchainWorkerExt>()
 			.expect("http_response_read_body can be called only in the offchain worker context")
@@ -1722,7 +1723,7 @@ pub trait Offchain {
 	/// Set the authorized nodes and authorized_only flag.
 	fn set_authorized_nodes(
 		&mut self,
-		nodes: PassByCodec<Vec<OpaquePeerId>>,
+		nodes: PassFatPointerAndDecode<Vec<OpaquePeerId>>,
 		authorized_only: bool,
 	) {
 		self.extension::<OffchainWorkerExt>()
@@ -1794,7 +1795,7 @@ pub trait WasmTracing {
 	/// checked more than once per metadata. This exists for optimisation purposes but is still not
 	/// cheap as it will jump the wasm-native-barrier every time it is called. So an implementation
 	/// might chose to cache the result for the execution of the entire block.
-	fn enabled(&mut self, metadata: PassByCodec<sp_tracing::WasmMetadata>) -> bool {
+	fn enabled(&mut self, metadata: PassFatPointerAndDecode<sp_tracing::WasmMetadata>) -> bool {
 		let metadata: &tracing_core::metadata::Metadata<'static> = (&metadata).into();
 		tracing::dispatcher::get_default(|d| d.enabled(metadata))
 	}
@@ -1805,7 +1806,10 @@ pub trait WasmTracing {
 	/// and then calls `clone_span` with the ID to signal that we are keeping it around on the wasm-
 	/// side even after the local span is dropped. The resulting ID is then handed over to the wasm-
 	/// side.
-	fn enter_span(&mut self, span: PassByCodec<sp_tracing::WasmEntryAttributes>) -> u64 {
+	fn enter_span(
+		&mut self,
+		span: PassFatPointerAndDecode<sp_tracing::WasmEntryAttributes>,
+	) -> u64 {
 		let span: tracing::Span = span.into();
 		match span.id() {
 			Some(id) => tracing::dispatcher::get_default(|d| {
@@ -1820,7 +1824,7 @@ pub trait WasmTracing {
 	}
 
 	/// Emit the given event to the global tracer on the native side
-	fn event(&mut self, event: PassByCodec<sp_tracing::WasmEntryAttributes>) {
+	fn event(&mut self, event: PassFatPointerAndDecode<sp_tracing::WasmEntryAttributes>) {
 		event.emit();
 	}
 

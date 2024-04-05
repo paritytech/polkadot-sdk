@@ -24,8 +24,8 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_runtime_interface::{
 	pass_by::{
-		AllocateAndReturnByCodec, PassByCodec, PassPointerAndRead, PassPointerAndReadCopy,
-		PassSliceRefByCodec, ReturnAs,
+		AllocateAndReturnByCodec, PassFatPointerAndDecode, PassPointerAndRead,
+		PassPointerAndReadCopy, PassSliceRefByCodec, ReturnAs,
 	},
 	runtime_interface,
 };
@@ -149,7 +149,7 @@ pub trait StatementStore {
 	/// This is meant to be used by the offchain worker.
 	fn submit_statement(
 		&mut self,
-		statement: PassByCodec<Statement>,
+		statement: PassFatPointerAndDecode<Statement>,
 	) -> ReturnAs<SubmitResult, u8> {
 		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
 			match store.submit(statement, StatementSource::Chain) {

@@ -339,15 +339,15 @@ where
 /// which then reads it and decodes back into `T`.
 ///
 /// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
-pub struct PassByCodec<T>(PhantomData<T>);
+pub struct PassFatPointerAndDecode<T>(PhantomData<T>);
 
-impl<T> RIType for PassByCodec<T> {
+impl<T> RIType for PassFatPointerAndDecode<T> {
 	type FFIType = u64;
 	type Inner = T;
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T: codec::Decode> FromFFIValue<'a> for PassByCodec<T> {
+impl<'a, T: codec::Decode> FromFFIValue<'a> for PassFatPointerAndDecode<T> {
 	type Owned = Option<T>;
 
 	fn from_ffi_value(
@@ -368,7 +368,7 @@ impl<'a, T: codec::Decode> FromFFIValue<'a> for PassByCodec<T> {
 }
 
 #[cfg(substrate_runtime)]
-impl<T: codec::Encode> IntoFFIValue for PassByCodec<T> {
+impl<T: codec::Encode> IntoFFIValue for PassFatPointerAndDecode<T> {
 	type Destructor = Vec<u8>;
 
 	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
