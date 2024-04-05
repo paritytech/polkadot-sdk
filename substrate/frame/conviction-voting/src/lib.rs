@@ -185,7 +185,7 @@ pub mod pallet {
 		/// The account is already delegating.
 		AlreadyDelegating,
 		/// The account currently has votes attached to it and the operation cannot succeed until
-		/// these are removed, either through `unvote` or `reap_vote`.
+		/// these are removed through `remove_vote`.
 		AlreadyVoting,
 		/// Too high a balance was provided that the account cannot afford.
 		InsufficientFunds,
@@ -231,8 +231,8 @@ pub mod pallet {
 		///
 		/// The dispatch origin of this call must be _Signed_, and the signing account must either:
 		///   - be delegating already; or
-		///   - have no voting activity (if there is, then it will need to be removed/consolidated
-		///     through `reap_vote` or `unvote`).
+		///   - have no voting activity (if there is, then it will need to be removed through
+		///     `remove_vote`).
 		///
 		/// - `to`: The account whose voting the `target` account's voting power will follow.
 		/// - `class`: The class of polls to delegate. To delegate multiple classes, multiple calls

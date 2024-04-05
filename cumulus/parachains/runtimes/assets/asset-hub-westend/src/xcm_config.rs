@@ -21,21 +21,19 @@ use super::{
 	XcmpQueue,
 };
 use assets_common::{
-	local_and_foreign_assets::MatchesLocalAndForeignAssetsLocation,
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
 	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Equals, Everything, Nothing,
-		PalletInfoAccess,
+		tokens::imbalance::{ResolveAssetTo, ResolveTo},
+		ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
 		ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
@@ -46,12 +44,11 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
-#[allow(deprecated)]
-use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin, FungiblesAdapter,
+	DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
 	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
@@ -108,8 +105,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
-#[allow(deprecated)]
-pub type CurrencyTransactor = CurrencyAdapter<
+pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -188,7 +184,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// We dont need to check teleports here.
+	// We don't need to check teleports here.
 	NoChecking,
 	// The account to use for tracking teleports.
 	CheckingAccount,
@@ -217,37 +213,12 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 
 /// Means for transacting assets on this chain.
 pub type AssetTransactors = (
-	CurrencyTransactor,
+	FungibleTransactor,
 	FungiblesTransactor,
 	ForeignFungiblesTransactor,
 	PoolFungiblesTransactor,
 	UniquesTransactor,
 );
-
-/// Simple `Location` matcher for Local and Foreign asset `Location`.
-pub struct LocalAndForeignAssetsLocationMatcher;
-impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location>
-	for LocalAndForeignAssetsLocationMatcher
-{
-	fn is_local(location: &xcm::v3::Location) -> bool {
-		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location =
-			if let Ok(location) = (*location).try_into() { location } else { return false };
-		TrustBackedAssetsConvertedConcreteId::contains(&latest_location)
-	}
-
-	fn is_foreign(location: &xcm::v3::Location) -> bool {
-		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location =
-			if let Ok(location) = (*location).try_into() { location } else { return false };
-		ForeignAssetsConvertedConcreteId::contains(&latest_location)
-	}
-}
-impl Contains<xcm::v3::Location> for LocalAndForeignAssetsLocationMatcher {
-	fn contains(location: &xcm::v3::Location) -> bool {
-		Self::is_local(location) || Self::is_foreign(location)
-	}
-}
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -619,7 +590,13 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader = (
-		UsingComponents<WeightToFee, WestendLocation, AccountId, Balances, ToStakingPot<Runtime>>,
+		UsingComponents<
+			WeightToFee,
+			WestendLocation,
+			AccountId,
+			Balances,
+			ResolveTo<StakingPot, Balances>,
+		>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			WestendLocationV3,
 			crate::AssetConversion,
@@ -676,6 +653,10 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 /// Local origins on this chain are allowed to dispatch XCM sends/executions.

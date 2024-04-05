@@ -871,7 +871,7 @@ pub mod v2 {
 }
 
 /// v3 network protocol types.
-/// Purpose is for chaning ApprovalDistributionMessage to
+/// Purpose is for changing ApprovalDistributionMessage to
 /// include more than one assignment and approval in a message.
 pub mod v3 {
 	use parity_scale_codec::{Decode, Encode};
@@ -895,7 +895,10 @@ pub mod v3 {
 		/// candidate index.
 		///
 		/// Actually checking the assignment may yield a different result.
-		/// TODO: Look at getting rid of bitfield in the future.
+		///
+		/// TODO at next protocol upgrade opportunity:
+		/// - remove redundancy `candidate_index` vs `core_index`
+		/// - `<https://github.com/paritytech/polkadot-sdk/issues/675>`
 		#[codec(index = 0)]
 		Assignments(Vec<(IndirectAssignmentCertV2, CandidateBitfield)>),
 		/// Approvals for candidates in some recent, unfinalized block.

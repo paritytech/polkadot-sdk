@@ -1,0 +1,9 @@
+title: "Ranked collective introduce `Add` and `Remove` origins"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Add two new origins to the ranked-collective pallet. One to add new members and one to remove members, named `AddOrigin` and `RemoveOrigin` respectively.
+
+crates:
+  - name: pallet-ranked-collective

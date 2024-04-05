@@ -470,7 +470,7 @@ pub trait SendXcm {
 	/// Intermediate value which connects the two phases of the send operation.
 	type Ticket;
 
-	/// Check whether the given `_message` is deliverable to the given `_destination` and if so
+	/// Check whether the given `message` is deliverable to the given `destination` and if so
 	/// determine the cost which will be paid by this chain to do so, returning a `Validated` token
 	/// which can be used to enact delivery.
 	///

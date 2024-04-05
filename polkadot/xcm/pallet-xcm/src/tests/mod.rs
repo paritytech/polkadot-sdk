@@ -19,11 +19,13 @@
 pub(crate) mod assets_transfer;
 
 use crate::{
-	mock::*, AssetTraps, CurrentMigration, Error, LatestVersionedLocation, Queries, QueryStatus,
-	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
+	mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error,
+	LatestVersionedLocation, Pallet, Queries, QueryStatus, VersionDiscoveryQueue,
+	VersionMigrationStage, VersionNotifiers, VersionNotifyTargets, WeightInfo,
 };
+use codec::Encode;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok,
 	traits::{Currency, Hooks},
 	weights::Weight,
 };
@@ -303,11 +305,12 @@ fn send_works() {
 		]);
 
 		let versioned_dest = Box::new(RelayLocation::get().into());
-		let versioned_message = Box::new(VersionedXcm::from(message.clone()));
-		assert_ok!(XcmPallet::send(
+		let versioned_message = VersionedXcm::from(message.clone());
+		let encoded_versioned_message = versioned_message.encode().try_into().unwrap();
+		assert_ok!(XcmPallet::send_blob(
 			RuntimeOrigin::signed(ALICE),
 			versioned_dest,
-			versioned_message
+			encoded_versioned_message
 		));
 		let sent_message = Xcm(Some(DescendOrigin(sender.clone().try_into().unwrap()))
 			.into_iter()
@@ -339,16 +342,16 @@ fn send_fails_when_xcm_router_blocks() {
 	];
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let sender: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
-		let message = Xcm(vec![
+		let message = Xcm::<()>(vec![
 			ReserveAssetDeposited((Parent, SEND_AMOUNT).into()),
 			buy_execution((Parent, SEND_AMOUNT)),
 			DepositAsset { assets: AllCounted(1).into(), beneficiary: sender },
 		]);
 		assert_noop!(
-			XcmPallet::send(
+			XcmPallet::send_blob(
 				RuntimeOrigin::signed(ALICE),
 				Box::new(Location::ancestor(8).into()),
-				Box::new(VersionedXcm::from(message.clone())),
+				VersionedXcm::from(message.clone()).encode().try_into().unwrap(),
 			),
 			crate::Error::<Test>::SendFailure
 		);
@@ -369,13 +372,16 @@ fn execute_withdraw_to_deposit_works() {
 		let weight = BaseXcmWeight::get() * 3;
 		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm::<RuntimeCall>(vec![
 				WithdrawAsset((Here, SEND_AMOUNT).into()),
 				buy_execution((Here, SEND_AMOUNT)),
 				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
-			]))),
+			]))
+			.encode()
+			.try_into()
+			.unwrap(),
 			weight
 		));
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
@@ -397,18 +403,21 @@ fn trapped_assets_can_be_claimed() {
 		let weight = BaseXcmWeight::get() * 6;
 		let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
 
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm(vec![
 				WithdrawAsset((Here, SEND_AMOUNT).into()),
 				buy_execution((Here, SEND_AMOUNT)),
 				// Don't propagated the error into the result.
-				SetErrorHandler(Xcm(vec![ClearError])),
+				SetErrorHandler(Xcm::<RuntimeCall>(vec![ClearError])),
 				// This will make an error.
 				Trap(0),
 				// This would succeed, but we never get to it.
 				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest.clone() },
-			]))),
+			]))
+			.encode()
+			.try_into()
+			.unwrap(),
 			weight
 		));
 		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
@@ -435,13 +444,16 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(trapped, expected);
 
 		let weight = BaseXcmWeight::get() * 3;
-		assert_ok!(XcmPallet::execute(
+		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm::<RuntimeCall>(vec![
 				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
 				buy_execution((Here, SEND_AMOUNT)),
 				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest.clone() },
-			]))),
+			]))
+			.encode()
+			.try_into()
+			.unwrap(),
 			weight
 		));
 
@@ -449,19 +461,73 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE + SEND_AMOUNT);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
-		let weight = BaseXcmWeight::get() * 3;
-		assert_ok!(<XcmPallet as xcm_builder::ExecuteController<_, _>>::execute(
+		// Can't claim twice.
+		assert_err_ignore_postinfo!(
+			XcmPallet::execute_blob(
+				RuntimeOrigin::signed(ALICE),
+				VersionedXcm::from(Xcm::<RuntimeCall>(vec![
+					ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
+					buy_execution((Here, SEND_AMOUNT)),
+					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+				]))
+				.encode()
+				.try_into()
+				.unwrap(),
+				weight
+			),
+			Error::<Test>::LocalExecutionIncomplete
+		);
+	});
+}
+
+// Like `trapped_assets_can_be_claimed` but using the `claim_assets` extrinsic.
+#[test]
+fn claim_assets_works() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		// First trap some assets.
+		let trapping_program =
+			Xcm::<RuntimeCall>::builder_unsafe().withdraw_asset((Here, SEND_AMOUNT)).build();
+		// Even though assets are trapped, the extrinsic returns success.
+		assert_ok!(XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
-				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
-				buy_execution((Here, SEND_AMOUNT)),
-				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
-			]))),
-			weight
+			VersionedXcm::V4(trapping_program).encode().try_into().unwrap(),
+			BaseXcmWeight::get() * 2,
 		));
-		let outcome =
-			Outcome::Incomplete { used: BaseXcmWeight::get(), error: XcmError::UnknownClaim };
-		assert_eq!(last_event(), RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome }));
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE - SEND_AMOUNT);
+
+		// Expected `AssetsTrapped` event info.
+		let source: Location = Junction::AccountId32 { network: None, id: ALICE.into() }.into();
+		let versioned_assets = VersionedAssets::V4(Assets::from((Here, SEND_AMOUNT)));
+		let hash = BlakeTwo256::hash_of(&(source.clone(), versioned_assets.clone()));
+
+		// Assets were indeed trapped.
+		assert_eq!(
+			last_events(2),
+			vec![
+				RuntimeEvent::XcmPallet(crate::Event::AssetsTrapped {
+					hash,
+					origin: source,
+					assets: versioned_assets
+				}),
+				RuntimeEvent::XcmPallet(crate::Event::Attempted {
+					outcome: Outcome::Complete { used: BaseXcmWeight::get() * 1 }
+				})
+			],
+		);
+		let trapped = AssetTraps::<Test>::iter().collect::<Vec<_>>();
+		assert_eq!(trapped, vec![(hash, 1)]);
+
+		// Now claim them with the extrinsic.
+		assert_ok!(XcmPallet::claim_assets(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(VersionedAssets::V4((Here, SEND_AMOUNT).into())),
+			Box::new(VersionedLocation::V4(
+				AccountId32 { network: None, id: ALICE.clone().into() }.into()
+			)),
+		));
+		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
+		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 	});
 }
 
@@ -478,9 +544,9 @@ fn incomplete_execute_reverts_side_effects() {
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		let amount_to_send = INITIAL_BALANCE - ExistentialDeposit::get();
 		let assets: Assets = (Here, amount_to_send).into();
-		let result = XcmPallet::execute(
+		let result = XcmPallet::execute_blob(
 			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
+			VersionedXcm::from(Xcm::<RuntimeCall>(vec![
 				// Withdraw + BuyExec + Deposit should work
 				WithdrawAsset(assets.clone()),
 				buy_execution(assets.inner()[0].clone()),
@@ -488,17 +554,23 @@ fn incomplete_execute_reverts_side_effects() {
 				// Withdrawing once more will fail because of InsufficientBalance, and we expect to
 				// revert the effects of the above instructions as well
 				WithdrawAsset(assets),
-			]))),
+			]))
+			.encode()
+			.try_into()
+			.unwrap(),
 			weight,
 		);
 		// all effects are reverted and balances unchanged for either sender or receiver
 		assert_eq!(Balances::total_balance(&ALICE), INITIAL_BALANCE);
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE);
+
 		assert_eq!(
 			result,
 			Err(sp_runtime::DispatchErrorWithPostInfo {
 				post_info: frame_support::dispatch::PostDispatchInfo {
-					actual_weight: None,
+					actual_weight: Some(
+						<<Test as crate::Config>::WeightInfo>::execute_blob() + weight
+					),
 					pays_fee: frame_support::dispatch::Pays::Yes,
 				},
 				error: sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
@@ -1111,5 +1183,85 @@ fn get_and_wrap_version_works() {
 		// wrapped to the `1`
 		assert_eq!(XcmPallet::wrap_version(&remote_c, xcm.clone()), Err(()));
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
+	})
+}
+
+#[test]
+fn multistage_migration_works() {
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		// An entry from a previous runtime with v3 XCM.
+		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
+		let v3_version = xcm::v3::VERSION;
+		SupportedVersion::<Test>::insert(v3_version, v3_location.clone(), v3_version);
+		VersionNotifiers::<Test>::insert(v3_version, v3_location.clone(), 1);
+		VersionNotifyTargets::<Test>::insert(
+			v3_version,
+			v3_location,
+			(70, Weight::zero(), v3_version),
+		);
+		// A version to advertise.
+		AdvertisedXcmVersion::set(4);
+
+		// check `try-state`
+		assert!(Pallet::<Test>::do_try_state().is_err());
+
+		// closure simulates a multistage migration process
+		let migrate = |expected_cycle_count| {
+			// A runtime upgrade which alters the version does send notifications.
+			CurrentMigration::<Test>::put(VersionMigrationStage::default());
+			let mut maybe_migration = CurrentMigration::<Test>::take();
+			let mut counter = 0;
+			let mut weight_used = Weight::zero();
+			while let Some(migration) = maybe_migration.take() {
+				counter += 1;
+				let (w, m) = XcmPallet::check_xcm_version_change(migration, Weight::zero());
+				maybe_migration = m;
+				weight_used.saturating_accrue(w);
+			}
+			assert_eq!(counter, expected_cycle_count);
+			weight_used
+		};
+
+		// run migration for the first time
+		let _ = migrate(4);
+
+		// check xcm sent
+		assert_eq!(
+			take_sent_xcm(),
+			vec![(
+				Parachain(1001).into(),
+				Xcm(vec![QueryResponse {
+					query_id: 70,
+					max_weight: Weight::zero(),
+					response: Response::Version(AdvertisedXcmVersion::get()),
+					querier: None,
+				}])
+			),]
+		);
+
+		// check migrated data
+		assert_eq!(
+			SupportedVersion::<Test>::iter().collect::<Vec<_>>(),
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), v3_version),]
+		);
+		assert_eq!(
+			VersionNotifiers::<Test>::iter().collect::<Vec<_>>(),
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), 1),]
+		);
+		assert_eq!(
+			VersionNotifyTargets::<Test>::iter().collect::<Vec<_>>(),
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 4)),]
+		);
+
+		// run migration again to check it can run multiple time without any harm or double sending
+		// messages.
+		let weight_used = migrate(1);
+		assert_eq!(weight_used, 1_u8 * <Test as Config>::WeightInfo::already_notified_target());
+
+		// check no xcm sent
+		assert_eq!(take_sent_xcm(), vec![]);
+
+		// check `try-state`
+		assert!(Pallet::<Test>::do_try_state().is_ok());
 	})
 }

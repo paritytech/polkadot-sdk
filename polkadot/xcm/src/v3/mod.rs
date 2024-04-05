@@ -69,7 +69,6 @@ pub const VERSION: super::Version = 3;
 /// An identifier for a query.
 pub type QueryId = u64;
 
-// TODO (v4): Use `BoundedVec` instead of `Vec`
 #[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = ""), Eq(bound = ""), PartialEq(bound = ""), Debug(bound = ""))]
 #[codec(encode_bound())]

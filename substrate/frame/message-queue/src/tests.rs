@@ -90,7 +90,7 @@ fn queue_priority_retains() {
 		MessageQueue::enqueue_message(msg("d"), Everywhere(2));
 		assert_ring(&[Everywhere(1), Everywhere(2), Everywhere(3)]);
 		// service head is 1, it will process a, leaving service head at 2. it also processes b but
-		// doees not empty queue 2, so service head will end at 2.
+		// does not empty queue 2, so service head will end at 2.
 		assert_eq!(MessageQueue::service_queues(2.into_weight()), 2.into_weight());
 		assert_eq!(
 			MessagesProcessed::take(),
@@ -1064,13 +1064,13 @@ fn footprint_num_pages_works() {
 		MessageQueue::enqueue_message(msg("weight=2"), Here);
 		MessageQueue::enqueue_message(msg("weight=3"), Here);
 
-		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 2, 16));
 
 		// Mark the messages as overweight.
 		assert_eq!(MessageQueue::service_queues(1.into_weight()), 0.into_weight());
 		assert_eq!(System::events().len(), 2);
-		// Overweight does not change the footprint.
-		assert_eq!(MessageQueue::footprint(Here), fp(2, 2, 16));
+		// `ready_pages` decreases but `page` count does not.
+		assert_eq!(MessageQueue::footprint(Here), fp(2, 0, 2, 16));
 
 		// Now execute the second message.
 		assert_eq!(
@@ -1078,7 +1078,7 @@ fn footprint_num_pages_works() {
 				.unwrap(),
 			3.into_weight()
 		);
-		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 8));
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 0, 1, 8));
 		// And the first one:
 		assert_eq!(
 			<MessageQueue as ServiceQueues>::execute_overweight(2.into_weight(), (Here, 0, 0))
@@ -1086,6 +1086,11 @@ fn footprint_num_pages_works() {
 			2.into_weight()
 		);
 		assert_eq!(MessageQueue::footprint(Here), Default::default());
+		assert_eq!(MessageQueue::footprint(Here), fp(0, 0, 0, 0));
+
+		// `ready_pages` and normal `pages` increases again:
+		MessageQueue::enqueue_message(msg("weight=3"), Here);
+		assert_eq!(MessageQueue::footprint(Here), fp(1, 1, 1, 8));
 	})
 }
 
@@ -1832,4 +1837,46 @@ fn with_service_mutex_works() {
 	// Still works.
 	with_service_mutex(|| called = 3).unwrap();
 	assert_eq!(called, 3);
+}
+
+#[test]
+fn process_enqueued_on_idle() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		// Some messages enqueued on previous block.
+		MessageQueue::enqueue_messages(vec![msg("a"), msg("ab"), msg("abc")].into_iter(), Here);
+		assert_eq!(BookStateFor::<Test>::iter().count(), 1);
+
+		// Process enqueued messages from previous block.
+		Pallet::<Test>::on_initialize(1);
+		assert_eq!(
+			MessagesProcessed::take(),
+			vec![(b"a".to_vec(), Here), (b"ab".to_vec(), Here), (b"abc".to_vec(), Here),]
+		);
+
+		MessageQueue::enqueue_messages(vec![msg("x"), msg("xy"), msg("xyz")].into_iter(), There);
+		assert_eq!(BookStateFor::<Test>::iter().count(), 2);
+
+		// Enough weight to process on idle.
+		Pallet::<Test>::on_idle(1, Weight::from_parts(100, 100));
+		assert_eq!(
+			MessagesProcessed::take(),
+			vec![(b"x".to_vec(), There), (b"xy".to_vec(), There), (b"xyz".to_vec(), There)]
+		);
+	})
+}
+
+#[test]
+fn process_enqueued_on_idle_requires_enough_weight() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		Pallet::<Test>::on_initialize(1);
+
+		MessageQueue::enqueue_messages(vec![msg("x"), msg("xy"), msg("xyz")].into_iter(), There);
+		assert_eq!(BookStateFor::<Test>::iter().count(), 1);
+
+		// Not enough weight to process on idle.
+		Pallet::<Test>::on_idle(1, Weight::from_parts(0, 0));
+		assert_eq!(MessagesProcessed::take(), vec![]);
+	})
 }
