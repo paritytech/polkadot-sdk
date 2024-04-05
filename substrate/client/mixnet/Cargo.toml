@@ -23,7 +23,7 @@ bytes = "1"
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 futures = "0.3.30"
 futures-timer = "3.0.2"
-libp2p-identity = { version = "0.2.3", features = ["peerid", "ed25519"] }
+libp2p-identity = { version = "0.2.3", features = ["ed25519", "peerid"] }
 log = { workspace = true, default-features = true }
 mixnet = "0.7.0"
 multiaddr = "0.18.0"

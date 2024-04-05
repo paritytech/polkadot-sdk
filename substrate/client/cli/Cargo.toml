@@ -22,7 +22,7 @@ clap = { version = "4.5.3", features = ["derive", "string", "wrap_help"] }
 fdlimit = "0.3.0"
 futures = "0.3.30"
 itertools = "0.10.3"
-libp2p-identity = { version = "0.2.3", features = ["peerid", "ed25519"]}
+libp2p-identity = { version = "0.2.3", features = ["ed25519", "peerid"] }
 log = { workspace = true, default-features = true }
 names = { version = "0.14.0", default-features = false }
 parity-scale-codec = "3.6.1"
