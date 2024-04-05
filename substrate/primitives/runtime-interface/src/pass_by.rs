@@ -551,7 +551,7 @@ where
 /// THIS STRATEGY IS DEPRECATED; DO NOT USE FOR NEW HOST FUNCTIONS!
 ///
 /// Ideally use a mutable slice to return data to the guest, for example using
-/// the [`PassPointerAndWrite`](PassPointerAndWrite) strategy.
+/// the [`PassPointerAndWrite`] strategy.
 ///
 /// Raw FFI type: `u32` (a pointer to the byte blob)
 pub struct AllocateAndReturnPointer<T, const N: usize>(PhantomData<(T, [u8; N])>);
@@ -610,7 +610,7 @@ where
 /// THIS STRATEGY IS DEPRECATED; DO NOT USE FOR NEW HOST FUNCTIONS!
 ///
 /// Ideally use a mutable slice to return data to the guest, for example using
-/// the [`PassPointerAndWrite`](PassPointerAndWrite) strategy.
+/// the [`PassPointerAndWrite`] strategy.
 ///
 /// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
 pub struct AllocateAndReturnFatPointer<T>(PhantomData<T>);
@@ -665,7 +665,7 @@ where
 /// THIS STRATEGY IS DEPRECATED; DO NOT USE FOR NEW HOST FUNCTIONS!
 ///
 /// Ideally use a mutable slice to return data to the guest, for example using
-/// the [`PassPointerAndWrite`](PassPointerAndWrite) strategy.
+/// the [`PassPointerAndWrite`] strategy.
 ///
 /// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
 pub struct AllocateAndReturnByCodec<T>(PhantomData<T>);
