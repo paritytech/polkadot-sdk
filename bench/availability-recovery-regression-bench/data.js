@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712333154641,
+  "lastUpdate": 1712336945154,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1553,6 +1553,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17726469340666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0832f0f36db3ff04545655f3c33bea03dc161987",
+          "message": "Rococo/Westend: publish `claim_queue` Runtime API  (#4005)\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-04-05T15:50:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0832f0f36db3ff04545655f3c33bea03dc161987"
+        },
+        "date": 1712336921463,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18511896495333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.475710754086672,
             "unit": "seconds"
           }
         ]
