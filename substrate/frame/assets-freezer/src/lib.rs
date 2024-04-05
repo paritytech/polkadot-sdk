@@ -36,8 +36,8 @@
 //!
 //! This pallet provides the following functionality:
 //!
-//! - Pallet hooks allowing [`pallet-assets`] to know the frozen balance
-//!   for an account on a given asset (see [`pallet_assets::FrozenBalance`]).
+//! - Pallet hooks allowing [`pallet-assets`] to know the frozen balance for an account on a given
+//!   asset (see [`pallet_assets::FrozenBalance`]).
 //! - An implementation of
 //!   [`fungibles::InspectFreeze`)(frame_support::traits::fungibles::InspectFreeze) and
 //!   [`fungibles::MutateFreeze`](frame_support::traits::fungibles::MutateFreeze), allowing other

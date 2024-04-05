@@ -66,7 +66,8 @@ mod impl_frozen_balance {
 			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
 			test_set_freeze(DummyFreezeReason::Governance, 2);
 			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
-			// also test thawing works to reduce a balance, and finally thawing everything resets to None
+			// also test thawing works to reduce a balance, and finally thawing everything resets to
+			// None
 			test_thaw(DummyFreezeReason::Governance);
 			assert_eq!(AssetsFreezer::frozen_balance(ASSET_ID, &WHO), Some(3u64));
 			test_thaw(DummyFreezeReason::Staking);
@@ -110,7 +111,8 @@ mod impl_inspect_freeze {
 				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Staking, &WHO),
 				2u64
 			);
-			// also test thawing works to reduce a balance, and finally thawing everything resets to 0
+			// also test thawing works to reduce a balance, and finally thawing everything resets to
+			// 0
 			test_thaw(DummyFreezeReason::Governance);
 			assert_eq!(
 				AssetsFreezer::balance_frozen(ASSET_ID, &DummyFreezeReason::Governance, &WHO),
