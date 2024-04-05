@@ -56,7 +56,7 @@ mod v1 {
 
 	#[storage_alias]
 	pub type Multisigs<T: Config> = StorageDoubleMap<
-		_, // TODO: empty prefix is not allowed, what value should be supplied here?
+		Pallet<T>,
 		Twox64Concat,
 		T::AccountId,
 		Blake2_128Concat,
