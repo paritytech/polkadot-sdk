@@ -22,9 +22,9 @@
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
-		PassFatPointerAndDecode, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite, PassSliceRefByCodec,
-		ReturnAs,
+		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
+		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy,
+		PassPointerAndWrite, ReturnAs,
 	},
 	runtime_interface,
 };
@@ -190,7 +190,7 @@ pub trait TestApi {
 		assert_eq!(value, [1, 2, 3]);
 	}
 
-	fn pass_slice_ref_by_codec(value: PassSliceRefByCodec<&[u16]>) {
+	fn pass_slice_ref_by_codec(value: PassFatPointerAndDecodeSlice<&[u16]>) {
 		assert_eq!(value, [1, 2, 3]);
 	}
 

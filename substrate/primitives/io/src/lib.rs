@@ -116,8 +116,8 @@ use sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 use sp_runtime_interface::{
 	pass_by::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
-		PassFatPointerAndDecode, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassPointerAndRead, PassPointerAndReadCopy, PassSliceRefByCodec, ReturnAs,
+		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
+		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -705,7 +705,7 @@ pub trait Trie {
 	/// Verify trie proof
 	fn blake2_256_verify_proof(
 		root: PassPointerAndReadCopy<H256, 32>,
-		proof: PassSliceRefByCodec<&[Vec<u8>]>,
+		proof: PassFatPointerAndDecodeSlice<&[Vec<u8>]>,
 		key: PassFatPointerAndRead<&[u8]>,
 		value: PassFatPointerAndRead<&[u8]>,
 	) -> bool {
@@ -721,7 +721,7 @@ pub trait Trie {
 	#[version(2)]
 	fn blake2_256_verify_proof(
 		root: PassPointerAndReadCopy<H256, 32>,
-		proof: PassSliceRefByCodec<&[Vec<u8>]>,
+		proof: PassFatPointerAndDecodeSlice<&[Vec<u8>]>,
 		key: PassFatPointerAndRead<&[u8]>,
 		value: PassFatPointerAndRead<&[u8]>,
 		version: PassAs<StateVersion, u8>,
@@ -747,7 +747,7 @@ pub trait Trie {
 	/// Verify trie proof
 	fn keccak_256_verify_proof(
 		root: PassPointerAndReadCopy<H256, 32>,
-		proof: PassSliceRefByCodec<&[Vec<u8>]>,
+		proof: PassFatPointerAndDecodeSlice<&[Vec<u8>]>,
 		key: PassFatPointerAndRead<&[u8]>,
 		value: PassFatPointerAndRead<&[u8]>,
 	) -> bool {
@@ -763,7 +763,7 @@ pub trait Trie {
 	#[version(2)]
 	fn keccak_256_verify_proof(
 		root: PassPointerAndReadCopy<H256, 32>,
-		proof: PassSliceRefByCodec<&[Vec<u8>]>,
+		proof: PassFatPointerAndDecodeSlice<&[Vec<u8>]>,
 		key: PassFatPointerAndRead<&[u8]>,
 		value: PassFatPointerAndRead<&[u8]>,
 		version: PassAs<StateVersion, u8>,
@@ -1679,7 +1679,7 @@ pub trait Offchain {
 	/// Passing `None` as deadline blocks forever.
 	fn http_response_wait(
 		&mut self,
-		ids: PassSliceRefByCodec<&[HttpRequestId]>,
+		ids: PassFatPointerAndDecodeSlice<&[HttpRequestId]>,
 		deadline: PassFatPointerAndDecode<Option<Timestamp>>,
 	) -> AllocateAndReturnByCodec<Vec<HttpRequestStatus>> {
 		self.extension::<OffchainWorkerExt>()

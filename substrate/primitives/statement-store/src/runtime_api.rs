@@ -24,8 +24,8 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_runtime_interface::{
 	pass_by::{
-		AllocateAndReturnByCodec, PassFatPointerAndDecode, PassPointerAndRead,
-		PassPointerAndReadCopy, PassSliceRefByCodec, ReturnAs,
+		AllocateAndReturnByCodec, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice,
+		PassPointerAndRead, PassPointerAndReadCopy, ReturnAs,
 	},
 	runtime_interface,
 };
@@ -180,7 +180,7 @@ pub trait StatementStore {
 	/// field.
 	fn broadcasts(
 		&mut self,
-		match_all_topics: PassSliceRefByCodec<&[Topic]>,
+		match_all_topics: PassFatPointerAndDecodeSlice<&[Topic]>,
 	) -> AllocateAndReturnByCodec<Vec<Vec<u8>>> {
 		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
 			store.broadcasts(match_all_topics).unwrap_or_default()
@@ -194,7 +194,7 @@ pub trait StatementStore {
 	/// private key for symmetric ciphers).
 	fn posted(
 		&mut self,
-		match_all_topics: PassSliceRefByCodec<&[Topic]>,
+		match_all_topics: PassFatPointerAndDecodeSlice<&[Topic]>,
 		dest: PassPointerAndReadCopy<[u8; 32], 32>,
 	) -> AllocateAndReturnByCodec<Vec<Vec<u8>>> {
 		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
@@ -208,7 +208,7 @@ pub trait StatementStore {
 	/// `dest`. The key must be available to the client.
 	fn posted_clear(
 		&mut self,
-		match_all_topics: PassSliceRefByCodec<&[Topic]>,
+		match_all_topics: PassFatPointerAndDecodeSlice<&[Topic]>,
 		dest: PassPointerAndReadCopy<[u8; 32], 32>,
 	) -> AllocateAndReturnByCodec<Vec<Vec<u8>>> {
 		if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {

@@ -385,15 +385,15 @@ impl<T: codec::Encode> IntoFFIValue for PassFatPointerAndDecode<T> {
 /// a reference to that (as `&[T]`) into the host function.
 ///
 /// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
-pub struct PassSliceRefByCodec<T>(PhantomData<T>);
+pub struct PassFatPointerAndDecodeSlice<T>(PhantomData<T>);
 
-impl<T> RIType for PassSliceRefByCodec<T> {
+impl<T> RIType for PassFatPointerAndDecodeSlice<T> {
 	type FFIType = u64;
 	type Inner = T;
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T: codec::Decode> FromFFIValue<'a> for PassSliceRefByCodec<&'a [T]> {
+impl<'a, T: codec::Decode> FromFFIValue<'a> for PassFatPointerAndDecodeSlice<&'a [T]> {
 	type Owned = Vec<T>;
 
 	fn from_ffi_value(
@@ -414,7 +414,7 @@ impl<'a, T: codec::Decode> FromFFIValue<'a> for PassSliceRefByCodec<&'a [T]> {
 }
 
 #[cfg(substrate_runtime)]
-impl<'a, T: codec::Encode> IntoFFIValue for PassSliceRefByCodec<&'a [T]> {
+impl<'a, T: codec::Encode> IntoFFIValue for PassFatPointerAndDecodeSlice<&'a [T]> {
 	type Destructor = Vec<u8>;
 
 	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
