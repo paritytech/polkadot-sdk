@@ -28,11 +28,11 @@ use sp_runtime::{traits::BadOrigin, ArithmeticError, TokenError};
 ///
 /// Useful to reduce boilerplate in tests when it's not important to customise or reusing pool
 /// params.
-fn create_default_pool() {
-	let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
+pub fn create_default_pool() {
+	let staked_asset_id = NativeOrWithId::<u32>::WithId(1);
 	assert_ok!(StakingRewards::create_pool(
 		RuntimeOrigin::signed(1),
-		Box::new(staking_asset_id),
+		Box::new(staked_asset_id),
 		Box::new(NativeOrWithId::<u32>::Native),
 		100,
 		100u64,
@@ -93,7 +93,7 @@ mod create_pool {
 	fn success() {
 		new_test_ext().execute_with(|| {
 			let user = 1;
-			let staking_asset_id = NativeOrWithId::<u32>::Native;
+			let staked_asset_id = NativeOrWithId::<u32>::Native;
 			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
 			let reward_rate_per_block = 100;
 			let expiry_block = 200u64;
@@ -101,7 +101,7 @@ mod create_pool {
 			assert_eq!(NextPoolId::<MockRuntime>::get(), 0);
 			assert_ok!(StakingRewards::create_pool(
 				RuntimeOrigin::signed(user),
-				Box::new(staking_asset_id.clone()),
+				Box::new(staked_asset_id.clone()),
 				Box::new(reward_asset_id.clone()),
 				reward_rate_per_block,
 				expiry_block,
@@ -114,7 +114,7 @@ mod create_pool {
 				[Event::<MockRuntime>::PoolCreated {
 					creator: user,
 					pool_id: 0,
-					staking_asset_id: staking_asset_id.clone(),
+					staked_asset_id: staked_asset_id.clone(),
 					reward_asset_id: reward_asset_id.clone(),
 					reward_rate_per_block,
 					expiry_block,
@@ -129,7 +129,7 @@ mod create_pool {
 				vec![(
 					0,
 					PoolInfo {
-						staking_asset_id: staking_asset_id.clone(),
+						staked_asset_id: staked_asset_id.clone(),
 						reward_asset_id: reward_asset_id.clone(),
 						reward_rate_per_block,
 						expiry_block,
@@ -145,7 +145,7 @@ mod create_pool {
 			let admin = 2;
 			assert_ok!(StakingRewards::create_pool(
 				RuntimeOrigin::signed(user),
-				Box::new(staking_asset_id.clone()),
+				Box::new(staked_asset_id.clone()),
 				Box::new(reward_asset_id.clone()),
 				reward_rate_per_block,
 				expiry_block,
@@ -158,7 +158,7 @@ mod create_pool {
 				[Event::<MockRuntime>::PoolCreated {
 					creator: user,
 					pool_id: 1,
-					staking_asset_id: staking_asset_id.clone(),
+					staked_asset_id: staked_asset_id.clone(),
 					reward_asset_id: reward_asset_id.clone(),
 					reward_rate_per_block,
 					admin,
@@ -174,7 +174,7 @@ mod create_pool {
 					(
 						0,
 						PoolInfo {
-							staking_asset_id: staking_asset_id.clone(),
+							staked_asset_id: staked_asset_id.clone(),
 							reward_asset_id: reward_asset_id.clone(),
 							reward_rate_per_block,
 							admin: user,
@@ -187,7 +187,7 @@ mod create_pool {
 					(
 						1,
 						PoolInfo {
-							staking_asset_id,
+							staked_asset_id,
 							reward_asset_id,
 							reward_rate_per_block,
 							admin,
@@ -250,14 +250,14 @@ mod create_pool {
 	fn fails_for_not_admin() {
 		new_test_ext().execute_with(|| {
 			let user = 100;
-			let staking_asset_id = NativeOrWithId::<u32>::Native;
+			let staked_asset_id = NativeOrWithId::<u32>::Native;
 			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
 			let reward_rate_per_block = 100;
 			let expiry_block = 100u64;
 			assert_err!(
 				StakingRewards::create_pool(
 					RuntimeOrigin::signed(user),
-					Box::new(staking_asset_id.clone()),
+					Box::new(staked_asset_id.clone()),
 					Box::new(reward_asset_id.clone()),
 					reward_rate_per_block,
 					expiry_block,
@@ -272,7 +272,7 @@ mod create_pool {
 	fn fails_for_bad_expiry_block() {
 		new_test_ext().execute_with(|| {
 			let user = 1;
-			let staking_asset_id = NativeOrWithId::<u32>::Native;
+			let staked_asset_id = NativeOrWithId::<u32>::Native;
 			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
 			let reward_rate_per_block = 100;
 			let expiry_block = 100u64;
@@ -280,7 +280,7 @@ mod create_pool {
 			assert_err!(
 				StakingRewards::create_pool(
 					RuntimeOrigin::signed(user),
-					Box::new(staking_asset_id.clone()),
+					Box::new(staked_asset_id.clone()),
 					Box::new(reward_asset_id.clone()),
 					reward_rate_per_block,
 					expiry_block,
@@ -1032,13 +1032,13 @@ fn integration() {
 		let admin = 1;
 		let staker1 = 10u128;
 		let staker2 = 20;
-		let staking_asset_id = NativeOrWithId::<u32>::WithId(1);
+		let staked_asset_id = NativeOrWithId::<u32>::WithId(1);
 		let reward_asset_id = NativeOrWithId::<u32>::Native;
 		let reward_rate_per_block = 100;
 		let expiry_block = 25u64.into();
 		assert_ok!(StakingRewards::create_pool(
 			RuntimeOrigin::signed(admin),
-			Box::new(staking_asset_id.clone()),
+			Box::new(staked_asset_id.clone()),
 			Box::new(reward_asset_id.clone()),
 			reward_rate_per_block,
 			expiry_block,
@@ -1170,7 +1170,7 @@ fn integration() {
 				Event::PoolCreated {
 					creator: admin,
 					pool_id,
-					staking_asset_id,
+					staked_asset_id,
 					reward_asset_id,
 					reward_rate_per_block: 100,
 					expiry_block: 25,

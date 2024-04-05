@@ -91,6 +91,8 @@ use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::boxed::Box;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -125,7 +127,7 @@ pub struct PoolStakerInfo<Balance> {
 #[derive(Debug, Clone, Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
 pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 	/// The asset that is staked in this pool.
-	staking_asset_id: AssetId,
+	staked_asset_id: AssetId,
 	/// The asset that is distributed as rewards in this pool.
 	reward_asset_id: AssetId,
 	/// The amount of tokens distributed per block.
@@ -144,7 +146,6 @@ pub struct PoolInfo<AccountId, AssetId, Balance, BlockNumber> {
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
@@ -183,6 +184,13 @@ pub mod pallet {
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetId, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>;
+
+		/// Weight information for extrinsics in this pallet.
+		// type WeightInfo: WeightInfo;
+
+		/// The benchmarks need a way to create asset ids from u32s.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: benchmarking::BenchmarkHelper<Self::AssetId, Self::AccountId>;
 	}
 
 	/// State of pool stakers.
@@ -250,7 +258,7 @@ pub mod pallet {
 			/// Unique ID for the new pool.
 			pool_id: PoolId,
 			/// The staking asset.
-			staking_asset_id: T::AssetId,
+			staked_asset_id: T::AssetId,
 			/// The reward asset.
 			reward_asset_id: T::AssetId,
 			/// The initial reward rate per block.
@@ -354,7 +362,7 @@ pub mod pallet {
 
 			// Create the pool.
 			let pool = PoolInfoFor::<T> {
-				staking_asset_id: *staked_asset_id.clone(),
+				staked_asset_id: *staked_asset_id.clone(),
 				reward_asset_id: *reward_asset_id.clone(),
 				reward_rate_per_block,
 				total_tokens_staked: 0u32.into(),
@@ -373,7 +381,7 @@ pub mod pallet {
 			Self::deposit_event(Event::PoolCreated {
 				creator: origin_acc_id,
 				pool_id,
-				staking_asset_id: *staked_asset_id,
+				staked_asset_id: *staked_asset_id,
 				reward_asset_id: *reward_asset_id,
 				reward_rate_per_block,
 				expiry_block,

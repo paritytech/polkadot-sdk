@@ -134,6 +134,8 @@ impl Config for MockRuntime {
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
 	type PermissionedPoolCreator = MockPermissionedPoolCreator;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
