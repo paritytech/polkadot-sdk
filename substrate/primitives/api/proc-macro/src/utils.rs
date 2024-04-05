@@ -20,6 +20,7 @@ use inflector::Inflector;
 use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
+use std::collections::HashSet;
 use syn::{
 	parse_quote, spanned::Spanned, token::And, Attribute, Error, FnArg, GenericArgument, Ident,
 	ImplItem, ItemImpl, Pat, Path, PathArguments, Result, ReturnType, Signature, Type, TypePath,
@@ -236,6 +237,25 @@ pub fn extract_impl_trait(impl_: &ItemImpl, require: RequireQualifiedTraitPath) 
 				))
 			}
 		})
+}
+
+/// Extracts all unique `Ident`'s from the given `TypePath`
+pub fn extract_idents_from_type_path(type_path: &TypePath) -> HashSet<&Ident> {
+	let mut idents = HashSet::new();
+
+	for segment in &type_path.path.segments {
+		idents.insert(&segment.ident);
+
+		if let PathArguments::AngleBracketed(args) = &segment.arguments {
+			args.args.iter().for_each(|arg| {
+				if let GenericArgument::Type(Type::Path(p)) = arg {
+					idents.extend(extract_idents_from_type_path(p));
+				}
+			});
+		}
+	}
+
+	idents
 }
 
 /// Parse the given attribute as `API_VERSION_ATTRIBUTE`.

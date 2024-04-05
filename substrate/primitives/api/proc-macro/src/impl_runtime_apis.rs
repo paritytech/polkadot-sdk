@@ -18,7 +18,8 @@
 use crate::{
 	common::API_VERSION_ATTRIBUTE,
 	utils::{
-		extract_all_signature_types, extract_block_type_from_trait_path, extract_impl_trait,
+		extract_all_signature_types, extract_block_type_from_trait_path,
+		extract_idents_from_type_path, extract_impl_trait,
 		extract_parameter_names_types_and_borrows, generate_crate_access,
 		generate_runtime_mod_name_for_trait, parse_runtime_api_version, prefix_function_with_trait,
 		versioned_trait_name, AllowSelfRefInParameters, RequireQualifiedTraitPath,
@@ -80,6 +81,19 @@ fn generate_impl_call(
 	let pnames2 = params.iter().map(|v| &v.0);
 	let ptypes = params.iter().map(|v| &v.1);
 	let pborrow = params.iter().map(|v| &v.2);
+
+	// usage of `Self` is not allowed in the scope of the trait implementation
+	params.iter().try_for_each(|v| {
+		if let Type::Path(path) = &v.1 {
+			if extract_idents_from_type_path(path).iter().any(|i| *i == "Self") {
+				return Err(Error::new(
+					path.span(),
+					"Usage of `Self` is not allowed in the scope of `impl_runtime_apis!`",
+				))
+			}
+		}
+		Ok(())
+	})?;
 
 	let decode_params = if params.is_empty() {
 		quote!(
