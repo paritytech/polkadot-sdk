@@ -341,7 +341,7 @@ impl PalletCmd {
 				if !self.no_verify {
 					let mut changes = genesis_changes.clone();
 					let state = &state_without_tracking;
-					// Dont use these results since verification code will add overhead.
+					// Don't use these results since verification code will add overhead.
 					let _batch: Vec<BenchmarkBatch> = match Self::exec_state_machine::<
 						std::result::Result<Vec<BenchmarkBatch>, String>,
 						_,
@@ -397,7 +397,7 @@ impl PalletCmd {
 								pallet.as_bytes(),
 								extrinsic.as_bytes(),
 								&selected_components.clone(),
-								false, // dont run verification code for final values
+								false, // don't run verification code for final values
 								self.repeat,
 							)
 								.encode(),
@@ -440,7 +440,7 @@ impl PalletCmd {
 								pallet.as_bytes(),
 								extrinsic.as_bytes(),
 								&selected_components.clone(),
-								false, // dont run verification code for final values
+								false, // don't run verification code for final values
 								self.repeat,
 							)
 								.encode(),
