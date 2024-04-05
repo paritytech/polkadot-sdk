@@ -50,7 +50,7 @@ use polkadot_node_subsystem::messages::{
 };
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	CollatorPair, CoreIndex, CoreState, Id as ParaId, OccupiedCoreAssumption,
+	AsyncBackingParams, CollatorPair, CoreIndex, CoreState, Id as ParaId, OccupiedCoreAssumption,
 };
 
 use futures::{channel::oneshot, prelude::*};
@@ -188,10 +188,14 @@ where
 
 			// TODO: Currently we use just the first core here, but for elastic scaling
 			// we iterate and build on all of the cores returned.
-			let core_index = if let Some(core_index) =
-				cores_scheduled_for_para(relay_parent, params.para_id, &mut params.overseer_handle)
-					.await
-					.get(0)
+			let core_index = if let Some(core_index) = cores_scheduled_for_para(
+				relay_parent,
+				params.para_id,
+				&mut params.overseer_handle,
+				&mut params.relay_client,
+			)
+			.await
+			.get(0)
 			{
 				*core_index
 			} else {
@@ -225,7 +229,10 @@ where
 			let parent_search_params = ParentSearchParams {
 				relay_parent,
 				para_id: params.para_id,
-				ancestry_lookback: max_ancestry_lookback(relay_parent, &params.relay_client).await,
+				ancestry_lookback: async_backing_params(relay_parent, &params.relay_client)
+					.await
+					.map(|c| c.allowed_ancestry_len as usize)
+					.unwrap_or(0),
 				max_depth: PARENT_SEARCH_DEPTH,
 				ignore_alternative_branches: true,
 			};
@@ -463,21 +470,19 @@ where
 	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
 }
 
-/// Reads allowed ancestry length parameter from the relay chain storage at the given relay parent.
-///
-/// Falls back to 0 in case of an error.
-async fn max_ancestry_lookback(
+/// Reads async backing parameters from the relay chain storage at the given relay parent.
+async fn async_backing_params(
 	relay_parent: PHash,
 	relay_client: &impl RelayChainInterface,
-) -> usize {
+) -> Option<AsyncBackingParams> {
 	match load_abridged_host_configuration(relay_parent, relay_client).await {
-		Ok(Some(config)) => config.async_backing_params.allowed_ancestry_len as usize,
+		Ok(Some(config)) => Some(config.async_backing_params),
 		Ok(None) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
 				"Active config is missing in relay chain storage",
 			);
-			0
+			None
 		},
 		Err(err) => {
 			tracing::error!(
@@ -486,7 +491,7 @@ async fn max_ancestry_lookback(
 				?relay_parent,
 				"Failed to read active config from relay chain client",
 			);
-			0
+			None
 		},
 	}
 }
@@ -496,6 +501,7 @@ async fn cores_scheduled_for_para(
 	relay_parent: PHash,
 	para_id: ParaId,
 	overseer_handle: &mut OverseerHandle,
+	relay_client: &impl RelayChainInterface,
 ) -> Vec<CoreIndex> {
 	// Get `AvailabilityCores` from runtime
 	let (tx, rx) = oneshot::channel();
@@ -525,32 +531,10 @@ async fn cores_scheduled_for_para(
 		},
 	};
 
-	// Get `AsyncBackingParams` from runtime
-	let (tx, rx) = oneshot::channel();
-	let request = RuntimeApiRequest::AsyncBackingParams(tx);
-	overseer_handle
-		.send_msg(RuntimeApiMessage::Request(relay_parent, request), "LookaheadCollator")
-		.await;
-	let async_backing_params = match rx.await {
-		Ok(Ok(params)) => params,
-		Ok(Err(error)) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?error,
-				?relay_parent,
-				"Failed to query async backing params runtime API",
-			);
-			return Vec::new()
-		},
-		Err(oneshot::Canceled) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?relay_parent,
-				"Sender for async backing params runtime request dropped",
-			);
-			return Vec::new()
-		},
-	};
+	let max_candidate_depth = async_backing_params(relay_parent, relay_client)
+		.await
+		.map(|c| c.max_candidate_depth)
+		.unwrap_or(0);
 
 	cores
 		.iter()
@@ -558,12 +542,10 @@ async fn cores_scheduled_for_para(
 		.filter_map(|(index, core)| {
 			let core_para_id = match core {
 				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
-				CoreState::Occupied(occupied_core)
-					if async_backing_params.max_candidate_depth >= 1 =>
-					occupied_core
-						.next_up_on_available
-						.as_ref()
-						.map(|scheduled_core| scheduled_core.para_id),
+				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
+					.next_up_on_available
+					.as_ref()
+					.map(|scheduled_core| scheduled_core.para_id),
 				CoreState::Free | CoreState::Occupied(_) => None,
 			};
 
