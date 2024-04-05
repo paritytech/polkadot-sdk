@@ -563,7 +563,7 @@ impl<T, const N: usize> IntoFFIValue for AllocateAndReturnPointer<T, N>
 where
 	T: AsRef<[u8]>,
 {
-	fn into_ffi_value(value: Self::Inner, context: &mut dyn FunctionContext) -> Result<u32> {
+	fn into_ffi_value(value: Self::Inner, context: &mut dyn FunctionContext) -> Result<Self::FFIType> {
 		let value = value.as_ref();
 		let addr = context.allocate_memory(value.len() as u32)?;
 		context.write_memory(addr, value)?;
@@ -604,7 +604,7 @@ impl<T> IntoFFIValue for AllocateAndReturnFatPointer<T>
 where
 	T: AsRef<[u8]>,
 {
-	fn into_ffi_value(value: Self::Inner, context: &mut dyn FunctionContext) -> Result<u64> {
+	fn into_ffi_value(value: Self::Inner, context: &mut dyn FunctionContext) -> Result<Self::FFIType> {
 		let value = value.as_ref();
 		let ptr = context.allocate_memory(value.len() as u32)?;
 		context.write_memory(ptr, &value)?;
