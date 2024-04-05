@@ -5455,69 +5455,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
-<<<<<<< HEAD
-name = "frame"
-version = "0.0.1-dev"
-dependencies = [
- "docify",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "log",
- "pallet-examples",
- "parity-scale-codec",
- "scale-info",
- "sp-api",
- "sp-arithmetic",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-genesis-builder",
- "sp-inherents",
- "sp-io",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-std 14.0.0",
- "sp-transaction-pool",
- "sp-version",
-]
-
-[[package]]
-||||||| 5d9826c262
-name = "frame"
-version = "0.0.1-dev"
-dependencies = [
- "docify",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "log",
- "pallet-examples",
- "parity-scale-codec",
- "scale-info",
- "sp-api",
- "sp-arithmetic",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-consensus-grandpa",
- "sp-core",
- "sp-inherents",
- "sp-io",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-std 14.0.0",
- "sp-transaction-pool",
- "sp-version",
-]
-
-[[package]]
-=======
->>>>>>> cb0748b6ecb84d16f595bfdaf7a98fb46aa5c590
 name = "frame-benchmarking"
 version = "28.0.0"
 dependencies = [
@@ -13471,14 +13408,10 @@ dependencies = [
  "pallet-utility",
  "parachain-template-runtime",
  "parity-scale-codec",
-<<<<<<< HEAD
  "polkadot-sdk-docs-packages-guides-first-pallet",
  "polkadot-sdk-docs-packages-guides-first-runtime",
- "sc-chain-spec",
-||||||| 5d9826c262
-=======
  "polkadot-sdk-frame",
->>>>>>> cb0748b6ecb84d16f595bfdaf7a98fb46aa5c590
+ "sc-chain-spec",
  "sc-cli",
  "sc-client-db",
  "sc-consensus-aura",
@@ -13510,13 +13443,12 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "polkadot-sdk-docs-packages-guides-first-pallet"
 version = "0.0.0"
 dependencies = [
  "docify",
- "frame",
  "parity-scale-codec",
+ "polkadot-sdk-frame",
  "scale-info",
 ]
 
@@ -13525,7 +13457,6 @@ name = "polkadot-sdk-docs-packages-guides-first-runtime"
 version = "0.0.0"
 dependencies = [
  "docify",
- "frame",
  "pallet-balances",
  "pallet-sudo",
  "pallet-timestamp",
@@ -13533,14 +13464,13 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
  "polkadot-sdk-docs-packages-guides-first-pallet",
+ "polkadot-sdk-frame",
  "scale-info",
  "sp-keyring",
  "substrate-wasm-builder",
 ]
 
 [[package]]
-||||||| 5d9826c262
-=======
 name = "polkadot-sdk-frame"
 version = "0.1.0"
 dependencies = [
@@ -13559,6 +13489,7 @@ dependencies = [
  "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
@@ -13570,7 +13501,6 @@ dependencies = [
 ]
 
 [[package]]
->>>>>>> cb0748b6ecb84d16f595bfdaf7a98fb46aa5c590
 name = "polkadot-service"
 version = "7.0.0"
 dependencies = [
