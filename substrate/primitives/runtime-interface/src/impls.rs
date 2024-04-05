@@ -48,11 +48,6 @@ macro_rules! impl_traits_for_primitives {
 				type Inner = Self;
 			}
 
-			impl<'a> RIType for &'a $rty {
-				type FFIType = $fty;
-				type Inner = Self;
-			}
-
 			#[cfg(substrate_runtime)]
 			impl IntoFFIValue for $rty {
 				type Destructor = ();
@@ -86,13 +81,6 @@ macro_rules! impl_traits_for_primitives {
 			impl IntoFFIValue for $rty {
 				fn into_ffi_value(value: Self::Inner, _: &mut dyn FunctionContext) -> Result<$fty> {
 					Ok(value as $fty)
-				}
-			}
-
-			#[cfg(not(substrate_runtime))]
-			impl<'a> IntoFFIValue for &'a $rty {
-				fn into_ffi_value(value: Self::Inner, _: &mut dyn FunctionContext) -> Result<$fty> {
-					Ok(*value as $fty)
 				}
 			}
 		)*
