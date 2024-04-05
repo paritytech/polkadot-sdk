@@ -945,6 +945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#796" id="796">796</a>
 <a href="#797" id="797">797</a>
 <a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1421,6 +1422,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>AlreadyExpired,
 		<span class="doccomment">/// The configuration could not be applied because it is invalid.
 		</span>InvalidConfig,
+		<span class="doccomment">/// The revenue must be claimed for 1 or more timeslices.
+		</span>NoClaimTimeslices,
 	}
 
 	<span class="attr">#[pallet::hooks]
@@ -1627,13 +1630,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Claim the revenue owed from inclusion in the Instantaneous Coretime Pool.
 		///
-		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
+		/// - `origin`: Must be a Signed origin.
 		/// - `region_id`: The Region which was assigned to the Pool.
-		/// - `max_timeslices`: The maximum number of timeslices which should be processed. This may
-		///   effect the weight of the call but should be ideally made equivalent to the length of
-		///   the Region `region_id`. If it is less than this, then further dispatches will be
-		///   required with the `region_id` which makes up any remainders of the region to be
-		///   collected.
+		/// - `max_timeslices`: The maximum number of timeslices which should be processed. This
+		///   must be greater than 0. This may affect the weight of the call but should be ideally
+		///   made equivalent to the length of the Region `region_id`. If less, further dispatches
+		///   will be required with the same `region_id` to claim revenue for the remainder.
 		</span><span class="attr">#[pallet::call_index(<span class="number">12</span>)]
 		#[pallet::weight(T::WeightInfo::claim_revenue(<span class="kw-2">*</span>max_timeslices))]
 		</span><span class="kw">pub fn </span>claim_revenue(

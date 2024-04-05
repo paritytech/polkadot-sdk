@@ -605,6 +605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#456" id="456">456</a>
 <a href="#457" id="457">457</a>
 <a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -936,6 +937,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">mut </span>region: RegionId,
 		max_timeslices: Timeslice,
 	) -&gt; DispatchResult {
+		<span class="macro">ensure!</span>(max_timeslices &gt; <span class="number">0</span>, Error::&lt;T&gt;::NoClaimTimeslices);
 		<span class="kw">let </span><span class="kw-2">mut </span>contribution =
 			InstaPoolContribution::&lt;T&gt;::take(region).ok_or(Error::&lt;T&gt;::UnknownContribution)<span class="question-mark">?</span>;
 		<span class="kw">let </span>contributed_parts = region.mask.count_ones();
