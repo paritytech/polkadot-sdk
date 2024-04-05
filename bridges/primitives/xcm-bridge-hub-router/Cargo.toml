@@ -15,8 +15,8 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive"] }
 
 # Substrate Dependencies
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
 
 [features]
 default = ["std"]

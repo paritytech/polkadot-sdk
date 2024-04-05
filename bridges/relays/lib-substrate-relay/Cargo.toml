@@ -49,14 +49,14 @@ bp-messages = { path = "../../primitives/messages" }
 
 # Substrate Dependencies
 
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-sp-consensus-grandpa = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+frame-support = { path = "../../../substrate/frame/support" }
+frame-system = { path = "../../../substrate/frame/system" }
+pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-grandpa = { path = "../../../substrate/frame/grandpa" }
+sp-core = { path = "../../../substrate/primitives/core" }
+sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
+sp-runtime = { path = "../../../substrate/primitives/runtime" }
 
 [dev-dependencies]
-pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk", branch = "master" }
+pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }
 relay-substrate-client = { path = "../client-substrate", features = ["test-helpers"] }
