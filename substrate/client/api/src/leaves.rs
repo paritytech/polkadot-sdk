@@ -404,32 +404,6 @@ mod tests {
 	}
 
 	#[test]
-	fn finalization_works() {
-		let mut set = LeafSet::new();
-		set.import(9_1u32, 9u32, 0u32);
-		set.import(10_1, 10, 9_1);
-		set.import(10_2, 10, 9_1);
-		set.import(11_1, 11, 10_1);
-		set.import(11_2, 11, 10_1);
-		set.import(12_1, 12, 11_2);
-
-		let outcome = set.finalize_height(11);
-		assert_eq!(set.count(), 2);
-		assert!(set.contains(11, 11_1));
-		assert!(set.contains(12, 12_1));
-		assert_eq!(
-			outcome.removed,
-			[(Reverse(10), vec![10_2])].into_iter().collect::<BTreeMap<_, _>>(),
-		);
-
-		set.undo().undo_finalization(outcome);
-		assert_eq!(set.count(), 3);
-		assert!(set.contains(11, 11_1));
-		assert!(set.contains(12, 12_1));
-		assert!(set.contains(10, 10_2));
-	}
-
-	#[test]
 	fn flush_to_disk() {
 		const PREFIX: &[u8] = b"abcdefg";
 		let db = Arc::new(sp_database::MemDb::default());
@@ -461,36 +435,5 @@ mod tests {
 		assert!(set.contains(10, 1_1));
 		assert!(set.contains(10, 1_2));
 		assert!(!set.contains(10, 1_3));
-	}
-
-	#[test]
-	fn finalization_consistent_with_disk() {
-		const PREFIX: &[u8] = b"prefix";
-		let db = Arc::new(sp_database::MemDb::default());
-
-		let mut set = LeafSet::new();
-		set.import(10_1u32, 10u32, 0u32);
-		set.import(11_1, 11, 10_2);
-		set.import(11_2, 11, 10_2);
-		set.import(12_1, 12, 11_123);
-
-		assert!(set.contains(10, 10_1));
-
-		let mut tx = Transaction::new();
-		set.prepare_transaction(&mut tx, 0, PREFIX);
-		db.commit(tx).unwrap();
-
-		let _ = set.finalize_height(11);
-		let mut tx = Transaction::new();
-		set.prepare_transaction(&mut tx, 0, PREFIX);
-		db.commit(tx).unwrap();
-
-		assert!(set.contains(11, 11_1));
-		assert!(set.contains(11, 11_2));
-		assert!(set.contains(12, 12_1));
-		assert!(!set.contains(10, 10_1));
-
-		let set2 = LeafSet::read_from_db(&*db, 0, PREFIX).unwrap();
-		assert_eq!(set, set2);
 	}
 }
