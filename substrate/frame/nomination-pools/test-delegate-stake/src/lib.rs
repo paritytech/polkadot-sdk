@@ -885,7 +885,10 @@ fn pool_migration_e2e() {
 		CurrentEra::<Runtime>::set(Some(10));
 
 		// withdraw fails before claiming delegation
-		assert_noop!(Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 10), DelegatedStakingError::<Runtime>::NotDelegator);
+		assert_noop!(
+			Pools::withdraw_unbonded(RuntimeOrigin::signed(20), 20, 10),
+			DelegatedStakingError::<Runtime>::NotDelegator
+		);
 
 		let pre_claim_balance_20 = Balances::total_balance(&20);
 		assert_eq!(Balances::total_balance_on_hold(&20), 0);
