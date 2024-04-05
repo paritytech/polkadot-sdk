@@ -129,7 +129,7 @@ benchmarks! {
 			ValidationCode(vec![0u8; MIN_CODE_SIZE as usize]),
 			expired,
 			&config,
-			SetGoAhead::Yes,
+			UpgradeStrategy::SetGoAheadSignal,
 		);
 	}: _(RawOrigin::Root, para_id, new_head)
 	verify {

@@ -329,6 +329,7 @@ impl<T: Config> Pallet<T> {
 		mut region: RegionId,
 		max_timeslices: Timeslice,
 	) -> DispatchResult {
+		ensure!(max_timeslices > 0, Error::<T>::NoClaimTimeslices);
 		let mut contribution =
 			InstaPoolContribution::<T>::take(region).ok_or(Error::<T>::UnknownContribution)?;
 		let contributed_parts = region.mask.count_ones();
@@ -435,6 +436,24 @@ impl<T: Config> Pallet<T> {
 		ensure!(AllowedRenewals::<T>::contains_key(id), Error::<T>::UnknownRenewal);
 		AllowedRenewals::<T>::remove(id);
 		Self::deposit_event(Event::AllowedRenewalDropped { core, when });
+		Ok(())
+	}
+
+	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
+		let mut id_leases_count = 0;
+		let mut other_leases_count = 0;
+		Leases::<T>::mutate(|leases| {
+			leases.iter_mut().for_each(|lease| {
+				if lease.task == id {
+					lease.task = other;
+					id_leases_count += 1;
+				} else if lease.task == other {
+					lease.task = id;
+					other_leases_count += 1;
+				}
+			})
+		});
+
 		Ok(())
 	}
 }

@@ -340,7 +340,7 @@ mod benchmarks {
 		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
 	}
 
-	// This benchmarks the weight of dispatching migrate to execute 1 `NoopMigraton`
+	// This benchmarks the weight of dispatching migrate to execute 1 `NoopMigration`
 	#[benchmark(pov_mode = Measured)]
 	fn migrate() {
 		let latest_version = LATEST_MIGRATION_VERSION;
@@ -1859,7 +1859,7 @@ mod benchmarks {
 
 	// We call unique accounts.
 	//
-	// This is a slow call: We redeuce the number of runs.
+	// This is a slow call: We reduce the number of runs.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(r: Linear<0, { API_BENCHMARK_RUNS / 2 }>) -> Result<(), BenchmarkError> {
 		let dummy_code = WasmModule::<T>::dummy_with_bytes(0);
@@ -1937,7 +1937,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// This is a slow call: We redeuce the number of runs.
+	// This is a slow call: We reduce the number of runs.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call(r: Linear<0, { API_BENCHMARK_RUNS / 2 }>) -> Result<(), BenchmarkError> {
 		let hashes = (0..r)
@@ -2473,7 +2473,7 @@ mod benchmarks {
 
 	// Only calling the function itself for the list of
 	// generated different ECDSA keys.
-	// This is a slow call: We redeuce the number of runs.
+	// This is a slow call: We reduce the number of runs.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_ecdsa_to_eth_address(
 		r: Linear<0, { API_BENCHMARK_RUNS / 10 }>,

@@ -52,7 +52,7 @@ use std::{
 };
 
 /// Logging target
-const LOG_TARGET: &'static str = "frame::benchmark::pallet";
+const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
 
 /// How the PoV size of a storage item should be estimated.
 #[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
