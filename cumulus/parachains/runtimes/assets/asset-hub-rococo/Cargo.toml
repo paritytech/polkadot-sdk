@@ -232,6 +232,7 @@ std = [
 	"primitive-types/std",
 	"rococo-runtime-constants/std",
 	"scale-info/std",
+	"serde_json/std",
 	"snowbridge-router-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",
