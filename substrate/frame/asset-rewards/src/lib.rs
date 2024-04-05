@@ -385,7 +385,8 @@ pub mod pallet {
 
 		/// Removes an existing reward pool.
 		///
-		/// TODO decide how to manage clean up of stakers from a removed pool.
+		/// TODO decide if we want to implement this functionality, and if so, how to manage clean
+		/// up of stakers from a removed pool.
 		pub fn remove_pool(_origin: OriginFor<T>, _pool_id: PoolId) -> DispatchResult {
 			todo!()
 		}
