@@ -79,49 +79,10 @@ impl InspectNodeKeyCmd {
 
 #[cfg(test)]
 mod tests {
-	use crate::SubstrateCli;
+	use crate::{commands::generate_node_key::GenerateNodeKeyCmd, SubstrateCli};
 
-	use super::{super::GenerateNodeKeyCmd, *};
+	use super::*;
 	use sc_service::{ChainSpec, ChainType, GenericChainSpec, NoExtension};
-
-	struct Cli;
-
-	impl SubstrateCli for Cli {
-		fn impl_name() -> String {
-			"test".into()
-		}
-
-		fn impl_version() -> String {
-			"2.0".into()
-		}
-
-		fn description() -> String {
-			"test".into()
-		}
-
-		fn support_url() -> String {
-			"test.test".into()
-		}
-
-		fn copyright_start_year() -> i32 {
-			2021
-		}
-
-		fn author() -> String {
-			"test".into()
-		}
-
-		fn load_spec(&self, _: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
-			Ok(Box::new(
-				GenericChainSpec::<()>::builder(Default::default(), NoExtension::None)
-					.with_name("test")
-					.with_id("test_id")
-					.with_chain_type(ChainType::Development)
-					.with_genesis_config_patch(Default::default())
-					.build(),
-			))
-		}
-	}
 
 	#[test]
 	fn inspect_node_key() {

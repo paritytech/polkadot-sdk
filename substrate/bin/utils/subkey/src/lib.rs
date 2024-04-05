@@ -310,7 +310,7 @@
 
 use clap::Parser;
 use sc_cli::{
-	Error, GenerateCmd, GenerateNodeKeyCmd, InspectKeyCmd, InspectNodeKeyCmd, SignCmd, VanityCmd,
+	Error, GenerateCmd, GenerateKeyCmdCommon, InspectKeyCmd, InspectNodeKeyCmd, SignCmd, VanityCmd,
 	VerifyCmd,
 };
 
@@ -324,7 +324,7 @@ use sc_cli::{
 pub enum Subkey {
 	/// Generate a random node key, write it to a file or stdout and write the
 	/// corresponding peer-id to stderr
-	GenerateNodeKey(GenerateNodeKeyCmd),
+	GenerateNodeKey(GenerateKeyCmdCommon),
 
 	/// Generate a random account
 	Generate(GenerateCmd),
@@ -348,7 +348,7 @@ pub enum Subkey {
 /// Run the subkey command, given the appropriate runtime.
 pub fn run() -> Result<(), Error> {
 	match Subkey::parse() {
-		Subkey::GenerateNodeKey(cmd) => cmd.run("", &String::default()),
+		Subkey::GenerateNodeKey(cmd) => cmd.run(),
 		Subkey::Generate(cmd) => cmd.run(),
 		Subkey::Inspect(cmd) => cmd.run(),
 		Subkey::InspectNodeKey(cmd) => cmd.run(),
