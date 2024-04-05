@@ -105,7 +105,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<RegionId, DispatchError> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-		Self::ensure_core_availability(&status, &sale)?;
+		Self::ensure_cores_for_sale(&status, &sale)?;
 
 		let now = frame_system::Pallet::<T>::block_number();
 		ensure!(now > sale.sale_start, Error::<T>::TooEarly);
@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-		Self::ensure_core_availability(&status, &sale)?;
+		Self::ensure_cores_for_sale(&status, &sale)?;
 
 		let renewal_id = AllowedRenewalId { core, when: sale.region_begin };
 		let record = AllowedRenewals::<T>::get(renewal_id).ok_or(Error::<T>::NotAllowed)?;
@@ -437,7 +437,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-
 	pub(crate) fn do_swap_leases(id: TaskId, other: TaskId) -> DispatchResult {
 		let mut id_leases_count = 0;
 		let mut other_leases_count = 0;
@@ -455,8 +454,8 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
-  
-  pub(crate) fn ensure_core_availability(
+
+	pub(crate) fn ensure_cores_for_sale(
 		status: &StatusRecord,
 		sale: &SaleInfoRecordOf<T>,
 	) -> Result<(), DispatchError> {
@@ -471,7 +470,7 @@ impl<T: Config> Pallet<T> {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
-		Self::ensure_core_availability(&status, &sale)?;
+		Self::ensure_cores_for_sale(&status, &sale)?;
 
 		let now = frame_system::Pallet::<T>::block_number();
 		Ok(Self::sale_price(&sale, now))
