@@ -166,7 +166,7 @@ impl pallet_balances::Config for TestRuntime {
 
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for TestRuntime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<ThisChainBalance>;
 	type LengthToFee = ConstantMultiplier<ThisChainBalance, TransactionByteFee>;
@@ -379,7 +379,7 @@ impl Chain for BridgedUnderlyingChain {
 impl ChainWithGrandpa for BridgedUnderlyingChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 8;
 	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
 	const AVERAGE_HEADER_SIZE: u32 = 64;
 }

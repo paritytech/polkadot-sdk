@@ -64,7 +64,7 @@ bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "e9782f9", 
 
 [target.'cfg(not(substrate_runtime))'.dependencies]
 sp-externalities = { path = "../externalities", default-features = false }
-futures = { version = "0.3.21", default-features = false, features = ["alloc"] }
+futures = { version = "0.3.30", default-features = false, features = ["alloc"] }
 dyn-clone = "1.0.17"
 
 [dev-dependencies]

@@ -222,6 +222,8 @@ pub struct BeefyParams<B: Block, BE, C, N, P, R, S> {
 	pub links: BeefyVoterLinks<B>,
 	/// Handler for incoming BEEFY justifications requests from a remote peer.
 	pub on_demand_justifications_handler: BeefyJustifsRequestHandler<B, C>,
+	/// Whether running under "Authority" role.
+	pub is_authority: bool,
 }
 /// Helper object holding BEEFY worker communication/gossip components.
 ///
@@ -270,6 +272,7 @@ where
 		min_block_delta: u32,
 		gossip_validator: Arc<GossipValidator<B>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
+		is_authority: bool,
 	) -> Result<Self, Error> {
 		// Wait for BEEFY pallet to be active before starting voter.
 		let (beefy_genesis, best_grandpa) =
@@ -283,6 +286,7 @@ where
 			runtime.clone(),
 			&key_store,
 			&metrics,
+			is_authority,
 		)
 		.await?;
 		// Update the gossip validator with the right starting round and set id.
@@ -301,6 +305,7 @@ where
 		comms: BeefyComms<B>,
 		links: BeefyVoterLinks<B>,
 		pending_justifications: BTreeMap<NumberFor<B>, BeefyVersionedFinalityProof<B>>,
+		is_authority: bool,
 	) -> BeefyWorker<B, BE, P, R, S> {
 		BeefyWorker {
 			backend: self.backend,
@@ -313,6 +318,7 @@ where
 			comms,
 			links,
 			pending_justifications,
+			is_authority,
 		}
 	}
 
@@ -423,6 +429,7 @@ where
 		runtime: Arc<R>,
 		key_store: &BeefyKeystore<AuthorityId>,
 		metrics: &Option<VoterMetrics>,
+		is_authority: bool,
 	) -> Result<PersistedState<B>, Error> {
 		// Initialize voter state from AUX DB if compatible.
 		if let Some(mut state) = crate::aux_schema::load_persistent(backend.as_ref())?
@@ -455,7 +462,13 @@ where
 					"🥩 Handling missed BEEFY session after node restart: {:?}.",
 					new_session_start
 				);
-				state.init_session_at(new_session_start, validator_set, key_store, metrics);
+				state.init_session_at(
+					new_session_start,
+					validator_set,
+					key_store,
+					metrics,
+					is_authority,
+				);
 			}
 			return Ok(state)
 		}
@@ -491,6 +504,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		prometheus_registry,
 		links,
 		mut on_demand_justifications_handler,
+		is_authority,
 	} = beefy_params;
 
 	let BeefyNetworkParams {
@@ -553,6 +567,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 					min_block_delta,
 					beefy_comms.gossip_validator.clone(),
 					&mut finality_notifications,
+					is_authority,
 				).fuse() => {
 					match builder_init_result {
 						Ok(builder) => break builder,
@@ -580,6 +595,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			beefy_comms,
 			links.clone(),
 			BTreeMap::new(),
+			is_authority,
 		);
 
 		match futures::future::select(
