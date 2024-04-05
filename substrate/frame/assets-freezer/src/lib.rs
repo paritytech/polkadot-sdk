@@ -100,9 +100,9 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		// A reducible balance has been increased due to a freeze action.
+		// A reducible balance has been reduced due to a freeze action.
 		Frozen { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
-		// A reducible balance has been reduced due to a thaw action.
+		// A reducible balance has been increased due to a thaw action.
 		Thawed { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
 	}
 
