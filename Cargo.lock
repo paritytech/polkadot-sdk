@@ -19291,7 +19291,7 @@ version = "29.0.0"
 dependencies = [
  "ahash 0.8.8",
  "array-bytes 6.1.0",
- "criterion 0.4.0",
+ "criterion 0.5.1",
  "hash-db",
  "lazy_static",
  "memory-db",
