@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Types that allow runtime to act as a source/target endpoint of message lanes.
+//! Types that enable the runtime to act as a source/target endpoint of message lanes.
 //!
-//! Messages are assumed to be encoded `Call`s of the target chain. Call-dispatch
-//! pallet is used to dispatch incoming messages. Message identified by a tuple
-//! of to elements - message lane id and message nonce.
+//! Messages are assumed to be encoded `Call`s of the target chain. The call-dispatch
+//! pallet is used to dispatch incoming messages. Messages are identified by a tuple
+//! of two elements - message lane ID and message nonce.
 
 pub use bp_runtime::{RangeInclusiveExt, UnderlyingChainOf, UnderlyingChainProvider};
 
@@ -39,49 +39,49 @@ use sp_std::{convert::TryFrom, marker::PhantomData, vec::Vec};
 
 /// Bidirectional message bridge.
 pub trait MessageBridge {
-	/// Name of the paired messages pallet instance at the Bridged chain.
+	/// Name of the paired messages pallet instance at the bridged chain.
 	///
-	/// Should be the name that is used in the `construct_runtime!()` macro.
+	/// Should be the name used in the `construct_runtime!()` macro.
 	const BRIDGED_MESSAGES_PALLET_NAME: &'static str;
 
-	/// This chain in context of message bridge.
+	/// This chain in the context of the message bridge.
 	type ThisChain: ThisChainWithMessages;
-	/// Bridged chain in context of message bridge.
+	/// Bridged chain in the context of the message bridge.
 	type BridgedChain: BridgedChainWithMessages;
 	/// Bridged header chain.
 	type BridgedHeaderChain: HeaderChain<UnderlyingChainOf<Self::BridgedChain>>;
 }
 
-/// This chain that has `pallet-bridge-messages` module.
+/// This chain that has the `pallet-bridge-messages` module.
 pub trait ThisChainWithMessages: UnderlyingChainProvider {
 	/// Call origin on the chain.
 	type RuntimeOrigin;
 }
 
-/// Bridged chain that has `pallet-bridge-messages` module.
+/// Bridged chain that has the `pallet-bridge-messages` module.
 pub trait BridgedChainWithMessages: UnderlyingChainProvider {}
 
-/// This chain in context of message bridge.
+/// This chain in the context of the message bridge.
 pub type ThisChain<B> = <B as MessageBridge>::ThisChain;
-/// Bridged chain in context of message bridge.
+/// Bridged chain in the context of the message bridge.
 pub type BridgedChain<B> = <B as MessageBridge>::BridgedChain;
 /// Hash used on the chain.
 pub type HashOf<C> = bp_runtime::HashOf<<C as UnderlyingChainProvider>::Chain>;
 /// Hasher used on the chain.
 pub type HasherOf<C> = bp_runtime::HasherOf<UnderlyingChainOf<C>>;
-/// Account id used on the chain.
+/// Account ID used on the chain.
 pub type AccountIdOf<C> = bp_runtime::AccountIdOf<UnderlyingChainOf<C>>;
-/// Type of balances that is used on the chain.
+/// Type of balances used on the chain.
 pub type BalanceOf<C> = bp_runtime::BalanceOf<UnderlyingChainOf<C>>;
 
-/// Sub-module that is declaring types required for processing This -> Bridged chain messages.
+/// Sub-module declaring types required for processing This -> Bridged chain messages.
 pub mod source {
 	use super::*;
 
 	/// Message payload for This -> Bridged chain messages.
 	pub type FromThisChainMessagePayload = crate::messages_xcm_extension::XcmAsPlainPayload;
 
-	/// Maximal size of outbound message payload.
+	/// Maximum size of outbound message payload.
 	pub struct FromThisChainMaximalOutboundPayloadSize<B>(PhantomData<B>);
 
 	impl<B: MessageBridge> Get<u32> for FromThisChainMaximalOutboundPayloadSize<B> {
@@ -92,16 +92,16 @@ pub mod source {
 
 	/// Messages delivery proof from bridged chain:
 	///
-	/// - hash of finalized header;
-	/// - storage proof of inbound lane state;
-	/// - lane id.
+	/// - Hash of finalized header.
+	/// - Storage proof of inbound lane state.
+	/// - Lane ID.
 	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
 		/// Hash of the bridge header the proof is for.
 		pub bridged_header_hash: BridgedHeaderHash,
 		/// Storage trie proof generated for [`Self::bridged_header_hash`].
 		pub storage_proof: RawStorageProof,
-		/// Lane id of which messages were delivered and the proof is for.
+		/// Lane ID of which messages were delivered and the proof is for.
 		pub lane: LaneId,
 	}
 
@@ -116,18 +116,18 @@ pub mod source {
 		}
 	}
 
-	/// 'Parsed' message delivery proof - inbound lane id and its state.
+	/// 'Parsed' message delivery proof - inbound lane ID and its state.
 	pub type ParsedMessagesDeliveryProofFromBridgedChain<B> =
 		(LaneId, InboundLaneData<AccountIdOf<ThisChain<B>>>);
 
-	/// Return maximal message size of This -> Bridged chain message.
+	/// Return maximum message size of This -> Bridged chain message.
 	pub fn maximal_message_size<B: MessageBridge>() -> u32 {
 		super::target::maximal_incoming_message_size(
 			UnderlyingChainOf::<BridgedChain<B>>::max_extrinsic_size(),
 		)
 	}
 
-	/// `TargetHeaderChain` implementation that is using default types and perform default checks.
+	/// `TargetHeaderChain` implementation using default types and performs default checks.
 	pub struct TargetHeaderChainAdapter<B>(PhantomData<B>);
 
 	impl<B: MessageBridge> TargetHeaderChain<FromThisChainMessagePayload, AccountIdOf<ThisChain<B>>>
@@ -146,33 +146,33 @@ pub mod source {
 		}
 	}
 
-	/// Do basic Bridged-chain specific verification of This -> Bridged chain message.
+	/// Perform basic Bridged-chain specific verification of This -> Bridged chain message.
 	///
-	/// Ok result from this function means that the delivery transaction with this message
+	/// An Ok result from this function means that the delivery transaction with this message
 	/// may be 'mined' by the target chain.
 	pub fn verify_chain_message<B: MessageBridge>(
 		payload: &FromThisChainMessagePayload,
 	) -> Result<(), VerificationError> {
-		// IMPORTANT: any error that is returned here is fatal for the bridge, because
-		// this code is executed at the bridge hub and message sender actually lives
-		// at some sibling parachain. So we are failing **after** the message has been
-		// sent and we can't report it back to sender (unless error report mechanism is
+		// IMPORTANT: Any error returned here is fatal for the bridge, because
+		// this code is executed at the bridge hub, and the message sender actually lives
+		// at some sibling parachain. So, we are failing **after** the message has been
+		// sent, and we can't report it back to the sender (unless error report mechanism is
 		// embedded into message and its dispatcher).
 
-		// apart from maximal message size check (see below), we should also check the message
-		// dispatch weight here. But we assume that the bridged chain will just push the message
+		// Apart from maximum message size check (see below), we should also check the message
+		// dispatch weight here. However, we assume that the bridged chain will just push the message
 		// to some queue (XCMP, UMP, DMP), so the weight is constant and fits the block.
 
-		// The maximal size of extrinsic at Substrate-based chain depends on the
+		// The maximum size of an extrinsic at Substrate-based chains depends on the
 		// `frame_system::Config::MaximumBlockLength` and
-		// `frame_system::Config::AvailableBlockRatio` constants. This check is here to be sure that
-		// the lane won't stuck because message is too large to fit into delivery transaction.
+		// `frame_system::Config::AvailableBlockRatio` constants. This check ensures that
+		// the lane won't get stuck because the message is too large to fit into the delivery transaction.
 		//
-		// **IMPORTANT NOTE**: the delivery transaction contains storage proof of the message, not
-		// the message itself. The proof is always larger than the message. But unless chain state
+		// **IMPORTANT NOTE**: The delivery transaction contains the storage proof of the message, not
+		// the message itself. The proof is always larger than the message. But unless the chain state
 		// is enormously large, it should be several dozens/hundreds of bytes. The delivery
 		// transaction also contains signatures and signed extensions. Because of this, we reserve
-		// 1/3 of the the maximal extrinsic size for this data.
+		// 1/3 of the maximum extrinsic size for this data.
 		if payload.len() > maximal_message_size::<B>() as usize {
 			return Err(VerificationError::MessageTooLarge)
 		}
@@ -180,9 +180,9 @@ pub mod source {
 		Ok(())
 	}
 
-	/// Verify proof of This -> Bridged chain messages delivery.
+	/// Verify proof of This -> Bridged chain message delivery.
 	///
-	/// This function is used when Bridged chain is directly using GRANDPA finality. For Bridged
+	/// This function is used when the Bridged chain is directly using GRANDPA finality. For Bridged
 	/// parachains, please use the `verify_messages_delivery_proof_from_parachain`.
 	pub fn verify_messages_delivery_proof<B: MessageBridge>(
 		proof: FromBridgedChainMessagesDeliveryProof<HashOf<BridgedChain<B>>>,
@@ -192,7 +192,7 @@ pub mod source {
 		let mut storage =
 			B::BridgedHeaderChain::storage_proof_checker(bridged_header_hash, storage_proof)
 				.map_err(VerificationError::HeaderChain)?;
-		// Messages delivery proof is just proof of single storage key read => any error
+		// Message delivery proof is just proof of a single storage key read => any error
 		// is fatal.
 		let storage_inbound_lane_data_key = bp_messages::storage_keys::inbound_lane_data_key(
 			B::BRIDGED_MESSAGES_PALLET_NAME,
@@ -202,14 +202,14 @@ pub mod source {
 			.read_and_decode_mandatory_value(storage_inbound_lane_data_key.0.as_ref())
 			.map_err(VerificationError::InboundLaneStorage)?;
 
-		// check that the storage proof doesn't have any untouched trie nodes
+		// Check that the storage proof doesn't have any untouched trie nodes.
 		storage.ensure_no_unused_nodes().map_err(VerificationError::StorageProof)?;
 
 		Ok((lane, inbound_lane_data))
 	}
 }
 
-/// Sub-module that is declaring types required for processing Bridged -> This chain messages.
+/// Sub-module declaring types required for processing Bridged -> This chain messages.
 pub mod target {
 	use super::*;
 
@@ -218,10 +218,10 @@ pub mod target {
 
 	/// Messages proof from bridged chain:
 	///
-	/// - hash of finalized header;
-	/// - storage proof of messages and (optionally) outbound lane state;
-	/// - lane id;
-	/// - nonces (inclusive range) of messages which are included in this proof.
+	/// - Hash of finalized header.
+	/// - Storage proof of messages and (optionally) outbound lane state.
+	/// - Lane ID.
+	/// - Nonces (inclusive range) of messages included in this proof.
 	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
 		/// Hash of the finalized bridged header the proof is for.
@@ -247,17 +247,17 @@ pub mod target {
 		}
 	}
 
-	/// Return maximal dispatch weight of the message we're able to receive.
+	/// Return maximum dispatch weight of the message we're able to receive.
 	pub fn maximal_incoming_message_dispatch_weight(maximal_extrinsic_weight: Weight) -> Weight {
 		maximal_extrinsic_weight / 2
 	}
 
-	/// Return maximal message size given maximal extrinsic size.
+	/// Return maximum message size given maximum extrinsic size.
 	pub fn maximal_incoming_message_size(maximal_extrinsic_size: u32) -> u32 {
 		maximal_extrinsic_size / 3 * 2
 	}
 
-	/// `SourceHeaderChain` implementation that is using default types and perform default checks.
+	/// `SourceHeaderChain` implementation using default types and performs default checks.
 	pub struct SourceHeaderChainAdapter<B>(PhantomData<B>);
 
 	impl<B: MessageBridge> SourceHeaderChain for SourceHeaderChainAdapter<B> {
@@ -296,16 +296,16 @@ pub mod target {
 		let mut parser = StorageProofCheckerAdapter::<_, B> { storage, _dummy: Default::default() };
 		let nonces_range = nonces_start..=nonces_end;
 
-		// receiving proofs where end < begin is ok (if proof includes outbound lane state)
+		// Receiving proofs where end < begin is OK (if proof includes outbound lane state).
 		let messages_in_the_proof = nonces_range.checked_len().unwrap_or(0);
 		if messages_in_the_proof != MessageNonce::from(messages_count) {
 			return Err(VerificationError::MessagesCountMismatch)
 		}
 
-		// Read messages first. All messages that are claimed to be in the proof must
-		// be in the proof. So any error in `read_value`, or even missing value is fatal.
+		// Read messages first. All messages claimed to be in the proof must
+		// be present. So, any error in `read_value`, or even a missing value is fatal.
 		//
-		// Mind that we allow proofs with no messages if outbound lane state is proved.
+		// Note that we allow proofs with no messages if outbound lane state is proved.
 		let mut messages = Vec::with_capacity(messages_in_the_proof as _);
 		for nonce in nonces_range {
 			let message_key = MessageKey { lane_id: lane, nonce };
@@ -313,25 +313,25 @@ pub mod target {
 			messages.push(Message { key: message_key, payload: message_payload });
 		}
 
-		// Now let's check if proof contains outbound lane state proof. It is optional, so
+		// Now, let's check if the proof contains the outbound lane state proof. It is optional, so
 		// we simply ignore `read_value` errors and missing value.
 		let proved_lane_messages = ProvedLaneMessages {
 			lane_state: parser.read_and_decode_outbound_lane_data(&lane)?,
 			messages,
 		};
 
-		// Now we may actually check if the proof is empty or not.
+		// Now, we may actually check if the proof is empty or not.
 		if proved_lane_messages.lane_state.is_none() && proved_lane_messages.messages.is_empty() {
 			return Err(VerificationError::EmptyMessageProof)
 		}
 
-		// check that the storage proof doesn't have any untouched trie nodes
+		// Check that the storage proof doesn't have any untouched trie nodes.
 		parser
 			.storage
 			.ensure_no_unused_nodes()
 			.map_err(VerificationError::StorageProof)?;
 
-		// We only support single lane messages in this generated_schema
+		// We only support single-lane messages in this generated schema.
 		let mut proved_messages = ProvedMessages::new();
 		proved_messages.insert(lane, proved_lane_messages);
 
