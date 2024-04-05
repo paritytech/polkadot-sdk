@@ -25,11 +25,11 @@ use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_runtime_metrics::get_current_time;
 use primitives::{
-	byzantine_threshold, supermajority_threshold, vstaging::ApprovalVoteMultipleCandidates,
-	ApprovalVote, CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet,
-	CompactStatement, ConsensusLog, DisputeState, DisputeStatement, DisputeStatementSet,
-	ExplicitDisputeStatement, InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex,
-	SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
+	byzantine_threshold, supermajority_threshold, ApprovalVote, ApprovalVoteMultipleCandidates,
+	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CompactStatement,
+	ConsensusLog, DisputeState, DisputeStatement, DisputeStatementSet, ExplicitDisputeStatement,
+	InvalidDisputeStatementKind, MultiDisputeStatementSet, SessionIndex, SigningContext,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{

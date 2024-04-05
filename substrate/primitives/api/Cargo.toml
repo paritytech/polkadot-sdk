@@ -28,7 +28,7 @@ sp-state-machine = { path = "../state-machine", default-features = false, option
 sp-trie = { path = "../trie", default-features = false, optional = true }
 hash-db = { version = "0.16.0", optional = true }
 thiserror = { optional = true, workspace = true }
-scale-info = { version = "2.10.0", default-features = false, features = [
+scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 ] }
 sp-metadata-ir = { path = "../metadata-ir", default-features = false, optional = true }

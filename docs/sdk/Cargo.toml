@@ -17,7 +17,7 @@ workspace = true
 # Needed for all FRAME-based code
 parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
-frame = { path = "../../substrate/frame", features = [
+frame = { package = "polkadot-sdk-frame", path = "../../substrate/frame", features = [
 	"experimental",
 	"runtime",
 ] }
@@ -27,7 +27,7 @@ pallet-example-offchain-worker = { path = "../../substrate/frame/examples/offcha
 
 # How we build docs in rust-docs
 simple-mermaid = "0.1.1"
-docify = "0.2.7"
+docify = "0.2.8"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
@@ -66,6 +66,7 @@ pallet-aura = { path = "../../substrate/frame/aura", default-features = false }
 pallet-timestamp = { path = "../../substrate/frame/timestamp" }
 pallet-balances = { path = "../../substrate/frame/balances" }
 pallet-assets = { path = "../../substrate/frame/assets" }
+pallet-preimage = { path = "../../substrate/frame/preimage" }
 pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
 pallet-utility = { path = "../../substrate/frame/utility" }
 pallet-multisig = { path = "../../substrate/frame/multisig" }
@@ -73,6 +74,8 @@ pallet-proxy = { path = "../../substrate/frame/proxy" }
 pallet-authorship = { path = "../../substrate/frame/authorship" }
 pallet-collective = { path = "../../substrate/frame/collective" }
 pallet-democracy = { path = "../../substrate/frame/democracy" }
+pallet-uniques = { path = "../../substrate/frame/uniques" }
+pallet-nfts = { path = "../../substrate/frame/nfts" }
 pallet-scheduler = { path = "../../substrate/frame/scheduler" }
 
 # Primitives
