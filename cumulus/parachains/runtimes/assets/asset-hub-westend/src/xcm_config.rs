@@ -45,10 +45,10 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin,
-	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
+	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
+	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
+	DenyReserveTransferToRelayChain, DenyThenTry, DescribeFamily, DescribePalletTerminal,
+	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
 	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
@@ -522,6 +522,8 @@ pub type Barrier = TrailingSetTopicAsId<
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
+					// HRMP notifications from the relay chain are OK.
+					AllowHrmpNotificationsFromRelayChain,
 				),
 				UniversalLocation,
 				ConstU32<8>,
