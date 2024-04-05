@@ -561,7 +561,7 @@ pub mod pallet {
 		/// call `request_core_count`, right before the next sale, to avoid shutting down tasks too
 		/// early.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::start_sales((*core_count).into()))]
+		#[pallet::weight(T::WeightInfo::start_sales((*total_core_count).into()))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
 			initial_price: BalanceOf<T>,
