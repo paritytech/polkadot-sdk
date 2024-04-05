@@ -2300,12 +2300,13 @@ pub mod pallet {
 				// order to ensure members can leave the pool and it can be destroyed.
 				.min(T::StakeAdapter::transferable_balance(&bonded_pool.bonded_account()));
 
+			// this can fail if the pool uses `DelegateStake` strategy and the member delegation
+			// is not claimed yet. See `Call::claim_delegation()`.
 			T::StakeAdapter::member_withdraw(
 				&member_account,
 				&bonded_pool.bonded_account(),
 				balance_to_unbond,
-			)
-			.defensive()?;
+			)?;
 
 			Self::deposit_event(Event::<T>::Withdrawn {
 				member: member_account.clone(),
