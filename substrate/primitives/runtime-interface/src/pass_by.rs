@@ -563,8 +563,19 @@ impl<T, const N: usize> IntoFFIValue for AllocateAndReturnPointer<T, N>
 where
 	T: AsRef<[u8]>,
 {
-	fn into_ffi_value(value: Self::Inner, context: &mut dyn FunctionContext) -> Result<Self::FFIType> {
+	fn into_ffi_value(
+		value: Self::Inner,
+		context: &mut dyn FunctionContext,
+	) -> Result<Self::FFIType> {
 		let value = value.as_ref();
+		assert_eq!(
+			value.len(),
+			N,
+			"expected the byte blob to be {N} bytes long, is {} bytes when returning '{}' from a host function",
+			value.len(),
+			type_name::<T>()
+		);
+
 		let addr = context.allocate_memory(value.len() as u32)?;
 		context.write_memory(addr, value)?;
 		Ok(addr.into())
@@ -577,7 +588,11 @@ where
 	T: From<[u8; N]>,
 {
 	fn from_ffi_value(arg: Self::FFIType) -> Self::Inner {
+		// SAFETY: This memory was allocated by the host allocator with the exact
+		// capacity needed, so it's safe to make a `Vec` out of it.
 		let value = unsafe { Vec::from_raw_parts(arg as *mut u8, N, N) };
+
+		// SAFETY: Reading a `[u8; N]` from a `&[u8]` which is at least `N` elements long is safe.
 		let array = unsafe { *(value.as_ptr() as *const [u8; N]) };
 		T::from(array)
 	}
@@ -604,7 +619,10 @@ impl<T> IntoFFIValue for AllocateAndReturnFatPointer<T>
 where
 	T: AsRef<[u8]>,
 {
-	fn into_ffi_value(value: Self::Inner, context: &mut dyn FunctionContext) -> Result<Self::FFIType> {
+	fn into_ffi_value(
+		value: Self::Inner,
+		context: &mut dyn FunctionContext,
+	) -> Result<Self::FFIType> {
 		let value = value.as_ref();
 		let ptr = context.allocate_memory(value.len() as u32)?;
 		context.write_memory(ptr, &value)?;
@@ -623,6 +641,8 @@ where
 		let vec = if len == 0 {
 			Vec::new()
 		} else {
+			// SAFETY: This memory was allocated by the host allocator with the exact
+			// capacity needed, so it's safe to make a `Vec` out of it.
 			unsafe { Vec::from_raw_parts(ptr as *mut u8, len, len) }
 		};
 
@@ -665,6 +685,8 @@ impl<T: codec::Decode> FromFFIValue for AllocateAndReturnByCodec<T> {
 		let encoded = if len == 0 {
 			bytes::Bytes::new()
 		} else {
+			// SAFETY: This memory was allocated by the host allocator with the exact
+			// capacity needed, so it's safe to make a `Vec` out of it.
 			bytes::Bytes::from(unsafe { Vec::from_raw_parts(ptr as *mut u8, len, len) })
 		};
 
