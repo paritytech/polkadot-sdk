@@ -79,10 +79,9 @@ impl InspectNodeKeyCmd {
 
 #[cfg(test)]
 mod tests {
-	use crate::{commands::generate_node_key::GenerateNodeKeyCmd, SubstrateCli};
+	use crate::commands::generate_node_key::GenerateNodeKeyCmd;
 
 	use super::*;
-	use sc_service::{ChainSpec, ChainType, GenericChainSpec, NoExtension};
 
 	#[test]
 	fn inspect_node_key() {
