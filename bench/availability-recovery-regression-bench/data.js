@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712384846689,
+  "lastUpdate": 1712402490844,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1721,6 +1721,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.23804992951333329,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "74d6309c0cecf0636edd729365e7b723a62c8c72",
+          "message": "Improve frame umbrella crate doc experience (#4007)\n\n1. Add `#[doc(no_inline)]` to frame umbrella crate re-exports that\neventually resolve to `frame_support_procedural` so docs don't look like\nthe screenshot below and instead link to the proper `frame-support`\ndocs.\n<img width=\"1512\" alt=\"Screenshot 2024-04-05 at 20 05 01\"\nsrc=\"https://github.com/paritytech/polkadot-sdk/assets/16665596/a41daa4c-ebca-44a4-9fea-f9f336314e13\">\n\n\n2. Remove `\"Rust-Analyzer Users: \"` prefix from\n`frame_support_procedural` doc comments, since these doc comments are\nvisible in the web documentation and possible to stumble upon especially\nwhen navigating from the frame umbrella crate.\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2024-04-06T10:02:37Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74d6309c0cecf0636edd729365e7b723a62c8c72"
+        },
+        "date": 1712402467486,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20519104653333348,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.761446654873328,
             "unit": "seconds"
           }
         ]
