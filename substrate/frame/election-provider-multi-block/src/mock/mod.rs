@@ -396,6 +396,10 @@ pub fn election_prediction() -> BlockNumber {
 	)
 }
 
+pub fn current_phase() -> Phase<BlockNumber> {
+	MultiPhase::current_phase()
+}
+
 pub(crate) fn unsigned_events() -> Vec<crate::unsigned::Event<T>> {
 	System::events()
 		.into_iter()

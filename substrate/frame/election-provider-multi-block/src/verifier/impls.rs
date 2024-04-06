@@ -176,8 +176,23 @@ pub(crate) mod pallet {
 			})
 		}
 
+		pub(crate) fn set_page_valid(
+			page: PageIndex,
+			supports: SupportsOf<Pallet<T>>,
+			score: ElectionScore,
+		) {
+			let _ = match Self::valid() {
+				SolutionPointer::X => QueuedSolutionX::<T>::insert(page, supports),
+				SolutionPointer::Y => QueuedSolutionY::<T>::insert(page, supports),
+			};
+
+			// TODO: setting partial score, not overall. rethink. re-think the sync/offchain
+			// election score and feasibility checks story.
+			QueuedSolutionScore::<T>::put(score);
+		}
+
 		/// Write a single page directly into the valid variant.
-		pub(crate) fn force_set_single_page_valid(
+		fn force_set_single_page_valid(
 			page: PageIndex,
 			supports: SupportsOf<Pallet<T>>,
 			score: ElectionScore,
@@ -191,11 +206,7 @@ pub(crate) mod pallet {
 				QueuedSolutionScore::<T>::kill();
 
 				// write the new single page and new score.
-				let _ = match Self::valid() {
-					SolutionPointer::X => QueuedSolutionX::<T>::insert(page, supports),
-					SolutionPointer::Y => QueuedSolutionY::<T>::insert(page, supports),
-				};
-				QueuedSolutionScore::<T>::put(score);
+				Self::set_page_valid(page, supports, score);
 			})
 		}
 
@@ -340,6 +351,19 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 		QueuedSolution::<T>::get_queued_solution(page_index)
 	}
 
+	fn next_missing_solution_page() -> Option<PageIndex> {
+		for key in (0..T::Pages::get()).rev() {
+			let exists = match QueuedSolution::<T>::valid() {
+				SolutionPointer::X => QueuedSolutionX::<T>::contains_key(key as PageIndex),
+				SolutionPointer::Y => QueuedSolutionY::<T>::contains_key(key as PageIndex),
+			};
+			if !exists {
+				return Some(key)
+			}
+		}
+		None
+	}
+
 	fn kill() {
 		QueuedSolution::<T>::kill();
 		<VerificationStatus<T>>::put(Status::Nothing);
@@ -347,15 +371,15 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 
 	fn verify_synchronous(
 		partial_solution: Self::Solution,
-		claimed_score: ElectionScore,
+		partial_score: ElectionScore,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
 		let maybe_current_score = Self::queued_score();
-		match Self::do_verify_sync(partial_solution, claimed_score, page) {
+		match Self::do_verify_sync(partial_solution, partial_score, page) {
 			Ok(supports) => {
-				sublog!(info, "verifier", "queued sync solution with score {:?}", claimed_score);
+				sublog!(info, "verifier", "queued sync solution with score {:?}", partial_score);
 				Self::deposit_event(Event::<T>::Verified(page, supports.len() as u32));
-				Self::deposit_event(Event::<T>::Queued(claimed_score, maybe_current_score));
+				Self::deposit_event(Event::<T>::Queued(partial_score, maybe_current_score));
 				Ok(supports)
 			},
 			Err(err) => {
@@ -497,24 +521,24 @@ impl<T: impls::pallet::Config> Pallet<T> {
 
 	fn do_verify_sync(
 		partial_solution: T::Solution,
-		claimed_score: ElectionScore,
+		partial_score: ElectionScore,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
-		let _ = Self::ensure_score_quality(claimed_score);
+		let _ = Self::ensure_score_quality(partial_score); // TODO how to ensure partial score quality?
 		let supports = Self::feasibility_check(partial_solution, page)?;
 
 		let desired_targets =
 			crate::Snapshot::<T>::desired_targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
 		ensure!(supports.len() as u32 == desired_targets, FeasibilityError::WrongWinnerCount);
 
-		// TODO(gpestana): this clone is unecessary, remove.
+		// TODO(gpestana): this clone is unecessary, imrpove..
 		let score = sp_npos_elections::evaluate_support(
 			supports.clone().into_iter().map(|(_, backings)| backings),
 		);
-		ensure!(score == claimed_score, FeasibilityError::InvalidScore);
+		ensure!(score == partial_score, FeasibilityError::InvalidScore);
 
 		// queue valid solution of single page.
-		QueuedSolution::<T>::force_set_single_page_valid(Zero::zero(), supports.clone(), score);
+		QueuedSolution::<T>::set_page_valid(page, supports.clone(), partial_score);
 
 		Ok(supports)
 	}

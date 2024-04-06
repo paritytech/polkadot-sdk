@@ -31,10 +31,11 @@ mod solution_queued {
 }
 
 mod verifier {
-	use crate::Verifier;
-	//use sp_npos_elections::ElectionScore;
-
 	use super::*;
+	use crate::{
+		verifier::{impls::pallet::QueuedSolution, SolutionPointer},
+		SupportsOf, Verifier,
+	};
 
 	#[test]
 	fn sync_verification_works() {
@@ -45,6 +46,32 @@ mod verifier {
 
 			//assert_ok!(<VerifierPallet as Verifier>::verify_synchronous(mine_solution(),
 			// ElectionScore::default(), 0));
+		})
+	}
+
+	#[test]
+	fn next_missing_solution_works() {
+		ExtBuilder::verifier().build_and_execute(|| {
+			let supports: SupportsOf<VerifierPallet> = Default::default();
+			let msp = crate::Pallet::<T>::msp();
+			assert!(msp == <T as crate::Config>::Pages::get() - 1 && msp == 2);
+
+			// msp page is the next missing.
+			assert_eq!(<VerifierPallet as Verifier>::next_missing_solution_page(), Some(msp));
+
+			// X is the current valid solution, let's work with it.
+			assert_eq!(QueuedSolution::<T>::valid(), SolutionPointer::X);
+
+			// set msp and check the next missing page again.
+			QueuedSolution::<T>::set_page(msp, supports.clone());
+			assert_eq!(<VerifierPallet as Verifier>::next_missing_solution_page(), Some(msp - 1));
+
+			QueuedSolution::<T>::set_page(msp - 1, supports.clone());
+			assert_eq!(<VerifierPallet as Verifier>::next_missing_solution_page(), Some(0));
+
+			// set last page, missing page after is None as solution is complete.
+			QueuedSolution::<T>::set_page(0, supports.clone());
+			assert_eq!(<VerifierPallet as Verifier>::next_missing_solution_page(), None);
 		})
 	}
 }

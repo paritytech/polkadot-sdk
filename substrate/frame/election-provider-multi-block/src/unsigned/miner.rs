@@ -355,6 +355,31 @@ where
 		Ok((&all_supports).evaluate())
 	}
 
+	fn compute_partial_score(
+		solution: &SolutionOf<T>,
+		page: PageIndex,
+	) -> Result<ElectionScore, MinerError> {
+		let supports = <T::Verifier as crate::Verifier>::feasibility_check(solution.clone(), page)?;
+		let score = sp_npos_elections::evaluate_support(
+			supports.clone().into_iter().map(|(_, backings)| backings),
+		);
+
+		/*
+		use sp_npos_elections::EvaluateSupport;
+		use sp_std::collections::btree_map::BTreeMap;
+
+		let mut total_backings: BTreeMap<T::AccountId, ExtendedBalance> = BTreeMap::new();
+		let all_supports = total_backings
+			.into_iter()
+			.map(|(who, total)| (who, Support { total, ..Default::default() }))
+			.collect::<Vec<_>>();
+
+		Ok((&all_supports).evaluate());
+		*/
+
+		Ok(score)
+	}
+
 	/// perform the feasibility check on all pages of a solution, returning `Ok(())` if all good and
 	/// the corresponding error otherwise.
 	pub fn check_feasibility(
@@ -599,58 +624,81 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 	pub(crate) const OFFCHAIN_LOCK: &'static [u8] = b"parity/multi-block-unsigned-election/lock";
 	pub(crate) const OFFCHAIN_CACHED_SOLUTION: &'static [u8] =
 		b"parity/multi-block-unsigned-election/solution";
+	pub(crate) const OFFCHAIN_CACHED_SCORE: &'static [u8] =
+		b"parity/multi-block-unsigned-election/score";
 
-	pub fn mine_check_save_submit() -> Result<(), OffchainMinerError> {
-		sublog!(debug, "unsigned::ocw-miner", "offchain miner computing an unsigned solution.");
+	pub fn maybe_mine_and_submit(page: PageIndex) -> Result<(), OffchainMinerError> {
+		let cache_id = Self::paged_cache_id(page)?;
+		let maybe_storage = StorageValueRef::persistent(&cache_id);
 
-		let reduce = true;
-		let solution = Miner::<T, T::OffchainSolver>::mine_paged_solution(T::Pages::get(), reduce)?;
+		if let Ok(Some(solution_page)) = maybe_storage.get::<SolutionOf<T>>() {
+			sublog!(debug, "unsigned::ocw-miner", "offchain restoring a solution from cache.");
 
-		let (paged_solution, _trimming_status) = solution;
+			let partial_score =
+				Miner::<T, T::OffchainSolver>::compute_partial_score(&solution_page, page)?;
+			Self::submit_paged_call(page, solution_page.clone(), partial_score)?;
+		} else {
+			sublog!(debug, "unsigned::ocw-miner", "offchain miner computing a new solution.");
 
-		let storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SOLUTION);
-		storage
-			.mutate::<_, (), _>(|_| Ok((paged_solution.clone())))
-			.map_err(|_| OffchainMinerError::StorageError)?;
+			// no solution cached, compute it first.
+			let reduce = true;
+			let (solution, _trimming_status) =
+				Miner::<T, T::OffchainSolver>::mine_paged_solution(T::Pages::get(), reduce)?;
 
-		Self::submit_paged_call(paged_solution, crate::Pallet::<T>::msp())
+			// caches the solution score.
+			let score_storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SCORE);
+			score_storage
+				.mutate::<_, (), _>(|_| Ok((solution.score.clone())))
+				.map_err(|_| OffchainMinerError::StorageError)?;
+
+			// caches each of the individual pages under its own key.
+			for (idx, paged_solution) in solution.solution_pages.into_iter().enumerate() {
+				// submit requested page as we stored it in the cache.
+				if idx as PageIndex == page {
+					let partial_score = Miner::<T, T::OffchainSolver>::compute_partial_score(
+						&paged_solution,
+						page,
+					)?;
+					Self::submit_paged_call(page, paged_solution.clone(), partial_score)?;
+				}
+
+				let cache_id = Self::paged_cache_id(idx as PageIndex)?;
+				let storage = StorageValueRef::persistent(&cache_id);
+				storage
+					.mutate::<_, (), _>(|_| Ok((paged_solution.clone())))
+					.map_err(|_| OffchainMinerError::StorageError)?;
+			}
+		}
+
+		Ok(())
 	}
 
-	pub(crate) fn restore_or_compute_then_maybe_submit() {}
+	pub(crate) fn restore_or_compute_then_maybe_submit() {
+		sublog!(
+			debug,
+			"unsigned::ocw-miner",
+			"offchain miner submitting a cached unsigned solution."
+		);
+	}
+
+	fn paged_cache_id(page: PageIndex) -> Result<Vec<u8>, OffchainMinerError> {
+		let mut id = Self::OFFCHAIN_CACHED_SOLUTION.to_vec();
+		id.push(page.try_into().map_err(|_| OffchainMinerError::PageOutOfBounds)?);
+		Ok(id)
+	}
 
 	pub(crate) fn submit_paged_call(
-		paged_solution: PagedRawSolution<T>,
 		page: PageIndex,
-	) -> Result<(), OffchainMinerError> {
-		if let Some(solution) = paged_solution.solution_pages.get(page as usize) {
-			let call = Self::paged_unsigned_call(solution.clone(), page)?;
-			Self::submit_call(call)
-		} else {
-			Err(OffchainMinerError::PageOutOfBounds)
-		}
-	}
-
-	fn paged_unsigned_call(
 		solution: SolutionOf<T>,
-		page: PageIndex,
-	) -> Result<Call<T>, OffchainMinerError> {
-		let call = Call::submit_page_unsigned {
-			solution,
-			claimed_score: Default::default(), // TODO
-			page,
-			weight_witness: Default::default(), // TODO
-		};
-
-		Ok(call)
-	}
-
-	// TODO: remove, unecessary.
-	pub(crate) fn submit_call(call: Call<T>) -> Result<(), OffchainMinerError> {
+		partial_score: ElectionScore,
+	) -> Result<(), OffchainMinerError> {
 		sublog!(
 			debug,
 			"unsigned::ocw-miner",
 			"miner submitting a solution as an unsigned transaction"
 		);
+
+		let call = Call::submit_page_unsigned { page, solution, partial_score };
 
 		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
 			call.into(),

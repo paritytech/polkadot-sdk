@@ -140,6 +140,9 @@ pub trait Verifier {
 	/// Check if a claimed score improves the current queued score.
 	fn ensure_score_improves(claimed_score: ElectionScore) -> bool;
 
+	/// Returns the next missing solution page.
+	fn next_missing_solution_page() -> Option<PageIndex>;
+
 	/// Clears all the storage items related to the verifier pallet.
 	fn kill();
 

@@ -91,7 +91,7 @@ pub(crate) mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Unsigned solution submitted successfully.
-		UnsignedSolutionSubmitted { at: BlockNumberFor<T> },
+		UnsignedSolutionSubmitted { at: BlockNumberFor<T>, page: PageIndex },
 	}
 
 	#[pallet::storage]
@@ -120,40 +120,30 @@ pub(crate) mod pallet {
 		#[pallet::weight(0)]
 		pub fn submit_page_unsigned(
 			origin: OriginFor<T>,
-			solution: SolutionOf<T>,
-			claimed_score: ElectionScore,
 			page: PageIndex,
-			weight_witness: PageSize,
+			solution: SolutionOf<T>,
+			partial_score: ElectionScore,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
-			//let claimed_score = raw_solution.1;
-			//let page = crate::Pallet::<T>::msp();
-
-			let supports =
-				<T::Verifier as Verifier>::verify_synchronous(solution, claimed_score, page)
-					.expect(error_message);
-
-			println!("{:?}", supports);
-
 			// Check if score is an improvement, the current phase, page index and other paged
-			// solution metadata.
+			// solution metadata checks.
 			//Self::pre_dispatch_checks(&raw_solution).expect(error_message);
 
 			// Ensure the weight witness matches the paged solution provided.
+			// TODO: how to do it partially?
 			// let SolutionOrSnapshotSize { voters, targets } =
 			//  Self::snapshot_metadata().expect(error_message);
 
-			// Check paged solution.
-			// let ready = feasibility_check...
-
-			// Store newly received paged solution.
-			// QueuedSolution<T>::put(...)
+			// The verifier will store the paged solution, if valid.
+			let _ = <T::Verifier as Verifier>::verify_synchronous(solution, partial_score, page)
+				.expect(error_message);
 
 			Self::deposit_event(Event::UnsignedSolutionSubmitted {
 				at: <frame_system::Pallet<T>>::block_number(),
+				page,
 			});
 
 			Ok(())
@@ -204,17 +194,14 @@ impl<T: Config> Pallet<T> {
 	pub fn do_synchronized_offchain_worker(
 		now: BlockNumberFor<T>,
 	) -> Result<(), OffchainMinerError> {
-		match crate::Pallet::<T>::current_phase() {
-			Phase::Unsigned(opened) if opened == now => {
-				OffchainWorkerMiner::<T>::mine_check_save_submit()?;
-			},
-			Phase::Unsigned(opened) if opened < now => {
-				OffchainWorkerMiner::<T>::restore_or_compute_then_maybe_submit();
-			},
-			_ => {},
-		}
+		let missing_solution_page = <T::Verifier as Verifier>::next_missing_solution_page();
 
-		//miner::OffchainWorkerMiner::<T>::submit_call(call);
+		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
+			(Phase::Unsigned(started_at), Some(page)) => {
+				OffchainWorkerMiner::<T>::maybe_mine_and_submit(page)?;
+			},
+			_ => (), // nothing to do here.
+		}
 
 		Ok(())
 	}
@@ -224,22 +211,56 @@ impl<T: Config> Pallet<T> {
 mod tests {
 	use super::*;
 	use crate::mock::*;
+	use frame_election_provider_support::ElectionProvider;
+	use frame_support::assert_ok;
 
 	#[test]
 	fn unsigned_submission_works() {
 		let (mut ext, pool) = ExtBuilder::default().build_offchainify(0);
 		ext.execute_with(|| {
+			// election predicted at 30.
+			assert_eq!(election_prediction(), 30);
+
 			roll_to_with_ocw(25, Some(pool.clone()));
 
-			for p in (0..<T as crate::Config>::Pages::get()).rev() {
-				println!(
-					"page: {:?}, block: {:?}, events: {:?}",
-					p,
-					System::block_number(),
-					unsigned_events()
-				);
-				roll_one_with_ocw(Some(pool.clone()));
-			}
+			// no solution available until the unsigned phase.
+			assert!(<VerifierPallet as Verifier>::queued_score().is_none());
+			assert!(<VerifierPallet as Verifier>::get_queued_solution(2).is_none());
+
+			// progress through unsigned phase just before the election.
+			roll_to_with_ocw(29, Some(pool.clone()));
+
+			// successful submission events for all 3 pages, as expected.
+			assert_eq!(
+				unsigned_events(),
+				[
+					Event::UnsignedSolutionSubmitted { at: 25, page: 2 },
+					Event::UnsignedSolutionSubmitted { at: 26, page: 1 },
+					Event::UnsignedSolutionSubmitted { at: 27, page: 0 }
+				]
+			);
+			// now, solution exists.
+			assert!(<VerifierPallet as Verifier>::queued_score().is_some());
+			assert!(<VerifierPallet as Verifier>::get_queued_solution(2).is_some());
+			assert!(<VerifierPallet as Verifier>::get_queued_solution(1).is_some());
+			assert!(<VerifierPallet as Verifier>::get_queued_solution(0).is_some());
+
+			// roll to election prediction bn.
+			roll_to_with_ocw(election_prediction(), Some(pool.clone()));
+
+			// still in unsigned phase (after unsigned submissions have been submitted and before
+			// the election happened).
+			assert!(current_phase().is_unsigned());
+
+			// elect() works as expected.
+			assert_ok!(<MultiPhase as ElectionProvider>::elect(2));
+			assert_ok!(<MultiPhase as ElectionProvider>::elect(1));
+			assert_ok!(<MultiPhase as ElectionProvider>::elect(0));
+
+			assert_eq!(current_phase(), Phase::Off);
+
+			// 2nd round election predicted at 60.
+			assert_eq!(election_prediction(), 60);
 		})
 	}
 }
