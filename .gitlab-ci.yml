@@ -127,6 +127,7 @@ default:
     - >
       if [ "$FORKLIFT_BYPASS" != "true" ]; then
       echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"; 
+      shopt -s expand_aliases
       alias cargo="forklift cargo";
       fi
     #
