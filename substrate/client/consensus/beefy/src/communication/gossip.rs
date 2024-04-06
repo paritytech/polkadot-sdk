@@ -28,10 +28,7 @@ use parking_lot::{Mutex, RwLock};
 use wasm_timer::Instant;
 
 use crate::{
-	communication::{
-		benefit, cost,
-		peers::{KnownPeers, PeerReport},
-	},
+	communication::{benefit, cost, peers::KnownPeers},
 	justification::{
 		proof_block_num_and_set_id, verify_with_validator_set, BeefyVersionedFinalityProof,
 	},
@@ -488,7 +485,7 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::keystore::BeefyKeystore;
+	use crate::{communication::peerrs::PeerReport, keystore::BeefyKeystore};
 	use sc_network_test::Block;
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
