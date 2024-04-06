@@ -391,14 +391,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Removes an existing reward pool.
-		///
-		/// TODO decide if we want to implement this functionality, and if so, how to manage clean
-		/// up of stakers from a removed pool.
-		pub fn remove_pool(_origin: OriginFor<T>, _pool_id: PoolId) -> DispatchResult {
-			todo!()
-		}
-
 		/// Stake tokens in a pool.
 		pub fn stake(origin: OriginFor<T>, pool_id: PoolId, amount: T::Balance) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
