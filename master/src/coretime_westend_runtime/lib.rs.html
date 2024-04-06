@@ -1036,6 +1036,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#887" id="887">887</a>
 <a href="#888" id="888">888</a>
 <a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1102,7 +1108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::Block <span class="kw">as </span>BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiAddress, Perbill,
+	ApplyExtrinsicResult, DispatchError, MultiAddress, Perbill,
 };
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -1619,6 +1625,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl </span>frame_system_rpc_runtime_api::AccountNonceApi&lt;Block, AccountId, Nonce&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>account_nonce(account: AccountId) -&gt; Nonce {
 			System::account_nonce(account)
+		}
+	}
+
+	<span class="kw">impl </span>pallet_broker::runtime_api::BrokerApi&lt;Block, Balance&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>sale_price() -&gt; <span class="prelude-ty">Result</span>&lt;Balance, DispatchError&gt; {
+			Broker::current_price()
 		}
 	}
 
