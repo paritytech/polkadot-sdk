@@ -22,7 +22,10 @@ use crate::Pallet as AssetRewards;
 use frame_benchmarking::{v2::*, whitelisted_caller};
 use frame_support::{
 	assert_ok,
-	traits::fungibles::{Create, Inspect, Mutate},
+	traits::{
+		fungible::NativeOrWithId,
+		fungibles::{Create, Inspect, Mutate},
+	},
 };
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::One;
@@ -30,20 +33,18 @@ use sp_std::prelude::*;
 
 /// Benchmark Helper
 pub trait BenchmarkHelper<AssetId, AccountId> {
-	/// Returns a valid assets pair for the pool creation.
-	///
 	/// When a specific asset, such as the native asset, is required in every pool, it should be
 	/// returned for each odd-numbered seed.
-	fn to_asset_id(seed: u32) -> AssetId;
+	fn to_asset_id(seed: NativeOrWithId<u32>) -> AssetId;
 	fn to_account_id(seed: u32) -> AccountId;
 }
 
 impl<AssetId, AccountId> BenchmarkHelper<AssetId, AccountId> for ()
 where
-	AssetId: From<u32>,
+	AssetId: From<NativeOrWithId<u32>>,
 	AccountId: From<u32>,
 {
-	fn to_asset_id(seed: u32) -> AssetId {
+	fn to_asset_id(seed: NativeOrWithId<u32>) -> AssetId {
 		seed.into()
 	}
 	fn to_account_id(seed: u32) -> AccountId {
@@ -83,8 +84,8 @@ mod benchmarks {
 		use super::*;
 
 		let admin = T::BenchmarkHelper::to_account_id(1);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
+		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
 		create_asset::<T>(&admin, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
 		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
 
@@ -118,8 +119,8 @@ mod benchmarks {
 
 		let admin = T::BenchmarkHelper::to_account_id(1);
 		let staker = T::BenchmarkHelper::to_account_id(2);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
+		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
 		create_asset::<T>(&staker, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
 		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
 
@@ -146,8 +147,8 @@ mod benchmarks {
 
 		let admin = T::BenchmarkHelper::to_account_id(1);
 		let staker = T::BenchmarkHelper::to_account_id(2);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
+		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
 		create_asset::<T>(&staker, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
 		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
 
@@ -180,8 +181,8 @@ mod benchmarks {
 
 		let admin = T::BenchmarkHelper::to_account_id(1);
 		let staker = T::BenchmarkHelper::to_account_id(2);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
+		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
 		create_asset::<T>(&staker, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
 		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
 
@@ -219,8 +220,8 @@ mod benchmarks {
 		use super::*;
 
 		let admin = T::BenchmarkHelper::to_account_id(1);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
+		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
 		create_asset::<T>(&admin, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
 		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
 
@@ -251,8 +252,8 @@ mod benchmarks {
 
 		let admin = T::BenchmarkHelper::to_account_id(1);
 		let new_admin = T::BenchmarkHelper::to_account_id(2);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
+		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
 		create_asset::<T>(&admin, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
 		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
 
@@ -276,9 +277,8 @@ mod benchmarks {
 		use super::*;
 
 		let admin = T::BenchmarkHelper::to_account_id(1);
-		let new_admin = T::BenchmarkHelper::to_account_id(2);
-		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
-		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
+		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
 		create_asset::<T>(&admin, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
 		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
 
@@ -301,6 +301,36 @@ mod benchmarks {
 			}
 			.into(),
 		);
+	}
+
+	#[benchmark]
+	fn deposit_reward_tokens() {
+		use super::*;
+
+		let admin = T::BenchmarkHelper::to_account_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
+		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		create_asset::<T>(&admin, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
+		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
+
+		T::Assets::set_balance(reward_asset.clone(), &admin, 100000u32.into());
+		assert_ok!(AssetRewards::<T>::create_pool(
+			SystemOrigin::Signed(admin.clone()).into(),
+			Box::new(staked_asset.clone()),
+			Box::new(reward_asset.clone()),
+			100u32.into(),
+			200u32.into(),
+			None,
+		));
+
+		let balance_before = T::Assets::balance(reward_asset.clone(), &admin);
+
+		#[extrinsic_call]
+		_(SystemOrigin::Signed(admin.clone()), 0u32.into(), 10u32.into());
+
+		let balance_after = T::Assets::balance(reward_asset.clone(), &admin);
+
+		assert_eq!(balance_after, balance_before - 10u32.into());
 	}
 
 	impl_benchmark_test_suite!(AssetRewards, crate::mock::new_test_ext(), crate::mock::MockRuntime);
