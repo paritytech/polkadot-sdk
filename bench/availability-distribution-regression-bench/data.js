@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712363963312,
+  "lastUpdate": 1712384554159,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2079,6 +2079,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.011864675520000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9d6261892814fa27c97881c0321c008d7340b54b",
+          "message": "`pallet-uniques`: decrement `total_deposit` when clearing collection metadata (#3976)\n\nDecrements `total_deposit` when collection metadata is cleared in\n`pallet-nfts` and `pallet-uniques`.",
+          "timestamp": "2024-04-06T05:10:46Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9d6261892814fa27c97881c0321c008d7340b54b"
+        },
+        "date": 1712384529907,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.92666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16078891267333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02695004634,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011440896353333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01397933785333333,
             "unit": "seconds"
           }
         ]
