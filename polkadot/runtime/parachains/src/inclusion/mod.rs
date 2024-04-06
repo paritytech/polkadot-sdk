@@ -22,7 +22,7 @@
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp,
-	paras::{self, SetGoAhead},
+	paras::{self, UpgradeStrategy},
 	scheduler,
 	shared::{self, AllowedRelayParentsTracker},
 	util::make_persisted_validation_data_with_parent,
@@ -839,7 +839,7 @@ impl<T: Config> Pallet<T> {
 				new_code,
 				now,
 				&config,
-				SetGoAhead::Yes,
+				UpgradeStrategy::SetGoAheadSignal,
 			));
 		}
 

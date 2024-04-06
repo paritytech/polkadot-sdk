@@ -25,13 +25,13 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use primitives::{
-	collator_signature_payload, vstaging::node_features::FeatureIndex, AvailabilityBitfield,
-	BackedCandidate, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
-	CollatorSignature, CommittedCandidateReceipt, CompactStatement, CoreIndex, DisputeStatement,
-	DisputeStatementSet, GroupIndex, HeadData, Id as ParaId, IndexedVec,
-	InherentData as ParachainsInherentData, InvalidDisputeStatementKind, PersistedValidationData,
-	SessionIndex, SigningContext, UncheckedSigned, ValidDisputeStatementKind, ValidationCode,
-	ValidatorId, ValidatorIndex, ValidityAttestation,
+	collator_signature_payload, node_features::FeatureIndex, AvailabilityBitfield, BackedCandidate,
+	CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature,
+	CommittedCandidateReceipt, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
+	GroupIndex, HeadData, Id as ParaId, IndexedVec, InherentData as ParachainsInherentData,
+	InvalidDisputeStatementKind, PersistedValidationData, SessionIndex, SigningContext,
+	UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex,
+	ValidityAttestation,
 };
 use sp_core::{sr25519, H256};
 use sp_runtime::{

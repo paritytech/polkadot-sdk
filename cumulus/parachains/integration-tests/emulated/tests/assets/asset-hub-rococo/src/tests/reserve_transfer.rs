@@ -1052,7 +1052,7 @@ fn reserve_transfer_native_asset_from_para_to_para_trough_relay() {
 	// fund the Parachain Origin's SA on Relay Chain with the native tokens held in reserve
 	Rococo::fund_accounts(vec![(sov_of_sender_on_relay.into(), amount_to_send * 2)]);
 
-	// Init values for Parachain Desitnation
+	// Init values for Parachain Destination
 	let receiver = PenpalBReceiver::get();
 
 	// Init Test

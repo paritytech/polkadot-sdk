@@ -1063,9 +1063,9 @@ fn supermajority_bitfields_trigger_availability() {
 		assert!(pending_c.is_empty());
 
 		// and check that chain heads.
-		assert_eq!(paras::Head::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
-		assert_ne!(paras::Head::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
-		assert_eq!(paras::Head::<Test>::get(&chain_c), Some(vec![7, 8].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(paras::Heads::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_c), Some(vec![7, 8].into()));
 
 		// Check that rewards are applied.
 		{
@@ -1129,9 +1129,9 @@ fn supermajority_bitfields_trigger_availability() {
 		assert!(PendingAvailability::<Test>::get(&chain_c).unwrap().is_empty());
 
 		// and check that chain heads.
-		assert_eq!(paras::Head::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
-		assert_ne!(paras::Head::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
-		assert_eq!(paras::Head::<Test>::get(&chain_c), Some(vec![11, 12].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_a), Some(vec![1, 2, 3, 4].into()));
+		assert_ne!(paras::Heads::<Test>::get(&chain_b), Some(vec![5, 6, 7, 8].into()));
+		assert_eq!(paras::Heads::<Test>::get(&chain_c), Some(vec![11, 12].into()));
 
 		// Check that rewards are applied.
 		{
@@ -1590,7 +1590,7 @@ fn candidate_checks() {
 					vec![9, 8, 7, 6, 5, 4, 3, 2, 1].into(),
 					expected_at,
 					&cfg,
-					SetGoAhead::Yes,
+					UpgradeStrategy::SetGoAheadSignal,
 				);
 			}
 
@@ -2857,7 +2857,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let cause = &active_vote_state.causes()[0];
 		// Upgrade block is the block of inclusion, not candidate's parent.
 		assert_matches!(cause,
-			paras::PvfCheckCause::Upgrade { id, included_at, set_go_ahead: SetGoAhead::Yes }
+			paras::PvfCheckCause::Upgrade { id, included_at, upgrade_strategy: UpgradeStrategy::SetGoAheadSignal }
 				if id == &chain_a && included_at == &7
 		);
 	});

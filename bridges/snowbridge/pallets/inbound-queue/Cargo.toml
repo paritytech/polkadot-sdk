@@ -42,7 +42,7 @@ snowbridge-core = { path = "../../primitives/core", default-features = false }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
 snowbridge-router-primitives = { path = "../../primitives/router", default-features = false }
 snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false }
-snowbridge-pallet-inbound-queue-fixtures = { path = "./fixtures", default-features = false, optional = true }
+snowbridge-pallet-inbound-queue-fixtures = { path = "fixtures", default-features = false, optional = true }
 
 [dev-dependencies]
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking" }

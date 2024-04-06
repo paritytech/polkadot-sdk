@@ -139,7 +139,7 @@ where
 /// Implementation of `xcm_builder::EnsureDelivery` which helps to ensure delivery to the
 /// `ParaId` parachain (sibling or child). Deposits existential deposit for origin (if needed).
 /// Deposits estimated fee to the origin account (if needed).
-/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if neeeded).
+/// Allows to trigger additional logic for specific `ParaId` (e.g. open HRMP channel) (if needed).
 #[cfg(feature = "runtime-benchmarks")]
 pub struct ToParachainDeliveryHelper<
 	XcmConfig,

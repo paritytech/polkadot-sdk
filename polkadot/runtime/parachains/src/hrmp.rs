@@ -229,12 +229,12 @@ impl fmt::Debug for OutboundHrmpAcceptanceErr {
 			),
 			TotalSizeExceeded { idx, total_size, limit } => write!(
 				fmt,
-				"sending the HRMP message at index {} would exceed the neogitiated channel total size  ({} > {})",
+				"sending the HRMP message at index {} would exceed the negotiated channel total size  ({} > {})",
 				idx, total_size, limit,
 			),
 			CapacityExceeded { idx, count, limit } => write!(
 				fmt,
-				"sending the HRMP message at index {} would exceed the neogitiated channel capacity  ({} > {})",
+				"sending the HRMP message at index {} would exceed the negotiated channel capacity  ({} > {})",
 				idx, count, limit,
 			),
 		}
@@ -790,7 +790,7 @@ pub mod pallet {
 							.ok_or(ArithmeticError::Underflow)?;
 						T::Currency::unreserve(
 							&channel_id.sender.into_account_truncating(),
-							// The difference should always be convertable into `Balance`, but be
+							// The difference should always be convertible into `Balance`, but be
 							// paranoid and do nothing in case.
 							amount.try_into().unwrap_or(Zero::zero()),
 						);

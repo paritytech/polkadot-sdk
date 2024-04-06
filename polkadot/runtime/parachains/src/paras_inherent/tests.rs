@@ -486,7 +486,7 @@ mod enter {
 
 			// Paras have the right on-chain heads now
 			expected_heads.into_iter().enumerate().for_each(|(id, head)| {
-				assert_eq!(paras::Head::<Test>::get(ParaId::from(id as u32)).unwrap(), head);
+				assert_eq!(paras::Heads::<Test>::get(ParaId::from(id as u32)).unwrap(), head);
 			});
 		});
 	}
