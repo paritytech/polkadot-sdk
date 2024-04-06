@@ -348,4 +348,16 @@ mod tests {
 		assert_eq!(cfg_std, filtered[0]);
 		assert_eq!(cfg_benchmarks, filtered[1]);
 	}
+
+	#[test]
+	fn check_extract_idents_from_type_path() {
+		let type_path: TypePath = parse_quote!(polkadot_primitives::types::HeaderFor<Self>);
+		let idents = extract_idents_from_type_path(&type_path);
+
+		assert_eq!(idents.len(), 4);
+		assert!(idents.contains(&&format_ident!("polkadot_primitives")));
+		assert!(idents.contains(&&format_ident!("types")));
+		assert!(idents.contains(&&format_ident!("HeaderFor")));
+		assert!(idents.contains(&&format_ident!("Self")));
+	}
 }
