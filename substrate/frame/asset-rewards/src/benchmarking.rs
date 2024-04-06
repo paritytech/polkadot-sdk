@@ -245,5 +245,31 @@ mod benchmarks {
 		);
 	}
 
+	#[benchmark]
+	fn set_pool_admin() {
+		use super::*;
+
+		let admin = T::BenchmarkHelper::to_account_id(1);
+		let new_admin = T::BenchmarkHelper::to_account_id(2);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
+		create_asset::<T>(&admin, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
+		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
+
+		assert_ok!(AssetRewards::<T>::create_pool(
+			SystemOrigin::Signed(admin.clone()).into(),
+			Box::new(staked_asset.clone()),
+			Box::new(reward_asset.clone()),
+			100u32.into(),
+			200u32.into(),
+			None,
+		));
+
+		#[extrinsic_call]
+		_(SystemOrigin::Signed(admin.clone()), 0u32.into(), new_admin.clone());
+
+		assert_last_event::<T>(Event::PoolAdminModified { pool_id: 0u32.into(), new_admin }.into());
+	}
+
 	impl_benchmark_test_suite!(AssetRewards, crate::mock::new_test_ext(), crate::mock::MockRuntime);
 }
