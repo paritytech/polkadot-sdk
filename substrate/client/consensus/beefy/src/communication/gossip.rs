@@ -485,7 +485,7 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::{communication::peerrs::PeerReport, keystore::BeefyKeystore};
+	use crate::{communication::peers::PeerReport, keystore::BeefyKeystore};
 	use sc_network_test::Block;
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
