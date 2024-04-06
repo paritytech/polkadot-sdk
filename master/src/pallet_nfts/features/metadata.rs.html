@@ -426,6 +426,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -675,7 +677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="kw">let </span>details =
+		<span class="kw">let </span><span class="kw-2">mut </span>details =
 			Collection::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>collection).ok_or(Error::&lt;T, I&gt;::UnknownCollection)<span class="question-mark">?</span>;
 		<span class="kw">let </span>collection_config = <span class="self">Self</span>::get_collection_config(<span class="kw-2">&amp;</span>collection)<span class="question-mark">?</span>;
 
@@ -688,6 +690,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CollectionMetadataOf::&lt;T, I&gt;::try_mutate_exists(collection, |metadata| {
 			<span class="kw">let </span>deposit = metadata.take().ok_or(Error::&lt;T, I&gt;::UnknownCollection)<span class="question-mark">?</span>.deposit;
 			T::Currency::unreserve(<span class="kw-2">&amp;</span>details.owner, deposit);
+			details.owner_deposit.saturating_reduce(deposit);
+			Collection::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>collection, details);
 			<span class="self">Self</span>::deposit_event(Event::CollectionMetadataCleared { collection });
 			<span class="prelude-val">Ok</span>(())
 		})
