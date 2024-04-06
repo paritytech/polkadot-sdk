@@ -149,7 +149,8 @@ pub mod pallet {
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
 
-	const RANK_COUNT: usize = 9;
+	/// Number of available ranks.
+	pub(crate) const RANK_COUNT: usize = 9;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
