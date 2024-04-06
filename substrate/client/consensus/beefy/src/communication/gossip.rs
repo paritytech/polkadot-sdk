@@ -511,15 +511,15 @@ pub(crate) mod tests {
 
 	impl NetworkPeers for TestNetwork {
 		fn set_authorized_peers(&self, _: std::collections::HashSet<PeerId>) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn set_authorized_only(&self, _: bool) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn add_known_address(&self, _: PeerId, _: sc_network::Multiaddr) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange) {
@@ -527,30 +527,30 @@ pub(crate) mod tests {
 		}
 
 		fn peer_reputation(&self, _: &PeerId) -> i32 {
-			todo!()
+			unimplemented!()
 		}
 
 		fn disconnect_peer(&self, _: PeerId, _: sc_network::ProtocolName) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn accept_unreserved_peers(&self) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn deny_unreserved_peers(&self) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn add_reserved_peer(
 			&self,
 			_: sc_network::config::MultiaddrWithPeerId,
 		) -> Result<(), String> {
-			todo!()
+			unimplemented!()
 		}
 
 		fn remove_reserved_peer(&self, _: PeerId) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn set_reserved_peers(
@@ -558,7 +558,7 @@ pub(crate) mod tests {
 			_: sc_network::ProtocolName,
 			_: std::collections::HashSet<sc_network::Multiaddr>,
 		) -> Result<(), String> {
-			todo!()
+			unimplemented!()
 		}
 
 		fn add_peers_to_reserved_set(
@@ -566,7 +566,7 @@ pub(crate) mod tests {
 			_: sc_network::ProtocolName,
 			_: std::collections::HashSet<sc_network::Multiaddr>,
 		) -> Result<(), String> {
-			todo!()
+			unimplemented!()
 		}
 
 		fn remove_peers_from_reserved_set(
@@ -574,32 +574,32 @@ pub(crate) mod tests {
 			_: sc_network::ProtocolName,
 			_: Vec<PeerId>,
 		) -> Result<(), String> {
-			todo!()
+			unimplemented!()
 		}
 
 		fn sync_num_connected(&self) -> usize {
-			todo!()
+			unimplemented!()
 		}
 
 		fn peer_role(&self, _: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
-			todo!()
+			unimplemented!()
 		}
 	}
 
 	struct TestContext;
 	impl<B: sp_runtime::traits::Block> ValidatorContext<B> for TestContext {
 		fn broadcast_topic(&mut self, _topic: B::Hash, _force: bool) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn broadcast_message(&mut self, _topic: B::Hash, _message: Vec<u8>, _force: bool) {}
 
 		fn send_message(&mut self, _who: &sc_network::PeerId, _message: Vec<u8>) {
-			todo!()
+			unimplemented!()
 		}
 
 		fn send_topic(&mut self, _who: &sc_network::PeerId, _topic: B::Hash, _force: bool) {
-			todo!()
+			unimplemented!()
 		}
 	}
 
