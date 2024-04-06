@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor RemoteExternalities and its related types to depend on Hash/HashOutput
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Change traits bound for `RemoteExternalities` types as `RemoteExternalities`,
+      `Mode`, `OnlineConfig`, `Snapshot` to use `Hash` or `HashOutput`
+      instead of `BlockT
+
+crates: 
+- name: frame-remote-externalities
+- name: pallet-state-trie-migration
+- name: try-runtime-cli
