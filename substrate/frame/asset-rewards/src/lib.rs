@@ -628,16 +628,13 @@ pub mod pallet {
 		/// NOTE: this is a pure function without side effects. It does not modify any state
 		/// directly, that is the responsibility of the caller.
 		pub fn update_pool_and_staker_rewards(
-			mut pool_info: PoolInfoFor<T>,
+			pool_info: PoolInfoFor<T>,
 			mut staker_info: PoolStakerInfo<T::Balance>,
 		) -> Result<(PoolInfoFor<T>, PoolStakerInfo<T::Balance>), DispatchError> {
-			let reward_per_token = Self::reward_per_token(&pool_info)?;
-
-			pool_info.last_update_block = frame_system::Pallet::<T>::block_number();
-			pool_info.reward_per_token_stored = reward_per_token;
+			let pool_info = Self::update_pool_rewards(pool_info)?;
 
 			staker_info.rewards = Self::derive_rewards(&pool_info, &staker_info)?;
-			staker_info.reward_per_token_paid = reward_per_token;
+			staker_info.reward_per_token_paid = pool_info.reward_per_token_stored;
 			return Ok((pool_info, staker_info));
 		}
 
