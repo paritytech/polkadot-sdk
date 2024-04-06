@@ -276,7 +276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>S: Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; LookupSpan&lt;<span class="lifetime">&#39;a</span>&gt;,
 {
-	<span class="kw">fn </span>new_span(<span class="kw-2">&amp;</span><span class="self">self</span>, attrs: <span class="kw-2">&amp;</span>Attributes&lt;<span class="lifetime">&#39;_</span>&gt;, id: <span class="kw-2">&amp;</span>Id, ctx: Context&lt;<span class="lifetime">&#39;_</span>, S&gt;) {
+	<span class="kw">fn </span>on_new_span(<span class="kw-2">&amp;</span><span class="self">self</span>, attrs: <span class="kw-2">&amp;</span>Attributes&lt;<span class="lifetime">&#39;_</span>&gt;, id: <span class="kw-2">&amp;</span>Id, ctx: Context&lt;<span class="lifetime">&#39;_</span>, S&gt;) {
 		<span class="kw">let </span>span = <span class="kw">match </span>ctx.span(id) {
 			<span class="prelude-val">Some</span>(span) =&gt; span,
 			<span class="prelude-val">None </span>=&gt; {

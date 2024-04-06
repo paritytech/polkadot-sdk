@@ -508,6 +508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -534,7 +535,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>tracing_log::NormalizeEvent;
 <span class="kw">use </span>tracing_subscriber::{
 	field::RecordFields,
-	fmt::{time::FormatTime, FmtContext, FormatEvent, FormatFields},
+	fmt::{format, time::FormatTime, FmtContext, FormatEvent, FormatFields},
 	layer::Context,
 	registry::{LookupSpan, SpanRef},
 };
@@ -562,20 +563,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// NOTE: the following code took inspiration from tracing-subscriber
 	//
 	//       https://github.com/tokio-rs/tracing/blob/2f59b32/tracing-subscriber/src/fmt/format/mod.rs#L449
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>format_event_custom&lt;<span class="lifetime">&#39;b</span>, S, N&gt;(
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>format_event_custom&lt;<span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;w</span>, S, N&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		ctx: CustomFmtContext&lt;<span class="lifetime">&#39;b</span>, S, N&gt;,
-		writer: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>fmt::Write,
+		writer: format::Writer&lt;<span class="lifetime">&#39;w</span>&gt;,
 		event: <span class="kw-2">&amp;</span>Event,
 	) -&gt; fmt::Result
 	<span class="kw">where
 		</span>S: Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; LookupSpan&lt;<span class="lifetime">&#39;a</span>&gt;,
 		N: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FormatFields&lt;<span class="lifetime">&#39;a</span>&gt; + <span class="lifetime">&#39;static</span>,
 	{
-		<span class="kw">let </span>writer = <span class="kw-2">&amp;mut </span>ControlCodeSanitizer::new(!<span class="self">self</span>.enable_color, writer);
+		<span class="kw">let </span><span class="kw-2">mut </span>writer = <span class="kw-2">&amp;mut </span>ControlCodeSanitizer::new(!<span class="self">self</span>.enable_color, writer);
 		<span class="kw">let </span>normalized_meta = event.normalized_metadata();
 		<span class="kw">let </span>meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
-		time::write(<span class="kw-2">&amp;</span><span class="self">self</span>.timer, writer, <span class="self">self</span>.enable_color)<span class="question-mark">?</span>;
+		time::write(<span class="kw-2">&amp;</span><span class="self">self</span>.timer, <span class="kw-2">&amp;mut </span>format::Writer::new(<span class="kw-2">&amp;mut </span>writer), <span class="self">self</span>.enable_color)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span><span class="self">self</span>.display_level {
 			<span class="kw">let </span>fmt_level = { FmtLevel::new(meta.level(), <span class="self">self</span>.enable_color) };
@@ -618,7 +619,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			writer.sanitize = <span class="bool-val">true</span>;
 		}
 
-		ctx.format_fields(writer, event)<span class="question-mark">?</span>;
+		ctx.format_fields(format::Writer::new(writer), event)<span class="question-mark">?</span>;
 		<span class="macro">writeln!</span>(writer)<span class="question-mark">?</span>;
 
 		writer.flush()
@@ -637,7 +638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>format_event(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;</span>FmtContext&lt;S, N&gt;,
-		writer: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>fmt::Write,
+		<span class="kw-2">mut </span>writer: format::Writer&lt;<span class="lifetime">&#39;_</span>&gt;,
 		event: <span class="kw-2">&amp;</span>Event,
 	) -&gt; fmt::Result {
 		<span class="kw">if </span><span class="self">self</span>.dup_to_stdout &amp;&amp;
@@ -646,7 +647,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				event.metadata().level() == <span class="kw-2">&amp;</span>Level::ERROR)
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
-			<span class="self">self</span>.format_event_custom(CustomFmtContext::FmtContext(ctx), <span class="kw-2">&amp;mut </span>out, event)<span class="question-mark">?</span>;
+			<span class="kw">let </span>buf_writer = format::Writer::new(<span class="kw-2">&amp;mut </span>out);
+			<span class="self">self</span>.format_event_custom(CustomFmtContext::FmtContext(ctx), buf_writer, event)<span class="question-mark">?</span>;
 			writer.write_str(<span class="kw-2">&amp;</span>out)<span class="question-mark">?</span>;
 			<span class="macro">print!</span>(<span class="string">&quot;{}&quot;</span>, out);
 			<span class="prelude-val">Ok</span>(())
@@ -747,9 +749,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>time {
 	<span class="kw">use </span>ansi_term::Style;
 	<span class="kw">use </span>std::fmt;
-	<span class="kw">use </span>tracing_subscriber::fmt::time::FormatTime;
+	<span class="kw">use </span>tracing_subscriber::fmt::{format, time::FormatTime};
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write&lt;T&gt;(timer: T, writer: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>fmt::Write, with_ansi: bool) -&gt; fmt::Result
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write&lt;T&gt;(
+		timer: T,
+		writer: <span class="kw-2">&amp;mut </span>format::Writer&lt;<span class="lifetime">&#39;_</span>&gt;,
+		with_ansi: bool,
+	) -&gt; fmt::Result
 	<span class="kw">where
 		</span>T: FormatTime,
 	{
@@ -779,11 +785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>S: Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">&#39;lookup</span>&gt; LookupSpan&lt;<span class="lifetime">&#39;lookup</span>&gt;,
 	N: <span class="kw">for</span>&lt;<span class="lifetime">&#39;writer</span>&gt; FormatFields&lt;<span class="lifetime">&#39;writer</span>&gt; + <span class="lifetime">&#39;static</span>,
 {
-	<span class="kw">fn </span>format_fields&lt;R: RecordFields&gt;(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		writer: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="kw">dyn </span>fmt::Write,
-		fields: R,
-	) -&gt; fmt::Result {
+	<span class="kw">fn </span>format_fields&lt;R: RecordFields&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, writer: format::Writer&lt;<span class="lifetime">&#39;_</span>&gt;, fields: R) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
 			CustomFmtContext::FmtContext(fmt_ctx) =&gt; fmt_ctx.format_fields(writer, fields),
 			CustomFmtContext::ContextWithFormatFields(_ctx, fmt_fields) =&gt;
@@ -822,7 +824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>ControlCodeSanitizer&lt;<span class="lifetime">&#39;a</span>&gt; {
 	sanitize: bool,
 	buffer: String,
-	inner_writer: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="kw">dyn </span>fmt::Write,
+	inner_writer: format::Writer&lt;<span class="lifetime">&#39;a</span>&gt;,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; fmt::Write <span class="kw">for </span>ControlCodeSanitizer&lt;<span class="lifetime">&#39;a</span>&gt; {
@@ -852,7 +854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ControlCodeSanitizer&lt;<span class="lifetime">&#39;a</span>&gt; {
 	<span class="doccomment">/// Creates a new instance.
-	</span><span class="kw">fn </span>new(sanitize: bool, inner_writer: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="kw">dyn </span>fmt::Write) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">fn </span>new(sanitize: bool, inner_writer: format::Writer&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ sanitize, inner_writer, buffer: String::new() }
 	}
 

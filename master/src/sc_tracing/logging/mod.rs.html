@@ -932,7 +932,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>N: <span class="kw">for</span>&lt;<span class="lifetime">&#39;writer</span>&gt; FormatFields&lt;<span class="lifetime">&#39;writer</span>&gt; + <span class="lifetime">&#39;static</span>,
 	E: FormatEvent&lt;Registry, N&gt; + <span class="lifetime">&#39;static</span>,
-	W: MakeWriter + <span class="lifetime">&#39;static</span>,
+	W: <span class="kw">for</span>&lt;<span class="lifetime">&#39;writer</span>&gt; MakeWriter&lt;<span class="lifetime">&#39;writer</span>&gt; + <span class="lifetime">&#39;static</span>,
 	F: layer::Layer&lt;Formatter&lt;N, E, W&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 	FmtLayer&lt;Registry, N, E, W&gt;: layer::Layer&lt;Registry&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {

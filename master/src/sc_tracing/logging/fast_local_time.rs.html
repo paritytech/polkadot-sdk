@@ -327,7 +327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>chrono::{Datelike, Timelike};
 <span class="kw">use </span>std::{cell::RefCell, fmt::Write, time::SystemTime};
-<span class="kw">use </span>tracing_subscriber::fmt::time::FormatTime;
+<span class="kw">use </span>tracing_subscriber::fmt::{format, time::FormatTime};
 
 <span class="doccomment">/// A structure which, when `Display`d, will print out the current local time.
 </span><span class="attr">#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
@@ -385,7 +385,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>FormatTime <span class="kw">for </span>FastLocalTime {
-	<span class="kw">fn </span>format_time(<span class="kw-2">&amp;</span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Write) -&gt; std::fmt::Result {
+	<span class="kw">fn </span>format_time(<span class="kw-2">&amp;</span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span>format::Writer&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
 		<span class="kw">const </span>TIMESTAMP_PARTIAL_LENGTH: usize = <span class="string">&quot;0000-00-00 00:00:00&quot;</span>.len();
 
 		<span class="kw">let </span>elapsed = SystemTime::now()
@@ -437,8 +437,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>FastLocalTime {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="self">self</span>.format_time(w)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>w: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
+		<span class="self">self</span>.format_time(<span class="kw-2">&amp;mut </span>format::Writer::new(<span class="kw-2">&amp;mut </span>w))
 	}
 }
 
