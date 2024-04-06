@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712349057455,
+  "lastUpdate": 1712364266732,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1637,6 +1637,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.648293687759999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sergej Sakac",
+            "username": "Szegoo",
+            "email": "73715684+Szegoo@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "1c85bfe901741f9c456af1ac92008d647660a2f4",
+          "message": "Broker: sale price runtime api (#3485)\n\nDefines a runtime api for `pallet-broker` for getting the current price\nof a core if there is an ongoing sale.\n\nCloses: #3413\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-05T23:29:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c85bfe901741f9c456af1ac92008d647660a2f4"
+        },
+        "date": 1712364242929,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.626425716360002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18514961744666664,
             "unit": "seconds"
           }
         ]
