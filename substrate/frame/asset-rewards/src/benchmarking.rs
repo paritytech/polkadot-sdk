@@ -333,5 +333,42 @@ mod benchmarks {
 		assert_eq!(balance_after, balance_before - 10u32.into());
 	}
 
+	#[benchmark]
+	fn withdraw_reward_tokens() {
+		use super::*;
+
+		let admin = T::BenchmarkHelper::to_account_id(1);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::WithId(1));
+		let reward_asset = T::BenchmarkHelper::to_asset_id(NativeOrWithId::Native);
+		create_asset::<T>(&admin, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
+		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
+
+		T::Assets::set_balance(reward_asset.clone(), &admin, 100000u32.into());
+		assert_ok!(AssetRewards::<T>::create_pool(
+			SystemOrigin::Signed(admin.clone()).into(),
+			Box::new(staked_asset.clone()),
+			Box::new(reward_asset.clone()),
+			100u32.into(),
+			200u32.into(),
+			None,
+		));
+
+		let balance_before = T::Assets::balance(reward_asset.clone(), &admin);
+
+		assert_ok!(AssetRewards::<T>::deposit_reward_tokens(
+			SystemOrigin::Signed(admin.clone()).into(),
+			0u32.into(),
+			10u32.into()
+		));
+
+		#[extrinsic_call]
+		_(SystemOrigin::Signed(admin.clone()), 0u32.into(), 5u32.into());
+
+		let balance_after = T::Assets::balance(reward_asset.clone(), &admin);
+
+		// Deposited 10, withdrew 5
+		assert_eq!(balance_after, balance_before - 5u32.into());
+	}
+
 	impl_benchmark_test_suite!(AssetRewards, crate::mock::new_test_ext(), crate::mock::MockRuntime);
 }
