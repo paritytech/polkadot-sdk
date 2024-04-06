@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712402490844,
+  "lastUpdate": 1712416285730,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1763,6 +1763,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.761446654873328,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Squirrel",
+            "username": "gilescope",
+            "email": "gilescope@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "994003854363b3c5fd0d7343f93aa1e54edb1ad0",
+          "message": "Major bump of tracing-subscriber version (#3891)\n\nI don't think there are any more releases to the 0.2.x versions, so best\nwe're on the 0.3.x release.\n\nNo change on the benchmarks, fast local time is still just as fast as\nbefore:\n\nnew version bench:\n```\nfast_local_time         time:   [30.551 ns 30.595 ns 30.668 ns]\n```\n\nold version bench:\n```\nfast_local_time         time:   [30.598 ns 30.646 ns 30.723 ns]\n```\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-06T13:54:09Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/994003854363b3c5fd0d7343f93aa1e54edb1ad0"
+        },
+        "date": 1712416262438,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.417551235580001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17464516855333337,
             "unit": "seconds"
           }
         ]
