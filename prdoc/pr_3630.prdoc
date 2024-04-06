@@ -1,0 +1,11 @@
+title: "Use lookahead collator for all the parachains"
+
+doc:
+  - audience: Node Operator
+    description: |
+      Promotes all the parachains supported by `polkadot-parachain`, including all the systems
+      parachains, to use the lookahead Aura collator instead of the generic one.
+
+crates:
+  - name: polkadot-parachain-bin
+    bump: major
