@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"attr":["import_section","pallet","pallet_section"],"mod":["arithmetic","deps","derive","pallet_macros","prelude","primitives","runtime","testing_prelude","traits"]};
+window.SIDEBAR_ITEMS = {"mod":["arithmetic","deps","derive","pallet_macros","prelude","primitives","runtime","testing_prelude","traits"]};
