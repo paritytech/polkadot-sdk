@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712348776493,
+  "lastUpdate": 1712363963312,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2027,6 +2027,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15573807504,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sergej Sakac",
+            "username": "Szegoo",
+            "email": "73715684+Szegoo@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "1c85bfe901741f9c456af1ac92008d647660a2f4",
+          "message": "Broker: sale price runtime api (#3485)\n\nDefines a runtime api for `pallet-broker` for getting the current price\nof a core if there is an ongoing sale.\n\nCloses: #3413\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-05T23:29:35Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c85bfe901741f9c456af1ac92008d647660a2f4"
+        },
+        "date": 1712363940562,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.893333333326,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026142778859999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15066404032000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009210010906666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011864675520000001,
             "unit": "seconds"
           }
         ]
