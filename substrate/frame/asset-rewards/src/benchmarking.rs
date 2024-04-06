@@ -82,7 +82,7 @@ mod benchmarks {
 	fn create_pool() {
 		use super::*;
 
-		let admin: T::AccountId = T::BenchmarkHelper::to_account_id(1);
+		let admin = T::BenchmarkHelper::to_account_id(1);
 		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
 		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
 		create_asset::<T>(&admin, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
@@ -109,6 +109,34 @@ mod benchmarks {
 				pool_id: 0u32.into(),
 			}
 			.into(),
+		);
+	}
+
+	#[benchmark]
+	fn stake() {
+		use super::*;
+
+		let admin = T::BenchmarkHelper::to_account_id(1);
+		let staker = T::BenchmarkHelper::to_account_id(2);
+		let staked_asset = T::BenchmarkHelper::to_asset_id(0);
+		let reward_asset = T::BenchmarkHelper::to_asset_id(1);
+		create_asset::<T>(&staker, &staked_asset, T::Assets::minimum_balance(staked_asset.clone()));
+		create_asset::<T>(&admin, &reward_asset, T::Assets::minimum_balance(reward_asset.clone()));
+
+		assert_ok!(AssetRewards::<T>::create_pool(
+			SystemOrigin::Signed(admin.clone()).into(),
+			Box::new(staked_asset.clone()),
+			Box::new(reward_asset.clone()),
+			100u32.into(),
+			200u32.into(),
+			None,
+		));
+
+		#[extrinsic_call]
+		_(SystemOrigin::Signed(staker.clone()), 0u32.into(), 100u32.into());
+
+		assert_last_event::<T>(
+			Event::Staked { who: staker, pool_id: 0u32.into(), amount: 100u32.into() }.into(),
 		);
 	}
 
