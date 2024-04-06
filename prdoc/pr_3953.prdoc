@@ -8,7 +8,7 @@ doc:
     description: |
       Change traits bound for `RemoteExternalities` types as `RemoteExternalities`,
       `Mode`, `OnlineConfig`, `Snapshot` to use `Hash` or `HashOutput`
-      instead of `BlockT
+      instead of `BlockT`
 
 crates: 
 - name: frame-remote-externalities
