@@ -19,7 +19,7 @@
 
 use super::*;
 use crate::Pallet as AssetRewards;
-use frame_benchmarking::{v2::*, whitelisted_caller};
+use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
 	traits::{
