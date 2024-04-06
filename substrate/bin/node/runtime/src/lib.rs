@@ -31,7 +31,7 @@ use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, get_preset},
 	instances::{Instance1, Instance2},
 	ord_parameter_types,
 	pallet_prelude::Get,
@@ -71,6 +71,9 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use pallet_tx_pause::RuntimeCallNameOf;
@@ -320,6 +323,8 @@ impl pallet_example_tasks::Config for Runtime {
 	type WeightInfo = pallet_example_tasks::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_example_mbm::Config for Runtime {}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -547,6 +552,9 @@ parameter_types! {
 	pub MaximumMultiplier: Multiplier = Bounded::max_value();
 }
 
+// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+// <https://github.com/paritytech/polkadot-sdk/issues/226>
+#[allow(deprecated)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
@@ -2439,6 +2447,9 @@ mod runtime {
 
 	#[runtime::pallet_index(77)]
 	pub type SkipFeelessPayment = pallet_skip_feeless_payment;
+
+	#[runtime::pallet_index(78)]
+	pub type PalletExampleMbms = pallet_example_mbm;
 }
 
 /// The address format for describing accounts.
@@ -2597,6 +2608,7 @@ mod benches {
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
 		[pallet_safe_mode, SafeMode]
+		[pallet_example_mbm, PalletExampleMbms]
 	);
 }
 
@@ -3182,12 +3194,16 @@ impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(id, |_| None)
+		}
+
+		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+			vec![]
 		}
 	}
 }
