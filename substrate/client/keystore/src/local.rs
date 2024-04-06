@@ -458,10 +458,12 @@ impl Keystore for LocalKeystore {
 				.map(|pair| pair.acss_recover(pok_bytes.clone()));
 				
 			if let Some(pair) = recovered {
-				pubkey = Some(pair.expect("should be ok").public());
+				let pair = pair.expect("should be ok");
+				self.0.write().insert_ephemeral_pair(&pair, std::str::from_utf8(b"").unwrap(), key_type);
+				pubkey = Some(pair.public());
 			}
-			// if recover.is_some() {
-			// 	self.0.insert_ephemeral_pair(recovered, pok_bytes, key_type);
+			// if pubkey.is_some() {
+			// 	self.0.insert_ephemeral_pair(, pok_bytes, key_type);
 			// } // else error?
 
 			Ok(pubkey)

@@ -771,6 +771,11 @@ where
 			return Ok(())
 		};
 
+		// log!(target: LOG_TARGET, "trying to sign the round number with ETF key");
+		// // let's try to sign the round number with the ETF key
+		// let etf_signature = match self.key_store.sign()
+
+
 		let commitment = Commitment { payload, block_number: target_number, validator_set_id };
 		let encoded_commitment = commitment.encode();
 
