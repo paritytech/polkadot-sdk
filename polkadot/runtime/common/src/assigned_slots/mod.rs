@@ -192,7 +192,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			MaxTemporarySlots::<T>::put(&self.max_permanent_slots);
+			MaxPermanentSlots::<T>::put(&self.max_permanent_slots);
 			MaxTemporarySlots::<T>::put(&self.max_temporary_slots);
 		}
 	}
@@ -451,7 +451,7 @@ pub mod pallet {
 		pub fn set_max_permanent_slots(origin: OriginFor<T>, slots: u32) -> DispatchResult {
 			ensure_root(origin)?;
 
-			MaxTemporarySlots::<T>::put(slots);
+			MaxPermanentSlots::<T>::put(slots);
 
 			Self::deposit_event(Event::<T>::MaxPermanentSlotsChanged { slots });
 			Ok(())
