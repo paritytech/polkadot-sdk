@@ -18,6 +18,10 @@
 use crate::{self as frame_system, *};
 use frame_support::{derive_impl, parameter_types};
 use sp_runtime::{BuildStorage, Perbill};
+use core::{fmt::Display, ops::{Add, AddAssign, BitAnd, BitOr, BitXor, Deref, Div, DivAssign, Mul, MulAssign, Not, Rem, RemAssign, Shl, Shr, Sub, SubAssign}};
+use num_traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedShl, CheckedShr, CheckedSub, Num, NumCast, PrimInt, Saturating, ToPrimitive};
+use sp_runtime::{Deserialize, Serialize};
+use codec::{Compact, CompactAs, Decode, Encode, MaxEncodedLen};
 
 type Block = mocking::MockBlock<Test>;
 
@@ -78,6 +82,423 @@ impl OnKilledAccount<u64> for RecordKilled {
 	}
 }
 
+#[derive(Encode, Decode, Copy, Clone, PartialOrd, Ord, Eq, PartialEq, TypeInfo, Debug, MaxEncodedLen, Serialize, Deserialize)]
+pub struct Nonce(u64);
+
+impl Deref for Nonce {
+	type Target = u64;
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+impl Default for Nonce {
+	fn default() -> Self {
+		Self(System::block_number())
+	}
+}
+impl From<u32> for Nonce {
+	fn from(value: u32) -> Self {
+		Self(value as u64)
+	}
+}
+impl From<u16> for Nonce {
+	fn from(value: u16) -> Self {
+		Self(value as u64)
+	}
+}
+impl CheckedNeg for Nonce {
+	fn checked_neg(&self) -> Option<Self> {
+		self.0.checked_neg().map(Self)
+	}
+}
+impl CheckedRem for Nonce {
+	fn checked_rem(&self, rhs: &Self) -> Option<Self> {
+		self.0.checked_rem(rhs.0).map(Self)
+	}
+}
+
+impl CheckedShr for Nonce {
+	fn checked_shr(&self, n: u32) -> Option<Self> {
+		self.0.checked_shr(n).map(Self)
+	}
+}
+
+impl CheckedShl for Nonce {
+	fn checked_shl(&self, n: u32) -> Option<Self> {
+		self.0.checked_shl(n).map(Self)
+	}
+}
+
+impl Rem for Nonce {
+	type Output = Self;
+	fn rem(self, rhs: Self) -> Self {
+		Self(self.0 % rhs.0)
+	}
+}
+
+impl Rem<u32> for Nonce {
+	type Output = Self;
+	fn rem(self, rhs: u32) -> Self {
+		Self(self.0 % (rhs as u64))
+	}
+}
+
+impl Shr<u32> for Nonce {
+	type Output = Self;
+	fn shr(self, rhs: u32) -> Self {
+		Self(self.0 >> rhs)
+	}
+}
+
+impl Shr<usize> for Nonce {
+	type Output = Self;
+	fn shr(self, rhs: usize) -> Self {
+		Self(self.0 >> rhs)
+	}
+}
+
+impl Shl<u32> for Nonce {
+	type Output = Self;
+	fn shl(self, rhs: u32) -> Self {
+		Self(self.0 << rhs)
+	}
+}
+
+impl Shl<usize> for Nonce {
+	type Output = Self;
+	fn shl(self, rhs: usize) -> Self {
+		Self(self.0 << rhs)
+	}
+}
+
+impl RemAssign for Nonce {
+	fn rem_assign(&mut self, rhs: Self) {
+		self.0 %= rhs.0
+	}
+}
+
+impl DivAssign for Nonce {
+	fn div_assign(&mut self, rhs: Self) {
+		self.0 /= rhs.0
+	}
+}
+
+impl MulAssign for Nonce {
+	fn mul_assign(&mut self, rhs: Self) {
+		self.0 *= rhs.0
+	}
+}
+
+impl SubAssign for Nonce {
+	fn sub_assign(&mut self, rhs: Self) {
+		self.0 -= rhs.0
+	}
+}
+
+impl AddAssign for Nonce {
+	fn add_assign(&mut self, rhs: Self) {
+		self.0 += rhs.0
+	}
+}
+
+impl From<u8> for Nonce {
+	fn from(value: u8) -> Self {
+		Self(value as u64)
+	}
+}
+
+impl Display for Nonce {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		write!(f, "{}", self.0)
+	}
+}
+
+impl From<Nonce> for u32 {
+	fn from(n: Nonce) -> u32 {
+		n.0 as u32
+	}
+}
+
+impl From<Nonce> for u16 {
+	fn from(n: Nonce) -> u16 {
+		n.0 as u16
+	}
+}
+
+impl From<Nonce> for u128 {
+	fn from(n: Nonce) -> u128 {
+		n.0 as u128
+	}
+}
+
+impl From<Nonce> for usize {
+	fn from(n: Nonce) -> usize {
+		n.0 as usize
+	}
+}
+
+impl From<u64> for Nonce {
+	fn from(n: u64) -> Nonce {
+		Nonce(n)
+	}
+}
+
+impl From<u128> for Nonce {
+	fn from(n: u128) -> Nonce {
+		Nonce(n as u64)
+	}
+}
+
+impl From<usize> for Nonce {
+	fn from(n: usize) -> Nonce {
+		Nonce(n as u64)
+	}
+}
+
+impl From<Nonce> for u8 {
+	fn from(n: Nonce) -> u8 {
+		n.0 as u8
+	}
+}
+
+impl From<Nonce> for u64 {
+	fn from(n: Nonce) -> u64 {
+		n.0
+	}
+}
+
+impl Zero for Nonce {
+	fn zero() -> Self {
+		Nonce(0)
+	}
+
+	fn is_zero(&self) -> bool {
+		self.0 == 0
+	}
+}
+
+impl Bounded for Nonce {
+	fn min_value() -> Self {
+		Nonce(u64::min_value())
+	}
+
+	fn max_value() -> Self {
+		Nonce(u64::max_value())
+	}
+}
+
+impl PrimInt for Nonce {
+	fn count_ones(self) -> u32 {
+		self.0.count_ones()
+	}
+
+	fn leading_zeros(self) -> u32 {
+		self.0.leading_zeros()
+	}
+
+	fn trailing_zeros(self) -> u32 {
+		self.0.trailing_zeros()
+	}
+
+	fn rotate_left(self, n: u32) -> Self {
+		Nonce(self.0.rotate_left(n))
+	}
+
+	fn rotate_right(self, n: u32) -> Self {
+		Nonce(self.0.rotate_right(n))
+	}
+
+	fn swap_bytes(self) -> Self {
+		Nonce(self.0.swap_bytes())
+	}
+
+	fn from_be(x: Self) -> Self {
+		Nonce(u64::from_be(x.0))
+	}
+
+	fn from_le(x: Self) -> Self {
+		Nonce(u64::from_le(x.0))
+	}
+
+	fn to_be(self) -> Self {
+		Nonce(self.0.to_be())
+	}
+
+	fn to_le(self) -> Self {
+		Nonce(self.0.to_le())
+	}
+
+	fn count_zeros(self) -> u32 {
+		self.0.count_zeros()
+	}
+	
+	fn signed_shl(self, n: u32) -> Self {
+		Nonce(self.0.wrapping_shl(n))
+	}
+
+	fn signed_shr(self, n: u32) -> Self {
+		Nonce(self.0.wrapping_shr(n))
+	}
+
+	fn unsigned_shl(self, n: u32) -> Self {
+		Nonce(self.0.wrapping_shl(n))
+	}
+
+	fn unsigned_shr(self, n: u32) -> Self {
+		Nonce(self.0.wrapping_shr(n))
+	}
+
+	fn pow(self, exp: u32) -> Self {
+		Nonce(self.0.pow(exp))
+	}
+}
+
+impl Saturating for Nonce {
+	fn saturating_add(self, rhs: Self) -> Self {
+		Nonce(self.0.saturating_add(rhs.0))
+	}
+
+	fn saturating_sub(self, rhs: Self) -> Self {
+		Nonce(self.0.saturating_sub(rhs.0))
+	}
+}
+
+impl Div for Nonce {
+	type Output = Self;
+	fn div(self, rhs: Self) -> Self {
+		Nonce(self.0 / rhs.0)
+	}
+}
+
+impl Mul for Nonce {
+	type Output = Self;
+	fn mul(self, rhs: Self) -> Self {
+		Nonce(self.0 * rhs.0)
+	}
+}
+
+impl CheckedDiv for Nonce {
+	fn checked_div(&self, rhs: &Self) -> Option<Self> {
+		self.0.checked_div(rhs.0).map(Self)
+	}
+}
+
+impl CheckedMul for Nonce {
+	fn checked_mul(&self, rhs: &Self) -> Option<Self> {
+		self.0.checked_mul(rhs.0).map(Self)
+	}
+}
+
+impl Sub for Nonce {
+	type Output = Self;
+	fn sub(self, rhs: Self) -> Self {
+		Nonce(self.0 - rhs.0)
+	}
+}
+
+impl CheckedSub for Nonce {
+	fn checked_sub(&self, rhs: &Self) -> Option<Self> {
+		self.0.checked_sub(rhs.0).map(Self)
+	}
+}
+
+impl Add for Nonce {
+	type Output = Self;
+	fn add(self, rhs: Self) -> Self {
+		Nonce(self.0 + rhs.0)
+	}
+}
+
+impl CheckedAdd for Nonce {
+	fn checked_add(&self, rhs: &Self) -> Option<Self> {
+		self.0.checked_add(rhs.0).map(Self)
+	}
+}
+
+impl BitAnd for Nonce {
+	type Output = Self;
+	fn bitand(self, rhs: Self) -> Self {
+		Nonce(self.0 & rhs.0)
+	}
+}
+
+impl BitOr for Nonce {
+	type Output = Self;
+	fn bitor(self, rhs: Self) -> Self {
+		Nonce(self.0 | rhs.0)
+	}
+}
+
+impl BitXor for Nonce {
+	type Output = Self;
+	fn bitxor(self, rhs: Self) -> Self {
+		Nonce(self.0 ^ rhs.0)
+	}
+}
+
+impl One for Nonce {
+	fn one() -> Self {
+		Nonce(1)
+	}
+}
+
+impl Not for Nonce {
+	type Output = Self;
+	fn not(self) -> Self {
+		Nonce(!self.0)
+	}
+}
+
+impl NumCast for Nonce {
+	fn from<T: ToPrimitive>(n: T) -> Option<Self> {
+		n.to_u64().map(Nonce)
+	}
+}
+
+impl Num for Nonce {
+	type FromStrRadixErr = <u64 as Num>::FromStrRadixErr;
+
+	fn from_str_radix(s: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+		u64::from_str_radix(s, radix).map(Nonce)
+	}
+}
+
+impl ToPrimitive for Nonce {
+	fn to_i64(&self) -> Option<i64> {
+		self.0.to_i64()
+	}
+
+	fn to_u64(&self) -> Option<u64> {
+		Some(self.0)
+	}
+
+	fn to_i128(&self) -> Option<i128> {
+		self.0.to_i128()
+	}
+
+	fn to_u128(&self) -> Option<u128> {
+		Some(self.0 as u128)
+	}
+}
+
+impl From<Compact<Nonce>> for Nonce {
+	fn from(c: Compact<Nonce>) -> Self {
+		c.0
+	}
+}
+
+impl CompactAs for Nonce {
+	type As = u64;
+
+	fn encode_as(&self) -> &Self::As {
+		&self.0
+	}
+
+	fn decode_from(val: Self::As) -> Result<Self, codec::Error> {
+		Ok(Nonce(val))
+	}
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type BlockWeights = RuntimeBlockWeights;
@@ -87,6 +508,7 @@ impl Config for Test {
 	type AccountData = u32;
 	type OnKilledAccount = RecordKilled;
 	type MultiBlockMigrator = MockedMigrator;
+	type Nonce = Nonce;
 }
 
 parameter_types! {

@@ -102,7 +102,7 @@ fn stored_map_works() {
 
 		assert_eq!(
 			Account::<Test>::get(0),
-			AccountInfo { nonce: 0, providers: 1, consumers: 0, sufficients: 0, data: 42 }
+			AccountInfo { nonce: 0u32.into(), providers: 1, consumers: 0, sufficients: 0, data: 42 }
 		);
 
 		assert_ok!(System::inc_consumers(&0));
@@ -126,26 +126,26 @@ fn provider_ref_handover_to_self_sufficient_ref_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Created);
 		System::inc_account_nonce(&0);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		// a second reference coming and going doesn't change anything.
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		// a provider reference coming and going doesn't change anything.
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		// decreasing the providers with a self-sufficient present should not delete the account
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		// decreasing the sufficients should delete the account
 		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Reaped);
-		assert_eq!(System::account_nonce(&0), 0);
+		assert_eq!(System::account_nonce(&0), 0u32.into());
 	});
 }
 
@@ -154,26 +154,26 @@ fn self_sufficient_ref_handover_to_provider_ref_works() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Created);
 		System::inc_account_nonce(&0);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		// a second reference coming and going doesn't change anything.
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		// a sufficient reference coming and going doesn't change anything.
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		// decreasing the sufficients with a provider present should not delete the account
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_sufficients(&0), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		// decreasing the providers should delete the account
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Reaped);
-		assert_eq!(System::account_nonce(&0), 0);
+		assert_eq!(System::account_nonce(&0), 0u32.into());
 	});
 }
 
@@ -182,7 +182,7 @@ fn sufficient_cannot_support_consumer() {
 	new_test_ext().execute_with(|| {
 		assert_eq!(System::inc_sufficients(&0), IncRefStatus::Created);
 		System::inc_account_nonce(&0);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 		assert_noop!(System::inc_consumers(&0), DispatchError::NoProviders);
 
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
@@ -198,18 +198,18 @@ fn provider_required_to_support_consumer() {
 
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Created);
 		System::inc_account_nonce(&0);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		assert_eq!(System::inc_providers(&0), IncRefStatus::Existed);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Exists);
-		assert_eq!(System::account_nonce(&0), 1);
+		assert_eq!(System::account_nonce(&0), 1u32.into());
 
 		assert_ok!(System::inc_consumers(&0));
 		assert_noop!(System::dec_providers(&0), DispatchError::ConsumerRemaining);
 
 		System::dec_consumers(&0);
 		assert_eq!(System::dec_providers(&0).unwrap(), DecRefStatus::Reaped);
-		assert_eq!(System::account_nonce(&0), 0);
+		assert_eq!(System::account_nonce(&0), 0u32.into());
 	});
 }
 
@@ -857,4 +857,21 @@ fn last_runtime_upgrade_spec_version_usage() {
 			Weight::zero()
 		}
 	}
+}
+
+#[test]
+fn test_default_account_nonce() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(2);
+		assert_eq!(System::account_nonce(&1), 2u32.into());
+
+		System::inc_account_nonce(&1);
+		assert_eq!(System::account_nonce(&1), 3u32.into());
+
+		System::set_block_number(5);
+		assert_eq!(System::account_nonce(&1), 3u32.into());
+
+		Account::<Test>::remove(&1);
+		assert_eq!(System::account_nonce(&1), 5u32.into());
+	});
 }

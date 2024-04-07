@@ -5805,6 +5805,7 @@ dependencies = [
  "docify",
  "frame-support",
  "log",
+ "num-traits",
  "parity-scale-codec",
  "scale-info",
  "serde",
