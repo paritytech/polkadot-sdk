@@ -18,8 +18,8 @@
 use crate::{
 	common::API_VERSION_ATTRIBUTE,
 	utils::{
-		extract_all_signature_types, extract_block_type_from_trait_path,
-		extract_idents_from_type_path, extract_impl_trait,
+		extract_all_signature_types, extract_angle_bracketed_idents_from_type_path,
+		extract_block_type_from_trait_path, extract_impl_trait,
 		extract_parameter_names_types_and_borrows, generate_crate_access,
 		generate_runtime_mod_name_for_trait, parse_runtime_api_version, prefix_function_with_trait,
 		versioned_trait_name, AllowSelfRefInParameters, RequireQualifiedTraitPath,
@@ -821,10 +821,10 @@ impl CheckTraitImpls {
 
 impl<'ast> Visit<'ast> for CheckTraitImpls {
 	fn visit_type_path(&mut self, i: &'ast syn::TypePath) {
-		if extract_idents_from_type_path(i).iter().any(|i| *i == "Self") {
+		if extract_angle_bracketed_idents_from_type_path(i).iter().any(|i| *i == "Self") {
 			self.errors.push(Error::new(
 				i.span(),
-				"Usage of `Self` is not allowed in the scope of `impl_runtime_apis!`",
+				"`Self` can not be used as a type argument in the scope of `impl_runtime_apis!`. Use `Runtime` instead.",
 			));
 		}
 

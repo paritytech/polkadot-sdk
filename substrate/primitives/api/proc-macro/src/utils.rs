@@ -242,16 +242,16 @@ pub fn extract_impl_trait(impl_: &ItemImpl, require: RequireQualifiedTraitPath) 
 }
 
 /// Extracts all unique `Ident`'s from the given `TypePath`
-pub fn extract_idents_from_type_path(type_path: &TypePath) -> HashSet<&Ident> {
+pub fn extract_angle_bracketed_idents_from_type_path(type_path: &TypePath) -> HashSet<&Ident> {
 	let mut idents = HashSet::new();
 
 	for segment in &type_path.path.segments {
-		idents.insert(&segment.ident);
-
 		if let PathArguments::AngleBracketed(args) = &segment.arguments {
 			args.args.iter().for_each(|arg| {
 				if let GenericArgument::Type(Type::Path(p)) = arg {
-					idents.extend(extract_idents_from_type_path(p));
+					if let Some(ident) = p.path.get_ident() {
+						idents.insert(ident);
+					}
 				}
 			});
 		}
@@ -350,14 +350,11 @@ mod tests {
 	}
 
 	#[test]
-	fn check_extract_idents_from_type_path() {
+	fn check_extract_angle_bracketed_idents_from_type_path() {
 		let type_path: TypePath = parse_quote!(polkadot_primitives::types::HeaderFor<Self>);
-		let idents = extract_idents_from_type_path(&type_path);
+		let idents = extract_angle_bracketed_idents_from_type_path(&type_path);
 
-		assert_eq!(idents.len(), 4);
-		assert!(idents.contains(&&format_ident!("polkadot_primitives")));
-		assert!(idents.contains(&&format_ident!("types")));
-		assert!(idents.contains(&&format_ident!("HeaderFor")));
+		assert_eq!(idents.len(), 1);
 		assert!(idents.contains(&&format_ident!("Self")));
 	}
 }
