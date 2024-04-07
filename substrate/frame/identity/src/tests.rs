@@ -195,6 +195,20 @@ fn infoof_ten() -> IdentityInfo<MaxAdditionalFields> {
 	}
 }
 
+fn infoof_ten_email_equals_32_bytes_limit() -> IdentityInfo<MaxAdditionalFields> {
+	IdentityInfo {
+		email: Data::Raw(b"3232323232323232323232323@me.com".to_vec().try_into().unwrap()),
+		..Default::default()
+	}
+}
+
+fn infoof_ten_email_longer_than_32_bytes_limit() -> IdentityInfo<MaxAdditionalFields> {
+	IdentityInfo {
+		email: Data::Raw(b"33333333333333333333333333@me.com".to_vec().try_into().unwrap()),
+		..Default::default()
+	}
+}
+
 fn infoof_twenty() -> IdentityInfo<MaxAdditionalFields> {
 	IdentityInfo {
 		display: Data::Raw(b"twenty".to_vec().try_into().unwrap()),
@@ -1271,6 +1285,39 @@ fn set_username_with_acceptance_should_work() {
 		);
 		// Check reverse lookup
 		assert_eq!(AccountOfUsername::<Test>::get::<&Username<Test>>(&full_username), Some(who));
+	});
+}
+
+#[test]
+fn valid_length_raw_data_values_less_than_or_equal_to_32_bytes_limit_should_be_accepted() {
+	new_test_ext().execute_with(|| {
+		let [_, _, _, _, ten, _, _, _] = accounts();
+		let ten_info = infoof_ten_email_equals_32_bytes_limit();
+		let ten_id_deposit = id_deposit(&ten_info);
+		assert!(Identity::identity(ten.clone()).is_none());
+		assert_eq!(Balances::free_balance(ten.clone()), 1000);
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(ten_info.clone())
+		));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - ten_id_deposit);
+		assert_eq!(Balances::reserved_balance(ten.clone()), ten_id_deposit);
+		assert!(Identity::has_identity(&ten, IdentityField::Email as u64));
+	});
+}
+
+#[test]
+fn invalid_length_raw_data_values_longer_than_32_bytes_limit_should_be_rejected() {
+	new_test_ext().execute_with(|| {
+		let [_, _, _, _, ten, _, _, _] = accounts();
+		let ten_info = infoof_ten_email_longer_than_32_bytes_limit();
+		let ten_id_deposit = id_deposit(&ten_info);
+		assert!(Identity::identity(ten.clone()).is_none());
+		assert_eq!(Balances::free_balance(ten.clone()), 1000);
+		assert_ok!(Identity::set_identity(
+			RuntimeOrigin::signed(ten.clone()),
+			Box::new(ten_info.clone())
+		));
 	});
 }
 
