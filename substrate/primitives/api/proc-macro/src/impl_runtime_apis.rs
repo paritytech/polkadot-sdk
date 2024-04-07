@@ -805,15 +805,15 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 	))
 }
 
-/// Check trait implementations
+/// Checks that a trait implementation is in the format we expect.
 struct CheckTraitImpl {
 	errors: Vec<Error>,
 }
 
 impl CheckTraitImpl {
-	/// Check the given trait implementations.
+	/// Check the given trait implementation.
 	///
-	/// All errors are collected and returned at the end.
+	/// All errors will be collected in `self.errors`.
 	fn check(&mut self, trait_: &ItemImpl) {
 		visit::visit_item_impl(self, trait_)
 	}
@@ -860,6 +860,7 @@ pub fn impl_runtime_apis_impl(input: proc_macro::TokenStream) -> proc_macro::Tok
 
 fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
 	check_trait_impls(api_impls)?;
+
 	let dispatch_impl = generate_dispatch_function(api_impls)?;
 	let api_impls_for_runtime = generate_api_impl_for_runtime(api_impls)?;
 	let base_runtime_api = generate_runtime_api_base_structures()?;
