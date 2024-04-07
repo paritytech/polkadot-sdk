@@ -806,11 +806,11 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 }
 
 /// Check trait implementations
-struct CheckTraitImpls {
+struct CheckTraitImpl {
 	errors: Vec<Error>,
 }
 
-impl CheckTraitImpls {
+impl CheckTraitImpl {
 	/// Check the given trait implementations.
 	///
 	/// All errors are collected and returned at the end.
@@ -819,7 +819,7 @@ impl CheckTraitImpls {
 	}
 }
 
-impl<'ast> Visit<'ast> for CheckTraitImpls {
+impl<'ast> Visit<'ast> for CheckTraitImpl {
 	fn visit_type_path(&mut self, i: &'ast syn::TypePath) {
 		if extract_angle_bracketed_idents_from_type_path(i).iter().any(|i| *i == "Self") {
 			self.errors.push(Error::new(
@@ -834,7 +834,7 @@ impl<'ast> Visit<'ast> for CheckTraitImpls {
 
 /// Check all trait implementations are in the format we expect.
 fn check_trait_impls(impls: &[ItemImpl]) -> Result<()> {
-	let mut checker = CheckTraitImpls { errors: Vec::new() };
+	let mut checker = CheckTraitImpl { errors: Vec::new() };
 
 	impls.iter().for_each(|i| checker.check(i));
 
