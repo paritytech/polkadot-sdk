@@ -63,7 +63,7 @@ const SNAPSHOT_VERSION: SnapshotVersion = Compact(3);
 
 /// The snapshot that we store on disk.
 #[derive(Decode, Encode)]
-struct Snapshot<H: HashOutput> {
+struct Snapshot<H> {
 	snapshot_version: SnapshotVersion,
 	state_version: StateVersion,
 	block_hash: H,
@@ -127,7 +127,7 @@ impl<H: Hash> DerefMut for RemoteExternalities<H> {
 
 /// The execution mode.
 #[derive(Clone)]
-pub enum Mode<H: HashOutput> {
+pub enum Mode<H> {
 	/// Online. Potentially writes to a snapshot file.
 	Online(OnlineConfig<H>),
 	/// Offline. Uses a state snapshot file and needs not any client config.
@@ -221,7 +221,7 @@ impl From<HttpClient> for Transport {
 ///
 /// A state snapshot config may be present and will be written to in that case.
 #[derive(Clone)]
-pub struct OnlineConfig<H: HashOutput> {
+pub struct OnlineConfig<H> {
 	/// The block hash at which to get the runtime state. Will be latest finalized head if not
 	/// provided.
 	pub at: Option<H>,
