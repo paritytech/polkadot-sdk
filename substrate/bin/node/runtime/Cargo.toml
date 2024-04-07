@@ -66,6 +66,7 @@ frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api",
 frame-try-runtime = { path = "../../../frame/try-runtime", default-features = false, optional = true }
 pallet-alliance = { path = "../../../frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "../../../frame/asset-conversion", default-features = false }
+pallet-asset-rewards = { path = "../../../frame/asset-rewards", default-features = false }
 pallet-asset-rate = { path = "../../../frame/asset-rate", default-features = false }
 pallet-assets = { path = "../../../frame/assets", default-features = false }
 pallet-authority-discovery = { path = "../../../frame/authority-discovery", default-features = false }
@@ -269,6 +270,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"pallet-asset-rewards/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-pallet-pov/runtime-benchmarks",
@@ -345,6 +347,7 @@ runtime-benchmarks = [
 	"pallet-whitelist/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-asset-rewards/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-benchmarking-pallet-pov/try-runtime",
@@ -426,6 +429,7 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-asset-rewards/try-runtime"
 ]
 experimental = [
 	"frame-support/experimental",

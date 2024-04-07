@@ -7033,6 +7033,7 @@ dependencies = [
  "pallet-asset-conversion",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-rate",
+ "pallet-asset-rewards",
  "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-authority-discovery",

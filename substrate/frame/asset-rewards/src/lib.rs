@@ -92,7 +92,7 @@ use sp_runtime::DispatchError;
 use sp_std::boxed::Box;
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]

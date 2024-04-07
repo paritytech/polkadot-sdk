@@ -71,11 +71,13 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
+use sp_core::TypedGet;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
+use pallet_treasury::TreasuryAccountId;
 use pallet_tx_pause::RuntimeCallNameOf;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -1723,6 +1725,45 @@ impl pallet_asset_conversion::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
+pub type NativeAndAssets =
+	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
+
+parameter_types! {
+	pub const StakingRewardsPalletId: PalletId = PalletId(*b"py/stkrd");
+}
+
+/// Benchmark Helper
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AssetRewardsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_rewards::benchmarking::BenchmarkHelper<NativeOrWithId<u32>, AccountId>
+	for AssetRewardsBenchmarkHelper
+{
+	fn to_asset_id(seed: NativeOrWithId<u32>) -> NativeOrWithId<u32> {
+		seed
+	}
+	fn to_account_id(seed: u32) -> AccountId {
+		let mut bytes = [0u8; 32]; // Create a 32-byte array filled with zeros
+		bytes[0..4].copy_from_slice(&seed.to_be_bytes()); // Place the u32 value at the beginning (big-endian for this example)
+		bytes.into()
+	}
+	fn permissioned_pool_creator() -> AccountId {
+		TreasuryAccountId::<Runtime>::get()
+	}
+}
+
+impl pallet_asset_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetId = NativeOrWithId<u32>;
+	type Balance = u128;
+	type Assets = NativeAndAssets;
+	type PalletId = StakingRewardsPalletId;
+	type PermissionedPoolCreator = EnsureRoot<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
+}
+
 parameter_types! {
 	pub const QueueCount: u32 = 300;
 	pub const MaxQueueLen: u32 = 1000;
@@ -2450,6 +2491,9 @@ mod runtime {
 
 	#[runtime::pallet_index(78)]
 	pub type PalletExampleMbms = pallet_example_mbm;
+
+	#[runtime::pallet_index(79)]
+	pub type AssetRewards = pallet_asset_rewards;
 }
 
 /// The address format for describing accounts.
@@ -2562,6 +2606,7 @@ mod benches {
 		[tasks_example, TasksExample]
 		[pallet_democracy, Democracy]
 		[pallet_asset_conversion, AssetConversion]
+		[pallet_asset_rewards, AssetRewards]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_elections_phragmen, Elections]
