@@ -10,7 +10,7 @@ doc:
         `HeaderFor<Runtime>` and `HeaderFor<Self>` are equivalent. However, this is not the case. It currently leads to 
         a compilation error that `Self is not in scope`, which is confusing. This PR Introduces a checker struct, similar to 
         `CheckTraitDecl` in `decl_runtime_apis!`, `CheckTraitImpl`. It identifies usage of `Self` as a type argument in
-        `impl_runtime_apis!` and emits an error message. The error message suggests replacing `Self` with the runtime name.
+        `impl_runtime_apis!` and emits an error message. The error message suggests replacing `Self` with `Runtime`.
 
         For example, the following example code is not allowed:
         ```rust
