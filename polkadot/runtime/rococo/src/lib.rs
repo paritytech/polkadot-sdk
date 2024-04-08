@@ -74,9 +74,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EverythingBut,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, PrivilegeCmp, ProcessMessage,
-		ProcessMessageError, StorageMapShim, WithdrawReasons,
+		fungible::HoldConsideration, Contains, EitherOf, EitherOfDiverse, EnsureOrigin,
+		EnsureOriginWithArg, EverythingBut, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, PrivilegeCmp, ProcessMessage, ProcessMessageError, StorageMapShim,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -245,19 +246,59 @@ pub mod dynamic_params {
 	pub mod nis {
 		use super::*;
 
-		/// The target of active total issuance fot the non-interactive-staking pallet.
 		#[codec(index = 0)]
 		pub static Target: Perquintill = Perquintill::zero();
+
+		#[codec(index = 1)]
+		pub static MinBid: Balance = 100 * UNITS;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod preimage {
+		use super::*;
+
+		#[codec(index = 0)]
+		pub static BaseDeposit: Balance = deposit(2, 64);
+
+		#[codec(index = 1)]
+		pub static ByteDeposit: Balance = deposit(0, 1);
 	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 impl Default for RuntimeParameters {
 	fn default() -> Self {
-		RuntimeParameters::Nis(dynamic_params::nis::Parameters::Target(
-			dynamic_params::nis::Target,
-			Some(Perquintill::from_percent(10)),
+		RuntimeParameters::Preimage(dynamic_params::preimage::Parameters::BaseDeposit(
+			dynamic_params::preimage::BaseDeposit,
+			Some(1u32.into()),
 		))
+	}
+}
+
+/// Defines what origin can modify which dynamic parameters.
+pub struct DynamicParameterOrigin;
+impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParameterOrigin {
+	type Success = ();
+
+	fn try_origin(
+		origin: RuntimeOrigin,
+		key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		use crate::{dynamic_params::*, governance::*, RuntimeParametersKey::*};
+
+		match key {
+			Nis(nis::ParametersKey::MinBid(_)) => StakingAdmin::ensure_origin(origin.clone()),
+			Nis(nis::ParametersKey::Target(_)) => GeneralAdmin::ensure_origin(origin.clone()),
+			Preimage(_) => frame_system::ensure_root(origin.clone()),
+		}
+		.map_err(|_| origin)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		// Provide the origin for the parameter returned by `Default`:
+		Ok(RuntimeOrigin::root())
 	}
 }
 
@@ -277,8 +318,6 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
-	pub const PreimageByteDeposit: Balance = deposit(0, 1);
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
@@ -291,7 +330,11 @@ impl pallet_preimage::Config for Runtime {
 		AccountId,
 		Balances,
 		PreimageHoldReason,
-		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+		LinearStoragePrice<
+			dynamic_params::preimage::BaseDeposit,
+			dynamic_params::preimage::ByteDeposit,
+			Balance,
+		>,
 	>;
 }
 
@@ -1150,7 +1193,6 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 
 parameter_types! {
 	pub const NisBasePeriod: BlockNumber = 30 * DAYS;
-	pub const MinBid: Balance = 100 * UNITS;
 	pub MinReceipt: Perquintill = Perquintill::from_rational(1u64, 10_000_000u64);
 	pub const IntakePeriod: BlockNumber = 5 * MINUTES;
 	pub MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / 10;
@@ -1174,7 +1216,7 @@ impl pallet_nis::Config for Runtime {
 	type MaxQueueLen = ConstU32<1000>;
 	type FifoQueueLen = ConstU32<250>;
 	type BasePeriod = NisBasePeriod;
-	type MinBid = MinBid;
+	type MinBid = dynamic_params::nis::MinBid;
 	type MinReceipt = MinReceipt;
 	type IntakePeriod = IntakePeriod;
 	type MaxIntakeWeight = MaxIntakeWeight;
@@ -1185,7 +1227,7 @@ impl pallet_nis::Config for Runtime {
 impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeParameters = RuntimeParameters;
-	type AdminOrigin = EnsureRoot<AccountId>;
+	type AdminOrigin = DynamicParameterOrigin;
 	type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
 }
 
