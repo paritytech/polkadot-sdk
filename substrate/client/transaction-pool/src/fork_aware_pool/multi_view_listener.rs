@@ -64,7 +64,6 @@ struct ExternalWatcherContext<PoolApi: ChainApi> {
 	future_seen: bool,
 	ready_seen: bool,
 	breadcast_seen: bool,
-	invalid_count: usize,
 
 	inblock: HashSet<BlockHash<PoolApi>>,
 	views_keeping_tx_valid: HashSet<BlockHash<PoolApi>>,
@@ -85,7 +84,6 @@ where
 			future_seen: false,
 			ready_seen: false,
 			breadcast_seen: false,
-			invalid_count: 0,
 			views_keeping_tx_valid: Default::default(),
 			inblock: Default::default(),
 		}
@@ -120,6 +118,7 @@ where
 			TransactionStatus::Broadcast(_) => true,
 			TransactionStatus::InBlock((block, _)) => self.inblock.insert(*block),
 			TransactionStatus::Retracted(_) => {
+				//todo: remove panic
 				panic!("retracted? shall not happen")
 			},
 			TransactionStatus::FinalityTimeout(_) => true,
@@ -129,14 +128,7 @@ where
 			},
 			TransactionStatus::Usurped(_) |
 			TransactionStatus::Dropped |
-			TransactionStatus::Invalid =>
-			//todo: remove invalid_count
-				if self.invalid_count >= 1 {
-					false
-				} else {
-					self.invalid_count = self.invalid_count.saturating_add(1);
-					false
-				},
+			TransactionStatus::Invalid => false,
 		}
 	}
 }

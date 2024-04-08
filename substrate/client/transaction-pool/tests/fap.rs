@@ -1802,7 +1802,7 @@ fn fap_watcher_two_blocks_delayed_finalization_works() {
 	// - just jeep two events,
 	// - block pruning somehow (seems like excessive additional logic not really needed)
 	// - build view from recent best block? (retracting instead of enacting?)
-	// - de-dup events in listener
+	// - de-dup events in listener (implemented)
 
 	assert_eq!(
 		xt0_status,
