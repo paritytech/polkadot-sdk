@@ -215,23 +215,6 @@ parameter_types! {
 	pub const Offset: u32 = 0;
 }
 
-pub type CollatorSelectionUpdateOrigin = EnsureRoot<AccountId>;
-impl pallet_collator_selection::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type UpdateOrigin = CollatorSelectionUpdateOrigin;
-	type PotId = PotId;
-	type MaxCandidates = ConstU32<100>;
-	type MinEligibleCollators = ConstU32<4>;
-	type MaxInvulnerables = ConstU32<20>;
-	// should be a multiple of session or things will get inconsistent
-	type KickThreshold = SessionLength;
-	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type ValidatorRegistration = Session;
-	type WeightInfo = ();
-}
-
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 impl pallet_timestamp::Config for Runtime {
@@ -239,20 +222,6 @@ impl pallet_timestamp::Config for Runtime {
 	type Moment = u64;
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = ();
-}
-
-impl pallet_session::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	// we don't have stash and controller, thus we don't need the convert as well.
-	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type ShouldEndSession = pallet_session::PeriodicSessions<SessionLength, Offset>;
-	type NextSessionRotation = pallet_session::PeriodicSessions<SessionLength, Offset>;
-	type SessionManager = CollatorSelection;
-	// Essentially just Aura, but let's be pedantic.
-	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
-	type Keys = SessionKeys;
 	type WeightInfo = ();
 }
 
@@ -333,11 +302,6 @@ impl pallet_aura::Config for Runtime {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
-impl pallet_authorship::Config for Runtime {
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type EventHandler = (CollatorSelection,);
-}
-
 parameter_types! {
 	// will be set by test_pallet during genesis init
 	pub storage ParachainId: cumulus_primitives_core::ParaId = PARACHAIN_ID.into();
@@ -356,9 +320,6 @@ construct_runtime! {
 		TransactionPayment: pallet_transaction_payment,
 		TestPallet: test_pallet,
 		Glutton: pallet_glutton,
-		Authorship: pallet_authorship,
-		CollatorSelection: pallet_collator_selection,
-		Session: pallet_session,
 		Aura: pallet_aura,
 		AuraExt: cumulus_pallet_aura_ext,
 	}

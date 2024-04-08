@@ -107,30 +107,12 @@ pub fn testnet_genesis_with_default_endowed(
 	];
 	endowed.append(&mut extra_endowed_accounts);
 	let invulnerables = vec![
-		(
-			get_account_id_from_seed::<sr25519::Public>("Alice"),
-			get_collator_keys_from_seed::<AuraId>("Alice"),
-		),
-		(
-			get_account_id_from_seed::<sr25519::Public>("Bob"),
-			get_collator_keys_from_seed::<AuraId>("Bob"),
-		),
-		(
-			get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			get_collator_keys_from_seed::<AuraId>("Charlie"),
-		),
-		(
-			get_account_id_from_seed::<sr25519::Public>("Dave"),
-			get_collator_keys_from_seed::<AuraId>("Dave"),
-		),
-		(
-			get_account_id_from_seed::<sr25519::Public>("Eve"),
-			get_collator_keys_from_seed::<AuraId>("Eve"),
-		),
-		(
-			get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			get_collator_keys_from_seed::<AuraId>("Ferdie"),
-		),
+		get_collator_keys_from_seed::<AuraId>("Alice"),
+		get_collator_keys_from_seed::<AuraId>("Bob"),
+		get_collator_keys_from_seed::<AuraId>("Charlie"),
+		get_collator_keys_from_seed::<AuraId>("Dave"),
+		get_collator_keys_from_seed::<AuraId>("Eve"),
+		get_collator_keys_from_seed::<AuraId>("Ferdie"),
 	];
 	testnet_genesis(
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -150,7 +132,7 @@ pub fn get_collator_keys_from_seed<AuraId: Public>(seed: &str) -> <AuraId::Pair 
 /// Creates a local testnet genesis with endowed accounts.
 pub fn testnet_genesis(
 	root_key: AccountId,
-	invulnerables: Vec<(AccountId, AuraId)>,
+	invulnerables: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
 	self_para_id: Option<ParaId>,
 ) -> serde_json::Value {
@@ -161,22 +143,6 @@ pub fn testnet_genesis(
 		},
 		"sudo": cumulus_test_runtime::SudoConfig { key: Some(root_key) },
 		"testPallet": cumulus_test_runtime::TestPalletConfig { self_para_id: Some(self_para_id), ..Default::default() },
-		"collatorSelection": cumulus_test_runtime::CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
-			candidacy_bond: 100_000,
-			..Default::default()
-		},
-		"session": cumulus_test_runtime::SessionConfig {
-			keys: invulnerables
-				.into_iter()
-				.map(|(acc, aura)| {
-					(
-						acc.clone(),                         // account id
-						acc,                                 // validator id
-						cumulus_test_runtime::SessionKeys{ aura }, // session keys
-					)
-				})
-				.collect(),
-		},
+		"aura": cumulus_test_runtime::AuraConfig { authorities: invulnerables }
 	})
 }
