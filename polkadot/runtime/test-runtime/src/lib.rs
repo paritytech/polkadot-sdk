@@ -877,6 +877,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn candidate_pending_availability(para_id: ParaId) -> Option<CommittedCandidateReceipt<Hash>> {
+			#[allow_deprecated]
 			runtime_impl::candidate_pending_availability::<Runtime>(para_id)
 		}
 
@@ -980,6 +981,10 @@ sp_api::impl_runtime_apis! {
 
 		fn node_features() -> primitives::NodeFeatures {
 			runtime_impl::node_features::<Runtime>()
+		}
+
+		fn candidates_pending_availability(para_id: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
+			vstaging_parachains_runtime_api_impl::candidates_pending_availability::<Runtime>(para_id)
 		}
 	}
 
