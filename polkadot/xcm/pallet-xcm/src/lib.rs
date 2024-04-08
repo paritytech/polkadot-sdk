@@ -56,8 +56,9 @@ use xcm_builder::{
 use xcm_executor::{
 	traits::{
 		AssetTransferError, CheckSuspension, ClaimAssets, ConvertLocation, ConvertOrigin,
-		DropAssets, MatchesFungible, OnResponse, Properties, QueryHandler, QueryResponseStatus,
-		TransactAsset, TransferType, VersionChangeNotifier, WeightBounds, XcmAssetTransfers,
+		DropAssets, HandleHrmpChannelAccepted, MatchesFungible, OnResponse, Properties,
+		QueryHandler, QueryResponseStatus, TransactAsset, TransferType, VersionChangeNotifier,
+		WeightBounds, XcmAssetTransfers,
 	},
 	AssetsInHolding,
 };
@@ -3046,6 +3047,35 @@ impl<T: Config> CheckSuspension for Pallet<T> {
 		_properties: &mut Properties,
 	) -> bool {
 		XcmExecutionSuspended::<T>::get()
+	}
+}
+
+/// The implementation of `HandleHrmpChannelAccepted` which can initiate version discovery (if
+/// needed).
+///
+/// Note: This is useful for parachains when establishing HRMP channels with other parachains.
+impl<T: Config> HandleHrmpChannelAccepted for Pallet<T> {
+	fn handle(recipient: u32) -> XcmResult {
+		// how would the actual runtime see the `recipient` as `Parachain(recipient)`
+		let dest = match T::UniversalLocation::get().global_consensus() {
+			Ok(global_consensus) =>
+				Junctions::from([GlobalConsensus(global_consensus), Parachain(recipient)]),
+			Err(_) => Junctions::from([Parachain(recipient)]),
+		}
+		.relative_to(&T::UniversalLocation::get());
+
+		log::trace!(
+			target: "xcm::pallet_xcm::handle::hrmp_channel_accepted",
+			"For recipient {recipient} translated into a location: {dest:?} relative to the universal_location: {:?}",
+			T::UniversalLocation::get(),
+		);
+
+		// if we don't have an XCM version for dest, just ask for it
+		if let None = Self::get_version_for(&dest) {
+			Self::note_unknown_version(&dest);
+		}
+
+		Ok(())
 	}
 }
 

@@ -34,7 +34,9 @@ use sp_runtime::traits::{AccountIdConversion, BlakeTwo256, Hash};
 use xcm::{latest::QueryResponseInfo, prelude::*};
 use xcm_builder::AllowKnownQueryResponses;
 use xcm_executor::{
-	traits::{Properties, QueryHandler, QueryResponseStatus, ShouldExecute},
+	traits::{
+		HandleHrmpChannelAccepted, Properties, QueryHandler, QueryResponseStatus, ShouldExecute,
+	},
 	XcmExecutor,
 };
 
@@ -1183,6 +1185,49 @@ fn get_and_wrap_version_works() {
 		// wrapped to the `1`
 		assert_eq!(XcmPallet::wrap_version(&remote_c, xcm.clone()), Err(()));
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
+	})
+}
+
+#[test]
+fn handle_hrmp_channel_accepted_works() {
+	new_test_ext_with_balances_and_xcm_version(vec![], None).execute_with(|| {
+		let recipient_a = 2068;
+		let recipient_b = 3478;
+		let remote_a: Location = Parachain(recipient_a).into();
+		let remote_b: Location = Parachain(recipient_b).into();
+
+		// no XCM versions for recipients
+		assert_eq!(XcmPallet::get_version_for(&remote_a), None);
+		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+		// nothing queued
+		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![]);
+
+		// set XCM version only for `remote_a`
+		assert_ok!(XcmPallet::force_xcm_version(
+			RuntimeOrigin::root(),
+			Box::new(remote_a.clone()),
+			XCM_VERSION
+		));
+		assert_eq!(XcmPallet::get_version_for(&remote_a), Some(XCM_VERSION));
+		assert_eq!(XcmPallet::get_version_for(&remote_b), None);
+
+		// handle for `recipient_a`
+		assert_ok!(<XcmPallet as HandleHrmpChannelAccepted>::handle(recipient_a));
+		// handle for `recipient_b`
+		assert_ok!(<XcmPallet as HandleHrmpChannelAccepted>::handle(recipient_b));
+		// check queued - just for `recipient_b`
+		assert_eq!(
+			VersionDiscoveryQueue::<Test>::get().into_inner(),
+			vec![(remote_b.clone().into(), 1)]
+		);
+
+		// handle for `recipient_b` again
+		assert_ok!(<XcmPallet as HandleHrmpChannelAccepted>::handle(recipient_b));
+		// check queued - just for `recipient_b`
+		assert_eq!(
+			VersionDiscoveryQueue::<Test>::get().into_inner(),
+			vec![(remote_b.clone().into(), 2)]
+		);
 	})
 }
 
