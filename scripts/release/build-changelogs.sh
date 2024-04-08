@@ -27,7 +27,6 @@ echo -e "OUTPUT: \t\t$OUTPUT"
 mkdir -p $OUTPUT
 
 $ENGINE run --rm -v ${PROJECT_ROOT}:/repo paritytech/prdoc load -d "prdoc/$VERSION" --json > $DATA_JSON
-#prdoc load -d "$PROJECT_ROOT/prdoc/$VERSION" --json > $DATA_JSON
 # ls -al $DATA_JSON
 
 cat $DATA_JSON | jq ' { "prdoc" : .}' > $CONTEXT_JSON
