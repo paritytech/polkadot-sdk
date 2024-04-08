@@ -291,6 +291,7 @@ sp_api::decl_runtime_apis! {
 
 		/***** Added in v11 *****/
 		/// Elastic scaling support
+		#[api_version(11)]
 		fn candidates_pending_availability(para_id: ppp::Id) -> Vec<CommittedCandidateReceipt<Hash>>;
 	}
 }
