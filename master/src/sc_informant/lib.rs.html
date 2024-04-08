@@ -347,6 +347,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -536,10 +538,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				last_blocks.pop_front();
 			}
 
+			<span class="kw">let </span>best_indicator = <span class="kw">if </span>n.is_new_best { <span class="string">&quot;🏆&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;🆕&quot; </span>};
 			<span class="macro">info!</span>(
 				target: <span class="string">&quot;substrate&quot;</span>,
-				<span class="string">&quot;✨ Imported #{} ({})&quot;</span>,
+				<span class="string">&quot;{best_indicator} Imported #{} ({} → {})&quot;</span>,
 				format.print_with_color(Colour::White.bold(), n.header.number()),
+				n.header.parent_hash(),
 				n.hash,
 			);
 		}
