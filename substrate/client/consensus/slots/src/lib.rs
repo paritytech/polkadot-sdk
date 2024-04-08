@@ -555,7 +555,7 @@ impl SlotProportion {
 		Self(inner.clamp(0.0, 1.0))
 	}
 
-	/// Returns the inner that is guaranted to be in the range `[0,1]`.
+	/// Returns the inner that is guaranteed to be in the range `[0,1]`.
 	pub fn get(&self) -> f32 {
 		self.0
 	}
@@ -648,7 +648,7 @@ pub fn proposing_remaining_duration<Block: BlockT>(
 }
 
 /// Calculate a slot duration lenience based on the number of missed slots from current
-/// to parent. If the number of skipped slots is greated than 0 this method will apply
+/// to parent. If the number of skipped slots is greater than 0 this method will apply
 /// an exponential backoff of at most `2^7 * slot_duration`, if no slots were skipped
 /// this method will return `None.`
 pub fn slot_lenience_exponential<Block: BlockT>(
@@ -680,7 +680,7 @@ pub fn slot_lenience_exponential<Block: BlockT>(
 }
 
 /// Calculate a slot duration lenience based on the number of missed slots from current
-/// to parent. If the number of skipped slots is greated than 0 this method will apply
+/// to parent. If the number of skipped slots is greater than 0 this method will apply
 /// a linear backoff of at most `20 * slot_duration`, if no slots were skipped
 /// this method will return `None.`
 pub fn slot_lenience_linear<Block: BlockT>(

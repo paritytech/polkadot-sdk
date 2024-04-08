@@ -21,6 +21,9 @@
 mod prepare;
 mod runtime;
 
+#[cfg(test)]
+pub use runtime::STABLE_API_COUNT;
+
 #[cfg(doc)]
 pub use crate::wasm::runtime::api_doc;
 
@@ -311,6 +314,11 @@ impl<T: Config> CodeInfo<T> {
 			code_len: 0,
 			determinism: Determinism::Enforced,
 		}
+	}
+
+	/// Returns the determinism of the module.
+	pub fn determinism(&self) -> Determinism {
+		self.determinism
 	}
 
 	/// Returns reference count of the module.
@@ -1417,7 +1425,7 @@ mod tests {
 
 	#[test]
 	fn contract_ecdsa_to_eth_address() {
-		/// calls `seal_ecdsa_to_eth_address` for the contstant and ensures the result equals the
+		/// calls `seal_ecdsa_to_eth_address` for the constant and ensures the result equals the
 		/// expected one.
 		const CODE_ECDSA_TO_ETH_ADDRESS: &str = r#"
 (module
@@ -3436,5 +3444,23 @@ mod tests {
 		let decoded: BoundedVec<u8, ConstU32<128>> =
 			runtime.read_sandbox_memory_as(&memory, 0u32).unwrap();
 		assert_eq!(decoded.into_inner(), data);
+	}
+
+	#[test]
+	fn run_out_of_gas_in_start_fn() {
+		const CODE: &str = r#"
+(module
+	(import "env" "memory" (memory 1 1))
+	(start $start)
+	(func $start
+		(loop $inf (br $inf)) ;; just run out of gas
+		(unreachable)
+	)
+	(func (export "call"))
+	(func (export "deploy"))
+)
+"#;
+		let mut mock_ext = MockExt::default();
+		assert_err!(execute(&CODE, vec![], &mut mock_ext), <Error<Test>>::OutOfGas);
 	}
 }

@@ -48,6 +48,9 @@ mod tests;
 
 /// Maximum nesting level for XCM decoding.
 pub const MAX_XCM_DECODE_DEPTH: u32 = 8;
+/// Maximum encoded size.
+/// See `decoding_respects_limit` test for more reasoning behind this value.
+pub const MAX_XCM_ENCODED_SIZE: u32 = 12402;
 
 /// A version of XCM.
 pub type Version = u32;
@@ -440,6 +443,16 @@ impl<C> IntoVersion for VersionedXcm<C> {
 			4 => Self::V4(self.try_into()?),
 			_ => return Err(()),
 		})
+	}
+}
+
+impl<C> IdentifyVersion for VersionedXcm<C> {
+	fn identify_version(&self) -> Version {
+		match self {
+			Self::V2(_) => v2::VERSION,
+			Self::V3(_) => v3::VERSION,
+			Self::V4(_) => v4::VERSION,
+		}
 	}
 }
 

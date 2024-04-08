@@ -45,8 +45,8 @@ tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_suppo
 assert_cmd = "2.0.4"
 nix = { version = "0.26.1", features = ["signal"] }
 tempfile = "3.2.0"
-tokio = "1.24.2"
-substrate-rpc-client = { path = "../substrate/utils/frame/rpc/client/" }
+tokio = "1.37"
+substrate-rpc-client = { path = "../substrate/utils/frame/rpc/client" }
 polkadot-core-primitives = { path = "core-primitives" }
 
 [build-dependencies]
