@@ -329,7 +329,7 @@ pub trait FunctionContext {
 	fn virtualization(&mut self) -> &mut dyn Virtualization;
 }
 
-/// See `sp_io::Virtualization`.
+/// See `sp_virtualization::Virtualization`.
 pub trait Virtualization {
 	fn instantiate(&mut self, program: &[u8]) -> Result<sp_std::result::Result<u64, u8>>;
 
