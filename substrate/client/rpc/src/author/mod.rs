@@ -153,7 +153,8 @@ where
 		Ok(self
 			.pool
 			.ready(self.client.info().best_hash)
-			.map(|tx| tx.data().encode().into())
+			.into_iter()
+			.flat_map(|ready| ready.map(|tx| tx.data().encode().into()))
 			.collect())
 	}
 
