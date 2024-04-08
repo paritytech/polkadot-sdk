@@ -66,7 +66,7 @@ pub trait WeightInfo {
 	fn cleanup_candidacy() -> Weight;
 	fn cleanup_challenge() -> Weight;
 }
-
+// Should change ...
 /// Weights for pallet_society using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
