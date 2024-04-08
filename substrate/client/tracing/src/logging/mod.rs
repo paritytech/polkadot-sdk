@@ -97,6 +97,7 @@ fn prepare_subscriber<N, E, F, W>(
 	profiling_targets: Option<&str>,
 	force_colors: Option<bool>,
 	detailed_output: bool,
+	json_format: bool,
 	builder_hook: impl Fn(
 		SubscriberBuilder<format::JsonFields, EventFormat, EnvFilter, DefaultLogger>,
 	) -> SubscriberBuilder<N, E, F, W>,
@@ -182,7 +183,13 @@ where
 		enable_color,
 		dup_to_stdout: !io::stderr().is_terminal() && io::stdout().is_terminal(),
 	};
-	let builder = FmtSubscriber::builder().json().with_env_filter(env_filter);
+	let mut builder = FmtSubscriber::builder().json();
+
+	// if json_format {
+	// 	builder = builder.json();
+	// }
+	
+	let builder = builder.with_env_filter(env_filter);
 
 	let builder = builder.with_span_events(format::FmtSpan::NONE);
 
@@ -205,6 +212,7 @@ pub struct LoggerBuilder {
 	log_reloading: bool,
 	force_colors: Option<bool>,
 	detailed_output: bool,
+	json_format: bool,
 }
 
 impl LoggerBuilder {
@@ -217,6 +225,7 @@ impl LoggerBuilder {
 			log_reloading: false,
 			force_colors: None,
 			detailed_output: false,
+			json_format: false,
 		}
 	}
 
@@ -262,6 +271,12 @@ impl LoggerBuilder {
 		self
 	}
 
+	/// Force enable/disable colors.
+	pub fn json(&mut self) -> &mut Self {
+		self.json_format = true;
+		self
+	}
+
 	/// Initialize the global logger
 	///
 	/// This sets various global logging and tracing instances and thus may only be called once.
@@ -273,6 +288,7 @@ impl LoggerBuilder {
 					Some(&profiling_targets),
 					self.force_colors,
 					self.detailed_output,
+					self.json_format,
 					|builder| enable_log_reloading!(builder),
 				)?;
 				let mut profiling =
@@ -291,6 +307,7 @@ impl LoggerBuilder {
 					Some(&profiling_targets),
 					self.force_colors,
 					self.detailed_output,
+					self.json_format,
 					|builder| builder,
 				)?;
 				let mut profiling =
@@ -310,6 +327,7 @@ impl LoggerBuilder {
 				None,
 				self.force_colors,
 				self.detailed_output,
+				self.json_format,
 				|builder| enable_log_reloading!(builder),
 			)?;
 
@@ -322,6 +340,7 @@ impl LoggerBuilder {
 				None,
 				self.force_colors,
 				self.detailed_output,
+				self.json_format,
 				|builder| builder,
 			)?;
 

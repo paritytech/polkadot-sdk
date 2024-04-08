@@ -87,6 +87,10 @@ pub struct SharedParams {
 	/// Receiver to process tracing messages.
 	#[arg(long, value_name = "RECEIVER", value_enum, ignore_case = true, default_value_t = TracingReceiver::Log)]
 	pub tracing_receiver: TracingReceiver,
+
+	/// Turn on json structured logging.
+	#[arg(long)]
+	pub log_format: sc_cli::LogFormat,
 }
 
 impl SharedParams {
@@ -147,4 +151,14 @@ impl SharedParams {
 	pub fn tracing_targets(&self) -> Option<String> {
 		self.tracing_targets.clone()
 	}
+}
+
+
+#[derive(clap::ValueEnum, Debug, Clone, serde::Serialize, Default)]
+pub enum LogFormat {
+	/// Human readable
+	#[default]
+	Default,
+	/// Structured logging suitable for ingestion. One json per line.
+	Json
 }
