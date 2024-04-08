@@ -341,7 +341,6 @@ pub trait RuntimeApiSubsystemClient {
 		at: Hash,
 		para_id: Id,
 	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError>;
-
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`] using the client.

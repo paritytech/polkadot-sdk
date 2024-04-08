@@ -1109,12 +1109,17 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn candidates_pending_availability(
 		para: ParaId,
 	) -> Vec<CommittedCandidateReceipt<T::Hash>> {
-		<PendingAvailability<T>>::get(&para).map(|candidates| {
-			candidates.into_iter().map(|candidate| CommittedCandidateReceipt {
-				descriptor: candidate.descriptor.clone(),
-				commitments: candidate.commitments.clone(),
-			}).collect()
-		}).unwrap_or_default()
+		<PendingAvailability<T>>::get(&para)
+			.map(|candidates| {
+				candidates
+					.into_iter()
+					.map(|candidate| CommittedCandidateReceipt {
+						descriptor: candidate.descriptor.clone(),
+						commitments: candidate.commitments.clone(),
+					})
+					.collect()
+			})
+			.unwrap_or_default()
 	}
 
 	/// Returns the metadata around the first candidate pending availability for the

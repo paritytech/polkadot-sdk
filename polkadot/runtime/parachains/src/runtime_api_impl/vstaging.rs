@@ -16,9 +16,12 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{initializer, scheduler, inclusion};
-use primitives::{CoreIndex, Id as ParaId, CommittedCandidateReceipt};
-use sp_std::{vec::Vec, collections::{btree_map::BTreeMap, vec_deque::VecDeque}};
+use crate::{inclusion, initializer, scheduler};
+use primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
+};
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
