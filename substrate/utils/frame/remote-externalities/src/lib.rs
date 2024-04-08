@@ -36,7 +36,7 @@ use sp_core::{
 	},
 };
 use sp_runtime::{
-	traits::{Block as BlockT, Hash, HashOutput, HashingFor},
+	traits::{Block as BlockT, Hash, HashingFor},
 	StateVersion,
 };
 use sp_state_machine::TestExternalities;
@@ -72,7 +72,7 @@ struct Snapshot<H> {
 	storage_root: H,
 }
 
-impl<H: HashOutput> Snapshot<H> {
+impl<H: Decode> Snapshot<H> {
 	pub fn new(
 		state_version: StateVersion,
 		block_hash: H,
@@ -136,7 +136,7 @@ pub enum Mode<H> {
 	OfflineOrElseOnline(OfflineConfig, OnlineConfig<H>),
 }
 
-impl<H: HashOutput> Default for Mode<H> {
+impl<H> Default for Mode<H> {
 	fn default() -> Self {
 		Mode::Online(OnlineConfig::default())
 	}
@@ -240,7 +240,7 @@ pub struct OnlineConfig<H> {
 	pub hashed_keys: Vec<Vec<u8>>,
 }
 
-impl<H: HashOutput> OnlineConfig<H> {
+impl<H: Clone> OnlineConfig<H> {
 	/// Return rpc (http) client reference.
 	fn rpc_client(&self) -> &HttpClient {
 		self.transport
@@ -249,11 +249,11 @@ impl<H: HashOutput> OnlineConfig<H> {
 	}
 
 	fn at_expected(&self) -> H {
-		self.at.expect("block at must be initialized; qed")
+		self.clone().at.expect("block at must be initialized; qed")
 	}
 }
 
-impl<H: HashOutput> Default for OnlineConfig<H> {
+impl<H> Default for OnlineConfig<H> {
 	fn default() -> Self {
 		Self {
 			transport: Transport::from(DEFAULT_HTTP_ENDPOINT.to_owned()),
@@ -267,7 +267,7 @@ impl<H: HashOutput> Default for OnlineConfig<H> {
 	}
 }
 
-impl<H: HashOutput> From<String> for OnlineConfig<H> {
+impl<H> From<String> for OnlineConfig<H> {
 	fn from(t: String) -> Self {
 		Self { transport: t.into(), ..Default::default() }
 	}
