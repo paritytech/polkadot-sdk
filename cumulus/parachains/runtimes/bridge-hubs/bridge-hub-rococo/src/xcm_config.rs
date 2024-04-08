@@ -345,7 +345,7 @@ impl xcm_executor::Config for XcmConfig {
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
 	type HrmpNewChannelOpenRequestHandler = ();
-	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelAcceptedHandler = (PolkadotXcm,);
 	type HrmpChannelClosingHandler = ();
 }
 
