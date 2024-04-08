@@ -8,7 +8,7 @@ doc:
     description: |
       Modify `RemoteExternalities`, `Mode`, `OnlineConfig` and`Snapshot` to rely now on generic parameter, instead of `BlockT`
       Modify in consequence their implementation to be used with `Hash` or `HashOutput`
-      Adapt Builder struct and implementation for these new bounds
+      Adapt Builder struct and implementation for these new bounds.
 
 crates: 
 - name: frame-remote-externalities
