@@ -1789,20 +1789,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1640" id="1640">1640</a>
 <a href="#1641" id="1641">1641</a>
 <a href="#1642" id="1642">1642</a>
-<a href="#1643" id="1643">1643</a>
-<a href="#1644" id="1644">1644</a>
-<a href="#1645" id="1645">1645</a>
-<a href="#1646" id="1646">1646</a>
-<a href="#1647" id="1647">1647</a>
-<a href="#1648" id="1648">1648</a>
-<a href="#1649" id="1649">1649</a>
-<a href="#1650" id="1650">1650</a>
-<a href="#1651" id="1651">1651</a>
-<a href="#1652" id="1652">1652</a>
-<a href="#1653" id="1653">1653</a>
-<a href="#1654" id="1654">1654</a>
-<a href="#1655" id="1655">1655</a>
-<a href="#1656" id="1656">1656</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1824,7 +1810,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{
 	communication::{
 		gossip::{proofs_topic, votes_topic, GossipFilterCfg, GossipMessage},
-		peers::PeerReport,
 		request_response::outgoing_requests_engine::ResponseInfo,
 	},
 	error::Error,
@@ -2179,7 +2164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A BEEFY worker/voter that follows the BEEFY protocol
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyWorker&lt;B: Block, BE, P, RuntimeApi, S&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyWorker&lt;B: Block, BE, P, RuntimeApi, S, N&gt; {
 	<span class="comment">// utilities
 	</span><span class="kw">pub </span>backend: Arc&lt;BE&gt;,
 	<span class="kw">pub </span>runtime: Arc&lt;RuntimeApi&gt;,
@@ -2188,7 +2173,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>sync: Arc&lt;S&gt;,
 
 	<span class="comment">// communication (created once, but returned and reused if worker is restarted/reinitialized)
-	</span><span class="kw">pub </span>comms: BeefyComms&lt;B&gt;,
+	</span><span class="kw">pub </span>comms: BeefyComms&lt;B, N&gt;,
 
 	<span class="comment">// channels
 	</span><span class="doccomment">/// Links between the block importer, the background voter and the RPC layer.
@@ -2205,7 +2190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>is_authority: bool,
 }
 
-<span class="kw">impl</span>&lt;B, BE, P, R, S&gt; BeefyWorker&lt;B, BE, P, R, S&gt;
+<span class="kw">impl</span>&lt;B, BE, P, R, S, N&gt; BeefyWorker&lt;B, BE, P, R, S, N&gt;
 <span class="kw">where
 	</span>B: Block + Codec,
 	BE: Backend&lt;B&gt;,
@@ -2632,7 +2617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">mut </span><span class="self">self</span>,
 		block_import_justif: <span class="kw-2">&amp;mut </span>Fuse&lt;NotificationReceiver&lt;BeefyVersionedFinalityProof&lt;B&gt;&gt;&gt;,
 		finality_notifications: <span class="kw-2">&amp;mut </span>Fuse&lt;FinalityNotifications&lt;B&gt;&gt;,
-	) -&gt; (Error, BeefyComms&lt;B&gt;) {
+	) -&gt; (Error, BeefyComms&lt;B, N&gt;) {
 		<span class="macro">info!</span>(
 			target: LOG_TARGET,
 			<span class="string">&quot;🥩 run BEEFY worker, best grandpa: #{:?}.&quot;</span>,
@@ -2701,11 +2686,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						},
 						ResponseInfo::PeerReport(peer_report) =&gt; {
 							<span class="self">self</span>.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
-							<span class="kw">continue</span>;
 						},
-						ResponseInfo::Pending =&gt; {
-							<span class="kw">continue</span>;
-						},
+						ResponseInfo::Pending =&gt; {},
 					}
 				},
 				justif = block_import_justif.next() =&gt; {
@@ -2739,13 +2721,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					} <span class="kw">else </span>{
 						<span class="kw">break </span>Error::VotesGossipStreamTerminated;
 					}
-				},
-				<span class="comment">// Process peer reports.
-				</span>report = <span class="self">self</span>.comms.gossip_report_stream.next() =&gt; {
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(PeerReport { who, cost_benefit }) = report {
-						<span class="self">self</span>.comms.gossip_engine.report(who, cost_benefit);
-					}
-					<span class="kw">continue</span>;
 				},
 			}
 
@@ -2859,7 +2834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{
 		communication::{
-			gossip::GossipValidator,
+			gossip::{tests::TestNetwork, GossipValidator},
 			notification::{BeefyBestBlockStream, BeefyVersionedFinalityProofStream},
 			request_response::outgoing_requests_engine::OnDemandJustificationsEngine,
 		},
@@ -2916,6 +2891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MmrRootProvider&lt;Block, TestApi&gt;,
 		TestApi,
 		Arc&lt;SyncingService&lt;Block&gt;&gt;,
+		TestNetwork,
 	&gt; {
 		<span class="kw">let </span>keystore = create_beefy_keystore(key);
 
@@ -2945,7 +2921,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.take_notification_service(<span class="kw-2">&amp;</span><span class="kw">crate</span>::tests::beefy_gossip_proto_name())
 			.unwrap();
 		<span class="kw">let </span>known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-		<span class="kw">let </span>(gossip_validator, gossip_report_stream) = GossipValidator::new(known_peers.clone());
+		<span class="kw">let </span>gossip_validator =
+			GossipValidator::new(known_peers.clone(), Arc::new(TestNetwork::new().<span class="number">0</span>));
 		<span class="kw">let </span>gossip_validator = Arc::new(gossip_validator);
 		<span class="kw">let </span>gossip_engine = GossipEngine::new(
 			network.clone(),
@@ -2978,12 +2955,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.unwrap();
 		<span class="kw">let </span>payload_provider = MmrRootProvider::new(api.clone());
-		<span class="kw">let </span>comms = BeefyComms {
-			gossip_engine,
-			gossip_validator,
-			gossip_report_stream,
-			on_demand_justifications,
-		};
+		<span class="kw">let </span>comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
 		BeefyWorker {
 			backend,
 			runtime: api,

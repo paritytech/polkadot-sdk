@@ -927,6 +927,105 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#778" id="778">778</a>
 <a href="#779" id="779">779</a>
 <a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -947,21 +1046,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>std::{collections::BTreeSet, sync::Arc, time::Duration};
 
-<span class="kw">use </span>sc_network::{PeerId, ReputationChange};
+<span class="kw">use </span>sc_network::{NetworkPeers, PeerId, ReputationChange};
 <span class="kw">use </span>sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
 <span class="kw">use </span>sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
 <span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
 <span class="kw">use </span>log::{debug, trace};
 <span class="kw">use </span>parking_lot::{Mutex, RwLock};
-<span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>wasm_timer::Instant;
 
 <span class="kw">use crate</span>::{
-	communication::{
-		benefit, cost,
-		peers::{KnownPeers, PeerReport},
-	},
+	communication::{benefit, cost, peers::KnownPeers},
 	justification::{
 		proof_block_num_and_set_id, verify_with_validator_set, BeefyVersionedFinalityProof,
 	},
@@ -1152,7 +1247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// rejected/expired.
 ///
 ///All messaging is handled in a single BEEFY global topic.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GossipValidator&lt;B&gt;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GossipValidator&lt;B, N&gt;
 <span class="kw">where
 	</span>B: Block,
 {
@@ -1161,26 +1256,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	gossip_filter: RwLock&lt;Filter&lt;B&gt;&gt;,
 	next_rebroadcast: Mutex&lt;Instant&gt;,
 	known_peers: Arc&lt;Mutex&lt;KnownPeers&lt;B&gt;&gt;&gt;,
-	report_sender: TracingUnboundedSender&lt;PeerReport&gt;,
+	network: Arc&lt;N&gt;,
 }
 
-<span class="kw">impl</span>&lt;B&gt; GossipValidator&lt;B&gt;
+<span class="kw">impl</span>&lt;B, N&gt; GossipValidator&lt;B, N&gt;
 <span class="kw">where
 	</span>B: Block,
 {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
-		known_peers: Arc&lt;Mutex&lt;KnownPeers&lt;B&gt;&gt;&gt;,
-	) -&gt; (GossipValidator&lt;B&gt;, TracingUnboundedReceiver&lt;PeerReport&gt;) {
-		<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">&quot;mpsc_beefy_gossip_validator&quot;</span>, <span class="number">100_000</span>);
-		<span class="kw">let </span>val = GossipValidator {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(known_peers: Arc&lt;Mutex&lt;KnownPeers&lt;B&gt;&gt;&gt;, network: Arc&lt;N&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
 			votes_topic: votes_topic::&lt;B&gt;(),
 			justifs_topic: proofs_topic::&lt;B&gt;(),
 			gossip_filter: RwLock::new(Filter::new()),
 			next_rebroadcast: Mutex::new(Instant::now() + REBROADCAST_AFTER),
 			known_peers,
-			report_sender: tx,
-		};
-		(val, rx)
+			network,
+		}
 	}
 
 	<span class="doccomment">/// Update gossip validator filter.
@@ -1194,9 +1285,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="self">self</span>.gossip_filter.write().update(filter);
 	}
+}
 
+<span class="kw">impl</span>&lt;B, N&gt; GossipValidator&lt;B, N&gt;
+<span class="kw">where
+	</span>B: Block,
+	N: NetworkPeers,
+{
 	<span class="kw">fn </span>report(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, cost_benefit: ReputationChange) {
-		<span class="kw">let _ </span>= <span class="self">self</span>.report_sender.unbounded_send(PeerReport { who, cost_benefit });
+		<span class="self">self</span>.network.report_peer(who, cost_benefit);
 	}
 
 	<span class="kw">fn </span>validate_vote(
@@ -1299,9 +1396,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;B&gt; Validator&lt;B&gt; <span class="kw">for </span>GossipValidator&lt;B&gt;
+<span class="kw">impl</span>&lt;B, N&gt; Validator&lt;B&gt; <span class="kw">for </span>GossipValidator&lt;B, N&gt;
 <span class="kw">where
 	</span>B: Block,
+	N: NetworkPeers + Send + Sync,
 {
 	<span class="kw">fn </span>peer_disconnected(<span class="kw-2">&amp;</span><span class="self">self</span>, _context: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>ValidatorContext&lt;B&gt;, who: <span class="kw-2">&amp;</span>PeerId) {
 		<span class="self">self</span>.known_peers.lock().remove(who);
@@ -1415,7 +1513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::keystore::BeefyKeystore;
+	<span class="kw">use crate</span>::{communication::peers::PeerReport, keystore::BeefyKeystore};
 	<span class="kw">use </span>sc_network_test::Block;
 	<span class="kw">use </span>sp_application_crypto::key_types::BEEFY <span class="kw">as </span>BEEFY_KEY_TYPE;
 	<span class="kw">use </span>sp_consensus_beefy::{
@@ -1424,20 +1522,109 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>sp_keystore::{testing::MemoryKeystore, Keystore};
 
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>TestNetwork {
+		report_sender: futures::channel::mpsc::UnboundedSender&lt;PeerReport&gt;,
+	}
+
+	<span class="kw">impl </span>TestNetwork {
+		<span class="kw">pub fn </span>new() -&gt; (<span class="self">Self</span>, futures::channel::mpsc::UnboundedReceiver&lt;PeerReport&gt;) {
+			<span class="kw">let </span>(tx, rx) = futures::channel::mpsc::unbounded();
+
+			(<span class="self">Self </span>{ report_sender: tx }, rx)
+		}
+	}
+
+	<span class="kw">impl </span>NetworkPeers <span class="kw">for </span>TestNetwork {
+		<span class="kw">fn </span>set_authorized_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: std::collections::HashSet&lt;PeerId&gt;) {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>set_authorized_only(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: bool) {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>add_known_address(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: PeerId, <span class="kw">_</span>: sc_network::Multiaddr) {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, cost_benefit: ReputationChange) {
+			<span class="kw">let _ </span>= <span class="self">self</span>.report_sender.unbounded_send(PeerReport { who: peer_id, cost_benefit });
+		}
+
+		<span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>PeerId) -&gt; i32 {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: PeerId, <span class="kw">_</span>: sc_network::ProtocolName) {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>accept_unreserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>deny_unreserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>add_reserved_peer(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			<span class="kw">_</span>: sc_network::config::MultiaddrWithPeerId,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>remove_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: PeerId) {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>set_reserved_peers(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			<span class="kw">_</span>: sc_network::ProtocolName,
+			<span class="kw">_</span>: std::collections::HashSet&lt;sc_network::Multiaddr&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>add_peers_to_reserved_set(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			<span class="kw">_</span>: sc_network::ProtocolName,
+			<span class="kw">_</span>: std::collections::HashSet&lt;sc_network::Multiaddr&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>remove_peers_from_reserved_set(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			<span class="kw">_</span>: sc_network::ProtocolName,
+			<span class="kw">_</span>: Vec&lt;PeerId&gt;,
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>sync_num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+			<span class="macro">unimplemented!</span>()
+		}
+
+		<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: PeerId, <span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;sc_network::ObservedRole&gt; {
+			<span class="macro">unimplemented!</span>()
+		}
+	}
+
 	<span class="kw">struct </span>TestContext;
 	<span class="kw">impl</span>&lt;B: sp_runtime::traits::Block&gt; ValidatorContext&lt;B&gt; <span class="kw">for </span>TestContext {
 		<span class="kw">fn </span>broadcast_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _topic: B::Hash, _force: bool) {
-			<span class="macro">todo!</span>()
+			<span class="macro">unimplemented!</span>()
 		}
 
 		<span class="kw">fn </span>broadcast_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _topic: B::Hash, _message: Vec&lt;u8&gt;, _force: bool) {}
 
 		<span class="kw">fn </span>send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _who: <span class="kw-2">&amp;</span>sc_network::PeerId, _message: Vec&lt;u8&gt;) {
-			<span class="macro">todo!</span>()
+			<span class="macro">unimplemented!</span>()
 		}
 
 		<span class="kw">fn </span>send_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _who: <span class="kw-2">&amp;</span>sc_network::PeerId, _topic: B::Hash, _force: bool) {
-			<span class="macro">todo!</span>()
+			<span class="macro">unimplemented!</span>()
 		}
 	}
 
@@ -1489,8 +1676,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>should_validate_messages() {
 		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::&lt;AuthorityId&gt;::Alice.public()];
 		<span class="kw">let </span>validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
-		<span class="kw">let </span>(gv, <span class="kw-2">mut </span>report_stream) =
-			GossipValidator::&lt;Block&gt;::new(Arc::new(Mutex::new(KnownPeers::new())));
+
+		<span class="kw">let </span>(network, <span class="kw-2">mut </span>report_stream) = TestNetwork::new();
+
+		<span class="kw">let </span>gv = GossipValidator::&lt;Block, <span class="kw">_</span>&gt;::new(
+			Arc::new(Mutex::new(KnownPeers::new())),
+			Arc::new(network),
+		);
 		<span class="kw">let </span>sender = PeerId::random();
 		<span class="kw">let </span><span class="kw-2">mut </span>context = TestContext;
 
@@ -1503,7 +1695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>expected_report = PeerReport { who: sender, cost_benefit: expected_cost };
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, bad_encoding);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// verify votes validation
 
@@ -1514,14 +1706,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		<span class="comment">// nothing reported
-		</span><span class="macro">assert!</span>(report_stream.try_recv().is_err());
+		</span><span class="macro">assert!</span>(report_stream.try_next().is_err());
 
 		gv.update_filter(GossipFilterCfg { start: <span class="number">0</span>, end: <span class="number">10</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
 		<span class="comment">// nothing in cache first time
 		</span><span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::ProcessAndKeep(<span class="kw">_</span>)));
 		expected_report.cost_benefit = benefit::VOTE_MESSAGE;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// reject vote, voter not in validator set
 		</span><span class="kw">let </span><span class="kw-2">mut </span>bad_vote = vote.clone();
@@ -1530,7 +1722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>bad_vote);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::UNKNOWN_VOTER;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// reject if the round is not GRANDPA finalized
 		</span>gv.update_filter(GossipFilterCfg { start: <span class="number">1</span>, end: <span class="number">2</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
@@ -1540,7 +1732,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::FUTURE_MESSAGE;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// reject if the round is not live anymore
 		</span>gv.update_filter(GossipFilterCfg { start: <span class="number">7</span>, end: <span class="number">10</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
@@ -1550,7 +1742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::OUTDATED_MESSAGE;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// now verify proofs validation
 
@@ -1560,7 +1752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::OUTDATED_MESSAGE;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// accept next proof with good set_id
 		</span><span class="kw">let </span>proof = dummy_proof(<span class="number">7</span>, <span class="kw-2">&amp;</span>validator_set);
@@ -1568,7 +1760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::ProcessAndKeep(<span class="kw">_</span>)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// accept future proof with good set_id
 		</span><span class="kw">let </span>proof = dummy_proof(<span class="number">20</span>, <span class="kw-2">&amp;</span>validator_set);
@@ -1576,7 +1768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::ProcessAndKeep(<span class="kw">_</span>)));
 		expected_report.cost_benefit = benefit::VALIDATED_PROOF;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// reject proof, future set_id
 		</span><span class="kw">let </span>bad_validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys, <span class="number">1</span>).unwrap();
@@ -1585,7 +1777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>res = gv.validate(<span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;</span>sender, <span class="kw-2">&amp;</span>encoded_proof);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::FUTURE_MESSAGE;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 
 		<span class="comment">// reject proof, bad signatures (Bob instead of Alice)
 		</span><span class="kw">let </span>bad_validator_set =
@@ -1596,14 +1788,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(res, ValidationResult::Discard));
 		expected_report.cost_benefit = cost::INVALID_PROOF;
 		expected_report.cost_benefit.value += cost::PER_SIGNATURE_CHECKED;
-		<span class="macro">assert_eq!</span>(report_stream.try_recv().unwrap(), expected_report);
+		<span class="macro">assert_eq!</span>(report_stream.try_next().unwrap().unwrap(), expected_report);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>messages_allowed_and_expired() {
 		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::Alice.public()];
 		<span class="kw">let </span>validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
-		<span class="kw">let </span>(gv, <span class="kw">_</span>) = GossipValidator::&lt;Block&gt;::new(Arc::new(Mutex::new(KnownPeers::new())));
+		<span class="kw">let </span>gv = GossipValidator::&lt;Block, <span class="kw">_</span>&gt;::new(
+			Arc::new(Mutex::new(KnownPeers::new())),
+			Arc::new(TestNetwork::new().<span class="number">0</span>),
+		);
 		gv.update_filter(GossipFilterCfg { start: <span class="number">0</span>, end: <span class="number">10</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
 		<span class="kw">let </span>sender = sc_network::PeerId::random();
 		<span class="kw">let </span>topic = Default::default();
@@ -1680,7 +1875,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>messages_rebroadcast() {
 		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::Alice.public()];
 		<span class="kw">let </span>validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
-		<span class="kw">let </span>(gv, <span class="kw">_</span>) = GossipValidator::&lt;Block&gt;::new(Arc::new(Mutex::new(KnownPeers::new())));
+		<span class="kw">let </span>gv = GossipValidator::&lt;Block, <span class="kw">_</span>&gt;::new(
+			Arc::new(Mutex::new(KnownPeers::new())),
+			Arc::new(TestNetwork::new().<span class="number">0</span>),
+		);
 		gv.update_filter(GossipFilterCfg { start: <span class="number">0</span>, end: <span class="number">10</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
 		<span class="kw">let </span>sender = sc_network::PeerId::random();
 		<span class="kw">let </span>topic = Default::default();

@@ -886,19 +886,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#737" id="737">737</a>
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -969,7 +956,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>justification;
 
 <span class="kw">use crate</span>::{
-	communication::{gossip::GossipValidator, peers::PeerReport},
+	communication::gossip::GossipValidator,
 	justification::BeefyVersionedFinalityProof,
 	keystore::BeefyKeystore,
 	metrics::VoterMetrics,
@@ -979,7 +966,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>communication::beefy_protocol_name::{
 	gossip_protocol_name, justifications_protocol_name <span class="kw">as </span>justifs_protocol_name,
 };
-<span class="kw">use </span>sc_utils::mpsc::TracingUnboundedReceiver;
 <span class="kw">use </span>sp_runtime::generic::OpaqueDigestItemId;
 
 <span class="attr">#[cfg(test)]
@@ -1129,10 +1115,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Helper object holding BEEFY worker communication/gossip components.
 ///
 /// These are created once, but will be reused if worker is restarted/reinitialized.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyComms&lt;B: Block&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyComms&lt;B: Block, N&gt; {
 	<span class="kw">pub </span>gossip_engine: GossipEngine&lt;B&gt;,
-	<span class="kw">pub </span>gossip_validator: Arc&lt;GossipValidator&lt;B&gt;&gt;,
-	<span class="kw">pub </span>gossip_report_stream: TracingUnboundedReceiver&lt;PeerReport&gt;,
+	<span class="kw">pub </span>gossip_validator: Arc&lt;GossipValidator&lt;B, N&gt;&gt;,
 	<span class="kw">pub </span>on_demand_justifications: OnDemandJustificationsEngine&lt;B&gt;,
 }
 
@@ -1165,13 +1150,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// persisted state in AUX DB and latest chain information/progress.
 	///
 	/// Returns a sane `BeefyWorkerBuilder` that can build the `BeefyWorker`.
-	</span><span class="kw">pub async fn </span>async_initialize(
+	</span><span class="kw">pub async fn </span>async_initialize&lt;N&gt;(
 		backend: Arc&lt;BE&gt;,
 		runtime: Arc&lt;R&gt;,
 		key_store: BeefyKeystore&lt;AuthorityId&gt;,
 		metrics: <span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
 		min_block_delta: u32,
-		gossip_validator: Arc&lt;GossipValidator&lt;B&gt;&gt;,
+		gossip_validator: Arc&lt;GossipValidator&lt;B, N&gt;&gt;,
 		finality_notifications: <span class="kw-2">&amp;mut </span>Fuse&lt;FinalityNotifications&lt;B&gt;&gt;,
 		is_authority: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
@@ -1199,15 +1184,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Takes rest of missing pieces as params and builds the `BeefyWorker`.
-	</span><span class="kw">pub fn </span>build&lt;P, S&gt;(
+	</span><span class="kw">pub fn </span>build&lt;P, S, N&gt;(
 		<span class="self">self</span>,
 		payload_provider: P,
 		sync: Arc&lt;S&gt;,
-		comms: BeefyComms&lt;B&gt;,
+		comms: BeefyComms&lt;B, N&gt;,
 		links: BeefyVoterLinks&lt;B&gt;,
 		pending_justifications: BTreeMap&lt;NumberFor&lt;B&gt;, BeefyVersionedFinalityProof&lt;B&gt;&gt;,
 		is_authority: bool,
-	) -&gt; BeefyWorker&lt;B, BE, P, R, S&gt; {
+	) -&gt; BeefyWorker&lt;B, BE, P, R, S, N&gt; {
 		BeefyWorker {
 			backend: <span class="self">self</span>.backend,
 			runtime: <span class="self">self</span>.runtime,
@@ -1427,8 +1412,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 	<span class="comment">// Default votes filter is to discard everything.
 	// Validator is updated later with correct starting round and set id.
-	</span><span class="kw">let </span>(gossip_validator, gossip_report_stream) =
-		communication::gossip::GossipValidator::new(known_peers.clone());
+	</span><span class="kw">let </span>gossip_validator =
+		communication::gossip::GossipValidator::new(known_peers.clone(), network.clone());
 	<span class="kw">let </span>gossip_validator = Arc::new(gossip_validator);
 	<span class="kw">let </span>gossip_engine = GossipEngine::new(
 		network.clone(),
@@ -1447,47 +1432,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		known_peers,
 		prometheus_registry.clone(),
 	);
-	<span class="kw">let </span><span class="kw-2">mut </span>beefy_comms = BeefyComms {
-		gossip_engine,
-		gossip_validator,
-		gossip_report_stream,
-		on_demand_justifications,
-	};
+	<span class="kw">let </span><span class="kw-2">mut </span>beefy_comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
 
 	<span class="comment">// We re-create and re-run the worker in this loop in order to quickly reinit and resume after
 	// select recoverable errors.
 	</span><span class="kw">loop </span>{
 		<span class="comment">// Make sure to pump gossip engine while waiting for initialization conditions.
-		</span><span class="kw">let </span>worker_builder = <span class="kw">loop </span>{
-			<span class="macro">futures::select! </span>{
-				builder_init_result = BeefyWorkerBuilder::async_initialize(
-					backend.clone(),
-					runtime.clone(),
-					key_store.clone().into(),
-					metrics.clone(),
-					min_block_delta,
-					beefy_comms.gossip_validator.clone(),
-					<span class="kw-2">&amp;mut </span>finality_notifications,
-					is_authority,
-				).fuse() =&gt; {
-					<span class="kw">match </span>builder_init_result {
-						<span class="prelude-val">Ok</span>(builder) =&gt; <span class="kw">break </span>builder,
-						<span class="prelude-val">Err</span>(e) =&gt; {
-							<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Error: {:?}. Terminating.&quot;</span>, e);
-							<span class="kw">return
-						</span>},
-					}
-				},
-				<span class="comment">// Pump peer reports
-				</span><span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>beefy_comms.gossip_report_stream.next() =&gt; {
-					<span class="kw">continue
-				</span>},
-				<span class="comment">// Pump gossip engine.
-				</span><span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>beefy_comms.gossip_engine =&gt; {
-					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Gossip engine has unexpectedly terminated.&quot;</span>);
-					<span class="kw">return
-				</span>}
-			}
+		</span><span class="kw">let </span>worker_builder = <span class="macro">futures::select! </span>{
+			builder_init_result = BeefyWorkerBuilder::async_initialize(
+				backend.clone(),
+				runtime.clone(),
+				key_store.clone().into(),
+				metrics.clone(),
+				min_block_delta,
+				beefy_comms.gossip_validator.clone(),
+				<span class="kw-2">&amp;mut </span>finality_notifications,
+				is_authority,
+			).fuse() =&gt; {
+				<span class="kw">match </span>builder_init_result {
+					<span class="prelude-val">Ok</span>(builder) =&gt; builder,
+					<span class="prelude-val">Err</span>(e) =&gt; {
+						<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Error: {:?}. Terminating.&quot;</span>, e);
+						<span class="kw">return
+					</span>},
+				}
+			},
+			<span class="comment">// Pump gossip engine.
+			</span><span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>beefy_comms.gossip_engine =&gt; {
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Gossip engine has unexpectedly terminated.&quot;</span>);
+				<span class="kw">return
+			</span>}
 		};
 
 		<span class="kw">let </span>worker = worker_builder.build(
