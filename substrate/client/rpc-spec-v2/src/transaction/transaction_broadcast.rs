@@ -44,7 +44,7 @@ pub struct TransactionBroadcast<Pool, Client> {
 	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
-	/// The brodcast operation IDs.
+	/// The broadcast operation IDs.
 	broadcast_ids: Arc<RwLock<HashMap<String, BroadcastState>>>,
 }
 
@@ -200,7 +200,7 @@ where
 	}
 }
 
-/// Returns the last element of the providided stream, or `None` if the stream is closed.
+/// Returns the last element of the provided stream, or `None` if the stream is closed.
 async fn last_stream_element<S>(stream: &mut S) -> Option<S::Item>
 where
 	S: Stream + Unpin,

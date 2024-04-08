@@ -26,10 +26,9 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use primitives::{
-	vstaging::{ApprovalVotingParams, NodeFeatures},
-	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
-	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
-	ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
+	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
+	MAX_POV_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -187,7 +186,7 @@ pub struct HostConfiguration<BlockNumber> {
 	///
 	/// Must be at least 1.
 	pub no_show_slots: u32,
-	/// The number of delay tranches in total.
+	/// The number of delay tranches in total. Must be at least 1.
 	pub n_delay_tranches: u32,
 	/// The width of the zeroth delay tranche for approval assignments. This many delay tranches
 	/// beyond 0 are all consolidated to form a wide 0 tranche.
@@ -232,7 +231,7 @@ pub struct HostConfiguration<BlockNumber> {
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
 	fn default() -> Self {
-		Self {
+		let ret = Self {
 			async_backing_params: AsyncBackingParams {
 				max_candidate_depth: 0,
 				allowed_ancestry_len: 0,
@@ -247,7 +246,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_validators: None,
 			dispute_period: 6,
 			dispute_post_conclusion_acceptance_period: 100.into(),
-			n_delay_tranches: Default::default(),
+			n_delay_tranches: 1,
 			zeroth_delay_tranche_width: Default::default(),
 			needed_approvals: Default::default(),
 			relay_vrf_modulo_samples: Default::default(),
@@ -271,7 +270,30 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 			scheduler_params: Default::default(),
-		}
+		};
+
+		#[cfg(feature = "runtime-benchmarks")]
+		let ret = ret.with_benchmarking_default();
+		ret
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<BlockNumber: Default + From<u32>> HostConfiguration<BlockNumber> {
+	/// Mutate the values of self to be good estimates for benchmarking.
+	///
+	/// The values do not need to be worst-case, since the benchmarking logic extrapolates. They
+	/// should be a bit more than usually expected.
+	fn with_benchmarking_default(mut self) -> Self {
+		self.max_head_data_size = self.max_head_data_size.max(1 << 20);
+		self.max_downward_message_size = self.max_downward_message_size.max(1 << 16);
+		self.hrmp_channel_max_capacity = self.hrmp_channel_max_capacity.max(1000);
+		self.hrmp_channel_max_message_size = self.hrmp_channel_max_message_size.max(1 << 16);
+		self.hrmp_max_parachain_inbound_channels =
+			self.hrmp_max_parachain_inbound_channels.max(100);
+		self.hrmp_max_parachain_outbound_channels =
+			self.hrmp_max_parachain_outbound_channels.max(100);
+		self
 	}
 }
 
@@ -315,6 +337,8 @@ pub enum InconsistentError<BlockNumber> {
 	LookaheadExceedsTTL,
 	/// Passed in queue size for on-demand was too large.
 	OnDemandQueueSizeTooLarge,
+	/// Number of delay tranches cannot be 0.
+	ZeroDelayTranches,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -410,6 +434,10 @@ where
 
 		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
 			return Err(OnDemandQueueSizeTooLarge)
+		}
+
+		if self.n_delay_tranches.is_zero() {
+			return Err(ZeroDelayTranches)
 		}
 
 		Ok(())

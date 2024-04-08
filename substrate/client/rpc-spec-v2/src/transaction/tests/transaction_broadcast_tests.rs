@@ -372,7 +372,7 @@ async fn tx_broadcast_resubmits_invalid_tx() {
 	client_mock.trigger_import_stream(block_2_header).await;
 
 	// Ensure we propagate the temporary ban error to `submit_and_watch`.
-	// This ensures we'll loop again with the next annmounced block and try to resubmit the
+	// This ensures we'll loop again with the next announced block and try to resubmit the
 	// transaction. The transaction remains temporarily banned until the pool is maintained.
 	let event = get_next_event!(&mut pool_middleware);
 	assert_matches!(event, MiddlewarePoolEvent::PoolError { transaction, err } if transaction == xt && err.contains("Transaction temporarily Banned"));
@@ -429,7 +429,7 @@ async fn tx_broadcast_resubmits_invalid_tx() {
 }
 
 /// This is similar to `tx_broadcast_resubmits_invalid_tx`.
-/// However, it forces the tx to be resubmited because of the pool
+/// However, it forces the tx to be resubmitted because of the pool
 /// limits. Which is a different code path than the invalid tx.
 #[tokio::test]
 async fn tx_broadcast_resubmits_dropped_tx() {
@@ -509,7 +509,7 @@ async fn tx_broadcast_resubmits_dropped_tx() {
 	pool.inner_pool.maintain(event).await;
 	client_mock.trigger_import_stream(block_3_header.clone()).await;
 
-	// The first tx is in a finalzied block; the future tx must enter the pool.
+	// The first tx is in a finalized block; the future tx must enter the pool.
 	let events = get_next_tx_events!(&mut pool_middleware, 3);
 	assert_eq!(
 		events.get(&current_xt).unwrap(),
