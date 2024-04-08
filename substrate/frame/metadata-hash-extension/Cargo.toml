@@ -1,0 +1,23 @@
+[package]
+name = "frame-metadata-hash-extension"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+array-bytes = "6.2.2"
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive", "serde"] }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+docify = "0.2.8"
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-runtime/std",
+]

@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Config;
+#![cfg_attr(not(feature = "std"), no_std)]
+
+use frame_system::Config;
 use codec::{Decode, Encode};
 use frame_support::DebugNoBound;
 use scale_info::TypeInfo;
@@ -33,14 +35,14 @@ use sp_runtime::{
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, DebugNoBound)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckMetadataHash<T> {
-	_phantom: sp_std::marker::PhantomData<T>,
+	_phantom: core::marker::PhantomData<T>,
 	enable: bool,
 }
 
 impl<T> CheckMetadataHash<T> {
 	/// Creates new `SignedExtension` to check metadata hash.
 	pub fn new(enable: bool) -> Self {
-		Self { _phantom: sp_std::marker::PhantomData, enable }
+		Self { _phantom: core::marker::PhantomData, enable }
 	}
 }
 
