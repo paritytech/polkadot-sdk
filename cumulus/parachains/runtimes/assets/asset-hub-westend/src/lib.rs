@@ -248,7 +248,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
-	type Freezer = ();
+	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
 	type CallbackHandle = ();
@@ -258,8 +258,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
-// Freezer for "Trust Backed" assets instance. This enables other pallets to
-// use this pallet to set freezes and thaws on balances over accounts on a given asset.
+// Allow Freezes for the `Assets` pallet
 pub type TrustBackedAssetsFreezerInstance = pallet_assets_freezer::Instance1;
 impl pallet_assets_freezer::Config<TrustBackedAssetsFreezerInstance> for Runtime {
 	type FreezeIdentifier = ();
@@ -295,12 +294,21 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = ConstU128<0>;
 	type ApprovalDeposit = ConstU128<0>;
 	type StringLimit = ConstU32<50>;
-	type Freezer = ();
+	type Freezer = PoolAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
 	type CallbackHandle = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+// Allow Freezes for the `PoolAssets` pallet
+pub type PoolAssetsFreezerInstance = pallet_assets_freezer::Instance3;
+impl pallet_assets_freezer::Config<PoolAssetsFreezerInstance> for Runtime {
+	type FreezeIdentifier = ();
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
+	type MaxFreezes = ConstU32<8>;
 }
 
 /// Union fungibles implementation for `Assets` and `ForeignAssets`.
@@ -387,7 +395,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = ForeignAssetsMetadataDepositPerByte;
 	type ApprovalDeposit = ForeignAssetsApprovalDeposit;
 	type StringLimit = ForeignAssetsAssetsStringLimit;
-	type Freezer = ();
+	type Freezer = ForeignAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
 	type CallbackHandle = ();
@@ -395,6 +403,15 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
+}
+
+// Allow Freezes for the `PoolAssets` pallet
+pub type ForeignAssetsFreezerInstance = pallet_assets_freezer::Instance2;
+impl pallet_assets_freezer::Config<ForeignAssetsFreezerInstance> for Runtime {
+	type FreezeIdentifier = ();
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
+	type MaxFreezes = ConstU32<8>;
 }
 
 parameter_types! {
@@ -917,6 +934,8 @@ construct_runtime!(
 		PoolAssets: pallet_assets::<Instance3> = 55,
 		AssetConversion: pallet_asset_conversion = 56,
 		AssetsFreezer: pallet_assets_freezer::<Instance1> = 57,
+		ForeignAssetsFreezer: pallet_assets_freezer::<Instance2> = 58,
+		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
 	}
 );
 

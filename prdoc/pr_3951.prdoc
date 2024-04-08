@@ -16,5 +16,15 @@ doc:
       Tools might benefit from observing it.
 
 crates:
+  - name: frame-support
+    bump: minor
   - name: pallet-assets-freezer
     bump: major
+  - name: pallet-assets
+    bump: patch
+  - name: pallet-balances
+    bump: patch
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
