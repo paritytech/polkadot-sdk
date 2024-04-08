@@ -334,7 +334,7 @@ pub trait FunctionContext {
 
 /// See `sp_virtualization::Virtualization`.
 pub trait Virtualization {
-	fn instantiate(&mut self, program: &[u8]) -> Result<sp_std::result::Result<u64, u8>>;
+	fn instantiate(&mut self, program: &[u8]) -> Result<result::Result<u64, u8>>;
 
 	fn execute(
 		&mut self,
@@ -343,23 +343,23 @@ pub trait Virtualization {
 		syscall_handler: u32,
 		state_ptr: u32,
 		destroy: bool,
-	) -> Result<sp_std::result::Result<(), u8>>;
+	) -> Result<result::Result<(), u8>>;
 
-	fn destroy(&mut self, instance_id: u64) -> Result<sp_std::result::Result<(), u8>>;
+	fn destroy(&mut self, instance_id: u64) -> Result<result::Result<(), u8>>;
 
 	fn read_memory(
 		&mut self,
 		instance_id: u64,
 		offset: u32,
 		dest: &mut [u8],
-	) -> Result<sp_std::result::Result<(), u8>>;
+	) -> Result<result::Result<(), u8>>;
 
 	fn write_memory(
 		&mut self,
 		instance_id: u64,
 		offset: u32,
 		src: &[u8],
-	) -> Result<sp_std::result::Result<(), u8>>;
+	) -> Result<result::Result<(), u8>>;
 }
 
 if_wasmtime_is_enabled! {
