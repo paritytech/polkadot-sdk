@@ -493,13 +493,8 @@ impl_runtime_apis! {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
-		fn benchmark_metadata(extra: bool) -> (
-			Vec<frame_benchmarking::BenchmarkList>,
-			Vec<frame_support::traits::StorageInfo>,
-			Weight,
-			frame_support::weights::RuntimeDbWeight,
-		) {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+		fn benchmark_metadata(extra: bool) -> frame_benchmarking::BenchmarkInfo {
+			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList, BenchmarkInfo};
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use baseline::Pallet as BaselineBench;
@@ -510,7 +505,7 @@ impl_runtime_apis! {
 			let storage_info = AllPalletsWithSystem::storage_info();
 			let max_extrinsic_weight = BlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
 			let db_weight: frame_support::weights::RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
-			(list, storage_info, max_extrinsic_weight, db_weight)
+			BenchmarkInfo { list, storage_info, max_extrinsic_weight: Some(max_extrinsic_weight), db_weight: Some(db_weight) }
 		}
 
 		fn dispatch_benchmark(

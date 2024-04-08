@@ -174,10 +174,7 @@ sp_api::impl_runtime_apis! {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
-		fn benchmark_metadata(_: bool) -> (
-			Vec<frame_benchmarking::BenchmarkList>,
-			Vec<frame_support::traits::StorageInfo>,
-		) {
+		fn benchmark_metadata(_: bool) -> frame_benchmarking::BenchmarkInfo {
 			unimplemented!()
 		}
 

@@ -218,28 +218,29 @@ pub(crate) fn sanity_weight_check(
 			);
 			// `ref_time` multiplied by complexity parameter.
 			for component in &result.component_weight {
-				total_weight = total_weight.saturating_add(
+				total_weight.saturating_accrue(
 					Weight::from_parts(component.slope.try_into().unwrap(), 0)
 						.saturating_mul(max_component(&component, &result.component_ranges)),
 				);
 			}
 			// Constant storage reads.
-			total_weight =
-				total_weight.saturating_add(db_weight.reads(result.base_reads.try_into().unwrap()));
+			total_weight.saturating_accrue(db_weight.reads(result.base_reads.try_into().unwrap()));
+
 			// Storage reads multiplied by complexity parameter.
 			for component in &result.component_reads {
-				total_weight = total_weight.saturating_add(
+				total_weight.saturating_accrue(
 					db_weight
 						.reads(component.slope.try_into().unwrap())
 						.saturating_mul(max_component(&component, &result.component_ranges)),
 				);
 			}
 			// Constant storage writes.
-			total_weight = total_weight
-				.saturating_add(db_weight.writes(result.base_writes.try_into().unwrap()));
+			total_weight
+				.saturating_accrue(db_weight.writes(result.base_writes.try_into().unwrap()));
+
 			// Storage writes multiplied by complexity parameter.
 			for component in &result.component_writes {
-				total_weight = total_weight.saturating_add(
+				total_weight.saturating_accrue(
 					db_weight
 						.writes(component.slope.try_into().unwrap())
 						.saturating_mul(max_component(&component, &result.component_ranges)),
@@ -247,7 +248,7 @@ pub(crate) fn sanity_weight_check(
 			}
 			// `pov_size` multiplied by complexity parameter.
 			for component in &result.component_calculated_proof_size {
-				total_weight = total_weight.saturating_add(
+				total_weight.saturating_accrue(
 					Weight::from_parts(0, component.slope.try_into().unwrap())
 						.saturating_mul(max_component(&component, &result.component_ranges)),
 				);
@@ -271,21 +272,18 @@ pub(crate) fn sanity_weight_check(
 			);
 		}
 	}
-	match sanity_weight_check_passed {
-		false => {
-			color_print::cprintln!(
-				"<r>Your extrinsics failed the Sanity Weight Check, please review \
+	if sanity_weight_check_passed {
+		color_print::cprintln!("<g>Your extrinsics passed the Sanity Weight Check 😃!</>\n");
+	} else {
+		color_print::cprintln!(
+			"<r>Your extrinsics failed the Sanity Weight Check, please review \
 			the extrinsic's logic and/or the associated benchmark function.</>\n",
-			);
-			if sanity_weight_check == SanityWeightCheck::Error {
-				return Err(io_error(&String::from(
-					"One or more extrinsics exceed the maximum extrinsic weight",
-				)))
-			}
-		},
-		true => {
-			color_print::cprintln!("<g>Your extrinsics passed the Sanity Weight Check 😃!</>\n");
-		},
+		);
+		if sanity_weight_check == SanityWeightCheck::Error {
+			return Err(io_error(&String::from(
+				"One or more extrinsics exceed the maximum extrinsic weight",
+			)))
+		}
 	}
 	Ok(())
 }

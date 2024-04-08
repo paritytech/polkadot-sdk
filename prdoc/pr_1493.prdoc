@@ -1,0 +1,61 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Benchmarking: automatic weight sanity check"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces a new sanity weight check during benchmark execution to ensure that the weight of the function/extrinsic does not exceed the given limit. 
+      Maximum extrinsic weight value and `RuntimeDbWeight` should be provided by the runtime API. Maximum weight value is usually `max_extrinsic` from 
+      `RuntimeBlockWeights` for `DispatchClass::Normal` type extrinsics.
+      
+      During benchmark execution developers can either choose to throw an error, log a warning, or ignore if the weight exceeds the limit. Default behaviour is 
+      warning. This can be configured by passing an argument to `--sanity-check` flag in the benchmarking CLI.
+
+      Note: This introduces a breaking change for `frame_benchmarking::Benchmark` runtime API. `benchmark_metadata` function now returns new struct `BenchmarkInfo` 
+      that encapsulates exhaustive benchmarks related information. To ensure backwards compatibility, `BenchmarkInfo` can be created from previous 
+      return type: `(Vec<BenchmarkList>, Vec<StorageInfo>)`.
+
+      The easiest way to migrate is to replace is to change return type and convert the tuple to `BenchmarkInfo`:
+
+      ```
+      --- a/path/to/runtime.rs
+      +++ b/path/to/runtime.rs
+      @@ -1,3 +1,4 @@
+      -fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>) {
+      +fn benchmark_metadata(extra: bool) -> frame_benchmarking::BenchmarkInfo {
+          /// ...
+          let mut list = Vec::<BenchmarkList>::new();
+          list_benchmarks!(list, extra);
+
+          let storage_info = AllPalletsWithSystem::storage_info();
+
+          -(list, storage_info)
+          +(list, storage_info).into()
+      }
+      ```
+
+      However, it is strongly recommended to use weight sanity check to ensure your benchmarks are within the weight limit:
+
+      ```
+      --- a/path/to/runtime.rs
+      +++ b/path/to/runtime.rs
+      @@ -1,3 +1,4 @@
+      -fn benchmark_metadata(extra: bool) -> (Vec<BenchmarkList>, Vec<StorageInfo>) {
+      +fn benchmark_metadata(extra: bool) -> frame_benchmarking::BenchmarkInfo {
+          /// ...
+          +let max_extrinsic_weight = RuntimeBlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
+          +let db_weight: frame_support::weights::RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
+          -(list, storage_info)
+          +BenchmarkInfo {list, storage_info, max_extrinsic_weight: Some(max_extrinsic_weight), db_weight: Some(db_weight) }
+      }
+      ```
+
+crates:
+  - name: "frame-benchmarking"
+    bump: "major"
+  - name: "frame-benchmarking-cli"
+    bump: "major"
+  - name: "sc-cli"
+    bump: "minor"
