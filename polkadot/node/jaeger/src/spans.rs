@@ -86,7 +86,7 @@
 use parity_scale_codec::Encode;
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{BlakeTwo256, CandidateHash, Hash, HashT, Id as ParaId, ValidatorIndex};
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 
 use std::{fmt, sync::Arc};
 
