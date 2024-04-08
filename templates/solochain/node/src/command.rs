@@ -117,7 +117,9 @@ pub fn run() -> sc_cli::Result<()> {
 							)
 						}
 
-						cmd.run::<sp_runtime::traits::HashingFor<Block>, ()>(config)
+						cmd.run_with_spec::<sp_runtime::traits::HashingFor<Block>, ()>(Some(
+							config.chain_spec,
+						))
 					},
 					BenchmarkCmd::Block(cmd) => {
 						let PartialComponents { client, .. } = service::new_partial(&config)?;
