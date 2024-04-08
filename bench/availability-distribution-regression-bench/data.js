@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712560624516,
+  "lastUpdate": 1712569332979,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2339,6 +2339,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15141726379999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "c1063a530e46c4af0a934ca50422b69182255e60",
+          "message": "sc-beefy-consensus: Remove unneeded stream. (#4015)\n\nThe stream was just used to communicate from the validator the peer\nreports back to the gossip engine. Internally the gossip engine just\nforwards these reports to the networking engine. So, we can just do this\ndirectly.\n\nThe reporting stream was also pumped [in the worker behind the\nengine](https://github.com/paritytech/polkadot-sdk/blob/9d6261892814fa27c97881c0321c008d7340b54b/substrate/client/consensus/beefy/src/worker.rs#L939).\nThis means if there was a lot of data incoming over the engine, the\nreporting stream was almost never processed and thus, it could have\nstarted to grow and we have seen issues around this.\n\nPartly Closes: https://github.com/paritytech/polkadot-sdk/issues/3945",
+          "timestamp": "2024-04-08T08:28:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1063a530e46c4af0a934ca50422b69182255e60"
+        },
+        "date": 1712569310311,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.899999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008796588453333339,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02608197736000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14900762522,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01185666667333334,
             "unit": "seconds"
           }
         ]
