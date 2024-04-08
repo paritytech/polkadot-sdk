@@ -119,13 +119,14 @@ default:
 #
 .forklift-cache:
   before_script:
+    - cp $FL_FORKLIFT_CONFIG_ALT ~/.forklift/config.toml
     - >
       if [ "$FORKLIFT_BYPASS" != "true" ]; then
       echo "FORKLIFT_BYPASS not set, creating alias cargo='forklift cargo'"; 
-      forklift version;
       shopt -s expand_aliases;
       alias cargo="forklift cargo";
       fi
+    #
 
 
 .common-refs:
