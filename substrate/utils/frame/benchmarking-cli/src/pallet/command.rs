@@ -18,7 +18,7 @@
 use super::{writer, PalletCmd};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
-	Analysis, AnalysisChoice, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList,
+	Analysis, AnalysisChoice, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkInfo,
 	BenchmarkParameter, BenchmarkResult, BenchmarkSelector,
 };
 use frame_support::{
@@ -254,11 +254,9 @@ impl PalletCmd {
 		.execute()
 		.map_err(|e| format!("{}: {}", ERROR_METADATA_NOT_FOUND, e))?;
 
-		let (list, storage_info, max_extrinsic_weight, db_weight) =
-			<(Vec<BenchmarkList>, Vec<StorageInfo>, Weight, RuntimeDbWeight) as Decode>::decode(
-				&mut &result[..],
-			)
-			.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?;
+		let BenchmarkInfo { list, storage_info, max_extrinsic_weight, db_weight } =
+			<BenchmarkInfo as Decode>::decode(&mut &result[..])
+				.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?;
 
 		if let Some(json_input) = &self.json_input {
 			let raw_data = match std::fs::read(json_input) {
@@ -530,8 +528,8 @@ impl PalletCmd {
 		storage_info: &[StorageInfo],
 		component_ranges: &HashMap<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>,
 		pov_modes: PovModesMap,
-		max_extrinsic_weight: Weight,
-		db_weight: RuntimeDbWeight,
+		max_extrinsic_weight: Option<Weight>,
+		db_weight: Option<RuntimeDbWeight>,
 	) -> Result<()> {
 		// Jsonify the result and write it to a file or stdout if desired.
 		if !self.jsonify(&batches)? {
@@ -563,13 +561,15 @@ impl PalletCmd {
 			writer::write_results(output_path, self, analysis_choice, &all_results)?;
 		}
 
-		// Execute sanity weight check.
-		writer::sanity_weight_check(
-			all_results,
-			max_extrinsic_weight,
-			db_weight,
-			self.shared_params.sanity_weight_check,
-		)?;
+		if let (Some(max_extrinsic_weight), Some(db_weight)) = (max_extrinsic_weight, db_weight) {
+			// Execute sanity weight check.
+			writer::sanity_weight_check(
+				all_results,
+				max_extrinsic_weight,
+				db_weight,
+				self.shared_params.sanity_weight_check,
+			)?;
+		}
 
 		Ok(())
 	}
@@ -578,8 +578,8 @@ impl PalletCmd {
 	fn output_from_results(
 		&self,
 		batches: &[BenchmarkBatchSplitResults],
-		max_extrinsic_weight: Weight,
-		db_weight: RuntimeDbWeight,
+		max_extrinsic_weight: Option<Weight>,
+		db_weight: Option<RuntimeDbWeight>,
 	) -> Result<()> {
 		let mut component_ranges =
 			HashMap::<(Vec<u8>, Vec<u8>), HashMap<String, (u32, u32)>>::new();
