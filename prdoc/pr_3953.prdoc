@@ -14,6 +14,6 @@ crates:
 - name: frame-remote-externalities
   bump: major
 - name: pallet-state-trie-migration
-  bump: major
+  bump: patch
 - name: try-runtime-cli
   bump: major
