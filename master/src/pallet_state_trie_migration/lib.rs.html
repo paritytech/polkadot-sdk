@@ -1978,6 +1978,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1829" id="1829">1829</a>
 <a href="#1830" id="1830">1830</a>
 <a href="#1831" id="1831">1831</a>
+<a href="#1832" id="1832">1832</a>
+<a href="#1833" id="1833">1833</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3678,8 +3680,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This will print some very useful statistics, make sure [`crate::LOG_TARGET`] is enabled.
 	</span><span class="attr">#[allow(dead_code)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>run_with_limits&lt;Runtime, Block&gt;(limits: MigrationLimits, mode: Mode&lt;Block&gt;)
-	<span class="kw">where
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>run_with_limits&lt;Runtime, Block&gt;(
+		limits: MigrationLimits,
+		mode: Mode&lt;Block::Hash&gt;,
+	) <span class="kw">where
 		</span>Runtime: <span class="kw">crate</span>::Config&lt;Hash = H256&gt;,
 		Block: BlockT&lt;Hash = H256&gt; + DeserializeOwned,
 		Block::Header: serde::de::DeserializeOwned,

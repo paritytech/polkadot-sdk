@@ -1138,7 +1138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		executor: <span class="kw-2">&amp;</span>WasmExecutor&lt;HostFns&gt;,
 		state_snapshot: <span class="prelude-ty">Option</span>&lt;SnapshotConfig&gt;,
 		try_runtime_check: bool,
-	) -&gt; sc_cli::Result&lt;RemoteExternalities&lt;Block&gt;&gt;
+	) -&gt; sc_cli::Result&lt;RemoteExternalities&lt;HashingFor&lt;Block&gt;&gt;&gt;
 	<span class="kw">where
 		</span>Block::Header: DeserializeOwned,
 		&lt;Block::Hash <span class="kw">as </span>FromStr&gt;::Err: Debug,

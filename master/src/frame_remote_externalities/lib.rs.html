@@ -1724,6 +1724,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1575" id="1575">1575</a>
 <a href="#1576" id="1576">1576</a>
 <a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1762,7 +1764,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 };
 <span class="kw">use </span>sp_runtime::{
-	traits::{Block <span class="kw">as </span>BlockT, HashingFor},
+	traits::{Block <span class="kw">as </span>BlockT, Hash, HashingFor},
 	StateVersion,
 };
 <span class="kw">use </span>sp_state_machine::TestExternalities;
@@ -1789,21 +1791,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The snapshot that we store on disk.
 </span><span class="attr">#[derive(Decode, Encode)]
-</span><span class="kw">struct </span>Snapshot&lt;B: BlockT&gt; {
+</span><span class="kw">struct </span>Snapshot&lt;H&gt; {
 	snapshot_version: SnapshotVersion,
 	state_version: StateVersion,
-	block_hash: B::Hash,
+	block_hash: H,
 	<span class="comment">// &lt;Vec&lt;Key, (Value, MemoryDbRefCount)&gt;&gt;
 	</span>raw_storage: Vec&lt;(Vec&lt;u8&gt;, (Vec&lt;u8&gt;, i32))&gt;,
-	storage_root: B::Hash,
+	storage_root: H,
 }
 
-<span class="kw">impl</span>&lt;B: BlockT&gt; Snapshot&lt;B&gt; {
+<span class="kw">impl</span>&lt;H: Decode&gt; Snapshot&lt;H&gt; {
 	<span class="kw">pub fn </span>new(
 		state_version: StateVersion,
-		block_hash: B::Hash,
+		block_hash: H,
 		raw_storage: Vec&lt;(Vec&lt;u8&gt;, (Vec&lt;u8&gt;, i32))&gt;,
-		storage_root: B::Hash,
+		storage_root: H,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			snapshot_version: SNAPSHOT_VERSION,
@@ -1814,7 +1816,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>load(path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;Snapshot&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	<span class="kw">fn </span>load(path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;Snapshot&lt;H&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
 		<span class="kw">let </span>bytes = fs::read(path).map_err(|<span class="kw">_</span>| <span class="string">&quot;fs::read failed.&quot;</span>)<span class="question-mark">?</span>;
 		<span class="comment">// The first item in the SCALE encoded struct bytes is the snapshot version. We decode and
 		// check that first, before proceeding to decode the rest of the snapshot.
@@ -1831,21 +1833,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An externalities that acts exactly the same as [`sp_io::TestExternalities`] but has a few extra
 /// bits and pieces to it, and can be loaded remotely.
-</span><span class="kw">pub struct </span>RemoteExternalities&lt;B: BlockT&gt; {
+</span><span class="kw">pub struct </span>RemoteExternalities&lt;H: Hash&gt; {
 	<span class="doccomment">/// The inner externalities.
-	</span><span class="kw">pub </span>inner_ext: TestExternalities&lt;HashingFor&lt;B&gt;&gt;,
-	<span class="doccomment">/// The block hash it which we created this externality env.
-	</span><span class="kw">pub </span>block_hash: B::Hash,
+	</span><span class="kw">pub </span>inner_ext: TestExternalities&lt;H&gt;,
+	<span class="doccomment">/// The block hash with which we created this externality env.
+	</span><span class="kw">pub </span>block_hash: H::Out,
 }
 
-<span class="kw">impl</span>&lt;B: BlockT&gt; Deref <span class="kw">for </span>RemoteExternalities&lt;B&gt; {
-	<span class="kw">type </span>Target = TestExternalities&lt;HashingFor&lt;B&gt;&gt;;
+<span class="kw">impl</span>&lt;H: Hash&gt; Deref <span class="kw">for </span>RemoteExternalities&lt;H&gt; {
+	<span class="kw">type </span>Target = TestExternalities&lt;H&gt;;
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.inner_ext
 	}
 }
 
-<span class="kw">impl</span>&lt;B: BlockT&gt; DerefMut <span class="kw">for </span>RemoteExternalities&lt;B&gt; {
+<span class="kw">impl</span>&lt;H: Hash&gt; DerefMut <span class="kw">for </span>RemoteExternalities&lt;H&gt; {
 	<span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::Target {
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner_ext
 	}
@@ -1853,16 +1855,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The execution mode.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub enum </span>Mode&lt;B: BlockT&gt; {
+</span><span class="kw">pub enum </span>Mode&lt;H&gt; {
 	<span class="doccomment">/// Online. Potentially writes to a snapshot file.
-	</span>Online(OnlineConfig&lt;B&gt;),
+	</span>Online(OnlineConfig&lt;H&gt;),
 	<span class="doccomment">/// Offline. Uses a state snapshot file and needs not any client config.
 	</span>Offline(OfflineConfig),
 	<span class="doccomment">/// Prefer using a snapshot file if it exists, else use a remote server.
-	</span>OfflineOrElseOnline(OfflineConfig, OnlineConfig&lt;B&gt;),
+	</span>OfflineOrElseOnline(OfflineConfig, OnlineConfig&lt;H&gt;),
 }
 
-<span class="kw">impl</span>&lt;B: BlockT&gt; Default <span class="kw">for </span>Mode&lt;B&gt; {
+<span class="kw">impl</span>&lt;H&gt; Default <span class="kw">for </span>Mode&lt;H&gt; {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		Mode::Online(OnlineConfig::default())
 	}
@@ -1947,10 +1949,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// A state snapshot config may be present and will be written to in that case.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>OnlineConfig&lt;B: BlockT&gt; {
+</span><span class="kw">pub struct </span>OnlineConfig&lt;H&gt; {
 	<span class="doccomment">/// The block hash at which to get the runtime state. Will be latest finalized head if not
 	/// provided.
-	</span><span class="kw">pub </span>at: <span class="prelude-ty">Option</span>&lt;B::Hash&gt;,
+	</span><span class="kw">pub </span>at: <span class="prelude-ty">Option</span>&lt;H&gt;,
 	<span class="doccomment">/// An optional state snapshot file to WRITE to, not for reading. Not written if set to `None`.
 	</span><span class="kw">pub </span>state_snapshot: <span class="prelude-ty">Option</span>&lt;SnapshotConfig&gt;,
 	<span class="doccomment">/// The pallets to scrape. These values are hashed and added to `hashed_prefix`.
@@ -1966,7 +1968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>hashed_keys: Vec&lt;Vec&lt;u8&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;B: BlockT&gt; OnlineConfig&lt;B&gt; {
+<span class="kw">impl</span>&lt;H: Clone&gt; OnlineConfig&lt;H&gt; {
 	<span class="doccomment">/// Return rpc (http) client reference.
 	</span><span class="kw">fn </span>rpc_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HttpClient {
 		<span class="self">self</span>.transport
@@ -1974,12 +1976,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.expect(<span class="string">&quot;http client must have been initialized by now; qed.&quot;</span>)
 	}
 
-	<span class="kw">fn </span>at_expected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; B::Hash {
-		<span class="self">self</span>.at.expect(<span class="string">&quot;block at must be initialized; qed&quot;</span>)
+	<span class="kw">fn </span>at_expected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H {
+		<span class="self">self</span>.at.clone().expect(<span class="string">&quot;block at must be initialized; qed&quot;</span>)
 	}
 }
 
-<span class="kw">impl</span>&lt;B: BlockT&gt; Default <span class="kw">for </span>OnlineConfig&lt;B&gt; {
+<span class="kw">impl</span>&lt;H&gt; Default <span class="kw">for </span>OnlineConfig&lt;H&gt; {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			transport: Transport::from(DEFAULT_HTTP_ENDPOINT.to_owned()),
@@ -1993,7 +1995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;B: BlockT&gt; From&lt;String&gt; <span class="kw">for </span>OnlineConfig&lt;B&gt; {
+<span class="kw">impl</span>&lt;H&gt; From&lt;String&gt; <span class="kw">for </span>OnlineConfig&lt;H&gt; {
 	<span class="kw">fn </span>from(t: String) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ transport: t.into(), ..Default::default() }
 	}
@@ -2033,7 +2035,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The keys that will be excluded from the final externality. The *hashed* key must be given.
 	</span>hashed_blacklist: Vec&lt;Vec&lt;u8&gt;&gt;,
 	<span class="doccomment">/// Connectivity mode, online or offline.
-	</span>mode: Mode&lt;B&gt;,
+	</span>mode: Mode&lt;B::Hash&gt;,
 	<span class="doccomment">/// If provided, overwrite the state version with this. Otherwise, the state_version of the
 	/// remote node is used. All cache files also store their state version.
 	///
@@ -2054,7 +2056,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Mode methods
 </span><span class="kw">impl</span>&lt;B: BlockT&gt; Builder&lt;B&gt; {
-	<span class="kw">fn </span>as_online(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>OnlineConfig&lt;B&gt; {
+	<span class="kw">fn </span>as_online(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>OnlineConfig&lt;B::Hash&gt; {
 		<span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.mode {
 			Mode::Online(config) =&gt; config,
 			Mode::OfflineOrElseOnline(<span class="kw">_</span>, config) =&gt; config,
@@ -2062,7 +2064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>as_online_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>OnlineConfig&lt;B&gt; {
+	<span class="kw">fn </span>as_online_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>OnlineConfig&lt;B::Hash&gt; {
 		<span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.mode {
 			Mode::Online(config) =&gt; config,
 			Mode::OfflineOrElseOnline(<span class="kw">_</span>, config) =&gt; config,
@@ -2781,7 +2783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// If we need to save a snapshot, save the raw storage and root hash to the snapshot.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(path) = <span class="self">self</span>.as_online().state_snapshot.clone().map(|c| c.path) {
 			<span class="kw">let </span>(raw_storage, storage_root) = pending_ext.into_raw_snapshot();
-			<span class="kw">let </span>snapshot = Snapshot::&lt;B&gt;::new(
+			<span class="kw">let </span>snapshot = Snapshot::&lt;B::Hash&gt;::new(
 				state_version,
 				<span class="self">self</span>.as_online()
 					.at
@@ -2809,7 +2811,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(pending_ext)
 	}
 
-	<span class="kw">async fn </span>do_load_remote(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	<span class="kw">async fn </span>do_load_remote(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
 		<span class="self">self</span>.init_remote_client().<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>block_hash = <span class="self">self</span>.as_online().at_expected();
 		<span class="kw">let </span>inner_ext = <span class="self">self</span>.load_remote_and_maybe_save().<span class="kw">await</span><span class="question-mark">?</span>;
@@ -2819,12 +2821,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>do_load_offline(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		config: OfflineConfig,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>sp = Spinner::with_timer(Spinners::Dots, <span class="string">&quot;Loading snapshot...&quot;</span>.into());
 		<span class="kw">let </span>start = Instant::now();
 		<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;Loading snapshot from {:?}&quot;</span>, <span class="kw-2">&amp;</span>config.state_snapshot.path);
 		<span class="kw">let </span>Snapshot { snapshot_version: <span class="kw">_</span>, block_hash, state_version, raw_storage, storage_root } =
-			Snapshot::&lt;B&gt;::load(<span class="kw-2">&amp;</span>config.state_snapshot.path)<span class="question-mark">?</span>;
+			Snapshot::&lt;B::Hash&gt;::load(<span class="kw-2">&amp;</span>config.state_snapshot.path)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>inner_ext = TestExternalities::from_raw_snapshot(
 			raw_storage,
@@ -2836,7 +2838,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(RemoteExternalities { inner_ext, block_hash })
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>pre_build(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>pre_build(
+		<span class="kw-2">mut </span><span class="self">self</span>,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = <span class="kw">match </span><span class="self">self</span>.mode.clone() {
 			Mode::Offline(config) =&gt; <span class="self">self</span>.do_load_offline(config)<span class="question-mark">?</span>,
 			Mode::Online(<span class="kw">_</span>) =&gt; <span class="self">self</span>.do_load_remote().<span class="kw">await</span><span class="question-mark">?</span>,
@@ -2901,7 +2905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="doccomment">/// Configure a state snapshot to be used.
-	</span><span class="kw">pub fn </span>mode(<span class="kw-2">mut </span><span class="self">self</span>, mode: Mode&lt;B&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>mode(<span class="kw-2">mut </span><span class="self">self</span>, mode: Mode&lt;B::Hash&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.mode = mode;
 		<span class="self">self
 	</span>}
@@ -2912,7 +2916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self
 	</span>}
 
-	<span class="kw">pub async fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;B&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	<span class="kw">pub async fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = <span class="self">self</span>.pre_build().<span class="kw">await</span><span class="question-mark">?</span>;
 		ext.commit_all().unwrap();
 
