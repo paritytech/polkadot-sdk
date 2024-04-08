@@ -448,7 +448,7 @@ impl ProtocolController {
 		self.peer_store.report_disconnect(peer_id);
 	}
 
-	/// Ask `Peerset` if the peer has a reputation value not sufficent for connection with it.
+	/// Ask `Peerset` if the peer has a reputation value not sufficient for connection with it.
 	fn is_banned(&self, peer_id: &PeerId) -> bool {
 		self.peer_store.is_banned(peer_id)
 	}
@@ -2020,7 +2020,7 @@ mod tests {
 			ProtocolController::new(SetId::from(0), config, tx, Box::new(peer_store));
 		assert!(matches!(controller.reserved_nodes.get(&reserved1), Some(PeerState::NotConnected)));
 
-		// Initiate connectios
+		// Initiate connections
 		controller.alloc_slots();
 		assert!(matches!(controller.reserved_nodes.get(&reserved1), Some(PeerState::NotConnected)));
 		assert_eq!(rx.try_recv().unwrap_err(), TryRecvError::Empty);

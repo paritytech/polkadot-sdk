@@ -18,7 +18,7 @@
 //! # Node authorization pallet
 //!
 //! This pallet manages a configurable set of nodes for a permissioned network.
-//! Each node is dentified by a PeerId (i.e. `Vec<u8>`). It provides two ways to
+//! Each node is identified by a PeerId (i.e. `Vec<u8>`). It provides two ways to
 //! authorize a node,
 //!
 //! - a set of well known nodes across different organizations in which the
@@ -102,7 +102,7 @@ pub mod pallet {
 	#[pallet::getter(fn owners)]
 	pub type Owners<T: Config> = StorageMap<_, Blake2_128Concat, PeerId, T::AccountId>;
 
-	/// The additional adapative connections of each node.
+	/// The additional adaptive connections of each node.
 	#[pallet::storage]
 	#[pallet::getter(fn additional_connection)]
 	pub type AdditionalConnections<T> =
@@ -161,7 +161,7 @@ pub mod pallet {
 		NotClaimed,
 		/// You are not the owner of the node.
 		NotOwner,
-		/// No permisson to perform specific operation.
+		/// No permission to perform specific operation.
 		PermissionDenied,
 	}
 
@@ -377,7 +377,7 @@ pub mod pallet {
 		/// Add additional connections to a given node.
 		///
 		/// - `node`: identifier of the node.
-		/// - `connections`: additonal nodes from which the connections are allowed.
+		/// - `connections`: additional nodes from which the connections are allowed.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::add_connections())]
 		pub fn add_connections(
@@ -412,7 +412,7 @@ pub mod pallet {
 		/// Remove additional connections of a given node.
 		///
 		/// - `node`: identifier of the node.
-		/// - `connections`: additonal nodes from which the connections are not allowed anymore.
+		/// - `connections`: additional nodes from which the connections are not allowed anymore.
 		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::remove_connections())]
 		pub fn remove_connections(

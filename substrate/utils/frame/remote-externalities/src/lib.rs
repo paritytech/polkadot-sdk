@@ -762,7 +762,7 @@ where
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Inserting keys into DB...".into());
 		let start = Instant::now();
 		pending_ext.batch_insert(key_values.clone().into_iter().filter_map(|(k, v)| {
-			// Don't insert the child keys here, they need to be inserted seperately with all their
+			// Don't insert the child keys here, they need to be inserted separately with all their
 			// data in the load_child_remote function.
 			match is_default_child_storage_key(&k.0) {
 				true => None,
@@ -1204,9 +1204,8 @@ where
 #[cfg(test)]
 mod test_prelude {
 	pub(crate) use super::*;
-	pub(crate) use sp_runtime::testing::{Block as RawBlock, MockCallU64};
-	pub(crate) type UncheckedXt = sp_runtime::generic::UncheckedExtrinsic<u64, MockCallU64, (), ()>;
-	pub(crate) type Block = RawBlock<UncheckedXt>;
+	pub(crate) use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper, H256 as Hash};
+	pub(crate) type Block = RawBlock<ExtrinsicWrapper<Hash>>;
 
 	pub(crate) fn init_logger() {
 		sp_tracing::try_init_simple();

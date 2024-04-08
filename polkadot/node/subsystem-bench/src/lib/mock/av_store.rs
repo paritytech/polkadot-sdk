@@ -39,8 +39,9 @@ pub struct AvailabilityStoreState {
 
 const LOG_TARGET: &str = "subsystem-bench::av-store-mock";
 
-/// Mockup helper. Contains Ccunks and full availability data of all parachain blocks
+/// Mockup helper. Contains Chunks and full availability data of all parachain blocks
 /// used in a test.
+#[derive(Clone)]
 pub struct NetworkAvailabilityState {
 	pub candidate_hashes: HashMap<CandidateHash, usize>,
 	pub available_data: Vec<AvailableData>,
@@ -97,7 +98,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 					outgoing_request
 						.pending_response
 						.send(response)
-						.expect("Response is always sent succesfully");
+						.expect("Response is always sent successfully");
 					None
 				},
 				_ => Some(NetworkMessage::RequestFromNode(peer, request)),

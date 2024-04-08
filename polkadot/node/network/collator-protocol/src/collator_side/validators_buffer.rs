@@ -45,14 +45,22 @@ use futures::FutureExt;
 use polkadot_node_network_protocol::PeerId;
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, GroupIndex, SessionIndex};
 
+/// Elastic scaling: how many candidates per relay chain block the collator supports building.
+pub const MAX_CHAINED_CANDIDATES_PER_RCB: NonZeroUsize = match NonZeroUsize::new(3) {
+	Some(cap) => cap,
+	None => panic!("max candidates per rcb cannot be zero"),
+};
+
 /// The ring buffer stores at most this many unique validator groups.
 ///
 /// This value should be chosen in way that all groups assigned to our para
-/// in the view can fit into the buffer.
-pub const VALIDATORS_BUFFER_CAPACITY: NonZeroUsize = match NonZeroUsize::new(3) {
-	Some(cap) => cap,
-	None => panic!("buffer capacity must be non-zero"),
-};
+/// in the view can fit into the buffer multiplied by amount of candidates we support per relay
+/// chain block in the case of elastic scaling.
+pub const VALIDATORS_BUFFER_CAPACITY: NonZeroUsize =
+	match NonZeroUsize::new(3 * MAX_CHAINED_CANDIDATES_PER_RCB.get()) {
+		Some(cap) => cap,
+		None => panic!("buffer capacity must be non-zero"),
+	};
 
 /// Unique identifier of a validators group.
 #[derive(Debug)]
@@ -90,8 +98,7 @@ impl ValidatorGroupsBuffer {
 		}
 	}
 
-	/// Returns discovery ids of validators we have at least one advertised-but-not-fetched
-	/// collation for.
+	/// Returns discovery ids of validators we are assigned to in this backing group window.
 	pub fn validators_to_connect(&self) -> Vec<AuthorityDiscoveryId> {
 		let validators_num = self.validators.len();
 		let bits = self
@@ -99,11 +106,22 @@ impl ValidatorGroupsBuffer {
 			.values()
 			.fold(bitvec![0; validators_num], |acc, next| acc | next);
 
-		self.validators
+		let mut should_be_connected: Vec<AuthorityDiscoveryId> = self
+			.validators
 			.iter()
 			.enumerate()
 			.filter_map(|(idx, authority_id)| bits[idx].then_some(authority_id.clone()))
-			.collect()
+			.collect();
+
+		if let Some(last_group) = self.group_infos.iter().last() {
+			for validator in self.validators.iter().rev().take(last_group.len) {
+				if !should_be_connected.contains(validator) {
+					should_be_connected.push(validator.clone());
+				}
+			}
+		}
+
+		should_be_connected
 	}
 
 	/// Note a new advertisement, marking that we want to be connected to validators
@@ -279,7 +297,7 @@ mod tests {
 		assert_eq!(buf.validators_to_connect(), validators[..2].to_vec());
 
 		buf.reset_validator_interest(hash_a, &validators[1]);
-		assert_eq!(buf.validators_to_connect(), vec![validators[0].clone()]);
+		assert_eq!(buf.validators_to_connect(), validators[0..2].to_vec());
 
 		buf.note_collation_advertised(hash_b, 0, GroupIndex(1), &validators[2..]);
 		assert_eq!(buf.validators_to_connect(), validators[2..].to_vec());
@@ -287,7 +305,11 @@ mod tests {
 		for validator in &validators[2..] {
 			buf.reset_validator_interest(hash_b, validator);
 		}
-		assert!(buf.validators_to_connect().is_empty());
+		let mut expected = validators[2..].to_vec();
+		expected.sort();
+		let mut result = buf.validators_to_connect();
+		result.sort();
+		assert_eq!(result, expected);
 	}
 
 	#[test]
@@ -320,10 +342,18 @@ mod tests {
 		}
 
 		buf.reset_validator_interest(hashes[1], &validators[0]);
-		assert_eq!(buf.validators_to_connect(), validators[..2].to_vec());
+		let mut expected: Vec<_> = validators[..4].iter().cloned().collect();
+		let mut result = buf.validators_to_connect();
+		expected.sort();
+		result.sort();
+		assert_eq!(result, expected);
 
 		buf.reset_validator_interest(hashes[0], &validators[0]);
-		assert_eq!(buf.validators_to_connect(), vec![validators[1].clone()]);
+		let mut expected: Vec<_> = validators[1..4].iter().cloned().collect();
+		expected.sort();
+		let mut result = buf.validators_to_connect();
+		result.sort();
+		assert_eq!(result, expected);
 
 		buf.note_collation_advertised(hashes[3], 0, GroupIndex(1), &validators[2..4]);
 		buf.note_collation_advertised(

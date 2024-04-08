@@ -31,11 +31,12 @@ pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-fe
 westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
 
 # Cumulus
-parachains-common = { path = "../../../../../../parachains/common" }
+parachains-common = { path = "../../../../../common" }
 testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["westend"] }
+penpal-runtime = { path = "../../../../../runtimes/testing/penpal" }
 asset-hub-westend-runtime = { path = "../../../../../runtimes/assets/asset-hub-westend" }
 asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
-cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { default-features = false, path = "../../../../../../pallets/parachain-system" }
+cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false }
+cumulus-pallet-parachain-system = { path = "../../../../../../pallets/parachain-system", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 westend-system-emulated-network = { path = "../../../networks/westend-system" }

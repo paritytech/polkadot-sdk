@@ -21,6 +21,9 @@
 mod prepare;
 mod runtime;
 
+#[cfg(test)]
+pub use runtime::STABLE_API_COUNT;
+
 #[cfg(doc)]
 pub use crate::wasm::runtime::api_doc;
 
@@ -1422,7 +1425,7 @@ mod tests {
 
 	#[test]
 	fn contract_ecdsa_to_eth_address() {
-		/// calls `seal_ecdsa_to_eth_address` for the contstant and ensures the result equals the
+		/// calls `seal_ecdsa_to_eth_address` for the constant and ensures the result equals the
 		/// expected one.
 		const CODE_ECDSA_TO_ETH_ADDRESS: &str = r#"
 (module

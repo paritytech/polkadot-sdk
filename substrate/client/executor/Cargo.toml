@@ -23,6 +23,7 @@ tracing = "0.1.29"
 
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 sc-executor-common = { path = "common" }
+sc-executor-polkavm = { path = "polkavm" }
 sc-executor-wasmtime = { path = "wasmtime" }
 sp-api = { path = "../../primitives/api" }
 sp-core = { path = "../../primitives/core" }
@@ -48,11 +49,11 @@ sc-tracing = { path = "../tracing" }
 sp-tracing = { path = "../../primitives/tracing" }
 sp-virtualization = { path = "../../primitives/virtualization" }
 sp-virtualization-test-fixture = { path = "../../primitives/virtualization/test-fixture" }
-tracing-subscriber = "0.2.19"
+tracing-subscriber = { workspace = true }
 paste = "1.0"
 regex = "1.6.0"
 criterion = "0.4.0"
-env_logger = "0.9"
+env_logger = "0.11"
 num_cpus = "1.13.1"
 tempfile = "3.3.0"
 

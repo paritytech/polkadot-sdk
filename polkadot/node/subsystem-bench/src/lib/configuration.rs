@@ -35,19 +35,34 @@ pub struct PeerLatency {
 	pub std_dev: f64,
 }
 
-// Default PoV size in KiB.
-fn default_pov_size() -> usize {
-	5120
+// Based on Kusama `max_validators`
+fn default_n_validators() -> usize {
+	300
 }
 
-// Default bandwidth in bytes
+// Based on Kusama cores
+fn default_n_cores() -> usize {
+	60
+}
+
+// Default PoV size in KiB.
+fn default_pov_size() -> usize {
+	5 * 1024
+}
+
+// Default bandwidth in bytes, based stats from Kusama validators
 fn default_bandwidth() -> usize {
-	52428800
+	42 * 1024 * 1024
+}
+
+// Default peer latency
+fn default_peer_latency() -> Option<PeerLatency> {
+	Some(PeerLatency { mean_latency_ms: 30, std_dev: 2.0 })
 }
 
 // Default connectivity percentage
 fn default_connectivity() -> usize {
-	100
+	90
 }
 
 // Default backing group size
@@ -63,6 +78,7 @@ fn default_needed_approvals() -> usize {
 fn default_zeroth_delay_tranche_width() -> usize {
 	0
 }
+
 fn default_relay_vrf_modulo_samples() -> usize {
 	6
 }
@@ -78,8 +94,10 @@ fn default_no_show_slots() -> usize {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestConfiguration {
 	/// Number of validators
+	#[serde(default = "default_n_validators")]
 	pub n_validators: usize,
 	/// Number of cores
+	#[serde(default = "default_n_cores")]
 	pub n_cores: usize,
 	/// The number of needed votes to approve a candidate.
 	#[serde(default = "default_needed_approvals")]
@@ -104,17 +122,17 @@ pub struct TestConfiguration {
 	/// Randomly sampled pov_sizes
 	#[serde(skip)]
 	pub pov_sizes: Vec<usize>,
-	/// The amount of bandiwdth remote validators have.
+	/// The amount of bandwidth remote validators have.
 	#[serde(default = "default_bandwidth")]
 	pub peer_bandwidth: usize,
-	/// The amount of bandiwdth our node has.
+	/// The amount of bandwidth our node has.
 	#[serde(default = "default_bandwidth")]
 	pub bandwidth: usize,
 	/// Optional peer emulation latency (round trip time) wrt node under test
-	#[serde(default)]
+	#[serde(default = "default_peer_latency")]
 	pub latency: Option<PeerLatency>,
-	/// Connectivity ratio, the percentage of peers we are not connected to, but ar part of
-	/// the topology.
+	/// Connectivity ratio, the percentage of peers we are connected to, but as part of the
+	/// topology.
 	#[serde(default = "default_connectivity")]
 	pub connectivity: usize,
 	/// Number of blocks to run the test for
@@ -124,8 +142,8 @@ pub struct TestConfiguration {
 impl Default for TestConfiguration {
 	fn default() -> Self {
 		Self {
-			n_validators: Default::default(),
-			n_cores: Default::default(),
+			n_validators: default_n_validators(),
+			n_cores: default_n_cores(),
 			needed_approvals: default_needed_approvals(),
 			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
 			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
@@ -137,7 +155,7 @@ impl Default for TestConfiguration {
 			pov_sizes: Default::default(),
 			peer_bandwidth: default_bandwidth(),
 			bandwidth: default_bandwidth(),
-			latency: Default::default(),
+			latency: default_peer_latency(),
 			connectivity: default_connectivity(),
 			num_blocks: Default::default(),
 		}
@@ -187,7 +205,7 @@ impl TestConfiguration {
 		let peer_id_to_authority = peer_ids
 			.iter()
 			.zip(validator_authority_id.iter())
-			.map(|(peer_id, authorithy_id)| (*peer_id, authorithy_id.clone()))
+			.map(|(peer_id, authority_id)| (*peer_id, authority_id.clone()))
 			.collect();
 
 		TestAuthorities {

@@ -213,6 +213,7 @@ fn claimqueue_ttl_drop_fn_works() {
 
 		// Drop expired claim.
 		Scheduler::drop_expired_claims_from_claimqueue();
+		assert!(!claimqueue_contains_para_ids::<Test>(vec![para_id]));
 
 		// Add a claim on core 0 with a ttl == now (17)
 		let paras_entry_non_expired = ParasEntry::new(Assignment::Bulk(para_id), now);
@@ -222,7 +223,7 @@ fn claimqueue_ttl_drop_fn_works() {
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_expired.clone());
 		Scheduler::add_to_claimqueue(core_idx, paras_entry_non_expired.clone());
 		let cq = Scheduler::claimqueue();
-		assert!(cq.get(&core_idx).unwrap().len() == 3);
+		assert_eq!(cq.get(&core_idx).unwrap().len(), 3);
 
 		// Add a claim to the test assignment provider.
 		let assignment = Assignment::Bulk(para_id);
@@ -234,8 +235,9 @@ fn claimqueue_ttl_drop_fn_works() {
 
 		let cq = Scheduler::claimqueue();
 		let cqc = cq.get(&core_idx).unwrap();
-		// Same number of claims
-		assert!(cqc.len() == 3);
+		// Same number of claims, because a new claim is popped from `MockAssigner` instead of the
+		// expired one
+		assert_eq!(cqc.len(), 3);
 
 		// The first 2 claims in the queue should have a ttl of 17,
 		// being the ones set up prior in this test as claims 1 and 3.
@@ -355,14 +357,13 @@ fn fill_claimqueue_fills() {
 		schedule_blank_para(para_b);
 		schedule_blank_para(para_c);
 
-		// start a new session to activate, 3 validators for 3 cores.
+		// start a new session to activate, 2 validators for 2 cores.
 		run_to_block(1, |number| match number {
 			1 => Some(SessionChangeNotification {
 				new_config: default_config(),
 				validators: vec![
 					ValidatorId::from(Sr25519Keyring::Alice.public()),
 					ValidatorId::from(Sr25519Keyring::Bob.public()),
-					ValidatorId::from(Sr25519Keyring::Charlie.public()),
 				],
 				..Default::default()
 			}),
@@ -835,7 +836,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 
 		// #26
 		now += 1;
-		// Run to block #n but this time have group 1 conclude the availabilty.
+		// Run to block #n but this time have group 1 conclude the availability.
 		for n in now..=(now + max_timeouts + 1) {
 			// #n
 			run_to_block(n, |_| None);
