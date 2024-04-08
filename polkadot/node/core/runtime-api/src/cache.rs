@@ -48,7 +48,7 @@ pub(crate) struct RequestResultCache {
 	validation_code: LruMap<(Hash, ParaId, OccupiedCoreAssumption), Option<ValidationCode>>,
 	validation_code_by_hash: LruMap<ValidationCodeHash, Option<ValidationCode>>,
 	candidate_pending_availability: LruMap<(Hash, ParaId), Option<CommittedCandidateReceipt>>,
-	candidates_pending_availability: LruMap<(Hash, ParaId), Vec<CommittedCandidateReceipt>,
+	candidates_pending_availability: LruMap<(Hash, ParaId), Vec<CommittedCandidateReceipt>>,
 	candidate_events: LruMap<Hash, Vec<CandidateEvent>>,
 	session_executor_params: LruMap<SessionIndex, Option<ExecutorParams>>,
 	session_info: LruMap<SessionIndex, SessionInfo>,
@@ -266,14 +266,14 @@ impl RequestResultCache {
 	pub(crate) fn candidates_pending_availability(
 		&mut self,
 		key: (Hash, ParaId),
-	) -> Option<&Option<CommittedCandidateReceipt>> {
+	) -> Option<&Vec<CommittedCandidateReceipt>> {
 		self.candidates_pending_availability.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_candidates_pending_availability(
 		&mut self,
 		key: (Hash, ParaId),
-		value: Option<CommittedCandidateReceipt>,
+		value: Vec<CommittedCandidateReceipt>,
 	) {
 		self.candidates_pending_availability.insert(key, value);
 	}
@@ -608,4 +608,5 @@ pub(crate) enum RequestResult {
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),
+	CandidatesPendingAvailability(Hash, ParaId, Vec<CommittedCandidateReceipt>),
 }

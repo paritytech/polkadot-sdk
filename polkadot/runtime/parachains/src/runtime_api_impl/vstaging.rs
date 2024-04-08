@@ -18,7 +18,7 @@
 
 use crate::{initializer, scheduler, inclusion};
 use primitives::{CoreIndex, Id as ParaId, CommittedCandidateReceipt};
-use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
+use sp_std::{vec::Vec, collections::{btree_map::BTreeMap, vec_deque::VecDeque}};
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {

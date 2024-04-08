@@ -441,7 +441,7 @@ where
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<CommittedCandidateReceipt<Hash>>, ApiError> {
+	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
 		self.client.runtime_api().candidates_pending_availability(at, para_id)
 	}
 
