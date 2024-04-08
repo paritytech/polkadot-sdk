@@ -249,7 +249,7 @@ impl<H: Clone> OnlineConfig<H> {
 	}
 
 	fn at_expected(&self) -> H {
-		self.clone().at.expect("block at must be initialized; qed")
+		self.at.clone().expect("block at must be initialized; qed")
 	}
 }
 
