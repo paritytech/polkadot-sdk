@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712588797409,
+  "lastUpdate": 1712599502731,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2015,6 +2015,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19856731390000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Aaro Altonen",
+            "username": "altonen",
+            "email": "48052676+altonen@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "80616f6d03661106326b621e9cc3ee1d2fa283ed",
+          "message": "Integrate litep2p into Polkadot SDK (#2944)\n\n[litep2p](https://github.com/altonen/litep2p) is a libp2p-compatible P2P\nnetworking library. It supports all of the features of `rust-libp2p`\nthat are currently being utilized by Polkadot SDK.\n\nCompared to `rust-libp2p`, `litep2p` has a quite different architecture\nwhich is why the new `litep2p` network backend is only able to use a\nlittle of the existing code in `sc-network`. The design has been mainly\ninfluenced by how we'd wish to structure our networking-related code in\nPolkadot SDK: independent higher-levels protocols directly communicating\nwith the network over links that support bidirectional backpressure. A\ngood example would be `NotificationHandle`/`RequestResponseHandle`\nabstractions which allow, e.g., `SyncingEngine` to directly communicate\nwith peers to announce/request blocks.\n\nI've tried running `polkadot --network-backend litep2p` with a few\ndifferent peer configurations and there is a noticeable reduction in\nnetworking CPU usage. For high load (`--out-peers 200`), networking CPU\nusage goes down from ~110% to ~30% (80 pp) and for normal load\n(`--out-peers 40`), the usage goes down from ~55% to ~18% (37 pp).\n\nThese should not be taken as final numbers because:\n\na) there are still some low-hanging optimization fruits, such as\nenabling [receive window\nauto-tuning](https://github.com/libp2p/rust-yamux/pull/176), integrating\n`Peerset` more closely with `litep2p` or improving memory usage of the\nWebSocket transport\nb) fixing bugs/instabilities that incorrectly cause `litep2p` to do less\nwork will increase the networking CPU usage\nc) verification in a more diverse set of tests/conditions is needed\n\nNevertheless, these numbers should give an early estimate for CPU usage\nof the new networking backend.\n\nThis PR consists of three separate changes:\n* introduce a generic `PeerId` (wrapper around `Multihash`) so that we\ndon't have use `NetworkService::PeerId` in every part of the code that\nuses a `PeerId`\n* introduce `NetworkBackend` trait, implement it for the libp2p network\nstack and make Polkadot SDK generic over `NetworkBackend`\n  * implement `NetworkBackend` for litep2p\n\nThe new library should be considered experimental which is why\n`rust-libp2p` will remain as the default option for the time being. This\nPR currently depends on the master branch of `litep2p` but I'll cut a\nnew release for the library once all review comments have been\naddresses.\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-08T16:44:13Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/80616f6d03661106326b621e9cc3ee1d2fa283ed"
+        },
+        "date": 1712599478651,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.16600557246666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.550451701786667,
             "unit": "seconds"
           }
         ]
