@@ -165,7 +165,7 @@ parameter_types! {
 
 impl crate::unsigned::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OffchainSolver = SequentialPhragmen<AccountId, sp_runtime::PerU16, ()>;
+	type OffchainSolver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
 	type OffchainRepeatInterval = OffchainRepeatInterval;
 	type MinerTxPriority = MinerTxPriority;
 	type MaxLength = MinerSolutionMaxLength;

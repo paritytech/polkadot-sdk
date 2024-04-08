@@ -11,7 +11,10 @@ mod weights;
 pub mod xcm_config;
 
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
+use polkadot_runtime_common::{
+	prod_or_fast,
+	xcm_sender::NoPriceForMessageDelivery
+};
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -21,7 +24,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature, Percent,
+	ApplyExtrinsicResult, MultiSignature, Percent, SaturatedConversion,
 };
 
 use sp_std::prelude::*;
@@ -57,7 +60,7 @@ use staking_common::{TargetIndex, VoterIndex};
 pub use pallet_election_provider_multi_block::{
 	self as pallet_epm_core,
 	signed::{self as pallet_epm_signed},
-	unsigned::{self as pallet_unsigned, miner::Miner},
+	unsigned::{self as pallet_epm_unsigned, miner::Miner},
 	verifier::{self as pallet_epm_verifier},
 	Phase,
 };
@@ -265,6 +268,12 @@ pub fn native_version() -> NativeVersion {
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
+
+	pub EpochDuration: u64 = prod_or_fast!(
+		EPOCH_DURATION_IN_SLOTS as u64,
+		2 * MINUTES as u64,
+		"EPOCH_DURATION"
+	);
 
 	// This part is copied from Substrate's `bin/node/runtime/src/lib.rs`.
 	//  The `RuntimeBlockLength` and `RuntimeBlockWeights` exist here because the
@@ -528,8 +537,16 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 parameter_types! {
-	pub SignedPhase: u32 = 	EPOCH_DURATION_IN_SLOTS / 4;
-	pub UnsignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 4;
+	pub SignedPhase: u32 = prod_or_fast!(
+		EPOCH_DURATION_IN_SLOTS / 4,
+		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
+		"SIGNED_PHASE"
+	);
+	pub UnsignedPhase: u32 = prod_or_fast!(
+		EPOCH_DURATION_IN_SLOTS / 4,
+		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
+		"UNSIGNED_PHASE"
+	);
 
 	pub SignedValidationPhase: BlockNumber = Pages::get();
 	pub Lookhaead: BlockNumber = Pages::get();
@@ -642,6 +659,23 @@ impl sp_runtime::traits::Convert<usize, Balance> for ConstDepositBase {
 	}
 }
 
+parameter_types! {
+	pub OffchainRepeatInterval: BlockNumber = 10;
+	pub MinerTxPriority: u64 = 0;
+	pub MinerSolutionMaxLength: u32 = 10;
+	pub MinerSolutionMaxWeight: Weight = Default::default();
+}
+
+impl pallet_epm_unsigned::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffchainSolver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
+	type OffchainRepeatInterval = OffchainRepeatInterval;
+	type MinerTxPriority = MinerTxPriority;
+	type MaxLength = MinerSolutionMaxLength;
+	type MaxWeight = MinerSolutionMaxWeight;
+	type WeightInfo = ();
+}
+
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
@@ -678,7 +712,7 @@ pallet_staking_reward_curve::build! {
 }
 
 parameter_types! {
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+	pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_fast!(6, 1);
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
@@ -794,7 +828,7 @@ construct_runtime!(
 		ElectionProviderMultiBlock: pallet_epm_core = 38,
 		ElectionVerifierPallet: pallet_epm_verifier = 39,
 		ElectionSignedPallet: pallet_epm_signed = 40,
-		//ElectionUnsignedPallet: pallet_epm_unsigned = 41,
+		ElectionUnsignedPallet: pallet_epm_unsigned = 41,
 	}
 );
 
@@ -813,7 +847,7 @@ mod benches {
 		[pallet_epm_core, ElectionProviderMultiBlock]
 		[pallet_epm_verifier, ElectionVerifierPallet]
 		[pallet_epm_signed, ElectionSignedPallet]
-		//[pallet_epm_unsigned, ElectionUnsignedPallet]
+		[pallet_epm_unsigned, ElectionUnsignedPallet]
 	);
 }
 

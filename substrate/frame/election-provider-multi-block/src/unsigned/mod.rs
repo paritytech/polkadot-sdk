@@ -87,6 +87,9 @@ pub(crate) mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
+	#[pallet::pallet]
+	pub struct Pallet<T>(PhantomData<T>);
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -96,9 +99,6 @@ pub(crate) mod pallet {
 
 	#[pallet::storage]
 	pub type Something<T: Config> = StorageMap<_, Twox64Concat, u32, u32>;
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
