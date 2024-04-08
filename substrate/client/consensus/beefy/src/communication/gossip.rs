@@ -582,6 +582,10 @@ pub(crate) mod tests {
 		fn peer_role(&self, _: PeerId, _: Vec<u8>) -> Option<sc_network::ObservedRole> {
 			unimplemented!()
 		}
+
+		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
+			unimplemented!();
+		}
 	}
 
 	struct TestContext;
