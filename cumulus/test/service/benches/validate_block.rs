@@ -107,10 +107,8 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		..Default::default()
 	};
 
-	let cumulus_test_client::BlockBuilderAndSupportData {
-		mut block_builder,
-		..
-	} = client.init_block_builder(Some(validation_data), sproof_builder.clone());
+	let cumulus_test_client::BlockBuilderAndSupportData { mut block_builder, .. } =
+		client.init_block_builder(Some(validation_data), sproof_builder.clone());
 
 	for extrinsic in extrinsics {
 		block_builder.push(extrinsic).unwrap();
