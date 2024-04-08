@@ -43,11 +43,18 @@ pub const BANNED_THRESHOLD: i32 = 82 * (i32::MIN / 100);
 /// Reputation change for a node when we get disconnected from it.
 const DISCONNECT_REPUTATION_CHANGE: i32 = -256;
 /// Relative decrement of a reputation value that is applied every second. I.e., for inverse
-/// decrement of 50 we decrease absolute value of the reputation by 1/50. This corresponds to a
-/// factor of `k = 0.98`. It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half,
-/// or 34.3 seconds for the values above. In this setup the maximum allowed absolute value of
-/// `i32::MAX` becomes 0 in ~1100 seconds (actually less due to integer arithmetic).
-const INVERSE_DECREMENT: i32 = 50;
+/// decrement of 200 we decrease absolute value of the reputation by 1/200.
+///
+/// This corresponds to a factor of `k = 0.955`, where k = 1 - 1 / INVERSE_DECREMENT.
+///
+/// It takes ~ `ln(0.5) / ln(k)` seconds to reduce the reputation by half, or 138.63 seconds for the
+/// values above.
+///
+/// In this setup:
+/// - `i32::MAX` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
+/// - `i32::MIN` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
+/// - `i32::MIN` escapes the banned threshold in 40 seconds
+const INVERSE_DECREMENT: i32 = 200;
 /// Amount of time between the moment we last updated the [`PeerStore`] entry and the moment we
 /// remove it, once the reputation value reaches 0.
 const FORGET_AFTER: Duration = Duration::from_secs(3600);
