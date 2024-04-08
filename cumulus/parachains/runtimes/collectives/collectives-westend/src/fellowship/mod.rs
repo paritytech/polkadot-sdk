@@ -151,6 +151,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	type VoteWeight = pallet_ranked_collective::Geometric;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = (crate::FellowshipCore, crate::FellowshipSalary);
+	type MaxRank = ConstU32<9>;
 }
 
 pub type FellowshipCoreInstance = pallet_core_fellowship::Instance1;
@@ -207,6 +208,7 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 		EnsureCanPromoteTo,
 	>;
 	type EvidenceSize = ConstU32<65536>;
+	type MaxRank = <Self as pallet_ranked_collective::Config<FellowshipCoreInstance>>::MaxRank;
 }
 
 pub type FellowshipSalaryInstance = pallet_salary::Instance1;
