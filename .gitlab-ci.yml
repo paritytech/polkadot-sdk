@@ -119,6 +119,7 @@ default:
 #
 .forklift-cache:
   before_script:
+    - mkdir ~/.forklift
     - cp $FL_FORKLIFT_CONFIG_ALT ~/.forklift/config.toml
     - >
       if [ "$FORKLIFT_BYPASS" != "true" ]; then
