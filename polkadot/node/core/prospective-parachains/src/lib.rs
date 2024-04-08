@@ -354,7 +354,6 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 								.expect("Candidate hash is taken from the storage iterator"),
 							candidate.parent_head_data_hash(),
 							Some(candidate.output_head_data_hash()),
-							false,
 						) {
 							gum::trace!(
 								target: LOG_TARGET,
@@ -548,7 +547,6 @@ async fn handle_introduce_seconded_candidate<Context>(
 				&actual_relay_parent,
 				parent_head_hash,
 				output_head_hash,
-				false,
 			) {
 				gum::debug!(
 					target: LOG_TARGET,

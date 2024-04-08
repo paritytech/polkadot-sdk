@@ -517,7 +517,6 @@ impl FragmentChain {
 			&candidate.relay_parent(),
 			candidate.parent_head_data_hash(),
 			candidate.output_head_data_hash(),
-			true,
 		) {
 			gum::debug!(
 				target: LOG_TARGET,
@@ -657,24 +656,10 @@ impl FragmentChain {
 		relay_parent: &Hash,
 		parent_head_hash: Hash,
 		output_head_hash: Option<Hash>,
-		display_log: bool,
 	) -> bool {
 		// If we've got enough candidates for the configured depth, no point in adding more.
 		if self.chain.len() >= self.scope.max_depth {
-			gum::debug!(
-				target: LOG_TARGET,
-				"Enough candidates for the configured depth",
-			);
 			return false
-		}
-
-		if !self.check_forks_and_cycles(parent_head_hash, output_head_hash) {
-			if display_log {
-				gum::debug!(
-					target: LOG_TARGET,
-					"Refusing to add candidate to the fragment chain, it would introduce a fork or a cycle",
-				);
-			}
 		}
 
 		if !self.check_potential(relay_parent, parent_head_hash, output_head_hash) {
@@ -683,9 +668,7 @@ impl FragmentChain {
 
 		let unconnected = self.count_unconnected_potential_candidates(storage);
 
-		const MAX_UNCONNECTED: usize = 5;
-
-		if unconnected < MAX_UNCONNECTED {
+		if (self.chain.len() + unconnected) < self.scope.max_depth {
 			// if unconnected > 0 {
 			// 	gum::debug!(
 			// 		target: LOG_TARGET,
@@ -733,10 +716,6 @@ impl FragmentChain {
 	) -> bool {
 		if self.by_parent_head.contains_key(&parent_head_hash) {
 			// fork. our parent has another child already
-			gum::debug!(
-				target: LOG_TARGET,
-				"FORK"
-			);
 			return false;
 		}
 

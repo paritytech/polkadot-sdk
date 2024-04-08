@@ -1301,9 +1301,6 @@ async fn seconding_sanity_check<Context>(
 				return SecondingAllowed::No
 			},
 			Ok((member_state, head)) => match member_state {
-				MemberState::Potential => {
-					leaves_for_seconding.push(*head);
-				},
 				MemberState::None => {
 					gum::debug!(
 						target: LOG_TARGET,
@@ -1315,15 +1312,7 @@ async fn seconding_sanity_check<Context>(
 					return SecondingAllowed::No
 				},
 				_ => {
-					gum::debug!(
-						target: LOG_TARGET,
-						?candidate_hash,
-						leaf_hash = ?head,
-						"Refusing to second candidate - already present state: {:?}",
-						member_state,
-					);
-
-					return SecondingAllowed::No
+					leaves_for_seconding.push(*head);
 				},
 			},
 		}
