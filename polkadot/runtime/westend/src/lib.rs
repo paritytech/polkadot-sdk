@@ -90,10 +90,10 @@ use sp_runtime::{
 	generic::{self, ExtrinsicFormat, Preamble},
 	impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, Checkable, ConvertInto, DispatchInfoOf, Dispatchable,
-		Extrinsic as ExtrinsicT, ExtrinsicMetadata, IdentityLookup, Keccak256, Lookup, OpaqueKeys,
-		PostDispatchInfoOf, SaturatedConversion, TransactionExtension, TransactionExtensionBase,
-		ValidateUnsigned, Verify,
+		Applyable, BlakeTwo256, Block as BlockT, Checkable, ConvertInto, DispatchInfoOf,
+		Dispatchable, Extrinsic as ExtrinsicT, ExtrinsicMetadata, IdentityLookup, Keccak256,
+		Lookup, OpaqueKeys, PostDispatchInfoOf, SaturatedConversion, TransactionExtension,
+		TransactionExtensionBase, ValidateUnsigned, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, ApplyExtrinsicResultWithInfo, BoundToRuntimeAppPublic, FixedU128,
@@ -826,24 +826,11 @@ where
 			// so the actual block number is `n`.
 			.saturating_sub(1);
 		let tip = 0;
-		let inner_tx: (
-			pallet_transaction_payment::SetFeeAgent<
+		let inner_tx: InnerUnsigned = (
+			pallet_transaction_payment::SetFeeAgent::<sp_runtime::MultiSignature>::default(),
+			frame_support::transaction_extensions::SignedOriginSignature::<
 				sp_runtime::MultiSignature,
-				(
-					frame_system::CheckNonce<Runtime>,
-					frame_support::transaction_extensions::CheckSignedPayload<
-						sp_runtime::MultiSignature,
-						(
-							RuntimeCall,
-							BaseTxExtension,
-							<BaseTxExtension as TransactionExtensionBase>::Implicit,
-						),
-					>,
-				),
-			>,
-			BaseTxExtension,
-		) = (
-			pallet_transaction_payment::SetFeeAgent::default(),
+			>::default(),
 			(
 				frame_system::CheckNonZeroSender::<Runtime>::new(),
 				frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -870,12 +857,9 @@ where
 			.using_encoded(|payload| C::sign(&sp_io::hashing::blake2_256(payload)[..], public))?;
 		let (call, inner_tx, _) = raw_payload;
 		let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
-		let tx_ext = frame_support::transaction_extensions::SignedOriginSignature::new_with_sign(
-			signature.clone(),
-			account,
-			inner_tx,
-		);
-		Some((call, (address, signature, (tx_ext,))))
+		let tx_ext =
+			(frame_support::transaction_extensions::SignedOriginSignature::default(), inner_tx);
+		Some((call, (address, signature, tx_ext.into())))
 	}
 }
 
@@ -1582,6 +1566,16 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type SignedBlock = generic::SignedBlock<Block>;
 /// `BlockId` type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
+/// The extension to the basic transaction logic.
+pub type TxExtension = (
+	frame_support::transaction_extensions::SignedOriginSignature<sp_runtime::MultiSignature>,
+	InnerUnsigned,
+);
+pub type InnerUnsigned = (
+	pallet_transaction_payment::SetFeeAgent<sp_runtime::MultiSignature>,
+	frame_support::transaction_extensions::SignedOriginSignature<sp_runtime::MultiSignature>,
+	BaseTxExtension,
+);
 pub type BaseTxExtension = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
@@ -1592,48 +1586,8 @@ pub type BaseTxExtension = (
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
-pub type InnerUnsigned = (
-	pallet_transaction_payment::SetFeeAgent<
-		sp_runtime::MultiSignature,
-		(
-			frame_system::CheckNonce<Runtime>,
-			frame_support::transaction_extensions::CheckSignedPayload<
-				sp_runtime::MultiSignature,
-				(
-					RuntimeCall,
-					BaseTxExtension,
-					<BaseTxExtension as TransactionExtensionBase>::Implicit,
-				),
-			>,
-		),
-	>,
-	BaseTxExtension,
-);
-/// The extension to the basic transaction logic.
-pub type TxExtension = (
-	frame_support::transaction_extensions::SignedOriginSignature<
-		sp_runtime::MultiSignature,
-		(
-			pallet_transaction_payment::SetFeeAgent<
-				sp_runtime::MultiSignature,
-				(
-					frame_system::CheckNonce<Runtime>,
-					frame_support::transaction_extensions::CheckSignedPayload<
-						sp_runtime::MultiSignature,
-						(
-							RuntimeCall,
-							BaseTxExtension,
-							<BaseTxExtension as TransactionExtensionBase>::Implicit,
-						),
-					>,
-				),
-			>,
-			BaseTxExtension,
-		),
-	>,
-);
 
-impl sp_runtime::traits::Applyable for CheckedExtrinsic {
+impl Applyable for CheckedExtrinsic {
 	type Call = RuntimeCall;
 
 	fn validate<I: ValidateUnsigned<Call = Self::Call>>(
@@ -1651,16 +1605,15 @@ impl sp_runtime::traits::Applyable for CheckedExtrinsic {
 			},
 			ExtrinsicFormat::Signed(ref signer, ref extension) => {
 				let origin = Some(signer.clone()).into();
-				extension
-					.0
-					.extension
+				let (_signature_check, inner_extension) = extension;
+				inner_extension
 					.validate(
 						origin,
 						&self.0.function,
 						info,
 						len,
 						&mut Default::default(),
-						extension.0.extension.implicit()?,
+						inner_extension.implicit()?,
 						&self.0.function,
 					)
 					.map(|x| x.0)
@@ -1707,7 +1660,7 @@ impl sp_runtime::traits::Applyable for CheckedExtrinsic {
 			},
 			ExtrinsicFormat::Signed(signer, extension) => {
 				// extension.dispatch_transaction(Some(signer).into(), self.function, info, len),
-				let inner_extension: InnerUnsigned = extension.0.extension;
+				let (_signature_check, inner_extension) = extension;
 				let mut context = pallet_transaction_payment::Context::default();
 				let (_, val, origin) = inner_extension
 					.validate(
@@ -1760,6 +1713,18 @@ impl frame_support::dispatch::GetDispatchInfo for CheckedExtrinsic {
 	}
 }
 
+#[cfg(test)]
+struct DummyValidateUnsigned;
+
+#[cfg(test)]
+impl ValidateUnsigned for DummyValidateUnsigned {
+	type Call = RuntimeCall;
+
+	fn validate_unsigned(_source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
+		Ok(sp_runtime::transaction_validity::ValidTransaction::default())
+	}
+}
+
 #[test]
 fn free_transaction_extension_test() {
 	sp_io::TestExternalities::default().execute_with(|| {
@@ -1771,29 +1736,11 @@ fn free_transaction_extension_test() {
 		use sp_io::hashing::blake2_256;
 		use sp_runtime::{traits::TransactionExtensionBase, MultiSignature};
 
-		type CheckSignedInnerTxExtension =
-			frame_support::transaction_extensions::CheckSignedPayload<
-				sp_runtime::MultiSignature,
-				(
-					RuntimeCall,
-					BaseTxExtension,
-					<BaseTxExtension as TransactionExtensionBase>::Implicit,
-				),
-			>;
-
-		type InnerUnsignedTxExtension = (
-			pallet_transaction_payment::SetFeeAgent<
-				sp_runtime::MultiSignature,
-				(frame_system::CheckNonce<Runtime>, CheckSignedInnerTxExtension),
-			>,
+		// The part of `TxExtension` that has to be provided and signed by the fee agent,
+		// the user who sponsors the transaction fee.
+		type SignedTxExtension = (
+			frame_support::transaction_extensions::SignedOriginSignature<MultiSignature>,
 			BaseTxExtension,
-		);
-
-		type OuterSignedTxExtension = (
-			frame_support::transaction_extensions::SignedOriginSignature<
-				sp_runtime::MultiSignature,
-				InnerUnsignedTxExtension,
-			>,
 		);
 
 		frame_system::GenesisConfig::<Runtime>::default().build();
@@ -1822,7 +1769,6 @@ fn free_transaction_extension_test() {
 
 		Balances::force_set_balance(RuntimeOrigin::root(), bob_account.clone().into(), bob_balance)
 			.unwrap();
-
 		Balances::force_set_balance(
 			RuntimeOrigin::root(),
 			charlie_account.clone().into(),
@@ -1839,7 +1785,7 @@ fn free_transaction_extension_test() {
 			frame_system::Pallet::<Runtime>::account(&charlie_account).nonce;
 
 		// Alice builds the transaction extension for the sponsored transaction.
-		let alice_base_ext: BaseTxExtension = (
+		let stmt_ext: BaseTxExtension = (
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -1858,48 +1804,50 @@ fn free_transaction_extension_test() {
 		)
 			.into();
 
-		let alice_base_ext_implicit = alice_base_ext.implicit().unwrap();
-
 		// Alice signs the transaction extension and shares it.
 
-		let alice_base_sign = MultiSignature::Sr25519(
-			(call.clone(), alice_base_ext.clone(), alice_base_ext_implicit.clone())
+		let stmt_sign = MultiSignature::Sr25519(
+			(call.clone(), stmt_ext.clone(), stmt_ext.implicit().unwrap())
 				.using_encoded(|e| alice_keyring.sign(&blake2_256(e))),
 		);
 
+		let statement = (call.clone(), stmt_ext, stmt_sign).encode();
+
+		type Statement = (RuntimeCall, BaseTxExtension, MultiSignature);
+		let (stmt_call, stmt_ext, stmt_sign) = Statement::decode(&mut &statement[..]).unwrap();
+
 		// Bob constructs the transaction based on Alice statemnt.
 
-		let alice_signed_tx_ext = CheckSignedInnerTxExtension::new_with_sign(
-			alice_base_sign,
-			alice_account.clone(),
-			(call.clone(), alice_base_ext.clone(), alice_base_ext_implicit.clone()),
-		);
+		let signed_tx_ext = frame_support::transaction_extensions::SignedOriginSignature::<
+			MultiSignature,
+		>::new_with_sign(stmt_sign, alice_account.clone());
 
-		let bob_unsigned_tx_ext = (
-			pallet_transaction_payment::SetFeeAgent::new_with_agent(
-				bob_account.clone(),
-				(
-					frame_system::CheckNonce::<Runtime>::from(
-						frame_system::Pallet::<Runtime>::account(&bob_account).nonce,
-					),
-					alice_signed_tx_ext,
-				),
-			),
-			alice_base_ext,
-		);
+		let mut signed_tx_ext = signed_tx_ext.encode();
+		signed_tx_ext.append(&mut stmt_ext.encode());
+		let signed_tx_ext: SignedTxExtension =
+			SignedTxExtension::decode(&mut &signed_tx_ext[..]).unwrap();
 
-		let bob_unsigned_tx_ext_implicit = bob_unsigned_tx_ext.implicit().unwrap();
-		let bob_sign = MultiSignature::Sr25519(
-			(call.clone(), bob_unsigned_tx_ext.clone(), bob_unsigned_tx_ext_implicit)
+		// Bob signs the transaction with Alice's part to poof he is willing to sponser the fee.
+		let signed_tx_sign = MultiSignature::Sr25519(
+			(stmt_call, signed_tx_ext.clone(), signed_tx_ext.implicit().unwrap())
 				.using_encoded(|e| bob_keyring.sign(&blake2_256(e))),
 		);
 
-		let bob_signed_tx_ext: OuterSignedTxExtension =
-			(frame_support::transaction_extensions::SignedOriginSignature::new_with_sign(
-				bob_sign,
-				bob_account.clone(),
-				bob_unsigned_tx_ext,
-			),);
+		let tx_ext = pallet_transaction_payment::SetFeeAgent::<MultiSignature>::new_with_agent(
+			signed_tx_sign,
+			bob_account.clone(),
+		);
+
+		let empty_signature_ext = frame_support::transaction_extensions::SignedOriginSignature::<
+			MultiSignature,
+		>::default();
+
+		let mut tx_ext_encoded = empty_signature_ext.encode();
+		tx_ext_encoded.append(&mut tx_ext.encode());
+		tx_ext_encoded.append(&mut signed_tx_ext.encode());
+
+		// The final valid for submission transaction extension.
+		let bob_signed_tx_ext: TxExtension = TxExtension::decode(&mut &tx_ext_encoded[..]).unwrap();
 
 		// Dispatch the transaction
 		{
@@ -1921,8 +1869,7 @@ fn free_transaction_extension_test() {
 			let res = call.dispatch(origin);
 			let post_info = res.unwrap_or_else(|err| err.post_info);
 			let pd_res = res.map(|_| ()).map_err(|e| e.error);
-			OuterSignedTxExtension::post_dispatch(pre, &info, &post_info, len, &pd_res, &context)
-				.unwrap();
+			TxExtension::post_dispatch(pre, &info, &post_info, len, &pd_res, &context).unwrap();
 		}
 
 		// Alice balance is unchanged, Bob paid the transaction fee.
@@ -1942,16 +1889,15 @@ fn free_transaction_extension_test() {
 			alice_initial_nonce.saturating_add(1),
 			frame_system::Pallet::<Runtime>::account(&alice_account).nonce
 		);
-		assert_eq!(
-			bob_initial_nonce.saturating_add(1),
-			frame_system::Pallet::<Runtime>::account(&bob_account).nonce
-		);
+		assert_eq!(bob_initial_nonce, frame_system::Pallet::<Runtime>::account(&bob_account).nonce);
 
 		// The call that Charlie wants to be executed.
 		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![3] });
 
 		let charlie_unsigned_tx_ext = (
 			pallet_transaction_payment::SetFeeAgent::default(),
+			frame_support::transaction_extensions::SignedOriginSignature::<MultiSignature>::default(
+			),
 			(
 				frame_system::CheckNonZeroSender::<Runtime>::new(),
 				frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -1972,12 +1918,13 @@ fn free_transaction_extension_test() {
 				.using_encoded(|e| charlie_keyring.sign(&blake2_256(e))),
 		);
 
-		let charlie_signed_tx_ext: OuterSignedTxExtension =
-			(frame_support::transaction_extensions::SignedOriginSignature::new_with_sign(
+		let charlie_signed_tx_ext: TxExtension = (
+			frame_support::transaction_extensions::SignedOriginSignature::new_with_sign(
 				charlie_sign,
 				charlie_account.clone(),
-				charlie_unsigned_tx_ext,
-			),);
+			),
+			charlie_unsigned_tx_ext,
+		);
 
 		// Dispatch the transaction
 		{
@@ -2001,9 +1948,224 @@ fn free_transaction_extension_test() {
 			let res = call.dispatch(origin);
 			let post_info = res.unwrap_or_else(|err| err.post_info);
 			let pd_res = res.map(|_| ()).map_err(|e| e.error);
-			OuterSignedTxExtension::post_dispatch(pre, &info, &post_info, len, &pd_res, &context)
-				.unwrap();
+			TxExtension::post_dispatch(pre, &info, &post_info, len, &pd_res, &context).unwrap();
 		}
+
+		assert!(charlie_balance > Balances::free_balance(charlie_account.clone()));
+
+		assert!(System::events().iter().any(|ev| ev.event ==
+			RuntimeEvent::System(frame_system::Event::Remarked {
+				sender: charlie_account.clone(),
+				hash:
+					<<Runtime as frame_system::Config>::Hashing as sp_runtime::traits::Hash>::hash(
+						&[3u8]
+					)
+			})));
+
+		assert_eq!(
+			charlie_initial_nonce.saturating_add(1),
+			frame_system::Pallet::<Runtime>::account(&charlie_account).nonce
+		);
+	});
+}
+
+#[test]
+fn applied_free_transaction_extension_test() {
+	sp_io::TestExternalities::default().execute_with(|| {
+		use frame_support::{dispatch::DispatchInfo, traits::BuildGenesisConfig};
+		use keyring::AccountKeyring;
+		use sp_io::hashing::blake2_256;
+		use sp_runtime::{traits::TransactionExtensionBase, MultiSignature};
+
+		// The part of `TxExtension` that has to be provided and signed by the fee agent,
+		// the user who sponsors the transaction fee.
+		type SignedTxExtension = (
+			frame_support::transaction_extensions::SignedOriginSignature<MultiSignature>,
+			BaseTxExtension,
+		);
+
+		frame_system::GenesisConfig::<Runtime>::default().build();
+		System::set_block_number(1);
+
+		// Alice wants the transaction fee to be sponsored by Bob.
+		let alice_keyring = AccountKeyring::Alice;
+		let bob_keyring = AccountKeyring::Bob;
+		let charlie_keyring = AccountKeyring::Charlie;
+
+		let alice_account = AccountId::from(alice_keyring.public());
+		let bob_account = AccountId::from(bob_keyring.public());
+		let charlie_account = AccountId::from(charlie_keyring.public());
+
+		// Setup the initial balances.
+		let alice_balance = 10 * ExistentialDeposit::get();
+		let bob_balance = 10 * ExistentialDeposit::get();
+		let charlie_balance = 10 * ExistentialDeposit::get();
+
+		Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			alice_account.clone().into(),
+			alice_balance,
+		)
+		.unwrap();
+
+		Balances::force_set_balance(RuntimeOrigin::root(), bob_account.clone().into(), bob_balance)
+			.unwrap();
+		Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			charlie_account.clone().into(),
+			charlie_balance,
+		)
+		.unwrap();
+
+		// The call that Alice wants to be executed.
+		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![1] });
+
+		let alice_initial_nonce = frame_system::Pallet::<Runtime>::account(&alice_account).nonce;
+		let bob_initial_nonce = frame_system::Pallet::<Runtime>::account(&bob_account).nonce;
+		let charlie_initial_nonce =
+			frame_system::Pallet::<Runtime>::account(&charlie_account).nonce;
+
+		// Alice builds the transaction extension for the sponsored transaction.
+		let stmt_ext: BaseTxExtension = (
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckMortality::<Runtime>::from(sp_runtime::generic::Era::immortal()),
+			frame_system::CheckNonce::<Runtime>::from(
+				frame_system::Pallet::<Runtime>::account(&alice_account).nonce,
+			),
+			frame_system::CheckWeight::<Runtime>::new(),
+			// In case if any agent can sponsor the transaction fee.
+			// pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::with_any_agent(),
+			// Only Bob can sponsor the transaction fee.
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::with_agent(
+				bob_account.clone(),
+			),
+		)
+			.into();
+
+		// Alice signs the transaction extension and shares it.
+
+		let stmt_sign = MultiSignature::Sr25519(
+			(call.clone(), stmt_ext.clone(), stmt_ext.implicit().unwrap())
+				.using_encoded(|e| alice_keyring.sign(&blake2_256(e))),
+		);
+
+		let statement = (call.clone(), stmt_ext, stmt_sign).encode();
+
+		type Statement = (RuntimeCall, BaseTxExtension, MultiSignature);
+		let (stmt_call, stmt_ext, stmt_sign) = Statement::decode(&mut &statement[..]).unwrap();
+
+		// Bob constructs the transaction based on Alice statemnt.
+
+		let signed_tx_ext = frame_support::transaction_extensions::SignedOriginSignature::<
+			MultiSignature,
+		>::new_with_sign(stmt_sign, alice_account.clone());
+
+		let mut signed_tx_ext = signed_tx_ext.encode();
+		signed_tx_ext.append(&mut stmt_ext.encode());
+		let signed_tx_ext: SignedTxExtension =
+			SignedTxExtension::decode(&mut &signed_tx_ext[..]).unwrap();
+
+		// Bob signs the transaction with Alice's part to poof he is willing to sponser the fee.
+		let signed_tx_sign = MultiSignature::Sr25519(
+			(stmt_call, signed_tx_ext.clone(), signed_tx_ext.implicit().unwrap())
+				.using_encoded(|e| bob_keyring.sign(&blake2_256(e))),
+		);
+
+		let tx_ext = pallet_transaction_payment::SetFeeAgent::<MultiSignature>::new_with_agent(
+			signed_tx_sign,
+			bob_account.clone(),
+		);
+
+		let empty_signature_ext = frame_support::transaction_extensions::SignedOriginSignature::<
+			MultiSignature,
+		>::default();
+
+		let mut tx_ext_encoded = empty_signature_ext.encode();
+		tx_ext_encoded.append(&mut tx_ext.encode());
+		tx_ext_encoded.append(&mut signed_tx_ext.encode());
+
+		// The final valid for submission transaction extension.
+		let bob_signed_tx_ext: TxExtension = TxExtension::decode(&mut &tx_ext_encoded[..]).unwrap();
+
+		let info = DispatchInfo::default();
+		let len = call.encoded_size();
+
+		let xt = UncheckedExtrinsic(generic::UncheckedExtrinsic::<
+			Address,
+			RuntimeCall,
+			Signature,
+			TxExtension,
+			pallet_transaction_payment::Context<AccountId>,
+		>::new_transaction(call.clone(), bob_signed_tx_ext.clone()));
+		let checked_xt = xt.check(&Default::default()).unwrap();
+		assert!(checked_xt.apply::<DummyValidateUnsigned>(&info, len).is_ok());
+
+		// Alice balance is unchanged, Bob paid the transaction fee.
+		assert_eq!(alice_balance, Balances::free_balance(alice_account.clone()));
+		assert!(bob_balance > Balances::free_balance(bob_account.clone()));
+
+		assert!(System::events().iter().any(|ev| ev.event ==
+			RuntimeEvent::System(frame_system::Event::Remarked {
+				sender: alice_account.clone(),
+				hash:
+					<<Runtime as frame_system::Config>::Hashing as sp_runtime::traits::Hash>::hash(
+						&[1u8]
+					)
+			})));
+
+		assert_eq!(
+			alice_initial_nonce.saturating_add(1),
+			frame_system::Pallet::<Runtime>::account(&alice_account).nonce
+		);
+		assert_eq!(bob_initial_nonce, frame_system::Pallet::<Runtime>::account(&bob_account).nonce);
+
+		// The call that Charlie wants to be executed.
+		let call = RuntimeCall::System(frame_system::Call::remark_with_event { remark: vec![3] });
+
+		let charlie_unsigned_tx_ext = (
+			pallet_transaction_payment::SetFeeAgent::default(),
+			frame_support::transaction_extensions::SignedOriginSignature::<MultiSignature>::default(
+			),
+			(
+				frame_system::CheckNonZeroSender::<Runtime>::new(),
+				frame_system::CheckSpecVersion::<Runtime>::new(),
+				frame_system::CheckTxVersion::<Runtime>::new(),
+				frame_system::CheckGenesis::<Runtime>::new(),
+				frame_system::CheckMortality::<Runtime>::from(sp_runtime::generic::Era::immortal()),
+				frame_system::CheckNonce::<Runtime>::from(
+					frame_system::Pallet::<Runtime>::account(&charlie_account).nonce,
+				),
+				frame_system::CheckWeight::<Runtime>::new(),
+				pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+			),
+		);
+
+		let charlie_unsigned_tx_ext_implicit = charlie_unsigned_tx_ext.implicit().unwrap();
+		let charlie_sign = MultiSignature::Sr25519(
+			(call.clone(), charlie_unsigned_tx_ext.clone(), charlie_unsigned_tx_ext_implicit)
+				.using_encoded(|e| charlie_keyring.sign(&blake2_256(e))),
+		);
+
+		let charlie_signed_tx_ext: TxExtension = (
+			frame_support::transaction_extensions::SignedOriginSignature::new_with_sign(
+				charlie_sign,
+				charlie_account.clone(),
+			),
+			charlie_unsigned_tx_ext,
+		);
+
+		let xt = UncheckedExtrinsic(generic::UncheckedExtrinsic::<
+			Address,
+			RuntimeCall,
+			Signature,
+			TxExtension,
+			pallet_transaction_payment::Context<AccountId>,
+		>::new_transaction(call.clone(), charlie_signed_tx_ext.clone()));
+		let checked_xt = xt.check(&Default::default()).unwrap();
+		assert!(checked_xt.apply::<DummyValidateUnsigned>(&info, len).is_ok());
 
 		assert!(charlie_balance > Balances::free_balance(charlie_account.clone()));
 
