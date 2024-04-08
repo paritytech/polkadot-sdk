@@ -48,18 +48,19 @@ re-phrase the changes for each audience.
 
 All published crates that got modified need to have an entry in the `crates` section of your `PRDoc`. This entry tells
 the release team how to bump the crate version prior to the next release. It is very important that this information is
-correct, otherwise it could break downstream teams' code.
+correct, otherwise it could break the code of downstream teams.
 
-The bump can either be `major`, `minor` or `patch`, as defined by
-[rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html). There are exceptions for experimental and
-private API. These are exempt from bumping and can be broken at any time. Please read the
-[Crate Section](../RELEASE.md) of the RELEASE doc about this.
+The bump can either be `major`, `minor`, `patch` or `none`. The three first options are defined by
+[rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html), whereas `None` should be picked if no other
+applies. The `None` option is equivalent to the `R0-silent` label, but on a crate level. Experimental and private APIs
+are exempt from bumping and can be broken at any time. Please read the [Crate Section](../RELEASE.md) of the RELEASE doc
+about them.
 
 > **Note**: There is currently no CI in place to sanity check this information, but should be added soon.
 
 ### Example
 
-For example when you modified two crates and recorded the changes:
+For example when you modified two crates and record the changes:
 
 ```yaml
 crates:
