@@ -16,4 +16,4 @@ crates:
 - name: pallet-state-trie-migration
   bump: patch
 - name: try-runtime-cli
-  bump: major
+  bump: patch
