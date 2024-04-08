@@ -39,7 +39,7 @@ use crate::protocol_controller::ProtocolHandle;
 pub const LOG_TARGET: &str = "peerset";
 
 /// We don't accept nodes whose reputation is under this value.
-pub const BANNED_THRESHOLD: i32 = 82 * (i32::MIN / 100);
+pub const BANNED_THRESHOLD: i32 = 71 * (i32::MIN / 100);
 /// Reputation change for a node when we get disconnected from it.
 const DISCONNECT_REPUTATION_CHANGE: i32 = -256;
 /// Relative decrement of a reputation value that is applied every second. I.e., for inverse
@@ -53,7 +53,7 @@ const DISCONNECT_REPUTATION_CHANGE: i32 = -256;
 /// In this setup:
 /// - `i32::MAX` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
 /// - `i32::MIN` becomes 0 in exactly 3544 seconds, or approximately 59 minutes
-/// - `i32::MIN` escapes the banned threshold in 40 seconds
+/// - `i32::MIN` escapes the banned threshold in 69 seconds
 const INVERSE_DECREMENT: i32 = 200;
 /// Amount of time between the moment we last updated the [`PeerStore`] entry and the moment we
 /// remove it, once the reputation value reaches 0.
