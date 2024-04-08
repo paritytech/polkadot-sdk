@@ -51,8 +51,9 @@ use polkadot_node_subsystem_types::{
 	Span,
 };
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
-use polkadot_primitives::GroupIndex;
+use polkadot_primitives::{Block, GroupIndex, Hash};
 use sc_network::request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig};
+
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 use std::{ops::Sub, sync::Arc, time::Instant};
@@ -140,20 +141,32 @@ pub fn prepare_test(
 	mode: TestDataAvailability,
 	with_prometheus_endpoint: bool,
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
-	let (collation_req_receiver, collation_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let (pov_req_receiver, pov_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
-	let req_cfgs = vec![collation_req_cfg, pov_req_cfg];
-
 	let dependencies = TestEnvironmentDependencies::default();
 	let availability_state = NetworkAvailabilityState {
 		candidate_hashes: state.candidate_hashes.clone(),
 		available_data: state.available_data.clone(),
 		chunks: state.chunks.clone(),
 	};
+
+	let mut req_cfgs = Vec::new();
+
+	let (collation_req_receiver, collation_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
+	req_cfgs.push(collation_req_cfg);
+
+	let (pov_req_receiver, pov_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
+
+	let (chunk_req_receiver, chunk_req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&ReqProtocolNames::new(GENESIS_HASH, None));
+	req_cfgs.push(pov_req_cfg);
+
 	let (network, network_interface, network_receiver) = new_network(
 		&state.config,
 		&dependencies,

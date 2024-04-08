@@ -21,28 +21,165 @@
 //! Traits defined by `sc-network`.
 
 use crate::{
-	config::MultiaddrWithPeerId,
-	error,
+	config::{IncomingRequest, MultiaddrWithPeerId, NotificationHandshake, Params, SetConfig},
+	error::{self, Error},
 	event::Event,
+	network_state::NetworkState,
 	request_responses::{IfDisconnected, RequestFailure},
-	service::signature::Signature,
+	service::{metrics::NotificationMetrics, signature::Signature, PeerStoreProvider},
 	types::ProtocolName,
-	ReputationChange,
+	Multiaddr, ReputationChange,
 };
 
 use futures::{channel::oneshot, Stream};
-use libp2p::{Multiaddr, PeerId};
+use prometheus_endpoint::Registry;
 
-use sc_network_common::role::ObservedRole;
+use sc_client_api::BlockBackend;
+use sc_network_common::{role::ObservedRole, ExHashT};
+use sc_network_types::PeerId;
+use sp_runtime::traits::Block as BlockT;
 
-use std::{collections::HashSet, fmt::Debug, future::Future, pin::Pin, sync::Arc};
+use std::{collections::HashSet, fmt::Debug, future::Future, pin::Pin, sync::Arc, time::Duration};
 
 pub use libp2p::{identity::SigningError, kad::record::Key as KademliaKey};
+
+/// Supertrait defining the services provided by [`NetworkBackend`] service handle.
+pub trait NetworkService:
+	NetworkSigner
+	+ NetworkDHTProvider
+	+ NetworkStatusProvider
+	+ NetworkPeers
+	+ NetworkEventStream
+	+ NetworkStateInfo
+	+ NetworkRequest
+	+ Send
+	+ Sync
+	+ 'static
+{
+}
+
+impl<T> NetworkService for T where
+	T: NetworkSigner
+		+ NetworkDHTProvider
+		+ NetworkStatusProvider
+		+ NetworkPeers
+		+ NetworkEventStream
+		+ NetworkStateInfo
+		+ NetworkRequest
+		+ Send
+		+ Sync
+		+ 'static
+{
+}
+
+/// Trait defining the required functionality from a notification protocol configuration.
+pub trait NotificationConfig: Debug {
+	/// Get access to the `SetConfig` of the notification protocol.
+	fn set_config(&self) -> &SetConfig;
+
+	/// Get protocol name.
+	fn protocol_name(&self) -> &ProtocolName;
+}
+
+/// Trait defining the required functionality from a request-response protocol configuration.
+pub trait RequestResponseConfig: Debug {
+	/// Get protocol name.
+	fn protocol_name(&self) -> &ProtocolName;
+}
+
+/// Trait defining required functionality from `PeerStore`.
+#[async_trait::async_trait]
+pub trait PeerStore {
+	/// Get handle to `PeerStore`.
+	fn handle(&self) -> Arc<dyn PeerStoreProvider>;
+
+	/// Start running `PeerStore` event loop.
+	async fn run(self);
+}
+
+/// Networking backend.
+#[async_trait::async_trait]
+pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
+	/// Type representing notification protocol-related configuration.
+	type NotificationProtocolConfig: NotificationConfig;
+
+	/// Type representing request-response protocol-related configuration.
+	type RequestResponseProtocolConfig: RequestResponseConfig;
+
+	/// Type implementing `NetworkService` for the networking backend.
+	///
+	/// `NetworkService` allows other subsystems of the blockchain to interact with `sc-network`
+	/// using `NetworkService`.
+	type NetworkService<Block, Hash>: NetworkService + Clone;
+
+	/// Type implementing [`PeerStore`].
+	type PeerStore: PeerStore;
+
+	/// Bitswap config.
+	type BitswapConfig;
+
+	/// Create new `NetworkBackend`.
+	fn new(params: Params<B, H, Self>) -> Result<Self, Error>
+	where
+		Self: Sized;
+
+	/// Get handle to `NetworkService` of the `NetworkBackend`.
+	fn network_service(&self) -> Arc<dyn NetworkService>;
+
+	/// Create [`PeerStore`].
+	fn peer_store(bootnodes: Vec<PeerId>) -> Self::PeerStore;
+
+	/// Register metrics that are used by the notification protocols.
+	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics;
+
+	/// Create Bitswap server.
+	fn bitswap_server(
+		client: Arc<dyn BlockBackend<B> + Send + Sync>,
+	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig);
+
+	/// Create notification protocol configuration and an associated `NotificationService`
+	/// for the protocol.
+	fn notification_config(
+		protocol_name: ProtocolName,
+		fallback_names: Vec<ProtocolName>,
+		max_notification_size: u64,
+		handshake: Option<NotificationHandshake>,
+		set_config: SetConfig,
+		metrics: NotificationMetrics,
+		peerstore_handle: Arc<dyn PeerStoreProvider>,
+	) -> (Self::NotificationProtocolConfig, Box<dyn NotificationService>);
+
+	/// Create request-response protocol configuration.
+	fn request_response_config(
+		protocol_name: ProtocolName,
+		fallback_names: Vec<ProtocolName>,
+		max_request_size: u64,
+		max_response_size: u64,
+		request_timeout: Duration,
+		inbound_queue: Option<async_channel::Sender<IncomingRequest>>,
+	) -> Self::RequestResponseProtocolConfig;
+
+	/// Start [`NetworkBackend`] event loop.
+	async fn run(mut self);
+}
 
 /// Signer with network identity
 pub trait NetworkSigner {
 	/// Signs the message with the `KeyPair` that defines the local [`PeerId`].
-	fn sign_with_local_identity(&self, msg: impl AsRef<[u8]>) -> Result<Signature, SigningError>;
+	fn sign_with_local_identity(&self, msg: Vec<u8>) -> Result<Signature, SigningError>;
+
+	/// Verify signature using peer's public key.
+	///
+	/// `public_key` must be Protobuf-encoded ed25519 public key.
+	///
+	/// Returns `Err(())` if public cannot be parsed into a valid ed25519 public key.
+	fn verify(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		public_key: &Vec<u8>,
+		signature: &Vec<u8>,
+		message: &Vec<u8>,
+	) -> Result<bool, String>;
 }
 
 impl<T> NetworkSigner for Arc<T>
@@ -50,8 +187,18 @@ where
 	T: ?Sized,
 	T: NetworkSigner,
 {
-	fn sign_with_local_identity(&self, msg: impl AsRef<[u8]>) -> Result<Signature, SigningError> {
+	fn sign_with_local_identity(&self, msg: Vec<u8>) -> Result<Signature, SigningError> {
 		T::sign_with_local_identity(self, msg)
+	}
+
+	fn verify(
+		&self,
+		peer_id: sc_network_types::PeerId,
+		public_key: &Vec<u8>,
+		signature: &Vec<u8>,
+		message: &Vec<u8>,
+	) -> Result<bool, String> {
+		T::verify(self, peer_id, public_key, signature, message)
 	}
 }
 
@@ -117,6 +264,11 @@ pub trait NetworkStatusProvider {
 	///
 	/// Returns an error if the `NetworkWorker` is no longer running.
 	async fn status(&self) -> Result<NetworkStatus, ()>;
+
+	/// Get the network state.
+	///
+	/// Returns an error if the `NetworkWorker` is no longer running.
+	async fn network_state(&self) -> Result<NetworkState, ()>;
 }
 
 // Manual implementation to avoid extra boxing here
@@ -134,9 +286,20 @@ where
 	{
 		T::status(self)
 	}
+
+	fn network_state<'life0, 'async_trait>(
+		&'life0 self,
+	) -> Pin<Box<dyn Future<Output = Result<NetworkState, ()>> + Send + 'async_trait>>
+	where
+		'life0: 'async_trait,
+		Self: 'async_trait,
+	{
+		T::network_state(self)
+	}
 }
 
 /// Provides low-level API for manipulating network peers.
+#[async_trait::async_trait]
 pub trait NetworkPeers {
 	/// Set authorized peers.
 	///
@@ -237,9 +400,15 @@ pub trait NetworkPeers {
 	/// decoded into a role, the role queried from `PeerStore` and if the role is not stored
 	/// there either, `None` is returned and the peer should be discarded.
 	fn peer_role(&self, peer_id: PeerId, handshake: Vec<u8>) -> Option<ObservedRole>;
+
+	/// Get the list of reserved peers.
+	///
+	/// Returns an error if the `NetworkWorker` is no longer running.
+	async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()>;
 }
 
 // Manual implementation to avoid extra boxing here
+#[async_trait::async_trait]
 impl<T> NetworkPeers for Arc<T>
 where
 	T: ?Sized,
@@ -316,6 +485,16 @@ where
 	fn peer_role(&self, peer_id: PeerId, handshake: Vec<u8>) -> Option<ObservedRole> {
 		T::peer_role(self, peer_id, handshake)
 	}
+
+	fn reserved_peers<'life0, 'async_trait>(
+		&'life0 self,
+	) -> Pin<Box<dyn Future<Output = Result<Vec<PeerId>, ()>> + Send + 'async_trait>>
+	where
+		'life0: 'async_trait,
+		Self: 'async_trait,
+	{
+		T::reserved_peers(self)
+	}
 }
 
 /// Provides access to network-level event stream.
@@ -389,141 +568,20 @@ pub trait NotificationSender: Send + Sync + 'static {
 		-> Result<Box<dyn NotificationSenderReady + '_>, NotificationSenderError>;
 }
 
-/// Error returned by [`NetworkNotification::notification_sender`].
+/// Error returned by the notification sink.
 #[derive(Debug, thiserror::Error)]
 pub enum NotificationSenderError {
 	/// The notification receiver has been closed, usually because the underlying connection
 	/// closed.
 	///
 	/// Some of the notifications most recently sent may not have been received. However,
-	/// the peer may still be connected and a new `NotificationSender` for the same
-	/// protocol obtained from [`NetworkNotification::notification_sender`].
+	/// the peer may still be connected and a new notification sink for the same
+	/// protocol obtained from [`NotificationService::message_sink()`].
 	#[error("The notification receiver has been closed")]
 	Closed,
 	/// Protocol name hasn't been registered.
 	#[error("Protocol name hasn't been registered")]
 	BadProtocol,
-}
-
-/// Provides ability to send network notifications.
-pub trait NetworkNotification {
-	/// Appends a notification to the buffer of pending outgoing notifications with the given peer.
-	/// Has no effect if the notifications channel with this protocol name is not open.
-	///
-	/// If the buffer of pending outgoing notifications with that peer is full, the notification
-	/// is silently dropped and the connection to the remote will start being shut down. This
-	/// happens if you call this method at a higher rate than the rate at which the peer processes
-	/// these notifications, or if the available network bandwidth is too low.
-	///
-	/// For this reason, this method is considered soft-deprecated. You are encouraged to use
-	/// [`NetworkNotification::notification_sender`] instead.
-	///
-	/// > **Note**: The reason why this is a no-op in the situation where we have no channel is
-	/// >			that we don't guarantee message delivery anyway. Networking issues can cause
-	/// >			connections to drop at any time, and higher-level logic shouldn't differentiate
-	/// >			between the remote voluntarily closing a substream or a network error
-	/// >			preventing the message from being delivered.
-	///
-	/// The protocol must have been registered with
-	/// `crate::config::NetworkConfiguration::notifications_protocols`.
-	fn write_notification(&self, target: PeerId, protocol: ProtocolName, message: Vec<u8>);
-
-	/// Obtains a [`NotificationSender`] for a connected peer, if it exists.
-	///
-	/// A `NotificationSender` is scoped to a particular connection to the peer that holds
-	/// a receiver. With a `NotificationSender` at hand, sending a notification is done in two
-	/// steps:
-	///
-	/// 1. [`NotificationSender::ready`] is used to wait for the sender to become ready
-	/// for another notification, yielding a [`NotificationSenderReady`] token.
-	/// 2. [`NotificationSenderReady::send`] enqueues the notification for sending. This operation
-	/// can only fail if the underlying notification substream or connection has suddenly closed.
-	///
-	/// An error is returned by [`NotificationSenderReady::send`] if there exists no open
-	/// notifications substream with that combination of peer and protocol, or if the remote
-	/// has asked to close the notifications substream. If that happens, it is guaranteed that an
-	/// [`Event::NotificationStreamClosed`] has been generated on the stream returned by
-	/// [`NetworkEventStream::event_stream`].
-	///
-	/// If the remote requests to close the notifications substream, all notifications successfully
-	/// enqueued using [`NotificationSenderReady::send`] will finish being sent out before the
-	/// substream actually gets closed, but attempting to enqueue more notifications will now
-	/// return an error. It is however possible for the entire connection to be abruptly closed,
-	/// in which case enqueued notifications will be lost.
-	///
-	/// The protocol must have been registered with
-	/// `crate::config::NetworkConfiguration::notifications_protocols`.
-	///
-	/// # Usage
-	///
-	/// This method returns a struct that allows waiting until there is space available in the
-	/// buffer of messages towards the given peer. If the peer processes notifications at a slower
-	/// rate than we send them, this buffer will quickly fill up.
-	///
-	/// As such, you should never do something like this:
-	///
-	/// ```ignore
-	/// // Do NOT do this
-	/// for peer in peers {
-	/// 	if let Ok(n) = network.notification_sender(peer, ...) {
-	/// 			if let Ok(s) = n.ready().await {
-	/// 				let _ = s.send(...);
-	/// 			}
-	/// 	}
-	/// }
-	/// ```
-	///
-	/// Doing so would slow down all peers to the rate of the slowest one. A malicious or
-	/// malfunctioning peer could intentionally process notifications at a very slow rate.
-	///
-	/// Instead, you are encouraged to maintain your own buffer of notifications on top of the one
-	/// maintained by `sc-network`, and use `notification_sender` to progressively send out
-	/// elements from your buffer. If this additional buffer is full (which will happen at some
-	/// point if the peer is too slow to process notifications), appropriate measures can be taken,
-	/// such as removing non-critical notifications from the buffer or disconnecting the peer
-	/// using [`NetworkPeers::disconnect_peer`].
-	///
-	///
-	/// Notifications              Per-peer buffer
-	///   broadcast    +------->   of notifications   +-->  `notification_sender`  +-->  Internet
-	///                    ^       (not covered by
-	///                    |         sc-network)
-	///                    +
-	///      Notifications should be dropped
-	///             if buffer is full
-	///
-	///
-	/// See also the `sc-network-gossip` crate for a higher-level way to send notifications.
-	fn notification_sender(
-		&self,
-		target: PeerId,
-		protocol: ProtocolName,
-	) -> Result<Box<dyn NotificationSender>, NotificationSenderError>;
-
-	/// Set handshake for the notification protocol.
-	fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>);
-}
-
-impl<T> NetworkNotification for Arc<T>
-where
-	T: ?Sized,
-	T: NetworkNotification,
-{
-	fn write_notification(&self, target: PeerId, protocol: ProtocolName, message: Vec<u8>) {
-		T::write_notification(self, target, protocol, message)
-	}
-
-	fn notification_sender(
-		&self,
-		target: PeerId,
-		protocol: ProtocolName,
-	) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
-		T::notification_sender(self, target, protocol)
-	}
-
-	fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>) {
-		T::set_notification_handshake(self, protocol, handshake)
-	}
 }
 
 /// Provides ability to send network requests.
@@ -662,6 +720,15 @@ pub enum Direction {
 	Outbound,
 }
 
+impl From<litep2p::protocol::notification::Direction> for Direction {
+	fn from(direction: litep2p::protocol::notification::Direction) -> Self {
+		match direction {
+			litep2p::protocol::notification::Direction::Inbound => Direction::Inbound,
+			litep2p::protocol::notification::Direction::Outbound => Direction::Outbound,
+		}
+	}
+}
+
 impl Direction {
 	/// Is the direction inbound.
 	pub fn is_inbound(&self) -> bool {
@@ -771,13 +838,13 @@ pub trait NotificationService: Debug + Send {
 	async fn close_substream(&mut self, peer: PeerId) -> Result<(), ()>;
 
 	/// Send synchronous `notification` to `peer`.
-	fn send_sync_notification(&self, peer: &PeerId, notification: Vec<u8>);
+	fn send_sync_notification(&mut self, peer: &PeerId, notification: Vec<u8>);
 
 	/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	///
 	/// Returns an error if the peer doesn't exist.
 	async fn send_async_notification(
-		&self,
+		&mut self,
 		peer: &PeerId,
 		notification: Vec<u8>,
 	) -> Result<(), error::Error>;
@@ -826,4 +893,13 @@ pub trait MessageSink: Send + Sync {
 	///
 	/// Returns an error if the peer does not exist.
 	async fn send_async_notification(&self, notification: Vec<u8>) -> Result<(), error::Error>;
+}
+
+/// Trait defining the behavior of a bandwidth sink.
+pub trait BandwidthSink: Send + Sync {
+	/// Get the number of bytes received.
+	fn total_inbound(&self) -> u64;
+
+	/// Get the number of bytes sent.
+	fn total_outbound(&self) -> u64;
 }
