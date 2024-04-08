@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712415986309,
+  "lastUpdate": 1712554600538,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2235,6 +2235,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.011951857933333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "HongKuang",
+            "username": "HongKuang",
+            "email": "166261675+HongKuang@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "bd4471b4fcf46123df6115b70b32e47276a7ae60",
+          "message": "Fix some typos (#4018)\n\nSigned-off-by: hongkuang <liurenhong@outlook.com>",
+          "timestamp": "2024-04-08T04:21:11Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd4471b4fcf46123df6115b70b32e47276a7ae60"
+        },
+        "date": 1712554575103,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.919999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.027104517933333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011816775973333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014098499620000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16054742537333333,
             "unit": "seconds"
           }
         ]
