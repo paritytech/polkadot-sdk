@@ -187,7 +187,7 @@ where
 				last_blocks.pop_front();
 			}
 
-			let best_indicator = if n.is_new_best { "🌟" } else { "✨" };
+			let best_indicator = if n.is_new_best { "🏆" } else { "🆕" };
 			info!(
 				target: "substrate",
 				"{best_indicator} Imported #{} ({} -> {})",
