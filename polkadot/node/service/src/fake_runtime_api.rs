@@ -162,10 +162,6 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn candidates_pending_availability(_: ParaId) -> Vec<CommittedCandidateReceipt<Hash>> {
-			unimplemented!()
-		}
-
 		fn candidate_events() -> Vec<CandidateEvent<Hash>> {
 			unimplemented!()
 		}
