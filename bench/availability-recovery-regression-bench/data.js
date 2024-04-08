@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712599502731,
+  "lastUpdate": 1712618061628,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2057,6 +2057,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.550451701786667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Léa Narzis",
+            "username": "lean-apple",
+            "email": "78718413+lean-apple@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d733c77ee2d2e8e2d5205c552a5efb2e5b5242c8",
+          "message": "Adapt `RemoteExternalities` and its related types to be used with generic hash parameters (#3953)\n\nCloses  https://github.com/paritytech/polkadot-sdk/issues/3737\n\n---------\n\nCo-authored-by: command-bot <>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-08T21:56:41Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d733c77ee2d2e8e2d5205c552a5efb2e5b5242c8"
+        },
+        "date": 1712618037452,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21343971101999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.778383631099999,
             "unit": "seconds"
           }
         ]
