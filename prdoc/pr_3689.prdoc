@@ -4,7 +4,6 @@
 title: Refactor the host <-> runtime interface machinery (the `#[runtime_interface]` macro) and the way host functions are defined
 
 doc:
-  - audience: Runtime Dev
   - audience: Node Dev
     description: |
       This PR refactors the way the host functions are defined.
