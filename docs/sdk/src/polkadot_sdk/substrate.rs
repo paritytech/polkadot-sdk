@@ -99,7 +99,7 @@
 //!   demonstration.
 //!     * [`chain_spec_builder`]: Utility to build more detailed chain-specs for the aforementioned
 //!       node. Other projects typically contain a `build-spec` subcommand that does the same.
-//! * [`node_template`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node-template):
+//! * [`node_template`](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/bin/node):
 //!   a template node that contains a minimal set of features and can act as a starting point of a
 //!   project.
 //! * [`subkey`]: Substrate's key management utility.

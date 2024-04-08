@@ -331,6 +331,7 @@ members = [
 	"substrate/frame/examples/dev-mode",
 	"substrate/frame/examples/frame-crate",
 	"substrate/frame/examples/kitchensink",
+	"substrate/frame/examples/multi-block-migrations",
 	"substrate/frame/examples/offchain-worker",
 	"substrate/frame/examples/single-block-migrations",
 	"substrate/frame/examples/split",
@@ -557,6 +558,7 @@ serde_json = { version = "1.0.114", default-features = false }
 serde_yaml = { version = "0.9" }
 syn = { version = "2.0.53" }
 thiserror = { version = "1.0.48" }
+tracing-subscriber = { version = "0.3.18" }
 
 [profile.release]
 # Polkadot runtime requires unwinding.

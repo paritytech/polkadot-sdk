@@ -1,0 +1,42 @@
+[package]
+description = "Substrate bitswap protocol"
+name = "sc-network-bitswap"
+version = "0.33.0"
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+authors.workspace = true
+edition.workspace = true
+homepage = "https://substrate.io"
+repository.workspace = true
+documentation = "https://docs.rs/sc-network-bitswap"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[build-dependencies]
+prost-build = "0.11"
+
+[dependencies]
+async-channel = "1.8.0"
+cid = "0.9.0"
+futures = "0.3.30"
+libp2p-identity = { version = "0.1.3", features = ["peerid"] }
+log = { workspace = true, default-features = true }
+prost = "0.12"
+thiserror = { workspace = true }
+unsigned-varint = { version = "0.7.1", features = ["asynchronous_codec", "futures"] }
+sc-client-api = { path = "../../api" }
+sc-network = { path = ".." }
+sp-blockchain = { path = "../../../primitives/blockchain" }
+sp-runtime = { path = "../../../primitives/runtime" }
+
+[dev-dependencies]
+tokio = { version = "1.22.0", features = ["full"] }
+sc-block-builder = { path = "../../block-builder" }
+sc-consensus = { path = "../../consensus/common" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
+sp-consensus = { path = "../../../primitives/consensus/common" }
+substrate-test-runtime = { path = "../../../test-utils/runtime" }
+substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }

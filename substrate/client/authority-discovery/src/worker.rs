@@ -342,6 +342,7 @@ where
 	}
 
 	fn addresses_to_publish(&self) -> impl Iterator<Item = Multiaddr> {
+		let local_peer_id = self.network.local_peer_id();
 		let publish_non_global_ips = self.publish_non_global_ips;
 		let addresses = self
 			.public_addresses
@@ -349,7 +350,15 @@ where
 			.into_iter()
 			.chain(self.network.external_addresses().into_iter().filter_map(|mut address| {
 				// Make sure the reported external address does not contain `/p2p/...` protocol.
-				if let Some(multiaddr::Protocol::P2p(_)) = address.iter().last() {
+				if let Some(multiaddr::Protocol::P2p(peer_id)) = address.iter().last() {
+					if peer_id != *local_peer_id.as_ref() {
+						error!(
+							target: LOG_TARGET,
+							"Network returned external address '{address}' with peer id \
+							 not matching the local peer id '{local_peer_id}'.",
+						);
+						debug_assert!(false);
+					}
 					address.pop();
 				}
 
@@ -375,15 +384,16 @@ where
 			})
 			.collect::<Vec<_>>();
 
-		let peer_id = self.network.local_peer_id();
 		debug!(
 			target: LOG_TARGET,
-			"Authority DHT record peer_id='{peer_id}' addresses='{addresses:?}'",
+			"Authority DHT record peer_id='{local_peer_id}' addresses='{addresses:?}'",
 		);
 
-		// The address must include the peer id.
-		let peer_id: Multihash = peer_id.into();
-		addresses.into_iter().map(move |a| a.with(multiaddr::Protocol::P2p(peer_id)))
+		// The address must include the local peer id.
+		let local_peer_id: Multihash = local_peer_id.into();
+		addresses
+			.into_iter()
+			.map(move |a| a.with(multiaddr::Protocol::P2p(local_peer_id)))
 	}
 
 	/// Publish own public addresses.
