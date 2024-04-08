@@ -507,6 +507,7 @@ pub(crate) mod tests {
 		}
 	}
 
+	#[async_trait::async_trait]
 	impl NetworkPeers for TestNetwork {
 		fn set_authorized_peers(&self, _: std::collections::HashSet<PeerId>) {
 			unimplemented!()
