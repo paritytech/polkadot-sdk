@@ -303,6 +303,24 @@ fn ensure_valid_return_type(item_fn: &ItemFn) -> Result<()> {
 	Ok(())
 }
 
+/// Ensure that the passed statements do not contain any forbidden variable names
+fn ensure_no_forbidden_variable_names(stmts: &[Stmt]) -> Result<()> {
+	const FORBIDDEN_VAR_NAMES: [&str; 2] = ["recording", "verify"];
+	for stmt in stmts {
+		let Stmt::Local(l) = stmt else { continue };
+		let Pat::Ident(ident) = &l.pat else { continue };
+		if FORBIDDEN_VAR_NAMES.contains(&ident.ident.to_string().as_str()) {
+			return Err(Error::new(
+				ident.span(),
+				format!(
+					"Variables {FORBIDDEN_VAR_NAMES:?} are reserved for benchmarking internals.",
+				),
+			));
+		}
+	}
+	Ok(())
+}
+
 /// Parses params such as `x: Linear<0, 1>`
 fn parse_params(item_fn: &ItemFn) -> Result<Vec<ParamDef>> {
 	let mut params: Vec<ParamDef> = Vec::new();
@@ -436,9 +454,12 @@ impl BenchmarkDef {
 			},
 		};
 
+		let setup_stmts = Vec::from(&item_fn.block.stmts[0..i]);
+		ensure_no_forbidden_variable_names(&setup_stmts)?;
+
 		Ok(BenchmarkDef {
 			params,
-			setup_stmts: Vec::from(&item_fn.block.stmts[0..i]),
+			setup_stmts,
 			call_def,
 			verify_stmts,
 			last_stmt,
