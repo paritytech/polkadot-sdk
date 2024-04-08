@@ -128,14 +128,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext.execute_with(|| {
 		set_rank(100, 9);
 		let params = ParamsType {
-			active_salary: BoundedVec::try_from(vec![10, 20, 30, 40, 50, 60, 70, 80, 90])
-				.expect("Within bounds"),
-			passive_salary: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9])
-				.expect("Within bounds"),
-			demotion_period: BoundedVec::try_from(vec![2, 4, 6, 8, 10, 12, 14, 16, 18])
-				.expect("Within bounds"),
+			active_salary: BoundedVec::try_from(vec![10, 20, 30, 40, 50, 60, 70, 80, 90]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![2, 4, 6, 8, 10, 12, 14, 16, 18]).unwrap(),
 			min_promotion_period: BoundedVec::try_from(vec![3, 6, 9, 12, 15, 18, 21, 24, 27])
-				.expect("Within bounds"),
+				.unwrap(),
 			offboard_timeout: 1,
 		};
 
@@ -180,14 +177,11 @@ fn basic_stuff() {
 fn set_params_works() {
 	new_test_ext().execute_with(|| {
 		let params = ParamsType {
-			active_salary: BoundedVec::try_from(vec![10, 20, 30, 40, 50, 60, 70, 80, 90])
-				.expect("Within bounds"),
-			passive_salary: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9])
-				.expect("Within bounds"),
-			demotion_period: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9])
-				.expect("Within bounds"),
+			active_salary: BoundedVec::try_from(vec![10, 20, 30, 40, 50, 60, 70, 80, 90]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap(),
+			demotion_period: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap(),
 			min_promotion_period: BoundedVec::try_from(vec![1, 2, 3, 4, 5, 10, 15, 20, 30])
-				.expect("Within bounds"),
+				.unwrap(),
 			offboard_timeout: 1,
 		};
 		assert_noop!(
@@ -298,14 +292,11 @@ fn offboard_works() {
 fn infinite_demotion_period_works() {
 	new_test_ext().execute_with(|| {
 		let params = ParamsType {
-			active_salary: BoundedVec::try_from(vec![10, 10, 10, 10, 10, 10, 10, 10, 10])
-				.expect("Within bounds"),
-			passive_salary: BoundedVec::try_from(vec![10, 10, 10, 10, 10, 10, 10, 10, 10])
-				.expect("Within bounds"),
+			active_salary: BoundedVec::try_from(vec![10, 10, 10, 10, 10, 10, 10, 10, 10]).unwrap(),
+			passive_salary: BoundedVec::try_from(vec![10, 10, 10, 10, 10, 10, 10, 10, 10]).unwrap(),
 			min_promotion_period: BoundedVec::try_from(vec![10, 10, 10, 10, 10, 10, 10, 10, 10])
-				.expect("Within bounds"),
-			demotion_period: BoundedVec::try_from(vec![0, 0, 0, 0, 0, 0, 0, 0, 0])
-				.expect("Within bounds"),
+				.unwrap(),
+			demotion_period: BoundedVec::try_from(vec![0, 0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
 			offboard_timeout: 0,
 		};
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));

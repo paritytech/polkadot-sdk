@@ -154,7 +154,8 @@ mod benchmarks {
 	fn promote() -> Result<(), BenchmarkError> {
 		// Ensure that the `min_promotion_period` wont get in our way.
 		let mut params = Params::<T, I>::get();
-		params.min_promotion_period = [Zero::zero(); RANK_COUNT];
+		let max_rank: usize = T::Members::max_rank().into();
+		params.min_promotion_period = BoundedVec::try_from(vec![Zero::zero(); max_rank]).unwrap();
 		Params::<T, I>::put(&params);
 
 		let member = make_member::<T, I>(1)?;
