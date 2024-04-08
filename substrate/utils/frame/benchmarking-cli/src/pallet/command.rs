@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{writer, PalletCmd};
+use super::{writer, ListOutput, PalletCmd};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
 	Analysis, AnalysisChoice, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkInfo,
@@ -40,12 +40,18 @@ use sp_core::{
 };
 use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::Hash;
 use sp_state_machine::StateMachine;
-use std::{collections::HashMap, fmt::Debug, fs, str::FromStr, time};
+use std::{
+	collections::{BTreeMap, BTreeSet, HashMap},
+	fmt::Debug,
+	fs,
+	str::FromStr,
+	time,
+};
 
 /// Logging target
-const LOG_TARGET: &'static str = "frame::benchmark::pallet";
+const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
 
 /// The inclusive range of a component.
 #[derive(Serialize, Debug, Clone, Eq, PartialEq)]
@@ -143,11 +149,10 @@ This could mean that you either did not build the node correctly with the \
 not created by a node that was compiled with the flag";
 
 impl PalletCmd {
-	/// Runs the command and benchmarks the chain.
-	pub fn run<BB, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
+	/// Runs the command and benchmarks a pallet.
+	pub fn run<Hasher, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
 	where
-		BB: BlockT + Debug,
-		<<<BB as BlockT>::Header as HeaderT>::Number as std::str::FromStr>::Err: std::fmt::Debug,
+		Hasher: Hash,
 		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
 	{
 		let _d = self.execution.as_ref().map(|exec| {
@@ -181,6 +186,7 @@ impl PalletCmd {
 		let spec = config.chain_spec;
 		let pallet = self.pallet.clone().unwrap_or_default();
 		let pallet = pallet.as_bytes();
+
 		let extrinsic = self.extrinsic.clone().unwrap_or_default();
 		let extrinsic_split: Vec<&str> = extrinsic.split(',').collect();
 		let extrinsics: Vec<_> = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
@@ -188,7 +194,7 @@ impl PalletCmd {
 		let genesis_storage = spec.build_storage()?;
 		let mut changes = Default::default();
 		let cache_size = Some(self.database_cache_size as usize);
-		let state_with_tracking = BenchmarkingState::<BB>::new(
+		let state_with_tracking = BenchmarkingState::<Hasher>::new(
 			genesis_storage.clone(),
 			cache_size,
 			// Record proof size
@@ -196,7 +202,7 @@ impl PalletCmd {
 			// Enable storage tracking
 			true,
 		)?;
-		let state_without_tracking = BenchmarkingState::<BB>::new(
+		let state_without_tracking = BenchmarkingState::<Hasher>::new(
 			genesis_storage,
 			cache_size,
 			// Do not record proof size
@@ -295,16 +301,23 @@ impl PalletCmd {
 		// Convert `Vec<u8>` to `String` for better readability.
 		let benchmarks_to_run: Vec<_> = benchmarks_to_run
 			.into_iter()
-			.map(|b| {
+			.map(|(pallet, extrinsic, components, pov_modes)| {
+				let pallet_name =
+					String::from_utf8(pallet.clone()).expect("Encoded from String; qed");
+				let extrinsic_name =
+					String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed");
 				(
-					b.0,
-					b.1,
-					b.2,
-					b.3.into_iter()
+					pallet,
+					extrinsic,
+					components,
+					pov_modes
+						.into_iter()
 						.map(|(p, s)| {
 							(String::from_utf8(p).unwrap(), String::from_utf8(s).unwrap())
 						})
 						.collect(),
+					pallet_name,
+					extrinsic_name,
 				)
 			})
 			.collect();
@@ -313,9 +326,8 @@ impl PalletCmd {
 			return Err("No benchmarks found which match your input.".into())
 		}
 
-		if self.list {
-			// List benchmarks instead of running them
-			list_benchmark(benchmarks_to_run);
+		if let Some(list_output) = self.list {
+			list_benchmark(benchmarks_to_run, list_output, self.no_csv_header);
 			return Ok(())
 		}
 
@@ -327,12 +339,12 @@ impl PalletCmd {
 		let mut component_ranges = HashMap::<(Vec<u8>, Vec<u8>), Vec<ComponentRange>>::new();
 		let pov_modes = Self::parse_pov_modes(&benchmarks_to_run)?;
 
-		for (pallet, extrinsic, components, _) in benchmarks_to_run.clone() {
+		for (pallet, extrinsic, components, _, pallet_name, extrinsic_name) in
+			benchmarks_to_run.clone()
+		{
 			log::info!(
 				target: LOG_TARGET,
-				"Starting benchmark: {}::{}",
-				String::from_utf8(pallet.clone()).expect("Encoded from String; qed"),
-				String::from_utf8(extrinsic.clone()).expect("Encoded from String; qed"),
+				"Starting benchmark: {pallet_name}::{extrinsic_name}"
 			);
 			let all_components = if components.is_empty() {
 				vec![Default::default()]
@@ -406,19 +418,14 @@ impl PalletCmd {
 					.map_err(|e| {
 						format!("Error executing and verifying runtime benchmark: {}", e)
 					})?;
-					// Dont use these results since verification code will add overhead.
+					// Don't use these results since verification code will add overhead.
 					let _batch =
 						<std::result::Result<Vec<BenchmarkBatch>, String> as Decode>::decode(
 							&mut &result[..],
 						)
 						.map_err(|e| format!("Failed to decode benchmark results: {:?}", e))?
 						.map_err(|e| {
-							format!(
-								"Benchmark {}::{} failed: {}",
-								String::from_utf8_lossy(&pallet),
-								String::from_utf8_lossy(&extrinsic),
-								e
-							)
+							format!("Benchmark {pallet_name}::{extrinsic_name} failed: {e}",)
 						})?;
 				}
 				// Do one loop of DB tracking.
@@ -433,7 +440,7 @@ impl PalletCmd {
 							&pallet.clone(),
 							&extrinsic.clone(),
 							&selected_components.clone(),
-							false, // dont run verification code for final values
+							false, // don't run verification code for final values
 							self.repeat,
 						)
 							.encode(),
@@ -465,7 +472,7 @@ impl PalletCmd {
 							&pallet.clone(),
 							&extrinsic.clone(),
 							&selected_components.clone(),
-							false, // dont run verification code for final values
+							false, // don't run verification code for final values
 							self.repeat,
 						)
 							.encode(),
@@ -492,11 +499,7 @@ impl PalletCmd {
 
 							log::info!(
 								target: LOG_TARGET,
-								"Running  benchmark: {}.{}({} args) {}/{} {}/{}",
-								String::from_utf8(pallet.clone())
-									.expect("Encoded from String; qed"),
-								String::from_utf8(extrinsic.clone())
-									.expect("Encoded from String; qed"),
+								"Running  benchmark: {pallet_name}::{extrinsic_name}({} args) {}/{} {}/{}",
 								components.len(),
 								s + 1, // s starts at 0.
 								all_components.len(),
@@ -747,12 +750,14 @@ impl PalletCmd {
 			Vec<u8>,
 			Vec<(BenchmarkParameter, u32, u32)>,
 			Vec<(String, String)>,
+			String,
+			String,
 		)>,
 	) -> Result<PovModesMap> {
 		use std::collections::hash_map::Entry;
 		let mut parsed = PovModesMap::new();
 
-		for (pallet, call, _components, pov_modes) in benchmarks {
+		for (pallet, call, _components, pov_modes, _, _) in benchmarks {
 			for (pallet_storage, mode) in pov_modes {
 				let mode = PovEstimationMode::from_str(&mode)?;
 				let splits = pallet_storage.split("::").collect::<Vec<_>>();
@@ -801,19 +806,45 @@ impl CliConfiguration for PalletCmd {
 
 /// List the benchmarks available in the runtime, in a CSV friendly format.
 fn list_benchmark(
-	mut benchmarks_to_run: Vec<(
+	benchmarks_to_run: Vec<(
 		Vec<u8>,
 		Vec<u8>,
 		Vec<(BenchmarkParameter, u32, u32)>,
 		Vec<(String, String)>,
+		String,
+		String,
 	)>,
+	list_output: ListOutput,
+	no_csv_header: bool,
 ) {
-	// Sort and de-dub by pallet and function name.
-	benchmarks_to_run.sort_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa).cmp(&(pb, sb)));
-	benchmarks_to_run.dedup_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa) == (pb, sb));
+	let mut benchmarks = BTreeMap::new();
 
-	println!("pallet, benchmark");
-	for (pallet, extrinsic, _, _) in benchmarks_to_run {
-		println!("{}, {}", String::from_utf8_lossy(&pallet), String::from_utf8_lossy(&extrinsic));
+	// Sort and de-dub by pallet and function name.
+	benchmarks_to_run.iter().for_each(|(_, _, _, _, pallet_name, extrinsic_name)| {
+		benchmarks
+			.entry(pallet_name)
+			.or_insert_with(BTreeSet::new)
+			.insert(extrinsic_name);
+	});
+
+	match list_output {
+		ListOutput::All => {
+			if !no_csv_header {
+				println!("pallet,extrinsic");
+			}
+			for (pallet, extrinsics) in benchmarks {
+				for extrinsic in extrinsics {
+					println!("{pallet},{extrinsic}");
+				}
+			}
+		},
+		ListOutput::Pallets => {
+			if !no_csv_header {
+				println!("pallet");
+			};
+			for pallet in benchmarks.keys() {
+				println!("{pallet}");
+			}
+		},
 	}
 }

@@ -10,10 +10,10 @@ description = "The Prospective Parachains subsystem. Tracks and handles prospect
 workspace = true
 
 [dependencies]
-futures = "0.3.19"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
 parity-scale-codec = "3.6.4"
-thiserror = "1.0.48"
+thiserror = { workspace = true }
 fatality = "0.0.6"
 bitvec = "1"
 
@@ -23,6 +23,7 @@ polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 
 [dev-dependencies]
+rstest = "0.18.2"
 assert_matches = "1"
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-node-subsystem-types = { path = "../../subsystem-types" }

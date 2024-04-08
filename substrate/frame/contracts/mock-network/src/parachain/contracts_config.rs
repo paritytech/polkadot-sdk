@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{ConstBool, ConstU32, Contains, Randomness},
 	weights::Weight,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureSigned};
 use pallet_xcm::BalanceOf;
 use sp_runtime::{traits::Convert, Perbill};
 
@@ -90,9 +90,12 @@ impl pallet_contracts::Config for Runtime {
 	type Schedule = Schedule;
 	type Time = super::Timestamp;
 	type UnsafeUnstableInterface = ConstBool<true>;
+	type UploadOrigin = EnsureSigned<Self::AccountId>;
+	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type WeightInfo = ();
 	type WeightPrice = Self;
 	type Debug = ();
 	type Environment = ();
+	type ApiVersion = ();
 	type Xcm = pallet_xcm::Pallet<Self>;
 }

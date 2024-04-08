@@ -30,7 +30,6 @@ use parachains_runtimes_test_utils::{
 	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
-use sp_std::ops::Mul;
 use xcm::{latest::prelude::*, VersionedAssets};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
@@ -71,7 +70,8 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 		+ parachain_info::Config
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
-		+ cumulus_pallet_xcmp_queue::Config,
+		+ cumulus_pallet_xcmp_queue::Config
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,
@@ -323,20 +323,22 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	LocationToAccountId,
 	ForeignAssetsPalletInstance,
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
 	existential_deposit: BalanceOf<Runtime>,
 	target_account: AccountIdOf<Runtime>,
 	block_author_account: AccountIdOf<Runtime>,
-	(
-		foreign_asset_id_location,
-		transfered_foreign_asset_id_amount,
-		foreign_asset_id_minimum_balance,
-	): (xcm::v3::Location, u128, u128),
-	prepare_configuration: fn() -> TestBridgingConfig,
+	(foreign_asset_owner, foreign_asset_id_location, foreign_asset_id_minimum_balance): (
+		AccountIdOf<Runtime>,
+		xcm::v3::Location,
+		u128,
+	),
+	foreign_asset_id_amount_to_transfer: u128,
+	prepare_configuration: impl FnOnce() -> TestBridgingConfig,
 	(bridge_instance, universal_origin, descend_origin): (Junctions, Junction, Junctions), /* bridge adds origin manipulation on the way */
+	additional_checks_before: impl FnOnce(),
+	additional_checks_after: impl FnOnce(),
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -347,14 +349,13 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
 		+ pallet_assets::Config<ForeignAssetsPalletInstance>
-		+ pallet_asset_conversion::Config,
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]> + From<[u8; 32]>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 	BalanceOf<Runtime>: From<Balance> + Into<Balance>,
 	XcmConfig: xcm_executor::Config,
-	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
 		From<xcm::v3::Location> + Into<xcm::v3::Location>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetIdParameter:
@@ -365,9 +366,6 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		+ Into<AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
-	<Runtime as pallet_asset_conversion::Config>::AssetKind:
-		From<xcm::v3::Location> + Into<xcm::v3::Location>,
-	<Runtime as pallet_asset_conversion::Config>::Balance: From<Balance>,
 	ForeignAssetsPalletInstance: 'static,
 {
 	ExtBuilder::<Runtime>::default()
@@ -382,86 +380,29 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				block_author_account.clone().into(),
 			);
 
-			// prepare bridge config
-			let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
-
 			// drip 'ED' user target account
 			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
 				&target_account,
 				existential_deposit,
 			);
 
-			// sovereign account as foreign asset owner (can be whoever for this scenario, doesnt
-			// matter)
-			let sovereign_account_as_owner_of_foreign_asset =
-				LocationToAccountId::convert_location(&Location::parent()).unwrap();
-
-			// staking pot account for collecting local native fees from `BuyExecution`
-			let staking_pot = <pallet_collator_selection::Pallet<Runtime>>::account_id();
-			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
-				&staking_pot,
-				existential_deposit,
-			);
-
-			// create foreign asset for wrapped/derivated representation
+			// create foreign asset for wrapped/derived representation
 			assert_ok!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::root_origin(),
 					foreign_asset_id_location.into(),
-					sovereign_account_as_owner_of_foreign_asset.clone().into(),
+					foreign_asset_owner.into(),
 					true, // is_sufficient=true
 					foreign_asset_id_minimum_balance.into()
 				)
 			);
 
-			// setup a pool to pay fees with `foreign_asset_id_location` tokens
-			let pool_owner: AccountIdOf<Runtime> = [1u8; 32].into();
-			let native_asset = xcm::v3::Location::parent();
-			let pool_liquidity: u128 =
-				existential_deposit.into().max(foreign_asset_id_minimum_balance).mul(100_000);
-
-			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
-				&pool_owner,
-				(existential_deposit.into() + pool_liquidity).mul(2).into(),
-			);
-
-			assert_ok!(<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::mint(
-				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(
-					sovereign_account_as_owner_of_foreign_asset
-				),
-				foreign_asset_id_location.into(),
-				pool_owner.clone().into(),
-				(foreign_asset_id_minimum_balance + pool_liquidity).mul(2).into(),
-			));
-
-			assert_ok!(<pallet_asset_conversion::Pallet<Runtime>>::create_pool(
-				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(pool_owner.clone()),
-				Box::new(native_asset.into()),
-				Box::new(foreign_asset_id_location.into())
-			));
-
-			assert_ok!(<pallet_asset_conversion::Pallet<Runtime>>::add_liquidity(
-				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(pool_owner.clone()),
-				Box::new(native_asset.into()),
-				Box::new(foreign_asset_id_location.into()),
-				pool_liquidity.into(),
-				pool_liquidity.into(),
-				1.into(),
-				1.into(),
-				pool_owner,
-			));
+			// prepare bridge config
+			let TestBridgingConfig { local_bridge_hub_location, .. } = prepare_configuration();
 
 			// Balances before
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
-				existential_deposit.clone()
-			);
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&block_author_account),
-				0.into()
-			);
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&staking_pot),
 				existential_deposit.clone()
 			);
 
@@ -473,27 +414,16 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				),
 				0.into()
 			);
-			assert_eq!(
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
-					&block_author_account
-				),
-				0.into()
-			);
-			assert_eq!(
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
-					&staking_pot
-				),
-				0.into()
-			);
+
+			// additional check before
+			additional_checks_before();
 
 			let foreign_asset_id_location_latest: Location =
 				foreign_asset_id_location.try_into().unwrap();
 
 			let expected_assets = Assets::from(vec![Asset {
 				id: AssetId(foreign_asset_id_location_latest.clone()),
-				fun: Fungible(transfered_foreign_asset_id_amount),
+				fun: Fungible(foreign_asset_id_amount_to_transfer),
 			}]);
 			let expected_beneficiary = Location::new(
 				0,
@@ -510,7 +440,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				BuyExecution {
 					fees: Asset {
 						id: AssetId(foreign_asset_id_location_latest.clone()),
-						fun: Fungible(transfered_foreign_asset_id_amount),
+						fun: Fungible(foreign_asset_id_amount_to_transfer),
 					},
 					weight_limit: Unlimited,
 				},
@@ -544,18 +474,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			assert_ok!(outcome.ensure_complete());
 
 			// Balances after
-			// staking pot receives xcm fees in dot
-			assert!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&staking_pot) !=
-					existential_deposit
-			);
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 				existential_deposit.clone()
-			);
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&block_author_account),
-				0.into()
 			);
 
 			// ForeignAssets balances after
@@ -565,20 +486,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 					&target_account
 				) > 0.into()
 			);
-			assert_eq!(
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
-					&staking_pot
-				),
-				0.into()
-			);
-			assert_eq!(
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_location.into(),
-					&block_author_account
-				),
-				0.into()
-			);
+
+			// additional check after
+			additional_checks_after();
 		})
 }
 
@@ -602,7 +512,8 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>,
+		+ pallet_xcm_bridge_hub_router::Config<XcmBridgeHubRouterInstance>
+		+ pallet_timestamp::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	AccountIdOf<Runtime>: Into<[u8; 32]>,

@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 impl-trait-for-tuples = "0.2.1"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
@@ -23,7 +23,7 @@ sp-weights = { path = "../../../substrate/primitives/weights", default-features 
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 # Polkadot dependencies
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }

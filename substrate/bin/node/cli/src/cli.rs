@@ -49,7 +49,7 @@ pub struct Cli {
 /// Possible subcommands of the main binary.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
-	/// The custom inspect subcommmand for decoding blocks and extrinsics.
+	/// The custom inspect subcommand for decoding blocks and extrinsics.
 	#[command(
 		name = "inspect",
 		about = "Decode given block or extrinsic using current native runtime."
@@ -63,7 +63,7 @@ pub enum Subcommand {
 
 	/// Try-runtime has migrated to a standalone CLI
 	/// (<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and
-	/// deprecation notice. It will be removed entirely some time after Janurary 2024.
+	/// deprecation notice. It will be removed entirely some time after January 2024.
 	TryRuntime,
 
 	/// Key management cli utilities

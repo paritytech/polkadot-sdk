@@ -30,13 +30,16 @@ sp-runtime-interface = { path = "../runtime-interface", default-features = false
 sp-trie = { path = "../trie", default-features = false, optional = true }
 sp-externalities = { path = "../externalities", default-features = false }
 sp-tracing = { path = "../tracing", default-features = false }
-log = { version = "0.4.17", optional = true }
+log = { optional = true, workspace = true, default-features = true }
 secp256k1 = { version = "0.28.0", features = ["global-context", "recovery"], optional = true }
 tracing = { version = "0.1.29", default-features = false }
 tracing-core = { version = "0.1.32", default-features = false }
 
 # Required for backwards compatibility reason, but only used for verifying when `UseDalekExt` is set.
 ed25519-dalek = { version = "2.1", default-features = false, optional = true }
+
+[target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
+polkavm-derive = { workspace = true }
 
 [build-dependencies]
 rustversion = "1.0.6"
@@ -82,7 +85,7 @@ disable_allocator = []
 # This gives the caller direct programmatic access to the error message.
 #
 # When disabled the error message will only be printed out in the
-# logs, with the caller receving a generic "wasm `unreachable` instruction executed"
+# logs, with the caller receiving a generic "wasm `unreachable` instruction executed"
 # error message.
 #
 # This has no effect if both `disable_panic_handler` and `disable_oom`

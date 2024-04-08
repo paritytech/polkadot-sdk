@@ -210,7 +210,7 @@ impl Location {
 	}
 
 	/// Consumes `self` and returns a `Location` suffixed with `new`, or an `Err` with
-	/// theoriginal value of `self` in case of overflow.
+	/// the original value of `self` in case of overflow.
 	pub fn pushed_with_interior(
 		self,
 		new: impl Into<Junction>,
@@ -527,6 +527,13 @@ pub struct AncestorThen<Interior>(pub u8, pub Interior);
 impl<Interior: Into<Junctions>> From<AncestorThen<Interior>> for Location {
 	fn from(AncestorThen(parents, interior): AncestorThen<Interior>) -> Self {
 		Location { parents, interior: interior.into() }
+	}
+}
+
+impl From<[u8; 32]> for Location {
+	fn from(bytes: [u8; 32]) -> Self {
+		let junction: Junction = bytes.into();
+		junction.into()
 	}
 }
 

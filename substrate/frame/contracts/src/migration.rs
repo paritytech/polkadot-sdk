@@ -263,10 +263,10 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TEST_ALL_STEPS> {
 	fn on_runtime_upgrade() -> Weight {
 		let name = <Pallet<T>>::name();
-		let current_version = <Pallet<T>>::current_storage_version();
+		let in_code_version = <Pallet<T>>::in_code_storage_version();
 		let on_chain_version = <Pallet<T>>::on_chain_storage_version();
 
-		if on_chain_version == current_version {
+		if on_chain_version == in_code_version {
 			log::warn!(
 				target: LOG_TARGET,
 				"{name}: No Migration performed storage_version = latest_version = {:?}",
@@ -289,7 +289,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 
 		log::info!(
 			target: LOG_TARGET,
-			"{name}: Upgrading storage from {on_chain_version:?} to {current_version:?}.",
+			"{name}: Upgrading storage from {on_chain_version:?} to {in_code_version:?}.",
 		);
 
 		let cursor = T::Migrations::new(on_chain_version + 1);
@@ -309,21 +309,21 @@ impl<T: Config, const TEST_ALL_STEPS: bool> OnRuntimeUpgrade for Migration<T, TE
 		// Instead, we call the migrations `pre_upgrade` and `post_upgrade` hooks when we iterate
 		// over our migrations.
 		let on_chain_version = <Pallet<T>>::on_chain_storage_version();
-		let current_version = <Pallet<T>>::current_storage_version();
+		let in_code_version = <Pallet<T>>::in_code_storage_version();
 
-		if on_chain_version == current_version {
+		if on_chain_version == in_code_version {
 			return Ok(Default::default())
 		}
 
 		log::debug!(
 			target: LOG_TARGET,
-			"Requested migration of {} from {:?}(on-chain storage version) to {:?}(current storage version)",
-			<Pallet<T>>::name(), on_chain_version, current_version
+			"Requested migration of {} from {:?}(on-chain storage version) to {:?}(in-code storage version)",
+			<Pallet<T>>::name(), on_chain_version, in_code_version
 		);
 
 		ensure!(
-			T::Migrations::is_upgrade_supported(on_chain_version, current_version),
-			"Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, current storage version)"
+			T::Migrations::is_upgrade_supported(on_chain_version, in_code_version),
+			"Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, in-code storage version)"
 		);
 
 		Ok(Default::default())
@@ -421,7 +421,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 				},
 				StepResult::Completed { steps_done } => {
 					in_progress_version.put::<Pallet<T>>();
-					if <Pallet<T>>::current_storage_version() != in_progress_version {
+					if <Pallet<T>>::in_code_storage_version() != in_progress_version {
 						log::info!(
 							target: LOG_TARGET,
 							"{name}: Next migration is {:?},",

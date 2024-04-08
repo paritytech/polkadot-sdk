@@ -32,8 +32,7 @@ use super::{
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use jsonrpsee::{
-	core::{EmptyServerParams as EmptyParams, Error},
-	rpc_params, RpcModule,
+	core::EmptyServerParams as EmptyParams, rpc_params, MethodsError as Error, RpcModule,
 };
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
@@ -294,7 +293,7 @@ async fn archive_call() {
 		)
 		.await
 		.unwrap_err();
-	assert_matches!(err, Error::Call(err) if err.code() == 3001 && err.message().contains("Invalid parameter"));
+	assert_matches!(err, Error::JsonRpc(err) if err.code() == 3001 && err.message().contains("Invalid parameter"));
 
 	// Pass an invalid parameters that cannot be decode.
 	let err = api
@@ -305,7 +304,7 @@ async fn archive_call() {
 		)
 		.await
 		.unwrap_err();
-	assert_matches!(err, Error::Call(err) if err.code() == 3001 && err.message().contains("Invalid parameter"));
+	assert_matches!(err, Error::JsonRpc(err) if err.code() == 3001 && err.message().contains("Invalid parameter"));
 
 	// Invalid hash.
 	let result: MethodResult = api
@@ -436,7 +435,7 @@ async fn archive_storage_closest_merkle_value() {
 
 	/// The core of this test.
 	///
-	/// Checks keys that are exact match, keys with descedant and keys that should not return
+	/// Checks keys that are exact match, keys with descendant and keys that should not return
 	/// values.
 	///
 	/// Returns (key, merkle value) pairs.
@@ -460,7 +459,7 @@ async fn archive_storage_closest_merkle_value() {
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,
 							pagination_start_key: None,
 						},
-						// Key with descedent.
+						// Key with descendant.
 						PaginatedStorageQuery {
 							key: hex_string(b":A"),
 							query_type: StorageQueryType::ClosestDescendantMerkleValue,

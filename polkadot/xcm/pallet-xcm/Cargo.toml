@@ -12,9 +12,9 @@ workspace = true
 [dependencies]
 bounded-collections = { version = "0.2.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.195", optional = true, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { optional = true, features = ["derive"], workspace = true, default-features = true }
+log = { workspace = true }
 
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
@@ -26,6 +26,7 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../xcm-fee-payment-runtime-api", default-features = false }
 
 # marked optional, used in benchmarking
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -54,6 +55,7 @@ std = [
 	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm-fee-payment-runtime-api/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [

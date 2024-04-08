@@ -3,12 +3,14 @@
 use super::*;
 
 use frame_support::{
-	parameter_types,
-	traits::{ConstU128, ConstU32, Everything},
+	derive_impl, parameter_types,
+	traits::{ConstU32, Everything},
 	weights::IdentityFee,
 };
 use hex_literal::hex;
-use snowbridge_beacon_primitives::{Fork, ForkVersions};
+use snowbridge_beacon_primitives::{
+	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
+};
 use snowbridge_core::{
 	gwei,
 	inbound::{Log, Proof, VerificationError},
@@ -20,7 +22,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
-use sp_std::convert::From;
+use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
 use xcm_executor::AssetsInHolding;
 
@@ -47,10 +49,9 @@ parameter_types! {
 
 type Balance = u128;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeTask = RuntimeTask;
@@ -60,18 +61,14 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
-	type DbWeight = ();
-	type Version = ();
 	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type Nonce = u64;
 	type Block = Block;
+}
+
+parameter_types! {
+	pub const ExistentialDeposit: u128 = 1;
 }
 
 impl pallet_balances::Config for Test {
@@ -81,7 +78,7 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ConstU128<1>;
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
@@ -91,7 +88,6 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ExecutionHeadersPruneThreshold: u32 = 10;
 	pub const ChainForkVersions: ForkVersions = ForkVersions{
 		genesis: Fork {
 			version: [0, 0, 0, 1], // 0x00000001
@@ -119,7 +115,6 @@ parameter_types! {
 impl snowbridge_pallet_ethereum_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
-	type MaxExecutionHeadersToKeep = ExecutionHeadersPruneThreshold;
 	type WeightInfo = ();
 }
 
@@ -148,7 +143,7 @@ parameter_types! {
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
 	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: H256, _: CompactExecutionHeader) {}
+	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }
 
 // Mock XCM sender that always succeeds
@@ -182,7 +177,8 @@ parameter_types! {
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
-		rewards: Rewards { local: DOT, remote: meth(1) }
+		rewards: Rewards { local: DOT, remote: meth(1) },
+		multiplier: FixedU128::from_rational(1, 1),
 	};
 }
 
@@ -341,6 +337,33 @@ pub fn mock_event_log_invalid_gateway() -> Log {
         // Nonce + Payload
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001e000f000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d0000").into(),
     }
+}
+
+pub fn mock_execution_proof() -> ExecutionProof {
+	ExecutionProof {
+		header: BeaconHeader::default(),
+		ancestry_proof: None,
+		execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
+			parent_hash: Default::default(),
+			fee_recipient: Default::default(),
+			state_root: Default::default(),
+			receipts_root: Default::default(),
+			logs_bloom: vec![],
+			prev_randao: Default::default(),
+			block_number: 0,
+			gas_limit: 0,
+			gas_used: 0,
+			timestamp: 0,
+			extra_data: vec![],
+			base_fee_per_gas: Default::default(),
+			block_hash: Default::default(),
+			transactions_root: Default::default(),
+			withdrawals_root: Default::default(),
+			blob_gas_used: 0,
+			excess_blob_gas: 0,
+		}),
+		execution_branch: vec![],
+	}
 }
 
 pub const ASSET_HUB_PARAID: u32 = 1000u32;

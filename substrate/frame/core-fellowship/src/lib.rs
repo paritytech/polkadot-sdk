@@ -56,7 +56,6 @@
 //! cannot be approved - they must proceed only to promotion prior to the offboard timeout elapsing.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "128"]
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -150,7 +149,8 @@ pub mod pallet {
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
 
-	const RANK_COUNT: usize = 9;
+	/// Number of available ranks.
+	pub(crate) const RANK_COUNT: usize = 9;
 
 	#[pallet::pallet]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);

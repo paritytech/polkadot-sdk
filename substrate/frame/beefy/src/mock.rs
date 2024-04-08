@@ -27,7 +27,6 @@ use frame_support::{
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_core::{crypto::KeyTypeId, ConstU128};
-use sp_io::TestExternalities;
 use sp_runtime::{
 	app_crypto::ecdsa::Public, curve::PiecewiseLinear, impl_opaque_keys, testing::TestXt,
 	traits::OpaqueKeys, BuildStorage, Perbill,
@@ -62,7 +61,7 @@ construct_runtime!(
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u128>;
@@ -210,6 +209,73 @@ impl pallet_offences::Config for Test {
 	type OnOffenceHandler = Staking;
 }
 
+#[derive(Default)]
+pub struct ExtBuilder {
+	authorities: Vec<BeefyId>,
+}
+
+impl ExtBuilder {
+	/// Add some AccountIds to insert into `List`.
+	#[cfg(test)]
+	pub(crate) fn add_authorities(mut self, ids: Vec<BeefyId>) -> Self {
+		self.authorities = ids;
+		self
+	}
+
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+		let balances: Vec<_> =
+			(0..self.authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
+
+		pallet_balances::GenesisConfig::<Test> { balances }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
+		let session_keys: Vec<_> = self
+			.authorities
+			.iter()
+			.enumerate()
+			.map(|(i, k)| (i as u64, i as u64, MockSessionKeys { dummy: k.clone() }))
+			.collect();
+
+		BasicExternalities::execute_with_storage(&mut t, || {
+			for (ref id, ..) in &session_keys {
+				frame_system::Pallet::<Test>::inc_providers(id);
+			}
+		});
+
+		pallet_session::GenesisConfig::<Test> { keys: session_keys }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
+		// controllers are same as stash
+		let stakers: Vec<_> = (0..self.authorities.len())
+			.map(|i| (i as u64, i as u64, 10_000, pallet_staking::StakerStatus::<u64>::Validator))
+			.collect();
+
+		let staking_config = pallet_staking::GenesisConfig::<Test> {
+			stakers,
+			validator_count: 2,
+			force_era: pallet_staking::Forcing::ForceNew,
+			minimum_validator_count: 0,
+			invulnerables: vec![],
+			..Default::default()
+		};
+
+		staking_config.assimilate_storage(&mut t).unwrap();
+
+		t.into()
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+			Beefy::do_try_state().expect("All invariants must hold after a test");
+		})
+	}
+}
+
 // Note, that we can't use `UintAuthorityId` here. Reason is that the implementation
 // of `to_public_key()` assumes, that a public key is 32 bytes long. This is true for
 // ed25519 and sr25519 but *not* for ecdsa. A compressed ecdsa public key is 33 bytes,
@@ -224,54 +290,6 @@ pub fn mock_beefy_id(id: u8) -> BeefyId {
 
 pub fn mock_authorities(vec: Vec<u8>) -> Vec<BeefyId> {
 	vec.into_iter().map(|id| mock_beefy_id(id)).collect()
-}
-
-pub fn new_test_ext(ids: Vec<u8>) -> TestExternalities {
-	new_test_ext_raw_authorities(mock_authorities(ids))
-}
-
-pub fn new_test_ext_raw_authorities(authorities: Vec<BeefyId>) -> TestExternalities {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-
-	let balances: Vec<_> = (0..authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
-
-	pallet_balances::GenesisConfig::<Test> { balances }
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-	let session_keys: Vec<_> = authorities
-		.iter()
-		.enumerate()
-		.map(|(i, k)| (i as u64, i as u64, MockSessionKeys { dummy: k.clone() }))
-		.collect();
-
-	BasicExternalities::execute_with_storage(&mut t, || {
-		for (ref id, ..) in &session_keys {
-			frame_system::Pallet::<Test>::inc_providers(id);
-		}
-	});
-
-	pallet_session::GenesisConfig::<Test> { keys: session_keys }
-		.assimilate_storage(&mut t)
-		.unwrap();
-
-	// controllers are same as stash
-	let stakers: Vec<_> = (0..authorities.len())
-		.map(|i| (i as u64, i as u64, 10_000, pallet_staking::StakerStatus::<u64>::Validator))
-		.collect();
-
-	let staking_config = pallet_staking::GenesisConfig::<Test> {
-		stakers,
-		validator_count: 2,
-		force_era: pallet_staking::Forcing::ForceNew,
-		minimum_validator_count: 0,
-		invulnerables: vec![],
-		..Default::default()
-	};
-
-	staking_config.assimilate_storage(&mut t).unwrap();
-
-	t.into()
 }
 
 pub fn start_session(session_index: SessionIndex) {

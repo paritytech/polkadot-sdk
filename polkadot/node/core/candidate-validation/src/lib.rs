@@ -617,7 +617,7 @@ async fn validate_candidate_exhaustive(
 		Err(e) => {
 			gum::info!(target: LOG_TARGET, ?para_id, err=?e, "Invalid candidate (validation code)");
 
-			// Code already passed pre-checking, if decompression fails now this most likley means
+			// Code already passed pre-checking, if decompression fails now this most likely means
 			// some local corruption happened.
 			return Err(ValidationFailed("Code decompression failed".to_string()))
 		},
@@ -694,6 +694,8 @@ async fn validate_candidate_exhaustive(
 				"ambiguous worker death".to_string(),
 			))),
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
@@ -780,40 +782,50 @@ trait ValidationBackend {
 			return validation_result
 		}
 
+		macro_rules! break_if_no_retries_left {
+			($counter:ident) => {
+				if $counter > 0 {
+					$counter -= 1;
+				} else {
+					break
+				}
+			};
+		}
+
 		// Allow limited retries for each kind of error.
 		let mut num_death_retries_left = 1;
 		let mut num_job_error_retries_left = 1;
 		let mut num_internal_retries_left = 1;
+		let mut num_runtime_construction_retries_left = 1;
 		loop {
 			// Stop retrying if we exceeded the timeout.
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
 				break
 			}
-
+			let mut retry_immediately = false;
 			match validation_result {
 				Err(ValidationError::PossiblyInvalid(
 					PossiblyInvalidError::AmbiguousWorkerDeath |
 					PossiblyInvalidError::AmbiguousJobDeath(_),
-				)) =>
-					if num_death_retries_left > 0 {
-						num_death_retries_left -= 1;
-					} else {
-						break
-					},
+				)) => break_if_no_retries_left!(num_death_retries_left),
 
 				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
-					if num_job_error_retries_left > 0 {
-						num_job_error_retries_left -= 1;
-					} else {
-						break
-					},
+					break_if_no_retries_left!(num_job_error_retries_left),
 
 				Err(ValidationError::Internal(_)) =>
-					if num_internal_retries_left > 0 {
-						num_internal_retries_left -= 1;
-					} else {
-						break
-					},
+					break_if_no_retries_left!(num_internal_retries_left),
+
+				Err(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::RuntimeConstruction(_),
+				)) => {
+					break_if_no_retries_left!(num_runtime_construction_retries_left);
+					self.precheck_pvf(pvf.clone()).await?;
+					// In this case the error is deterministic
+					// And a retry forces the ValidationBackend
+					// to re-prepare the artifact so
+					// there is no need to wait before the retry
+					retry_immediately = true;
+				},
 
 				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
 			}
@@ -821,8 +833,11 @@ trait ValidationBackend {
 			// If we got a possibly transient error, retry once after a brief delay, on the
 			// assumption that the conditions that caused this error may have resolved on their own.
 			{
-				// Wait a brief delay before retrying.
-				futures_timer::Delay::new(retry_delay).await;
+				// In case of many transient errors it is necessary to wait a little bit
+				// for the error to be probably resolved
+				if !retry_immediately {
+					futures_timer::Delay::new(retry_delay).await;
+				}
 
 				let new_timeout = exec_timeout.saturating_sub(total_time_start.elapsed());
 

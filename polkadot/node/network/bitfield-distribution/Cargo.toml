@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 always-assert = "0.1"
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 polkadot-primitives = { path = "../../../primitives" }
@@ -29,7 +29,7 @@ sp-authority-discovery = { path = "../../../../substrate/primitives/authority-di
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 maplit = "1.0.2"
-log = "0.4.17"
-env_logger = "0.9.0"
+log = { workspace = true, default-features = true }
+env_logger = "0.11"
 assert_matches = "1.4.0"
 rand_chacha = "0.3.1"
