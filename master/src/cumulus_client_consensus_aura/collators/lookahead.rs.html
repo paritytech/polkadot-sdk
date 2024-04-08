@@ -683,6 +683,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -734,7 +757,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
 };
 <span class="kw">use </span>polkadot_overseer::Handle <span class="kw">as </span>OverseerHandle;
-<span class="kw">use </span>polkadot_primitives::{CollatorPair, CoreIndex, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption};
+<span class="kw">use </span>polkadot_primitives::{
+	AsyncBackingParams, CollatorPair, CoreIndex, CoreState, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption,
+};
 
 <span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
@@ -871,10 +896,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// TODO: Currently we use just the first core here, but for elastic scaling
 			// we iterate and build on all of the cores returned.
-			</span><span class="kw">let </span>core_index = <span class="kw">if let </span><span class="prelude-val">Some</span>(core_index) =
-				cores_scheduled_for_para(relay_parent, params.para_id, <span class="kw-2">&amp;mut </span>params.overseer_handle)
-					.<span class="kw">await
-					</span>.get(<span class="number">0</span>)
+			</span><span class="kw">let </span>core_index = <span class="kw">if let </span><span class="prelude-val">Some</span>(core_index) = cores_scheduled_for_para(
+				relay_parent,
+				params.para_id,
+				<span class="kw-2">&amp;mut </span>params.overseer_handle,
+				<span class="kw-2">&amp;mut </span>params.relay_client,
+			)
+			.<span class="kw">await
+			</span>.get(<span class="number">0</span>)
 			{
 				<span class="kw-2">*</span>core_index
 			} <span class="kw">else </span>{
@@ -908,7 +937,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>parent_search_params = ParentSearchParams {
 				relay_parent,
 				para_id: params.para_id,
-				ancestry_lookback: max_ancestry_lookback(relay_parent, <span class="kw-2">&amp;</span>params.relay_client).<span class="kw">await</span>,
+				ancestry_lookback: async_backing_params(relay_parent, <span class="kw-2">&amp;</span>params.relay_client)
+					.<span class="kw">await
+					</span>.map(|c| c.allowed_ancestry_len <span class="kw">as </span>usize)
+					.unwrap_or(<span class="number">0</span>),
 				max_depth: PARENT_SEARCH_DEPTH,
 				ignore_alternative_branches: <span class="bool-val">true</span>,
 			};
@@ -1146,21 +1178,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Some</span>(SlotClaim::unchecked::&lt;P&gt;(author_pub, slot, timestamp))
 }
 
-<span class="doccomment">/// Reads allowed ancestry length parameter from the relay chain storage at the given relay parent.
-///
-/// Falls back to 0 in case of an error.
-</span><span class="kw">async fn </span>max_ancestry_lookback(
+<span class="doccomment">/// Reads async backing parameters from the relay chain storage at the given relay parent.
+</span><span class="kw">async fn </span>async_backing_params(
 	relay_parent: PHash,
 	relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
-) -&gt; usize {
+) -&gt; <span class="prelude-ty">Option</span>&lt;AsyncBackingParams&gt; {
 	<span class="kw">match </span>load_abridged_host_configuration(relay_parent, relay_client).<span class="kw">await </span>{
-		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(config)) =&gt; config.async_backing_params.allowed_ancestry_len <span class="kw">as </span>usize,
+		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(config)) =&gt; <span class="prelude-val">Some</span>(config.async_backing_params),
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 			<span class="macro">tracing::error!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
 				<span class="string">&quot;Active config is missing in relay chain storage&quot;</span>,
 			);
-			<span class="number">0
+			<span class="prelude-val">None
 		</span>},
 		<span class="prelude-val">Err</span>(err) =&gt; {
 			<span class="macro">tracing::error!</span>(
@@ -1169,7 +1199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>relay_parent,
 				<span class="string">&quot;Failed to read active config from relay chain client&quot;</span>,
 			);
-			<span class="number">0
+			<span class="prelude-val">None
 		</span>},
 	}
 }
@@ -1179,8 +1209,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_parent: PHash,
 	para_id: ParaId,
 	overseer_handle: <span class="kw-2">&amp;mut </span>OverseerHandle,
+	relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
 ) -&gt; Vec&lt;CoreIndex&gt; {
-	<span class="kw">let </span>(tx, rx) = oneshot::channel();
+	<span class="comment">// Get `AvailabilityCores` from runtime
+	</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
 	<span class="kw">let </span>request = RuntimeApiRequest::AvailabilityCores(tx);
 	overseer_handle
 		.send_msg(RuntimeApiMessage::Request(relay_parent, request), <span class="string">&quot;LookaheadCollator&quot;</span>)
@@ -1207,11 +1239,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 	};
 
+	<span class="kw">let </span>max_candidate_depth = async_backing_params(relay_parent, relay_client)
+		.<span class="kw">await
+		</span>.map(|c| c.max_candidate_depth)
+		.unwrap_or(<span class="number">0</span>);
+
 	cores
 		.iter()
 		.enumerate()
 		.filter_map(|(index, core)| {
-			<span class="kw">if </span>core.para_id() == <span class="prelude-val">Some</span>(para_id) {
+			<span class="kw">let </span>core_para_id = <span class="kw">match </span>core {
+				CoreState::Scheduled(scheduled_core) =&gt; <span class="prelude-val">Some</span>(scheduled_core.para_id),
+				CoreState::Occupied(occupied_core) <span class="kw">if </span>max_candidate_depth &gt;= <span class="number">1 </span>=&gt; occupied_core
+					.next_up_on_available
+					.as_ref()
+					.map(|scheduled_core| scheduled_core.para_id),
+				CoreState::Free | CoreState::Occupied(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+			};
+
+			<span class="kw">if </span>core_para_id == <span class="prelude-val">Some</span>(para_id) {
 				<span class="prelude-val">Some</span>(CoreIndex(index <span class="kw">as </span>u32))
 			} <span class="kw">else </span>{
 				<span class="prelude-val">None

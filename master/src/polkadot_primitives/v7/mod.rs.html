@@ -2320,6 +2320,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2171" id="2171">2171</a>
 <a href="#2172" id="2172">2172</a>
 <a href="#2173" id="2173">2173</a>
+<a href="#2174" id="2174">2174</a>
+<a href="#2175" id="2175">2175</a>
+<a href="#2176" id="2176">2176</a>
+<a href="#2177" id="2177">2177</a>
+<a href="#2178" id="2178">2178</a>
+<a href="#2179" id="2179">2179</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3408,10 +3414,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;N&gt; CoreState&lt;N&gt; {
-	<span class="doccomment">/// If this core state has a `para_id`, return it.
+	<span class="doccomment">/// Returns the scheduled `ParaId` for the core or `None` if nothing is scheduled.
+	///
+	/// This function is deprecated. `ClaimQueue` should be used to obtain the scheduled `ParaId`s
+	/// for each core.
+	</span><span class="attr">#[deprecated(
+		note = <span class="string">&quot;`para_id` will be removed. Use `ClaimQueue` to query the scheduled `para_id` instead.&quot;
+	</span>)]
 	</span><span class="kw">pub fn </span>para_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Id&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Occupied(<span class="kw-2">ref </span>core) =&gt; <span class="prelude-val">Some</span>(core.para_id()),
+			<span class="self">Self</span>::Occupied(<span class="kw-2">ref </span>core) =&gt; core.next_up_on_available.as_ref().map(|n| n.para_id),
 			<span class="self">Self</span>::Scheduled(core) =&gt; <span class="prelude-val">Some</span>(core.para_id),
 			<span class="self">Self</span>::Free =&gt; <span class="prelude-val">None</span>,
 		}
