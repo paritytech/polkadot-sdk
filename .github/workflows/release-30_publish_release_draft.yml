@@ -14,16 +14,13 @@ on:
 jobs:
   get-rust-versions:
     runs-on: ubuntu-latest
-    container:
-      image: paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240222
     outputs:
       rustc-stable: ${{ steps.get-rust-versions.outputs.stable }}
-      rustc-nightly: ${{ steps.get-rust-versions.outputs.nightly }}
     steps:
       - id: get-rust-versions
         run: |
-          echo "stable=$(rustc +stable --version)" >> $GITHUB_OUTPUT
-          echo "nightly=$(rustc +nightly --version)" >> $GITHUB_OUTPUT
+          RUST_STABLE_VERSION=$(curl -sS https://raw.githubusercontent.com/paritytech/scripts/master/dockerfiles/ci-unified/Dockerfile | grep -oP 'ARG RUST_STABLE_VERSION=\K[^ ]+')
+          echo "stable=$RUST_STABLE_VERSION" >> $GITHUB_OUTPUT
 
   build-runtimes:
     uses: "./.github/workflows/srtool.yml"
@@ -56,7 +53,6 @@ jobs:
         id: draft
         env:
           RUSTC_STABLE: ${{ needs.get-rust-versions.outputs.rustc-stable }}
-          RUSTC_NIGHTLY: ${{ needs.get-rust-versions.outputs.rustc-nightly }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ASSET_HUB_ROCOCO_DIGEST: ${{ github.workspace}}/asset-hub-rococo-runtime/asset-hub-rococo-srtool-digest.json
           ASSET_HUB_WESTEND_DIGEST: ${{ github.workspace}}/asset-hub-westend-runtime/asset-hub-westend-srtool-digest.json
@@ -130,7 +126,7 @@ jobs:
           >>$GITHUB_ENV echo SPEC=$(<${JSON} jq -r .runtimes.compact.subwasm.core_version.specVersion)
 
       - name: Upload compressed ${{ matrix.chain }} v${{ env.SPEC }} wasm
-        if: ${{ matrix.chain }} !~= 'rococo-parachain'
+        if: ${{ matrix.chain  != 'rococo-parachain' }}
         uses: actions/upload-release-asset@e8f9f06c4b078e705bd2ea027f0926603fc9b4d5 #v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
