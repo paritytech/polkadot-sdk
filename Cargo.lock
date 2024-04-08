@@ -5503,6 +5503,7 @@ dependencies = [
  "rand",
  "rand_pcg",
  "sc-block-builder",
+ "sc-chain-spec",
  "sc-cli",
  "sc-client-api",
  "sc-client-db",
@@ -5516,6 +5517,7 @@ dependencies = [
  "sp-core",
  "sp-database",
  "sp-externalities 0.25.0",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
  "sp-keystore",
@@ -5626,6 +5628,20 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
+]
+
+[[package]]
+name = "frame-omni-bencher"
+version = "0.1.0"
+dependencies = [
+ "clap 4.5.3",
+ "cumulus-primitives-proof-size-hostfunction",
+ "env_logger 0.11.3",
+ "frame-benchmarking-cli",
+ "log",
+ "sc-cli",
+ "sp-runtime",
+ "sp-statement-store",
 ]
 
 [[package]]
