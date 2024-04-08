@@ -29,10 +29,10 @@ use frame_support::{
 	traits::{EnsureOrigin, Get, OnFinalize, OnInitialize},
 };
 use frame_system::RawOrigin;
-use sp_io::crypto::{sr25519_generate, sr25519_sign};
+use sp_io::crypto::{ecdsa_generate, ecdsa_sign_prehashed};
 use sp_runtime::{
-	traits::{Bounded, IdentifyAccount, One},
-	MultiSignature, MultiSigner,
+	traits::{Bounded, One},
+	MultiSignature,
 };
 
 const SEED: u32 = 0;
@@ -135,6 +135,7 @@ fn bounded_username<T: Config>(username: Vec<u8>, suffix: Vec<u8>) -> Username<T
 	where
 		<T as frame_system::Config>::AccountId: From<sp_runtime::AccountId32>,
 		T::OffchainSignature: From<MultiSignature>,
+		T::SigningPublicKey: From<sp_core::ecdsa::Public>,
 )]
 mod benchmarks {
 	use super::*;
@@ -624,19 +625,22 @@ mod benchmarks {
 		let username = bench_username();
 		let bounded_username = bounded_username::<T>(username.clone(), suffix.clone());
 
-		let public = sr25519_generate(0.into(), None);
-		let who_account: T::AccountId = MultiSigner::Sr25519(public).into_account().into();
+		let public = ecdsa_generate(0.into(), None);
+		let who_account: T::AccountId =
+			T::SigningPublicKey::from(public.clone()).into_account().into();
 		let who_lookup = T::Lookup::unlookup(who_account.clone());
 
-		let signature = MultiSignature::Sr25519(
-			sr25519_sign(0.into(), &public, &bounded_username[..]).unwrap(),
-		);
+		let encoded_username_hash = sp_io::hashing::keccak_256(&bounded_username);
+		let signature: T::OffchainSignature = MultiSignature::Ecdsa(
+			ecdsa_sign_prehashed(0.into(), &public, &encoded_username_hash).unwrap(),
+		)
+		.into();
 
 		// Verify signature here to avoid surprise errors at runtime
-		assert!(signature.verify(&bounded_username[..], &public.into()));
+		assert!(signature.verify(&bounded_username[..], &who_account));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(authority.clone()), who_lookup, username, Some(signature.into()));
+		_(RawOrigin::Signed(authority.clone()), who_lookup, username, Some(signature));
 
 		assert_has_event::<T>(
 			Event::<T>::UsernameSet {
