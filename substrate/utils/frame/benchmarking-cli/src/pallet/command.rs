@@ -619,26 +619,6 @@ impl PalletCmd {
 
 		// We cannot use the `GenesisConfigBuilderRuntimeCaller` here since it returns the changes
 		// as `Storage` item, but we need it as `OverlayedChanges`.
-		let presets: Vec<PresetId> = Self::exec_state_machine(
-			StateMachine::new(
-				&state,
-				&mut Default::default(),
-				&executor,
-				"GenesisBuilder_preset_names",
-				&[], // no args
-				&mut Self::build_extensions(executor.clone()),
-				&runtime_code,
-				CallContext::Offchain,
-			),
-			"get the genesis preset names",
-		)?;
-
-		if !presets.contains(&"development".into()) {
-			log::warn!(
-				"Could not find genesis preset '{GENESIS_PRESET}'. Falling back to default."
-			);
-		}
-
 		let genesis_json: Option<Vec<u8>> = Self::exec_state_machine(
 			StateMachine::new(
 				&state,
@@ -660,7 +640,7 @@ impl PalletCmd {
 		let base_genesis_json = serde_json::from_slice::<serde_json::Value>(&base_genesis_json)
 			.map_err(|e| format!("GenesisBuilder::get_preset returned invalid JSON: {:?}", e))?;
 
-		let genesis_json: Option<Vec<u8>> = Self::exec_state_machine(
+		let dev_genesis_json: Option<Vec<u8>> = Self::exec_state_machine(
 			StateMachine::new(
 				&state,
 				&mut Default::default(),
@@ -674,17 +654,19 @@ impl PalletCmd {
 			"build the genesis spec",
 		)?;
 
-		let Some(dev_genesis_json) = genesis_json else {
-			return Err("GenesisBuilder::get_preset returned no data".into())
-		};
-
-		// Sanity check that it is JSON before we plug it into the next call.
-		let dev_genesis_json = serde_json::from_slice::<serde_json::Value>(&dev_genesis_json)
-			.map_err(|e| format!("GenesisBuilder::get_preset returned invalid JSON: {:?}", e))?;
-
 		let mut genesis_json = serde_json::Value::default();
 		json_merge(&mut genesis_json, base_genesis_json);
-		json_merge(&mut genesis_json, dev_genesis_json);
+
+		if let Some(dev) = dev_genesis_json {
+			let dev: serde_json::Value = serde_json::from_slice(&dev).map_err(|e| {
+				format!("GenesisBuilder::get_preset returned invalid JSON: {:?}", e)
+			})?;
+			json_merge(&mut genesis_json, dev);
+		} else {
+			log::warn!(
+				"Could not find genesis preset '{GENESIS_PRESET}'. Falling back to default."
+			);
+		}
 
 		let json_pretty_str = serde_json::to_string_pretty(&genesis_json)
 			.map_err(|e| format!("json to string failed: {e}"))?;
