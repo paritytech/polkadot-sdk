@@ -20,8 +20,8 @@ use core::time::Duration;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData, ValidationParams};
 use cumulus_test_client::{
-	generate_extrinsic_with_pair, BuildParachainBlockData, Client, InitBlockBuilder,
-	ParachainBlockData, TestClientBuilder, ValidationResult,
+	generate_extrinsic_with_pair, BlockBuilderAndSupportData, BuildParachainBlockData, Client,
+	InitBlockBuilder, ParachainBlockData, TestClientBuilder, ValidationResult,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GluttonCall, Header, SudoCall};
@@ -88,7 +88,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 			parent_head: parent_header.encode().into(),
 			..Default::default()
 		};
-		let (block_builder, ..) =
+		let BlockBuilderAndSupportData { block_builder, .. } =
 			client.init_block_builder(Some(validation_data), Default::default());
 		let parachain_block = block_builder.build_parachain_block(*parent_header.state_root());
 
@@ -198,7 +198,7 @@ fn set_glutton_parameters(
 	);
 	extrinsics.push(set_storage);
 
-	let (mut block_builder, ..) =
+	let BlockBuilderAndSupportData { mut block_builder, .. } =
 		client.init_block_builder(Some(validation_data), Default::default());
 
 	for extrinsic in extrinsics {

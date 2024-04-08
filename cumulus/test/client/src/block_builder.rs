@@ -21,13 +21,20 @@ use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDEN
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
-use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
+use sc_block_builder::BlockBuilderBuilder;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus_aura::Slot;
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 	Digest, DigestItem,
 };
+
+/// A struct containing a block builder and support data required to build test scenarios.
+pub struct BlockBuilderAndSupportData<'a> {
+	pub block_builder: sc_block_builder::BlockBuilder<'a, Block, Client>,
+	pub persisted_validation_data: PersistedValidationData<PHash, PBlockNumber>,
+	pub slot: Slot,
+}
 
 /// An extension for the Cumulus test client to init a block builder.
 pub trait InitBlockBuilder {
@@ -45,11 +52,7 @@ pub trait InitBlockBuilder {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> (
-		sc_block_builder::BlockBuilder<Block, Client>,
-		PersistedValidationData<PHash, PBlockNumber>,
-		Slot,
-	);
+	) -> BlockBuilderAndSupportData;
 
 	/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -60,11 +63,7 @@ pub trait InitBlockBuilder {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> (
-		sc_block_builder::BlockBuilder<Block, Client>,
-		PersistedValidationData<PHash, PBlockNumber>,
-		Slot,
-	);
+	) -> BlockBuilderAndSupportData;
 
 	/// Init a specific block builder that works for the test runtime.
 	///
@@ -77,11 +76,7 @@ pub trait InitBlockBuilder {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> (
-		sc_block_builder::BlockBuilder<Block, Client>,
-		PersistedValidationData<PHash, PBlockNumber>,
-		Slot,
-	);
+	) -> BlockBuilderAndSupportData;
 }
 
 fn init_block_builder(
@@ -90,7 +85,7 @@ fn init_block_builder(
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 	mut relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
-) -> (BlockBuilder<'_, Block, Client>, PersistedValidationData<PHash, PBlockNumber>, Slot) {
+) -> BlockBuilderAndSupportData<'_> {
 	// This slot will be used for both relay chain and parachain
 	let slot: Slot = (timestamp / cumulus_test_runtime::SLOT_DURATION).into();
 	relay_sproof_builder.current_slot = slot;
@@ -138,7 +133,7 @@ fn init_block_builder(
 		.into_iter()
 		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
 
-	(block_builder, validation_data, slot)
+	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data, slot }
 }
 
 impl InitBlockBuilder for Client {
@@ -146,7 +141,7 @@ impl InitBlockBuilder for Client {
 		&self,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> (BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>, Slot) {
+	) -> BlockBuilderAndSupportData {
 		let chain_info = self.chain_info();
 		self.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
@@ -156,7 +151,7 @@ impl InitBlockBuilder for Client {
 		at: Hash,
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -> (BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>, Slot) {
+	) -> BlockBuilderAndSupportData {
 		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
 
 		let timestamp = if last_timestamp == 0 {
@@ -177,7 +172,7 @@ impl InitBlockBuilder for Client {
 		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -> (BlockBuilder<Block, Client>, PersistedValidationData<PHash, PBlockNumber>, Slot) {
+	) -> BlockBuilderAndSupportData {
 		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
 	}
 }

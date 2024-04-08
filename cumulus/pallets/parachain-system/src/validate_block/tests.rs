@@ -93,14 +93,17 @@ fn build_block_with_witness(
 		..Default::default()
 	};
 
-	let (mut builder, validation_data, slot) =
-		client.init_block_builder(Some(validation_data), sproof_builder);
+	let cumulus_test_client::BlockBuilderAndSupportData {
+		mut block_builder,
+		persisted_validation_data,
+		slot,
+	} = client.init_block_builder(Some(validation_data), sproof_builder);
 
-	extra_extrinsics.into_iter().for_each(|e| builder.push(e).unwrap());
+	extra_extrinsics.into_iter().for_each(|e| block_builder.push(e).unwrap());
 
-	let block = builder.build_parachain_block(*parent_head.state_root());
+	let block = block_builder.build_parachain_block(*parent_head.state_root());
 
-	TestBlockData { block, validation_data, slot }
+	TestBlockData { block, validation_data: persisted_validation_data, slot }
 }
 
 #[test]
@@ -330,7 +333,7 @@ fn validate_block_works_with_child_tries() {
 	);
 
 	let block = seal_block(block, slot, &client);
-	let header: cumulus_test_runtime::Header = block.header().clone();
+	let header = block.header().clone();
 	let res_header =
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.expect("Calls `validate_block`");

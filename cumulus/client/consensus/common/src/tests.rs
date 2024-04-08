@@ -274,7 +274,7 @@ fn build_block<B: InitBlockBuilder>(
 	timestamp: Option<u64>,
 	relay_parent: Option<PHash>,
 ) -> Block {
-	let (builder, ..) = match at {
+	let cumulus_test_client::BlockBuilderAndSupportData { block_builder, .. } = match at {
 		Some(at) => match timestamp {
 			Some(ts) => builder.init_block_builder_with_timestamp(at, None, sproof, ts),
 			None => builder.init_block_builder_at(at, None, sproof),
@@ -282,7 +282,7 @@ fn build_block<B: InitBlockBuilder>(
 		None => builder.init_block_builder(None, sproof),
 	};
 
-	let mut block = builder.build().unwrap().block;
+	let mut block = block_builder.build().unwrap().block;
 
 	if let Some(relay_parent) = relay_parent {
 		block
@@ -503,7 +503,7 @@ fn follow_finalized_does_not_stop_on_unknown_block() {
 
 	let unknown_block = {
 		let sproof = sproof_with_parent_by_hash(&client, block.hash());
-		let block_builder = client.init_block_builder_at(block.hash(), None, sproof).0;
+		let block_builder = client.init_block_builder_at(block.hash(), None, sproof).block_builder;
 		block_builder.build().unwrap().block
 	};
 
@@ -553,7 +553,7 @@ fn follow_new_best_sets_best_after_it_is_imported() {
 
 	let unknown_block = {
 		let sproof = sproof_with_parent_by_hash(&client, block.hash());
-		let block_builder = client.init_block_builder_at(block.hash(), None, sproof).0;
+		let block_builder = client.init_block_builder_at(block.hash(), None, sproof).block_builder;
 		block_builder.build().unwrap().block
 	};
 
@@ -778,7 +778,6 @@ fn prune_blocks_on_level_overflow() {
 
 #[test]
 fn restore_limit_monitor() {
-	sp_tracing::try_init_simple();
 	// Here we are using the timestamp value to generate blocks with different hashes.
 	const LEVEL_LIMIT: usize = 2;
 	// Iterator that produces a new timestamp in the next slot
