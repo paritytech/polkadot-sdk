@@ -103,7 +103,7 @@ parameter_types! {
 
 pub type AccountId = u64;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -365,6 +365,7 @@ impl pallet_message_queue::Config for Test {
 	type HeapSize = ConstU32<65536>;
 	type MaxStale = ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
+	type IdleMaxServiceWeight = ();
 }
 
 parameter_types! {
