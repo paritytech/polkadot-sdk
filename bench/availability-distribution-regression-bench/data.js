@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712584885418,
+  "lastUpdate": 1712590573794,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2443,6 +2443,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.1543802726133333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Egor_P",
+            "username": "EgorPopelyaev",
+            "email": "egor@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "216509dbaa2c2941ee75fbcc9a086deab5e2c8a6",
+          "message": "Github workflow to automate release draft creation (#3978)\n\nThis PR introduces the github flow which will create a release draft\nautomatically when the rc tag is pushed. The flow contains the following\nsteps:\n\n- Gets the info about rust version used to build the node\n- Builds the runtimes using `srtool`\n- Extracts the info about each runtime \n- Aggregates the changelog from the prdocs\n- Creates the release draft containing all the info related to the\nrelease (changelog, runtimes, rust versions)\n- Attaches the runtimes to the draft\n- Posts the message to the RelEng internal channel to inform that the\nbuild is done.\n\nRelated to the #3295\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-04-08T13:36:43Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/216509dbaa2c2941ee75fbcc9a086deab5e2c8a6"
+        },
+        "date": 1712590548661,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.919999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012582067740000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026498723279999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15519013999333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010327803820000012,
             "unit": "seconds"
           }
         ]
