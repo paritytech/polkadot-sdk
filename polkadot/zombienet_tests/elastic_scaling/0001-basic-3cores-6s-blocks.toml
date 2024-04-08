@@ -21,7 +21,7 @@ default_command = "polkadot"
 
   [relaychain.default_resources]
   limits = { memory = "4G", cpu = "2" }
-  requests = { memory = "2G", cpu = "1" }
+  requests = { memory = "2G", cpu = "2" }
 
   [[relaychain.node_groups]]
   name = "elastic-validator"
@@ -32,6 +32,9 @@ default_command = "polkadot"
 [[parachains]]
 id = {{id}}
 addToGenesis = true
+    [parachains.default_resources]
+    limits = { memory = "4G", cpu = "2" }
+    requests = { memory = "2G", cpu = "2" }
 
     [parachains.collator]
     name = "some-parachain"
