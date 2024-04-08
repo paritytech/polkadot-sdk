@@ -4,7 +4,7 @@
 title: Adapt RemoteExternalities and its related types to be used with generic hash parameters
 
 doc:
-  - audience: Runtime Dev
+  - audience: Node Dev
     description: |
       Modify `RemoteExternalities`, `Mode`, `OnlineConfig` and`Snapshot` to rely now on generic parameter, instead of `BlockT`.
       Adjust in consequence their implementation to be compatible with types `Hash`, or if possible any generic.
