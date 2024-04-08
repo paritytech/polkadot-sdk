@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Collator"]};
+window.SIDEBAR_ITEMS = {"struct":["Collator","LocalCollatorState"]};
