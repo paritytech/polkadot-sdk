@@ -441,6 +441,6 @@ check_release_id() {
 # output: latest_release_tag
 get_latest_release_tag() {
     TOKEN="Authorization: Bearer $GITHUB_TOKEN"
-    lates_release_tag=$(curl -s -H "$TOKEN" $api_base/paritytech/polkadot-sdk/releases/latest | jq -r '.tag_name')
-    printf $lates_release_tag
+    latest_release_tag=$(curl -s -H "$TOKEN" $api_base/paritytech/polkadot-sdk/releases/latest | jq -r '.tag_name')
+    printf $latest_release_tag
 }

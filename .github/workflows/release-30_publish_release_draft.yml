@@ -15,7 +15,7 @@ jobs:
   get-rust-versions:
     runs-on: ubuntu-latest
     container:
-      image: paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240109
+      image: paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240222
     outputs:
       rustc-stable: ${{ steps.get-rust-versions.outputs.stable }}
       rustc-nightly: ${{ steps.get-rust-versions.outputs.nightly }}
