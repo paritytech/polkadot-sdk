@@ -29,7 +29,7 @@ use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
 	slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateEvent,
-	CandidateHash, CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams,
+	CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState, ExecutorParams,
 	GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment,
 	NodeFeatures, Nonce, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionInfo, Signature, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
@@ -54,13 +54,19 @@ use runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	initializer as parachains_initializer, origin as parachains_origin, paras as parachains_paras,
 	paras_inherent as parachains_paras_inherent,
-	runtime_api_impl::v10 as parachains_runtime_api_impl,
+	runtime_api_impl::{
+		v10 as parachains_runtime_api_impl, vstaging as vstaging_parachains_runtime_api_impl,
+	},
 	scheduler as parachains_scheduler, session_info as parachains_session_info,
 	shared as parachains_shared,
 };
 use scale_info::TypeInfo;
 use sp_genesis_builder::PresetId;
-use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
+use sp_std::{
+	cmp::Ordering,
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	prelude::*,
+};
 
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -1737,7 +1743,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(10)]
+	#[api_version(11)]
 	impl primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1891,6 +1897,10 @@ sp_api::impl_runtime_apis! {
 
 		fn node_features() -> NodeFeatures {
 			parachains_runtime_api_impl::node_features::<Runtime>()
+		}
+
+		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+			vstaging_parachains_runtime_api_impl::claim_queue::<Runtime>()
 		}
 	}
 
