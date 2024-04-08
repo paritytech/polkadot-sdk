@@ -54,8 +54,5 @@ doc:
 
 crates:
   - name: "frame-benchmarking"
-    bump: "major"
   - name: "frame-benchmarking-cli"
-    bump: "major"
   - name: "sc-cli"
-    bump: "minor"
