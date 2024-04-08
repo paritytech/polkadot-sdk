@@ -46,8 +46,6 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
-      - name: Display structure of downloaded files
-        run: pwd; ls -la
 
       - name: Prepare draft
         id: draft
