@@ -166,7 +166,7 @@ impl pallet_balances::Config for TestRuntime {
 
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for TestRuntime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<ThisChainBalance>;
 	type LengthToFee = ConstantMultiplier<ThisChainBalance, TransactionByteFee>;
