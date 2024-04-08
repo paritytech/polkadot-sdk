@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712569332979,
+  "lastUpdate": 1712584885418,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2391,6 +2391,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.01185666667333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "fdb1dba2e1eded282ff2eaf745d55c378f777cc2",
+          "message": "Add best block indicator to informant message + print parent block on import  message (#4021)\n\nSometimes you need to debug some issues just by the logs and reconstruct\nwhat happened.\nIn these scenarios it would be nice to know if a block was imported as\nbest block, and what it parent was.\nSo here I propose to change the output of the informant to this:\n\n```\n2024-04-05 20:38:22.004  INFO ⋮substrate: [Parachain] ✨ Imported #18 (0xe7b3…4555 -> 0xbd6f…ced7)    \n2024-04-05 20:38:24.005  INFO ⋮substrate: [Parachain] ✨ Imported #19 (0xbd6f…ced7 -> 0x4dd0…d81f)    \n2024-04-05 20:38:24.011  INFO ⋮substrate: [jobless-children-5352] 🌟 Imported #42 (0xed2e…27fc -> 0x718f…f30e)    \n2024-04-05 20:38:26.005  INFO ⋮substrate: [Parachain] ✨ Imported #20 (0x4dd0…d81f -> 0x6e85…e2b8)    \n2024-04-05 20:38:28.004  INFO ⋮substrate: [Parachain] 🌟 Imported #21 (0x6e85…e2b8 -> 0xad53…2a97)    \n2024-04-05 20:38:30.004  INFO ⋮substrate: [Parachain] 🌟 Imported #22 (0xad53…2a97 -> 0xa874…890f)    \n```\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-08T13:30:32Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fdb1dba2e1eded282ff2eaf745d55c378f777cc2"
+        },
+        "date": 1712584862378,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.88666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012419132773333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010075397526666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026427119500000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1543802726133333,
             "unit": "seconds"
           }
         ]
