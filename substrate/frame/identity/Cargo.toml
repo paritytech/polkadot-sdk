@@ -25,6 +25,8 @@ frame-support.workspace = true
 frame-system.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
+sp-std = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false, optional = true }
 
 [dev-dependencies]
 pallet-balances = { default-features = true, path = "../balances" }
@@ -50,6 +52,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-core"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
