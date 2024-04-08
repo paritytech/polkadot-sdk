@@ -190,7 +190,7 @@ where
 			let best_indicator = if n.is_new_best { "🏆" } else { "🆕" };
 			info!(
 				target: "substrate",
-				"{best_indicator} Imported #{} ({} -> {})",
+				"{best_indicator} Imported #{} ({} → {})",
 				format.print_with_color(Colour::White.bold(), n.header.number()),
 				n.header.parent_hash(),
 				n.hash,
