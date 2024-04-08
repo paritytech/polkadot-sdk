@@ -732,19 +732,19 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.map_err(Into::into),
 
 		Runtime::CollectivesPolkadot =>
-			crate::service::start_generic_aura_node(config, polkadot_config, collator_options, id, hwbench)
+			crate::service::start_generic_aura_node::<Network>(config, polkadot_config, collator_options, id, hwbench)
 			.await
 			.map(|r| r.0)
 			.map_err(Into::into),
 
 		Runtime::CollectivesWestend =>
-			crate::service::start_generic_aura_lookahead_node(config, polkadot_config, collator_options, id, hwbench)
+			crate::service::start_generic_aura_lookahead_node::<Network>(config, polkadot_config, collator_options, id, hwbench)
 			.await
 			.map(|r| r.0)
 			.map_err(Into::into),
 
 		Runtime::Seedling | Runtime::Shell =>
-			crate::service::start_shell_node(
+			crate::service::start_shell_node::<Network>(
 				config,
 				polkadot_config,
 				collator_options,
@@ -755,7 +755,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.map(|r| r.0)
 			.map_err(Into::into),
 
-		Runtime::ContractsRococo => crate::service::start_contracts_rococo_node(
+		Runtime::ContractsRococo => crate::service::start_contracts_rococo_node::<Network>(
 			config,
 			polkadot_config,
 			collator_options,
