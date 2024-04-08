@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712554885421,
+  "lastUpdate": 1712561675861,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -1847,6 +1847,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.820600835306669,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Tsvetomir Dimitrov",
+            "username": "tdimitrov",
+            "email": "tsvetomir@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "59f868d1e9502cb4e434127cac6e439d01d7dd2b",
+          "message": "Deprecate `para_id()` from `CoreState` in polkadot primitives (#3979)\n\nWith Coretime enabled we can no longer assume there is a static 1:1\nmapping between core index and para id. This mapping should be obtained\nfrom the scheduler/claimqueue on block by block basis.\n\nThis PR modifies `para_id()` (from `CoreState`) to return the scheduled\n`ParaId` for occupied cores and removes its usages in the code.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/3948\n\n---------\n\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>",
+          "timestamp": "2024-04-08T05:58:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/59f868d1e9502cb4e434127cac6e439d01d7dd2b"
+        },
+        "date": 1712561651083,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.677002498946665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1820540862866666,
             "unit": "seconds"
           }
         ]
