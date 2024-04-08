@@ -11,7 +11,7 @@ doc:
       that are currently being utilized by Polkadot SDK and is a drop-in replacement for any node operator.
 
       For node developers, introduction of litep2p implies specifying the networking backend that Polkadot SDK
-      shall use for P2P networking. A new trait called `NetworkBackend` is introduced which is is implemented
+      shall use for P2P networking. A new trait called `NetworkBackend` is introduced which is implemented
       by both the libp2p and litep2p backends and which is used to initialize any networking-related code.
 
       litep2p is considered experimental and rust-libp2p will remain as the default networking backend
