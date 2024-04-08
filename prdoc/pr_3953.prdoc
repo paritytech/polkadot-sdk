@@ -6,9 +6,9 @@ title: Adapt RemoteExternalities and its related types to be used with generic h
 doc:
   - audience: Runtime Dev
     description: |
-      Modify `RemoteExternalities`, `Mode`, `OnlineConfig` and`Snapshot` to rely now on generic parameter, instead of `BlockT`
-      Modify in consequence their implementation to be used with `Hash` or `HashOutput`
-      Adapt Builder struct and implementation for these new bounds.
+      Modify `RemoteExternalities`, `Mode`, `OnlineConfig` and`Snapshot` to rely now on generic parameter, instead of `BlockT`.
+      Adjust in consequence their implementation to be compatible with types `Hash`, or if possible any generic.
+      Adapt Builder struct and implementation for these bounds.
 
 crates: 
 - name: frame-remote-externalities
