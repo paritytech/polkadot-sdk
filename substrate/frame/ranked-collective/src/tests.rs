@@ -23,7 +23,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	error::BadOrigin,
 	parameter_types,
-	traits::{ConstU16, EitherOf, MapSuccess, Polling},
+	traits::{ConstU16, ConstU32, EitherOf, MapSuccess, Polling},
 };
 use sp_core::Get;
 use sp_runtime::{
@@ -90,8 +90,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		};
@@ -107,8 +108,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		}?;
@@ -181,6 +183,7 @@ impl Config for Test {
 	type VoteWeight = Geometric;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkSetup = ();
+	type MaxRank = ConstU32<9>;
 }
 
 pub struct ExtBuilder {}

@@ -434,6 +434,10 @@ pub mod pallet {
 		/// Setup a member for benchmarking.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkSetup: BenchmarkSetup<Self::AccountId>;
+
+		/// The maximum number of members.
+		#[pallet::constant]
+		type MaxRank: Get<u32>;
 	}
 
 	/// The number of members in the collective who have at least the rank according to the index
@@ -613,8 +617,9 @@ pub mod pallet {
 				poll,
 				|mut status| -> Result<(TallyOf<T, I>, VoteRecord), DispatchError> {
 					match status {
-						PollStatus::None | PollStatus::Completed(..) =>
-							Err(Error::<T, I>::NotPolling)?,
+						PollStatus::None | PollStatus::Completed(..) => {
+							Err(Error::<T, I>::NotPolling)?
+						},
 						PollStatus::Ongoing(ref mut tally, class) => {
 							match Voting::<T, I>::get(&poll, &who) {
 								Some(Aye(votes)) => {
@@ -671,7 +676,7 @@ pub mod pallet {
 			);
 			if r.unique == 0 {
 				// return Err(Error::<T, I>::NoneRemaining)
-				return Ok(Pays::Yes.into())
+				return Ok(Pays::Yes.into());
 			}
 			if let Some(cursor) = r.maybe_cursor {
 				VotingCleanup::<T, I>::insert(poll_index, BoundedVec::truncate_from(cursor));
@@ -1005,10 +1010,7 @@ pub mod pallet {
 		}
 
 		fn max_rank() -> Self::Rank {
-			MemberCount::<T, I>::iter()
-				.map(|(rank, _)| rank)
-				.max()
-				.unwrap_or(Self::min_rank())
+			T::MaxRank::get() as Rank
 		}
 	}
 }

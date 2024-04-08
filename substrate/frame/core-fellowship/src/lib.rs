@@ -61,7 +61,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_runtime::RuntimeDebug;
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 
 use frame_support::{
 	defensive,
@@ -71,7 +71,7 @@ use frame_support::{
 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
 		RankedMembersSwapHandler,
 	},
-	BoundedVec,
+	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
 #[cfg(test)]
@@ -100,29 +100,46 @@ pub enum Wish {
 pub type Evidence<T, I> = BoundedVec<u8, <T as Config<I>>::EvidenceSize>;
 
 /// The status of the pallet instance.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
-pub struct ParamsType<Balance, BlockNumber> {
+#[derive(
+	Encode,
+	Decode,
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(Ranks))]
+pub struct ParamsType<
+	Balance: Clone + Eq + PartialEq + Debug,
+	BlockNumber: Clone + Eq + PartialEq + Debug,
+	Ranks: Get<u32>,
+> {
 	/// The amounts to be paid when a member of a given rank (-1) is active.
-	active_salary: Vec<Balance>,
+	active_salary: BoundedVec<Balance, Ranks>,
 	/// The amounts to be paid when a member of a given rank (-1) is passive.
-	passive_salary: Vec<Balance>,
+	passive_salary: BoundedVec<Balance, Ranks>,
 	/// The period between which unproven members become demoted.
-	demotion_period: Vec<BlockNumber>,
+	demotion_period: BoundedVec<BlockNumber, Ranks>,
 	/// The period between which members must wait before they may proceed to this rank.
-	min_promotion_period: Vec<BlockNumber>,
+	min_promotion_period: BoundedVec<BlockNumber, Ranks>,
 	/// Amount by which an account can remain at rank 0 (candidate before being offboard entirely).
 	offboard_timeout: BlockNumber,
 }
 
-impl<Balance: Default + Copy, BlockNumber: Default + Copy> Default
-	for ParamsType<Balance, BlockNumber>
+impl<
+		Balance: Default + Copy + Eq + Debug,
+		BlockNumber: Default + Copy + Eq + Debug,
+		Ranks: Get<u32>,
+	> Default for ParamsType<Balance, BlockNumber, Ranks>
 {
 	fn default() -> Self {
 		Self {
-			active_salary: Vec::new(),
-			passive_salary: Vec::new(),
-			demotion_period: Vec::new(),
-			min_promotion_period: Vec::new(),
+			active_salary: Default::default(),
+			passive_salary: Default::default(),
+			demotion_period: Default::default(),
+			min_promotion_period: Default::default(),
 			offboard_timeout: BlockNumber::default(),
 		}
 	}
@@ -150,7 +167,6 @@ pub mod pallet {
 	use frame_system::{ensure_root, pallet_prelude::*};
 
 	#[pallet::pallet]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
 
 	#[pallet::config]
@@ -192,9 +208,13 @@ pub mod pallet {
 		/// The maximum size in bytes submitted evidence is allowed to be.
 		#[pallet::constant]
 		type EvidenceSize: Get<u32>;
+
+		#[pallet::constant]
+		type MaxRank: Get<u32>;
 	}
 
-	pub type ParamsOf<T, I> = ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>>;
+	pub type ParamsOf<T, I> =
+		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
 	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
 
@@ -275,8 +295,6 @@ pub mod pallet {
 		NotTracked,
 		/// Operation cannot be done yet since not enough time has passed.
 		TooSoon,
-		/// Length of parameters are incompatible.
-		IncorrectParamsLength,
 	}
 
 	#[pallet::call]
@@ -304,7 +322,7 @@ pub mod pallet {
 			};
 
 			if demotion_period.is_zero() {
-				return Err(Error::<T, I>::NothingDoing.into())
+				return Err(Error::<T, I>::NothingDoing.into());
 			}
 
 			let demotion_block = member.last_proof.saturating_add(demotion_period);
@@ -324,7 +342,7 @@ pub mod pallet {
 					Event::<T, I>::Offboarded { who }
 				};
 				Self::deposit_event(event);
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 
 			Err(Error::<T, I>::NothingDoing.into())
@@ -338,18 +356,6 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		pub fn set_params(origin: OriginFor<T>, params: Box<ParamsOf<T, I>>) -> DispatchResult {
 			T::ParamsOrigin::ensure_origin_or_root(origin)?;
-			// Retrieves the current max rank allowed.
-			let max_rank = T::Members::max_rank();
-
-			// Validate the lengths of the vectors in params are equal to max_rank.
-			let expected_length = max_rank as usize; // Convert max_rank to usize for comparison.
-			ensure!(
-				params.active_salary.len() == expected_length &&
-					params.passive_salary.len() == expected_length &&
-					params.demotion_period.len() == expected_length &&
-					params.min_promotion_period.len() == expected_length,
-				Error::<T, I>::IncorrectParamsLength
-			);
 
 			Params::<T, I>::put(params.as_ref());
 			Self::deposit_event(Event::<T, I>::ParamsChanged { params: *params });
@@ -626,15 +632,15 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
 		if old == new {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if !Member::<T, I>::contains_key(old) {
 			defensive!("Should not try to swap non-member");
-			return
+			return;
 		}
 		if Member::<T, I>::contains_key(new) {
 			defensive!("Should not try to overwrite existing member");
-			return
+			return;
 		}
 
 		if let Some(member) = Member::<T, I>::take(old) {
