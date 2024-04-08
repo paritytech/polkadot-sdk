@@ -398,13 +398,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! runtime to the core mixnet state. It is called every time a block is finalised.
 
 </span><span class="kw">use </span><span class="kw">super</span>::peer_id::from_core_peer_id;
-<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>log::{debug, info};
 <span class="kw">use </span>mixnet::core::{
 	Mixnet, Mixnode <span class="kw">as </span>CoreMixnode, MixnodesErr <span class="kw">as </span>CoreMixnodesErr, RelSessionIndex,
 	SessionPhase <span class="kw">as </span>CoreSessionPhase, SessionStatus <span class="kw">as </span>CoreSessionStatus,
 };
 <span class="kw">use </span>multiaddr::{multiaddr, Multiaddr, Protocol};
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_api::{ApiError, ApiRef};
 <span class="kw">use </span>sp_mixnet::{
 	runtime_api::MixnetApi,

@@ -206,6 +206,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -227,9 +241,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">super</span>::config::Config;
 <span class="kw">use </span>mixnet::core::PACKET_SIZE;
 <span class="kw">use </span>sc_network::{
-	config::{NonDefaultSetConfig, NonReservedPeerMode, SetConfig},
-	NotificationService, ProtocolName,
+	config::{NonReservedPeerMode, SetConfig},
+	peer_store::PeerStoreProvider,
+	service::NotificationMetrics,
+	NetworkBackend, NotificationService, ProtocolName,
 };
+<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="doccomment">/// Returns the protocol name to use for the mixnet controlled by the given chain.
 </span><span class="kw">pub fn </span>protocol_name(genesis_hash: <span class="kw-2">&amp;</span>[u8], fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; ProtocolName {
@@ -242,28 +259,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Returns the peers set configuration for the mixnet protocol.
-</span><span class="kw">pub fn </span>peers_set_config(
+</span><span class="kw">pub fn </span>peers_set_config&lt;Block: BlockT, Network: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;(
 	name: ProtocolName,
 	config: <span class="kw-2">&amp;</span>Config,
-) -&gt; (NonDefaultSetConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
-	<span class="kw">let </span>(<span class="kw-2">mut </span>set_config, service) = NonDefaultSetConfig::new(
-		name,
-		Vec::new(),
-		PACKET_SIZE <span class="kw">as </span>u64,
-		<span class="prelude-val">None</span>,
+	metrics: NotificationMetrics,
+	peerstore_handle: std::sync::Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+) -&gt; (Network::NotificationProtocolConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
+	<span class="kw">let </span>set_config = <span class="kw">if </span>config.substrate.num_gateway_slots != <span class="number">0 </span>{
+		<span class="comment">// out_peers is always 0; we are only interested in connecting to mixnodes, which we do by
+		// setting them as reserved nodes
+		</span>SetConfig {
+			in_peers: config.substrate.num_gateway_slots,
+			out_peers: <span class="number">0</span>,
+			reserved_nodes: Vec::new(),
+			non_reserved_mode: NonReservedPeerMode::Accept,
+		}
+	} <span class="kw">else </span>{
 		SetConfig {
 			in_peers: <span class="number">0</span>,
 			out_peers: <span class="number">0</span>,
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: NonReservedPeerMode::Deny,
-		},
-	);
-	<span class="kw">if </span>config.substrate.num_gateway_slots != <span class="number">0 </span>{
-		<span class="comment">// out_peers is always 0; we are only interested in connecting to mixnodes, which we do by
-		// setting them as reserved nodes
-		</span>set_config.allow_non_reserved(config.substrate.num_gateway_slots, <span class="number">0</span>);
-	}
-	(set_config, service)
+		}
+	};
+
+	Network::notification_config(
+		name,
+		Vec::new(),
+		PACKET_SIZE <span class="kw">as </span>u64,
+		<span class="prelude-val">None</span>,
+		set_config,
+		metrics,
+		peerstore_handle,
+	)
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

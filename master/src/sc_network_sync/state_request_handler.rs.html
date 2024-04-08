@@ -435,6 +435,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
@@ -461,15 +467,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>futures::{channel::oneshot, stream::StreamExt};
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::{debug, trace};
 <span class="kw">use </span>prost::Message;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>schnellru::{ByLength, LruMap};
 
 <span class="kw">use </span>sc_client_api::{BlockBackend, ProofProvider};
 <span class="kw">use </span>sc_network::{
 	config::ProtocolId,
-	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
+	request_responses::{IncomingRequest, OutgoingResponse},
+	NetworkBackend,
 };
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
@@ -489,21 +496,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub const </span>SAME_REQUEST: Rep = Rep::new(i32::MIN, <span class="string">&quot;Same state request multiple times&quot;</span>);
 }
 
-<span class="doccomment">/// Generates a [`ProtocolConfig`] for the state request protocol, refusing incoming requests.
-</span><span class="kw">pub fn </span>generate_protocol_config&lt;Hash: AsRef&lt;[u8]&gt;&gt;(
+<span class="doccomment">/// Generates a `RequestResponseProtocolConfig` for the state request protocol, refusing incoming
+/// requests.
+</span><span class="kw">pub fn </span>generate_protocol_config&lt;
+	Hash: AsRef&lt;[u8]&gt;,
+	B: BlockT,
+	N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+&gt;(
 	protocol_id: <span class="kw-2">&amp;</span>ProtocolId,
 	genesis_hash: Hash,
 	fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-) -&gt; ProtocolConfig {
-	ProtocolConfig {
-		name: generate_protocol_name(genesis_hash, fork_id).into(),
-		fallback_names: std::iter::once(generate_legacy_protocol_name(protocol_id).into())
-			.collect(),
-		max_request_size: <span class="number">1024 </span>* <span class="number">1024</span>,
-		max_response_size: <span class="number">16 </span>* <span class="number">1024 </span>* <span class="number">1024</span>,
-		request_timeout: Duration::from_secs(<span class="number">40</span>),
-		inbound_queue: <span class="prelude-val">None</span>,
-	}
+	inbound_queue: async_channel::Sender&lt;IncomingRequest&gt;,
+) -&gt; N::RequestResponseProtocolConfig {
+	N::request_response_config(
+		generate_protocol_name(genesis_hash, fork_id).into(),
+		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
+		<span class="number">1024 </span>* <span class="number">1024</span>,
+		<span class="number">16 </span>* <span class="number">1024 </span>* <span class="number">1024</span>,
+		Duration::from_secs(<span class="number">40</span>),
+		<span class="prelude-val">Some</span>(inbound_queue),
+	)
 }
 
 <span class="doccomment">/// Generate the state protocol name from the genesis hash and fork id.
@@ -562,18 +574,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Client: BlockBackend&lt;B&gt; + ProofProvider&lt;B&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
 	<span class="doccomment">/// Create a new [`StateRequestHandler`].
-	</span><span class="kw">pub fn </span>new(
+	</span><span class="kw">pub fn </span>new&lt;N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;(
 		protocol_id: <span class="kw-2">&amp;</span>ProtocolId,
 		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 		client: Arc&lt;Client&gt;,
 		num_peer_hint: usize,
-	) -&gt; (<span class="self">Self</span>, ProtocolConfig) {
+	) -&gt; (<span class="self">Self</span>, N::RequestResponseProtocolConfig) {
 		<span class="comment">// Reserve enough request slots for one request per peer when we are at the maximum
 		// number of peers.
 		</span><span class="kw">let </span>capacity = std::cmp::max(num_peer_hint, <span class="number">1</span>);
 		<span class="kw">let </span>(tx, request_receiver) = async_channel::bounded(capacity);
 
-		<span class="kw">let </span><span class="kw-2">mut </span>protocol_config = generate_protocol_config(
+		<span class="kw">let </span>protocol_config = generate_protocol_config::&lt;<span class="kw">_</span>, B, N&gt;(
 			protocol_id,
 			client
 				.block_hash(<span class="number">0u32</span>.into())
@@ -581,8 +593,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.flatten()
 				.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
 			fork_id,
+			tx,
 		);
-		protocol_config.inbound_queue = <span class="prelude-val">Some</span>(tx);
 
 		<span class="kw">let </span>capacity = ByLength::new(num_peer_hint.max(<span class="number">1</span>) <span class="kw">as </span>u32 * <span class="number">2</span>);
 		<span class="kw">let </span>seen_requests = LruMap::new(capacity);

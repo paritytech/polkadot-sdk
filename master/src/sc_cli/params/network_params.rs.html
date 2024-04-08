@@ -465,6 +465,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -483,7 +501,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use crate</span>::{arg_enums::SyncMode, params::node_key_params::NodeKeyParams};
+</span><span class="kw">use crate</span>::{
+	arg_enums::{NetworkBackendType, SyncMode},
+	params::node_key_params::NodeKeyParams,
+};
 <span class="kw">use </span>clap::Args;
 <span class="kw">use </span>sc_network::{
 	config::{
@@ -633,6 +654,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// and observe block requests timing out.
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">64</span>)]
 	</span><span class="kw">pub </span>max_blocks_per_request: u32,
+
+	<span class="doccomment">/// Network backend used for P2P networking.
+	///
+	/// litep2p network backend is considered experimental and isn&#39;t as stable as the libp2p
+	/// network backend.
+	</span><span class="attr">#[arg(
+		long,
+		value_enum,
+		value_name = <span class="string">&quot;NETWORK_BACKEND&quot;</span>,
+		default_value_t = NetworkBackendType::Libp2p,
+		ignore_case = <span class="bool-val">true</span>,
+		verbatim_doc_comment
+	)]
+	</span><span class="kw">pub </span>network_backend: NetworkBackendType,
 }
 
 <span class="kw">impl </span>NetworkParams {
@@ -728,6 +763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			yamux_window_size: <span class="prelude-val">None</span>,
 			ipfs_server: <span class="self">self</span>.ipfs_server,
 			sync_mode: <span class="self">self</span>.sync.into(),
+			network_backend: <span class="self">self</span>.network_backend.into(),
 		}
 	}
 }

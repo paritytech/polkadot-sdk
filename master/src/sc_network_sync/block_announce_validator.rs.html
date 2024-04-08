@@ -580,9 +580,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{futures_stream::FuturesStream, LOG_TARGET};
 <span class="kw">use </span>futures::{stream::FusedStream, Future, FutureExt, Stream, StreamExt};
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::{debug, error, trace, warn};
 <span class="kw">use </span>sc_network_common::sync::message::BlockAnnounce;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_consensus::block_validation::Validation;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header, Zero};
 <span class="kw">use </span>std::{
@@ -868,7 +868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::block_announce_validator::AllocateSlotForBlockAnnounceValidation;
-	<span class="kw">use </span>libp2p::PeerId;
+	<span class="kw">use </span>sc_network_types::PeerId;
 	<span class="kw">use </span>sp_consensus::block_validation::DefaultBlockAnnounceValidator;
 	<span class="kw">use </span>substrate_test_runtime_client::runtime::Block;
 

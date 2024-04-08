@@ -2100,6 +2100,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1951" id="1951">1951</a>
 <a href="#1952" id="1952">1952</a>
 <a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4001,10 +4004,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Trigger epoch change for new random number value:
 			</span>{
+				pallet_babe::EpochStart::&lt;T&gt;::set((Zero::zero(), u32::MAX.into()));
 				pallet_babe::Pallet::&lt;T&gt;::on_initialize(duration + now + T::EndingPeriod::get());
 				<span class="kw">let </span>authorities = pallet_babe::Pallet::&lt;T&gt;::authorities();
-				<span class="kw">let </span>next_authorities = authorities.clone();
-				pallet_babe::Pallet::&lt;T&gt;::enact_epoch_change(authorities, next_authorities, <span class="prelude-val">None</span>);
+				<span class="comment">// Check for non empty authority set since it otherwise emits a No-OP warning.
+				</span><span class="kw">if </span>!authorities.is_empty() {
+					pallet_babe::Pallet::&lt;T&gt;::enact_epoch_change(authorities.clone(), authorities, <span class="prelude-val">None</span>);
+				}
 			}
 
 		}: {

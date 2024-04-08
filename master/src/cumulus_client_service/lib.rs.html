@@ -735,6 +735,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
 <a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -777,7 +784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	import_queue::{ImportQueue, ImportQueueService},
 	BlockImport,
 };
-<span class="kw">use </span>sc_network::{config::SyncMode, NetworkService};
+<span class="kw">use </span>sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
 <span class="kw">use </span>sc_network_sync::SyncingService;
 <span class="kw">use </span>sc_network_transactions::TransactionsHandlerController;
 <span class="kw">use </span>sc_service::{Configuration, NetworkStarter, SpawnTaskHandle, TaskManager, WarpSyncParams};
@@ -1143,13 +1150,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ HeaderBackend&lt;Block&gt;
 		+ BlockIdTo&lt;Block&gt;
 		+ <span class="lifetime">&#39;static</span>,
+	Network: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 	RCInterface,
 	IQ,
 &gt; <span class="kw">where
 	</span>Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;,
 {
 	<span class="kw">pub </span>parachain_config: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Configuration,
-	<span class="kw">pub </span>net_config: sc_network::config::FullNetworkConfiguration,
+	<span class="kw">pub </span>net_config:
+		sc_network::config::FullNetworkConfiguration&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Network&gt;,
 	<span class="kw">pub </span>client: Arc&lt;Client&gt;,
 	<span class="kw">pub </span>transaction_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, Client&gt;&gt;,
 	<span class="kw">pub </span>para_id: ParaId,
@@ -1160,7 +1169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Build the network service, the network status sinks and an RPC sender.
-</span><span class="kw">pub async fn </span>build_network&lt;<span class="lifetime">&#39;a</span>, Block, Client, RCInterface, IQ&gt;(
+</span><span class="kw">pub async fn </span>build_network&lt;<span class="lifetime">&#39;a</span>, Block, Client, RCInterface, IQ, Network&gt;(
 	BuildNetworkParams {
 		parachain_config,
 		net_config,
@@ -1171,9 +1180,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relay_chain_interface,
 		import_queue,
 		sybil_resistance_level,
-	}: BuildNetworkParams&lt;<span class="lifetime">&#39;a</span>, Block, Client, RCInterface, IQ&gt;,
+	}: BuildNetworkParams&lt;<span class="lifetime">&#39;a</span>, Block, Client, Network, RCInterface, IQ&gt;,
 ) -&gt; sc_service::error::Result&lt;(
-	Arc&lt;NetworkService&lt;Block, Block::Hash&gt;&gt;,
+	Arc&lt;<span class="kw">dyn </span>NetworkService&gt;,
 	TracingUnboundedSender&lt;sc_rpc::system::Request&lt;Block&gt;&gt;,
 	TransactionsHandlerController&lt;Block::Hash&gt;,
 	NetworkStarter,
@@ -1198,6 +1207,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for</span>&lt;<span class="lifetime">&#39;b</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>Client: BlockImport&lt;Block&gt;,
 	RCInterface: RelayChainInterface + Clone + <span class="lifetime">&#39;static</span>,
 	IQ: ImportQueue&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	Network: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 {
 	<span class="kw">let </span>warp_sync_params = <span class="kw">match </span>parachain_config.network.sync_mode {
 		SyncMode::Warp =&gt; {
@@ -1222,6 +1232,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Box::new(block_announce_validator) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;
 		},
 	};
+	<span class="kw">let </span>metrics = Network::register_notification_metrics(
+		parachain_config.prometheus_config.as_ref().map(|cfg| <span class="kw-2">&amp;</span>cfg.registry),
+	);
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,
@@ -1233,6 +1246,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block_announce_validator_builder: <span class="prelude-val">Some</span>(Box::new(<span class="kw">move </span>|<span class="kw">_</span>| block_announce_validator)),
 		warp_sync_params,
 		block_relay: <span class="prelude-val">None</span>,
+		metrics,
 	})
 }
 

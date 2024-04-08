@@ -769,6 +769,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#620" id="620">620</a>
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -790,13 +806,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>derive_more::Display;
 <span class="kw">use </span>polkadot_primitives::Hash;
 <span class="kw">use </span>sc_network::{
-	config::{NonDefaultSetConfig, SetConfig},
-	types::ProtocolName,
-	NotificationService,
+	config::SetConfig, peer_store::PeerStoreProvider, service::NotificationMetrics,
+	types::ProtocolName, NetworkBackend, NotificationService,
 };
+<span class="kw">use </span>sp_runtime::traits::Block;
 <span class="kw">use </span>std::{
 	collections::{hash_map::Entry, HashMap},
 	ops::{Index, IndexMut},
+	sync::Arc,
 };
 <span class="kw">use </span>strum::{EnumIter, IntoEnumIterator};
 
@@ -836,11 +853,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Those should be used in the network configuration to register the protocols with the
 	/// network service.
-	</span><span class="kw">pub fn </span>get_info(
+	</span><span class="kw">pub fn </span>get_info&lt;B: Block, N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>Block&gt;::Hash&gt;&gt;(
 		<span class="self">self</span>,
 		is_authority: IsAuthority,
 		peerset_protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-	) -&gt; (NonDefaultSetConfig, (PeerSet, Box&lt;<span class="kw">dyn </span>NotificationService&gt;)) {
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+	) -&gt; (N::NotificationProtocolConfig, (PeerSet, Box&lt;<span class="kw">dyn </span>NotificationService&gt;)) {
 		<span class="comment">// Networking layer relies on `get_main_name()` being the main name of the protocol
 		// for peersets and connection management.
 		</span><span class="kw">let </span>protocol = peerset_protocol_names.get_main_name(<span class="self">self</span>);
@@ -853,7 +872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span><span class="self">self </span>{
 			PeerSet::Validation =&gt; {
-				<span class="kw">let </span>(config, notification_service) = NonDefaultSetConfig::new(
+				<span class="kw">let </span>(config, notification_service) = N::notification_config(
 					protocol,
 					fallback_names,
 					max_notification_size,
@@ -868,12 +887,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						reserved_nodes: Vec::new(),
 						non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
 					},
+					metrics,
+					peer_store_handle,
 				);
 
 				(config, (PeerSet::Validation, notification_service))
 			},
 			PeerSet::Collation =&gt; {
-				<span class="kw">let </span>(config, notification_service) = NonDefaultSetConfig::new(
+				<span class="kw">let </span>(config, notification_service) = N::notification_config(
 					protocol,
 					fallback_names,
 					max_notification_size,
@@ -890,6 +911,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							sc_network::config::NonReservedPeerMode::Deny
 						},
 					},
+					metrics,
+					peer_store_handle,
 				);
 
 				(config, (PeerSet::Collation, notification_service))
@@ -978,12 +1001,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Should be used during network configuration (added to `NetworkConfiguration::extra_sets`)
 /// or shortly after startup to register the protocols with the network service.
-</span><span class="kw">pub fn </span>peer_sets_info(
+</span><span class="kw">pub fn </span>peer_sets_info&lt;B: Block, N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>Block&gt;::Hash&gt;&gt;(
 	is_authority: IsAuthority,
 	peerset_protocol_names: <span class="kw-2">&amp;</span>PeerSetProtocolNames,
-) -&gt; Vec&lt;(NonDefaultSetConfig, (PeerSet, Box&lt;<span class="kw">dyn </span>NotificationService&gt;))&gt; {
+	metrics: NotificationMetrics,
+	peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+) -&gt; Vec&lt;(N::NotificationProtocolConfig, (PeerSet, Box&lt;<span class="kw">dyn </span>NotificationService&gt;))&gt; {
 	PeerSet::iter()
-		.map(|s| s.get_info(is_authority, <span class="kw-2">&amp;</span>peerset_protocol_names))
+		.map(|s| {
+			s.get_info::&lt;B, N&gt;(
+				is_authority,
+				<span class="kw-2">&amp;</span>peerset_protocol_names,
+				metrics.clone(),
+				Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
+			)
+		})
 		.collect()
 }
 

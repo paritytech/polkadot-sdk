@@ -261,7 +261,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -280,7 +279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>libp2p::Multiaddr;
+</span><span class="kw">use </span>sc_network::{multiaddr, Multiaddr};
 <span class="kw">use </span>serde::{Deserialize, Deserializer, Serialize};
 
 <span class="doccomment">/// List of telemetry servers we want to talk to. Contains the URL of the server, and the
@@ -305,8 +304,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>TelemetryEndpoints {
 	<span class="doccomment">/// Create a `TelemetryEndpoints` based on a list of `(String, u8)`.
-	</span><span class="kw">pub fn </span>new(endpoints: Vec&lt;(String, u8)&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, libp2p::multiaddr::Error&gt; {
-		<span class="kw">let </span>endpoints: <span class="prelude-ty">Result</span>&lt;Vec&lt;(Multiaddr, u8)&gt;, libp2p::multiaddr::Error&gt; =
+	</span><span class="kw">pub fn </span>new(endpoints: Vec&lt;(String, u8)&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, multiaddr::Error&gt; {
+		<span class="kw">let </span>endpoints: <span class="prelude-ty">Result</span>&lt;Vec&lt;(Multiaddr, u8)&gt;, multiaddr::Error&gt; =
 			endpoints.iter().map(|e| <span class="prelude-val">Ok</span>((url_to_multiaddr(<span class="kw-2">&amp;</span>e.<span class="number">0</span>)<span class="question-mark">?</span>, e.<span class="number">1</span>))).collect();
 		endpoints.map(<span class="self">Self</span>)
 	}
@@ -320,7 +319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Parses a WebSocket URL into a libp2p `Multiaddr`.
-</span><span class="kw">fn </span>url_to_multiaddr(url: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Multiaddr, libp2p::multiaddr::Error&gt; {
+</span><span class="kw">fn </span>url_to_multiaddr(url: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Multiaddr, multiaddr::Error&gt; {
 	<span class="comment">// First, assume that we have a `Multiaddr`.
 	</span><span class="kw">let </span>parse_error = <span class="kw">match </span>url.parse() {
 		<span class="prelude-val">Ok</span>(ma) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(ma),
@@ -328,7 +327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="comment">// If not, try the `ws://path/url` format.
-	</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(ma) = libp2p::multiaddr::from_url(url) {
+	</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(ma) = multiaddr::from_url(url) {
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(ma)
 	}
 
@@ -339,8 +338,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-	<span class="kw">use super</span>::{url_to_multiaddr, TelemetryEndpoints};
-	<span class="kw">use </span>libp2p::Multiaddr;
+	<span class="kw">use super</span>::{url_to_multiaddr, Multiaddr, TelemetryEndpoints};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>valid_endpoints() {

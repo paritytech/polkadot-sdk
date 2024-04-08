@@ -421,6 +421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -447,8 +448,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>sc_network::{
 	request_responses::{IfDisconnected, RequestFailure},
-	NetworkRequest, PeerId, ProtocolName,
+	NetworkRequest, ProtocolName,
 };
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_consensus_beefy::{ecdsa_crypto::AuthorityId, ValidatorSet};
 <span class="kw">use </span>sp_runtime::traits::{Block, NumberFor};
 <span class="kw">use </span>std::{collections::VecDeque, result::Result, sync::Arc};

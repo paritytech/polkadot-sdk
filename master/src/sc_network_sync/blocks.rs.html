@@ -815,9 +815,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::trace;
 <span class="kw">use </span>sc_network_common::sync::message;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor, One};
 <span class="kw">use </span>std::{
 	cmp,
@@ -1060,8 +1060,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
 	<span class="kw">use super</span>::{BlockCollection, BlockData, BlockRangeState};
-	<span class="kw">use </span>libp2p::PeerId;
 	<span class="kw">use </span>sc_network_common::sync::message;
+	<span class="kw">use </span>sc_network_types::PeerId;
 	<span class="kw">use </span>sp_core::H256;
 	<span class="kw">use </span>sp_runtime::testing::{Block <span class="kw">as </span>RawBlock, ExtrinsicWrapper};
 

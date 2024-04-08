@@ -1469,7 +1469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>hash = Hash::random();
 			finality_sender
 				.unbounded_send(worker_messages::ImportJustification(
-					libp2p_identity::PeerId::random(),
+					sc_network_types::PeerId::random(),
 					hash,
 					<span class="number">1</span>,
 					(<span class="kw-2">*</span><span class="string">b&quot;TEST&quot;</span>, Vec::new()),

@@ -1608,6 +1608,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1459" id="1459">1459</a>
 <a href="#1460" id="1460">1460</a>
 <a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2265,7 +2296,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>task_manager: TaskManager,
 	<span class="kw">pub </span>client: Arc&lt;FullClient&gt;,
 	<span class="kw">pub </span>overseer_handle: <span class="prelude-ty">Option</span>&lt;Handle&gt;,
-	<span class="kw">pub </span>network: Arc&lt;sc_network::NetworkService&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;,
+	<span class="kw">pub </span>network: Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 	<span class="kw">pub </span>sync_service: Arc&lt;sc_network_sync::SyncingService&lt;Block&gt;&gt;,
 	<span class="kw">pub </span>rpc_handlers: RpcHandlers,
 	<span class="kw">pub </span>backend: Arc&lt;FullBackend&gt;,
@@ -2329,7 +2360,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// searched. If the path points to an executable rather then directory, that executable is used
 /// both as preparation and execution worker (supposed to be used for tests only).
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
-</span><span class="kw">pub fn </span>new_full&lt;OverseerGenerator: OverseerGen&gt;(
+</span><span class="kw">pub fn </span>new_full&lt;
+	OverseerGenerator: OverseerGen,
+	Network: sc_network::NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+&gt;(
 	<span class="kw-2">mut </span>config: Configuration,
 	NewFullParams {
 		is_parachain_node,
@@ -2415,19 +2449,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		other: (rpc_extensions_builder, import_setup, rpc_setup, slot_duration, <span class="kw-2">mut </span>telemetry),
 	} = new_partial::&lt;SelectRelayChain&lt;<span class="kw">_</span>&gt;&gt;(<span class="kw-2">&amp;mut </span>config, basics, select_chain)<span class="question-mark">?</span>;
 
+	<span class="kw">let </span>metrics = Network::register_notification_metrics(
+		config.prometheus_config.as_ref().map(|cfg| <span class="kw-2">&amp;</span>cfg.registry),
+	);
 	<span class="kw">let </span>shared_voter_state = rpc_setup;
 	<span class="kw">let </span>auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 	<span class="kw">let </span>auth_disc_public_addresses = config.network.public_addresses.clone();
-	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>config.network);
+
+	<span class="kw">let </span><span class="kw-2">mut </span>net_config =
+		sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;::new(<span class="kw-2">&amp;</span>config.network);
 
 	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+	<span class="kw">let </span>peer_store_handle = net_config.peer_store_handle();
 
 	<span class="comment">// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn&#39;t change
 	// anything in terms of behaviour, but makes the logs more consistent with the other
 	// Substrate nodes.
 	</span><span class="kw">let </span>grandpa_protocol_name = grandpa::protocol_standard_name(<span class="kw-2">&amp;</span>genesis_hash, <span class="kw-2">&amp;</span>config.chain_spec);
 	<span class="kw">let </span>(grandpa_protocol_config, grandpa_notification_service) =
-		grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+		grandpa::grandpa_peers_set_config::&lt;<span class="kw">_</span>, Network&gt;(
+			grandpa_protocol_name.clone(),
+			metrics.clone(),
+			Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
+		);
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	<span class="kw">let </span>beefy_gossip_proto_name =
@@ -2435,7 +2479,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// `beefy_on_demand_justifications_handler` is given to `beefy-gadget` task to be run,
 	// while `beefy_req_resp_cfg` is added to `config.network.request_response_protocols`.
 	</span><span class="kw">let </span>(beefy_on_demand_justifications_handler, beefy_req_resp_cfg) =
-		beefy::communication::request_response::BeefyJustifsRequestHandler::new(
+		beefy::communication::request_response::BeefyJustifsRequestHandler::new::&lt;<span class="kw">_</span>, Network&gt;(
 			<span class="kw-2">&amp;</span>genesis_hash,
 			config.chain_spec.fork_id(),
 			client.clone(),
@@ -2445,7 +2489,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="bool-val">false </span>=&gt; <span class="prelude-val">None</span>,
 		<span class="bool-val">true </span>=&gt; {
 			<span class="kw">let </span>(beefy_notification_config, beefy_notification_service) =
-				beefy::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone());
+				beefy::communication::beefy_peers_set_config::&lt;<span class="kw">_</span>, Network&gt;(
+					beefy_gossip_proto_name.clone(),
+					metrics.clone(),
+					Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
+				);
 
 			net_config.add_notification_protocol(beefy_notification_config);
 			net_config.add_request_response_protocol(beefy_req_resp_cfg);
@@ -2467,13 +2515,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">use </span>polkadot_network_bridge::{peer_sets_info, IsAuthority};
 			<span class="kw">let </span>is_authority = <span class="kw">if </span>role.is_authority() { IsAuthority::Yes } <span class="kw">else </span>{ IsAuthority::No };
 
-			peer_sets_info(is_authority, <span class="kw-2">&amp;</span>peerset_protocol_names)
-				.into_iter()
-				.map(|(config, (peerset, service))| {
-					net_config.add_notification_protocol(config);
-					(peerset, service)
-				})
-				.collect::&lt;HashMap&lt;PeerSet, Box&lt;<span class="kw">dyn </span>sc_network::NotificationService&gt;&gt;&gt;()
+			peer_sets_info::&lt;<span class="kw">_</span>, Network&gt;(
+				is_authority,
+				<span class="kw-2">&amp;</span>peerset_protocol_names,
+				metrics.clone(),
+				Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
+			)
+			.into_iter()
+			.map(|(config, (peerset, service))| {
+				net_config.add_notification_protocol(config);
+				(peerset, service)
+			})
+			.collect::&lt;HashMap&lt;PeerSet, Box&lt;<span class="kw">dyn </span>sc_network::NotificationService&gt;&gt;&gt;()
 		} <span class="kw">else </span>{
 			std::collections::HashMap::new()
 		};
@@ -2481,17 +2534,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>req_protocol_names = ReqProtocolNames::new(<span class="kw-2">&amp;</span>genesis_hash, config.chain_spec.fork_id());
 
 	<span class="kw">let </span>(collation_req_v1_receiver, cfg) =
-		IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	<span class="kw">let </span>(collation_req_v2_receiver, cfg) =
-		IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	<span class="kw">let </span>(available_data_req_receiver, cfg) =
-		IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>(pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+	<span class="kw">let </span>(pov_req_receiver, cfg) =
+		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>(chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+	<span class="kw">let </span>(chunk_req_receiver, cfg) =
+		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
 	<span class="kw">let </span>grandpa_hard_forks = <span class="kw">if </span>config.chain_spec.is_kusama() {
@@ -2534,12 +2589,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None
 		</span>};
 		<span class="kw">let </span>(statement_req_receiver, cfg) =
-			IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+			IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
 		<span class="kw">let </span>(candidate_req_v2_receiver, cfg) =
-			IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+			IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
-		<span class="kw">let </span>(dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+		<span class="kw">let </span>(dispute_req_receiver, cfg) =
+			IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(<span class="kw-2">&amp;</span>req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
 		<span class="kw">let </span>approval_voting_config = ApprovalVotingConfig {
 			col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,
@@ -2580,6 +2636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			block_announce_validator_builder: <span class="prelude-val">None</span>,
 			warp_sync_params: <span class="prelude-val">Some</span>(WarpSyncParams::WithProvider(warp_sync)),
 			block_relay: <span class="prelude-val">None</span>,
+			metrics,
 		})<span class="question-mark">?</span>;
 
 	<span class="kw">if </span>config.offchain_worker.enabled {
@@ -2595,7 +2652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				transaction_pool: <span class="prelude-val">Some</span>(OffchainTransactionPoolFactory::new(
 					transaction_pool.clone(),
 				)),
-				network_provider: network.clone(),
+				network_provider: Arc::new(network.clone()),
 				is_validator: role.is_authority(),
 				enable_http_requests: <span class="bool-val">false</span>,
 				custom_extensions: <span class="kw">move </span>|<span class="kw">_</span>| <span class="macro">vec!</span>[],
@@ -2678,7 +2735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					..Default::default()
 				},
 				client.clone(),
-				network.clone(),
+				Arc::new(network.clone()),
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
@@ -2824,7 +2881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(notification_service) = beefy_notification_service {
 		<span class="kw">let </span>justifications_protocol_name = beefy_on_demand_justifications_handler.protocol_name();
 		<span class="kw">let </span>network_params = beefy::BeefyNetworkParams {
-			network: network.clone(),
+			network: Arc::new(network.clone()),
 			sync: sync_service.clone(),
 			gossip_protocol_name: beefy_gossip_proto_name,
 			justifications_protocol_name,
@@ -2993,7 +3050,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			capacity
 		});
 
-	new_full(config, params)
+	<span class="kw">match </span>config.network.network_backend {
+		sc_network::config::NetworkBackendType::Libp2p =&gt;
+			new_full::&lt;<span class="kw">_</span>, sc_network::NetworkWorker&lt;Block, Hash&gt;&gt;(config, params),
+		sc_network::config::NetworkBackendType::Litep2p =&gt;
+			new_full::&lt;<span class="kw">_</span>, sc_network::Litep2pNetworkBackend&gt;(config, params),
+	}
 }
 
 <span class="doccomment">/// Reverts the node state down to at most the last finalized block.

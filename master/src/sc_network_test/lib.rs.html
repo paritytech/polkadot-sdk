@@ -1383,6 +1383,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1234" id="1234">1234</a>
 <a href="#1235" id="1235">1235</a>
 <a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
+<a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
+<a href="#1245" id="1245">1245</a>
+<a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1443,7 +1466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	request_responses::ProtocolConfig <span class="kw">as </span>RequestResponseConfig,
 	types::ProtocolName,
 	Multiaddr, NetworkBlock, NetworkService, NetworkStateInfo, NetworkSyncForkRequest,
-	NetworkWorker, NotificationService,
+	NetworkWorker, NotificationMetrics, NotificationService,
 };
 <span class="kw">use </span>sc_network_common::role::Roles;
 <span class="kw">use </span>sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -1633,7 +1656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="doccomment">/// Get this peer ID.
 	</span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PeerId {
-		<span class="self">self</span>.network.service().local_peer_id()
+		<span class="self">self</span>.network.service().local_peer_id().into()
 	}
 
 	<span class="doccomment">/// Returns true if we&#39;re major syncing.
@@ -1680,7 +1703,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
 		number: NumberFor&lt;Block&gt;,
 	) {
-		<span class="self">self</span>.sync_service.set_sync_fork_request(peers, hash, number);
+		<span class="self">self</span>.sync_service.set_sync_fork_request(
+			peers.into_iter().map(From::from).collect(),
+			hash,
+			number,
+		);
 	}
 
 	<span class="doccomment">/// Add blocks to the peer -- edit the block before adding
@@ -2214,7 +2241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>(chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
-		<span class="kw">let </span><span class="kw-2">mut </span>block_relay_params = BlockRequestHandler::new(
+		<span class="kw">let </span><span class="kw-2">mut </span>block_relay_params = BlockRequestHandler::new::&lt;NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(
 			chain_sync_network_handle.clone(),
 			<span class="kw-2">&amp;</span>protocol_id,
 			<span class="prelude-val">None</span>,
@@ -2226,18 +2253,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}));
 
 		<span class="kw">let </span>state_request_protocol_config = {
-			<span class="kw">let </span>(handler, protocol_config) =
-				StateRequestHandler::new(<span class="kw-2">&amp;</span>protocol_id, <span class="prelude-val">None</span>, client.clone(), <span class="number">50</span>);
+			<span class="kw">let </span>(handler, protocol_config) = StateRequestHandler::new::&lt;NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(
+				<span class="kw-2">&amp;</span>protocol_id,
+				<span class="prelude-val">None</span>,
+				client.clone(),
+				<span class="number">50</span>,
+			);
 			<span class="self">self</span>.spawn_task(handler.run().boxed());
 			protocol_config
 		};
 
-		<span class="kw">let </span>light_client_request_protocol_config = {
-			<span class="kw">let </span>(handler, protocol_config) =
-				LightClientRequestHandler::new(<span class="kw-2">&amp;</span>protocol_id, <span class="prelude-val">None</span>, client.clone());
-			<span class="self">self</span>.spawn_task(handler.run().boxed());
-			protocol_config
-		};
+		<span class="kw">let </span>light_client_request_protocol_config =
+			{
+				<span class="kw">let </span>(handler, protocol_config) = LightClientRequestHandler::new::&lt;
+					NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;,
+				&gt;(<span class="kw-2">&amp;</span>protocol_id, <span class="prelude-val">None</span>, client.clone());
+				<span class="self">self</span>.spawn_task(handler.run().boxed());
+				protocol_config
+			};
 
 		<span class="kw">let </span>warp_sync = Arc::new(TestWarpSyncProvider(client.clone()));
 
@@ -2251,35 +2284,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>warp_protocol_config = {
-			<span class="kw">let </span>(handler, protocol_config) = warp_request_handler::RequestHandler::new(
-				protocol_id.clone(),
-				client
-					.block_hash(<span class="number">0u32</span>.into())
-					.ok()
-					.flatten()
-					.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
-				<span class="prelude-val">None</span>,
-				warp_sync.clone(),
-			);
+			<span class="kw">let </span>(handler, protocol_config) =
+				warp_request_handler::RequestHandler::new::&lt;<span class="kw">_</span>, NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(
+					protocol_id.clone(),
+					client
+						.block_hash(<span class="number">0u32</span>.into())
+						.ok()
+						.flatten()
+						.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
+					<span class="prelude-val">None</span>,
+					warp_sync.clone(),
+				);
 			<span class="self">self</span>.spawn_task(handler.run().boxed());
 			protocol_config
 		};
 
 		<span class="kw">let </span>peer_store = PeerStore::new(
-			network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect(),
+			network_config
+				.boot_nodes
+				.iter()
+				.map(|bootnode| bootnode.peer_id.into())
+				.collect(),
 		);
-		<span class="kw">let </span>peer_store_handle = peer_store.handle();
+		<span class="kw">let </span>peer_store_handle = Arc::new(peer_store.handle());
 		<span class="self">self</span>.spawn_task(peer_store.run().boxed());
 
 		<span class="kw">let </span>block_announce_validator = config
 			.block_announce_validator
 			.unwrap_or_else(|| Box::new(DefaultBlockAnnounceValidator));
+		<span class="kw">let </span>metrics = &lt;NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>sc_network::NetworkBackend&lt;
+			Block,
+			&lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+		&gt;&gt;::register_notification_metrics(<span class="prelude-val">None</span>);
 
 		<span class="kw">let </span>(engine, sync_service, block_announce_config) =
 			sc_network_sync::engine::SyncingEngine::new(
 				Roles::from(<span class="kw">if </span>config.is_authority { <span class="kw-2">&amp;</span>Role::Authority } <span class="kw">else </span>{ <span class="kw-2">&amp;</span>Role::Full }),
 				client.clone(),
 				<span class="prelude-val">None</span>,
+				metrics,
 				<span class="kw-2">&amp;</span>full_net_config,
 				protocol_id.clone(),
 				<span class="kw-2">&amp;</span>fork_id,
@@ -2320,12 +2363,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				tokio::spawn(f);
 			}),
 			network_config: full_net_config,
-			peer_store: peer_store_handle,
 			genesis_hash,
 			protocol_id,
 			fork_id,
 			metrics_registry: <span class="prelude-val">None</span>,
 			block_announce_config,
+			bitswap_config: <span class="prelude-val">None</span>,
+			notification_metrics: NotificationMetrics::new(<span class="prelude-val">None</span>),
 		})
 		.unwrap();
 
@@ -2346,8 +2390,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="self">self</span>.mut_peers(<span class="kw">move </span>|peers| {
 			<span class="kw">for </span>peer <span class="kw">in </span>peers.iter_mut() {
-				peer.network
-					.add_known_address(network.service().local_peer_id(), listen_addr.clone());
+				peer.network.add_known_address(
+					network.service().local_peer_id().into(),
+					listen_addr.clone(),
+				);
 			}
 
 			<span class="kw">let </span>imported_blocks_stream = Box::pin(client.import_notification_stream().fuse());

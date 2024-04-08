@@ -255,6 +255,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -283,7 +288,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>codec::{Decode, Encode, Error <span class="kw">as </span>CodecError};
-<span class="kw">use </span>sc_network::{config::RequestResponseConfig, PeerId};
+<span class="kw">use </span>sc_network::NetworkBackend;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::{Block, NumberFor};
 
 <span class="kw">use </span><span class="kw">crate</span>::communication::{beefy_protocol_name::justifications_protocol_name, peers::PeerReport};
@@ -304,23 +310,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `ProtocolConfig`.
 ///
 /// Consider using [`BeefyJustifsRequestHandler`] instead of this low-level function.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_demand_justifications_protocol_config&lt;Hash: AsRef&lt;[u8]&gt;&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_demand_justifications_protocol_config&lt;
+	Hash: AsRef&lt;[u8]&gt;,
+	B: Block,
+	Network: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>Block&gt;::Hash&gt;,
+&gt;(
 	genesis_hash: Hash,
 	fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-) -&gt; (IncomingRequestReceiver, RequestResponseConfig) {
+) -&gt; (IncomingRequestReceiver, Network::RequestResponseProtocolConfig) {
 	<span class="kw">let </span>name = justifications_protocol_name(genesis_hash, fork_id);
 	<span class="kw">let </span>fallback_names = <span class="macro">vec!</span>[];
 	<span class="kw">let </span>(tx, rx) = async_channel::bounded(JUSTIF_CHANNEL_SIZE);
 	<span class="kw">let </span>rx = IncomingRequestReceiver::new(rx);
-	<span class="kw">let </span>cfg = RequestResponseConfig {
+	<span class="kw">let </span>cfg = Network::request_response_config(
 		name,
 		fallback_names,
-		max_request_size: <span class="number">32</span>,
-		max_response_size: MAX_RESPONSE_SIZE,
+		<span class="number">32</span>,
+		MAX_RESPONSE_SIZE,
 		<span class="comment">// We are connected to all validators:
-		</span>request_timeout: JUSTIF_REQUEST_TIMEOUT,
-		inbound_queue: <span class="prelude-val">Some</span>(tx),
-	};
+		</span>JUSTIF_REQUEST_TIMEOUT,
+		<span class="prelude-val">Some</span>(tx),
+	);
 	(rx, cfg)
 }
 

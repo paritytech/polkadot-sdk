@@ -1809,8 +1809,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1660" id="1660">1660</a>
 <a href="#1661" id="1661">1661</a>
 <a href="#1662" id="1662">1662</a>
-<a href="#1663" id="1663">1663</a>
-<a href="#1664" id="1664">1664</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1871,13 +1869,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! [`NotifsHandlerIn::Open`] has gotten an answer.
 
 </span><span class="kw">use crate</span>::{
-	protocol::notifications::{
-		service::metrics,
-		upgrade::{
-			NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
-			UpgradeCollec,
-		},
+	protocol::notifications::upgrade::{
+		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
+		UpgradeCollec,
 	},
+	service::metrics::NotificationMetrics,
 	types::ProtocolName,
 };
 
@@ -1944,7 +1940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;,
 
 	<span class="doccomment">/// Metrics.
-	</span>metrics: <span class="prelude-ty">Option</span>&lt;Arc&lt;metrics::Metrics&gt;&gt;,
+	</span>metrics: <span class="prelude-ty">Option</span>&lt;Arc&lt;NotificationMetrics&gt;&gt;,
 }
 
 <span class="kw">impl </span>NotifsHandler {
@@ -1953,7 +1949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_id: PeerId,
 		endpoint: ConnectedPoint,
 		protocols: Vec&lt;ProtocolConfig&gt;,
-		metrics: <span class="prelude-ty">Option</span>&lt;metrics::Metrics&gt;,
+		metrics: <span class="prelude-ty">Option</span>&lt;NotificationMetrics&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			protocols: protocols
@@ -2158,7 +2154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>NotificationsSink {
 	inner: Arc&lt;NotificationsSinkInner&gt;,
-	metrics: <span class="prelude-ty">Option</span>&lt;Arc&lt;metrics::Metrics&gt;&gt;,
+	metrics: <span class="prelude-ty">Option</span>&lt;Arc&lt;NotificationMetrics&gt;&gt;,
 }
 
 <span class="kw">impl </span>NotificationsSink {
@@ -2185,7 +2181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get reference to metrics.
-	</span><span class="kw">pub fn </span>metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Arc&lt;metrics::Metrics&gt;&gt; {
+	</span><span class="kw">pub fn </span>metrics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Arc&lt;NotificationMetrics&gt;&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.metrics
 	}
 }

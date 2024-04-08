@@ -795,6 +795,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -818,17 +828,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{
 	error,
 	protocol::notifications::handler::NotificationsSink,
-	service::traits::{
-		Direction, MessageSink, NotificationEvent, NotificationService, ValidationResult,
+	service::{
+		metrics::NotificationMetrics,
+		traits::{
+			Direction, MessageSink, NotificationEvent, NotificationService, ValidationResult,
+		},
 	},
 	types::ProtocolName,
+	PeerId,
 };
 
 <span class="kw">use </span>futures::{
 	stream::{FuturesUnordered, Stream},
 	StreamExt,
 };
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>tokio::sync::{mpsc, oneshot};
 <span class="kw">use </span>tokio_stream::wrappers::ReceiverStream;
@@ -863,7 +876,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>send_sync_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, notification: Vec&lt;u8&gt;) {
 		<span class="kw">let </span>sink = <span class="self">self</span>.lock();
 
-		metrics::register_notification_sent(<span class="kw-2">&amp;</span>sink.<span class="number">0</span>.metrics(), <span class="kw-2">&amp;</span>sink.<span class="number">1</span>, notification.len());
+		metrics::register_notification_sent(sink.<span class="number">0</span>.metrics(), <span class="kw-2">&amp;</span>sink.<span class="number">1</span>, notification.len());
 		sink.<span class="number">0</span>.send_sync_notification(notification);
 	}
 
@@ -884,7 +897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.map_err(|<span class="kw">_</span>| error::Error::ConnectionClosed)<span class="question-mark">?</span>;
 
 		permit.send(notification).map_err(|<span class="kw">_</span>| error::Error::ChannelClosed).map(|res| {
-			metrics::register_notification_sent(<span class="kw-2">&amp;</span>sink.<span class="number">0</span>.metrics(), <span class="kw-2">&amp;</span>sink.<span class="number">1</span>, notification_len);
+			metrics::register_notification_sent(sink.<span class="number">0</span>.metrics(), <span class="kw-2">&amp;</span>sink.<span class="number">1</span>, notification_len);
 			res
 		})
 	}
@@ -1017,20 +1030,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>NotificationService <span class="kw">for </span>NotificationHandle {
 	<span class="doccomment">/// Instruct `Notifications` to open a new substream for `peer`.
-	</span><span class="kw">async fn </span>open_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _peer: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+	</span><span class="kw">async fn </span>open_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _peer: sc_network_types::PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="macro">todo!</span>(<span class="string">&quot;support for opening substreams not implemented yet&quot;</span>);
 	}
 
 	<span class="doccomment">/// Instruct `Notifications` to close substream for `peer`.
-	</span><span class="kw">async fn </span>close_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _peer: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+	</span><span class="kw">async fn </span>close_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _peer: sc_network_types::PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="macro">todo!</span>(<span class="string">&quot;support for closing substreams not implemented yet, call `NetworkService::disconnect_peer()` instead&quot;</span>);
 	}
 
 	<span class="doccomment">/// Send synchronous `notification` to `peer`.
-	</span><span class="kw">fn </span>send_sync_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: <span class="kw-2">&amp;</span>PeerId, notification: Vec&lt;u8&gt;) {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = <span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer) {
+	</span><span class="kw">fn </span>send_sync_notification(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: <span class="kw-2">&amp;</span>sc_network_types::PeerId, notification: Vec&lt;u8&gt;) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(info) = <span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>((<span class="kw-2">*</span>peer).into())) {
 			metrics::register_notification_sent(
-				<span class="kw-2">&amp;</span>info.sink.metrics(),
+				info.sink.metrics(),
 				<span class="kw-2">&amp;</span><span class="self">self</span>.protocol,
 				notification.len(),
 			);
@@ -1041,12 +1054,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	</span><span class="kw">async fn </span>send_async_notification(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		peer: <span class="kw-2">&amp;</span>PeerId,
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		peer: <span class="kw-2">&amp;</span>sc_network_types::PeerId,
 		notification: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), error::Error&gt; {
 		<span class="kw">let </span>notification_len = notification.len();
-		<span class="kw">let </span>sink = <span class="kw-2">&amp;</span><span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer).ok_or_else(|| error::Error::PeerDoesntExist(<span class="kw-2">*</span>peer))<span class="question-mark">?</span>.sink;
+		<span class="kw">let </span>sink = <span class="kw-2">&amp;</span><span class="self">self
+			</span>.peers
+			.get(<span class="kw-2">&amp;</span>peer.into())
+			.ok_or_else(|| error::Error::PeerDoesntExist((<span class="kw-2">*</span>peer).into()))<span class="question-mark">?
+			</span>.sink;
 
 		sink.reserve_notification()
 			.<span class="kw">await
@@ -1055,7 +1072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|<span class="kw">_</span>| error::Error::ChannelClosed)
 			.map(|res| {
 				metrics::register_notification_sent(
-					<span class="kw-2">&amp;</span>sink.metrics(),
+					sink.metrics(),
 					<span class="kw-2">&amp;</span><span class="self">self</span>.protocol,
 					notification_len,
 				);
@@ -1085,7 +1102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span><span class="self">self</span>.rx.next().<span class="kw">await</span><span class="question-mark">? </span>{
 				InnerNotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx } =&gt;
 					<span class="kw">return </span><span class="prelude-val">Some</span>(NotificationEvent::ValidateInboundSubstream {
-						peer,
+						peer: peer.into(),
 						handshake,
 						result_tx,
 					}),
@@ -1104,7 +1121,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						},
 					);
 					<span class="kw">return </span><span class="prelude-val">Some</span>(NotificationEvent::NotificationStreamOpened {
-						peer,
+						peer: peer.into(),
 						handshake,
 						direction,
 						negotiated_fallback,
@@ -1112,10 +1129,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				InnerNotificationEvent::NotificationStreamClosed { peer } =&gt; {
 					<span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
-					<span class="kw">return </span><span class="prelude-val">Some</span>(NotificationEvent::NotificationStreamClosed { peer })
+					<span class="kw">return </span><span class="prelude-val">Some</span>(NotificationEvent::NotificationStreamClosed { peer: peer.into() })
 				},
 				InnerNotificationEvent::NotificationReceived { peer, notification } =&gt;
-					<span class="kw">return </span><span class="prelude-val">Some</span>(NotificationEvent::NotificationReceived { peer, notification }),
+					<span class="kw">return </span><span class="prelude-val">Some</span>(NotificationEvent::NotificationReceived {
+						peer: peer.into(),
+						notification,
+					}),
 				InnerNotificationEvent::NotificationSinkReplaced { peer, sink } =&gt; {
 					<span class="kw">match </span><span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer) {
 						<span class="prelude-val">None </span>=&gt; <span class="macro">log::error!</span>(
@@ -1154,8 +1174,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get message sink of the peer.
-	</span><span class="kw">fn </span>message_sink(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>MessageSink&gt;&gt; {
-		<span class="kw">match </span><span class="self">self</span>.peers.get(peer) {
+	</span><span class="kw">fn </span>message_sink(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: <span class="kw-2">&amp;</span>sc_network_types::PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>MessageSink&gt;&gt; {
+		<span class="kw">match </span><span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer.into()) {
 			<span class="prelude-val">Some</span>(context) =&gt; <span class="prelude-val">Some</span>(Box::new(context.shared_sink.clone())),
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
 		}
@@ -1214,7 +1234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>delegate_to_peerset: bool,
 
 	<span class="doccomment">/// Prometheus metrics.
-	</span>metrics: <span class="prelude-ty">Option</span>&lt;metrics::Metrics&gt;,
+	</span>metrics: <span class="prelude-ty">Option</span>&lt;NotificationMetrics&gt;,
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>ValidationCallResult {
@@ -1229,8 +1249,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Set metrics.
-	</span><span class="kw">pub fn </span>set_metrics(<span class="kw-2">&amp;mut </span><span class="self">self</span>, metrics: <span class="prelude-ty">Option</span>&lt;metrics::Metrics&gt;) {
-		<span class="self">self</span>.metrics = metrics;
+	</span><span class="kw">pub fn </span>set_metrics(<span class="kw-2">&amp;mut </span><span class="self">self</span>, metrics: NotificationMetrics) {
+		<span class="self">self</span>.metrics = <span class="prelude-val">Some</span>(metrics);
 	}
 
 	<span class="doccomment">/// Delegate validation to `Peerset`.

@@ -369,6 +369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
@@ -392,9 +393,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>log::{debug, trace};
 <span class="kw">use </span>sc_client_api::BlockBackend;
 <span class="kw">use </span>sc_network::{
-	config <span class="kw">as </span>netconfig, config::RequestResponseConfig, types::ProtocolName, PeerId,
-	ReputationChange,
+	config <span class="kw">as </span>netconfig, service::traits::RequestResponseConfig, types::ProtocolName,
+	NetworkBackend, ReputationChange,
 };
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_consensus_beefy::BEEFY_ENGINE_ID;
 <span class="kw">use </span>sp_runtime::traits::Block;
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
@@ -510,15 +512,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Client: BlockBackend&lt;B&gt; + Send + Sync,
 {
 	<span class="doccomment">/// Create a new [`BeefyJustifsRequestHandler`].
-	</span><span class="kw">pub fn </span>new&lt;Hash: AsRef&lt;[u8]&gt;&gt;(
+	</span><span class="kw">pub fn </span>new&lt;Hash: AsRef&lt;[u8]&gt;, Network: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>Block&gt;::Hash&gt;&gt;(
 		genesis_hash: Hash,
 		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 		client: Arc&lt;Client&gt;,
 		prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus::Registry&gt;,
-	) -&gt; (<span class="self">Self</span>, RequestResponseConfig) {
-		<span class="kw">let </span>(request_receiver, config) =
-			on_demand_justifications_protocol_config(genesis_hash, fork_id);
-		<span class="kw">let </span>justif_protocol_name = config.name.clone();
+	) -&gt; (<span class="self">Self</span>, Network::RequestResponseProtocolConfig) {
+		<span class="kw">let </span>(request_receiver, config): (<span class="kw">_</span>, Network::RequestResponseProtocolConfig) =
+			on_demand_justifications_protocol_config::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;(genesis_hash, fork_id);
+		<span class="kw">let </span>justif_protocol_name = config.protocol_name().clone();
 		<span class="kw">let </span>metrics = register_metrics(prometheus_registry);
 		(
 			<span class="self">Self </span>{ request_receiver, justif_protocol_name, client, metrics, _block: PhantomData },

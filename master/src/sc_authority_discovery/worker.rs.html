@@ -1009,6 +1009,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#860" id="860">860</a>
 <a href="#861" id="861">861</a>
 <a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1045,9 +1058,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>addr_cache::AddrCache;
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>ip_network::IpNetwork;
-<span class="kw">use </span>libp2p::{core::multiaddr, identity::PublicKey, multihash::Multihash, Multiaddr, PeerId};
 <span class="kw">use </span>linked_hash_set::LinkedHashSet;
-<span class="kw">use </span>multihash_codetable::{Code, MultihashDigest};
+<span class="kw">use </span>multihash::{Code, Multihash, MultihashDigest};
 
 <span class="kw">use </span>log::{debug, error, log_enabled};
 <span class="kw">use </span>prometheus_endpoint::{register, Counter, CounterVec, Gauge, Opts, U64};
@@ -1055,8 +1067,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>rand::{seq::SliceRandom, thread_rng};
 
 <span class="kw">use </span>sc_network::{
-	event::DhtEvent, KademliaKey, NetworkDHTProvider, NetworkSigner, NetworkStateInfo, Signature,
+	event::DhtEvent, multiaddr, KademliaKey, Multiaddr, NetworkDHTProvider, NetworkSigner,
+	NetworkStateInfo,
 };
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_api::{ApiError, ProvideRuntimeApi};
 <span class="kw">use </span>sp_authority_discovery::{
 	AuthorityDiscoveryApi, AuthorityId, AuthorityPair, AuthoritySignature,
@@ -1119,13 +1133,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///    network peerset.
 ///
 ///    5. Allow querying of the collected addresses via the [`crate::Service`].
-</span><span class="kw">pub struct </span>Worker&lt;Client, Network, Block, DhtEventStream&gt; {
+</span><span class="kw">pub struct </span>Worker&lt;Client, Block, DhtEventStream&gt; {
 	<span class="doccomment">/// Channel receiver for messages send by a [`crate::Service`].
 	</span>from_service: Fuse&lt;mpsc::Receiver&lt;ServicetoWorkerMsg&gt;&gt;,
 
 	client: Arc&lt;Client&gt;,
 
-	network: Arc&lt;Network&gt;,
+	network: Arc&lt;<span class="kw">dyn </span>NetworkProvider&gt;,
 
 	<span class="doccomment">/// Channel we receive Dht events on.
 	</span>dht_event_rx: DhtEventStream,
@@ -1203,10 +1217,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;Client, Network, Block, DhtEventStream&gt; Worker&lt;Client, Network, Block, DhtEventStream&gt;
+<span class="kw">impl</span>&lt;Client, Block, DhtEventStream&gt; Worker&lt;Client, Block, DhtEventStream&gt;
 <span class="kw">where
 	</span>Block: BlockT + Unpin + <span class="lifetime">&#39;static</span>,
-	Network: NetworkProvider,
 	Client: AuthorityDiscovery&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
 	DhtEventStream: Stream&lt;Item = DhtEvent&gt; + Unpin,
 {
@@ -1214,7 +1227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		from_service: mpsc::Receiver&lt;ServicetoWorkerMsg&gt;,
 		client: Arc&lt;Client&gt;,
-		network: Arc&lt;Network&gt;,
+		network: Arc&lt;<span class="kw">dyn </span>NetworkProvider&gt;,
 		dht_event_rx: DhtEventStream,
 		role: Role,
 		prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus_endpoint::Registry&gt;,
@@ -1417,10 +1430,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Role::Discover =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
 		};
 
-		<span class="kw">let </span>keys = Worker::&lt;Client, Network, Block, DhtEventStream&gt;::get_own_public_keys_within_authority_set(
-			key_store.clone(),
-			<span class="self">self</span>.client.as_ref(),
-		).<span class="kw">await</span><span class="question-mark">?</span>.into_iter().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>keys =
+			Worker::&lt;Client, Block, DhtEventStream&gt;::get_own_public_keys_within_authority_set(
+				key_store.clone(),
+				<span class="self">self</span>.client.as_ref(),
+			)
+			.<span class="kw">await</span><span class="question-mark">?
+			</span>.into_iter()
+			.collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">if </span>only_if_changed {
 			<span class="comment">// If the authority keys did not change and the `publish_if_changed_interval` was
@@ -1445,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>serialized_record = serialize_authority_record(addresses)<span class="question-mark">?</span>;
-		<span class="kw">let </span>peer_signature = sign_record_with_peer_id(<span class="kw-2">&amp;</span>serialized_record, <span class="self">self</span>.network.as_ref())<span class="question-mark">?</span>;
+		<span class="kw">let </span>peer_signature = sign_record_with_peer_id(<span class="kw-2">&amp;</span>serialized_record, <span class="kw-2">&amp;</span><span class="self">self</span>.network)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>keys_vec = keys.iter().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
@@ -1645,12 +1662,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// properly signed by the owner of the PeerId
 
 				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peer_signature) = peer_signature {
-					<span class="kw">let </span>public_key = PublicKey::try_decode_protobuf(<span class="kw-2">&amp;</span>peer_signature.public_key)
-						.map_err(Error::ParsingLibp2pIdentity)<span class="question-mark">?</span>;
-					<span class="kw">let </span>signature = Signature { public_key, bytes: peer_signature.signature };
-
-					<span class="kw">if </span>!signature.verify(record, <span class="kw-2">&amp;</span>remote_peer_id) {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::VerifyingDhtPayload)
+					<span class="kw">match </span><span class="self">self</span>.network.verify(
+						remote_peer_id.into(),
+						<span class="kw-2">&amp;</span>peer_signature.public_key,
+						<span class="kw-2">&amp;</span>peer_signature.signature,
+						<span class="kw-2">&amp;</span>record,
+					) {
+						<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {},
+						<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::VerifyingDhtPayload),
+						<span class="prelude-val">Err</span>(error) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::ParsingLibp2pIdentity(error)),
 					}
 				} <span class="kw">else if </span><span class="self">self</span>.strict_record_validation {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::MissingPeerIdSignature)
@@ -1712,9 +1732,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// NetworkProvider provides [`Worker`] with all necessary hooks into the
 /// underlying Substrate networking. Using this trait abstraction instead of
 /// `sc_network::NetworkService` directly is necessary to unit test [`Worker`].
-</span><span class="kw">pub trait </span>NetworkProvider: NetworkDHTProvider + NetworkStateInfo + NetworkSigner {}
+</span><span class="kw">pub trait </span>NetworkProvider:
+	NetworkDHTProvider + NetworkStateInfo + NetworkSigner + Send + Sync
+{
+}
 
-<span class="kw">impl</span>&lt;T&gt; NetworkProvider <span class="kw">for </span>T <span class="kw">where </span>T: NetworkDHTProvider + NetworkStateInfo + NetworkSigner {}
+<span class="kw">impl</span>&lt;T&gt; NetworkProvider <span class="kw">for </span>T <span class="kw">where
+	</span>T: NetworkDHTProvider + NetworkStateInfo + NetworkSigner + Send + Sync
+{
+}
 
 <span class="kw">fn </span>hash_authority_id(id: <span class="kw-2">&amp;</span>[u8]) -&gt; KademliaKey {
 	KademliaKey::new(<span class="kw-2">&amp;</span>Code::Sha2_256.digest(id).digest())
@@ -1752,7 +1778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	network: <span class="kw-2">&amp;</span><span class="kw">impl </span>NetworkSigner,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;schema::PeerSignature&gt; {
 	<span class="kw">let </span>signature = network
-		.sign_with_local_identity(serialized_record)
+		.sign_with_local_identity(serialized_record.to_vec())
 		.map_err(|e| Error::CannotSign(<span class="macro">format!</span>(<span class="string">&quot;{} (network packet)&quot;</span>, e)))<span class="question-mark">?</span>;
 	<span class="kw">let </span>public_key = signature.public_key.encode_protobuf();
 	<span class="kw">let </span>signature = signature.bytes;
@@ -1866,7 +1892,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Helper functions for unit testing.
 </span><span class="attr">#[cfg(test)]
-</span><span class="kw">impl</span>&lt;Block, Client, Network, DhtEventStream&gt; Worker&lt;Client, Network, Block, DhtEventStream&gt; {
+</span><span class="kw">impl</span>&lt;Block, Client, DhtEventStream&gt; Worker&lt;Client, Block, DhtEventStream&gt; {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>inject_addresses(<span class="kw-2">&amp;mut </span><span class="self">self</span>, authority: AuthorityId, addresses: Vec&lt;Multiaddr&gt;) {
 		<span class="self">self</span>.addr_cache.insert(authority, addresses);
 	}

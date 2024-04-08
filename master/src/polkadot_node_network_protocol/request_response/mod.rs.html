@@ -573,6 +573,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -627,6 +629,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>std::{collections::HashMap, time::Duration, u64};
 
 <span class="kw">use </span>polkadot_primitives::{MAX_CODE_SIZE, MAX_POV_SIZE};
+<span class="kw">use </span>sc_network::NetworkBackend;
+<span class="kw">use </span>sp_runtime::traits::Block;
 <span class="kw">use </span>strum::{EnumIter, IntoEnumIterator};
 
 <span class="kw">pub use </span>sc_network::{config <span class="kw">as </span>network, config::RequestResponseConfig, ProtocolName};
@@ -754,76 +758,76 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns a `ProtocolConfig` for this protocol.
 	/// Use this if you plan only to send requests for this protocol.
-	</span><span class="kw">pub fn </span>get_outbound_only_config(
+	</span><span class="kw">pub fn </span>get_outbound_only_config&lt;B: Block, N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>Block&gt;::Hash&gt;&gt;(
 		<span class="self">self</span>,
 		req_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
-	) -&gt; RequestResponseConfig {
-		<span class="self">self</span>.create_config(req_protocol_names, <span class="prelude-val">None</span>)
+	) -&gt; N::RequestResponseProtocolConfig {
+		<span class="self">self</span>.create_config::&lt;B, N&gt;(req_protocol_names, <span class="prelude-val">None</span>)
 	}
 
 	<span class="doccomment">/// Get a configuration for a given Request response protocol.
 	///
 	/// Returns a receiver for messages received on this protocol and the requested
 	/// `ProtocolConfig`.
-	</span><span class="kw">pub fn </span>get_config(
+	</span><span class="kw">pub fn </span>get_config&lt;B: Block, N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>Block&gt;::Hash&gt;&gt;(
 		<span class="self">self</span>,
 		req_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
-	) -&gt; (async_channel::Receiver&lt;network::IncomingRequest&gt;, RequestResponseConfig) {
+	) -&gt; (async_channel::Receiver&lt;network::IncomingRequest&gt;, N::RequestResponseProtocolConfig) {
 		<span class="kw">let </span>(tx, rx) = async_channel::bounded(<span class="self">self</span>.get_channel_size());
-		<span class="kw">let </span>cfg = <span class="self">self</span>.create_config(req_protocol_names, <span class="prelude-val">Some</span>(tx));
+		<span class="kw">let </span>cfg = <span class="self">self</span>.create_config::&lt;B, N&gt;(req_protocol_names, <span class="prelude-val">Some</span>(tx));
 		(rx, cfg)
 	}
 
-	<span class="kw">fn </span>create_config(
+	<span class="kw">fn </span>create_config&lt;B: Block, N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>Block&gt;::Hash&gt;&gt;(
 		<span class="self">self</span>,
 		req_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
 		tx: <span class="prelude-ty">Option</span>&lt;async_channel::Sender&lt;network::IncomingRequest&gt;&gt;,
-	) -&gt; RequestResponseConfig {
+	) -&gt; N::RequestResponseProtocolConfig {
 		<span class="kw">let </span>name = req_protocol_names.get_name(<span class="self">self</span>);
 		<span class="kw">let </span>legacy_names = <span class="self">self</span>.get_legacy_name().into_iter().map(Into::into).collect();
 		<span class="kw">match </span><span class="self">self </span>{
-			Protocol::ChunkFetchingV1 =&gt; RequestResponseConfig {
+			Protocol::ChunkFetchingV1 =&gt; N::request_response_config(
 				name,
-				fallback_names: legacy_names,
-				max_request_size: <span class="number">1_000</span>,
-				max_response_size: POV_RESPONSE_SIZE <span class="kw">as </span>u64 * <span class="number">3</span>,
+				legacy_names,
+				<span class="number">1_000</span>,
+				POV_RESPONSE_SIZE <span class="kw">as </span>u64 * <span class="number">3</span>,
 				<span class="comment">// We are connected to all validators:
-				</span>request_timeout: CHUNK_REQUEST_TIMEOUT,
-				inbound_queue: tx,
-			},
+				</span>CHUNK_REQUEST_TIMEOUT,
+				tx,
+			),
 			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =&gt;
-				RequestResponseConfig {
+				N::request_response_config(
 					name,
-					fallback_names: legacy_names,
-					max_request_size: <span class="number">1_000</span>,
-					max_response_size: POV_RESPONSE_SIZE,
+					legacy_names,
+					<span class="number">1_000</span>,
+					POV_RESPONSE_SIZE,
 					<span class="comment">// Taken from initial implementation in collator protocol:
-					</span>request_timeout: POV_REQUEST_TIMEOUT_CONNECTED,
-					inbound_queue: tx,
-				},
-			Protocol::PoVFetchingV1 =&gt; RequestResponseConfig {
+					</span>POV_REQUEST_TIMEOUT_CONNECTED,
+					tx,
+				),
+			Protocol::PoVFetchingV1 =&gt; N::request_response_config(
 				name,
-				fallback_names: legacy_names,
-				max_request_size: <span class="number">1_000</span>,
-				max_response_size: POV_RESPONSE_SIZE,
-				request_timeout: POV_REQUEST_TIMEOUT_CONNECTED,
-				inbound_queue: tx,
-			},
-			Protocol::AvailableDataFetchingV1 =&gt; RequestResponseConfig {
+				legacy_names,
+				<span class="number">1_000</span>,
+				POV_RESPONSE_SIZE,
+				POV_REQUEST_TIMEOUT_CONNECTED,
+				tx,
+			),
+			Protocol::AvailableDataFetchingV1 =&gt; N::request_response_config(
 				name,
-				fallback_names: legacy_names,
-				max_request_size: <span class="number">1_000</span>,
+				legacy_names,
+				<span class="number">1_000</span>,
 				<span class="comment">// Available data size is dominated by the PoV size.
-				</span>max_response_size: POV_RESPONSE_SIZE,
-				request_timeout: POV_REQUEST_TIMEOUT_CONNECTED,
-				inbound_queue: tx,
-			},
-			Protocol::StatementFetchingV1 =&gt; RequestResponseConfig {
+				</span>POV_RESPONSE_SIZE,
+				POV_REQUEST_TIMEOUT_CONNECTED,
+				tx,
+			),
+			Protocol::StatementFetchingV1 =&gt; N::request_response_config(
 				name,
-				fallback_names: legacy_names,
-				max_request_size: <span class="number">1_000</span>,
+				legacy_names,
+				<span class="number">1_000</span>,
 				<span class="comment">// Available data size is dominated code size.
-				</span>max_response_size: STATEMENT_RESPONSE_SIZE,
+				</span>STATEMENT_RESPONSE_SIZE,
 				<span class="comment">// We need statement fetching to be fast and will try our best at the responding
 				// side to answer requests within that timeout, assuming a bandwidth of 500Mbit/s
 				// - which is the recommended minimum bandwidth for nodes on Kusama as of April
@@ -833,27 +837,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// waiting for timeout on an overloaded node.  Fetches from slow nodes will likely
 				// fail, but this is desired, so we can quickly move on to a faster one - we should
 				// also decrease its reputation.
-				</span>request_timeout: Duration::from_secs(<span class="number">1</span>),
-				inbound_queue: tx,
-			},
-			Protocol::DisputeSendingV1 =&gt; RequestResponseConfig {
+				</span>Duration::from_secs(<span class="number">1</span>),
+				tx,
+			),
+			Protocol::DisputeSendingV1 =&gt; N::request_response_config(
 				name,
-				fallback_names: legacy_names,
-				max_request_size: <span class="number">1_000</span>,
+				legacy_names,
+				<span class="number">1_000</span>,
 				<span class="comment">// Responses are just confirmation, in essence not even a bit. So 100 seems
 				// plenty.
-				</span>max_response_size: <span class="number">100</span>,
-				request_timeout: DISPUTE_REQUEST_TIMEOUT,
-				inbound_queue: tx,
-			},
-			Protocol::AttestedCandidateV2 =&gt; RequestResponseConfig {
+				</span><span class="number">100</span>,
+				DISPUTE_REQUEST_TIMEOUT,
+				tx,
+			),
+			Protocol::AttestedCandidateV2 =&gt; N::request_response_config(
 				name,
-				fallback_names: legacy_names,
-				max_request_size: <span class="number">1_000</span>,
-				max_response_size: ATTESTED_CANDIDATE_RESPONSE_SIZE,
-				request_timeout: ATTESTED_CANDIDATE_TIMEOUT,
-				inbound_queue: tx,
-			},
+				legacy_names,
+				<span class="number">1_000</span>,
+				ATTESTED_CANDIDATE_RESPONSE_SIZE,
+				ATTESTED_CANDIDATE_TIMEOUT,
+				tx,
+			),
 		}
 	}
 

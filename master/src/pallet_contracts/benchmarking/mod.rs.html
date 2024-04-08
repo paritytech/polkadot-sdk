@@ -3279,7 +3279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>migration_noop() {
 		<span class="kw">let </span>version = LATEST_MIGRATION_VERSION;
-		<span class="macro">assert_eq!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;(), version);
+		StorageVersion::new(version).put::&lt;Pallet&lt;T&gt;&gt;();
 		<span class="attr">#[block]
 		</span>{
 			Migration::&lt;T&gt;::migrate(Weight::MAX);
@@ -3305,7 +3305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>on_runtime_upgrade_noop() {
 		<span class="kw">let </span>latest_version = LATEST_MIGRATION_VERSION;
-		<span class="macro">assert_eq!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;(), latest_version);
+		StorageVersion::new(latest_version).put::&lt;Pallet&lt;T&gt;&gt;();
 		<span class="attr">#[block]
 		</span>{
 			&lt;Migration&lt;T, <span class="bool-val">false</span>&gt; <span class="kw">as </span>frame_support::traits::OnRuntimeUpgrade&gt;::on_runtime_upgrade();

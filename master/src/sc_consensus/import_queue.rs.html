@@ -563,7 +563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Box&lt;<span class="kw">dyn </span>JustificationImport&lt;B, Error = ConsensusError&gt; + Send + Sync&gt;;
 
 <span class="doccomment">/// Maps to the RuntimeOrigin used by the network.
-</span><span class="kw">pub type </span>RuntimeOrigin = libp2p_identity::PeerId;
+</span><span class="kw">pub type </span>RuntimeOrigin = sc_network_types::PeerId;
 
 <span class="doccomment">/// Block data used by the queue.
 </span><span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]

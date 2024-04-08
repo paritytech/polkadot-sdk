@@ -335,6 +335,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
 	benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
 	chain_spec,
@@ -454,7 +467,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							)
 						}
 
-						cmd.run::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ()&gt;(config)
+						cmd.run_with_spec::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ()&gt;(<span class="prelude-val">Some</span>(
+							config.chain_spec,
+						))
 					},
 					BenchmarkCmd::Block(cmd) =&gt; {
 						<span class="kw">let </span>PartialComponents { client, .. } = service::new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
@@ -518,7 +533,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(<span class="kw-2">&amp;</span>cli.run)<span class="question-mark">?</span>;
 			runner.run_node_until_exit(|config| <span class="kw">async move </span>{
-				service::new_full(config).map_err(sc_cli::Error::Service)
+				<span class="kw">match </span>config.network.network_backend {
+					sc_network::config::NetworkBackendType::Libp2p =&gt; service::new_full::&lt;
+						sc_network::NetworkWorker&lt;
+							solochain_template_runtime::opaque::Block,
+							&lt;solochain_template_runtime::opaque::Block <span class="kw">as </span>sp_runtime::traits::Block&gt;::Hash,
+						&gt;,
+					&gt;(config)
+					.map_err(sc_cli::Error::Service),
+					sc_network::config::NetworkBackendType::Litep2p =&gt;
+						service::new_full::&lt;sc_network::Litep2pNetworkBackend&gt;(config)
+							.map_err(sc_cli::Error::Service),
+				}
 			})
 		},
 	}

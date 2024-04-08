@@ -1216,6 +1216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1067" id="1067">1067</a>
 <a href="#1068" id="1068">1068</a>
 <a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1285,8 +1286,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>rand::{seq::SliceRandom, thread_rng};
 <span class="kw">use </span>sc_network::{
 	request_responses::{IncomingRequest, OutgoingResponse},
-	PeerId, RequestFailure,
+	RequestFailure,
 };
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sc_service::SpawnTaskHandle;
 <span class="kw">use </span>std::{
 	collections::HashMap,

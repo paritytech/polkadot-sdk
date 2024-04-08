@@ -281,15 +281,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -309,17 +300,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>futures::channel::oneshot;
-<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
 
 <span class="kw">use </span>sc_consensus::{BlockImportError, BlockImportStatus};
 <span class="kw">use </span>sc_network::{
 	config::MultiaddrWithPeerId,
 	request_responses::{IfDisconnected, RequestFailure},
 	types::ProtocolName,
-	NetworkNotification, NetworkPeers, NetworkRequest, NetworkSyncForkRequest,
-	NotificationSenderError, NotificationSenderT, ReputationChange,
+	Multiaddr, NetworkPeers, NetworkRequest, NetworkSyncForkRequest, ReputationChange,
 };
 <span class="kw">use </span>sc_network_common::role::ObservedRole;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
 <span class="kw">use </span>std::collections::HashSet;
@@ -372,7 +362,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="macro">mockall::mock! </span>{
 	<span class="kw">pub </span>Network {}
 
-	<span class="kw">impl </span>NetworkPeers <span class="kw">for </span>Network {
+	<span class="attr">#[async_trait::async_trait]
+	</span><span class="kw">impl </span>NetworkPeers <span class="kw">for </span>Network {
 		<span class="kw">fn </span>set_authorized_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, peers: HashSet&lt;PeerId&gt;);
 		<span class="kw">fn </span>set_authorized_only(<span class="kw-2">&amp;</span><span class="self">self</span>, reserved_only: bool);
 		<span class="kw">fn </span>add_known_address(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, addr: Multiaddr);
@@ -400,6 +391,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt;;
 		<span class="kw">fn </span>sync_num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 		<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt;;
+		<span class="kw">async fn </span>reserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;sc_network_types::PeerId&gt;, ()&gt;;
 	}
 
 	<span class="attr">#[async_trait::async_trait]
@@ -421,16 +413,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			tx: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 			connect: IfDisconnected,
 		);
-	}
-
-	<span class="kw">impl </span>NetworkNotification <span class="kw">for </span>Network {
-		<span class="kw">fn </span>write_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, target: PeerId, protocol: ProtocolName, message: Vec&lt;u8&gt;);
-		<span class="kw">fn </span>notification_sender(
-			<span class="kw-2">&amp;</span><span class="self">self</span>,
-			target: PeerId,
-			protocol: ProtocolName,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSenderT&gt;, NotificationSenderError&gt;;
-		<span class="kw">fn </span>set_notification_handshake(<span class="kw-2">&amp;</span><span class="self">self</span>, protocol: ProtocolName, handshake: Vec&lt;u8&gt;);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

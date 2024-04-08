@@ -320,8 +320,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -364,8 +362,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Stream,
 };
 
-<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
-<span class="kw">use </span>sc_network::event::DhtEvent;
+<span class="kw">use </span>sc_network::{event::DhtEvent, Multiaddr};
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_authority_discovery::AuthorityId;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
@@ -441,16 +439,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Create a new authority discovery [`Worker`] and [`Service`].
 ///
 /// See the struct documentation of each for more details.
-</span><span class="kw">pub fn </span>new_worker_and_service&lt;Client, Network, Block, DhtEventStream&gt;(
+</span><span class="kw">pub fn </span>new_worker_and_service&lt;Client, Block, DhtEventStream&gt;(
 	client: Arc&lt;Client&gt;,
-	network: Arc&lt;Network&gt;,
+	network: Arc&lt;<span class="kw">dyn </span>NetworkProvider&gt;,
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus_endpoint::Registry&gt;,
-) -&gt; (Worker&lt;Client, Network, Block, DhtEventStream&gt;, Service)
+) -&gt; (Worker&lt;Client, Block, DhtEventStream&gt;, Service)
 <span class="kw">where
 	</span>Block: BlockT + Unpin + <span class="lifetime">&#39;static</span>,
-	Network: NetworkProvider,
 	Client: AuthorityDiscovery&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static </span>+ HeaderBackend&lt;Block&gt;,
 	DhtEventStream: Stream&lt;Item = DhtEvent&gt; + Unpin,
 {
@@ -467,17 +464,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Same as [`new_worker_and_service`] but with support for providing the `config`.
 ///
 /// When in doubt use [`new_worker_and_service`] as it will use the default configuration.
-</span><span class="kw">pub fn </span>new_worker_and_service_with_config&lt;Client, Network, Block, DhtEventStream&gt;(
+</span><span class="kw">pub fn </span>new_worker_and_service_with_config&lt;Client, Block, DhtEventStream&gt;(
 	config: WorkerConfig,
 	client: Arc&lt;Client&gt;,
-	network: Arc&lt;Network&gt;,
+	network: Arc&lt;<span class="kw">dyn </span>NetworkProvider&gt;,
 	dht_event_rx: DhtEventStream,
 	role: Role,
 	prometheus_registry: <span class="prelude-ty">Option</span>&lt;prometheus_endpoint::Registry&gt;,
-) -&gt; (Worker&lt;Client, Network, Block, DhtEventStream&gt;, Service)
+) -&gt; (Worker&lt;Client, Block, DhtEventStream&gt;, Service)
 <span class="kw">where
 	</span>Block: BlockT + Unpin + <span class="lifetime">&#39;static</span>,
-	Network: NetworkProvider,
 	Client: AuthorityDiscovery&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
 	DhtEventStream: Stream&lt;Item = DhtEvent&gt; + Unpin,
 {

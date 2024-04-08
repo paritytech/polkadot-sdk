@@ -358,10 +358,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>futures::Stream;
 <span class="kw">use </span>sc_network_common::{role::Roles, types::ReputationChange};
 
-<span class="kw">use </span>libp2p::PeerId;
-
 <span class="kw">use </span><span class="kw">crate</span>::strategy::{state_sync::StateSyncProgress, warp::WarpSyncProgress};
+
 <span class="kw">use </span>sc_network_common::sync::message::BlockRequest;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
 <span class="kw">use </span>std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};

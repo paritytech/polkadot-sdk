@@ -304,6 +304,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
@@ -332,9 +338,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sc_network::{
 	config::ProtocolId,
-	request_responses::{
-		IncomingRequest, OutgoingResponse, ProtocolConfig <span class="kw">as </span>RequestResponseConfig,
-	},
+	request_responses::{IncomingRequest, OutgoingResponse},
+	NetworkBackend,
 };
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
@@ -345,22 +350,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Incoming warp requests bounded queue size.
 </span><span class="kw">const </span>MAX_WARP_REQUEST_QUEUE: usize = <span class="number">20</span>;
 
-<span class="doccomment">/// Generates a [`RequestResponseConfig`] for the grandpa warp sync request protocol, refusing
+<span class="doccomment">/// Generates a `RequestResponseProtocolConfig` for the grandpa warp sync request protocol, refusing
 /// incoming requests.
-</span><span class="kw">pub fn </span>generate_request_response_config&lt;Hash: AsRef&lt;[u8]&gt;&gt;(
+</span><span class="kw">pub fn </span>generate_request_response_config&lt;
+	Hash: AsRef&lt;[u8]&gt;,
+	B: BlockT,
+	N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+&gt;(
 	protocol_id: ProtocolId,
 	genesis_hash: Hash,
 	fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-) -&gt; RequestResponseConfig {
-	RequestResponseConfig {
-		name: generate_protocol_name(genesis_hash, fork_id).into(),
-		fallback_names: std::iter::once(generate_legacy_protocol_name(protocol_id).into())
-			.collect(),
-		max_request_size: <span class="number">32</span>,
-		max_response_size: MAX_RESPONSE_SIZE,
-		request_timeout: Duration::from_secs(<span class="number">10</span>),
-		inbound_queue: <span class="prelude-val">None</span>,
-	}
+	inbound_queue: async_channel::Sender&lt;IncomingRequest&gt;,
+) -&gt; N::RequestResponseProtocolConfig {
+	N::request_response_config(
+		generate_protocol_name(genesis_hash, fork_id).into(),
+		std::iter::once(generate_legacy_protocol_name(protocol_id).into()).collect(),
+		<span class="number">32</span>,
+		MAX_RESPONSE_SIZE,
+		Duration::from_secs(<span class="number">10</span>),
+		<span class="prelude-val">Some</span>(inbound_queue),
+	)
 }
 
 <span class="doccomment">/// Generate the grandpa warp sync protocol name from the genesis hash and fork id.
@@ -386,17 +395,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;TBlock: BlockT&gt; RequestHandler&lt;TBlock&gt; {
 	<span class="doccomment">/// Create a new [`RequestHandler`].
-	</span><span class="kw">pub fn </span>new&lt;Hash: AsRef&lt;[u8]&gt;&gt;(
+	</span><span class="kw">pub fn </span>new&lt;Hash: AsRef&lt;[u8]&gt;, N: NetworkBackend&lt;TBlock, &lt;TBlock <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;(
 		protocol_id: ProtocolId,
 		genesis_hash: Hash,
 		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 		backend: Arc&lt;<span class="kw">dyn </span>WarpSyncProvider&lt;TBlock&gt;&gt;,
-	) -&gt; (<span class="self">Self</span>, RequestResponseConfig) {
+	) -&gt; (<span class="self">Self</span>, N::RequestResponseProtocolConfig) {
 		<span class="kw">let </span>(tx, request_receiver) = async_channel::bounded(MAX_WARP_REQUEST_QUEUE);
 
-		<span class="kw">let </span><span class="kw-2">mut </span>request_response_config =
-			generate_request_response_config(protocol_id, genesis_hash, fork_id);
-		request_response_config.inbound_queue = <span class="prelude-val">Some</span>(tx);
+		<span class="kw">let </span>request_response_config = generate_request_response_config::&lt;<span class="kw">_</span>, TBlock, N&gt;(
+			protocol_id,
+			genesis_hash,
+			fork_id,
+			tx,
+		);
 
 		(<span class="self">Self </span>{ backend, request_receiver }, request_response_config)
 	}

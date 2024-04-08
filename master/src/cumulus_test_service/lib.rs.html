@@ -1090,6 +1090,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#941" id="941">941</a>
 <a href="#942" id="942">942</a>
 <a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1154,7 +1173,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_consensus::ImportQueue;
 <span class="kw">use </span>sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
-	multiaddr, NetworkBlock, NetworkService, NetworkStateInfo,
+	multiaddr,
+	service::traits::NetworkService,
+	NetworkBackend, NetworkBlock, NetworkStateInfo,
 };
 <span class="kw">use </span>sc_service::{
 	config::{
@@ -1166,7 +1187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
-<span class="kw">use </span>sp_core::{Pair, H256};
+<span class="kw">use </span>sp_core::Pair;
 <span class="kw">use </span>sp_keyring::Sr25519Keyring;
 <span class="kw">use </span>sp_runtime::{codec::Encode, generic};
 <span class="kw">use </span>sp_state_machine::BasicExternalities;
@@ -1396,7 +1417,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
 </span><span class="attr">#[sc_tracing::logging::prefix_logs_with(parachain_config.network.node_name.as_str())]
-</span><span class="kw">pub async fn </span>start_node_impl&lt;RB&gt;(
+</span><span class="kw">pub async fn </span>start_node_impl&lt;RB, Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	collator_key: <span class="prelude-ty">Option</span>&lt;CollatorPair&gt;,
 	relay_chain_config: Configuration,
@@ -1410,7 +1431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; sc_service::error::Result&lt;(
 	TaskManager,
 	Arc&lt;Client&gt;,
-	Arc&lt;NetworkService&lt;Block, H256&gt;&gt;,
+	Arc&lt;<span class="kw">dyn </span>NetworkService&gt;,
 	RpcHandlers,
 	TransactionPool,
 	Arc&lt;Backend&gt;,
@@ -1440,7 +1461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>.map_err(|e| sc_service::Error::Application(Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>import_queue_service = params.import_queue.service();
-	<span class="kw">let </span>net_config = FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>parachain_config.network);
+	<span class="kw">let </span>net_config = FullNetworkConfiguration::&lt;Block, Hash, Net&gt;::new(<span class="kw-2">&amp;</span>parachain_config.network);
 
 	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 		build_network(BuildNetworkParams {
@@ -1586,7 +1607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Client&#39;s instance.
 	</span><span class="kw">pub </span>client: Arc&lt;Client&gt;,
 	<span class="doccomment">/// Node&#39;s network.
-	</span><span class="kw">pub </span>network: Arc&lt;NetworkService&lt;Block, H256&gt;&gt;,
+	</span><span class="kw">pub </span>network: Arc&lt;<span class="kw">dyn </span>NetworkService&gt;,
 	<span class="doccomment">/// The `MultiaddrWithPeerId` to this node. This is useful if you want to pass it as &quot;boot
 	/// node&quot; to other nodes.
 	</span><span class="kw">pub </span>addr: MultiaddrWithPeerId,
@@ -1794,21 +1815,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>multiaddr = parachain_config.network.listen_addresses[<span class="number">0</span>].clone();
 		<span class="kw">let </span>(task_manager, client, network, rpc_handlers, transaction_pool, backend) =
-			start_node_impl(
-				parachain_config,
-				<span class="self">self</span>.collator_key,
-				relay_chain_config,
-				<span class="self">self</span>.para_id,
-				<span class="self">self</span>.wrap_announce_block,
-				<span class="bool-val">false</span>,
-				|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),
-				<span class="self">self</span>.consensus,
-				collator_options,
-				<span class="self">self</span>.record_proof_during_import,
-			)
-			.<span class="kw">await
-			</span>.expect(<span class="string">&quot;could not create Cumulus test service&quot;</span>);
-
+			<span class="kw">match </span>relay_chain_config.network.network_backend {
+				sc_network::config::NetworkBackendType::Libp2p =&gt;
+					start_node_impl::&lt;<span class="kw">_</span>, sc_network::NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(
+						parachain_config,
+						<span class="self">self</span>.collator_key,
+						relay_chain_config,
+						<span class="self">self</span>.para_id,
+						<span class="self">self</span>.wrap_announce_block,
+						<span class="bool-val">false</span>,
+						|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),
+						<span class="self">self</span>.consensus,
+						collator_options,
+						<span class="self">self</span>.record_proof_during_import,
+					)
+					.<span class="kw">await
+					</span>.expect(<span class="string">&quot;could not create Cumulus test service&quot;</span>),
+				sc_network::config::NetworkBackendType::Litep2p =&gt;
+					start_node_impl::&lt;<span class="kw">_</span>, sc_network::Litep2pNetworkBackend&gt;(
+						parachain_config,
+						<span class="self">self</span>.collator_key,
+						relay_chain_config,
+						<span class="self">self</span>.para_id,
+						<span class="self">self</span>.wrap_announce_block,
+						<span class="bool-val">false</span>,
+						|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),
+						<span class="self">self</span>.consensus,
+						collator_options,
+						<span class="self">self</span>.record_proof_during_import,
+					)
+					.<span class="kw">await
+					</span>.expect(<span class="string">&quot;could not create Cumulus test service&quot;</span>),
+			};
 		<span class="kw">let </span>peer_id = network.local_peer_id();
 		<span class="kw">let </span>addr = MultiaddrWithPeerId { multiaddr, peer_id };
 

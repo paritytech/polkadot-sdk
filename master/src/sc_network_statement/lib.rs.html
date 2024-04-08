@@ -631,6 +631,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -663,18 +675,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>, stream::FuturesUnordered, FutureExt};
-<span class="kw">use </span>libp2p::{multiaddr, PeerId};
 <span class="kw">use </span>prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 <span class="kw">use </span>sc_network::{
-	config::{NonDefaultSetConfig, NonReservedPeerMode, SetConfig},
-	error,
-	service::traits::{NotificationEvent, NotificationService, ValidationResult},
+	config::{NonReservedPeerMode, SetConfig},
+	error, multiaddr,
+	peer_store::PeerStoreProvider,
+	service::{
+		traits::{NotificationEvent, NotificationService, ValidationResult},
+		NotificationMetrics,
+	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkEventStream, NetworkNotification, NetworkPeers,
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 <span class="kw">use </span>sc_network_common::role::ObservedRole;
 <span class="kw">use </span>sc_network_sync::{SyncEvent, SyncEventStream};
+<span class="kw">use </span>sc_network_types::PeerId;
+<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>sp_statement_store::{
 	Hash, NetworkPriority, Statement, StatementSource, StatementStore, SubmitResult,
 };
@@ -740,17 +757,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>StatementHandlerPrototype {
 	<span class="doccomment">/// Create a new instance.
-	</span><span class="kw">pub fn </span>new&lt;Hash: AsRef&lt;[u8]&gt;&gt;(
+	</span><span class="kw">pub fn </span>new&lt;
+		Hash: AsRef&lt;[u8]&gt;,
+		Block: BlockT,
+		Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+	&gt;(
 		genesis_hash: Hash,
 		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	) -&gt; (<span class="self">Self</span>, NonDefaultSetConfig) {
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+	) -&gt; (<span class="self">Self</span>, Net::NotificationProtocolConfig) {
 		<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
 		<span class="kw">let </span>protocol_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
 			<span class="macro">format!</span>(<span class="string">&quot;/{}/{}/statement/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash), fork_id)
 		} <span class="kw">else </span>{
 			<span class="macro">format!</span>(<span class="string">&quot;/{}/statement/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash))
 		};
-		<span class="kw">let </span>(config, notification_service) = NonDefaultSetConfig::new(
+		<span class="kw">let </span>(config, notification_service) = Net::notification_config(
 			protocol_name.clone().into(),
 			Vec::new(),
 			MAX_STATEMENT_SIZE,
@@ -761,6 +784,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
+			metrics,
+			peer_store_handle,
 		);
 
 		(<span class="self">Self </span>{ protocol_name: protocol_name.into(), notification_service }, config)
@@ -771,7 +796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Important: the statements handler is initially disabled and doesn&#39;t gossip statements.
 	/// Gossiping is enabled when major syncing is done.
 	</span><span class="kw">pub fn </span>build&lt;
-		N: NetworkPeers + NetworkEventStream + NetworkNotification,
+		N: NetworkPeers + NetworkEventStream,
 		S: SyncEventStream + sp_consensus::SyncOracle,
 	&gt;(
 		<span class="self">self</span>,
@@ -834,7 +859,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Handler for statements. Call [`StatementHandler::run`] to start the processing.
 </span><span class="kw">pub struct </span>StatementHandler&lt;
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 &gt; {
 	protocol_name: ProtocolName,
@@ -874,7 +899,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;N, S&gt; StatementHandler&lt;N, S&gt;
 <span class="kw">where
-	</span>N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	</span>N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
 	<span class="doccomment">/// Turns the [`StatementHandler`] into a future that should run forever and not be
@@ -1092,8 +1117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if </span>!to_send.is_empty() {
 				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Sending {} statements to {}&quot;</span>, to_send.len(), who);
-				<span class="self">self</span>.network
-					.write_notification(<span class="kw-2">*</span>who, <span class="self">self</span>.protocol_name.clone(), to_send.encode());
+				<span class="self">self</span>.notification_service.send_sync_notification(who, to_send.encode());
 			}
 		}
 

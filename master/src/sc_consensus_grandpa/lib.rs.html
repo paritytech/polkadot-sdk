@@ -1365,6 +1365,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1216" id="1216">1216</a>
 <a href="#1217" id="1217">1217</a>
 <a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1434,7 +1438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BlockchainEvents, CallExecutor, ExecutorProvider, Finalizer, LockImportRun, StorageProvider,
 };
 <span class="kw">use </span>sc_consensus::BlockImport;
-<span class="kw">use </span>sc_network::{types::ProtocolName, NotificationService};
+<span class="kw">use </span>sc_network::{types::ProtocolName, NetworkBackend, NotificationService};
 <span class="kw">use </span>sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_INFO};
 <span class="kw">use </span>sc_transaction_pool_api::OffchainTransactionPoolFactory;
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
@@ -1710,7 +1714,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// connected to (NOTE: this assumption will change in the future #3629).
 	</span><span class="kw">fn </span>set_sync_fork_request(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		peers: Vec&lt;sc_network::PeerId&gt;,
+		peers: Vec&lt;sc_network_types::PeerId&gt;,
 		hash: Block::Hash,
 		number: NumberFor&lt;Block&gt;,
 	);
@@ -1724,7 +1728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">fn </span>set_sync_fork_request(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		peers: Vec&lt;sc_network::PeerId&gt;,
+		peers: Vec&lt;sc_network_types::PeerId&gt;,
 		hash: Block::Hash,
 		number: NumberFor&lt;Block&gt;,
 	) {
@@ -2074,11 +2078,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Returns the configuration value to put in
 /// [`sc_network::config::FullNetworkConfiguration`].
 /// For standard protocol name see [`crate::protocol_standard_name`].
-</span><span class="kw">pub fn </span>grandpa_peers_set_config(
+</span><span class="kw">pub fn </span>grandpa_peers_set_config&lt;B: BlockT, N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;(
 	protocol_name: ProtocolName,
-) -&gt; (sc_network::config::NonDefaultSetConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
+	metrics: sc_network::service::NotificationMetrics,
+	peer_store_handle: Arc&lt;<span class="kw">dyn </span>sc_network::peer_store::PeerStoreProvider&gt;,
+) -&gt; (N::NotificationProtocolConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
 	<span class="kw">use </span>communication::grandpa_protocol_name;
-	sc_network::config::NonDefaultSetConfig::new(
+	N::notification_config(
 		protocol_name,
 		grandpa_protocol_name::LEGACY_NAMES.iter().map(|<span class="kw-2">&amp;</span>n| n.into()).collect(),
 		<span class="comment">// Notifications reach ~256kiB in size at the time of writing on Kusama and Polkadot.
@@ -2090,6 +2096,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: sc_network::config::NonReservedPeerMode::Deny,
 		},
+		metrics,
+		peer_store_handle,
 	)
 }
 

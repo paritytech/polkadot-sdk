@@ -204,6 +204,62 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 //
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -226,12 +282,58 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Signature-related code
 
-</span><span class="kw">use </span>libp2p::{
-	identity::{Keypair, PublicKey},
-	PeerId,
-};
+</span><span class="kw">pub use </span>libp2p::identity::SigningError;
 
-<span class="kw">pub use </span>libp2p::identity::SigningError;
+<span class="doccomment">/// Public key.
+</span><span class="kw">pub enum </span>PublicKey {
+	<span class="doccomment">/// Litep2p public key.
+	</span>Libp2p(libp2p::identity::PublicKey),
+
+	<span class="doccomment">/// Libp2p public key.
+	</span>Litep2p(litep2p::crypto::PublicKey),
+}
+
+<span class="kw">impl </span>PublicKey {
+	<span class="doccomment">/// Protobuf-encode [`PublicKey`].
+	</span><span class="kw">pub fn </span>encode_protobuf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Libp2p(public) =&gt; public.encode_protobuf(),
+			<span class="self">Self</span>::Litep2p(public) =&gt; public.to_protobuf_encoding(),
+		}
+	}
+
+	<span class="doccomment">/// Get `PeerId` of the [`PublicKey`].
+	</span><span class="kw">pub fn </span>to_peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sc_network_types::PeerId {
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Libp2p(public) =&gt; public.to_peer_id().into(),
+			<span class="self">Self</span>::Litep2p(public) =&gt; public.to_peer_id().into(),
+		}
+	}
+}
+
+<span class="doccomment">/// Keypair.
+</span><span class="kw">pub enum </span>Keypair {
+	<span class="doccomment">/// Litep2p keypair.
+	</span>Libp2p(libp2p::identity::Keypair),
+
+	<span class="doccomment">/// Libp2p keypair.
+	</span>Litep2p(litep2p::crypto::ed25519::Keypair),
+}
+
+<span class="kw">impl </span>Keypair {
+	<span class="doccomment">/// Generate ed25519 keypair.
+	</span><span class="kw">pub fn </span>generate_ed25519() -&gt; <span class="self">Self </span>{
+		Keypair::Litep2p(litep2p::crypto::ed25519::Keypair::generate())
+	}
+
+	<span class="doccomment">/// Get [`Keypair`]&#39;s public key.
+	</span><span class="kw">pub fn </span>public(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PublicKey {
+		<span class="kw">match </span><span class="self">self </span>{
+			Keypair::Libp2p(keypair) =&gt; PublicKey::Libp2p(keypair.public()),
+			Keypair::Litep2p(keypair) =&gt; PublicKey::Litep2p(keypair.public().into()),
+		}
+	}
+}
 
 <span class="doccomment">/// A result of signing a message with a network identity. Since `PeerId` is potentially a hash of a
 /// `PublicKey`, you need to reveal the `PublicKey` next to the signature, so the verifier can check
@@ -239,26 +341,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>Signature {
 	<span class="doccomment">/// The public key derived from the network identity that signed the message.
 	</span><span class="kw">pub </span>public_key: PublicKey,
+
 	<span class="doccomment">/// The actual signature made for the message signed.
 	</span><span class="kw">pub </span>bytes: Vec&lt;u8&gt;,
 }
 
 <span class="kw">impl </span>Signature {
+	<span class="doccomment">/// Create new [`Signature`].
+	</span><span class="kw">pub fn </span>new(public_key: PublicKey, bytes: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ public_key, bytes }
+	}
+
 	<span class="doccomment">/// Create a signature for a message with a given network identity.
 	</span><span class="kw">pub fn </span>sign_message(
 		message: <span class="kw">impl </span>AsRef&lt;[u8]&gt;,
 		keypair: <span class="kw-2">&amp;</span>Keypair,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SigningError&gt; {
-		<span class="kw">let </span>public_key = keypair.public();
-		<span class="kw">let </span>bytes = keypair.sign(message.as_ref())<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ public_key, bytes })
-	}
+		<span class="kw">match </span>keypair {
+			Keypair::Libp2p(keypair) =&gt; {
+				<span class="kw">let </span>public_key = keypair.public();
+				<span class="kw">let </span>bytes = keypair.sign(message.as_ref())<span class="question-mark">?</span>;
 
-	<span class="doccomment">/// Verify whether the signature was made for the given message by the entity that controls the
-	/// given `PeerId`.
-	</span><span class="kw">pub fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw">impl </span>AsRef&lt;[u8]&gt;, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; bool {
-		<span class="kw-2">*</span>peer_id == <span class="self">self</span>.public_key.to_peer_id() &amp;&amp;
-			<span class="self">self</span>.public_key.verify(message.as_ref(), <span class="kw-2">&amp;</span><span class="self">self</span>.bytes)
+				<span class="prelude-val">Ok</span>(Signature { public_key: PublicKey::Libp2p(public_key), bytes })
+			},
+			Keypair::Litep2p(keypair) =&gt; {
+				<span class="kw">let </span>public_key = keypair.public();
+				<span class="kw">let </span>bytes = keypair.sign(message.as_ref());
+
+				<span class="prelude-val">Ok</span>(Signature { public_key: PublicKey::Litep2p(public_key.into()), bytes })
+			},
+		}
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

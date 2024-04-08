@@ -1041,21 +1041,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#892" id="892">892</a>
 <a href="#893" id="893">893</a>
 <a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
-<a href="#897" id="897">897</a>
-<a href="#898" id="898">898</a>
-<a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a>
-<a href="#901" id="901">901</a>
-<a href="#902" id="902">902</a>
-<a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
-<a href="#906" id="906">906</a>
-<a href="#907" id="907">907</a>
-<a href="#908" id="908">908</a>
-<a href="#909" id="909">909</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1090,9 +1075,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	channel::mpsc::{channel, Receiver, Sender},
 	prelude::<span class="kw-2">*</span>,
 };
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::trace;
 <span class="kw">use </span>prometheus_endpoint::Registry;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>std::{
 	collections::{HashMap, VecDeque},
@@ -1417,9 +1402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_network::{
 		config::MultiaddrWithPeerId,
 		service::traits::{Direction, MessageSink, NotificationEvent},
-		Event, NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
-		NotificationSenderError, NotificationSenderT <span class="kw">as </span>NotificationSender, NotificationService,
-		Roles,
+		Event, NetworkBlock, NetworkEventStream, NetworkPeers, NotificationService, Roles,
 	};
 	<span class="kw">use </span>sc_network_common::role::ObservedRole;
 	<span class="kw">use </span>sc_network_sync::SyncEventStream;
@@ -1439,7 +1422,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[derive(Clone, Default)]
 	</span><span class="kw">struct </span>TestNetworkInner {}
 
-	<span class="kw">impl </span>NetworkPeers <span class="kw">for </span>TestNetwork {
+	<span class="attr">#[async_trait::async_trait]
+	</span><span class="kw">impl </span>NetworkPeers <span class="kw">for </span>TestNetwork {
 		<span class="kw">fn </span>set_authorized_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, _peers: HashSet&lt;PeerId&gt;) {
 			<span class="macro">unimplemented!</span>();
 		}
@@ -1511,28 +1495,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.ok()
 				.and_then(|role| <span class="prelude-val">Some</span>(ObservedRole::from(role)))
 		}
+
+		<span class="kw">async fn </span>reserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerId&gt;, ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
 	}
 
 	<span class="kw">impl </span>NetworkEventStream <span class="kw">for </span>TestNetwork {
 		<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, _name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
-			<span class="macro">unimplemented!</span>();
-		}
-	}
-
-	<span class="kw">impl </span>NetworkNotification <span class="kw">for </span>TestNetwork {
-		<span class="kw">fn </span>write_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: PeerId, _protocol: ProtocolName, _message: Vec&lt;u8&gt;) {
-			<span class="macro">unimplemented!</span>();
-		}
-
-		<span class="kw">fn </span>notification_sender(
-			<span class="kw-2">&amp;</span><span class="self">self</span>,
-			_target: PeerId,
-			_protocol: ProtocolName,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSender&gt;, NotificationSenderError&gt; {
-			<span class="macro">unimplemented!</span>();
-		}
-
-		<span class="kw">fn </span>set_notification_handshake(<span class="kw-2">&amp;</span><span class="self">self</span>, _protocol: ProtocolName, _handshake: Vec&lt;u8&gt;) {
 			<span class="macro">unimplemented!</span>();
 		}
 	}
@@ -1602,12 +1572,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">unimplemented!</span>();
 		}
 
-		<span class="kw">fn </span>send_sync_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer: <span class="kw-2">&amp;</span>PeerId, _notification: Vec&lt;u8&gt;) {
+		<span class="kw">fn </span>send_sync_notification(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _peer: <span class="kw-2">&amp;</span>PeerId, _notification: Vec&lt;u8&gt;) {
 			<span class="macro">unimplemented!</span>();
 		}
 
 		<span class="kw">async fn </span>send_async_notification(
-			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 			_peer: <span class="kw-2">&amp;</span>PeerId,
 			_notification: Vec&lt;u8&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_network::error::Error&gt; {

@@ -720,10 +720,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#571" id="571">571</a>
 <a href="#572" id="572">572</a>
 <a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -799,9 +795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;Client&lt;<span class="self">Self</span>::Backend, <span class="self">Self</span>::Executor, <span class="self">Self</span>::Block, <span class="self">Self</span>::RuntimeApi&gt;&gt;;
 	<span class="kw">fn </span>transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="self">Self</span>::TransactionPool&gt;;
-	<span class="kw">fn </span>network(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; Arc&lt;sc_network::NetworkService&lt;<span class="self">Self</span>::Block, &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;;
+	<span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;;
 	<span class="kw">fn </span>sync(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SyncingService&lt;<span class="self">Self</span>::Block&gt;&gt;;
 	<span class="kw">fn </span>spawn_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SpawnTaskHandle;
 }
@@ -810,7 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	task_manager: Arc&lt;Mutex&lt;TaskManager&gt;&gt;,
 	client: Arc&lt;Client&lt;TBackend, TExec, TBl, TRtApi&gt;&gt;,
 	transaction_pool: Arc&lt;TExPool&gt;,
-	network: Arc&lt;sc_network::NetworkService&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;,
+	network: Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 	sync: Arc&lt;SyncingService&lt;TBl&gt;&gt;,
 }
 
@@ -820,7 +814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>new(
 		task_manager: TaskManager,
 		client: Arc&lt;Client&lt;TBackend, TExec, TBl, TRtApi&gt;&gt;,
-		network: Arc&lt;sc_network::NetworkService&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;,
+		network: Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 		sync: Arc&lt;SyncingService&lt;TBl&gt;&gt;,
 		transaction_pool: Arc&lt;TExPool&gt;,
 	) -&gt; <span class="self">Self </span>{
@@ -879,9 +873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="self">Self</span>::TransactionPool&gt; {
 		<span class="self">self</span>.transaction_pool.clone()
 	}
-	<span class="kw">fn </span>network(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; Arc&lt;sc_network::NetworkService&lt;<span class="self">Self</span>::Block, &lt;<span class="self">Self</span>::Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt; {
+	<span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt; {
 		<span class="self">self</span>.network.clone()
 	}
 	<span class="kw">fn </span>sync(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;SyncingService&lt;<span class="self">Self</span>::Block&gt;&gt; {

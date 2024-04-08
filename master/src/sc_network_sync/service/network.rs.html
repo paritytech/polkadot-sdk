@@ -305,30 +305,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -348,21 +324,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>futures::{channel::oneshot, StreamExt};
-<span class="kw">use </span>libp2p::PeerId;
+<span class="kw">use </span>sc_network_types::PeerId;
 
 <span class="kw">use </span>sc_network::{
 	request_responses::{IfDisconnected, RequestFailure},
 	types::ProtocolName,
-	NetworkNotification, NetworkPeers, NetworkRequest, ReputationChange,
+	NetworkPeers, NetworkRequest, ReputationChange,
 };
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="doccomment">/// Network-related services required by `sc-network-sync`
-</span><span class="kw">pub trait </span>Network: NetworkPeers + NetworkRequest + NetworkNotification {}
+</span><span class="kw">pub trait </span>Network: NetworkPeers + NetworkRequest {}
 
-<span class="kw">impl</span>&lt;T&gt; Network <span class="kw">for </span>T <span class="kw">where </span>T: NetworkPeers + NetworkRequest + NetworkNotification {}
+<span class="kw">impl</span>&lt;T&gt; Network <span class="kw">for </span>T <span class="kw">where </span>T: NetworkPeers + NetworkRequest {}
 
 <span class="doccomment">/// Network service provider for `ChainSync`
 ///
@@ -388,12 +364,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 		IfDisconnected,
 	),
-
-	<span class="doccomment">/// Call `NetworkNotification::write_notification()`
-	</span>WriteNotification(PeerId, ProtocolName, Vec&lt;u8&gt;),
-
-	<span class="doccomment">/// Call `NetworkNotification::set_notification_handshake()`
-	</span>SetNotificationHandshake(ProtocolName, Vec&lt;u8&gt;),
 }
 
 <span class="doccomment">/// Handle that is (temporarily) passed to `ChainSync` so it can
@@ -432,20 +402,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.tx
 			.unbounded_send(ToServiceCommand::StartRequest(who, protocol, request, tx, connect));
 	}
-
-	<span class="doccomment">/// Send notification to peer
-	</span><span class="kw">pub fn </span>write_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, protocol: ProtocolName, message: Vec&lt;u8&gt;) {
-		<span class="kw">let _ </span>= <span class="self">self
-			</span>.tx
-			.unbounded_send(ToServiceCommand::WriteNotification(who, protocol, message));
-	}
-
-	<span class="doccomment">/// Set handshake for the notification protocol.
-	</span><span class="kw">pub fn </span>set_notification_handshake(<span class="kw-2">&amp;</span><span class="self">self</span>, protocol: ProtocolName, handshake: Vec&lt;u8&gt;) {
-		<span class="kw">let _ </span>= <span class="self">self
-			</span>.tx
-			.unbounded_send(ToServiceCommand::SetNotificationHandshake(protocol, handshake));
-	}
 }
 
 <span class="kw">impl </span>NetworkServiceProvider {
@@ -466,10 +422,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					service.report_peer(peer, reputation_change),
 				ToServiceCommand::StartRequest(peer, protocol, request, tx, connect) =&gt;
 					service.start_request(peer, protocol, request, <span class="prelude-val">None</span>, tx, connect),
-				ToServiceCommand::WriteNotification(peer, protocol, message) =&gt;
-					service.write_notification(peer, protocol, message),
-				ToServiceCommand::SetNotificationHandshake(protocol, handshake) =&gt;
-					service.set_notification_handshake(protocol, handshake),
 			}
 		}
 	}

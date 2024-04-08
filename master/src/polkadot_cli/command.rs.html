@@ -643,6 +643,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1096,8 +1098,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>) {
 						runner.sync_run(|config| {
-							cmd.run::&lt;sp_runtime::traits::HashingFor&lt;service::Block&gt;, ()&gt;(config)
-								.map_err(|e| Error::SubstrateCli(e))
+							cmd.run_with_spec::&lt;sp_runtime::traits::HashingFor&lt;service::Block&gt;, ()&gt;(
+								<span class="prelude-val">Some</span>(config.chain_spec),
+							)
+							.map_err(|e| Error::SubstrateCli(e))
 						})
 					} <span class="kw">else </span>{
 						<span class="prelude-val">Err</span>(sc_cli::Error::Input(

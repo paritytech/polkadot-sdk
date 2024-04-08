@@ -296,6 +296,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -363,17 +374,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Returns the configuration value to put in
 /// [`sc_network::config::FullNetworkConfiguration`].
 /// For standard protocol name see [`beefy_protocol_name::gossip_protocol_name`].
-</span><span class="kw">pub fn </span>beefy_peers_set_config(
+</span><span class="kw">pub fn </span>beefy_peers_set_config&lt;
+	B: sp_runtime::traits::Block,
+	N: sc_network::NetworkBackend&lt;B, &lt;B <span class="kw">as </span>sp_runtime::traits::Block&gt;::Hash&gt;,
+&gt;(
 	gossip_protocol_name: sc_network::ProtocolName,
-) -&gt; (sc_network::config::NonDefaultSetConfig, Box&lt;<span class="kw">dyn </span>sc_network::NotificationService&gt;) {
-	<span class="kw">let </span>(<span class="kw-2">mut </span>cfg, notification_service) = sc_network::config::NonDefaultSetConfig::new(
+	metrics: sc_network::service::NotificationMetrics,
+	peer_store_handle: std::sync::Arc&lt;<span class="kw">dyn </span>sc_network::peer_store::PeerStoreProvider&gt;,
+) -&gt; (N::NotificationProtocolConfig, Box&lt;<span class="kw">dyn </span>sc_network::NotificationService&gt;) {
+	<span class="kw">let </span>(cfg, notification_service) = N::notification_config(
 		gossip_protocol_name,
 		Vec::new(),
 		<span class="number">1024 </span>* <span class="number">1024</span>,
 		<span class="prelude-val">None</span>,
-		Default::default(),
+		sc_network::config::SetConfig {
+			in_peers: <span class="number">25</span>,
+			out_peers: <span class="number">25</span>,
+			reserved_nodes: Vec::new(),
+			non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
+		},
+		metrics,
+		peer_store_handle,
 	);
-	cfg.allow_non_reserved(<span class="number">25</span>, <span class="number">25</span>);
 	(cfg, notification_service)
 }
 

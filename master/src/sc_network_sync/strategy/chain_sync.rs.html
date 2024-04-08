@@ -2450,7 +2450,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>codec::Encode;
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::{debug, error, info, trace, warn};
 <span class="kw">use </span>prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
 <span class="kw">use </span>sc_client_api::{BlockBackend, ProofProvider};
@@ -2458,6 +2457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, BlockResponse, Direction, FromBlock,
 };
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_arithmetic::traits::Saturating;
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>ClientError, HeaderBackend, HeaderMetadata};
 <span class="kw">use </span>sp_consensus::{BlockOrigin, BlockStatus};

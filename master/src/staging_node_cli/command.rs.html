@@ -491,7 +491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							)
 						}
 
-						cmd.run::&lt;HashingFor&lt;Block&gt;, sp_statement_store::runtime_api::HostFunctions&gt;(config)
+						cmd.run_with_spec::&lt;HashingFor&lt;Block&gt;, sp_statement_store::runtime_api::HostFunctions&gt;(<span class="prelude-val">Some</span>(config.chain_spec))
 					},
 					BenchmarkCmd::Block(cmd) =&gt; {
 						<span class="comment">// ensure that we keep the task manager alive

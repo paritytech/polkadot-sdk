@@ -704,7 +704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use super</span>::{Block, Error, Hash, IsParachainNode, Registry};
+</span><span class="kw">use super</span>::{Error, IsParachainNode, Registry};
 <span class="kw">use </span>polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
 <span class="kw">use </span>polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 <span class="kw">use </span>sp_core::traits::SpawnNamed;
@@ -770,7 +770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Runtime client generic, providing the `ProvideRuntimeApi` trait besides others.
 	</span><span class="kw">pub </span>runtime_client: Arc&lt;RuntimeClient&gt;,
 	<span class="doccomment">/// Underlying network service implementation.
-	</span><span class="kw">pub </span>network_service: Arc&lt;sc_network::NetworkService&lt;Block, Hash&gt;&gt;,
+	</span><span class="kw">pub </span>network_service: Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 	<span class="doccomment">/// Underlying syncing service implementation.
 	</span><span class="kw">pub </span>sync_service: Arc&lt;<span class="kw">dyn </span>consensus_common::SyncOracle + Send + Sync&gt;,
 	<span class="doccomment">/// Underlying authority discovery service.
@@ -873,11 +873,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeApiSubsystem&lt;RuntimeClient&gt;,
 		AvailabilityStoreSubsystem,
 		NetworkBridgeRxSubsystem&lt;
-			Arc&lt;sc_network::NetworkService&lt;Block, Hash&gt;&gt;,
+			Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 			AuthorityDiscoveryService,
 		&gt;,
 		NetworkBridgeTxSubsystem&lt;
-			Arc&lt;sc_network::NetworkService&lt;Block, Hash&gt;&gt;,
+			Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 			AuthorityDiscoveryService,
 		&gt;,
 		ChainApiSubsystem&lt;RuntimeClient&gt;,
@@ -1059,11 +1059,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeApiSubsystem&lt;RuntimeClient&gt;,
 		DummySubsystem,
 		NetworkBridgeRxSubsystem&lt;
-			Arc&lt;sc_network::NetworkService&lt;Block, Hash&gt;&gt;,
+			Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 			AuthorityDiscoveryService,
 		&gt;,
 		NetworkBridgeTxSubsystem&lt;
-			Arc&lt;sc_network::NetworkService&lt;Block, Hash&gt;&gt;,
+			Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 			AuthorityDiscoveryService,
 		&gt;,
 		ChainApiSubsystem&lt;RuntimeClient&gt;,

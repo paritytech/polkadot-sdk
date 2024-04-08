@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"struct":["NoCounterpart","WithMaximumOf"]};
+window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"struct":["NoCounterpart","WithMaximumOf"],"trait":["BenchmarkSetup"]};

@@ -391,6 +391,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -499,6 +504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	fund_deficit {
+		T::BenchmarkSetup::create_counterpart_asset();
 		<span class="kw">let </span>origin =
 			T::FundOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
@@ -519,6 +525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	communify {
+		T::BenchmarkSetup::create_counterpart_asset();
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let </span>bid = T::MinBid::get().max(One::one()) * <span class="number">100u32</span>.into();
 		<span class="kw">let </span>ed = T::Currency::minimum_balance();
@@ -532,6 +539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	privatize {
+		T::BenchmarkSetup::create_counterpart_asset();
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let </span>bid = T::MinBid::get().max(One::one());
 		<span class="kw">let </span>ed = T::Currency::minimum_balance();
@@ -546,6 +554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	thaw_private {
+		T::BenchmarkSetup::create_counterpart_asset();
 		<span class="kw">let </span>whale: T::AccountId = account(<span class="string">&quot;whale&quot;</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let </span>bid = T::MinBid::get().max(One::one());
@@ -563,6 +572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	thaw_communal {
+		T::BenchmarkSetup::create_counterpart_asset();
 		<span class="kw">let </span>whale: T::AccountId = account(<span class="string">&quot;whale&quot;</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let </span>bid = T::MinBid::get().max(One::one());

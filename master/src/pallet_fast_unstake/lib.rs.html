@@ -1337,7 +1337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>!remaining.is_zero() {
 					<span class="self">Self</span>::halt(<span class="string">&quot;not enough balance to unreserve&quot;</span>);
 				} <span class="kw">else </span>{
-					<span class="macro">log!</span>(info, <span class="string">&quot;unstaked {:?}, outcome: {:?}&quot;</span>, stash, result);
+					<span class="macro">log!</span>(debug, <span class="string">&quot;unstaked {:?}, outcome: {:?}&quot;</span>, stash, result);
 					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Unstaked { stash, result });
 				}
 			};

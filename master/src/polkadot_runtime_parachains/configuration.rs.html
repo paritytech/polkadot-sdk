@@ -1587,6 +1587,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1438" id="1438">1438</a>
 <a href="#1439" id="1439">1439</a>
 <a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1820,7 +1843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;BlockNumber: Default + From&lt;u32&gt;&gt; Default <span class="kw">for </span>HostConfiguration&lt;BlockNumber&gt; {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{
+		<span class="kw">let </span>ret = <span class="self">Self </span>{
 			async_backing_params: AsyncBackingParams {
 				max_candidate_depth: <span class="number">0</span>,
 				allowed_ancestry_len: <span class="number">0</span>,
@@ -1859,8 +1882,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 			scheduler_params: Default::default(),
-		}
+		};
+
+		<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="kw">let </span>ret = ret.with_benchmarking_default();
+		ret
 	}
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">impl</span>&lt;BlockNumber: Default + From&lt;u32&gt;&gt; HostConfiguration&lt;BlockNumber&gt; {
+	<span class="doccomment">/// Mutate the values of self to be good estimates for benchmarking.
+	///
+	/// The values do not need to be worst-case, since the benchmarking logic extrapolates. They
+	/// should be a bit more than usually expected.
+	</span><span class="kw">fn </span>with_benchmarking_default(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.max_head_data_size = <span class="self">self</span>.max_head_data_size.max(<span class="number">1 </span>&lt;&lt; <span class="number">20</span>);
+		<span class="self">self</span>.max_downward_message_size = <span class="self">self</span>.max_downward_message_size.max(<span class="number">1 </span>&lt;&lt; <span class="number">16</span>);
+		<span class="self">self</span>.hrmp_channel_max_capacity = <span class="self">self</span>.hrmp_channel_max_capacity.max(<span class="number">1000</span>);
+		<span class="self">self</span>.hrmp_channel_max_message_size = <span class="self">self</span>.hrmp_channel_max_message_size.max(<span class="number">1 </span>&lt;&lt; <span class="number">16</span>);
+		<span class="self">self</span>.hrmp_max_parachain_inbound_channels =
+			<span class="self">self</span>.hrmp_max_parachain_inbound_channels.max(<span class="number">100</span>);
+		<span class="self">self</span>.hrmp_max_parachain_outbound_channels =
+			<span class="self">self</span>.hrmp_max_parachain_outbound_channels.max(<span class="number">100</span>);
+		<span class="self">self
+	</span>}
 }
 
 <span class="doccomment">/// Enumerates the possible inconsistencies of `HostConfiguration`.

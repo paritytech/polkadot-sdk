@@ -436,7 +436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">benchmarks! </span>{
 	force_set_current_code {
-		<span class="kw">let </span>c <span class="kw">in </span><span class="number">1 </span>.. MAX_CODE_SIZE;
+		<span class="kw">let </span>c <span class="kw">in </span>MIN_CODE_SIZE .. MAX_CODE_SIZE;
 		<span class="kw">let </span>new_code = ValidationCode(<span class="macro">vec!</span>[<span class="number">0</span>; c <span class="kw">as </span>usize]);
 		<span class="kw">let </span>para_id = ParaId::from(c <span class="kw">as </span>u32);
 		CurrentCodeHash::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>para_id, new_code.hash());
@@ -446,7 +446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_last_event::&lt;T&gt;(Event::CurrentCodeUpdated(para_id).into());
 	}
 	force_set_current_head {
-		<span class="kw">let </span>s <span class="kw">in </span><span class="number">1 </span>.. MAX_HEAD_DATA_SIZE;
+		<span class="kw">let </span>s <span class="kw">in </span>MIN_CODE_SIZE .. MAX_HEAD_DATA_SIZE;
 		<span class="kw">let </span>new_head = HeadData(<span class="macro">vec!</span>[<span class="number">0</span>; s <span class="kw">as </span>usize]);
 		<span class="kw">let </span>para_id = ParaId::from(<span class="number">1000</span>);
 	}: <span class="kw">_</span>(RawOrigin::Root, para_id, new_head)
@@ -458,7 +458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>context = BlockNumberFor::&lt;T&gt;::from(<span class="number">1000u32</span>);
 	}: <span class="kw">_</span>(RawOrigin::Root, para_id, context)
 	force_schedule_code_upgrade {
-		<span class="kw">let </span>c <span class="kw">in </span><span class="number">1 </span>.. MAX_CODE_SIZE;
+		<span class="kw">let </span>c <span class="kw">in </span>MIN_CODE_SIZE .. MAX_CODE_SIZE;
 		<span class="kw">let </span>new_code = ValidationCode(<span class="macro">vec!</span>[<span class="number">0</span>; c <span class="kw">as </span>usize]);
 		<span class="kw">let </span>para_id = ParaId::from(c <span class="kw">as </span>u32);
 		<span class="kw">let </span>block = BlockNumberFor::&lt;T&gt;::from(c);
@@ -468,7 +468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_last_event::&lt;T&gt;(Event::CodeUpgradeScheduled(para_id).into());
 	}
 	force_note_new_head {
-		<span class="kw">let </span>s <span class="kw">in </span><span class="number">1 </span>.. MAX_HEAD_DATA_SIZE;
+		<span class="kw">let </span>s <span class="kw">in </span>MIN_CODE_SIZE .. MAX_HEAD_DATA_SIZE;
 		<span class="kw">let </span>para_id = ParaId::from(<span class="number">1000</span>);
 		<span class="kw">let </span>new_head = HeadData(<span class="macro">vec!</span>[<span class="number">0</span>; s <span class="kw">as </span>usize]);
 		<span class="kw">let </span>old_code_hash = ValidationCode(<span class="macro">vec!</span>[<span class="number">0</span>]).hash();
@@ -480,7 +480,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		generate_disordered_pruning::&lt;T&gt;();
 		Pallet::&lt;T&gt;::schedule_code_upgrade(
 			para_id,
-			ValidationCode(<span class="macro">vec!</span>[<span class="number">0</span>]),
+			ValidationCode(<span class="macro">vec!</span>[<span class="number">0u8</span>; MIN_CODE_SIZE <span class="kw">as </span>usize]),
 			expired,
 			<span class="kw-2">&amp;</span>config,
 			UpgradeStrategy::SetGoAheadSignal,
@@ -499,7 +499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	add_trusted_validation_code {
-		<span class="kw">let </span>c <span class="kw">in </span><span class="number">1 </span>.. MAX_CODE_SIZE;
+		<span class="kw">let </span>c <span class="kw">in </span>MIN_CODE_SIZE .. MAX_CODE_SIZE;
 		<span class="kw">let </span>new_code = ValidationCode(<span class="macro">vec!</span>[<span class="number">0</span>; c <span class="kw">as </span>usize]);
 
 		pvf_check::prepare_bypassing_bench::&lt;T&gt;(new_code.clone());

@@ -1026,6 +1026,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#877" id="877">877</a>
 <a href="#878" id="878">878</a>
 <a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1046,8 +1052,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>std::{collections::BTreeSet, sync::Arc, time::Duration};
 
-<span class="kw">use </span>sc_network::{NetworkPeers, PeerId, ReputationChange};
+<span class="kw">use </span>sc_network::{NetworkPeers, ReputationChange};
 <span class="kw">use </span>sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
 <span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
@@ -1534,7 +1541,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl </span>NetworkPeers <span class="kw">for </span>TestNetwork {
+	<span class="attr">#[async_trait::async_trait]
+	</span><span class="kw">impl </span>NetworkPeers <span class="kw">for </span>TestNetwork {
 		<span class="kw">fn </span>set_authorized_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: std::collections::HashSet&lt;PeerId&gt;) {
 			<span class="macro">unimplemented!</span>()
 		}
@@ -1609,6 +1617,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: PeerId, <span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;sc_network::ObservedRole&gt; {
 			<span class="macro">unimplemented!</span>()
 		}
+
+		<span class="kw">async fn </span>reserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerId&gt;, ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
 	}
 
 	<span class="kw">struct </span>TestContext;
@@ -1619,11 +1631,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>broadcast_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _topic: B::Hash, _message: Vec&lt;u8&gt;, _force: bool) {}
 
-		<span class="kw">fn </span>send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _who: <span class="kw-2">&amp;</span>sc_network::PeerId, _message: Vec&lt;u8&gt;) {
+		<span class="kw">fn </span>send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _who: <span class="kw-2">&amp;</span>sc_network_types::PeerId, _message: Vec&lt;u8&gt;) {
 			<span class="macro">unimplemented!</span>()
 		}
 
-		<span class="kw">fn </span>send_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _who: <span class="kw-2">&amp;</span>sc_network::PeerId, _topic: B::Hash, _force: bool) {
+		<span class="kw">fn </span>send_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _who: <span class="kw-2">&amp;</span>sc_network_types::PeerId, _topic: B::Hash, _force: bool) {
 			<span class="macro">unimplemented!</span>()
 		}
 	}
@@ -1800,7 +1812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Arc::new(TestNetwork::new().<span class="number">0</span>),
 		);
 		gv.update_filter(GossipFilterCfg { start: <span class="number">0</span>, end: <span class="number">10</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
-		<span class="kw">let </span>sender = sc_network::PeerId::random();
+		<span class="kw">let </span>sender = sc_network_types::PeerId::random();
 		<span class="kw">let </span>topic = Default::default();
 		<span class="kw">let </span>intent = MessageIntent::Broadcast;
 
@@ -1880,7 +1892,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Arc::new(TestNetwork::new().<span class="number">0</span>),
 		);
 		gv.update_filter(GossipFilterCfg { start: <span class="number">0</span>, end: <span class="number">10</span>, validator_set: <span class="kw-2">&amp;</span>validator_set });
-		<span class="kw">let </span>sender = sc_network::PeerId::random();
+		<span class="kw">let </span>sender = sc_network_types::PeerId::random();
 		<span class="kw">let </span>topic = Default::default();
 
 		<span class="kw">let </span>vote = dummy_vote(<span class="number">1</span>);

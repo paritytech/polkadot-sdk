@@ -3398,6 +3398,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3249" id="3249">3249</a>
 <a href="#3250" id="3250">3250</a>
 <a href="#3251" id="3251">3251</a>
+<a href="#3252" id="3252">3252</a>
+<a href="#3253" id="3253">3253</a>
+<a href="#3254" id="3254">3254</a>
+<a href="#3255" id="3255">3255</a>
+<a href="#3256" id="3256">3256</a>
+<a href="#3257" id="3257">3257</a>
+<a href="#3258" id="3258">3258</a>
+<a href="#3259" id="3259">3259</a>
+<a href="#3260" id="3260">3260</a>
+<a href="#3261" id="3261">3261</a>
+<a href="#3262" id="3262">3262</a>
+<a href="#3263" id="3263">3263</a>
+<a href="#3264" id="3264">3264</a>
+<a href="#3265" id="3265">3265</a>
+<a href="#3266" id="3266">3266</a>
+<a href="#3267" id="3267">3267</a>
+<a href="#3268" id="3268">3268</a>
+<a href="#3269" id="3269">3269</a>
+<a href="#3270" id="3270">3270</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5159,6 +5178,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxIntakeWeight = MaxIntakeWeight;
 	<span class="kw">type </span>ThawThrottle = ThawThrottle;
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>BenchmarkSetup = SetupAsset;
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">pub struct </span>SetupAsset;
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">impl </span>pallet_nis::BenchmarkSetup <span class="kw">for </span>SetupAsset {
+	<span class="kw">fn </span>create_counterpart_asset() {
+		<span class="kw">let </span>owner = AccountId::from([<span class="number">0u8</span>; <span class="number">32</span>]);
+		<span class="comment">// this may or may not fail depending on if the chain spec or runtime genesis is used.
+		</span><span class="kw">let _ </span>= Assets::force_create(
+			RuntimeOrigin::root(),
+			<span class="number">9u32</span>.into(),
+			sp_runtime::MultiAddress::Id(owner),
+			<span class="bool-val">true</span>,
+			<span class="number">1</span>,
+		);
+	}
 }
 
 <span class="macro">parameter_types! </span>{

@@ -487,15 +487,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::schema;
 <span class="kw">use </span>codec::{<span class="self">self</span>, Decode, Encode};
 <span class="kw">use </span>futures::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>log::{debug, trace};
 <span class="kw">use </span>prost::Message;
 <span class="kw">use </span>sc_client_api::{BlockBackend, ProofProvider};
 <span class="kw">use </span>sc_network::{
 	config::ProtocolId,
-	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
-	ReputationChange,
+	request_responses::{IncomingRequest, OutgoingResponse},
+	NetworkBackend, ReputationChange,
 };
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_core::{
 	hexdisplay::HexDisplay,
 	storage::{ChildInfo, ChildType, PrefixedStorageKey},
@@ -523,14 +523,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Client: BlockBackend&lt;B&gt; + ProofProvider&lt;B&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
 	<span class="doccomment">/// Create a new [`LightClientRequestHandler`].
-	</span><span class="kw">pub fn </span>new(
+	</span><span class="kw">pub fn </span>new&lt;N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>Block&gt;::Hash&gt;&gt;(
 		protocol_id: <span class="kw-2">&amp;</span>ProtocolId,
 		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 		client: Arc&lt;Client&gt;,
-	) -&gt; (<span class="self">Self</span>, ProtocolConfig) {
+	) -&gt; (<span class="self">Self</span>, N::RequestResponseProtocolConfig) {
 		<span class="kw">let </span>(tx, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
 
-		<span class="kw">let </span><span class="kw-2">mut </span>protocol_config = <span class="kw">super</span>::generate_protocol_config(
+		<span class="kw">let </span>protocol_config = <span class="kw">super</span>::generate_protocol_config::&lt;<span class="kw">_</span>, B, N&gt;(
 			protocol_id,
 			client
 				.block_hash(<span class="number">0u32</span>.into())
@@ -538,8 +538,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.flatten()
 				.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
 			fork_id,
+			tx,
 		);
-		protocol_config.inbound_queue = <span class="prelude-val">Some</span>(tx);
 
 		(<span class="self">Self </span>{ client, request_receiver, _block: PhantomData::default() }, protocol_config)
 	}

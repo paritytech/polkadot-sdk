@@ -661,6 +661,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -693,20 +708,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>futures::{prelude::<span class="kw-2">*</span>, stream::FuturesUnordered};
-<span class="kw">use </span>libp2p::{multiaddr, PeerId};
 <span class="kw">use </span>log::{debug, trace, warn};
 
 <span class="kw">use </span>prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 <span class="kw">use </span>sc_network::{
-	config::{NonDefaultSetConfig, NonReservedPeerMode, ProtocolId, SetConfig},
-	error,
-	service::traits::{NotificationEvent, NotificationService, ValidationResult},
+	config::{NonReservedPeerMode, ProtocolId, SetConfig},
+	error, multiaddr,
+	peer_store::PeerStoreProvider,
+	service::{
+		traits::{NotificationEvent, NotificationService, ValidationResult},
+		NotificationMetrics,
+	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkEventStream, NetworkNotification, NetworkPeers,
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 <span class="kw">use </span>sc_network_common::{role::ObservedRole, ExHashT};
 <span class="kw">use </span>sc_network_sync::{SyncEvent, SyncEventStream};
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
@@ -723,6 +742,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A set of transactions.
 </span><span class="kw">pub type </span>Transactions&lt;E&gt; = Vec&lt;E&gt;;
+
+<span class="doccomment">/// Logging target for the file.
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sync&quot;</span>;
 
 <span class="kw">mod </span>rep {
 	<span class="kw">use </span>sc_network::ReputationChange <span class="kw">as </span>Rep;
@@ -787,11 +809,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>TransactionsHandlerPrototype {
 	<span class="doccomment">/// Create a new instance.
-	</span><span class="kw">pub fn </span>new&lt;Hash: AsRef&lt;[u8]&gt;&gt;(
+	</span><span class="kw">pub fn </span>new&lt;
+		Hash: AsRef&lt;[u8]&gt;,
+		Block: BlockT,
+		Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+	&gt;(
 		protocol_id: ProtocolId,
 		genesis_hash: Hash,
 		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-	) -&gt; (<span class="self">Self</span>, NonDefaultSetConfig) {
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+	) -&gt; (<span class="self">Self</span>, Net::NotificationProtocolConfig) {
 		<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
 		<span class="kw">let </span>protocol_name: ProtocolName = <span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
 			<span class="macro">format!</span>(<span class="string">&quot;/{}/{}/transactions/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash), fork_id)
@@ -799,7 +827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">format!</span>(<span class="string">&quot;/{}/transactions/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash))
 		}
 		.into();
-		<span class="kw">let </span>(config, notification_service) = NonDefaultSetConfig::new(
+		<span class="kw">let </span>(config, notification_service) = Net::notification_config(
 			protocol_name.clone(),
 			<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">&quot;/{}/transactions/1&quot;</span>, protocol_id.as_ref()).into()],
 			MAX_TRANSACTIONS_SIZE,
@@ -810,6 +838,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
+			metrics,
+			peer_store_handle,
 		);
 
 		(<span class="self">Self </span>{ protocol_name, notification_service }, config)
@@ -823,7 +853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>build&lt;
 		B: BlockT + <span class="lifetime">&#39;static</span>,
 		H: ExHashT,
-		N: NetworkPeers + NetworkEventStream + NetworkNotification,
+		N: NetworkPeers + NetworkEventStream,
 		S: SyncEventStream + sp_consensus::SyncOracle,
 	&gt;(
 		<span class="self">self</span>,
@@ -894,7 +924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>TransactionsHandler&lt;
 	B: BlockT + <span class="lifetime">&#39;static</span>,
 	H: ExHashT,
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 &gt; {
 	protocol_name: ProtocolName,
@@ -935,7 +965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
 	H: ExHashT,
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
 	<span class="doccomment">/// Turns the [`TransactionsHandler`] into a future that should run forever and not be
@@ -1032,7 +1062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					iter::once(addr).collect(),
 				);
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
-					<span class="macro">log::error!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Add reserved peer failed: {}&quot;</span>, err);
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Add reserved peer failed: {}&quot;</span>, err);
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) =&gt; {
@@ -1041,7 +1071,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					iter::once(remote).collect(),
 				);
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
-					<span class="macro">log::error!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Remove reserved peer failed: {}&quot;</span>, err);
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Remove reserved peer failed: {}&quot;</span>, err);
 				}
 			},
 		}
@@ -1051,16 +1081,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>on_transactions(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: PeerId, transactions: Transactions&lt;B::Extrinsic&gt;) {
 		<span class="comment">// Accept transactions only when node is not major syncing
 		</span><span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() {
-			<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;{} Ignoring transactions while major syncing&quot;</span>, who);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;{} Ignoring transactions while major syncing&quot;</span>, who);
 			<span class="kw">return
 		</span>}
 
-		<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Received {} transactions from {}&quot;</span>, transactions.len(), who);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Received {} transactions from {}&quot;</span>, transactions.len(), who);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>who) {
 			<span class="kw">for </span>t <span class="kw">in </span>transactions {
 				<span class="kw">if </span><span class="self">self</span>.pending_transactions.len() &gt; MAX_PENDING_TRANSACTIONS {
 					<span class="macro">debug!</span>(
-						target: <span class="string">&quot;sync&quot;</span>,
+						target: LOG_TARGET,
 						<span class="string">&quot;Ignoring any further transactions that exceed `MAX_PENDING_TRANSACTIONS`({}) limit&quot;</span>,
 						MAX_PENDING_TRANSACTIONS,
 					);
@@ -1105,7 +1135,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>}
 
-		<span class="macro">debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Propagating transaction [{:?}]&quot;</span>, hash);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Propagating transaction [{:?}]&quot;</span>, hash);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(transaction) = <span class="self">self</span>.transaction_pool.transaction(hash) {
 			<span class="kw">let </span>propagated_to = <span class="self">self</span>.do_propagate_transactions(<span class="kw-2">&amp;</span>[(hash.clone(), transaction)]);
 			<span class="self">self</span>.transaction_pool.on_broadcasted(propagated_to);
@@ -1169,7 +1199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>}
 
-		<span class="macro">debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Propagating transactions&quot;</span>);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Propagating transactions&quot;</span>);
 		<span class="kw">let </span>transactions = <span class="self">self</span>.transaction_pool.transactions();
 		<span class="kw">let </span>propagated_to = <span class="self">self</span>.do_propagate_transactions(<span class="kw-2">&amp;</span>transactions);
 		<span class="self">self</span>.transaction_pool.on_broadcasted(propagated_to);

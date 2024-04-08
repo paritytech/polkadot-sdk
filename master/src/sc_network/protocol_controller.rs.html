@@ -2175,6 +2175,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2026" id="2026">2026</a>
 <a href="#2027" id="2027">2027</a>
 <a href="#2028" id="2028">2028</a>
+<a href="#2029" id="2029">2029</a>
+<a href="#2030" id="2030">2030</a>
+<a href="#2031" id="2031">2031</a>
+<a href="#2032" id="2032">2032</a>
+<a href="#2033" id="2033">2033</a>
+<a href="#2034" id="2034">2034</a>
+<a href="#2035" id="2035">2035</a>
+<a href="#2036" id="2036">2036</a>
+<a href="#2037" id="2037">2037</a>
+<a href="#2038" id="2038">2038</a>
+<a href="#2039" id="2039">2039</a>
+<a href="#2040" id="2040">2040</a>
+<a href="#2041" id="2041">2041</a>
+<a href="#2042" id="2042">2042</a>
+<a href="#2043" id="2043">2043</a>
+<a href="#2044" id="2044">2044</a>
+<a href="#2045" id="2045">2045</a>
+<a href="#2046" id="2046">2046</a>
+<a href="#2047" id="2047">2047</a>
+<a href="#2048" id="2048">2048</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2218,18 +2238,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Even though this does not guarantee that `ProtocolController` and `Notifications` have the same
 //! view of the peers&#39; states at any given moment, the eventual consistency is maintained.
 
-</span><span class="kw">use </span>futures::{channel::oneshot, future::Either, FutureExt, StreamExt};
-<span class="kw">use </span>libp2p::PeerId;
+</span><span class="kw">use crate</span>::{
+	peer_store::{PeerStoreProvider, ProtocolHandle <span class="kw">as </span>ProtocolHandleT},
+	PeerId,
+};
+
+<span class="kw">use </span>futures::{channel::oneshot, future::Either, FutureExt, StreamExt};
 <span class="kw">use </span>log::{debug, error, trace, warn};
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
 <span class="kw">use </span>std::{
 	collections::{HashMap, HashSet},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 <span class="kw">use </span>wasm_timer::Delay;
-
-<span class="kw">use </span><span class="kw">crate</span>::peer_store::PeerStoreProvider;
 
 <span class="doccomment">/// Log target for this file.
 </span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;peerset&quot;</span>;
@@ -2407,6 +2430,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
+<span class="kw">impl </span>ProtocolHandleT <span class="kw">for </span>ProtocolHandle {
+	<span class="kw">fn </span>disconnect_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: sc_network_types::PeerId) {
+		<span class="kw">let _ </span>= <span class="self">self</span>.actions_tx.unbounded_send(Action::DisconnectPeer(peer_id.into()));
+	}
+}
+
 <span class="doccomment">/// Direction of a connection
 </span><span class="attr">#[derive(Clone, Copy, Debug)]
 </span><span class="kw">enum </span>Direction {
@@ -2466,7 +2495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>to_notifications: TracingUnboundedSender&lt;Message&gt;,
 	<span class="doccomment">/// `PeerStore` handle for checking peer reputation values and getting connection candidates
 	/// with highest reputation.
-	</span>peer_store: Box&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+	</span>peer_store: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 }
 
 <span class="kw">impl </span>ProtocolController {
@@ -2475,12 +2504,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		set_id: SetId,
 		config: ProtoSetConfig,
 		to_notifications: TracingUnboundedSender&lt;Message&gt;,
-		peer_store: Box&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+		peer_store: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 	) -&gt; (ProtocolHandle, ProtocolController) {
 		<span class="kw">let </span>(actions_tx, actions_rx) = tracing_unbounded(<span class="string">&quot;mpsc_api_protocol&quot;</span>, <span class="number">10_000</span>);
 		<span class="kw">let </span>(events_tx, events_rx) = tracing_unbounded(<span class="string">&quot;mpsc_notifications_protocol&quot;</span>, <span class="number">10_000</span>);
 		<span class="kw">let </span>handle = ProtocolHandle { actions_tx, events_tx };
-		peer_store.register_protocol(handle.clone());
+		peer_store.register_protocol(Arc::new(handle.clone()));
 		<span class="kw">let </span>reserved_nodes =
 			config.reserved_nodes.iter().map(|p| (<span class="kw-2">*</span>p, PeerState::NotConnected)).collect();
 		<span class="kw">let </span>controller = ProtocolController {
@@ -2622,12 +2651,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Report peer disconnect event to `PeerStore` for it to update peer&#39;s reputation accordingly.
 	/// Should only be called if the remote node disconnected us, not the other way around.
 	</span><span class="kw">fn </span>report_disconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) {
-		<span class="self">self</span>.peer_store.report_disconnect(peer_id);
+		<span class="self">self</span>.peer_store.report_disconnect(peer_id.into());
 	}
 
 	<span class="doccomment">/// Ask `Peerset` if the peer has a reputation value not sufficient for connection with it.
 	</span><span class="kw">fn </span>is_banned(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; bool {
-		<span class="self">self</span>.peer_store.is_banned(peer_id)
+		<span class="self">self</span>.peer_store.is_banned(<span class="kw-2">&amp;</span>peer_id.into())
 	}
 
 	<span class="doccomment">/// Add the peer to the set of reserved peers. [`ProtocolController`] will try to always
@@ -2842,7 +2871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.accept_connection(peer_id, incoming_index);
 				},
 				PeerState::NotConnected =&gt;
-					<span class="kw">if </span><span class="self">self</span>.peer_store.is_banned(<span class="kw-2">&amp;</span>peer_id) {
+					<span class="kw">if </span><span class="self">self</span>.peer_store.is_banned(<span class="kw-2">&amp;</span>peer_id.into()) {
 						<span class="self">self</span>.reject_connection(peer_id, incoming_index);
 					} <span class="kw">else </span>{
 						<span class="kw-2">*</span>state = PeerState::Connected(Direction::Inbound);
@@ -2955,7 +2984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="self">self</span>.reserved_nodes
 			.iter_mut()
 			.filter_map(|(peer_id, state)| {
-				(!state.is_connected() &amp;&amp; !<span class="self">self</span>.peer_store.is_banned(peer_id)).then(|| {
+				(!state.is_connected() &amp;&amp; !<span class="self">self</span>.peer_store.is_banned(<span class="kw-2">&amp;</span>peer_id.into())).then(|| {
 					<span class="kw-2">*</span>state = PeerState::Connected(Direction::Outbound);
 					peer_id
 				})
@@ -2980,8 +3009,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>ignored = <span class="self">self
 			</span>.reserved_nodes
 			.keys()
-			.collect::&lt;HashSet&lt;<span class="kw-2">&amp;</span>PeerId&gt;&gt;()
-			.union(<span class="kw-2">&amp;</span><span class="self">self</span>.nodes.keys().collect::&lt;HashSet&lt;<span class="kw-2">&amp;</span>PeerId&gt;&gt;())
+			.map(From::from)
+			.collect::&lt;HashSet&lt;sc_network_types::PeerId&gt;&gt;()
+			.union(
+				<span class="kw-2">&amp;</span><span class="self">self</span>.nodes.keys().map(From::from).collect::&lt;HashSet&lt;sc_network_types::PeerId&gt;&gt;(),
+			)
 			.cloned()
 			.collect();
 
@@ -2990,16 +3022,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.outgoing_candidates(available_slots, ignored)
 			.into_iter()
 			.filter_map(|peer_id| {
-				(!<span class="self">self</span>.reserved_nodes.contains_key(<span class="kw-2">&amp;</span>peer_id) &amp;&amp; !<span class="self">self</span>.nodes.contains_key(<span class="kw-2">&amp;</span>peer_id))
-					.then_some(peer_id)
-					.or_else(|| {
-						<span class="macro">error!</span>(
-							target: LOG_TARGET,
-							<span class="string">&quot;`PeerStore` returned a node we asked to ignore: {peer_id}.&quot;</span>,
-						);
-						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;`PeerStore` returned a node we asked to ignore.&quot;</span>);
-						<span class="prelude-val">None
-					</span>})
+				(!<span class="self">self</span>.reserved_nodes.contains_key(<span class="kw-2">&amp;</span>peer_id.into()) &amp;&amp;
+					!<span class="self">self</span>.nodes.contains_key(<span class="kw-2">&amp;</span>peer_id.into()))
+				.then_some(peer_id)
+				.or_else(|| {
+					<span class="macro">error!</span>(
+						target: LOG_TARGET,
+						<span class="string">&quot;`PeerStore` returned a node we asked to ignore: {peer_id}.&quot;</span>,
+					);
+					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;`PeerStore` returned a node we asked to ignore.&quot;</span>);
+					<span class="prelude-val">None
+				</span>})
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
@@ -3013,8 +3046,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		candidates.into_iter().take(available_slots).for_each(|peer_id| {
 			<span class="self">self</span>.num_out += <span class="number">1</span>;
-			<span class="self">self</span>.nodes.insert(peer_id, Direction::Outbound);
-			<span class="self">self</span>.start_connection(peer_id);
+			<span class="self">self</span>.nodes.insert(peer_id.into(), Direction::Outbound);
+			<span class="self">self</span>.start_connection(peer_id.into());
 		})
 	}
 }
@@ -3022,8 +3055,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use crate</span>::{peer_store::PeerStoreProvider, ReputationChange};
-	<span class="kw">use </span>libp2p::PeerId;
+	<span class="kw">use crate</span>::{
+		peer_store::{PeerStoreProvider, ProtocolHandle <span class="kw">as </span>ProtocolHandleT},
+		PeerId, ReputationChange,
+	};
 	<span class="kw">use </span>sc_network_common::role::ObservedRole;
 	<span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TryRecvError};
 	<span class="kw">use </span>std::collections::HashSet;
@@ -3033,14 +3068,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub </span>PeerStoreHandle {}
 
 		<span class="kw">impl </span>PeerStoreProvider <span class="kw">for </span>PeerStoreHandle {
-			<span class="kw">fn </span>is_banned(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; bool;
-			<span class="kw">fn </span>register_protocol(<span class="kw-2">&amp;</span><span class="self">self</span>, protocol_handle: ProtocolHandle);
-			<span class="kw">fn </span>report_disconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId);
-			<span class="kw">fn </span>set_peer_role(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, role: ObservedRole);
-			<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, change: ReputationChange);
-			<span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; i32;
-			<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt;;
-			<span class="kw">fn </span>outgoing_candidates&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, count: usize, ignored: HashSet&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PeerId&gt;) -&gt; Vec&lt;PeerId&gt;;
+			<span class="kw">fn </span>is_banned(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>sc_network_types::PeerId) -&gt; bool;
+			<span class="kw">fn </span>register_protocol(<span class="kw-2">&amp;</span><span class="self">self</span>, protocol_handle: Arc&lt;<span class="kw">dyn </span>ProtocolHandleT&gt;);
+			<span class="kw">fn </span>report_disconnect(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: sc_network_types::PeerId);
+			<span class="kw">fn </span>set_peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>sc_network_types::PeerId, role: ObservedRole);
+			<span class="kw">fn </span>report_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: sc_network_types::PeerId, change: ReputationChange);
+			<span class="kw">fn </span>peer_reputation(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>sc_network_types::PeerId) -&gt; i32;
+			<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>sc_network_types::PeerId) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt;;
+			<span class="kw">fn </span>outgoing_candidates(<span class="kw-2">&amp;</span><span class="self">self</span>, count: usize, ignored: HashSet&lt;sc_network_types::PeerId&gt;) -&gt; Vec&lt;sc_network_types::PeerId&gt;;
+			<span class="kw">fn </span>num_known_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
+			<span class="kw">fn </span>add_known_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: sc_network_types::PeerId);
 		}
 	}
 
@@ -3064,7 +3101,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_report_disconnect().times(<span class="number">2</span>).return_const(());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Add second reserved node at runtime (this currently calls `alloc_slots` internally).
 		</span>controller.on_add_reserved_peer(reserved2);
@@ -3125,7 +3162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_is_banned().times(<span class="number">6</span>).return_const(<span class="bool-val">true</span>);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Add second reserved node at runtime (this currently calls `alloc_slots` internally).
 		</span>controller.on_add_reserved_peer(reserved2);
@@ -3177,7 +3214,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_report_disconnect().times(<span class="number">2</span>).return_const(());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Add second reserved node at runtime (this calls `alloc_slots` internally).
 		</span>controller.on_add_reserved_peer(reserved2);
@@ -3219,7 +3256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>nodes_supplied_by_peer_store_are_connected() {
 		<span class="kw">let </span>peer1 = PeerId::random();
 		<span class="kw">let </span>peer2 = PeerId::random();
-		<span class="kw">let </span>candidates = <span class="macro">vec!</span>[peer1, peer2];
+		<span class="kw">let </span>candidates = <span class="macro">vec!</span>[peer1.into(), peer2.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">0</span>,
@@ -3235,7 +3272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(candidates);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Initiate connections.
 		</span>controller.alloc_slots();
@@ -3269,7 +3306,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>reserved2 = PeerId::random();
 		<span class="kw">let </span>regular1 = PeerId::random();
 		<span class="kw">let </span>regular2 = PeerId::random();
-		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1, regular2];
+		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1.into(), regular2.into()];
 		<span class="kw">let </span>reserved_nodes = [reserved1, reserved2].iter().cloned().collect();
 
 		<span class="kw">let </span>config =
@@ -3282,7 +3319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Initiate connections.
 		</span>controller.alloc_slots();
@@ -3305,8 +3342,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>peer1 = PeerId::random();
 		<span class="kw">let </span>peer2 = PeerId::random();
 		<span class="kw">let </span>peer3 = PeerId::random();
-		<span class="kw">let </span>candidates1 = <span class="macro">vec!</span>[peer1, peer2];
-		<span class="kw">let </span>candidates2 = <span class="macro">vec!</span>[peer3];
+		<span class="kw">let </span>candidates1 = <span class="macro">vec!</span>[peer1.into(), peer2.into()];
+		<span class="kw">let </span>candidates2 = <span class="macro">vec!</span>[peer3.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">0</span>,
@@ -3324,7 +3361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_report_disconnect().times(<span class="number">2</span>).return_const(());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Initiate connections.
 		</span>controller.alloc_slots();
@@ -3391,7 +3428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_register_protocol().once().return_const(());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Initiate connections.
 		</span>controller.alloc_slots();
@@ -3417,7 +3454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_register_protocol().once().return_const(());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="kw">let </span>peer = PeerId::random();
 		<span class="kw">let </span>incoming_index = IncomingIndex(<span class="number">1</span>);
@@ -3439,7 +3476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>disabling_reserved_only_mode_allows_to_connect_to_peers() {
 		<span class="kw">let </span>peer1 = PeerId::random();
 		<span class="kw">let </span>peer2 = PeerId::random();
-		<span class="kw">let </span>candidates = <span class="macro">vec!</span>[peer1, peer2];
+		<span class="kw">let </span>candidates = <span class="macro">vec!</span>[peer1.into(), peer2.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">0</span>,
@@ -3455,7 +3492,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(candidates);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Initiate connections.
 		</span>controller.alloc_slots();
@@ -3486,7 +3523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>reserved2 = PeerId::random();
 		<span class="kw">let </span>regular1 = PeerId::random();
 		<span class="kw">let </span>regular2 = PeerId::random();
-		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1];
+		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">10</span>,
@@ -3502,7 +3539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 		<span class="macro">assert_eq!</span>(controller.num_out, <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(controller.num_in, <span class="number">0</span>);
 
@@ -3560,7 +3597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_register_protocol().once().return_const(());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 		<span class="macro">assert_eq!</span>(controller.reserved_nodes.len(), <span class="number">2</span>);
 		<span class="macro">assert_eq!</span>(controller.nodes.len(), <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(controller.num_out, <span class="number">0</span>);
@@ -3593,7 +3630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_is_banned().times(<span class="number">2</span>).return_const(<span class="bool-val">false</span>);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Initiate connections.
 		</span>controller.alloc_slots();
@@ -3637,10 +3674,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
 		peer_store.expect_is_banned().times(<span class="number">2</span>).return_const(<span class="bool-val">false</span>);
-		peer_store.expect_outgoing_candidates().once().return_const(Vec::new());
+		peer_store
+			.expect_outgoing_candidates()
+			.once()
+			.return_const(Vec::&lt;sc_network_types::PeerId&gt;::new());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Connect `peer1` as inbound, `peer2` as outbound.
 		</span>controller.on_incoming_connection(peer1, IncomingIndex(<span class="number">1</span>));
@@ -3670,7 +3710,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>regular_nodes_stop_occupying_slots_when_become_reserved() {
 		<span class="kw">let </span>peer1 = PeerId::random();
 		<span class="kw">let </span>peer2 = PeerId::random();
-		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[peer1];
+		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[peer1.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">10</span>,
@@ -3686,7 +3726,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Connect `peer1` as outbound &amp; `peer2` as inbound.
 		</span>controller.alloc_slots();
@@ -3712,7 +3752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>disconnecting_regular_peers_work() {
 		<span class="kw">let </span>peer1 = PeerId::random();
 		<span class="kw">let </span>peer2 = PeerId::random();
-		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[peer1];
+		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[peer1.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">10</span>,
@@ -3728,7 +3768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Connect `peer1` as outbound &amp; `peer2` as inbound.
 		</span>controller.alloc_slots();
@@ -3787,7 +3827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(Vec::new());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Connect `reserved1` as inbound &amp; `reserved2` as outbound.
 		</span>controller.on_incoming_connection(reserved1, IncomingIndex(<span class="number">1</span>));
@@ -3827,7 +3867,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>dropping_regular_peers_work() {
 		<span class="kw">let </span>peer1 = PeerId::random();
 		<span class="kw">let </span>peer2 = PeerId::random();
-		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[peer1];
+		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[peer1.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">10</span>,
@@ -3844,7 +3884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_report_disconnect().times(<span class="number">2</span>).return_const(());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Connect `peer1` as outbound &amp; `peer2` as inbound.
 		</span>controller.alloc_slots();
@@ -3895,7 +3935,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(Vec::new());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Connect `reserved1` as inbound &amp; `reserved2` as outbound.
 		</span>controller.on_incoming_connection(reserved1, IncomingIndex(<span class="number">1</span>));
@@ -3939,7 +3979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>incoming_request_for_connected_regular_node_switches_it_to_inbound() {
 		<span class="kw">let </span>regular1 = PeerId::random();
 		<span class="kw">let </span>regular2 = PeerId::random();
-		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1];
+		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">10</span>,
@@ -3955,7 +3995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 		<span class="macro">assert_eq!</span>(controller.num_out, <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(controller.num_in, <span class="number">0</span>);
 
@@ -3991,7 +4031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>incoming_request_for_connected_node_is_rejected_if_its_banned() {
 		<span class="kw">let </span>regular1 = PeerId::random();
 		<span class="kw">let </span>regular2 = PeerId::random();
-		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1];
+		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">10</span>,
@@ -4008,7 +4048,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 		<span class="macro">assert_eq!</span>(controller.num_out, <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(controller.num_in, <span class="number">0</span>);
 
@@ -4044,7 +4084,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>incoming_request_for_connected_node_is_rejected_if_no_slots_available() {
 		<span class="kw">let </span>regular1 = PeerId::random();
 		<span class="kw">let </span>regular2 = PeerId::random();
-		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1];
+		<span class="kw">let </span>outgoing_candidates = <span class="macro">vec!</span>[regular1.into()];
 
 		<span class="kw">let </span>config = ProtoSetConfig {
 			in_peers: <span class="number">1</span>,
@@ -4060,7 +4100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(outgoing_candidates);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 		<span class="macro">assert_eq!</span>(controller.num_out, <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(controller.num_in, <span class="number">0</span>);
 
@@ -4112,7 +4152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_is_banned().once().return_const(<span class="bool-val">false</span>);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Connect `peer1` as inbound.
 		</span>controller.on_incoming_connection(peer1, IncomingIndex(<span class="number">1</span>));
@@ -4142,7 +4182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_is_banned().once().return_const(<span class="bool-val">true</span>);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 
 		<span class="comment">// Incoming request.
 		</span>controller.on_incoming_connection(peer1, IncomingIndex(<span class="number">1</span>));
@@ -4167,7 +4207,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_is_banned().once().return_const(<span class="bool-val">true</span>);
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 		<span class="macro">assert!</span>(controller.reserved_nodes.contains_key(<span class="kw-2">&amp;</span>reserved1));
 
 		<span class="comment">// Incoming request.
@@ -4194,7 +4234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_store.expect_outgoing_candidates().once().return_const(Vec::new());
 
 		<span class="kw">let </span>(_handle, <span class="kw-2">mut </span>controller) =
-			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Box::new(peer_store));
+			ProtocolController::new(SetId::from(<span class="number">0</span>), config, tx, Arc::new(peer_store));
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(controller.reserved_nodes.get(<span class="kw-2">&amp;</span>reserved1), <span class="prelude-val">Some</span>(PeerState::NotConnected)));
 
 		<span class="comment">// Initiate connections

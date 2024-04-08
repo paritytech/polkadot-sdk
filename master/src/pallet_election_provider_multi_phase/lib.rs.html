@@ -3787,7 +3787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.expect(error_message);
 
 			<span class="comment">// Store the newly received solution.
-			</span><span class="macro">log!</span>(info, <span class="string">&quot;queued unsigned solution with score {:?}&quot;</span>, ready.score);
+			</span><span class="macro">log!</span>(debug, <span class="string">&quot;queued unsigned solution with score {:?}&quot;</span>, ready.score);
 			<span class="kw">let </span>ejected_a_solution = &lt;QueuedSolution&lt;T&gt;&gt;::exists();
 			&lt;QueuedSolution&lt;T&gt;&gt;::put(ready);
 			<span class="self">Self</span>::deposit_event(Event::SolutionStored {

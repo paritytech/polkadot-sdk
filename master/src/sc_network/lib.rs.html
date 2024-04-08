@@ -444,6 +444,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -689,6 +692,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! More precise usage details are still being worked on and will likely change in the future.
 
 </span><span class="kw">mod </span>behaviour;
+<span class="kw">mod </span>bitswap;
+<span class="kw">mod </span>litep2p;
 <span class="kw">mod </span>protocol;
 
 <span class="attr">#[cfg(test)]
@@ -708,27 +713,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>types;
 <span class="kw">pub mod </span>utils;
 
+<span class="kw">pub use </span><span class="kw">crate</span>::litep2p::Litep2pNetworkBackend;
 <span class="kw">pub use </span>event::{DhtEvent, Event};
 <span class="attr">#[doc(inline)]
-</span><span class="kw">pub use </span>libp2p::{multiaddr, Multiaddr, PeerId};
-<span class="kw">pub use </span>request_responses::{Config, IfDisconnected, RequestFailure};
+</span><span class="kw">pub use </span>request_responses::{Config, IfDisconnected, RequestFailure};
 <span class="kw">pub use </span>sc_network_common::{
 	role::{ObservedRole, Roles},
 	types::ReputationChange,
 };
 <span class="kw">pub use </span>service::{
+	metrics::NotificationMetrics,
 	signature::Signature,
 	traits::{
-		KademliaKey, MessageSink, NetworkBlock, NetworkDHTProvider, NetworkEventStream,
-		NetworkNotification, NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo,
-		NetworkStatus, NetworkStatusProvider, NetworkSyncForkRequest,
+		KademliaKey, MessageSink, NetworkBackend, NetworkBlock, NetworkDHTProvider,
+		NetworkEventStream, NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo,
+		NetworkStatus, NetworkStatusProvider, NetworkSyncForkRequest, NotificationConfig,
 		NotificationSender <span class="kw">as </span>NotificationSenderT, NotificationSenderError,
 		NotificationSenderReady, NotificationService,
 	},
 	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,
 	PublicKey,
 };
-<span class="kw">pub use </span>types::ProtocolName;
+<span class="kw">pub use </span>types::{multiaddr, Multiaddr, PeerId, ProtocolName};
 
 <span class="doccomment">/// The maximum allowed number of established connections per peer.
 ///

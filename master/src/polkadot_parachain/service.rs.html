@@ -1417,6 +1417,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1268" id="1268">1268</a>
 <a href="#1269" id="1269">1269</a>
 <a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1470,7 +1477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BlockImportParams, ImportQueue,
 };
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-<span class="kw">use </span>sc_network::{config::FullNetworkConfiguration, NetworkBlock};
+<span class="kw">use </span>sc_network::{config::FullNetworkConfiguration, service::traits::NetworkBackend, NetworkBlock};
 <span class="kw">use </span>sc_network_sync::SyncingService;
 <span class="kw">use </span>sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 <span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
@@ -1610,7 +1617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
 </span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">&quot;Parachain&quot;</span>)]
-</span><span class="kw">async fn </span>start_node_impl&lt;RuntimeApi, RB, BIQ, SC&gt;(
+</span><span class="kw">async fn </span>start_node_impl&lt;RuntimeApi, RB, BIQ, SC, Net&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -1663,6 +1670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
 		Arc&lt;ParachainBackend&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_service::Error&gt;,
+	Net: NetworkBackend&lt;Block, Hash&gt;,
 {
 	<span class="kw">let </span>parachain_config = prepare_node_config(parachain_config);
 
@@ -1688,7 +1696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>prometheus_registry = parachain_config.prometheus_registry().cloned();
 	<span class="kw">let </span>transaction_pool = params.transaction_pool.clone();
 	<span class="kw">let </span>import_queue_service = params.import_queue.service();
-	<span class="kw">let </span>net_config = FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>parachain_config.network);
+	<span class="kw">let </span>net_config = FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Net&gt;::new(<span class="kw-2">&amp;</span>parachain_config.network);
 
 	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 		build_network(BuildNetworkParams {
@@ -1842,14 +1850,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Start a rococo parachain node.
-</span><span class="kw">pub async fn </span>start_rococo_parachain_node(
+</span><span class="kw">pub async fn </span>start_rococo_parachain_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
-	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -1911,14 +1919,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Start a polkadot-shell parachain node.
-</span><span class="kw">pub async fn </span>start_shell_node(
+</span><span class="kw">pub async fn </span>start_shell_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
-	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -2106,14 +2114,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Start an aura powered parachain node. Some system chains use this.
-</span><span class="kw">pub async fn </span>start_generic_aura_node(
+</span><span class="kw">pub async fn </span>start_generic_aura_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
-	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -2187,14 +2195,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Uses the lookahead collator to support async backing.
 ///
 /// Start an aura powered parachain node. Some system chains use this.
-</span><span class="kw">pub async fn </span>start_generic_aura_lookahead_node(
+</span><span class="kw">pub async fn </span>start_generic_aura_lookahead_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
-	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -2211,7 +2219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Start a shell node which should later transition into an Aura powered parachain node. Asset Hub
 /// uses this because at genesis, Asset Hub was on the `shell` runtime which didn&#39;t have Aura and
 /// needs to sync and upgrade before it can run `AuraApi` functions.
-</span><span class="kw">pub async fn </span>start_asset_hub_node&lt;RuntimeApi, AuraId: AppCrypto + Send + Codec + Sync&gt;(
+</span><span class="kw">pub async fn </span>start_asset_hub_node&lt;RuntimeApi, AuraId: AppCrypto + Send + Codec + Sync, Net&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -2232,8 +2240,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ frame_rpc_system::AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
 	&lt;&lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair <span class="kw">as </span>Pair&gt;::Signature:
 		TryFrom&lt;Vec&lt;u8&gt;&gt; + std::hash::Hash + sp_runtime::traits::Member + Codec,
+	Net: NetworkBackend&lt;Block, Hash&gt;,
 {
-	start_node_impl::&lt;RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+	start_node_impl::&lt;RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -2359,7 +2368,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Uses the lookahead collator to support async backing.
 </span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">&quot;Parachain&quot;</span>)]
-</span><span class="kw">pub async fn </span>start_asset_hub_lookahead_node&lt;RuntimeApi, AuraId: AppCrypto + Send + Codec + Sync&gt;(
+</span><span class="kw">pub async fn </span>start_asset_hub_lookahead_node&lt;
+	RuntimeApi,
+	AuraId: AppCrypto + Send + Codec + Sync,
+	Net,
+&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -2381,8 +2394,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ cumulus_primitives_aura::AuraUnincludedSegmentApi&lt;Block&gt;,
 	&lt;&lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair <span class="kw">as </span>Pair&gt;::Signature:
 		TryFrom&lt;Vec&lt;u8&gt;&gt; + std::hash::Hash + sp_runtime::traits::Member + Codec,
+	Net: NetworkBackend&lt;Block, Hash&gt;,
 {
-	start_node_impl::&lt;RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+	start_node_impl::&lt;RuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -2632,14 +2646,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Start an aura powered parachain node which uses the lookahead collator to support async backing.
 /// This node is basic in the sense that its runtime api doesn&#39;t include common contents such as
 /// transaction payment. Used for aura glutton.
-</span><span class="kw">pub async fn </span>start_basic_lookahead_node(
+</span><span class="kw">pub async fn </span>start_basic_lookahead_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
-	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -2654,14 +2668,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span>}
 
 <span class="doccomment">/// Start a parachain node for Rococo Contracts.
-</span><span class="kw">pub async fn </span>start_contracts_rococo_node(
+</span><span class="kw">pub async fn </span>start_contracts_rococo_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;FakeRuntimeApi&gt;&gt;)&gt; {
-	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+	start_node_impl::&lt;FakeRuntimeApi, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, Net&gt;(
 		parachain_config,
 		polkadot_config,
 		collator_options,

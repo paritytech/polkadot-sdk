@@ -445,6 +445,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
 <a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -740,6 +760,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				storage_chain_mode: <span class="bool-val">false</span>,
 			},
 			SyncMode::Warp =&gt; sc_network::config::SyncMode::Warp,
+		}
+	}
+}
+
+<span class="doccomment">/// Network backend type.
+</span><span class="attr">#[derive(Debug, Clone, Copy, ValueEnum, PartialEq)]
+#[value(rename_all = <span class="string">&quot;lower&quot;</span>)]
+</span><span class="kw">pub enum </span>NetworkBackendType {
+	<span class="doccomment">/// Use libp2p for P2P networking.
+	</span>Libp2p,
+
+	<span class="doccomment">/// Use litep2p for P2P networking.
+	</span>Litep2p,
+}
+
+<span class="kw">impl </span>Into&lt;sc_network::config::NetworkBackendType&gt; <span class="kw">for </span>NetworkBackendType {
+	<span class="kw">fn </span>into(<span class="self">self</span>) -&gt; sc_network::config::NetworkBackendType {
+		<span class="kw">match </span><span class="self">self </span>{
+			<span class="self">Self</span>::Libp2p =&gt; sc_network::config::NetworkBackendType::Libp2p,
+			<span class="self">Self</span>::Litep2p =&gt; sc_network::config::NetworkBackendType::Litep2p,
 		}
 	}
 }

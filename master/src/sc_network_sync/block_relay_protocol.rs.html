@@ -219,9 +219,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
@@ -241,12 +238,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Block relay protocol related definitions.
 
 </span><span class="kw">use </span>futures::channel::oneshot;
-<span class="kw">use </span>libp2p::PeerId;
-<span class="kw">use </span>sc_network::{
-	request_responses::{ProtocolConfig, RequestFailure},
-	ProtocolName,
-};
+<span class="kw">use </span>sc_network::{request_responses::RequestFailure, NetworkBackend, ProtocolName};
 <span class="kw">use </span>sc_network_common::sync::message::{BlockData, BlockRequest};
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>std::sync::Arc;
 
@@ -292,10 +286,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Block relay specific params for network creation, specified in
 /// [&#39;sc_service::BuildNetworkParams&#39;].
-</span><span class="kw">pub struct </span>BlockRelayParams&lt;Block: BlockT&gt; {
+</span><span class="kw">pub struct </span>BlockRelayParams&lt;Block: BlockT, N: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt; {
 	<span class="kw">pub </span>server: Box&lt;<span class="kw">dyn </span>BlockServer&lt;Block&gt;&gt;,
 	<span class="kw">pub </span>downloader: Arc&lt;<span class="kw">dyn </span>BlockDownloader&lt;Block&gt;&gt;,
-	<span class="kw">pub </span>request_response_config: ProtocolConfig,
+	<span class="kw">pub </span>request_response_config: N::RequestResponseProtocolConfig,
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

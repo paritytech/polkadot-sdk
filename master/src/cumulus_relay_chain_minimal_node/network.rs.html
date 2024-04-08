@@ -326,9 +326,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -346,64 +343,56 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>polkadot_core_primitives::{Block, Hash, Header};
-<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
+<span class="kw">use </span>sp_runtime::traits::NumberFor;
 
 <span class="kw">use </span>sc_network::{
 	config::{
-		NetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
-		ProtocolId, SetConfig,
+		NetworkConfiguration, NonReservedPeerMode, NotificationHandshake, PeerStore, ProtocolId,
+		SetConfig,
 	},
-	peer_store::PeerStore,
-	NetworkService,
+	peer_store::PeerStoreProvider,
+	service::traits::NetworkService,
+	NotificationMetrics,
 };
 
-<span class="kw">use </span>sc_network::{config::FullNetworkConfiguration, NotificationService};
+<span class="kw">use </span>sc_network::{config::FullNetworkConfiguration, NetworkBackend, NotificationService};
 <span class="kw">use </span>sc_network_common::{role::Roles, sync::message::BlockAnnouncesHandshake};
 <span class="kw">use </span>sc_service::{error::Error, Configuration, NetworkStarter, SpawnTaskHandle};
 
 <span class="kw">use </span>std::{iter, sync::Arc};
 
 <span class="doccomment">/// Build the network service, the network status sinks and an RPC sender.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_collator_network(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build_collator_network&lt;Network: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	config: <span class="kw-2">&amp;</span>Configuration,
-	<span class="kw-2">mut </span>full_network_config: FullNetworkConfiguration,
+	<span class="kw-2">mut </span>network_config: FullNetworkConfiguration&lt;Block, Hash, Network&gt;,
 	spawn_handle: SpawnTaskHandle,
 	genesis_hash: Hash,
 	best_header: Header,
+	notification_metrics: NotificationMetrics,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
-	(
-		Arc&lt;NetworkService&lt;Block, Hash&gt;&gt;,
-		NetworkStarter,
-		Arc&lt;<span class="kw">dyn </span>sp_consensus::SyncOracle + Send + Sync&gt;,
-	),
+	(Arc&lt;<span class="kw">dyn </span>NetworkService&gt;, NetworkStarter, Arc&lt;<span class="kw">dyn </span>sp_consensus::SyncOracle + Send + Sync&gt;),
 	Error,
 &gt; {
 	<span class="kw">let </span>protocol_id = config.protocol_id();
-	<span class="kw">let </span>(block_announce_config, _notification_service) = get_block_announce_proto_config::&lt;Block&gt;(
+	<span class="kw">let </span>(block_announce_config, _notification_service) = get_block_announce_proto_config::&lt;Network&gt;(
 		protocol_id.clone(),
 		<span class="kw-2">&amp;</span><span class="prelude-val">None</span>,
 		Roles::from(<span class="kw-2">&amp;</span>config.role),
 		best_header.number,
 		best_header.hash(),
 		genesis_hash,
+		notification_metrics.clone(),
+		network_config.peer_store_handle(),
 	);
 
 	<span class="comment">// Since this node has no syncing, we do not want light-clients to connect to it.
 	// Here we set any potential light-client slots to 0.
-	</span>adjust_network_config_light_in_peers(<span class="kw-2">&amp;mut </span>full_network_config.network_config);
+	</span>adjust_network_config_light_in_peers(<span class="kw-2">&amp;mut </span>network_config.network_config);
 
-	<span class="kw">let </span>peer_store = PeerStore::new(
-		full_network_config
-			.network_config
-			.boot_nodes
-			.iter()
-			.map(|bootnode| bootnode.peer_id)
-			.collect(),
-	);
-	<span class="kw">let </span>peer_store_handle = peer_store.handle();
+	<span class="kw">let </span>peer_store = network_config.take_peer_store();
 	spawn_handle.spawn(<span class="string">&quot;peer-store&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), peer_store.run());
 
-	<span class="kw">let </span>network_params = sc_network::config::Params::&lt;Block&gt; {
+	<span class="kw">let </span>network_params = sc_network::config::Params::&lt;Block, Hash, Network&gt; {
 		role: config.role.clone(),
 		executor: {
 			<span class="kw">let </span>spawn_handle = Clone::clone(<span class="kw-2">&amp;</span>spawn_handle);
@@ -412,16 +401,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 		},
 		fork_id: <span class="prelude-val">None</span>,
-		network_config: full_network_config,
-		peer_store: peer_store_handle,
+		network_config,
 		genesis_hash,
 		protocol_id,
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
+		bitswap_config: <span class="prelude-val">None</span>,
+		notification_metrics,
 	};
 
-	<span class="kw">let </span>network_worker = sc_network::NetworkWorker::new(network_params)<span class="question-mark">?</span>;
-	<span class="kw">let </span>network_service = network_worker.service().clone();
+	<span class="kw">let </span>network_worker = Network::new(network_params)<span class="question-mark">?</span>;
+	<span class="kw">let </span>network_service = network_worker.network_service();
 
 	<span class="kw">let </span>(network_start_tx, network_start_rx) = futures::channel::oneshot::channel();
 
@@ -474,14 +464,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 }
 
-<span class="kw">fn </span>get_block_announce_proto_config&lt;B: BlockT&gt;(
+<span class="kw">fn </span>get_block_announce_proto_config&lt;Network: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	protocol_id: ProtocolId,
 	fork_id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;,
 	roles: Roles,
-	best_number: NumberFor&lt;B&gt;,
-	best_hash: B::Hash,
-	genesis_hash: B::Hash,
-) -&gt; (NonDefaultSetConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
+	best_number: NumberFor&lt;Block&gt;,
+	best_hash: Hash,
+	genesis_hash: Hash,
+	metrics: NotificationMetrics,
+	peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+) -&gt; (Network::NotificationProtocolConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
 	<span class="kw">let </span>block_announces_protocol = {
 		<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>fork_id) = fork_id {
@@ -491,11 +483,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	};
 
-	NonDefaultSetConfig::new(
+	Network::notification_config(
 		block_announces_protocol.into(),
 		iter::once(<span class="macro">format!</span>(<span class="string">&quot;/{}/block-announces/1&quot;</span>, protocol_id.as_ref()).into()).collect(),
 		<span class="number">1024 </span>* <span class="number">1024</span>,
-		<span class="prelude-val">Some</span>(NotificationHandshake::new(BlockAnnouncesHandshake::&lt;B&gt;::build(
+		<span class="prelude-val">Some</span>(NotificationHandshake::new(BlockAnnouncesHandshake::&lt;Block&gt;::build(
 			roles,
 			best_number,
 			best_hash,
@@ -509,6 +501,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: NonReservedPeerMode::Deny,
 		},
+		metrics,
+		peer_store_handle,
 	)
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

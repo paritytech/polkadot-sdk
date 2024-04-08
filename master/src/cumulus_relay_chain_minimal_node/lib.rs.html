@@ -406,6 +406,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -435,12 +465,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 };
 
+<span class="kw">use </span>polkadot_core_primitives::{Block <span class="kw">as </span>RelayBlock, Hash <span class="kw">as </span>RelayHash};
 <span class="kw">use </span>polkadot_node_subsystem_util::metrics::prometheus::Registry;
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
 <span class="kw">use </span>polkadot_service::{overseer::OverseerGenArgs, IsParachainNode};
 
 <span class="kw">use </span>sc_authority_discovery::Service <span class="kw">as </span>AuthorityDiscoveryService;
-<span class="kw">use </span>sc_network::{config::FullNetworkConfiguration, Event, NetworkEventStream, NetworkService};
+<span class="kw">use </span>sc_network::{
+	config::FullNetworkConfiguration, service::traits::NetworkService, Event, NetworkBackend,
+	NetworkEventStream,
+};
 <span class="kw">use </span>sc_service::{config::PrometheusConfig, Configuration, TaskManager};
 <span class="kw">use </span>sp_runtime::{app_crypto::Pair, traits::Block <span class="kw">as </span>BlockT};
 
@@ -459,7 +493,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	task_manager: <span class="kw-2">&amp;</span>TaskManager,
 	client: Arc&lt;BlockChainRpcClient&gt;,
 	config: <span class="kw-2">&amp;</span>Configuration,
-	network: Arc&lt;NetworkService&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;,
+	network: Arc&lt;<span class="kw">dyn </span>NetworkService&gt;,
 	prometheus_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
 ) -&gt; AuthorityDiscoveryService {
 	<span class="kw">let </span>auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
@@ -480,7 +514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			..Default::default()
 		},
 		client,
-		network,
+		Arc::new(network.clone()),
 		Box::pin(dht_event_stream),
 		authority_discovery_role,
 		prometheus_registry,
@@ -500,12 +534,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	client: RelayChainRpcClient,
 ) -&gt; RelayChainResult&lt;(Arc&lt;(<span class="kw">dyn </span>RelayChainInterface + <span class="lifetime">&#39;static</span>)&gt;, <span class="prelude-ty">Option</span>&lt;CollatorPair&gt;)&gt; {
 	<span class="kw">let </span>collator_pair = CollatorPair::generate().<span class="number">0</span>;
-	<span class="kw">let </span>collator_node = new_minimal_relay_chain(
-		polkadot_config,
-		collator_pair.clone(),
-		Arc::new(BlockChainRpcClient::new(client.clone())),
-	)
-	.<span class="kw">await</span><span class="question-mark">?</span>;
+	<span class="kw">let </span>collator_node = <span class="kw">match </span>polkadot_config.network.network_backend {
+		sc_network::config::NetworkBackendType::Libp2p =&gt;
+			new_minimal_relay_chain::&lt;RelayBlock, sc_network::NetworkWorker&lt;RelayBlock, RelayHash&gt;&gt;(
+				polkadot_config,
+				collator_pair.clone(),
+				Arc::new(BlockChainRpcClient::new(client.clone())),
+			)
+			.<span class="kw">await</span><span class="question-mark">?</span>,
+		sc_network::config::NetworkBackendType::Litep2p =&gt;
+			new_minimal_relay_chain::&lt;RelayBlock, sc_network::Litep2pNetworkBackend&gt;(
+				polkadot_config,
+				collator_pair.clone(),
+				Arc::new(BlockChainRpcClient::new(client.clone())),
+			)
+			.<span class="kw">await</span><span class="question-mark">?</span>,
+	};
 	task_manager.add_child(collator_node.task_manager);
 	<span class="prelude-val">Ok</span>((
 		Arc::new(RelayChainRpcInterface::new(client, collator_node.overseer_handle)),
@@ -551,6 +595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	build_interface(polkadot_config, task_manager, client).<span class="kw">await
 </span>}
+
 <span class="doccomment">/// Builds a minimal relay chain node. Chain data is fetched
 /// via [`BlockChainRpcClient`] and fed into the overseer and its subsystems.
 ///
@@ -563,13 +608,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - NetworkBridgeTx
 /// - RuntimeApi
 </span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">&quot;Relaychain&quot;</span>)]
-</span><span class="kw">async fn </span>new_minimal_relay_chain(
+</span><span class="kw">async fn </span>new_minimal_relay_chain&lt;Block: BlockT, Network: NetworkBackend&lt;RelayBlock, RelayHash&gt;&gt;(
 	config: Configuration,
 	collator_pair: CollatorPair,
 	relay_chain_rpc_client: Arc&lt;BlockChainRpcClient&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;NewMinimalNode, RelayChainError&gt; {
 	<span class="kw">let </span>role = config.role.clone();
-	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>config.network);
+	<span class="kw">let </span><span class="kw-2">mut </span>net_config =
+		sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;::new(<span class="kw-2">&amp;</span>config.network);
+	<span class="kw">let </span>metrics = Network::register_notification_metrics(
+		config.prometheus_config.as_ref().map(|cfg| <span class="kw-2">&amp;</span>cfg.registry),
+	);
+	<span class="kw">let </span>peer_store_handle = net_config.peer_store_handle();
 
 	<span class="kw">let </span>prometheus_registry = config.prometheus_registry();
 	<span class="kw">let </span>task_manager = TaskManager::new(config.tokio_handle.clone(), prometheus_registry)<span class="question-mark">?</span>;
@@ -586,13 +636,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>peerset_protocol_names =
 		PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
 	<span class="kw">let </span>is_authority = <span class="kw">if </span>role.is_authority() { IsAuthority::Yes } <span class="kw">else </span>{ IsAuthority::No };
-	<span class="kw">let </span>notification_services = peer_sets_info(is_authority, <span class="kw-2">&amp;</span>peerset_protocol_names)
-		.into_iter()
-		.map(|(config, (peerset, service))| {
-			net_config.add_notification_protocol(config);
-			(peerset, service)
-		})
-		.collect::&lt;std::collections::HashMap&lt;PeerSet, Box&lt;<span class="kw">dyn </span>sc_network::NotificationService&gt;&gt;&gt;();
+	<span class="kw">let </span>notification_services = peer_sets_info::&lt;<span class="kw">_</span>, Network&gt;(
+		is_authority,
+		<span class="kw-2">&amp;</span>peerset_protocol_names,
+		metrics.clone(),
+		Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
+	)
+	.into_iter()
+	.map(|(config, (peerset, service))| {
+		net_config.add_notification_protocol(config);
+		(peerset, service)
+	})
+	.collect::&lt;std::collections::HashMap&lt;PeerSet, Box&lt;<span class="kw">dyn </span>sc_network::NotificationService&gt;&gt;&gt;();
 
 	<span class="kw">let </span>request_protocol_names = ReqProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
 	<span class="kw">let </span>(collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver) =
@@ -602,16 +657,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.chain_get_header(<span class="prelude-val">None</span>)
 		.<span class="kw">await</span><span class="question-mark">?
 		</span>.ok_or_else(|| RelayChainError::RpcCallError(<span class="string">&quot;Unable to fetch best header&quot;</span>.to_string()))<span class="question-mark">?</span>;
-	<span class="kw">let </span>(network, network_starter, sync_service) = build_collator_network(
+	<span class="kw">let </span>(network, network_starter, sync_service) = build_collator_network::&lt;Network&gt;(
 		<span class="kw-2">&amp;</span>config,
 		net_config,
 		task_manager.spawn_handle(),
 		genesis_hash,
 		best_header,
+		metrics,
 	)
 	.map_err(|e| RelayChainError::Application(Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;))<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>authority_discovery_service = build_authority_discovery_service(
+	<span class="kw">let </span>authority_discovery_service = build_authority_discovery_service::&lt;Block&gt;(
 		<span class="kw-2">&amp;</span>task_manager,
 		relay_chain_rpc_client.clone(),
 		<span class="kw-2">&amp;</span>config,
@@ -644,24 +700,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(NewMinimalNode { task_manager, overseer_handle })
 }
 
-<span class="kw">fn </span>build_request_response_protocol_receivers(
+<span class="kw">fn </span>build_request_response_protocol_receivers&lt;
+	Block: BlockT,
+	Network: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+&gt;(
 	request_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
-	config: <span class="kw-2">&amp;mut </span>FullNetworkConfiguration,
+	config: <span class="kw-2">&amp;mut </span>FullNetworkConfiguration&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Network&gt;,
 ) -&gt; (
 	IncomingRequestReceiver&lt;v1::CollationFetchingRequest&gt;,
 	IncomingRequestReceiver&lt;v2::CollationFetchingRequest&gt;,
 	IncomingRequestReceiver&lt;v1::AvailableDataFetchingRequest&gt;,
 ) {
 	<span class="kw">let </span>(collation_req_v1_receiver, cfg) =
-		IncomingRequest::get_config_receiver(request_protocol_names);
+		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(request_protocol_names);
 	config.add_request_response_protocol(cfg);
 	<span class="kw">let </span>(collation_req_v2_receiver, cfg) =
-		IncomingRequest::get_config_receiver(request_protocol_names);
+		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(request_protocol_names);
 	config.add_request_response_protocol(cfg);
 	<span class="kw">let </span>(available_data_req_receiver, cfg) =
-		IncomingRequest::get_config_receiver(request_protocol_names);
+		IncomingRequest::get_config_receiver::&lt;<span class="kw">_</span>, Network&gt;(request_protocol_names);
 	config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>cfg = Protocol::ChunkFetchingV1.get_outbound_only_config(request_protocol_names);
+	<span class="kw">let </span>cfg =
+		Protocol::ChunkFetchingV1.get_outbound_only_config::&lt;<span class="kw">_</span>, Network&gt;(request_protocol_names);
 	config.add_request_response_protocol(cfg);
 	(collation_req_v1_receiver, collation_req_v2_receiver, available_data_req_receiver)
 }

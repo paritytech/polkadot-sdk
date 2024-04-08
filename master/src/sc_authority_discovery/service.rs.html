@@ -241,6 +241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -268,7 +269,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SinkExt,
 };
 
-<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
+<span class="kw">use </span>sc_network::Multiaddr;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_authority_discovery::AuthorityId;
 
 <span class="doccomment">/// Service to interact with the [`crate::Worker`].

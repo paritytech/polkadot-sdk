@@ -717,6 +717,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -761,9 +762,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>log::{debug, error, warn};
 <span class="kw">use </span>sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
 <span class="kw">use </span>sc_network::{
-	config::MultiaddrWithPeerId, NetworkBlock, NetworkPeers, NetworkStateInfo, PeerId,
+	config::MultiaddrWithPeerId, service::traits::NetworkService, NetworkBackend, NetworkBlock,
+	NetworkPeers, NetworkStateInfo,
 };
 <span class="kw">use </span>sc_network_sync::SyncingService;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sc_utils::mpsc::TracingUnboundedReceiver;
 <span class="kw">use </span>sp_blockchain::HeaderMetadata;
 <span class="kw">use </span>sp_consensus::SyncOracle;
@@ -876,8 +879,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Sync
 		+ <span class="lifetime">&#39;static</span>,
 	H: sc_network_common::ExHashT,
+	N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 &gt;(
-	network: sc_network::NetworkWorker&lt;B, H&gt;,
+	network: N,
 	client: Arc&lt;C&gt;,
 	sync_service: Arc&lt;SyncingService&lt;B&gt;&gt;,
 	announce_imported_blocks: bool,
@@ -944,7 +948,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	H: sc_network_common::ExHashT,
 &gt;(
 	role: Role,
-	network_service: Arc&lt;sc_network::NetworkService&lt;B, H&gt;&gt;,
+	network_service: Arc&lt;<span class="kw">dyn </span>NetworkService&gt;,
 	sync_service: Arc&lt;SyncingService&lt;B&gt;&gt;,
 	client: Arc&lt;C&gt;,
 	<span class="kw-2">mut </span>rpc_rx: TracingUnboundedReceiver&lt;sc_rpc::system::Request&lt;B&gt;&gt;,
@@ -1029,14 +1033,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 			},
 			sc_rpc::system::Request::NetworkReservedPeers(sender) =&gt; {
-				<span class="kw">let </span>reserved_peers = network_service.reserved_peers().<span class="kw">await</span>;
-				<span class="kw">if let </span><span class="prelude-val">Ok</span>(reserved_peers) = reserved_peers {
-					<span class="kw">let </span>reserved_peers =
-						reserved_peers.iter().map(|peer_id| peer_id.to_base58()).collect();
-					<span class="kw">let _ </span>= sender.send(reserved_peers);
-				} <span class="kw">else </span>{
-					<span class="kw">break
-				</span>}
+				<span class="kw">let </span><span class="prelude-val">Ok</span>(reserved_peers) = network_service.reserved_peers().<span class="kw">await else </span>{
+					<span class="kw">break</span>;
+				};
+
+				<span class="kw">let _ </span>=
+					sender.send(reserved_peers.iter().map(|peer_id| peer_id.to_base58()).collect());
 			},
 			sc_rpc::system::Request::NodeRoles(sender) =&gt; {
 				<span class="kw">use </span>sc_rpc::system::NodeRole;

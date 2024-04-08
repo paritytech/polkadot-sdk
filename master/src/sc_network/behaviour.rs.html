@@ -526,7 +526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	discovery::{DiscoveryBehaviour, DiscoveryConfig, DiscoveryOut},
 	event::DhtEvent,
 	peer_info,
-	peer_store::PeerStoreHandle,
+	peer_store::PeerStoreProvider,
 	protocol::{CustomMessageOutcome, NotificationsSink, Protocol},
 	protocol_controller::SetId,
 	request_responses::{<span class="self">self</span>, IfDisconnected, ProtocolConfig, RequestFailure},
@@ -679,7 +679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		local_public_key: PublicKey,
 		disco_config: DiscoveryConfig,
 		request_response_protocols: Vec&lt;ProtocolConfig&gt;,
-		peer_store_handle: PeerStoreHandle,
+		peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 		external_addresses: Arc&lt;Mutex&lt;HashSet&lt;Multiaddr&gt;&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, request_responses::RegisterError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
@@ -692,7 +692,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			discovery: disco_config.finish(),
 			request_responses: request_responses::RequestResponsesBehaviour::new(
 				request_response_protocols.into_iter(),
-				Box::new(peer_store_handle),
+				peer_store_handle,
 			)<span class="question-mark">?</span>,
 		})
 	}

@@ -1619,11 +1619,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>futures::channel::oneshot;
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::{debug, error, trace};
 <span class="kw">use </span>sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Block <span class="kw">as </span>BlockT, Header, NumberFor, Zero},

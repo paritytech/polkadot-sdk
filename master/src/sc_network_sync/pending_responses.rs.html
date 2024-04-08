@@ -291,6 +291,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -319,9 +320,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	stream::{BoxStream, FusedStream, Stream},
 	FutureExt, StreamExt,
 };
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::error;
+
 <span class="kw">use </span>sc_network::{request_responses::RequestFailure, types::ProtocolName};
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 <span class="kw">use </span>std::task::{Context, Poll, Waker};
 <span class="kw">use </span>tokio_stream::StreamMap;

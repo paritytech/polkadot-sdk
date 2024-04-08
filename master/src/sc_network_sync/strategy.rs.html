@@ -839,7 +839,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	LOG_TARGET,
 };
 <span class="kw">use </span>chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::{debug, error, info, warn};
 <span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>sc_client_api::{BlockBackend, ProofProvider};
@@ -848,6 +847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	message::{BlockAnnounce, BlockData, BlockRequest},
 	SyncMode,
 };
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>ClientError, HeaderBackend, HeaderMetadata};
 <span class="kw">use </span>sp_consensus::BlockOrigin;
 <span class="kw">use </span>sp_runtime::{

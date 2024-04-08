@@ -922,11 +922,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	LOG_TARGET,
 };
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::{debug, error, trace};
 <span class="kw">use </span>sc_client_api::ProofProvider;
 <span class="kw">use </span>sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 <span class="kw">use </span>sc_network_common::sync::message::BlockAnnounce;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_consensus::BlockOrigin;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Block <span class="kw">as </span>BlockT, Header, NumberFor},

@@ -215,9 +215,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::block_relay_protocol::{BlockDownloader <span class="kw">as </span>BlockDownloaderT, BlockResponseError};
 
 <span class="kw">use </span>futures::channel::oneshot;
-<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>sc_network::{ProtocolName, RequestFailure};
 <span class="kw">use </span>sc_network_common::sync::message::{BlockData, BlockRequest};
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="macro">mockall::mock! </span>{

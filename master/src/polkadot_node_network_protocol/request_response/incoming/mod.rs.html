@@ -377,6 +377,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -399,7 +401,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 
-<span class="kw">use </span>sc_network::{config <span class="kw">as </span>netconfig, config::RequestResponseConfig, PeerId};
+<span class="kw">use </span>sc_network::{config <span class="kw">as </span>netconfig, NetworkBackend};
+<span class="kw">use </span>sc_network_types::PeerId;
+<span class="kw">use </span>sp_runtime::traits::Block;
 
 <span class="kw">use super</span>::{IsRequest, ReqProtocolNames};
 <span class="kw">use </span><span class="kw">crate</span>::UnifiedReputationChange;
@@ -431,10 +435,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This Register that config with substrate networking and receive incoming requests via the
 	/// returned `IncomingRequestReceiver`.
-	</span><span class="kw">pub fn </span>get_config_receiver(
+	</span><span class="kw">pub fn </span>get_config_receiver&lt;B: Block, N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>Block&gt;::Hash&gt;&gt;(
 		req_protocol_names: <span class="kw-2">&amp;</span>ReqProtocolNames,
-	) -&gt; (IncomingRequestReceiver&lt;Req&gt;, RequestResponseConfig) {
-		<span class="kw">let </span>(raw, cfg) = Req::PROTOCOL.get_config(req_protocol_names);
+	) -&gt; (IncomingRequestReceiver&lt;Req&gt;, N::RequestResponseProtocolConfig) {
+		<span class="kw">let </span>(raw, cfg) = Req::PROTOCOL.get_config::&lt;B, N&gt;(req_protocol_names);
 		(IncomingRequestReceiver { raw, phantom: PhantomData {} }, cfg)
 	}
 

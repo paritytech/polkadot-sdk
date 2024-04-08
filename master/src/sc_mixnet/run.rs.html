@@ -538,7 +538,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -585,8 +584,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sc_client_api::{BlockchainEvents, HeaderBackend};
 <span class="kw">use </span>sc_network::{
-	service::traits::{NotificationEvent, ValidationResult},
-	NetworkNotification, NetworkPeers, NetworkStateInfo, NotificationService, ProtocolName,
+	service::traits::{NetworkService, NotificationEvent, ValidationResult},
+	NetworkPeers, NetworkStateInfo, NotificationService, ProtocolName,
 };
 <span class="kw">use </span>sc_transaction_pool_api::{
 	LocalTransactionPool, OffchainTransactionPoolFactory, TransactionPool,
@@ -687,12 +686,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Run the mixnet service. If `keystore` is `None`, the service will not attempt to register the
 /// local node as a mixnode, even if `config.register` is `true`.
-</span><span class="kw">pub async fn </span>run&lt;B, C, S, N, P&gt;(
+</span><span class="kw">pub async fn </span>run&lt;B, C, S, P&gt;(
 	config: Config,
 	<span class="kw-2">mut </span>api_backend: ApiBackend,
 	client: Arc&lt;C&gt;,
 	sync: Arc&lt;S&gt;,
-	network: Arc&lt;N&gt;,
+	network: Arc&lt;<span class="kw">dyn </span>NetworkService&gt;,
 	protocol_name: ProtocolName,
 	transaction_pool: Arc&lt;P&gt;,
 	keystore: <span class="prelude-ty">Option</span>&lt;KeystorePtr&gt;,
@@ -702,7 +701,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C: BlockchainEvents&lt;B&gt; + ProvideRuntimeApi&lt;B&gt; + HeaderBackend&lt;B&gt;,
 	C::Api: MixnetApi&lt;B&gt;,
 	S: SyncOracle,
-	N: NetworkStateInfo + NetworkNotification + NetworkPeers,
 	P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">let </span>local_peer_id = network.local_peer_id();

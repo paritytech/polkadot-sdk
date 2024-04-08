@@ -2580,6 +2580,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2431" id="2431">2431</a>
 <a href="#2432" id="2432">2432</a>
 <a href="#2433" id="2433">2433</a>
+<a href="#2434" id="2434">2434</a>
+<a href="#2435" id="2435">2435</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3736,6 +3738,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxIntakeWeight = MaxIntakeWeight;
 	<span class="kw">type </span>ThawThrottle = ThawThrottle;
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>BenchmarkSetup = ();
 }
 
 <span class="macro">parameter_types! </span>{

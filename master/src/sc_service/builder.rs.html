@@ -1210,6 +1210,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1061" id="1061">1061</a>
 <a href="#1062" id="1062">1062</a>
 <a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1255,10 +1262,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_keystore::LocalKeystore;
 <span class="kw">use </span>sc_network::{
 	config::{FullNetworkConfiguration, SyncMode},
-	peer_store::PeerStore,
-	NetworkService, NetworkStateInfo, NetworkStatusProvider,
+	service::{
+		traits::{PeerStore, RequestResponseConfig},
+		NotificationMetrics,
+	},
+	NetworkBackend, NetworkStateInfo,
 };
-<span class="kw">use </span>sc_network_bitswap::BitswapRequestHandler;
 <span class="kw">use </span>sc_network_common::role::Roles;
 <span class="kw">use </span>sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 <span class="kw">use </span>sc_network_sync::{
@@ -1554,19 +1563,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 }
 
-<span class="doccomment">/// Shared network instance implementing a set of mandatory traits.
-</span><span class="kw">pub trait </span>SpawnTaskNetwork&lt;Block: BlockT&gt;:
-	NetworkStateInfo + NetworkStatusProvider + Send + Sync + <span class="lifetime">&#39;static
-</span>{
-}
-
-<span class="kw">impl</span>&lt;T, Block&gt; SpawnTaskNetwork&lt;Block&gt; <span class="kw">for </span>T
-<span class="kw">where
-	</span>Block: BlockT,
-	T: NetworkStateInfo + NetworkStatusProvider + Send + Sync + <span class="lifetime">&#39;static</span>,
-{
-}
-
 <span class="doccomment">/// Parameters to pass into `build`.
 </span><span class="kw">pub struct </span>SpawnTasksParams&lt;<span class="lifetime">&#39;a</span>, TBl: BlockT, TCl, TExPool, TRpc, Backend&gt; {
 	<span class="doccomment">/// The service configuration.
@@ -1585,7 +1581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>rpc_builder:
 		Box&lt;<span class="kw">dyn </span>Fn(DenyUnsafe, SubscriptionTaskExecutor) -&gt; <span class="prelude-ty">Result</span>&lt;RpcModule&lt;TRpc&gt;, Error&gt;&gt;,
 	<span class="doccomment">/// A shared network instance.
-	</span><span class="kw">pub </span>network: Arc&lt;<span class="kw">dyn </span>SpawnTaskNetwork&lt;TBl&gt;&gt;,
+	</span><span class="kw">pub </span>network: Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 	<span class="doccomment">/// A Sender for RPC requests.
 	</span><span class="kw">pub </span>system_rpc_tx: TracingUnboundedSender&lt;sc_rpc::system::Request&lt;TBl&gt;&gt;,
 	<span class="doccomment">/// Controller for transactions handlers
@@ -1948,11 +1944,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Parameters to pass into `build_network`.
-</span><span class="kw">pub struct </span>BuildNetworkParams&lt;<span class="lifetime">&#39;a</span>, TBl: BlockT, TExPool, TImpQu, TCl&gt; {
+</span><span class="kw">pub struct </span>BuildNetworkParams&lt;
+	<span class="lifetime">&#39;a</span>,
+	TBl: BlockT,
+	TNet: NetworkBackend&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+	TExPool,
+	TImpQu,
+	TCl,
+&gt; {
 	<span class="doccomment">/// The service configuration.
 	</span><span class="kw">pub </span>config: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Configuration,
 	<span class="doccomment">/// Full network configuration.
-	</span><span class="kw">pub </span>net_config: FullNetworkConfiguration,
+	</span><span class="kw">pub </span>net_config: FullNetworkConfiguration&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash, TNet&gt;,
 	<span class="doccomment">/// A shared client returned by `new_full_parts`.
 	</span><span class="kw">pub </span>client: Arc&lt;TCl&gt;,
 	<span class="doccomment">/// A shared transaction pool.
@@ -1968,15 +1971,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>warp_sync_params: <span class="prelude-ty">Option</span>&lt;WarpSyncParams&lt;TBl&gt;&gt;,
 	<span class="doccomment">/// User specified block relay params. If not specified, the default
 	/// block request handler will be used.
-	</span><span class="kw">pub </span>block_relay: <span class="prelude-ty">Option</span>&lt;BlockRelayParams&lt;TBl&gt;&gt;,
+	</span><span class="kw">pub </span>block_relay: <span class="prelude-ty">Option</span>&lt;BlockRelayParams&lt;TBl, TNet&gt;&gt;,
+	<span class="doccomment">/// Metrics.
+	</span><span class="kw">pub </span>metrics: NotificationMetrics,
 }
 
 <span class="doccomment">/// Build the network service, the network status sinks and an RPC sender.
-</span><span class="kw">pub fn </span>build_network&lt;TBl, TExPool, TImpQu, TCl&gt;(
-	params: BuildNetworkParams&lt;TBl, TExPool, TImpQu, TCl&gt;,
+</span><span class="kw">pub fn </span>build_network&lt;TBl, TNet, TExPool, TImpQu, TCl&gt;(
+	params: BuildNetworkParams&lt;TBl, TNet, TExPool, TImpQu, TCl&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
 	(
-		Arc&lt;NetworkService&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;,
+		Arc&lt;<span class="kw">dyn </span>sc_network::service::traits::NetworkService&gt;,
 		TracingUnboundedSender&lt;sc_rpc::system::Request&lt;TBl&gt;&gt;,
 		sc_network_transactions::TransactionsHandlerController&lt;&lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 		NetworkStarter,
@@ -1997,6 +2002,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ <span class="lifetime">&#39;static</span>,
 	TExPool: TransactionPool&lt;Block = TBl, Hash = &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt; + <span class="lifetime">&#39;static</span>,
 	TImpQu: ImportQueue&lt;TBl&gt; + <span class="lifetime">&#39;static</span>,
+	TNet: NetworkBackend&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 {
 	<span class="kw">let </span>BuildNetworkParams {
 		config,
@@ -2008,6 +2014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block_announce_validator_builder,
 		warp_sync_params,
 		block_relay,
+		metrics,
 	} = params;
 
 	<span class="kw">if </span>warp_sync_params.is_none() &amp;&amp; config.network.sync_mode.is_warp() {
@@ -2042,7 +2049,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="comment">// Custom protocol was not specified, use the default block handler.
 			// Allow both outgoing and incoming requests.
-			</span><span class="kw">let </span>params = BlockRequestHandler::new(
+			</span><span class="kw">let </span>params = BlockRequestHandler::new::&lt;TNet&gt;(
 				chain_sync_network_handle.clone(),
 				<span class="kw-2">&amp;</span>protocol_id,
 				config.chain_spec.fork_id(),
@@ -2061,13 +2068,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>num_peer_hint = net_config.network_config.default_peers_set_num_full <span class="kw">as </span>usize +
 			net_config.network_config.default_peers_set.reserved_nodes.len();
 		<span class="comment">// Allow both outgoing and incoming requests.
-		</span><span class="kw">let </span>(handler, protocol_config) = StateRequestHandler::new(
+		</span><span class="kw">let </span>(handler, protocol_config) = StateRequestHandler::new::&lt;TNet&gt;(
 			<span class="kw-2">&amp;</span>protocol_id,
 			config.chain_spec.fork_id(),
 			client.clone(),
 			num_peer_hint,
 		);
-		<span class="kw">let </span>config_name = protocol_config.name.clone();
+		<span class="kw">let </span>config_name = protocol_config.protocol_name().clone();
 
 		spawn_handle.spawn(<span class="string">&quot;state-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), handler.run());
 		(protocol_config, config_name)
@@ -2076,13 +2083,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>(warp_sync_protocol_config, warp_request_protocol_name) = <span class="kw">match </span>warp_sync_params.as_ref() {
 		<span class="prelude-val">Some</span>(WarpSyncParams::WithProvider(warp_with_provider)) =&gt; {
 			<span class="comment">// Allow both outgoing and incoming requests.
-			</span><span class="kw">let </span>(handler, protocol_config) = WarpSyncRequestHandler::new(
+			</span><span class="kw">let </span>(handler, protocol_config) = WarpSyncRequestHandler::new::&lt;<span class="kw">_</span>, TNet&gt;(
 				protocol_id.clone(),
 				genesis_hash,
 				config.chain_spec.fork_id(),
 				warp_with_provider.clone(),
 			);
-			<span class="kw">let </span>config_name = protocol_config.name.clone();
+			<span class="kw">let </span>config_name = protocol_config.protocol_name().clone();
 
 			spawn_handle.spawn(<span class="string">&quot;warp-sync-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), handler.run());
 			(<span class="prelude-val">Some</span>(protocol_config), <span class="prelude-val">Some</span>(config_name))
@@ -2092,7 +2099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>light_client_request_protocol_config = {
 		<span class="comment">// Allow both outgoing and incoming requests.
-		</span><span class="kw">let </span>(handler, protocol_config) = LightClientRequestHandler::new(
+		</span><span class="kw">let </span>(handler, protocol_config) = LightClientRequestHandler::new::&lt;TNet&gt;(
 			<span class="kw-2">&amp;</span>protocol_id,
 			config.chain_spec.fork_id(),
 			client.clone(),
@@ -2110,30 +2117,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		net_config.add_request_response_protocol(config);
 	}
 
-	<span class="kw">if </span>config.network.ipfs_server {
-		<span class="kw">let </span>(handler, protocol_config) = BitswapRequestHandler::new(client.clone());
-		spawn_handle.spawn(<span class="string">&quot;bitswap-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), handler.run());
-		net_config.add_request_response_protocol(protocol_config);
-	}
+	<span class="kw">let </span>bitswap_config = config.network.ipfs_server.then(|| {
+		<span class="kw">let </span>(handler, config) = TNet::bitswap_server(client.clone());
+		spawn_handle.spawn(<span class="string">&quot;bitswap-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), handler);
+
+		config
+	});
 
 	<span class="comment">// create transactions protocol and add it to the list of supported protocols of
-	</span><span class="kw">let </span>(transactions_handler_proto, transactions_config) =
-		sc_network_transactions::TransactionsHandlerPrototype::new(
+	</span><span class="kw">let </span>peer_store_handle = net_config.peer_store_handle();
+	<span class="kw">let </span>(transactions_handler_proto, transactions_config) =
+		sc_network_transactions::TransactionsHandlerPrototype::new::&lt;<span class="kw">_</span>, TBl, TNet&gt;(
 			protocol_id.clone(),
 			genesis_hash,
 			config.chain_spec.fork_id(),
+			metrics.clone(),
+			Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
 		);
 	net_config.add_notification_protocol(transactions_config);
 
-	<span class="comment">// Create `PeerStore` and initialize it with bootnode peer ids.
-	</span><span class="kw">let </span>peer_store = PeerStore::new(
-		net_config
-			.network_config
-			.boot_nodes
-			.iter()
-			.map(|bootnode| bootnode.peer_id)
-			.collect(),
-	);
+	<span class="comment">// Start task for `PeerStore`
+	</span><span class="kw">let </span>peer_store = net_config.take_peer_store();
 	<span class="kw">let </span>peer_store_handle = peer_store.handle();
 	spawn_handle.spawn(<span class="string">&quot;peer-store&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), peer_store.run());
 
@@ -2141,6 +2145,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Roles::from(<span class="kw-2">&amp;</span>config.role),
 		client.clone(),
 		config.prometheus_config.as_ref().map(|config| config.registry.clone()).as_ref(),
+		metrics.clone(),
 		<span class="kw-2">&amp;</span>net_config,
 		protocol_id.clone(),
 		<span class="kw-2">&amp;</span>config.chain_spec.fork_id().map(ToOwned::to_owned),
@@ -2151,13 +2156,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block_downloader,
 		state_request_protocol_name,
 		warp_request_protocol_name,
-		peer_store_handle.clone(),
+		Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
 	)<span class="question-mark">?</span>;
 	<span class="kw">let </span>sync_service_import_queue = sync_service.clone();
 	<span class="kw">let </span>sync_service = Arc::new(sync_service);
 
 	<span class="kw">let </span>genesis_hash = client.hash(Zero::zero()).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
-	<span class="kw">let </span>network_params = sc_network::config::Params::&lt;TBl&gt; {
+	<span class="kw">let </span>network_params = sc_network::config::Params::&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash, TNet&gt; {
 		role: config.role.clone(),
 		executor: {
 			<span class="kw">let </span>spawn_handle = Clone::clone(<span class="kw-2">&amp;</span>spawn_handle);
@@ -2166,17 +2171,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 		},
 		network_config: net_config,
-		peer_store: peer_store_handle,
 		genesis_hash,
 		protocol_id: protocol_id.clone(),
 		fork_id: config.chain_spec.fork_id().map(ToOwned::to_owned),
 		metrics_registry: config.prometheus_config.as_ref().map(|config| config.registry.clone()),
 		block_announce_config,
+		bitswap_config,
+		notification_metrics: metrics,
 	};
 
 	<span class="kw">let </span>has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();
-	<span class="kw">let </span>network_mut = sc_network::NetworkWorker::new(network_params)<span class="question-mark">?</span>;
-	<span class="kw">let </span>network = network_mut.service().clone();
+	<span class="kw">let </span>network_mut = TNet::new(network_params)<span class="question-mark">?</span>;
+	<span class="kw">let </span>network = network_mut.network_service().clone();
 
 	<span class="kw">let </span>(tx_handler, tx_handler_controller) = transactions_handler_proto.build(
 		network.clone(),
@@ -2184,12 +2190,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Arc::new(TransactionPoolAdapter { pool: transaction_pool, client: client.clone() }),
 		config.prometheus_config.as_ref().map(|config| <span class="kw-2">&amp;</span>config.registry),
 	)<span class="question-mark">?</span>;
-	spawn_handle.spawn(<span class="string">&quot;network-transactions-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), tx_handler.run());
+	spawn_handle.spawn_blocking(
+		<span class="string">&quot;network-transactions-handler&quot;</span>,
+		<span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>),
+		tx_handler.run(),
+	);
 
 	spawn_handle.spawn_blocking(
 		<span class="string">&quot;chain-sync-network-service-provider&quot;</span>,
 		<span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>),
-		chain_sync_network_provider.run(network.clone()),
+		chain_sync_network_provider.run(Arc::new(network.clone())),
 	);
 	spawn_handle.spawn(<span class="string">&quot;import-queue&quot;</span>, <span class="prelude-val">None</span>, import_queue.run(Box::new(sync_service_import_queue)));
 	spawn_handle.spawn_blocking(<span class="string">&quot;syncing&quot;</span>, <span class="prelude-val">None</span>, engine.run());
@@ -2198,9 +2208,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	spawn_handle.spawn(
 		<span class="string">&quot;system-rpc-handler&quot;</span>,
 		<span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>),
-		build_system_rpc_future(
+		build_system_rpc_future::&lt;<span class="kw">_</span>, <span class="kw">_</span>, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;(
 			config.role.clone(),
-			network_mut.service().clone(),
+			network_mut.network_service(),
 			sync_service.clone(),
 			client.clone(),
 			system_rpc_rx,
@@ -2208,18 +2218,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		),
 	);
 
-	<span class="kw">let </span>future =
-		build_network_future(network_mut, client, sync_service.clone(), config.announce_block);
+	<span class="kw">let </span>future = build_network_future::&lt;<span class="kw">_</span>, <span class="kw">_</span>, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash, <span class="kw">_</span>&gt;(
+		network_mut,
+		client,
+		sync_service.clone(),
+		config.announce_block,
+	);
 
 	<span class="comment">// TODO: Normally, one is supposed to pass a list of notifications protocols supported by the
 	// node through the `NetworkConfiguration` struct. But because this function doesn&#39;t know in
 	// advance which components, such as GrandPa or Polkadot, will be plugged on top of the
-	// service, it is unfortunately not possible to do so without some deep refactoring. To bypass
-	// this problem, the `NetworkService` provides a `register_notifications_protocol` method that
-	// can be called even after the network has been initialized. However, we want to avoid the
-	// situation where `register_notifications_protocol` is called *after* the network actually
-	// connects to other peers. For this reason, we delay the process of the network future until
-	// the user calls `NetworkStarter::start_network`.
+	// service, it is unfortunately not possible to do so without some deep refactoring. To
+	// bypass this problem, the `NetworkService` provides a `register_notifications_protocol`
+	// method that can be called even after the network has been initialized. However, we want to
+	// avoid the situation where `register_notifications_protocol` is called *after* the network
+	// actually connects to other peers. For this reason, we delay the process of the network
+	// future until the user calls `NetworkStarter::start_network`.
 	//
 	// This entire hack should eventually be removed in favour of passing the list of protocols
 	// through the configuration.

@@ -976,6 +976,82 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 //
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -999,28 +1075,165 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Traits defined by `sc-network`.
 
 </span><span class="kw">use crate</span>::{
-	config::MultiaddrWithPeerId,
-	error,
+	config::{IncomingRequest, MultiaddrWithPeerId, NotificationHandshake, Params, SetConfig},
+	error::{<span class="self">self</span>, Error},
 	event::Event,
+	network_state::NetworkState,
 	request_responses::{IfDisconnected, RequestFailure},
-	service::signature::Signature,
+	service::{metrics::NotificationMetrics, signature::Signature, PeerStoreProvider},
 	types::ProtocolName,
-	ReputationChange,
+	Multiaddr, ReputationChange,
 };
 
 <span class="kw">use </span>futures::{channel::oneshot, Stream};
-<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
+<span class="kw">use </span>prometheus_endpoint::Registry;
 
-<span class="kw">use </span>sc_network_common::role::ObservedRole;
+<span class="kw">use </span>sc_client_api::BlockBackend;
+<span class="kw">use </span>sc_network_common::{role::ObservedRole, ExHashT};
+<span class="kw">use </span>sc_network_types::PeerId;
+<span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
-<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, future::Future, pin::Pin, sync::Arc};
+<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, future::Future, pin::Pin, sync::Arc, time::Duration};
 
 <span class="kw">pub use </span>libp2p::{identity::SigningError, kad::record::Key <span class="kw">as </span>KademliaKey};
+
+<span class="doccomment">/// Supertrait defining the services provided by [`NetworkBackend`] service handle.
+</span><span class="kw">pub trait </span>NetworkService:
+	NetworkSigner
+	+ NetworkDHTProvider
+	+ NetworkStatusProvider
+	+ NetworkPeers
+	+ NetworkEventStream
+	+ NetworkStateInfo
+	+ NetworkRequest
+	+ Send
+	+ Sync
+	+ <span class="lifetime">&#39;static
+</span>{
+}
+
+<span class="kw">impl</span>&lt;T&gt; NetworkService <span class="kw">for </span>T <span class="kw">where
+	</span>T: NetworkSigner
+		+ NetworkDHTProvider
+		+ NetworkStatusProvider
+		+ NetworkPeers
+		+ NetworkEventStream
+		+ NetworkStateInfo
+		+ NetworkRequest
+		+ Send
+		+ Sync
+		+ <span class="lifetime">&#39;static
+</span>{
+}
+
+<span class="doccomment">/// Trait defining the required functionality from a notification protocol configuration.
+</span><span class="kw">pub trait </span>NotificationConfig: Debug {
+	<span class="doccomment">/// Get access to the `SetConfig` of the notification protocol.
+	</span><span class="kw">fn </span>set_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>SetConfig;
+
+	<span class="doccomment">/// Get protocol name.
+	</span><span class="kw">fn </span>protocol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProtocolName;
+}
+
+<span class="doccomment">/// Trait defining the required functionality from a request-response protocol configuration.
+</span><span class="kw">pub trait </span>RequestResponseConfig: Debug {
+	<span class="doccomment">/// Get protocol name.
+	</span><span class="kw">fn </span>protocol_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ProtocolName;
+}
+
+<span class="doccomment">/// Trait defining required functionality from `PeerStore`.
+</span><span class="attr">#[async_trait::async_trait]
+</span><span class="kw">pub trait </span>PeerStore {
+	<span class="doccomment">/// Get handle to `PeerStore`.
+	</span><span class="kw">fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;;
+
+	<span class="doccomment">/// Start running `PeerStore` event loop.
+	</span><span class="kw">async fn </span>run(<span class="self">self</span>);
+}
+
+<span class="doccomment">/// Networking backend.
+</span><span class="attr">#[async_trait::async_trait]
+</span><span class="kw">pub trait </span>NetworkBackend&lt;B: BlockT + <span class="lifetime">&#39;static</span>, H: ExHashT&gt;: Send + <span class="lifetime">&#39;static </span>{
+	<span class="doccomment">/// Type representing notification protocol-related configuration.
+	</span><span class="kw">type </span>NotificationProtocolConfig: NotificationConfig;
+
+	<span class="doccomment">/// Type representing request-response protocol-related configuration.
+	</span><span class="kw">type </span>RequestResponseProtocolConfig: RequestResponseConfig;
+
+	<span class="doccomment">/// Type implementing `NetworkService` for the networking backend.
+	///
+	/// `NetworkService` allows other subsystems of the blockchain to interact with `sc-network`
+	/// using `NetworkService`.
+	</span><span class="kw">type </span>NetworkService&lt;Block, Hash&gt;: NetworkService + Clone;
+
+	<span class="doccomment">/// Type implementing [`PeerStore`].
+	</span><span class="kw">type </span>PeerStore: PeerStore;
+
+	<span class="doccomment">/// Bitswap config.
+	</span><span class="kw">type </span>BitswapConfig;
+
+	<span class="doccomment">/// Create new `NetworkBackend`.
+	</span><span class="kw">fn </span>new(params: Params&lt;B, H, <span class="self">Self</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt;
+	<span class="kw">where
+		</span><span class="self">Self</span>: Sized;
+
+	<span class="doccomment">/// Get handle to `NetworkService` of the `NetworkBackend`.
+	</span><span class="kw">fn </span>network_service(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>NetworkService&gt;;
+
+	<span class="doccomment">/// Create [`PeerStore`].
+	</span><span class="kw">fn </span>peer_store(bootnodes: Vec&lt;PeerId&gt;) -&gt; <span class="self">Self</span>::PeerStore;
+
+	<span class="doccomment">/// Register metrics that are used by the notification protocols.
+	</span><span class="kw">fn </span>register_notification_metrics(registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;) -&gt; NotificationMetrics;
+
+	<span class="doccomment">/// Create Bitswap server.
+	</span><span class="kw">fn </span>bitswap_server(
+		client: Arc&lt;<span class="kw">dyn </span>BlockBackend&lt;B&gt; + Send + Sync&gt;,
+	) -&gt; (Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;, <span class="self">Self</span>::BitswapConfig);
+
+	<span class="doccomment">/// Create notification protocol configuration and an associated `NotificationService`
+	/// for the protocol.
+	</span><span class="kw">fn </span>notification_config(
+		protocol_name: ProtocolName,
+		fallback_names: Vec&lt;ProtocolName&gt;,
+		max_notification_size: u64,
+		handshake: <span class="prelude-ty">Option</span>&lt;NotificationHandshake&gt;,
+		set_config: SetConfig,
+		metrics: NotificationMetrics,
+		peerstore_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+	) -&gt; (<span class="self">Self</span>::NotificationProtocolConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;);
+
+	<span class="doccomment">/// Create request-response protocol configuration.
+	</span><span class="kw">fn </span>request_response_config(
+		protocol_name: ProtocolName,
+		fallback_names: Vec&lt;ProtocolName&gt;,
+		max_request_size: u64,
+		max_response_size: u64,
+		request_timeout: Duration,
+		inbound_queue: <span class="prelude-ty">Option</span>&lt;async_channel::Sender&lt;IncomingRequest&gt;&gt;,
+	) -&gt; <span class="self">Self</span>::RequestResponseProtocolConfig;
+
+	<span class="doccomment">/// Start [`NetworkBackend`] event loop.
+	</span><span class="kw">async fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>);
+}
 
 <span class="doccomment">/// Signer with network identity
 </span><span class="kw">pub trait </span>NetworkSigner {
 	<span class="doccomment">/// Signs the message with the `KeyPair` that defines the local [`PeerId`].
-	</span><span class="kw">fn </span>sign_with_local_identity(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Signature, SigningError&gt;;
+	</span><span class="kw">fn </span>sign_with_local_identity(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Signature, SigningError&gt;;
+
+	<span class="doccomment">/// Verify signature using peer&#39;s public key.
+	///
+	/// `public_key` must be Protobuf-encoded ed25519 public key.
+	///
+	/// Returns `Err(())` if public cannot be parsed into a valid ed25519 public key.
+	</span><span class="kw">fn </span>verify(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		peer_id: sc_network_types::PeerId,
+		public_key: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+		signature: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+		message: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, String&gt;;
 }
 
 <span class="kw">impl</span>&lt;T&gt; NetworkSigner <span class="kw">for </span>Arc&lt;T&gt;
@@ -1028,8 +1241,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>T: <span class="question-mark">?</span>Sized,
 	T: NetworkSigner,
 {
-	<span class="kw">fn </span>sign_with_local_identity(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Signature, SigningError&gt; {
+	<span class="kw">fn </span>sign_with_local_identity(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Signature, SigningError&gt; {
 		T::sign_with_local_identity(<span class="self">self</span>, msg)
+	}
+
+	<span class="kw">fn </span>verify(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		peer_id: sc_network_types::PeerId,
+		public_key: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+		signature: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+		message: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, String&gt; {
+		T::verify(<span class="self">self</span>, peer_id, public_key, signature, message)
 	}
 }
 
@@ -1095,6 +1318,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns an error if the `NetworkWorker` is no longer running.
 	</span><span class="kw">async fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkStatus, ()&gt;;
+
+	<span class="doccomment">/// Get the network state.
+	///
+	/// Returns an error if the `NetworkWorker` is no longer running.
+	</span><span class="kw">async fn </span>network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkState, ()&gt;;
 }
 
 <span class="comment">// Manual implementation to avoid extra boxing here
@@ -1112,9 +1340,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		T::status(<span class="self">self</span>)
 	}
+
+	<span class="kw">fn </span>network_state&lt;<span class="lifetime">&#39;life0</span>, <span class="lifetime">&#39;async_trait</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">&#39;life0 </span><span class="self">self</span>,
+	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;NetworkState, ()&gt;&gt; + Send + <span class="lifetime">&#39;async_trait</span>&gt;&gt;
+	<span class="kw">where
+		</span><span class="lifetime">&#39;life0</span>: <span class="lifetime">&#39;async_trait</span>,
+		<span class="self">Self</span>: <span class="lifetime">&#39;async_trait</span>,
+	{
+		T::network_state(<span class="self">self</span>)
+	}
 }
 
 <span class="doccomment">/// Provides low-level API for manipulating network peers.
+</span><span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>NetworkPeers {
 	<span class="doccomment">/// Set authorized peers.
 	///
@@ -1215,9 +1454,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// decoded into a role, the role queried from `PeerStore` and if the role is not stored
 	/// there either, `None` is returned and the peer should be discarded.
 	</span><span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt;;
+
+	<span class="doccomment">/// Get the list of reserved peers.
+	///
+	/// Returns an error if the `NetworkWorker` is no longer running.
+	</span><span class="kw">async fn </span>reserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerId&gt;, ()&gt;;
 }
 
 <span class="comment">// Manual implementation to avoid extra boxing here
+</span><span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;T&gt; NetworkPeers <span class="kw">for </span>Arc&lt;T&gt;
 <span class="kw">where
 	</span>T: <span class="question-mark">?</span>Sized,
@@ -1294,6 +1539,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId, handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt; {
 		T::peer_role(<span class="self">self</span>, peer_id, handshake)
 	}
+
+	<span class="kw">fn </span>reserved_peers&lt;<span class="lifetime">&#39;life0</span>, <span class="lifetime">&#39;async_trait</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">&#39;life0 </span><span class="self">self</span>,
+	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerId&gt;, ()&gt;&gt; + Send + <span class="lifetime">&#39;async_trait</span>&gt;&gt;
+	<span class="kw">where
+		</span><span class="lifetime">&#39;life0</span>: <span class="lifetime">&#39;async_trait</span>,
+		<span class="self">Self</span>: <span class="lifetime">&#39;async_trait</span>,
+	{
+		T::reserved_peers(<span class="self">self</span>)
+	}
 }
 
 <span class="doccomment">/// Provides access to network-level event stream.
@@ -1367,141 +1622,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		-&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSenderReady + <span class="lifetime">&#39;_</span>&gt;, NotificationSenderError&gt;;
 }
 
-<span class="doccomment">/// Error returned by [`NetworkNotification::notification_sender`].
+<span class="doccomment">/// Error returned by the notification sink.
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>NotificationSenderError {
 	<span class="doccomment">/// The notification receiver has been closed, usually because the underlying connection
 	/// closed.
 	///
 	/// Some of the notifications most recently sent may not have been received. However,
-	/// the peer may still be connected and a new `NotificationSender` for the same
-	/// protocol obtained from [`NetworkNotification::notification_sender`].
+	/// the peer may still be connected and a new notification sink for the same
+	/// protocol obtained from [`NotificationService::message_sink()`].
 	</span><span class="attr">#[error(<span class="string">&quot;The notification receiver has been closed&quot;</span>)]
 	</span>Closed,
 	<span class="doccomment">/// Protocol name hasn&#39;t been registered.
 	</span><span class="attr">#[error(<span class="string">&quot;Protocol name hasn&#39;t been registered&quot;</span>)]
 	</span>BadProtocol,
-}
-
-<span class="doccomment">/// Provides ability to send network notifications.
-</span><span class="kw">pub trait </span>NetworkNotification {
-	<span class="doccomment">/// Appends a notification to the buffer of pending outgoing notifications with the given peer.
-	/// Has no effect if the notifications channel with this protocol name is not open.
-	///
-	/// If the buffer of pending outgoing notifications with that peer is full, the notification
-	/// is silently dropped and the connection to the remote will start being shut down. This
-	/// happens if you call this method at a higher rate than the rate at which the peer processes
-	/// these notifications, or if the available network bandwidth is too low.
-	///
-	/// For this reason, this method is considered soft-deprecated. You are encouraged to use
-	/// [`NetworkNotification::notification_sender`] instead.
-	///
-	/// &gt; **Note**: The reason why this is a no-op in the situation where we have no channel is
-	/// &gt;			that we don&#39;t guarantee message delivery anyway. Networking issues can cause
-	/// &gt;			connections to drop at any time, and higher-level logic shouldn&#39;t differentiate
-	/// &gt;			between the remote voluntarily closing a substream or a network error
-	/// &gt;			preventing the message from being delivered.
-	///
-	/// The protocol must have been registered with
-	/// `crate::config::NetworkConfiguration::notifications_protocols`.
-	</span><span class="kw">fn </span>write_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, target: PeerId, protocol: ProtocolName, message: Vec&lt;u8&gt;);
-
-	<span class="doccomment">/// Obtains a [`NotificationSender`] for a connected peer, if it exists.
-	///
-	/// A `NotificationSender` is scoped to a particular connection to the peer that holds
-	/// a receiver. With a `NotificationSender` at hand, sending a notification is done in two
-	/// steps:
-	///
-	/// 1. [`NotificationSender::ready`] is used to wait for the sender to become ready
-	/// for another notification, yielding a [`NotificationSenderReady`] token.
-	/// 2. [`NotificationSenderReady::send`] enqueues the notification for sending. This operation
-	/// can only fail if the underlying notification substream or connection has suddenly closed.
-	///
-	/// An error is returned by [`NotificationSenderReady::send`] if there exists no open
-	/// notifications substream with that combination of peer and protocol, or if the remote
-	/// has asked to close the notifications substream. If that happens, it is guaranteed that an
-	/// [`Event::NotificationStreamClosed`] has been generated on the stream returned by
-	/// [`NetworkEventStream::event_stream`].
-	///
-	/// If the remote requests to close the notifications substream, all notifications successfully
-	/// enqueued using [`NotificationSenderReady::send`] will finish being sent out before the
-	/// substream actually gets closed, but attempting to enqueue more notifications will now
-	/// return an error. It is however possible for the entire connection to be abruptly closed,
-	/// in which case enqueued notifications will be lost.
-	///
-	/// The protocol must have been registered with
-	/// `crate::config::NetworkConfiguration::notifications_protocols`.
-	///
-	/// # Usage
-	///
-	/// This method returns a struct that allows waiting until there is space available in the
-	/// buffer of messages towards the given peer. If the peer processes notifications at a slower
-	/// rate than we send them, this buffer will quickly fill up.
-	///
-	/// As such, you should never do something like this:
-	///
-	/// ```ignore
-	/// // Do NOT do this
-	/// for peer in peers {
-	/// 	if let Ok(n) = network.notification_sender(peer, ...) {
-	/// 			if let Ok(s) = n.ready().await {
-	/// 				let _ = s.send(...);
-	/// 			}
-	/// 	}
-	/// }
-	/// ```
-	///
-	/// Doing so would slow down all peers to the rate of the slowest one. A malicious or
-	/// malfunctioning peer could intentionally process notifications at a very slow rate.
-	///
-	/// Instead, you are encouraged to maintain your own buffer of notifications on top of the one
-	/// maintained by `sc-network`, and use `notification_sender` to progressively send out
-	/// elements from your buffer. If this additional buffer is full (which will happen at some
-	/// point if the peer is too slow to process notifications), appropriate measures can be taken,
-	/// such as removing non-critical notifications from the buffer or disconnecting the peer
-	/// using [`NetworkPeers::disconnect_peer`].
-	///
-	///
-	/// Notifications              Per-peer buffer
-	///   broadcast    +-------&gt;   of notifications   +--&gt;  `notification_sender`  +--&gt;  Internet
-	///                    ^       (not covered by
-	///                    |         sc-network)
-	///                    +
-	///      Notifications should be dropped
-	///             if buffer is full
-	///
-	///
-	/// See also the `sc-network-gossip` crate for a higher-level way to send notifications.
-	</span><span class="kw">fn </span>notification_sender(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		target: PeerId,
-		protocol: ProtocolName,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSender&gt;, NotificationSenderError&gt;;
-
-	<span class="doccomment">/// Set handshake for the notification protocol.
-	</span><span class="kw">fn </span>set_notification_handshake(<span class="kw-2">&amp;</span><span class="self">self</span>, protocol: ProtocolName, handshake: Vec&lt;u8&gt;);
-}
-
-<span class="kw">impl</span>&lt;T&gt; NetworkNotification <span class="kw">for </span>Arc&lt;T&gt;
-<span class="kw">where
-	</span>T: <span class="question-mark">?</span>Sized,
-	T: NetworkNotification,
-{
-	<span class="kw">fn </span>write_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, target: PeerId, protocol: ProtocolName, message: Vec&lt;u8&gt;) {
-		T::write_notification(<span class="self">self</span>, target, protocol, message)
-	}
-
-	<span class="kw">fn </span>notification_sender(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		target: PeerId,
-		protocol: ProtocolName,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSender&gt;, NotificationSenderError&gt; {
-		T::notification_sender(<span class="self">self</span>, target, protocol)
-	}
-
-	<span class="kw">fn </span>set_notification_handshake(<span class="kw-2">&amp;</span><span class="self">self</span>, protocol: ProtocolName, handshake: Vec&lt;u8&gt;) {
-		T::set_notification_handshake(<span class="self">self</span>, protocol, handshake)
-	}
 }
 
 <span class="doccomment">/// Provides ability to send network requests.
@@ -1640,6 +1774,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Outbound,
 }
 
+<span class="kw">impl </span>From&lt;litep2p::protocol::notification::Direction&gt; <span class="kw">for </span>Direction {
+	<span class="kw">fn </span>from(direction: litep2p::protocol::notification::Direction) -&gt; <span class="self">Self </span>{
+		<span class="kw">match </span>direction {
+			litep2p::protocol::notification::Direction::Inbound =&gt; Direction::Inbound,
+			litep2p::protocol::notification::Direction::Outbound =&gt; Direction::Outbound,
+		}
+	}
+}
+
 <span class="kw">impl </span>Direction {
 	<span class="doccomment">/// Is the direction inbound.
 	</span><span class="kw">pub fn </span>is_inbound(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -1749,13 +1892,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>close_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
 
 	<span class="doccomment">/// Send synchronous `notification` to `peer`.
-	</span><span class="kw">fn </span>send_sync_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: <span class="kw-2">&amp;</span>PeerId, notification: Vec&lt;u8&gt;);
+	</span><span class="kw">fn </span>send_sync_notification(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: <span class="kw-2">&amp;</span>PeerId, notification: Vec&lt;u8&gt;);
 
 	<span class="doccomment">/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	///
 	/// Returns an error if the peer doesn&#39;t exist.
 	</span><span class="kw">async fn </span>send_async_notification(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		peer: <span class="kw-2">&amp;</span>PeerId,
 		notification: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), error::Error&gt;;
@@ -1804,6 +1947,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns an error if the peer does not exist.
 	</span><span class="kw">async fn </span>send_async_notification(<span class="kw-2">&amp;</span><span class="self">self</span>, notification: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), error::Error&gt;;
+}
+
+<span class="doccomment">/// Trait defining the behavior of a bandwidth sink.
+</span><span class="kw">pub trait </span>BandwidthSink: Send + Sync {
+	<span class="doccomment">/// Get the number of bytes received.
+	</span><span class="kw">fn </span>total_inbound(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64;
+
+	<span class="doccomment">/// Get the number of bytes sent.
+	</span><span class="kw">fn </span>total_outbound(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

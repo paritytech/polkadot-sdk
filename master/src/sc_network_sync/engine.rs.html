@@ -1600,6 +1600,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1451" id="1451">1451</a>
 <a href="#1452" id="1452">1452</a>
 <a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1649,7 +1656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	future::{BoxFuture, Fuse},
 	FutureExt, StreamExt,
 };
-<span class="kw">use </span>libp2p::{request_response::OutboundFailure, PeerId};
+<span class="kw">use </span>libp2p::request_response::OutboundFailure;
 <span class="kw">use </span>log::{debug, error, trace, warn};
 <span class="kw">use </span>prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
@@ -1661,21 +1668,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 <span class="kw">use </span>sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 <span class="kw">use </span>sc_network::{
-	config::{
-		FullNetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
-		ProtocolId, SetConfig,
-	},
-	peer_store::{PeerStoreHandle, PeerStoreProvider},
+	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
+	peer_store::PeerStoreProvider,
 	request_responses::{IfDisconnected, RequestFailure},
-	service::traits::{Direction, NotificationEvent, ValidationResult},
+	service::{
+		traits::{Direction, NotificationConfig, NotificationEvent, ValidationResult},
+		NotificationMetrics,
+	},
 	types::ProtocolName,
 	utils::LruHashSet,
-	NotificationService, ReputationChange,
+	NetworkBackend, NotificationService, ReputationChange,
 };
 <span class="kw">use </span>sc_network_common::{
 	role::Roles,
 	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
 };
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>ClientError, HeaderMetadata};
 <span class="kw">use </span>sp_consensus::{block_validation::BlockAnnounceValidator, BlockOrigin};
@@ -1898,7 +1906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>syncing_started: <span class="prelude-ty">Option</span>&lt;Instant&gt;,
 
 	<span class="doccomment">/// Handle to `PeerStore`.
-	</span>peer_store_handle: PeerStoreHandle,
+	</span>peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 
 	<span class="doccomment">/// Instant when the last notification was sent or received.
 	</span>last_notification_io: Instant,
@@ -1930,11 +1938,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Sync
 		+ <span class="lifetime">&#39;static</span>,
 {
-	<span class="kw">pub fn </span>new(
+	<span class="kw">pub fn </span>new&lt;N&gt;(
 		roles: Roles,
 		client: Arc&lt;Client&gt;,
 		metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
-		net_config: <span class="kw-2">&amp;</span>FullNetworkConfiguration,
+		network_metrics: NotificationMetrics,
+		net_config: <span class="kw-2">&amp;</span>FullNetworkConfiguration&lt;B, &lt;B <span class="kw">as </span>BlockT&gt;::Hash, N&gt;,
 		protocol_id: ProtocolId,
 		fork_id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;,
 		block_announce_validator: Box&lt;<span class="kw">dyn </span>BlockAnnounceValidator&lt;B&gt; + Send&gt;,
@@ -1944,8 +1953,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block_downloader: Arc&lt;<span class="kw">dyn </span>BlockDownloader&lt;B&gt;&gt;,
 		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: <span class="prelude-ty">Option</span>&lt;ProtocolName&gt;,
-		peer_store_handle: PeerStoreHandle,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, SyncingService&lt;B&gt;, NonDefaultSetConfig), ClientError&gt; {
+		peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, SyncingService&lt;B&gt;, N::NotificationProtocolConfig), ClientError&gt;
+	<span class="kw">where
+		</span>N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+	{
 		<span class="kw">let </span>mode = net_config.network_config.sync_mode;
 		<span class="kw">let </span>max_parallel_downloads = net_config.network_config.max_parallel_downloads;
 		<span class="kw">let </span>max_blocks_per_request =
@@ -2013,18 +2025,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) <span class="kw">as </span>usize
 		};
 
-		<span class="kw">let </span>(block_announce_config, notification_service) = <span class="self">Self</span>::get_block_announce_proto_config(
-			protocol_id,
-			fork_id,
-			roles,
-			client.info().best_number,
-			client.info().best_hash,
-			client
-				.block_hash(Zero::zero())
-				.ok()
-				.flatten()
-				.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
-		);
+		<span class="kw">let </span>(block_announce_config, notification_service) =
+			<span class="self">Self</span>::get_block_announce_proto_config::&lt;N&gt;(
+				protocol_id,
+				fork_id,
+				roles,
+				client.info().best_number,
+				client.info().best_hash,
+				client
+					.block_hash(Zero::zero())
+					.ok()
+					.flatten()
+					.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
+				<span class="kw-2">&amp;</span>net_config.network_config.default_peers_set,
+				network_metrics,
+				Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
+			);
 
 		<span class="comment">// Split warp sync params into warp sync config and a channel to retrieve target block
 		// header.
@@ -2987,14 +3003,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get config for the block announcement protocol
-	</span><span class="kw">fn </span>get_block_announce_proto_config(
+	</span><span class="kw">fn </span>get_block_announce_proto_config&lt;N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;(
 		protocol_id: ProtocolId,
 		fork_id: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;,
 		roles: Roles,
 		best_number: NumberFor&lt;B&gt;,
 		best_hash: B::Hash,
 		genesis_hash: B::Hash,
-	) -&gt; (NonDefaultSetConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
+		set_config: <span class="kw-2">&amp;</span>SetConfig,
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+	) -&gt; (N::NotificationProtocolConfig, Box&lt;<span class="kw">dyn </span>NotificationService&gt;) {
 		<span class="kw">let </span>block_announces_protocol = {
 			<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>fork_id) = fork_id {
@@ -3008,7 +3027,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		};
 
-		NonDefaultSetConfig::new(
+		N::notification_config(
 			block_announces_protocol.into(),
 			iter::once(<span class="macro">format!</span>(<span class="string">&quot;/{}/block-announces/1&quot;</span>, protocol_id.as_ref()).into()).collect(),
 			MAX_BLOCK_ANNOUNCE_SIZE,
@@ -3018,14 +3037,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				best_hash,
 				genesis_hash,
 			))),
-			<span class="comment">// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
-			// protocol is still hardcoded into the peerset.
-			</span>SetConfig {
-				in_peers: <span class="number">0</span>,
-				out_peers: <span class="number">0</span>,
-				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
-			},
+			set_config.clone(),
+			metrics,
+			peer_store_handle,
 		)
 	}
 

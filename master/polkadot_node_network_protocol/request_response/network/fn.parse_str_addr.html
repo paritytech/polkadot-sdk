@@ -154,7 +154,7 @@ valid.</p>
 <span class="kw">let </span>(peer_id, addr) = parse_str_addr(
 	<span class="string">&quot;/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV&quot;
 </span>).unwrap();
-<span class="macro">assert_eq!</span>(peer_id, <span class="string">&quot;QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV&quot;</span>.parse::&lt;PeerId&gt;().unwrap());
+<span class="macro">assert_eq!</span>(peer_id, <span class="string">&quot;QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV&quot;</span>.parse::&lt;PeerId&gt;().unwrap().into());
 <span class="macro">assert_eq!</span>(addr, <span class="string">&quot;/ip4/198.51.100.19/tcp/30333&quot;</span>.parse::&lt;Multiaddr&gt;().unwrap());</code></pre></div>
 </div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

@@ -592,6 +592,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#443" id="443">443</a>
 <a href="#444" id="444">444</a>
 <a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -616,7 +622,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>futures::Future;
 <span class="kw">pub use </span>http::SharedClient;
-<span class="kw">use </span>libp2p::{Multiaddr, PeerId};
+<span class="kw">use </span>sc_network::Multiaddr;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_core::{
 	offchain::{
 		<span class="self">self</span>, HttpError, HttpRequestId, HttpRequestStatus, OpaqueMultiaddr, OpaqueNetworkState,
@@ -823,7 +830,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>TestNetwork();
 
-	<span class="kw">impl </span>NetworkPeers <span class="kw">for </span>TestNetwork {
+	<span class="attr">#[async_trait::async_trait]
+	</span><span class="kw">impl </span>NetworkPeers <span class="kw">for </span>TestNetwork {
 		<span class="kw">fn </span>set_authorized_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, _peers: HashSet&lt;PeerId&gt;) {
 			<span class="macro">unimplemented!</span>();
 		}
@@ -895,6 +903,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>peer_role(<span class="kw-2">&amp;</span><span class="self">self</span>, _peer_id: PeerId, _handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;ObservedRole&gt; {
 			<span class="prelude-val">None
 		</span>}
+
+		<span class="kw">async fn </span>reserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerId&gt;, ()&gt; {
+			<span class="macro">unimplemented!</span>();
+		}
 	}
 
 	<span class="kw">impl </span>NetworkStateInfo <span class="kw">for </span>TestNetwork {

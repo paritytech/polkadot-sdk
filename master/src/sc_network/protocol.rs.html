@@ -539,8 +539,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -561,9 +559,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{
 	config, error,
-	peer_store::{PeerStoreHandle, PeerStoreProvider},
+	peer_store::PeerStoreProvider,
 	protocol_controller::{<span class="self">self</span>, SetId},
-	service::traits::Direction,
+	service::{metrics::NotificationMetrics, traits::Direction},
 	types::ProtocolName,
 };
 
@@ -579,14 +577,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>log::warn;
 
 <span class="kw">use </span>codec::DecodeAll;
-<span class="kw">use </span>prometheus_endpoint::Registry;
 <span class="kw">use </span>sc_network_common::role::Roles;
 <span class="kw">use </span>sc_utils::mpsc::TracingUnboundedReceiver;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
-<span class="kw">use </span>std::{collections::HashSet, iter, task::Poll};
+<span class="kw">use </span>std::{collections::HashSet, iter, sync::Arc, task::Poll};
 
-<span class="kw">use </span>notifications::{metrics, Notifications, NotificationsOut};
+<span class="kw">use </span>notifications::{Notifications, NotificationsOut};
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>notifications::ProtocolHandle;
 
@@ -612,7 +609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// List of notifications protocols that have been registered.
 	</span>notification_protocols: Vec&lt;ProtocolName&gt;,
 	<span class="doccomment">/// Handle to `PeerStore`.
-	</span>peer_store_handle: PeerStoreHandle,
+	</span>peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 	<span class="doccomment">/// Streams for peers whose handshake couldn&#39;t be determined.
 	</span>bad_handshake_streams: HashSet&lt;PeerId&gt;,
 	sync_handle: ProtocolHandle,
@@ -623,10 +620,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Create a new instance.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		roles: Roles,
-		registry: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Registry&gt;,
+		notification_metrics: NotificationMetrics,
 		notification_protocols: Vec&lt;config::NonDefaultSetConfig&gt;,
 		block_announces_protocol: config::NonDefaultSetConfig,
-		peer_store_handle: PeerStoreHandle,
+		peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 		protocol_controller_handles: Vec&lt;protocol_controller::ProtocolHandle&gt;,
 		from_protocol_controllers: TracingUnboundedReceiver&lt;protocol_controller::Message&gt;,
 	) -&gt; error::Result&lt;(<span class="self">Self</span>, Vec&lt;ProtocolHandle&gt;)&gt; {
@@ -665,16 +662,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}))
 			.unzip();
 
-			<span class="kw">let </span>metrics = registry.as_ref().and_then(|registry| metrics::register(<span class="kw-2">&amp;</span>registry).ok());
 			handles.iter_mut().for_each(|handle| {
-				handle.set_metrics(metrics.clone());
+				handle.set_metrics(notification_metrics.clone());
 			});
 
 			(
 				Notifications::new(
 					protocol_controller_handles,
 					from_protocol_controllers,
-					metrics,
+					notification_metrics,
 					protocol_configs.into_iter(),
 				),
 				installed_protocols,
@@ -722,7 +718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>role_available(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, handshake: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;) -&gt; bool {
 		<span class="kw">match </span>Roles::decode_all(<span class="kw-2">&amp;mut &amp;</span>handshake[..]) {
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="self">self</span>.peer_store_handle.peer_role(<span class="kw-2">&amp;</span>peer_id).is_some(),
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="self">self</span>.peer_store_handle.peer_role(<span class="kw-2">&amp;</span>((<span class="kw-2">*</span>peer_id).into())).is_some(),
 		}
 	}
 }

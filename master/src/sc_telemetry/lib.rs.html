@@ -758,9 +758,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![warn(missing_docs)]
 
 </span><span class="kw">use </span>futures::{channel::mpsc, prelude::<span class="kw-2">*</span>};
-<span class="kw">use </span>libp2p::Multiaddr;
 <span class="kw">use </span>log::{error, warn};
 <span class="kw">use </span>parking_lot::Mutex;
+<span class="kw">use </span>sc_network::Multiaddr;
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>std::{

@@ -533,8 +533,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#384" id="384">384</a>
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -553,10 +551,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>libp2p::{
-	core::multiaddr::{Multiaddr, Protocol},
-	PeerId,
-};
+</span><span class="kw">use </span>sc_network::{multiaddr::Protocol, Multiaddr};
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_authority_discovery::AuthorityId;
 <span class="kw">use </span>std::collections::{hash_map::Entry, HashMap, HashSet};
 
@@ -715,7 +711,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-	<span class="kw">use </span>libp2p::multihash::{<span class="self">self</span>, Multihash};
+	<span class="kw">use </span>multihash::{<span class="self">self</span>, Multihash};
 	<span class="kw">use </span>quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
 	<span class="kw">use </span>sp_authority_discovery::{AuthorityId, AuthorityPair};

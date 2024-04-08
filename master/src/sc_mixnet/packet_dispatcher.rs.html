@@ -363,11 +363,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">super</span>::peer_id::{from_core_peer_id, to_core_peer_id};
 <span class="kw">use </span>arrayvec::ArrayVec;
-<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>log::{debug, warn};
 <span class="kw">use </span>mixnet::core::{AddressedPacket, NetworkStatus, Packet, PeerId <span class="kw">as </span>CorePeerId};
 <span class="kw">use </span>parking_lot::Mutex;
 <span class="kw">use </span>sc_network::NotificationService;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>std::{collections::HashMap, future::Future, sync::Arc};
 
 <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;mixnet&quot;</span>;

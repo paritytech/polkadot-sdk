@@ -2797,6 +2797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2648" id="2648">2648</a>
 <a href="#2649" id="2649">2649</a>
 <a href="#2650" id="2650">2650</a>
+<a href="#2651" id="2651">2651</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2889,9 +2890,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>parity_scale_codec::{Decode, DecodeAll, Encode};
 <span class="kw">use </span>prometheus_endpoint::{register, CounterVec, Opts, PrometheusError, Registry, U64};
 <span class="kw">use </span>rand::seq::SliceRandom;
-<span class="kw">use </span>sc_network::{PeerId, ReputationChange};
+<span class="kw">use </span>sc_network::ReputationChange;
 <span class="kw">use </span>sc_network_common::role::ObservedRole;
 <span class="kw">use </span>sc_network_gossip::{MessageIntent, ValidatorContext};
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG};
 <span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 <span class="kw">use </span>sp_consensus_grandpa::AuthorityId;

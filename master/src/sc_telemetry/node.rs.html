@@ -474,6 +474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
 <a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -494,8 +495,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span><span class="kw">crate</span>::TelemetryPayload;
 <span class="kw">use </span>futures::{channel::mpsc, prelude::<span class="kw-2">*</span>};
-<span class="kw">use </span>libp2p::{core::transport::Transport, Multiaddr};
+<span class="kw">use </span>libp2p::core::transport::Transport;
 <span class="kw">use </span>rand::Rng <span class="kw">as _</span>;
+<span class="kw">use </span>sc_network::Multiaddr;
 <span class="kw">use </span>std::{
 	fmt, mem,
 	pin::Pin,

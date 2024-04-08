@@ -425,7 +425,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::types::{ExtendedPeerInfo, SyncEvent, SyncEventStream, SyncStatus, SyncStatusProvider};
 
 <span class="kw">use </span>futures::{channel::oneshot, Stream};
-<span class="kw">use </span>libp2p::PeerId;
+<span class="kw">use </span>sc_network_types::PeerId;
 
 <span class="kw">use </span>sc_consensus::{BlockImportError, BlockImportStatus, JustificationSyncLink, Link};
 <span class="kw">use </span>sc_network::{NetworkBlock, NetworkSyncForkRequest};

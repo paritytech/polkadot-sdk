@@ -307,7 +307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>peer_id = keys.public().to_peer_id();
 			<span class="kw">let </span>addr = MultiaddrWithPeerId {
 				multiaddr: <span class="macro">build_multiaddr!</span>[Ip4([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]), Tcp(<span class="number">30333u16</span>)],
-				peer_id,
+				peer_id: peer_id.into(),
 			};
 			spec.add_boot_node(addr)
 		}

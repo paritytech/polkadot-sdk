@@ -2989,8 +2989,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="kw">if </span>!(<span class="macro-nonterminal">$extra</span>) {
 						<span class="kw">let </span>disabled = <span class="macro-nonterminal">$</span><span class="macro">crate::__private::vec!</span>[ $( <span class="macro">stringify!</span>(<span class="macro-nonterminal">$names_extra</span>).as_ref() ),* ];
 						<span class="kw">if </span>disabled.contains(<span class="kw-2">&amp;</span><span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) {
-							<span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-								<span class="string">&quot;INFO: extra benchmark skipped - {}&quot;</span>,
+							<span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::debug!</span>(
+								<span class="string">&quot;extra benchmark skipped - {}&quot;</span>,
 								<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>),
 							);
 							<span class="kw">return </span>();
@@ -3013,21 +3013,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="macro-nonterminal">$crate::BenchmarkError::Override</span>(<span class="kw">_</span>) =&gt; {
 									<span class="comment">// This is still considered a success condition.
 									</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-										<span class="string">&quot;WARNING: benchmark error overridden - {}&quot;</span>,
+										<span class="string">&quot;benchmark error overridden - {}&quot;</span>,
 										<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>),
 									);
 								},
 								<span class="macro-nonterminal">$crate::BenchmarkError::Skip </span>=&gt; {
 									<span class="comment">// This is considered a success condition.
-									</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-										<span class="string">&quot;WARNING: benchmark error skipped - {}&quot;</span>,
+									</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::debug!</span>(
+										<span class="string">&quot;benchmark skipped - {}&quot;</span>,
 										<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>),
 									);
 								},
 								<span class="macro-nonterminal">$crate::BenchmarkError::Weightless </span>=&gt; {
 									<span class="comment">// This is considered a success condition.
-									</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-										<span class="string">&quot;WARNING: benchmark weightless skipped - {}&quot;</span>,
+									</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::debug!</span>(
+										<span class="string">&quot;benchmark weightless skipped - {}&quot;</span>,
 										<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>),
 									);
 								}

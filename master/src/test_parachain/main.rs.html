@@ -271,6 +271,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -374,18 +400,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.unwrap_or(cumulus_test_service::Consensus::RelayChain);
 
 			<span class="kw">let </span>(<span class="kw-2">mut </span>task_manager, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = tokio_runtime
-				.block_on(cumulus_test_service::start_node_impl(
-					config,
-					collator_key,
-					polkadot_config,
-					parachain_id.into(),
-					cli.disable_block_announcements.then(wrap_announce_block),
-					cli.fail_pov_recovery,
-					|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),
-					consensus,
-					collator_options,
-					<span class="bool-val">true</span>,
-				))
+				.block_on(<span class="kw">async move </span>{
+					<span class="kw">match </span>polkadot_config.network.network_backend {
+						sc_network::config::NetworkBackendType::Libp2p =&gt;
+							cumulus_test_service::start_node_impl::&lt;
+								<span class="kw">_</span>,
+								sc_network::NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;,
+							&gt;(
+								config,
+								collator_key,
+								polkadot_config,
+								parachain_id.into(),
+								cli.disable_block_announcements.then(wrap_announce_block),
+								cli.fail_pov_recovery,
+								|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),
+								consensus,
+								collator_options,
+								<span class="bool-val">true</span>,
+							)
+							.<span class="kw">await</span>,
+						sc_network::config::NetworkBackendType::Litep2p =&gt;
+							cumulus_test_service::start_node_impl::&lt;
+								<span class="kw">_</span>,
+								sc_network::Litep2pNetworkBackend,
+							&gt;(
+								config,
+								collator_key,
+								polkadot_config,
+								parachain_id.into(),
+								cli.disable_block_announcements.then(wrap_announce_block),
+								cli.fail_pov_recovery,
+								|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(jsonrpsee::RpcModule::new(())),
+								consensus,
+								collator_options,
+								<span class="bool-val">true</span>,
+							)
+							.<span class="kw">await</span>,
+					}
+				})
 				.expect(<span class="string">&quot;could not create Cumulus test service&quot;</span>);
 
 			tokio_runtime

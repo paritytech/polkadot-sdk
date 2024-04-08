@@ -464,6 +464,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="kw">use </span>futures::FutureExt;
@@ -590,7 +605,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Builds a new service for a full client.
-</span><span class="kw">pub fn </span>new_full(config: Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;TaskManager, ServiceError&gt; {
+</span><span class="kw">pub fn </span>new_full&lt;
+	N: sc_network::NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>sp_runtime::traits::Block&gt;::Hash&gt;,
+&gt;(
+	config: Configuration,
+) -&gt; <span class="prelude-ty">Result</span>&lt;TaskManager, ServiceError&gt; {
 	<span class="kw">let </span>sc_service::PartialComponents {
 		client,
 		backend,
@@ -602,14 +621,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		other: (block_import, grandpa_link, <span class="kw-2">mut </span>telemetry),
 	} = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
 
-	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>config.network);
+	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::&lt;
+		Block,
+		&lt;Block <span class="kw">as </span>sp_runtime::traits::Block&gt;::Hash,
+		N,
+	&gt;::new(<span class="kw-2">&amp;</span>config.network);
+	<span class="kw">let </span>metrics = N::register_notification_metrics(config.prometheus_registry());
 
+	<span class="kw">let </span>peer_store_handle = net_config.peer_store_handle();
 	<span class="kw">let </span>grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
 		<span class="kw-2">&amp;</span>client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
 		<span class="kw-2">&amp;</span>config.chain_spec,
 	);
 	<span class="kw">let </span>(grandpa_protocol_config, grandpa_notification_service) =
-		sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+		sc_consensus_grandpa::grandpa_peers_set_config::&lt;<span class="kw">_</span>, N&gt;(
+			grandpa_protocol_name.clone(),
+			metrics.clone(),
+			peer_store_handle,
+		);
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	<span class="kw">let </span>warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
@@ -629,6 +658,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			block_announce_validator_builder: <span class="prelude-val">None</span>,
 			warp_sync_params: <span class="prelude-val">Some</span>(WarpSyncParams::WithProvider(warp_sync)),
 			block_relay: <span class="prelude-val">None</span>,
+			metrics,
 		})<span class="question-mark">?</span>;
 
 	<span class="kw">if </span>config.offchain_worker.enabled {
@@ -643,7 +673,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				transaction_pool: <span class="prelude-val">Some</span>(OffchainTransactionPoolFactory::new(
 					transaction_pool.clone(),
 				)),
-				network_provider: network.clone(),
+				network_provider: Arc::new(network.clone()),
 				enable_http_requests: <span class="bool-val">true</span>,
 				custom_extensions: |<span class="kw">_</span>| <span class="macro">vec!</span>[],
 			})
@@ -671,7 +701,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>_rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-		network: network.clone(),
+		network: Arc::new(network.clone()),
 		client: client.clone(),
 		keystore: keystore_container.keystore(),
 		task_manager: <span class="kw-2">&amp;mut </span>task_manager,

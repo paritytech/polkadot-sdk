@@ -5247,6 +5247,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#5098" id="5098">5098</a>
 <a href="#5099" id="5099">5099</a>
 <a href="#5100" id="5100">5100</a>
+<a href="#5101" id="5101">5101</a>
+<a href="#5102" id="5102">5102</a>
+<a href="#5103" id="5103">5103</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5268,10 +5271,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{
 	protocol::notifications::{
 		handler::{<span class="self">self</span>, NotificationsSink, NotifsHandler, NotifsHandlerIn, NotifsHandlerOut},
-		service::{metrics, NotificationCommand, ProtocolHandle, ValidationCallResult},
+		service::{NotificationCommand, ProtocolHandle, ValidationCallResult},
 	},
 	protocol_controller::{<span class="self">self</span>, IncomingIndex, Message, SetId},
-	service::traits::{Direction, ValidationResult},
+	service::{
+		metrics::NotificationMetrics,
+		traits::{Direction, ValidationResult},
+	},
 	types::ProtocolName,
 };
 
@@ -5416,7 +5422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>pending_inbound_validations: FuturesUnordered&lt;PendingInboundValidation&gt;,
 
 	<span class="doccomment">/// Metrics for notifications.
-	</span>metrics: <span class="prelude-ty">Option</span>&lt;metrics::Metrics&gt;,
+	</span>metrics: NotificationMetrics,
 }
 
 <span class="doccomment">/// Configuration for a notifications protocol.
@@ -5653,7 +5659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		protocol_controller_handles: Vec&lt;protocol_controller::ProtocolHandle&gt;,
 		from_protocol_controllers: TracingUnboundedReceiver&lt;Message&gt;,
-		metrics: <span class="prelude-ty">Option</span>&lt;metrics::Metrics&gt;,
+		metrics: NotificationMetrics,
 		notif_protocols: <span class="kw">impl </span>Iterator&lt;
 			Item = (
 				ProtocolConfig,
@@ -6479,7 +6485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				send_back_addr: remote_addr.clone(),
 			},
 			<span class="self">self</span>.notif_protocols.clone(),
-			<span class="self">self</span>.metrics.clone(),
+			<span class="prelude-val">Some</span>(<span class="self">self</span>.metrics.clone()),
 		))
 	}
 
@@ -6494,7 +6500,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			peer,
 			ConnectedPoint::Dialer { address: addr.clone(), role_override },
 			<span class="self">self</span>.notif_protocols.clone(),
-			<span class="self">self</span>.metrics.clone(),
+			<span class="prelude-val">Some</span>(<span class="self">self</span>.metrics.clone()),
 		))
 	}
 
@@ -7691,7 +7697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				reserved_only: <span class="bool-val">false</span>,
 			},
 			to_notifications,
-			Box::new(MockPeerStore {}),
+			Arc::new(MockPeerStore {}),
 		);
 
 		<span class="kw">let </span>(notif_handle, command_stream) = protocol_handle_pair.split();
@@ -7699,7 +7705,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Notifications::new(
 				<span class="macro">vec!</span>[handle],
 				from_controller,
-				<span class="prelude-val">None</span>,
+				NotificationMetrics::new(<span class="prelude-val">None</span>),
 				iter::once((
 					ProtocolConfig {
 						name: <span class="string">&quot;/foo&quot;</span>.into(),

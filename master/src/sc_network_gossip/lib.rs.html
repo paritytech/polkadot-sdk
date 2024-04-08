@@ -250,8 +250,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -321,11 +319,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	validator::{DiscardAll, MessageIntent, ValidationResult, Validator, ValidatorContext},
 };
 
-<span class="kw">use </span>libp2p::{multiaddr, PeerId};
-<span class="kw">use </span>sc_network::{
-	types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
-};
+<span class="kw">use </span>sc_network::{multiaddr, types::ProtocolName, NetworkBlock, NetworkEventStream, NetworkPeers};
 <span class="kw">use </span>sc_network_sync::SyncEventStream;
+<span class="kw">use </span>sc_network_types::PeerId;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 <span class="kw">use </span>std::iter;
 
@@ -334,7 +330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>validator;
 
 <span class="doccomment">/// Abstraction over a network.
-</span><span class="kw">pub trait </span>Network&lt;B: BlockT&gt;: NetworkPeers + NetworkEventStream + NetworkNotification {
+</span><span class="kw">pub trait </span>Network&lt;B: BlockT&gt;: NetworkPeers + NetworkEventStream {
 	<span class="kw">fn </span>add_set_reserved(<span class="kw-2">&amp;</span><span class="self">self</span>, who: PeerId, protocol: ProtocolName) {
 		<span class="kw">let </span>addr =
 			iter::once(multiaddr::Protocol::P2p(who.into())).collect::&lt;multiaddr::Multiaddr&gt;();
@@ -351,7 +347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T, B: BlockT&gt; Network&lt;B&gt; <span class="kw">for </span>T <span class="kw">where </span>T: NetworkPeers + NetworkEventStream + NetworkNotification {}
+<span class="kw">impl</span>&lt;T, B: BlockT&gt; Network&lt;B&gt; <span class="kw">for </span>T <span class="kw">where </span>T: NetworkPeers + NetworkEventStream {}
 
 <span class="doccomment">/// Abstraction over the syncing subsystem.
 </span><span class="kw">pub trait </span>Syncing&lt;B: BlockT&gt;: SyncEventStream + NetworkBlock&lt;B::Hash, NumberFor&lt;B&gt;&gt; {}

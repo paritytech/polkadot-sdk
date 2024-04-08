@@ -1191,6 +1191,56 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1042" id="1042">1042</a>
 <a href="#1043" id="1043">1043</a>
 <a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1222,7 +1272,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>node_primitives::Block;
 <span class="kw">use </span>sc_client_api::{Backend, BlockBackend};
 <span class="kw">use </span>sc_consensus_babe::{<span class="self">self</span>, SlotProportion};
-<span class="kw">use </span>sc_network::{event::Event, NetworkEventStream, NetworkService};
+<span class="kw">use </span>sc_network::{
+	event::Event, service::traits::NetworkService, NetworkBackend, NetworkEventStream,
+};
 <span class="kw">use </span>sc_network_sync::{strategy::warp::WarpSyncParams, SyncingService};
 <span class="kw">use </span>sc_service::{config::Configuration, error::Error <span class="kw">as </span>ServiceError, RpcHandlers, TaskManager};
 <span class="kw">use </span>sc_statement_store::Store <span class="kw">as </span>StatementStore;
@@ -1561,7 +1613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The client instance of the node.
 	</span><span class="kw">pub </span>client: Arc&lt;FullClient&gt;,
 	<span class="doccomment">/// The networking service of the node.
-	</span><span class="kw">pub </span>network: Arc&lt;NetworkService&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;,
+	</span><span class="kw">pub </span>network: Arc&lt;<span class="kw">dyn </span>NetworkService&gt;,
 	<span class="doccomment">/// The syncing service of the node.
 	</span><span class="kw">pub </span>sync: Arc&lt;SyncingService&lt;Block&gt;&gt;,
 	<span class="doccomment">/// The transaction pool of the node.
@@ -1571,7 +1623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Creates a full service from the configuration.
-</span><span class="kw">pub fn </span>new_full_base(
+</span><span class="kw">pub fn </span>new_full_base&lt;N: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt;(
 	config: Configuration,
 	mixnet_config: <span class="prelude-ty">Option</span>&lt;sc_mixnet::Config&gt;,
 	disable_hardware_benchmarks: bool,
@@ -1613,15 +1665,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(rpc_builder, import_setup, rpc_setup, <span class="kw-2">mut </span>telemetry, statement_store, mixnet_api_backend),
 	} = new_partial(<span class="kw-2">&amp;</span>config, mixnet_config.as_ref())<span class="question-mark">?</span>;
 
+	<span class="kw">let </span>metrics = N::register_notification_metrics(
+		config.prometheus_config.as_ref().map(|cfg| <span class="kw-2">&amp;</span>cfg.registry),
+	);
 	<span class="kw">let </span>shared_voter_state = rpc_setup;
 	<span class="kw">let </span>auth_disc_publish_non_global_ips = config.network.allow_non_globals_in_dht;
 	<span class="kw">let </span>auth_disc_public_addresses = config.network.public_addresses.clone();
-	<span class="kw">let </span><span class="kw-2">mut </span>net_config = sc_network::config::FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>config.network);
+
+	<span class="kw">let </span><span class="kw-2">mut </span>net_config =
+		sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, N&gt;::new(<span class="kw-2">&amp;</span>config.network);
+
 	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+	<span class="kw">let </span>peer_store_handle = net_config.peer_store_handle();
 
 	<span class="kw">let </span>grandpa_protocol_name = grandpa::protocol_standard_name(<span class="kw-2">&amp;</span>genesis_hash, <span class="kw-2">&amp;</span>config.chain_spec);
 	<span class="kw">let </span>(grandpa_protocol_config, grandpa_notification_service) =
-		grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+		grandpa::grandpa_peers_set_config::&lt;<span class="kw">_</span>, N&gt;(
+			grandpa_protocol_name.clone(),
+			metrics.clone(),
+			Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
+		);
 	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	<span class="kw">let </span>beefy_gossip_proto_name =
@@ -1629,7 +1692,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// `beefy_on_demand_justifications_handler` is given to `beefy-gadget` task to be run,
 	// while `beefy_req_resp_cfg` is added to `config.network.request_response_protocols`.
 	</span><span class="kw">let </span>(beefy_on_demand_justifications_handler, beefy_req_resp_cfg) =
-		beefy::communication::request_response::BeefyJustifsRequestHandler::new(
+		beefy::communication::request_response::BeefyJustifsRequestHandler::new::&lt;<span class="kw">_</span>, N&gt;(
 			<span class="kw-2">&amp;</span>genesis_hash,
 			config.chain_spec.fork_id(),
 			client.clone(),
@@ -1637,23 +1700,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 	<span class="kw">let </span>(beefy_notification_config, beefy_notification_service) =
-		beefy::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone());
+		beefy::communication::beefy_peers_set_config::&lt;<span class="kw">_</span>, N&gt;(
+			beefy_gossip_proto_name.clone(),
+			metrics.clone(),
+			Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
+		);
 
 	net_config.add_notification_protocol(beefy_notification_config);
 	net_config.add_request_response_protocol(beefy_req_resp_cfg);
 
 	<span class="kw">let </span>(statement_handler_proto, statement_config) =
-		sc_network_statement::StatementHandlerPrototype::new(
+		sc_network_statement::StatementHandlerPrototype::new::&lt;<span class="kw">_</span>, <span class="kw">_</span>, N&gt;(
 			genesis_hash,
 			config.chain_spec.fork_id(),
+			metrics.clone(),
+			Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
 		);
 	net_config.add_notification_protocol(statement_config);
 
 	<span class="kw">let </span>mixnet_protocol_name =
 		sc_mixnet::protocol_name(genesis_hash.as_ref(), config.chain_spec.fork_id());
 	<span class="kw">let </span>mixnet_notification_service = mixnet_config.as_ref().map(|mixnet_config| {
-		<span class="kw">let </span>(config, notification_service) =
-			sc_mixnet::peers_set_config(mixnet_protocol_name.clone(), mixnet_config);
+		<span class="kw">let </span>(config, notification_service) = sc_mixnet::peers_set_config::&lt;<span class="kw">_</span>, N&gt;(
+			mixnet_protocol_name.clone(),
+			mixnet_config,
+			metrics.clone(),
+			Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
+		);
 		net_config.add_notification_protocol(config);
 		notification_service
 	});
@@ -1675,6 +1748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			block_announce_validator_builder: <span class="prelude-val">None</span>,
 			warp_sync_params: <span class="prelude-val">Some</span>(WarpSyncParams::WithProvider(warp_sync)),
 			block_relay: <span class="prelude-val">None</span>,
+			metrics,
 		})<span class="question-mark">?</span>;
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(mixnet_config) = mixnet_config {
@@ -1808,7 +1882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					..Default::default()
 				},
 				client.clone(),
-				network.clone(),
+				Arc::new(network.clone()),
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
@@ -1827,7 +1901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// beefy is enabled if its notification service exists
 	</span><span class="kw">let </span>network_params = beefy::BeefyNetworkParams {
-		network: network.clone(),
+		network: Arc::new(network.clone()),
 		sync: sync_service.clone(),
 		gossip_protocol_name: beefy_gossip_proto_name,
 		justifications_protocol_name: beefy_on_demand_justifications_handler.protocol_name(),
@@ -1939,7 +2013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				transaction_pool: <span class="prelude-val">Some</span>(OffchainTransactionPoolFactory::new(
 					transaction_pool.clone(),
 				)),
-				network_provider: network.clone(),
+				network_provider: Arc::new(network.clone()),
 				is_validator: role.is_authority(),
 				enable_http_requests: <span class="bool-val">true</span>,
 				custom_extensions: <span class="kw">move </span>|<span class="kw">_</span>| {
@@ -1966,8 +2040,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>new_full(config: Configuration, cli: Cli) -&gt; <span class="prelude-ty">Result</span>&lt;TaskManager, ServiceError&gt; {
 	<span class="kw">let </span>mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	<span class="kw">let </span>database_path = config.database.path().map(Path::to_path_buf);
-	<span class="kw">let </span>task_manager = new_full_base(config, mixnet_config, cli.no_hardware_benchmarks, |<span class="kw">_</span>, <span class="kw">_</span>| ())
-		.map(|NewFullBase { task_manager, .. }| task_manager)<span class="question-mark">?</span>;
+
+	<span class="kw">let </span>task_manager = <span class="kw">match </span>config.network.network_backend {
+		sc_network::config::NetworkBackendType::Libp2p =&gt; {
+			<span class="kw">let </span>task_manager = new_full_base::&lt;sc_network::NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(
+				config,
+				mixnet_config,
+				cli.no_hardware_benchmarks,
+				|<span class="kw">_</span>, <span class="kw">_</span>| (),
+			)
+			.map(|NewFullBase { task_manager, .. }| task_manager)<span class="question-mark">?</span>;
+			task_manager
+		},
+		sc_network::config::NetworkBackendType::Litep2p =&gt; {
+			<span class="kw">let </span>task_manager = new_full_base::&lt;sc_network::Litep2pNetworkBackend&gt;(
+				config,
+				mixnet_config,
+				cli.no_hardware_benchmarks,
+				|<span class="kw">_</span>, <span class="kw">_</span>| (),
+			)
+			.map(|NewFullBase { task_manager, .. }| task_manager)<span class="question-mark">?</span>;
+			task_manager
+		},
+	};
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(database_path) = database_path {
 		sc_storage_monitor::StorageMonitorService::try_spawn(
@@ -2044,7 +2139,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			|config| {
 				<span class="kw">let </span><span class="kw-2">mut </span>setup_handles = <span class="prelude-val">None</span>;
 				<span class="kw">let </span>NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
-					new_full_base(
+					new_full_base::&lt;sc_network::NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(
 						config,
 						<span class="prelude-val">None</span>,
 						<span class="bool-val">false</span>,
@@ -2222,7 +2317,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">crate</span>::chain_spec::tests::integration_test_config_with_two_authorities(),
 			|config| {
 				<span class="kw">let </span>NewFullBase { task_manager, client, network, sync, transaction_pool, .. } =
-					new_full_base(config, <span class="prelude-val">None</span>, <span class="bool-val">false</span>, |<span class="kw">_</span>, <span class="kw">_</span>| ())<span class="question-mark">?</span>;
+					new_full_base::&lt;sc_network::NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(
+						config,
+						<span class="prelude-val">None</span>,
+						<span class="bool-val">false</span>,
+						|<span class="kw">_</span>, <span class="kw">_</span>| (),
+					)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(sc_service_test::TestNetComponents::new(
 					task_manager,
 					client,
