@@ -48,6 +48,8 @@ jobs:
         id: app_token
         uses: actions/create-github-app-token@v1.9.3
         with:
+          owner: "paritytech"
+          repositories: "paritytech/polkadot-sdk-${{ matrix.template }}-template"
           app-id: ${{ secrets.TEMPLATE_APP_ID }}
           private-key: ${{ secrets.TEMPLATE_APP_KEY }}
       - uses: actions/checkout@v3
