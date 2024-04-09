@@ -322,6 +322,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -339,14 +365,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Client;
+<span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
 <span class="kw">use </span>cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 <span class="kw">use </span>cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 <span class="kw">use </span>cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 <span class="kw">use </span>polkadot_primitives::{BlockNumber <span class="kw">as </span>PBlockNumber, Hash <span class="kw">as </span>PHash};
-<span class="kw">use </span>sc_block_builder::{BlockBuilder, BlockBuilderBuilder};
+<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
-<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT};
+<span class="kw">use </span>sp_consensus_aura::Slot;
+<span class="kw">use </span>sp_runtime::{
+	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT},
+	Digest, DigestItem,
+};
+
+<span class="doccomment">/// A struct containing a block builder and support data required to build test scenarios.
+</span><span class="kw">pub struct </span>BlockBuilderAndSupportData&lt;<span class="lifetime">&#39;a</span>&gt; {
+	<span class="kw">pub </span>block_builder: sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block, Client&gt;,
+	<span class="kw">pub </span>persisted_validation_data: PersistedValidationData&lt;PHash, PBlockNumber&gt;,
+	<span class="kw">pub </span>slot: Slot,
+}
 
 <span class="doccomment">/// An extension for the Cumulus test client to init a block builder.
 </span><span class="kw">pub trait </span>InitBlockBuilder {
@@ -356,12 +394,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// valid for the test runtime.
 	///
 	/// You can use the relay chain state sproof builder to arrange required relay chain state or
-	/// just use a default one.
+	/// just use a default one. The relay chain slot in the storage proof
+	/// will be adjusted to align with the parachain slot to pass validation.
+	///
+	/// Returns the block builder and validation data for further usage.
 	</span><span class="kw">fn </span>init_block_builder(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt;;
+	) -&gt; BlockBuilderAndSupportData;
 
 	<span class="doccomment">/// Init a specific block builder at a specific block that works for the test runtime.
 	///
@@ -372,7 +413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: Hash,
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt;;
+	) -&gt; BlockBuilderAndSupportData;
 
 	<span class="doccomment">/// Init a specific block builder that works for the test runtime.
 	///
@@ -385,21 +426,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt;;
+	) -&gt; BlockBuilderAndSupportData;
 }
 
 <span class="kw">fn </span>init_block_builder(
 	client: <span class="kw-2">&amp;</span>Client,
 	at: Hash,
 	validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
-	relay_sproof_builder: RelayStateSproofBuilder,
+	<span class="kw-2">mut </span>relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
-) -&gt; BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, Client&gt; {
+) -&gt; BlockBuilderAndSupportData&lt;<span class="lifetime">&#39;_</span>&gt; {
+	<span class="comment">// This slot will be used for both relay chain and parachain
+	</span><span class="kw">let </span>slot: Slot = (timestamp / cumulus_test_runtime::SLOT_DURATION).into();
+	relay_sproof_builder.current_slot = slot;
+
+	<span class="kw">let </span>aura_pre_digest = Digest {
+		logs: <span class="macro">vec!</span>[DigestItem::PreRuntime(sp_consensus_aura::AURA_ENGINE_ID, slot.encode())],
+	};
+
 	<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(at)
 		.fetch_parent_block_number(client)
 		.unwrap()
 		.enable_proof_recording()
+		.with_inherent_digests(aura_pre_digest)
 		.build()
 		.expect(<span class="string">&quot;Creates new block builder for test runtime&quot;</span>);
 
@@ -413,18 +463,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relay_sproof_builder.into_state_root_and_proof();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>validation_data = validation_data.unwrap_or_default();
-	<span class="macro">assert_eq!</span>(
-		validation_data.relay_parent_storage_root,
-		Default::default(),
-		<span class="string">&quot;Overriding the relay storage root is not implemented&quot;</span>,
-	);
 	validation_data.relay_parent_storage_root = relay_parent_storage_root;
 
 	inherent_data
 		.put_data(
 			INHERENT_IDENTIFIER,
 			<span class="kw-2">&amp;</span>ParachainInherentData {
-				validation_data,
+				validation_data: validation_data.clone(),
 				relay_chain_state,
 				downward_messages: Default::default(),
 				horizontal_messages: Default::default(),
@@ -438,7 +483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.into_iter()
 		.for_each(|ext| block_builder.push(ext).expect(<span class="string">&quot;Pushes inherent&quot;</span>));
 
-	block_builder
+	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data, slot }
 }
 
 <span class="kw">impl </span>InitBlockBuilder <span class="kw">for </span>Client {
@@ -446,7 +491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -&gt; BlockBuilder&lt;Block, Client&gt; {
+	) -&gt; BlockBuilderAndSupportData {
 		<span class="kw">let </span>chain_info = <span class="self">self</span>.chain_info();
 		<span class="self">self</span>.init_block_builder_at(chain_info.best_hash, validation_data, relay_sproof_builder)
 	}
@@ -456,10 +501,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: Hash,
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
-	) -&gt; BlockBuilder&lt;Block, Client&gt; {
+	) -&gt; BlockBuilderAndSupportData {
 		<span class="kw">let </span>last_timestamp = <span class="self">self</span>.runtime_api().get_last_timestamp(at).expect(<span class="string">&quot;Get last timestamp&quot;</span>);
 
-		<span class="kw">let </span>timestamp = last_timestamp + cumulus_test_runtime::MinimumPeriod::get();
+		<span class="kw">let </span>timestamp = <span class="kw">if </span>last_timestamp == <span class="number">0 </span>{
+			std::time::SystemTime::now()
+				.duration_since(std::time::SystemTime::UNIX_EPOCH)
+				.expect(<span class="string">&quot;Time is always after UNIX_EPOCH; qed&quot;</span>)
+				.as_millis() <span class="kw">as </span>u64
+		} <span class="kw">else </span>{
+			last_timestamp + cumulus_test_runtime::SLOT_DURATION
+		};
 
 		init_block_builder(<span class="self">self</span>, at, validation_data, relay_sproof_builder, timestamp)
 	}
@@ -470,7 +522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
-	) -&gt; sc_block_builder::BlockBuilder&lt;Block, Client&gt; {
+	) -&gt; BlockBuilderAndSupportData {
 		init_block_builder(<span class="self">self</span>, at, validation_data, relay_sproof_builder, timestamp)
 	}
 }

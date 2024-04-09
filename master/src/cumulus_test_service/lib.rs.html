@@ -1109,6 +1109,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#960" id="960">960</a>
 <a href="#961" id="961">961</a>
 <a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1134,8 +1136,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub mod </span>chain_spec;
 
+<span class="kw">use </span>cumulus_client_collator::service::CollatorService;
+<span class="kw">use </span>cumulus_client_consensus_aura::{
+	collators::lookahead::{<span class="self">self </span><span class="kw">as </span>aura, Params <span class="kw">as </span>AuraParams},
+	ImportQueueParams,
+};
+<span class="kw">use </span>cumulus_client_consensus_proposer::Proposer;
 <span class="kw">use </span>runtime::AccountId;
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
+<span class="kw">use </span>sp_consensus_aura::sr25519::AuthorityPair;
 <span class="kw">use </span>std::{
 	collections::HashSet,
 	future::Future,
@@ -1156,7 +1165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
 	CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
-<span class="kw">use </span>cumulus_primitives_core::ParaId;
+<span class="kw">use </span>cumulus_primitives_core::{relay_chain::ValidationCode, ParaId};
 <span class="kw">use </span>cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
 <span class="kw">use </span>cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 <span class="kw">use </span>cumulus_relay_chain_minimal_node::{
@@ -1221,27 +1230,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The signature of the announce block fn.
 </span><span class="kw">pub type </span>AnnounceBlockFn = Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;;
 
-<span class="doccomment">/// Native executor instance.
-</span><span class="kw">pub struct </span>RuntimeExecutor;
-
-<span class="kw">impl </span>sc_executor::NativeExecutionDispatch <span class="kw">for </span>RuntimeExecutor {
-	<span class="kw">type </span>ExtendHostFunctions = cumulus_client_service::storage_proof_size::HostFunctions;
-
-	<span class="kw">fn </span>dispatch(method: <span class="kw-2">&amp;</span>str, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		cumulus_test_runtime::api::dispatch(method, data)
-	}
-
-	<span class="kw">fn </span>native_version() -&gt; sc_executor::NativeVersion {
-		cumulus_test_runtime::native_version()
-	}
-}
-
+<span class="kw">type </span>HostFunctions =
+	(sp_io::SubstrateHostFunctions, cumulus_client_service::storage_proof_size::HostFunctions);
 <span class="doccomment">/// The client type being used by the test service.
-</span><span class="kw">pub type </span>Client = TFullClient&lt;
-	runtime::NodeBlock,
-	runtime::RuntimeApi,
-	sc_executor::NativeElseWasmExecutor&lt;RuntimeExecutor&gt;,
-&gt;;
+</span><span class="kw">pub type </span>Client = TFullClient&lt;runtime::NodeBlock, runtime::RuntimeApi, WasmExecutor&lt;HostFunctions&gt;&gt;;
 
 <span class="doccomment">/// The backend type being used by the test service.
 </span><span class="kw">pub type </span>Backend = TFullBackend&lt;Block&gt;;
@@ -1314,16 +1306,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.default_heap_pages
 		.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static { extra_pages: h <span class="kw">as _ </span>});
 
-	<span class="kw">let </span>wasm = WasmExecutor::builder()
+	<span class="kw">let </span>executor = WasmExecutor::builder()
 		.with_execution_method(config.wasm_method)
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
 		.with_max_runtime_instances(config.max_runtime_instances)
 		.with_runtime_cache_size(config.runtime_cache_size)
 		.build();
-
-	<span class="kw">let </span>executor =
-		sc_executor::NativeElseWasmExecutor::&lt;RuntimeExecutor&gt;::new_with_wasm_executor(wasm);
 
 	<span class="kw">let </span>(client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts_record_import::&lt;Block, RuntimeApi, <span class="kw">_</span>&gt;(
@@ -1334,10 +1323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">?</span>;
 	<span class="kw">let </span>client = Arc::new(client);
 
-	<span class="kw">let </span>block_import =
-		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
-
-	<span class="kw">let </span>registry = config.prometheus_registry();
+	<span class="kw">let </span>block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
 	<span class="kw">let </span>transaction_pool = sc_transaction_pool::BasicPool::new_full(
 		config.transaction_pool.clone(),
@@ -1347,12 +1333,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		client.clone(),
 	);
 
-	<span class="kw">let </span>import_queue = cumulus_client_consensus_relay_chain::import_queue(
-		client.clone(),
-		block_import.clone(),
-		|<span class="kw">_</span>, <span class="kw">_</span>| <span class="kw">async </span>{ <span class="prelude-val">Ok</span>(sp_timestamp::InherentDataProvider::from_system_time()) },
-		<span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
-		registry,
+	<span class="kw">let </span>slot_duration = sc_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
+	<span class="kw">let </span>import_queue = cumulus_client_consensus_aura::import_queue::&lt;AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+		ImportQueueParams {
+			block_import: block_import.clone(),
+			client: client.clone(),
+			create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{
+				<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+				<span class="kw">let </span>slot =
+					sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+						<span class="kw-2">*</span>timestamp,
+						slot_duration,
+					);
+
+				<span class="prelude-val">Ok</span>((slot, timestamp))
+			},
+			spawner: <span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
+			registry: <span class="prelude-val">None</span>,
+			telemetry: <span class="prelude-val">None</span>,
+		},
 	)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>params = PartialComponents {
@@ -1473,12 +1473,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			spawn_handle: task_manager.spawn_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
-			sybil_resistance_level: CollatorSybilResistance::Unresistant, <span class="comment">// no consensus
+			sybil_resistance_level: CollatorSybilResistance::Resistant, <span class="comment">/* Either Aura that is
+			                                                             * resistant or null that
+			                                                             * is not producing any
+			                                                             * blocks at all. */
 		</span>})
 		.<span class="kw">await</span><span class="question-mark">?</span>;
 
 	<span class="kw">let </span>prometheus_registry = parachain_config.prometheus_registry().cloned();
 
+	<span class="kw">let </span>keystore = params.keystore_container.keystore();
 	<span class="kw">let </span>rpc_builder = {
 		<span class="kw">let </span>client = client.clone();
 		Box::new(<span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>| rpc_ext_builder(client.clone()))
@@ -1490,7 +1494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		transaction_pool: transaction_pool.clone(),
 		task_manager: <span class="kw-2">&amp;mut </span>task_manager,
 		config: parachain_config,
-		keystore: params.keystore_container.keystore(),
+		keystore: keystore.clone(),
 		backend: backend.clone(),
 		network: network.clone(),
 		sync_service: sync_service.clone(),
@@ -1507,8 +1511,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>announce_block = wrap_announce_block
 		.map(|w| (w)(announce_block.clone()))
 		.unwrap_or_else(|| announce_block);
-
-	<span class="kw">let </span>relay_chain_interface_for_closure = relay_chain_interface.clone();
 
 	<span class="kw">let </span>overseer_handle = relay_chain_interface
 		.overseer_handle()
@@ -1540,59 +1542,61 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	})<span class="question-mark">?</span>;
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(collator_key) = collator_key {
-		<span class="kw">let </span>parachain_consensus: Box&lt;<span class="kw">dyn </span>ParachainConsensus&lt;Block&gt;&gt; = <span class="kw">match </span>consensus {
-			Consensus::RelayChain =&gt; {
-				<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-					task_manager.spawn_handle(),
-					client.clone(),
-					transaction_pool.clone(),
-					prometheus_registry.as_ref(),
-					<span class="prelude-val">None</span>,
-				);
-				<span class="kw">let </span>relay_chain_interface2 = relay_chain_interface_for_closure.clone();
-				Box::new(cumulus_client_consensus_relay_chain::RelayChainConsensus::new(
-					para_id,
-					proposer_factory,
-					<span class="kw">move </span>|<span class="kw">_</span>, (relay_parent, validation_data)| {
-						<span class="kw">let </span>relay_chain_interface = relay_chain_interface_for_closure.clone();
-						<span class="kw">async move </span>{
-							<span class="kw">let </span>parachain_inherent =
-							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
-								relay_parent,
-								<span class="kw-2">&amp;</span>relay_chain_interface,
-								<span class="kw-2">&amp;</span>validation_data,
-								para_id,
-							).<span class="kw">await</span>;
+		<span class="kw">if let </span>Consensus::Null = consensus {
+			<span class="attr">#[allow(deprecated)]
+			</span>old_consensus::start_collator(old_consensus::StartCollatorParams {
+				block_status: client.clone(),
+				announce_block,
+				runtime_api: client.clone(),
+				spawner: task_manager.spawn_handle(),
+				para_id,
+				parachain_consensus: Box::new(NullConsensus) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;,
+				key: collator_key,
+				overseer_handle,
+			})
+			.<span class="kw">await</span>;
+		} <span class="kw">else </span>{
+			<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+				task_manager.spawn_handle(),
+				client.clone(),
+				transaction_pool.clone(),
+				prometheus_registry.as_ref(),
+				<span class="prelude-val">None</span>,
+			);
+			<span class="kw">let </span>proposer = Proposer::new(proposer_factory);
 
-							<span class="kw">let </span>time = sp_timestamp::InherentDataProvider::from_system_time();
+			<span class="kw">let </span>collator_service = CollatorService::new(
+				client.clone(),
+				Arc::new(task_manager.spawn_handle()),
+				announce_block,
+				client.clone(),
+			);
 
-							<span class="kw">let </span>parachain_inherent = parachain_inherent.ok_or_else(|| {
-								Box::&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;::from(String::from(
-									<span class="string">&quot;error&quot;</span>,
-								))
-							})<span class="question-mark">?</span>;
-							<span class="prelude-val">Ok</span>((time, parachain_inherent))
-						}
-					},
-					block_import,
-					relay_chain_interface2,
-				))
-			},
-			Consensus::Null =&gt; Box::new(NullConsensus),
-		};
+			<span class="kw">let </span>client_for_aura = client.clone();
+			<span class="kw">let </span>params = AuraParams {
+				create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
+				block_import,
+				para_client: client.clone(),
+				para_backend: backend.clone(),
+				relay_client: relay_chain_interface,
+				code_hash_provider: <span class="kw">move </span>|block_hash| {
+					client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
+				sync_oracle: sync_service,
+				keystore,
+				collator_key,
+				para_id,
+				overseer_handle,
+				relay_chain_slot_duration,
+				proposer,
+				collator_service,
+				authoring_duration: Duration::from_millis(<span class="number">2000</span>),
+				reinitialize: <span class="bool-val">false</span>,
+			};
 
-		<span class="attr">#[allow(deprecated)]
-		</span>old_consensus::start_collator(old_consensus::StartCollatorParams {
-			block_status: client.clone(),
-			announce_block,
-			runtime_api: client.clone(),
-			spawner: task_manager.spawn_handle(),
-			para_id,
-			parachain_consensus,
-			key: collator_key,
-			overseer_handle,
-		})
-		.<span class="kw">await</span>;
+			<span class="kw">let </span>fut = aura::run::&lt;Block, AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params);
+			task_manager.spawn_essential_handle().spawn(<span class="string">&quot;aura&quot;</span>, <span class="prelude-val">None</span>, fut);
+		}
 	}
 
 	start_network.start_network();
@@ -1621,8 +1625,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[allow(missing_docs)]
 </span><span class="kw">pub enum </span>Consensus {
-	<span class="doccomment">/// Use the relay-chain provided consensus.
-	</span>RelayChain,
+	<span class="doccomment">/// Use Aura consensus.
+	</span>Aura,
 	<span class="doccomment">/// Use the null consensus that will never produce any block.
 	</span>Null,
 }
@@ -1664,7 +1668,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			wrap_announce_block: <span class="prelude-val">None</span>,
 			storage_update_func_parachain: <span class="prelude-val">None</span>,
 			storage_update_func_relay_chain: <span class="prelude-val">None</span>,
-			consensus: Consensus::RelayChain,
+			consensus: Consensus::Aura,
 			endowed_accounts: Default::default(),
 			relay_chain_mode: RelayChainMode::Embedded,
 			record_proof_during_import: <span class="bool-val">true</span>,

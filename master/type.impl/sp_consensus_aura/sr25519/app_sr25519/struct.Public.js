@@ -2,6 +2,7 @@
 "bridge_hub_rococo_runtime":[],
 "bridge_hub_westend_runtime":[],
 "contracts_rococo_runtime":[],
+"cumulus_test_runtime":[],
 "glutton_westend_runtime":[],
 "parachain_template_runtime":[],
 "penpal_runtime":[],

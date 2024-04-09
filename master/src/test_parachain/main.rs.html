@@ -397,7 +397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">tracing::info!</span>(<span class="string">&quot;Using null consensus.&quot;</span>);
 					cumulus_test_service::Consensus::Null
 				})
-				.unwrap_or(cumulus_test_service::Consensus::RelayChain);
+				.unwrap_or(cumulus_test_service::Consensus::Aura);
 
 			<span class="kw">let </span>(<span class="kw-2">mut </span>task_manager, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = tokio_runtime
 				.block_on(<span class="kw">async move </span>{

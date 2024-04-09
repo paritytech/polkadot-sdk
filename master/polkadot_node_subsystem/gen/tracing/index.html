@@ -148,7 +148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </style>
 
 <script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_node_subsystem/index.html">polkadot_node_subsystem</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><ul class="block">
-            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In polkadot_node_subsystem::gen</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../index.html">polkadot_node_subsystem</a>::<wbr><a href="../index.html">gen</a>::<wbr><a class="mod" href="#">tracing</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="https://docs.rs/tracing/0.1.37/src/tracing/lib.rs.html#1-1115">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A scoped, structured logging and diagnostics system.</p>
+            <li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In polkadot_node_subsystem::gen</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a href="../../index.html">polkadot_node_subsystem</a>::<wbr><a href="../index.html">gen</a>::<wbr><a class="mod" href="#">tracing</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A scoped, structured logging and diagnostics system.</p>
 <h2 id="overview"><a href="#overview">Overview</a></h2>
 <p><code>tracing</code> is a framework for instrumenting Rust programs to collect
 structured, event-based diagnostic information.</p>
@@ -164,7 +164,7 @@ addition, <code>tracing</code> spans are <em>structured</em>, with the ability t
 data as well as textual messages.</p>
 <p>The <code>tracing</code> crate provides the APIs necessary for instrumenting libraries
 and applications to emit trace data.</p>
-<p><em>Compiler support: <a href="#supported-rust-versions">requires <code>rustc</code> 1.49+</a></em></p>
+<p><em>Compiler support: <a href="#supported-rust-versions">requires <code>rustc</code> 1.56+</a></em></p>
 <h2 id="core-concepts"><a href="#core-concepts">Core Concepts</a></h2>
 <p>The core of <code>tracing</code>’s API is composed of <em>spans</em>, <em>events</em> and
 <em>subscribers</em>. We’ll cover these in turn.</p>
@@ -240,7 +240,7 @@ tracing = &quot;0.1&quot;
 <h4 id="spans-1"><a href="#spans-1">Spans</a></h4>
 <p>The <a href="macro.span.html" title="macro polkadot_node_subsystem::gen::tracing::span"><code>span!</code></a> macro expands to a <a href="struct.Span.html" title="struct polkadot_node_subsystem::gen::tracing::Span"><code>Span</code> struct</a> which is used to
 record a span. The <a href="struct.Span.html#method.enter" title="method polkadot_node_subsystem::gen::tracing::Span::enter"><code>Span::enter</code></a> method on that struct records that the
-span has been entered, and returns a <a href="https://github.com/rust-unofficial/patterns/blob/master/patterns/behavioural/RAII.md">RAII</a> guard object, which will exit
+span has been entered, and returns a <a href="https://github.com/rust-unofficial/patterns/blob/main/src/patterns/behavioural/RAII.md">RAII</a> guard object, which will exit
 the span when dropped.</p>
 <p>For example:</p>
 
@@ -291,7 +291,7 @@ which can be used to easily wrap synchonous code in a span.</p>
 use fairly similar syntax, with some exceptions.</p>
 <h4 id="configuring-attributes"><a href="#configuring-attributes">Configuring Attributes</a></h4>
 <p>Both macros require a <a href="struct.Level.html" title="struct polkadot_node_subsystem::gen::tracing::Level"><code>Level</code></a> specifying the verbosity of the span or
-event. Optionally, the <a href="struct.Metadata.html#method.target" title="method polkadot_node_subsystem::gen::tracing::Metadata::target">target</a> and <a href="span/struct.Attributes.html#method.parent" title="method polkadot_node_subsystem::gen::tracing::span::Attributes::parent">parent span</a> may be overridden. If the
+event. Optionally, the, <a href="struct.Metadata.html#method.target" title="method polkadot_node_subsystem::gen::tracing::Metadata::target">target</a> and <a href="span/struct.Attributes.html#method.parent" title="method polkadot_node_subsystem::gen::tracing::span::Attributes::parent">parent span</a> may be overridden. If the
 target and parent span are not overridden, they will default to the
 module path where the macro was invoked and the current span (as determined
 by the subscriber), respectively.</p>
@@ -303,7 +303,11 @@ by the subscriber), respectively.</p>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>span = <span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;my span&quot;</span>);
 <span class="macro">event!</span>(parent: <span class="kw-2">&amp;</span>span, Level::INFO, <span class="string">&quot;something has happened!&quot;</span>);</code></pre></div>
 <p>The span macros also take a string literal after the level, to set the name
-of the span.</p>
+of the span (as above).  In the case of the event macros, the name of the event can
+be overridden (the default is <code>event file:line</code>) using the <code>name:</code> specifier.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;my span&quot;</span>);
+<span class="macro">event!</span>(name: <span class="string">&quot;some_info&quot;</span>, Level::INFO, <span class="string">&quot;something has happened!&quot;</span>);</code></pre></div>
 <h4 id="recording-fields"><a href="#recording-fields">Recording Fields</a></h4>
 <p>Structured fields on spans and events are specified using the syntax
 <code>field_name = field_value</code>. Fields are separated by commas.</p>
@@ -343,6 +347,14 @@ variable shorthand.</p>
 //  - &quot;guid:x-request-id&quot;, containing a `:`, with the value &quot;abcdef&quot;
 //  - &quot;type&quot;, which is a reserved word, with the value &quot;request&quot;
 </span><span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;api&quot;</span>, <span class="string">&quot;guid:x-request-id&quot; </span>= <span class="string">&quot;abcdef&quot;</span>, <span class="string">&quot;type&quot; </span>= <span class="string">&quot;request&quot;</span>);</code></pre></div>
+<p>Constant expressions can also be used as field names. Constants
+must be enclosed in curly braces (<code>{}</code>) to indicate that the <em>value</em>
+of the constant is to be used as the field name, rather than the
+constant’s name. For example:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">const </span>RESOURCE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;foo&quot;</span>;
+<span class="comment">// this span will have the field `foo = &quot;some_id&quot;`
+</span><span class="macro">span!</span>(Level::TRACE, <span class="string">&quot;get&quot;</span>, { RESOURCE_NAME } = <span class="string">&quot;some_id&quot;</span>);</code></pre></div>
 <p>The <code>?</code> sigil is shorthand that specifies a field should be recorded using
 its <a href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug"><code>fmt::Debug</code></a> implementation:</p>
 
@@ -384,16 +396,6 @@ but may be recorded later. For example:</p>
 
 // Now, record a value for parting as well.
 </span>span.record(<span class="string">&quot;parting&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;goodbye world!&quot;</span>);</code></pre></div>
-<p>Note that a span may have up to 32 fields. The following will not compile:</p>
-
-<div class="example-wrap compile_fail"><a href="#" class="tooltip" title="This example deliberately fails to compile">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>bad_span = <span class="macro">span!</span>(
-    Level::TRACE,
-    <span class="string">&quot;too many fields!&quot;</span>,
-    a = <span class="number">1</span>, b = <span class="number">2</span>, c = <span class="number">3</span>, d = <span class="number">4</span>, e = <span class="number">5</span>, f = <span class="number">6</span>, g = <span class="number">7</span>, h = <span class="number">8</span>, i = <span class="number">9</span>,
-    j = <span class="number">10</span>, k = <span class="number">11</span>, l = <span class="number">12</span>, m = <span class="number">13</span>, n = <span class="number">14</span>, o = <span class="number">15</span>, p = <span class="number">16</span>, q = <span class="number">17</span>,
-    r = <span class="number">18</span>, s = <span class="number">19</span>, t = <span class="number">20</span>, u = <span class="number">21</span>, v = <span class="number">22</span>, w = <span class="number">23</span>, x = <span class="number">24</span>, y = <span class="number">25</span>,
-    z = <span class="number">26</span>, aa = <span class="number">27</span>, bb = <span class="number">28</span>, cc = <span class="number">29</span>, dd = <span class="number">30</span>, ee = <span class="number">31</span>, ff = <span class="number">32</span>, gg = <span class="number">33
-</span>);</code></pre></div>
 <p>Finally, events may also include human-readable messages, in the form of a
 <a href="https://doc.rust-lang.org/1.75.0/alloc/fmt/index.html#usage" title="mod alloc::fmt">format string</a> and (optional) arguments, <strong>after</strong> the event’s
 key-value fields. If a format string and arguments are provided,
@@ -611,6 +613,7 @@ It provides a subscriber that records the time elapsed between pairs of
 <li><a href="https://crates.io/crates/tracing-actix-web"><code>tracing-actix-web</code></a> provides <code>tracing</code> integration for the <code>actix-web</code> web framework.</li>
 <li><a href="https://crates.io/crates/tracing-actix"><code>tracing-actix</code></a> provides <code>tracing</code> integration for the <code>actix</code> actor
 framework.</li>
+<li><a href="https://crates.io/crates/axum-insights"><code>axum-insights</code></a> provides <code>tracing</code> integration and Application insights export for the <code>axum</code> web framework.</li>
 <li><a href="https://crates.io/crates/tracing-gelf"><code>tracing-gelf</code></a> implements a subscriber for exporting traces in Greylog
 GELF format.</li>
 <li><a href="https://crates.io/crates/tracing-coz"><code>tracing-coz</code></a> provides integration with the <a href="https://github.com/plasma-umass/coz">coz</a> causal profiler
@@ -630,7 +633,7 @@ on <code>Result</code> or <code>Option</code> types to a <code>Subscriber</code>
 <li><a href="https://crates.io/crates/tracing-tracy"><code>tracing-tracy</code></a> provides a way to collect <a href="https://github.com/wolfpld/tracy">Tracy</a> profiles in instrumented
 applications.</li>
 <li><a href="https://crates.io/crates/tracing-elastic-apm"><code>tracing-elastic-apm</code></a> provides a layer for reporting traces to <a href="https://www.elastic.co/apm">Elastic APM</a>.</li>
-<li><a href="https://github.com/microsoft/tracing-etw"><code>tracing-etw</code></a> provides a layer for emitting Windows <a href="https://docs.microsoft.com/en-us/windows/win32/etw/about-event-tracing">ETW</a> events.</li>
+<li><a href="https://github.com/microsoft/rust_win_etw/tree/main/win_etw_tracing"><code>tracing-etw</code></a> provides a layer for emitting Windows <a href="https://docs.microsoft.com/en-us/windows/win32/etw/about-event-tracing">ETW</a> events.</li>
 <li><a href="https://crates.io/crates/tracing-fluent-assertions"><code>tracing-fluent-assertions</code></a> provides a fluent assertions-style testing
 framework for validating the behavior of <code>tracing</code> spans.</li>
 <li><a href="https://crates.io/crates/sentry-tracing"><code>sentry-tracing</code></a> provides a layer for reporting events and traces to <a href="https://sentry.io/welcome/">Sentry</a>.</li>
@@ -639,6 +642,8 @@ grouping together logs from the same spans during writing.</li>
 <li><a href="https://crates.io/crates/tracing-loki"><code>tracing-loki</code></a> provides a layer for shipping logs to <a href="https://grafana.com/oss/loki/">Grafana Loki</a>.</li>
 <li><a href="https://crates.io/crates/tracing-logfmt"><code>tracing-logfmt</code></a> provides a layer that formats events and spans into the logfmt format.</li>
 <li><a href="https://crates.io/crates/reqwest-tracing"><code>reqwest-tracing</code></a> provides a middleware to trace <a href="https://crates.io/crates/reqwest"><code>reqwest</code></a> HTTP requests.</li>
+<li><a href="https://crates.io/crates/tracing-cloudwatch"><code>tracing-cloudwatch</code></a> provides a layer that sends events to AWS CloudWatch Logs.</li>
+<li><a href="https://crates.io/crates/clippy-tracing"><code>clippy-tracing</code></a> provides a tool to add, remove and check for <code>tracing::instrument</code>.</li>
 </ul>
 <p>If you’re the maintainer of a <code>tracing</code> ecosystem crate not listed above,
 please let us know! We’d love to add your project to the list!</p>
@@ -675,7 +680,7 @@ which may add to the compile time of crates that do not already use it.</p>
 <p><code>std</code>: Depend on the Rust standard library (enabled by default).</p>
 <p><code>no_std</code> users may disable this feature with <code>default-features = false</code>:</p>
 <div class="example-wrap"><pre class="language-toml"><code>[dependencies]
-tracing = { version = &quot;0.1.37&quot;, default-features = false }
+tracing = { version = &quot;0.1.38&quot;, default-features = false }
 </code></pre></div></li>
 </ul>
 <pre class="ignore" style="white-space:normal;font:inherit;">
@@ -702,13 +707,13 @@ project to automatically enable the cfg flag for that project:</p>
 rustflags = [&quot;--cfg&quot;, &quot;tracing_unstable&quot;]
 </code></pre></div><h3 id="supported-rust-versions"><a href="#supported-rust-versions">Supported Rust Versions</a></h3>
 <p>Tracing is built against the latest stable release. The minimum supported
-version is 1.49. The current Tracing version is not guaranteed to build on
+version is 1.56. The current Tracing version is not guaranteed to build on
 Rust versions earlier than the minimum supported version.</p>
 <p>Tracing follows the same compiler support policies as the rest of the Tokio
 project. The current stable Rust compiler and the three most recent minor
 versions before it will always be supported. For example, if the current
-stable compiler version is 1.45, the minimum supported version will not be
-increased past 1.42, three minor versions prior. Increasing the minimum
+stable compiler version is 1.69, the minimum supported version will not be
+increased past 1.66, three minor versions prior. Increasing the minimum
 supported compiler version is not considered a semver breaking change as
 long as doing so complies with this policy.</p>
 </div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="callsite/index.html" title="mod polkadot_node_subsystem::gen::tracing::callsite">callsite</a></div><div class="desc docblock-short">Callsites represent the source locations from which spans or events

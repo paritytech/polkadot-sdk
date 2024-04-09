@@ -625,8 +625,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1010,13 +1008,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sproof.included_para_head = <span class="prelude-val">Some</span>(HeadData(parent.encode()));
 			sproof.para_id = cumulus_test_runtime::PARACHAIN_ID.into();
 
-			<span class="kw">let </span>builder = <span class="self">self</span>.client.init_block_builder_at(
-				parent.hash(),
-				<span class="prelude-val">Some</span>(validation_data.clone()),
-				sproof,
-			);
+			<span class="kw">let </span>cumulus_test_client::BlockBuilderAndSupportData { block_builder, .. } = <span class="self">self
+				</span>.client
+				.init_block_builder_at(parent.hash(), <span class="prelude-val">Some</span>(validation_data.clone()), sproof);
 
-			<span class="kw">let </span>(block, <span class="kw">_</span>, proof) = builder.build().expect(<span class="string">&quot;Creates block&quot;</span>).into_inner();
+			<span class="kw">let </span>(block, <span class="kw">_</span>, proof) = block_builder.build().expect(<span class="string">&quot;Creates block&quot;</span>).into_inner();
 
 			<span class="self">self</span>.client
 				.import(BlockOrigin::Own, block.clone())
