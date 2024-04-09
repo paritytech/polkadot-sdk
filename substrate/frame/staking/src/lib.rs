@@ -372,10 +372,14 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
+	// TODO: for now we just stop setting this, but someday remove it.
 	/// Moment of start expressed as millisecond from `$UNIX_EPOCH`.
 	///
 	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
+	#[deprecated(
+		note = "should not be used anywhere as pallet-staking does not set and use it anymore."
+	)]
 	start: Option<u64>,
 }
 
@@ -892,6 +896,7 @@ impl<AccountId> SessionInterface<AccountId> for () {
 }
 
 /// Handler for determining how much of a balance should be paid out on the current era.
+#[deprecated(note = "not used in pallet-staking anymore, and will be removed in Q4 2024")]
 pub trait EraPayout<Balance> {
 	/// Determine the payout for this era.
 	///
@@ -904,19 +909,12 @@ pub trait EraPayout<Balance> {
 	) -> (Balance, Balance);
 }
 
-impl<Balance: Default> EraPayout<Balance> for () {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(Default::default(), Default::default())
-	}
-}
-
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
+#[deprecated(note = "not used in pallet-staking anymore, and will be removed in Q4 2024")]
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+
+#[allow(deprecated)]
 impl<Balance, T> EraPayout<Balance> for ConvertCurve<T>
 where
 	Balance: AtLeast32BitUnsigned + Clone + Copy,

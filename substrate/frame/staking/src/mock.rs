@@ -85,8 +85,7 @@ pub fn is_disabled(controller: AccountId) -> bool {
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-	pub enum Test
-	{
+	pub enum Test {
 		System: frame_system,
 		Authorship: pallet_authorship,
 		Timestamp: pallet_timestamp,
@@ -124,20 +123,12 @@ impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type MaxLocks = frame_support::traits::ConstU32<1024>;
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
 	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = ();
-	type RuntimeFreezeReason = ();
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -145,6 +136,7 @@ sp_runtime::impl_opaque_keys! {
 		pub other: OtherSessionHandler,
 	}
 }
+
 impl pallet_session::Config for Test {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, Staking>;
 	type Keys = SessionKeys;
@@ -161,6 +153,7 @@ impl pallet_session::historical::Config for Test {
 	type FullIdentification = crate::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = crate::ExposureOf<Test>;
 }
+
 impl pallet_authorship::Config for Test {
 	type FindAuthor = Author11;
 	type EventHandler = Pallet<Test>;
@@ -187,21 +180,6 @@ parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
-}
-
-parameter_types! {
-	pub static RewardRemainderUnbalanced: u128 = 0;
-}
-
-pub struct RewardRemainderMock;
-
-impl OnUnbalanced<NegativeImbalanceOf<Test>> for RewardRemainderMock {
-	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<Test>) {
-		RewardRemainderUnbalanced::mutate(|v| {
-			*v += amount.peek();
-		});
-		drop(amount);
-	}
 }
 
 const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
@@ -251,6 +229,12 @@ parameter_types! {
 		(Zero::zero(), BTreeMap::new());
 }
 
+parameter_types! {
+	pub const StakingPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/staki");
+}
+
+pub type InflationCalculator = ConvertCurve<RewardCurve>;
+
 pub struct EventListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	fn on_slash(
@@ -261,14 +245,22 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
 	}
+
+	fn on_before_era_end(_era_index: EraIndex) {
+		let (staking, _max) = InflationCalculator::era_payout(
+			Staking::eras_total_stake(active_era()),
+			Balances::total_issuance(),
+			time_per_era(),
+		);
+		let _ = Balances::deposit_creating(&Staking::pending_payout_account(), staking);
+	}
 }
 
 impl crate::pallet::pallet::Config for Test {
+	type PalletId = StakingPalletId;
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
-	type UnixTime = Timestamp;
 	type CurrencyToVote = ();
-	type RewardRemainder = RewardRemainderMock;
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
 	type Reward = MockReward;
@@ -277,7 +269,6 @@ impl crate::pallet::pallet::Config for Test {
 	type AdminOrigin = EnsureOneOrRoot;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = Self;
-	type EraPayout = ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -649,8 +640,9 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 	assert_eq!(current_era(), active_era());
 }
 
+// TODO: remove
 pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
-	let (payout, _rest) = <Test as Config>::EraPayout::era_payout(
+	let (payout, _rest) = InflationCalculator::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
 		duration,
@@ -659,8 +651,9 @@ pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
 	payout
 }
 
+// TODO: remove
 pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
-	let (payout, rest) = <Test as Config>::EraPayout::era_payout(
+	let (payout, rest) = InflationCalculator::era_payout(
 		Staking::eras_total_stake(active_era()),
 		Balances::total_issuance(),
 		duration,

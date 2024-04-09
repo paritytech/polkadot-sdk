@@ -28,15 +28,15 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
-		InspectLockableCurrency, Len, OnUnbalanced, TryCollect, UnixTime,
+		InspectLockableCurrency, Len, OnUnbalanced, TryCollect,
 	},
 	weights::Weight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::historical;
 use sp_runtime::{
-	traits::{Bounded, Convert, One, SaturatedConversion, Saturating, StaticLookup, Zero},
-	Perbill, Percent,
+	traits::{AccountIdConversion, Bounded, Convert, One, Saturating, StaticLookup, Zero},
+	Perbill,
 };
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
@@ -49,9 +49,9 @@ use sp_std::prelude::*;
 
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	BalanceOf, EraInfo, Exposure, ExposureOf, Forcing, IndividualExposure, LedgerIntegrityState,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
+	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -233,10 +233,12 @@ impl<T: Config> Pallet<T> {
 
 		// Note: if era has no reward to be claimed, era may be future. better not to update
 		// `ledger.legacy_claimed_rewards` in this case.
-		let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or_else(|| {
+		let era_payout = Self::era_payout(era);
+		ensure!(
+			!era_payout.is_zero(),
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
-		})?;
+		);
 
 		let account = StakingAccount::Stash(validator_stash.clone());
 		let mut ledger = Self::ledger(account.clone()).or_else(|_| {
@@ -483,7 +485,10 @@ impl<T: Config> Pallet<T> {
 				Self::eras_start_session_index(active_era.index + 1)
 			{
 				if next_active_era_start_session_index == session_index + 1 {
+					let active_index = active_era.index;
+					T::EventListeners::on_before_era_end(active_index);
 					Self::end_era(active_era, session_index);
+					T::EventListeners::on_after_era_end(active_index);
 				}
 			}
 		}
@@ -530,41 +535,42 @@ impl<T: Config> Pallet<T> {
 		Self::apply_unapplied_slashes(active_era);
 	}
 
+	pub fn pending_payout_account() -> T::AccountId {
+		T::PalletId::get().into_sub_account_truncating(())
+	}
+
+	fn era_payout_account(era_index: EraIndex) -> T::AccountId {
+		T::PalletId::get().into_sub_account_truncating(era_index)
+	}
+
+	pub(crate) fn era_payout(era_index: EraIndex) -> BalanceOf<T> {
+		T::Currency::total_balance(&Self::era_payout_account(era_index))
+	}
+
 	/// Compute payout for era.
 	fn end_era(active_era: ActiveEraInfo, _session_index: SessionIndex) {
+		use frame_support::traits::ExistenceRequirement;
 		// Note: active_era_start can be None if end era is called during genesis config.
-		if let Some(active_era_start) = active_era.start {
-			let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
+		let pending_payout_account = Self::pending_payout_account();
+		let pending_payout = T::Currency::total_balance(&pending_payout_account);
+		let active_era_payouts = Self::era_payout_account(active_era.index);
 
-			let era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
-				.saturated_into::<u64>();
-			let staked = Self::eras_total_stake(&active_era.index);
-			let issuance = T::Currency::total_issuance();
+		// TODO: deal with EDs etc.
+		T::Currency::transfer(
+			&pending_payout_account,
+			&active_era_payouts,
+			pending_payout,
+			ExistenceRequirement::AllowDeath,
+		)
+		.expect("`pending_payout_account` must exist");
 
-			let (validator_payout, remainder) =
-				T::EraPayout::era_payout(staked, issuance, era_duration);
+		Self::deposit_event(Event::<T>::EraPaid {
+			era_index: active_era.index,
+			validator_payout: pending_payout,
+		});
 
-			let total_payout = validator_payout.saturating_add(remainder);
-			let max_staked_rewards =
-				MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
-
-			// apply cap to validators payout and add difference to remainder.
-			let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
-			let remainder = total_payout.saturating_sub(validator_payout);
-
-			Self::deposit_event(Event::<T>::EraPaid {
-				era_index: active_era.index,
-				validator_payout,
-				remainder,
-			});
-
-			// Set ending era reward.
-			<ErasValidatorReward<T>>::insert(&active_era.index, validator_payout);
-			T::RewardRemainder::on_unbalanced(T::Currency::issue(remainder));
-
-			// Clear offending validators.
-			<OffendingValidators<T>>::kill();
-		}
+		// Clear offending validators.
+		<OffendingValidators<T>>::kill();
 	}
 
 	/// Plan a new era.
@@ -782,7 +788,6 @@ impl<T: Config> Pallet<T> {
 		cursor = <ErasStakersOverview<T>>::clear_prefix(era_index, u32::MAX, None);
 		debug_assert!(cursor.maybe_cursor.is_none());
 
-		<ErasValidatorReward<T>>::remove(era_index);
 		<ErasRewardPoints<T>>::remove(era_index);
 		<ErasTotalStake<T>>::remove(era_index);
 		ErasStartSessionIndex::<T>::remove(era_index);

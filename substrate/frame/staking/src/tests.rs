@@ -327,8 +327,6 @@ fn rewards_should_work() {
 		Pallet::<Test>::reward_by_ids(vec![(21, 50)]);
 
 		// Compute total payout now for whole duration of the session.
-		let total_payout_0 = current_total_payout_for_duration(reward_time_per_era());
-		let maximum_payout = maximum_payout_for_duration(reward_time_per_era());
 
 		start_session(1);
 		assert_eq_uvec!(Session::validators(), vec![11, 21]);
@@ -350,16 +348,12 @@ fn rewards_should_work() {
 
 		start_session(2);
 		start_session(3);
-
 		assert_eq!(active_era(), 1);
-		assert_eq!(mock::RewardRemainderUnbalanced::get(), maximum_payout - total_payout_0,);
+		let total_payout_0 = Staking::era_payout(0);
+
 		assert_eq!(
 			*mock::staking_events().last().unwrap(),
-			Event::EraPaid {
-				era_index: 0,
-				validator_payout: total_payout_0,
-				remainder: maximum_payout - total_payout_0
-			}
+			Event::EraPaid { era_index: 0, validator_payout: total_payout_0 }
 		);
 		mock::make_all_reward_payment(0);
 
@@ -385,20 +379,12 @@ fn rewards_should_work() {
 		Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
 
 		// Compute total payout now for whole duration as other parameter won't change
-		let total_payout_1 = current_total_payout_for_duration(reward_time_per_era());
-
 		mock::start_active_era(2);
-		assert_eq!(
-			mock::RewardRemainderUnbalanced::get(),
-			maximum_payout * 2 - total_payout_0 - total_payout_1,
-		);
+		let total_payout_1 = Staking::era_payout(1);
+
 		assert_eq!(
 			*mock::staking_events().last().unwrap(),
-			Event::EraPaid {
-				era_index: 1,
-				validator_payout: total_payout_1,
-				remainder: maximum_payout - total_payout_1
-			}
+			Event::EraPaid { era_index: 1, validator_payout: total_payout_1 }
 		);
 		mock::make_all_reward_payment(1);
 
@@ -630,12 +616,11 @@ fn nominating_and_rewards_should_work() {
 			));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(3), vec![11, 21, 41]));
 
-			// the total reward for era 0
-			let total_payout_0 = current_total_payout_for_duration(reward_time_per_era());
 			Pallet::<Test>::reward_by_ids(vec![(41, 1)]);
 			Pallet::<Test>::reward_by_ids(vec![(21, 1)]);
 
 			mock::start_active_era(1);
+			let total_payout_0 = Staking::era_payout(0);
 
 			// 10 and 20 have more votes, they will be chosen.
 			assert_eq_uvec!(validator_controllers(), vec![21, 11]);
@@ -673,11 +658,11 @@ fn nominating_and_rewards_should_work() {
 			);
 
 			// the total reward for era 1
-			let total_payout_1 = current_total_payout_for_duration(reward_time_per_era());
 			Pallet::<Test>::reward_by_ids(vec![(21, 2)]);
 			Pallet::<Test>::reward_by_ids(vec![(11, 1)]);
 
 			mock::start_active_era(2);
+			let total_payout_1 = Staking::era_payout(1);
 
 			// nothing else will happen, era ends and rewards are paid again, it is expected that
 			// nominators will also be paid. See below
@@ -1778,54 +1763,6 @@ fn max_staked_rewards_default_works() {
 
 		let default_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
 		assert_eq!(ErasValidatorReward::<Test>::get(0).unwrap(), default_stakers_payout);
-	})
-}
-
-#[test]
-fn max_staked_rewards_works() {
-	ExtBuilder::default().nominate(true).build_and_execute(|| {
-		let max_staked_rewards = 10;
-
-		// sets new max staked rewards through set_staking_configs.
-		assert_ok!(Staking::set_staking_configs(
-			RuntimeOrigin::root(),
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Set(Percent::from_percent(max_staked_rewards)),
-		));
-
-		assert_eq!(<MaxStakedRewards<Test>>::get(), Some(Percent::from_percent(10)));
-
-		// check validators account state.
-		assert_eq!(Session::validators().len(), 2);
-		assert!(Session::validators().contains(&11) & Session::validators().contains(&21));
-		// balance of the mock treasury account is 0
-		assert_eq!(RewardRemainderUnbalanced::get(), 0);
-
-		let max_stakers_payout = current_total_payout_for_duration(reward_time_per_era());
-
-		start_active_era(1);
-
-		let treasury_payout = RewardRemainderUnbalanced::get();
-		let validators_payout = ErasValidatorReward::<Test>::get(0).unwrap();
-		let total_payout = treasury_payout + validators_payout;
-
-		// max stakers payout (without max staked rewards cap applied) is larger than the final
-		// validator rewards. The final payment and remainder should be adjusted by redistributing
-		// the era inflation to apply the cap...
-		assert!(max_stakers_payout > validators_payout);
-
-		// .. which means that the final validator payout is 10% of the total payout..
-		assert_eq!(validators_payout, Percent::from_percent(max_staked_rewards) * total_payout);
-		// .. and the remainder 90% goes to the treasury.
-		assert_eq!(
-			treasury_payout,
-			Percent::from_percent(100 - max_staked_rewards) * (treasury_payout + validators_payout)
-		);
 	})
 }
 
@@ -3339,7 +3276,7 @@ fn slash_kicks_validators_not_nominators_and_disables_nominator_for_kicked_valid
 			staking_events_since_last_call(),
 			vec![
 				Event::StakersElected,
-				Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
+				Event::EraPaid { era_index: 0, validator_payout: 11075 },
 				Event::Chilled { stash: 11 },
 				Event::ForceEra { mode: Forcing::ForceNew },
 				Event::SlashReported {
@@ -3407,7 +3344,7 @@ fn non_slashable_offence_doesnt_disable_validator() {
 			staking_events_since_last_call(),
 			vec![
 				Event::StakersElected,
-				Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
+				Event::EraPaid { era_index: 0, validator_payout: 11075 },
 				Event::Chilled { stash: 11 },
 				Event::ForceEra { mode: Forcing::ForceNew },
 				Event::SlashReported {
@@ -3470,7 +3407,7 @@ fn slashing_independent_of_disabling_validator() {
 			staking_events_since_last_call(),
 			vec![
 				Event::StakersElected,
-				Event::EraPaid { era_index: 0, validator_payout: 11075, remainder: 33225 },
+				Event::EraPaid { era_index: 0, validator_payout: 11075 },
 				Event::Chilled { stash: 11 },
 				Event::ForceEra { mode: Forcing::ForceNew },
 				Event::SlashReported {
