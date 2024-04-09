@@ -19,6 +19,7 @@
 
 use super::*;
 
+use pallet_transaction_payment::FungibleAdapter;
 use sp_core::H256;
 use sp_runtime::{
 	generic::{DigestItem, Era},
@@ -40,7 +41,6 @@ use frame_support::{
 };
 use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
 use pallet_balances::Call as BalancesCall;
-use pallet_transaction_payment::CurrencyAdapter;
 
 const TEST_KEY: &[u8] = b":test:key:";
 
@@ -338,7 +338,7 @@ parameter_types! {
 }
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
+	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;

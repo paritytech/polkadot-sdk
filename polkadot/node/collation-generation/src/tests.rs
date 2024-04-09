@@ -28,7 +28,7 @@ use polkadot_node_subsystem::{
 	ActivatedLeaf,
 };
 use polkadot_node_subsystem_test_helpers::{subsystem_test_harness, TestSubsystemContextHandle};
-use polkadot_node_subsystem_util::{vstaging::ClaimQueueSnapshot, TimeoutExt};
+use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
 	async_backing::{BackingState, CandidatePendingAvailability},
 	AsyncBackingParams, BlockNumber, CollatorPair, HeadData, PersistedValidationData,
@@ -620,8 +620,7 @@ fn fallback_when_no_validation_code_hash_api(#[case] runtime_version: u32) {
 					_hash,
 					RuntimeApiRequest::ClaimQueue(tx),
 				))) if runtime_version >= RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT => {
-					let res = ClaimQueueSnapshot::new();
-					tx.send(Ok(res)).unwrap();
+					tx.send(Ok(Default::default())).unwrap();
 				},
 				Some(AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_hash,
@@ -783,7 +782,7 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 		candidate_hash: Default::default(),
 		candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
 	})];
-	let claim_queue = ClaimQueueSnapshot::from([(CoreIndex::from(0), VecDeque::from([para_id]))]);
+	let claim_queue = BTreeMap::from([(CoreIndex::from(0), VecDeque::from([para_id]))]).into();
 
 	test_harness(|mut virtual_overseer| async move {
 		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
@@ -965,7 +964,7 @@ fn no_collation_is_distributed_for_occupied_core_with_async_backing_disabled(
 		candidate_hash: Default::default(),
 		candidate_descriptor: dummy_candidate_descriptor(dummy_hash()),
 	})];
-	let claim_queue = ClaimQueueSnapshot::from([(CoreIndex::from(0), VecDeque::from([para_id]))]);
+	let claim_queue = BTreeMap::from([(CoreIndex::from(0), VecDeque::from([para_id]))]).into();
 
 	test_harness(|mut virtual_overseer| async move {
 		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
@@ -1053,7 +1052,7 @@ mod helpers {
 		async_backing_params: AsyncBackingParams,
 		cores: Vec<CoreState>,
 		runtime_version: u32,
-		claim_queue: ClaimQueueSnapshot,
+		claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	) {
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
@@ -1107,7 +1106,7 @@ mod helpers {
 									RuntimeApiRequest::ClaimQueue(tx),
 								)) => {
 					assert_eq!(hash, activated_hash);
-					let _ = tx.send(Ok(claim_queue));
+					let _ = tx.send(Ok(claim_queue.into()));
 				}
 			);
 		}
