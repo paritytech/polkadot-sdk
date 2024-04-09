@@ -44,7 +44,7 @@ jobs:
         with:
           path: polkadot-sdk
           ref: "release-crates-io-v${{ github.event.inputs.crate_release_version }}"
-      - name: Generate token
+      - name: Generate a token for the template repository
         id: app_token
         uses: actions/create-github-app-token@v1.9.3
         with:
