@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712670838163,
+  "lastUpdate": 1712675769608,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -2755,6 +2755,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15158539683333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "598e95577dbf10c4d940393c29a6476be91d8fd2",
+          "message": "rpc-v2/transaction: Generate `Invalid` events and add tests (#3784)\n\nThis PR ensures that the transaction API generates an `Invalid` events\nfor transaction bytes that fail to decode.\n\nThe spec mentioned the `Invalid` event at the jsonrpc error section,\nhowever this spec PR makes things clearer:\n- https://github.com/paritytech/json-rpc-interface-spec/pull/146\n\nWhile at it have discovered an inconsistency with the generated events.\nThe drop event from the transaction pool was incorrectly mapped to the\n`invalid` event.\n\nAdded tests for the API stabilize the API soon:\n- https://github.com/paritytech/json-rpc-interface-spec/pull/144\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/3083\n\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-09T13:57:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/598e95577dbf10c4d940393c29a6476be91d8fd2"
+        },
+        "date": 1712675745811,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.893333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011632582920000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16061375685333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014018964333333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026503171779999998,
             "unit": "seconds"
           }
         ]
