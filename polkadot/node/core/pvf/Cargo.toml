@@ -14,7 +14,7 @@ always-assert = "0.1"
 array-bytes = "6.1"
 blake3 = "1.5"
 cfg-if = "1.0"
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 is_executable = "1.0.1"
@@ -50,7 +50,7 @@ hex-literal = "0.4.1"
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
 # For benches and integration tests, depend on ourselves with the test-utils
 # feature.
-polkadot-node-core-pvf = { path = ".", features = ["test-utils"] }
+polkadot-node-core-pvf = { path = "", features = ["test-utils"] }
 rococo-runtime = { path = "../../../runtime/rococo" }
 
 adder = { package = "test-parachain-adder", path = "../../../parachain/test-parachains/adder" }

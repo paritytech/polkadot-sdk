@@ -123,7 +123,7 @@ use frame_support::{
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, Contains, Get, Randomness, Time,
 	},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	BoundedVec, DefaultNoBound, RuntimeDebugNoBound,
 };
 use frame_system::{
@@ -298,6 +298,9 @@ pub mod pallet {
 		/// Therefore please make sure to be restrictive about which dispatchables are allowed
 		/// in order to not introduce a new DoS vector like memory allocation patterns that can
 		/// be exploited to drive the runtime into a panic.
+		///
+		/// This filter does not apply to XCM transact calls. To impose restrictions on XCM transact
+		/// calls, you must configure them separately within the XCM pallet itself.
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
@@ -458,17 +461,15 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_idle(_block: BlockNumberFor<T>, mut remaining_weight: Weight) -> Weight {
+		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			use migration::MigrateResult::*;
+			let mut meter = WeightMeter::with_limit(limit);
 
 			loop {
-				let (result, weight) = Migration::<T>::migrate(remaining_weight);
-				remaining_weight.saturating_reduce(weight);
-
-				match result {
-					// There is not enough weight to perform a migration, or make any progress, we
-					// just return the remaining weight.
-					NoMigrationPerformed | InProgress { steps_done: 0 } => return remaining_weight,
+				match Migration::<T>::migrate(&mut meter) {
+					// There is not enough weight to perform a migration.
+					// We can't do anything more, so we return the used weight.
+					NoMigrationPerformed | InProgress { steps_done: 0 } => return meter.consumed(),
 					// Migration is still in progress, we can start the next step.
 					InProgress { .. } => continue,
 					// Either no migration is in progress, or we are done with all migrations, we
@@ -477,8 +478,8 @@ pub mod pallet {
 				}
 			}
 
-			ContractInfo::<T>::process_deletion_queue_batch(remaining_weight)
-				.saturating_add(T::WeightInfo::on_process_deletion_queue_batch())
+			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
+			meter.consumed()
 		}
 
 		fn integrity_test() {
@@ -921,18 +922,25 @@ pub mod pallet {
 			ensure_signed(origin)?;
 
 			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			let (result, weight) = Migration::<T>::migrate(weight_limit);
+			let mut meter = WeightMeter::with_limit(weight_limit);
+			let result = Migration::<T>::migrate(&mut meter);
 
 			match result {
-				Completed =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { steps_done, .. } if steps_done > 0 =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
-				InProgress { .. } =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::Yes }),
+				Completed => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { steps_done, .. } if steps_done > 0 => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { .. } => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::Yes,
+				}),
 				NoMigrationInProgress | NoMigrationPerformed => {
 					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
-					Err(err.with_weight(T::WeightInfo::migrate()))
+					Err(err.with_weight(meter.consumed()))
 				},
 			}
 		}
@@ -1104,7 +1112,7 @@ pub mod pallet {
 		/// A more detailed error can be found on the node console if debug messages are enabled
 		/// by supplying `-lruntime::contracts=debug`.
 		CodeRejected,
-		/// An indetermistic code was used in a context where this is not permitted.
+		/// An indeterministic code was used in a context where this is not permitted.
 		Indeterministic,
 		/// A pending migration needs to complete before the extrinsic can be called.
 		MigrationInProgress,

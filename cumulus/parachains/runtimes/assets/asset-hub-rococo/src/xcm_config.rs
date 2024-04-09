@@ -27,14 +27,13 @@ use assets_common::{
 use frame_support::{
 	parameter_types,
 	traits::{
-		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Equals, Everything, Nothing,
-		PalletInfoAccess,
+		tokens::imbalance::{ResolveAssetTo, ResolveTo},
+		ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
-	impls::ToStakingPot,
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
 		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
@@ -192,7 +191,7 @@ pub type ForeignFungiblesTransactor = FungiblesAdapter<
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// We dont need to check teleports here.
+	// We don't need to check teleports here.
 	NoChecking,
 	// The account to use for tracking teleports.
 	CheckingAccount,
@@ -286,8 +285,8 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 		match call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				if items.iter().all(|(k, _)| {
-					k.eq(&bridging::XcmBridgeHubRouterByteFee::key()) |
-						k.eq(&bridging::XcmBridgeHubRouterBaseFee::key()) |
+					k.eq(&bridging::XcmBridgeHubRouterByteFee::key()) ||
+						k.eq(&bridging::XcmBridgeHubRouterBaseFee::key()) ||
 						k.eq(&bridging::to_ethereum::BridgeHubEthereumBaseFee::key())
 				}) =>
 				return true,
@@ -569,7 +568,13 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	type Trader = (
-		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>,
+		UsingComponents<
+			WeightToFee,
+			TokenLocation,
+			AccountId,
+			Balances,
+			ResolveTo<StakingPot, Balances>,
+		>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
 			TokenLocationV3,
 			crate::AssetConversion,
@@ -628,6 +633,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 /// Converts a local signed origin into an XCM location.
@@ -662,11 +670,9 @@ impl pallet_xcm::Config for Runtime {
 	// We want to disallow users sending (arbitrary) XCMs from this chain.
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
 	type XcmRouter = XcmRouter;
-	// We support local origins dispatching XCM executions in principle...
+	// We support local origins dispatching XCM executions.
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
-	// ... but disallow generic XCM execution. As a result only teleports and reserve transfers are
-	// allowed.
-	type XcmExecuteFilter = Nothing;
+	type XcmExecuteFilter = Everything;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;

@@ -72,6 +72,7 @@ use libp2p::{
 	},
 	PeerId,
 };
+use linked_hash_set::LinkedHashSet;
 use log::{debug, info, trace, warn};
 use sp_core::hexdisplay::HexDisplay;
 use std::{
@@ -550,14 +551,20 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 	) -> Result<Vec<Multiaddr>, ConnectionDenied> {
 		let Some(peer_id) = maybe_peer else { return Ok(Vec::new()) };
 
-		let mut list = self
+		// Collect addresses into [`LinkedHashSet`] to eliminate duplicate entries preserving the
+		// order of addresses. Give priority to `permanent_addresses` (used with reserved nodes) and
+		// `ephemeral_addresses` (used for addresses discovered from other sources, like authority
+		// discovery DHT records).
+		let mut list: LinkedHashSet<_> = self
 			.permanent_addresses
 			.iter()
 			.filter_map(|(p, a)| (*p == peer_id).then_some(a.clone()))
-			.collect::<Vec<_>>();
+			.collect();
 
 		if let Some(ephemeral_addresses) = self.ephemeral_addresses.get(&peer_id) {
-			list.extend(ephemeral_addresses.clone());
+			ephemeral_addresses.iter().for_each(|address| {
+				list.insert_if_absent(address.clone());
+			});
 		}
 
 		{
@@ -583,12 +590,14 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 				});
 			}
 
-			list.extend(list_to_filter);
+			list_to_filter.into_iter().for_each(|address| {
+				list.insert_if_absent(address);
+			});
 		}
 
 		trace!(target: "sub-libp2p", "Addresses of {:?}: {:?}", peer_id, list);
 
-		Ok(list)
+		Ok(list.into_iter().collect())
 	}
 
 	fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {

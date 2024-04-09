@@ -25,13 +25,10 @@ use crate::{
 };
 
 use futures::{channel::mpsc::channel, executor::LocalPool, task::LocalSpawn};
-use libp2p::{
-	core::multiaddr::{Multiaddr, Protocol},
-	identity::ed25519,
-	PeerId,
-};
+use libp2p::identity::ed25519;
 use std::{collections::HashSet, sync::Arc};
 
+use sc_network::{multiaddr::Protocol, Multiaddr, PeerId};
 use sp_authority_discovery::AuthorityId;
 use sp_core::crypto::key_types;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
@@ -78,7 +75,7 @@ fn get_addresses_and_authority_id() {
 		);
 		assert_eq!(
 			Some(HashSet::from([remote_authority_id])),
-			service.get_authority_ids_by_peer_id(remote_peer_id).await,
+			service.get_authority_ids_by_peer_id(remote_peer_id.into()).await,
 		);
 	});
 }
@@ -100,7 +97,7 @@ fn cryptos_are_compatible() {
 	let sp_core_signature = sp_core_secret.sign(message); // no error expected...
 
 	assert!(sp_core::ed25519::Pair::verify(
-		&sp_core::ed25519::Signature::from_slice(&libp2p_signature).unwrap(),
+		&sp_core::ed25519::Signature::try_from(libp2p_signature.as_slice()).unwrap(),
 		message,
 		&sp_core_public
 	));

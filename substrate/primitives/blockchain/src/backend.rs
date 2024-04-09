@@ -187,7 +187,7 @@ pub trait Backend<Block: BlockT>:
 	/// a block with the given `base_hash`.
 	///
 	/// The search space is always limited to blocks which are in the finalized
-	/// chain or descendents of it.
+	/// chain or descendants of it.
 	///
 	/// Returns `Ok(None)` if `base_hash` is not found in search space.
 	// TODO: document time complexity of this, see [#1444](https://github.com/paritytech/substrate/issues/1444)

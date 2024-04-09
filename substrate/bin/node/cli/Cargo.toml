@@ -41,11 +41,11 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # third-party dependencies
 array-bytes = "6.1"
-clap = { version = "4.5.1", features = ["derive"], optional = true }
+clap = { version = "4.5.3", features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 serde = { features = ["derive"], workspace = true, default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
-futures = "0.3.21"
+futures = "0.3.30"
 log = { workspace = true, default-features = true }
 rand = "0.8"
 
@@ -58,6 +58,7 @@ sp-api = { path = "../../../primitives/api" }
 sp-core = { path = "../../../primitives/core" }
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-timestamp = { path = "../../../primitives/timestamp" }
+sp-genesis-builder = { path = "../../../primitives/genesis-builder" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-keystore = { path = "../../../primitives/keystore" }
@@ -129,7 +130,7 @@ sc-block-builder = { path = "../../../client/block-builder" }
 sp-tracing = { path = "../../../primitives/tracing" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
-futures = "0.3.21"
+futures = "0.3.30"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
 nix = { version = "0.26.1", features = ["signal"] }
@@ -160,12 +161,12 @@ sp-externalities = { path = "../../../primitives/externalities" }
 sp-keyring = { path = "../../../primitives/keyring" }
 sp-runtime = { path = "../../../primitives/runtime" }
 serde_json = { workspace = true, default-features = true }
-scale-info = { version = "2.10.0", features = ["derive", "serde"] }
+scale-info = { version = "2.11.1", features = ["derive", "serde"] }
 sp-trie = { path = "../../../primitives/trie" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 
 [build-dependencies]
-clap = { version = "4.5.1", optional = true }
+clap = { version = "4.5.3", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
 node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
 frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }

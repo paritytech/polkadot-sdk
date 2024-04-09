@@ -289,7 +289,7 @@ fn transfer_owner_should_work() {
 		assert_eq!(Balances::reserved_balance(&2), 0);
 		assert_eq!(Balances::reserved_balance(&3), 45);
 
-		// 2's acceptence from before is reset when it became owner, so it cannot be transfered
+		// 2's acceptance from before is reset when it became owner, so it cannot be transferred
 		// without a fresh acceptance.
 		assert_noop!(
 			Uniques::transfer_ownership(RuntimeOrigin::signed(3), 0, 2),
@@ -692,7 +692,7 @@ fn approved_account_gets_reset_after_transfer() {
 		assert_ok!(Uniques::approve_transfer(RuntimeOrigin::signed(2), 0, 42, 3));
 		assert_ok!(Uniques::transfer(RuntimeOrigin::signed(2), 0, 42, 5));
 
-		// this shouldn't work because we have just transfered the item to another account.
+		// this shouldn't work because we have just transferred the item to another account.
 		assert_noop!(
 			Uniques::transfer(RuntimeOrigin::signed(3), 0, 42, 4),
 			Error::<Test>::NoPermission
@@ -1060,5 +1060,43 @@ fn buy_item_should_work() {
 				Error::<Test>::Frozen
 			);
 		}
+	});
+}
+
+#[test]
+fn clear_collection_metadata_works() {
+	new_test_ext().execute_with(|| {
+		// Start with an account with 100 balance, 10 of which are reserved
+		Balances::make_free_balance_be(&1, 100);
+		Balances::reserve(&1, 10).unwrap();
+
+		// Create a Unique which increases total_deposit by 2
+		assert_ok!(Uniques::create(RuntimeOrigin::signed(1), 0, 123));
+		assert_eq!(Collection::<Test>::get(0).unwrap().total_deposit, 2);
+		assert_eq!(Balances::reserved_balance(&1), 12);
+
+		// Set collection metadata which increases total_deposit by 10
+		assert_ok!(Uniques::set_collection_metadata(
+			RuntimeOrigin::signed(1),
+			0,
+			bvec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+			false
+		));
+		assert_eq!(Collection::<Test>::get(0).unwrap().total_deposit, 12);
+		assert_eq!(Balances::reserved_balance(&1), 22);
+
+		// Clearing collection metadata reduces total_deposit by the expected amount
+		assert_ok!(Uniques::clear_collection_metadata(RuntimeOrigin::signed(1), 0));
+		assert_eq!(Collection::<Test>::get(0).unwrap().total_deposit, 2);
+		assert_eq!(Balances::reserved_balance(&1), 12);
+
+		// Destroying the collection removes it from storage
+		assert_ok!(Uniques::destroy(
+			RuntimeOrigin::signed(1),
+			0,
+			DestroyWitness { items: 0, item_metadatas: 0, attributes: 0 }
+		));
+		assert_eq!(Collection::<Test>::get(0), None);
+		assert_eq!(Balances::reserved_balance(&1), 10);
 	});
 }

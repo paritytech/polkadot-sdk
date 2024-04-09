@@ -45,8 +45,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{reputation::add_reputation, TimeoutExt};
 use polkadot_primitives::{
-	vstaging::NodeFeatures, AuthorityDiscoveryId, CollatorPair, ExecutorParams, GroupIndex,
-	GroupRotationInfo, IndexedVec, ScheduledCore, SessionIndex, SessionInfo, ValidatorId,
+	AuthorityDiscoveryId, Block, CollatorPair, ExecutorParams, GroupIndex, GroupRotationInfo,
+	IndexedVec, NodeFeatures, ScheduledCore, SessionIndex, SessionInfo, ValidatorId,
 	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::TestCandidateBuilder;
@@ -142,6 +142,21 @@ impl Default for TestState {
 }
 
 impl TestState {
+	/// Adds a few more scheduled cores to the state for the same para id
+	/// compared to the default.
+	#[cfg(feature = "elastic-scaling-experimental")]
+	pub fn with_elastic_scaling() -> Self {
+		let mut state = Self::default();
+		let para_id = state.para_id;
+		state
+			.availability_cores
+			.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
+		state
+			.availability_cores
+			.push(CoreState::Scheduled(ScheduledCore { para_id, collator: None }));
+		state
+	}
+
 	fn current_group_validator_indices(&self) -> &[ValidatorIndex] {
 		let core_num = self.availability_cores.len();
 		let GroupIndex(group_idx) = self.group_rotation_info.group_for_core(CoreIndex(0), core_num);
@@ -235,10 +250,14 @@ fn test_harness<T: Future<Output = TestHarness>>(
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);
 
-	let (collation_req_receiver, req_v1_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
-	let (collation_req_v2_receiver, req_v2_cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (collation_req_receiver, req_v1_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
+	let (collation_req_v2_receiver, req_v2_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let subsystem = async {
 		run_inner(
 			context,
@@ -356,12 +375,14 @@ async fn distribute_collation_with_receipt(
 ) -> DistributeCollation {
 	overseer_send(
 		virtual_overseer,
-		CollatorProtocolMessage::DistributeCollation(
-			candidate.clone(),
+		CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt: candidate.clone(),
 			parent_head_data_hash,
-			pov.clone(),
-			None,
-		),
+			pov: pov.clone(),
+			parent_head_data: HeadData(vec![1, 2, 3]),
+			result_sender: None,
+			core_index: CoreIndex(0),
+		},
 	)
 	.await;
 
@@ -627,6 +648,18 @@ async fn send_peer_view_change(
 	.await;
 }
 
+fn decode_collation_response(bytes: &[u8]) -> (CandidateReceipt, PoV) {
+	let response: request_v1::CollationFetchingResponse =
+		request_v1::CollationFetchingResponse::decode(&mut &bytes[..])
+			.expect("Decoding should work");
+	match response {
+		request_v1::CollationFetchingResponse::Collation(receipt, pov) => (receipt, pov),
+		request_v1::CollationFetchingResponse::CollationWithParentHeadData {
+			receipt, pov, ..
+		} => (receipt, pov),
+	}
+}
+
 #[test]
 fn advertise_and_send_collation() {
 	let mut test_state = TestState::default();
@@ -736,12 +769,10 @@ fn advertise_and_send_collation() {
 			assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-						= request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result
-							.expect("We should have a proper answer").as_ref()
-					)
-					.expect("Decoding should work");
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 					assert_eq!(receipt, candidate);
 					assert_eq!(pov, pov_block);
 				}
@@ -1338,12 +1369,10 @@ where
 			let feedback_tx = assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-						= request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result
-							.expect("We should have a proper answer").as_ref()
-					)
-					.expect("Decoding should work");
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 					assert_eq!(receipt, candidate);
 					assert_eq!(pov, pov_block);
 
@@ -1375,12 +1404,10 @@ where
 			assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
-						= request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result
-							.expect("We should have a proper answer").as_ref()
-					)
-					.expect("Decoding should work");
+					let (receipt, pov) = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 					assert_eq!(receipt, candidate);
 					assert_eq!(pov, pov_block);
 
@@ -1469,11 +1496,10 @@ fn connect_to_buffered_groups() {
 			assert_matches!(
 				rx.await,
 				Ok(full_response) => {
-					let request_v1::CollationFetchingResponse::Collation(..) =
-						request_v1::CollationFetchingResponse::decode(
-							&mut full_response.result.expect("We should have a proper answer").as_ref(),
-						)
-						.expect("Decoding should work");
+					let _ = decode_collation_response(
+						full_response.result
+						.expect("We should have a proper answer").as_ref()
+					);
 				}
 			);
 

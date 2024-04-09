@@ -21,10 +21,9 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 impl-trait-for-tuples = "0.2.2"
 log = { optional = true, workspace = true, default-features = true }
 wasmtime = { version = "8.0.1", default-features = false, optional = true }
-anyhow = { version = "1.0.68", optional = true }
-sp-std = { path = "../std", default-features = false }
+anyhow = { version = "1.0.81", optional = true }
 
 [features]
 default = ["std"]
-std = ["codec/std", "log/std", "sp-std/std", "wasmtime"]
+std = ["codec/std", "log/std"]
 wasmtime = ["anyhow", "dep:wasmtime"]

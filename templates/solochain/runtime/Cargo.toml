@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.10.0", default-features = false, features = [
+scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 	"serde",
 ] }
@@ -62,7 +62,7 @@ sp-transaction-pool = { path = "../../../substrate/primitives/transaction-pool",
 sp-version = { path = "../../../substrate/primitives/version", default-features = false, features = [
 	"serde",
 ] }
-sp-genesis-builder = { default-features = false, path = "../../../substrate/primitives/genesis-builder" }
+sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
 
 # RPC related
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
@@ -147,5 +147,3 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]
