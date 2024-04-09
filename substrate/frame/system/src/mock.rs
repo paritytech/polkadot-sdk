@@ -17,7 +17,7 @@
 
 use crate::{self as frame_system, *};
 use frame_support::{derive_impl, parameter_types};
-use sp_runtime::{BuildStorage, Perbill, nonce::NonceWithDefault};
+use sp_runtime::{nonce::NonceWithDefault, BuildStorage, Perbill};
 
 type Block = mocking::MockBlock<Test>;
 
@@ -95,7 +95,7 @@ impl Config for Test {
 	type AccountData = u32;
 	type OnKilledAccount = RecordKilled;
 	type MultiBlockMigrator = MockedMigrator;
-	type Nonce = NonceWithDefault<BlockNumberProvider>;
+	type Nonce = NonceWithDefault<BlockNumberProvider, u64>;
 }
 
 parameter_types! {

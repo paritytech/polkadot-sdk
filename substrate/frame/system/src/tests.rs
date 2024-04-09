@@ -102,7 +102,13 @@ fn stored_map_works() {
 
 		assert_eq!(
 			Account::<Test>::get(0),
-			AccountInfo { nonce: 0u32.into(), providers: 1, consumers: 0, sufficients: 0, data: 42 }
+			AccountInfo {
+				nonce: 0u32.into(),
+				providers: 1,
+				consumers: 0,
+				sufficients: 0,
+				data: 42
+			}
 		);
 
 		assert_ok!(System::inc_consumers(&0));

@@ -28,6 +28,7 @@ use crate::{
 };
 use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use impl_trait_for_tuples::impl_for_tuples;
+use num_traits::{PrimInt, ToPrimitive};
 #[cfg(feature = "serde")]
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_application_crypto::AppCrypto;
@@ -2496,4 +2497,31 @@ mod tests {
 	fn bls381_verify_works() {
 		signature_verify_test!(bls381)
 	}
+}
+
+pub trait Nonce:
+	Member
+	+ Debug
+	+ Default
+	+ MaybeDisplay
+	+ AtLeast32Bit
+	+ Copy
+	+ MaxEncodedLen
+	+ ToPrimitive
+	+ PrimInt
+{
+}
+
+impl<
+		T: Member
+			+ Debug
+			+ Default
+			+ MaybeDisplay
+			+ AtLeast32Bit
+			+ Copy
+			+ MaxEncodedLen
+			+ ToPrimitive
+			+ PrimInt,
+	> Nonce for T
+{
 }
