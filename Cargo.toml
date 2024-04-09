@@ -476,6 +476,8 @@ members = [
 	"substrate/primitives/trie",
 	"substrate/primitives/version",
 	"substrate/primitives/version/proc-macro",
+	"substrate/primitives/virtualization",
+	"substrate/primitives/virtualization/test-fixture",
 	"substrate/primitives/wasm-interface",
 	"substrate/primitives/weights",
 	"substrate/scripts/ci/node-template-release",

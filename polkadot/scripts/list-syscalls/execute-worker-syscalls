@@ -60,6 +60,7 @@
 228 (clock_gettime)
 230 (clock_nanosleep)
 231 (exit_group)
+247 (waitid)
 257 (openat)
 262 (newfstatat)
 263 (unlinkat)
@@ -69,3 +70,4 @@
 302 (prlimit64)
 318 (getrandom)
 319 (memfd_create)
+424 (pidfd_send_signal)

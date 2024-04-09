@@ -1,0 +1,36 @@
+[package]
+name = "sp-virtualization"
+version = "1.0.0"
+license = "Apache-2.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+description = "Spawn a new polkavm instance from within the runtime/pvf"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bytes"] }
+log = { workspace = true }
+polkavm = { workspace = true, optional = true }
+num_enum = { version = "0.7.1", default-features = false }
+
+sp-runtime-interface = { path = "../runtime-interface", default-features = false }
+sp-std = { path = "../std", default-features = false }
+
+[dev-dependencies]
+sp-tracing = { path = "../tracing" }
+sp-virtualization-test-fixture = { path = "./test-fixture" }
+
+[features]
+default = ["std"]
+riscv = ["sp-virtualization-test-fixture/riscv"]
+std = [
+	"codec/std",
+	"log/std",
+	"num_enum/std",
+	"polkavm",
+	"sp-runtime-interface/std",
+	"sp-std/std",
+]

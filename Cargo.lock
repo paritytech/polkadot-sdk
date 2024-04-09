@@ -9005,6 +9005,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_enum"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02339744ee7253741199f897151b38e72257d13802d4ee837285cc2990a90845"
+dependencies = [
+ "num_enum_derive",
+]
+
+[[package]]
+name = "num_enum_derive"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "681030a937600a36906c185595136d26abfebb4aa9c65701cefcaf8578bb982b"
+dependencies = [
+ "proc-macro-crate 3.0.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.53",
+]
+
+[[package]]
 name = "number_prefix"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16461,6 +16482,8 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie",
  "sp-version",
+ "sp-virtualization",
+ "sp-virtualization-test-fixture",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
  "tempfile",
@@ -16509,6 +16532,7 @@ dependencies = [
  "sc-runtime-test",
  "sp-io",
  "sp-runtime-interface 24.0.0",
+ "sp-virtualization",
  "sp-wasm-interface 20.0.0",
  "tempfile",
  "wasmtime",
@@ -17003,6 +17027,7 @@ dependencies = [
  "sp-runtime",
  "sp-runtime-interface 24.0.0",
  "sp-std 14.0.0",
+ "sp-virtualization",
  "substrate-wasm-builder",
 ]
 
@@ -19576,6 +19601,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-virtualization"
+version = "1.0.0"
+dependencies = [
+ "log",
+ "num_enum",
+ "parity-scale-codec",
+ "polkavm",
+ "sp-runtime-interface 24.0.0",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "sp-virtualization-test-fixture",
+]
+
+[[package]]
+name = "sp-virtualization-test-fixture"
+version = "1.0.0"
+dependencies = [
+ "polkavm-derive",
+ "substrate-wasm-builder",
+]
+
+[[package]]
 name = "sp-wasm-interface"
 version = "14.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk#82912acb33a9030c0ef3bf590a34fca09b72dc5f"
@@ -19801,6 +19848,7 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-transaction-storage-proof",
  "sp-trie",
+ "sp-virtualization",
  "staging-node-inspect",
  "substrate-build-script-utils",
  "substrate-cli-test-utils",

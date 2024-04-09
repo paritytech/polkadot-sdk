@@ -47,6 +47,8 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 sc-tracing = { path = "../tracing" }
 sp-tracing = { path = "../../primitives/tracing" }
+sp-virtualization = { path = "../../primitives/virtualization" }
+sp-virtualization-test-fixture = { path = "../../primitives/virtualization/test-fixture" }
 tracing-subscriber = { workspace = true }
 paste = "1.0"
 regex = "1.6.0"
@@ -78,3 +80,5 @@ std = [
 	"substrate-test-runtime/std",
 ]
 wasm-extern-trace = []
+# this enables running the riscv tests which require a custom toolchain to build
+riscv = ["sp-virtualization-test-fixture/riscv", "sp-virtualization/riscv"]

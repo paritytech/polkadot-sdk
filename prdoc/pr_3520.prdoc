@@ -1,0 +1,12 @@
+title: Add virtualization host functions
+
+doc:
+  - audience: Node Dev
+  - audience: Runtime Dev
+    description: |
+      Add experimental support for virtualization host functions. Those allow the runtime
+      to spawn and run PolkaVM instances. Not for production use, yet.
+
+crates:
+  - name: sp-virtualization
+  - name: sc-executor-wasmtime
