@@ -33,8 +33,8 @@ use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
 	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
 	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
-	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
-	XcmAssetTransfers,
+	Properties, RecordXcm, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds,
+	WeightTrader, XcmAssetTransfers,
 };
 
 mod assets;
@@ -204,6 +204,13 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 			"origin: {origin:?}, message: {message:?}, weight_credit: {weight_credit:?}",
 		);
 		let mut properties = Properties { weight_credit, message_id: None };
+
+		// We only want to record under certain conditions, so as to not
+		// degrade regular performance.
+		if Config::XcmRecorder::should_record() {
+			Config::XcmRecorder::record(message.clone().into());
+		}
+
 		if let Err(e) = Config::Barrier::should_execute(
 			&origin,
 			message.inner_mut(),

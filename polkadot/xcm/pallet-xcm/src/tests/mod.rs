@@ -20,8 +20,9 @@ pub(crate) mod assets_transfer;
 
 use crate::{
 	mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error,
-	LatestVersionedLocation, Pallet, Queries, QueryStatus, VersionDiscoveryQueue,
-	VersionMigrationStage, VersionNotifiers, VersionNotifyTargets, WeightInfo,
+	LatestVersionedLocation, Pallet, Queries, QueryStatus, RecordedXcm, ShouldRecordXcm,
+	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
+	WeightInfo,
 };
 use codec::Encode;
 use frame_support::{
@@ -1265,4 +1266,39 @@ fn multistage_migration_works() {
 		// check `try-state`
 		assert!(Pallet::<Test>::do_try_state().is_ok());
 	})
+}
+
+#[test]
+fn record_xcm_works() {
+	let balances = vec![(ALICE, INITIAL_BALANCE)];
+	new_test_ext_with_balances(balances).execute_with(|| {
+		let message = Xcm::<RuntimeCall>::builder()
+			.withdraw_asset((Here, SEND_AMOUNT).into())
+			.buy_execution((Here, SEND_AMOUNT).into(), Unlimited)
+			.deposit_asset(
+				AllCounted(1).into(),
+				Junction::AccountId32 { network: None, id: BOB.into() }.into(),
+			)
+			.build();
+		// Test default values.
+		assert_eq!(ShouldRecordXcm::<Test>::get(), false);
+		assert_eq!(RecordedXcm::<Test>::get(), None);
+
+		// By default the message won't be recorded.
+		assert_ok!(XcmPallet::execute_blob(
+			RuntimeOrigin::signed(ALICE),
+			VersionedXcm::from(message.clone()).encode().try_into().unwrap(),
+			BaseXcmWeight::get() * 3,
+		));
+		assert_eq!(RecordedXcm::<Test>::get(), None);
+
+		// We explicitly set the record flag to true so we record the XCM.
+		ShouldRecordXcm::<Test>::put(true);
+		assert_ok!(XcmPallet::execute_blob(
+			RuntimeOrigin::signed(ALICE),
+			VersionedXcm::from(message.clone()).encode().try_into().unwrap(),
+			BaseXcmWeight::get() * 3,
+		));
+		assert_eq!(RecordedXcm::<Test>::get(), Some(message.into()));
+	});
 }

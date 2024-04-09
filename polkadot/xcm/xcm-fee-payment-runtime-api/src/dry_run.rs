@@ -17,29 +17,29 @@
 //! Runtime API definition for getting xcm transfer messages.
 //! These messages can be used to get the fees that need to be paid.
 
-use codec::{Encode, Decode};
+use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
-use sp_std::vec::Vec;
 use sp_runtime::traits::Block as BlockT;
+use sp_std::vec::Vec;
 use xcm::prelude::*;
 
 #[derive(Encode, Decode, Debug, TypeInfo)]
 pub struct XcmDryRunEffects {
-    pub local_program: VersionedXcm<()>,
-    pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
+	pub local_program: VersionedXcm<()>,
+	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
 }
 
 sp_api::decl_runtime_apis! {
-    /// API for dry-running extrinsics and XCM programs to get the programs that need to be passed to the fees API.
-    ///
-    /// All calls return a vector of tuples (location, xcm) where each "xcm" is executed in "location".
-    /// If there's local execution, the location will be "Here".
-    /// This vector can be used to calculate both execution and delivery fees.
+	/// API for dry-running extrinsics and XCM programs to get the programs that need to be passed to the fees API.
+	///
+	/// All calls return a vector of tuples (location, xcm) where each "xcm" is executed in "location".
+	/// If there's local execution, the location will be "Here".
+	/// This vector can be used to calculate both execution and delivery fees.
 	pub trait XcmDryRunApi<Call> {
-        /// Dry run extrinsic.
-        fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects, ()>;
+		/// Dry run extrinsic.
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects, ()>;
 
-        /// Dry run XCM program
-        fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>, weight: Weight) -> Result<XcmDryRunEffects, ()>;
+		/// Dry run XCM program
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>, weight: Weight) -> Result<XcmDryRunEffects, ()>;
 	}
 }

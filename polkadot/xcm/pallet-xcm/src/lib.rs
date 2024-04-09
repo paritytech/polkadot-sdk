@@ -751,6 +751,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type XcmExecutionSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	/// Whether or not incoming XCMs (both executed locally and received) should be recorded.
+	/// Only one XCM will be recorded at a time.
+	/// This is meant to be used in runtime APIs, and it's advised it stays false
+	/// for all other use cases, so as to not degrade regular performance.
+	///
+	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
+	/// implementation in the XCM executor configuration.
+	#[pallet::storage]
+	pub type ShouldRecordXcm<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// If [`ShouldRecordXcm`] is set to true, then the recorded XCM will be stored here.
+	/// Runtime APIs can fetch the XCM that was executed by accessing this value.
+	///
+	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
+	/// implementation in the XCM executor configuration.
+	#[pallet::storage]
+	pub type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
@@ -1676,13 +1694,12 @@ impl<T: Config> Pallet<T> {
 					fees,
 					weight_limit,
 				)?,
-				TransferType::DestinationReserve =>
-					Self::destination_reserve_fees_instructions(
-						origin.clone(),
-						dest.clone(),
-						fees,
-						weight_limit,
-					)?,
+				TransferType::DestinationReserve => Self::destination_reserve_fees_instructions(
+					origin.clone(),
+					dest.clone(),
+					fees,
+					weight_limit,
+				)?,
 				TransferType::Teleport => Self::teleport_fees_instructions(
 					origin.clone(),
 					dest.clone(),
@@ -2498,8 +2515,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
-		let message =
-			Xcm::<()>::try_from(message).map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
+		let message = Xcm::<()>::try_from(message)
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
 		T::Weigher::weight(&mut message.into()).map_err(|()| {
 			log::error!(target: "xcm::pallet_xcm::query_xcm_weight", "Error when querying XCM weight");
@@ -2513,10 +2530,12 @@ impl<T: Config> Pallet<T> {
 	) -> Result<VersionedAssets, XcmPaymentApiError> {
 		let result_version = destination.identify_version().max(message.identify_version());
 
-		let destination =
-			destination.try_into().map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
+		let destination = destination
+			.try_into()
+			.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
-		let message = message.try_into().map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
+		let message =
+			message.try_into().map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
 
 		let (_, fees) = validate_send::<T::XcmRouter>(destination, message).map_err(|error| {
 			log::error!(target: "xcm::pallet_xcm::query_delivery_fees", "Error when querying delivery fees: {:?}", error);
@@ -3186,6 +3205,16 @@ impl<T: Config> CheckSuspension for Pallet<T> {
 		_properties: &mut Properties,
 	) -> bool {
 		XcmExecutionSuspended::<T>::get()
+	}
+}
+
+impl<T: Config> xcm_executor::traits::RecordXcm for Pallet<T> {
+	fn should_record() -> bool {
+		ShouldRecordXcm::<T>::get()
+	}
+
+	fn record(xcm: Xcm<()>) {
+		RecordedXcm::<T>::put(xcm);
 	}
 }
 

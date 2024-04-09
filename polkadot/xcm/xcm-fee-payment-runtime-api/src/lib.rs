@@ -24,12 +24,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// Main API.
-/// Estimates fees.
-mod fees;
 /// Dry-run API.
 /// Returns the messages that need to be passed to the fees API.
 mod dry_run;
+/// Main API.
+/// Estimates fees.
+mod fees;
 
-pub use fees::{XcmPaymentApi, Error as XcmPaymentApiError};
 pub use dry_run::{XcmDryRunApi, XcmDryRunEffects};
+pub use fees::{Error as XcmPaymentApiError, XcmPaymentApi};
