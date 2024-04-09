@@ -451,6 +451,17 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	) -> Result<BTreeMap<CoreIndex, VecDeque<cumulus_primitives_core::ParaId>>, ApiError> {
 		Ok(self.rpc_client.parachain_host_claim_queue(at).await?)
 	}
+
+	async fn candidates_pending_availability(
+		&self,
+		at: Hash,
+		para_id: cumulus_primitives_core::ParaId,
+	) -> Result<Vec<polkadot_primitives::CommittedCandidateReceipt<Hash>>, sp_api::ApiError> {
+		Ok(self
+			.rpc_client
+			.parachain_host_candidates_pending_availability(at, para_id)
+			.await?)
+	}
 }
 
 #[async_trait::async_trait]

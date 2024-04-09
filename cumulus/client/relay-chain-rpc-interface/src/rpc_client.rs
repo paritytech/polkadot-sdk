@@ -655,6 +655,20 @@ impl RelayChainRpcClient {
 			.await
 	}
 
+	/// Get the receipt of all candidates pending availability.
+	pub async fn parachain_host_candidates_pending_availability(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+	) -> Result<Vec<CommittedCandidateReceipt>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_candidates_pending_availability",
+			at,
+			Some(para_id),
+		)
+		.await
+	}
+
 	pub async fn validation_code_hash(
 		&self,
 		at: RelayHash,

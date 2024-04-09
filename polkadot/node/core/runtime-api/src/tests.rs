@@ -47,7 +47,7 @@ struct MockSubsystemClient {
 	validation_outputs_results: HashMap<ParaId, bool>,
 	session_index_for_child: SessionIndex,
 	candidate_pending_availability: HashMap<ParaId, CommittedCandidateReceipt>,
-	candidates_pending_availability: HashMap<ParaId, CommittedCandidateReceipt>,
+	candidates_pending_availability: HashMap<ParaId, Vec<CommittedCandidateReceipt>>,
 	dmq_contents: HashMap<ParaId, Vec<InboundDownwardMessage>>,
 	hrmp_channels: HashMap<ParaId, BTreeMap<ParaId, Vec<InboundHrmpMessage>>>,
 	validation_code_by_hash: HashMap<ValidationCodeHash, ValidationCode>,
