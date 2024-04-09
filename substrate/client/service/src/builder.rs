@@ -669,7 +669,6 @@ where
 		client.clone(),
 		transaction_pool.clone(),
 		task_executor.clone(),
-		MAX_TRANSACTION_PER_CONNECTION,
 	)
 	.into_rpc();
 
