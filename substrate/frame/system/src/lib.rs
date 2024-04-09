@@ -1409,7 +1409,7 @@ impl<T: Config> Pallet<T> {
 	/// current runtime until there is another runtime upgrade.
 	///
 	/// Example:
-	//#[doc = docify::embed!("src/tests.rs", last_runtime_upgrade_spec_version_usage)]
+	#[doc = docify::embed!("src/tests.rs", last_runtime_upgrade_spec_version_usage)]
 	pub fn last_runtime_upgrade_spec_version() -> u32 {
 		LastRuntimeUpgrade::<T>::get().map_or(0, |l| l.spec_version.0)
 	}
@@ -1444,6 +1444,10 @@ impl<T: Config> Pallet<T> {
 		ExecutionPhase::<T>::put(Phase::AfterInherent);
 	}
 
+	/// Note that all inherents have been applied
+	///
+	/// Must be called immediately after all inherents have been applied. This sets the phase to
+	/// `ApplyExtrinsics`.
 	pub fn note_post_inherents_applied() {
 		debug_assert!(matches!(ExecutionPhase::<T>::get(), Some(Phase::AfterInherent)));
 		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(Self::extrinsic_index().unwrap_or(0)));
@@ -2032,6 +2036,7 @@ impl<T: Config> Pallet<T> {
 
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, &next_extrinsic_index);
 
+		// The caller (Executive) ensures that inherents and transactions are not mixed.
 		if inherent {
 			ExecutionPhase::<T>::put(Phase::ApplyInherent(next_extrinsic_index));
 		} else {

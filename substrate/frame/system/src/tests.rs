@@ -858,7 +858,7 @@ pub fn from_post_weight_info(ref_time: Option<u64>, pays_fee: Pays) -> PostDispa
 	PostDispatchInfo { actual_weight: ref_time.map(|t| Weight::from_all(t)), pays_fee }
 }
 
-//#[docify::export]
+#[docify::export]
 #[test]
 fn last_runtime_upgrade_spec_version_usage() {
 	struct Migration;
