@@ -245,10 +245,6 @@ fn dry_run_xcm() {
 		who,
 		transfer_amount + execution_fees + DeliveryFees::get() + ExistentialDeposit::get(),
 	)];
-	dbg!(&transfer_amount);
-	dbg!(&execution_fees);
-	dbg!(&DeliveryFees::get());
-	dbg!(&ExistentialDeposit::get());
 	new_test_ext_with_balances(balances).execute_with(|| {
 		let dry_run_effects = runtime_api
 			.dry_run_xcm(
