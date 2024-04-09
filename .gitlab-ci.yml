@@ -21,7 +21,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240408
+  CI_IMAGE: europe-docker.pkg.dev/parity-build/ci-images/ci-unified:bullseye-1.75.0-2024-01-22-v20240408
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
