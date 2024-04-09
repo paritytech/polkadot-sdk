@@ -2,10 +2,6 @@ name: bridge
 
 on:
   push:
-    paths:
-      - "bridges/snowbridge/**"
-      - "!bridges/snowbridge/README.md"
-      - "!bridges/snowbridge/LICENSE"
     branches:
       - snowbridge
   workflow_dispatch:
