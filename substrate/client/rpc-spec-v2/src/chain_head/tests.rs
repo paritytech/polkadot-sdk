@@ -2436,7 +2436,7 @@ async fn follow_report_multiple_pruned_block() {
 			format!("{:?}", block_2_hash),
 			format!("{:?}", block_3_hash),
 		],
-		pruned_block_hashes: vec![],
+		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
 	});
 	assert_eq!(event, expected);
 
@@ -2481,7 +2481,7 @@ async fn follow_report_multiple_pruned_block() {
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![format!("{:?}", block_4_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
+		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
 }
