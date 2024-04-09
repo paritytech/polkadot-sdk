@@ -718,8 +718,6 @@ pub async fn start_generic_aura_node<Net: NetworkBackend<Block, Hash>>(
 		 overseer_handle,
 		 announce_block,
 		 _backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
@@ -746,7 +744,6 @@ pub async fn start_generic_aura_node<Net: NetworkBackend<Block, Hash>>(
 				collator_key,
 				para_id,
 				overseer_handle,
-				slot_duration,
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
@@ -892,15 +889,6 @@ where
 					}
 				}
 
-				// Move to Aura consensus.
-				let slot_duration = match cumulus_client_consensus_aura::slot_duration(&*client) {
-					Ok(d) => d,
-					Err(e) => {
-						log::error!("Could not get Aura slot duration: {e}");
-						return
-					},
-				};
-
 				let proposer = Proposer::new(proposer_factory);
 
 				let params = BasicAuraParams {
@@ -913,7 +901,6 @@ where
 					collator_key,
 					para_id,
 					overseer_handle,
-					slot_duration,
 					relay_chain_slot_duration,
 					proposer,
 					collator_service,
