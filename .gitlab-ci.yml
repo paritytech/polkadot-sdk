@@ -132,6 +132,7 @@ default:
       alias cargo="forklift cargo";
       fi
     #
+    - echo $PATH
     - forklift version
 
 
