@@ -850,8 +850,8 @@ macro_rules! impl_bench_name_tests {
 					if !($extra) {
 						let disabled = $crate::__private::vec![ $( stringify!($names_extra).as_ref() ),* ];
 						if disabled.contains(&stringify!($name)) {
-							$crate::__private::log::error!(
-								"INFO: extra benchmark skipped - {}",
+							$crate::__private::log::debug!(
+								"extra benchmark skipped - {}",
 								stringify!($name),
 							);
 							return ();
@@ -874,21 +874,21 @@ macro_rules! impl_bench_name_tests {
 								$crate::BenchmarkError::Override(_) => {
 									// This is still considered a success condition.
 									$crate::__private::log::error!(
-										"WARNING: benchmark error overridden - {}",
+										"benchmark error overridden - {}",
 										stringify!($name),
 									);
 								},
 								$crate::BenchmarkError::Skip => {
 									// This is considered a success condition.
-									$crate::__private::log::error!(
-										"WARNING: benchmark error skipped - {}",
+									$crate::__private::log::debug!(
+										"benchmark skipped - {}",
 										stringify!($name),
 									);
 								},
 								$crate::BenchmarkError::Weightless => {
 									// This is considered a success condition.
-									$crate::__private::log::error!(
-										"WARNING: benchmark weightless skipped - {}",
+									$crate::__private::log::debug!(
+										"benchmark weightless skipped - {}",
 										stringify!($name),
 									);
 								}

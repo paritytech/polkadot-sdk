@@ -29,7 +29,6 @@ use crate::{
 	LOG_TARGET,
 };
 use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
-use libp2p::PeerId;
 use log::{debug, error, info, warn};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
@@ -38,6 +37,7 @@ use sc_network_common::sync::{
 	message::{BlockAnnounce, BlockData, BlockRequest},
 	SyncMode,
 };
+use sc_network_types::PeerId;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
