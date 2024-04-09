@@ -931,7 +931,7 @@ pub mod pallet {
 				.expect(error_message);
 
 			// Store the newly received solution.
-			log!(info, "queued unsigned solution with score {:?}", ready.score);
+			log!(debug, "queued unsigned solution with score {:?}", ready.score);
 			let ejected_a_solution = <QueuedSolution<T>>::exists();
 			<QueuedSolution<T>>::put(ready);
 			Self::deposit_event(Event::SolutionStored {
