@@ -3539,6 +3539,7 @@ async fn follow_unique_pruned_blocks() {
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		},
 	)
 	.into_rpc();
