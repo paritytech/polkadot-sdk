@@ -19,7 +19,7 @@
 
 #![cfg(test)]
 
-use super::*;
+use crate::inner::*;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
