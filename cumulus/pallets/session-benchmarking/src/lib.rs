@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Offences pallet benchmarking.
+//! Benchmarks for the Session Pallet.
+// This is separated into its own crate due to cyclic dependency issues.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

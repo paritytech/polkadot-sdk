@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Offences pallet benchmarking.
+//! Frame System benchmarks.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

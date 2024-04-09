@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarking setup for pallet-session
+//! Benchmarking setup for pallet-session.
 
 use sp_std::{prelude::*, vec};
 
