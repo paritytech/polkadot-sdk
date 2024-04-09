@@ -419,7 +419,7 @@ async fn distribute_collation<Context>(
 
 	// Determine which core(s) the para collated-on is assigned to.
 	// If it is not scheduled then ignore the message.
-	let (our_cores, num_cores) =
+	let (our_cores, num_cores) =	//TODO: Use claimqueue here?
 		match determine_cores(ctx.sender(), id, candidate_relay_parent, relay_parent_mode).await? {
 			(cores, _num_cores) if cores.is_empty() => {
 				gum::warn!(
