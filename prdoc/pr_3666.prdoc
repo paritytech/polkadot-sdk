@@ -10,5 +10,3 @@ crates:
     bump: major
   - name: frame-executive
     bump: major
-  - name: substrate/bin/node/cli/tests/basic.rs
-    bump: patch
