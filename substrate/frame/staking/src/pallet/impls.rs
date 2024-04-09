@@ -233,9 +233,9 @@ impl<T: Config> Pallet<T> {
 
 		// Note: if era has no reward to be claimed, era may be future. better not to update
 		// `ledger.legacy_claimed_rewards` in this case.
-		let era_payout = Self::era_payout(era);
+		let era_payout = Self::era_payout(dbg!(era));
 		ensure!(
-			!era_payout.is_zero(),
+			!dbg!(era_payout).is_zero(),
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		);
@@ -544,6 +544,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn era_payout(era_index: EraIndex) -> BalanceOf<T> {
+		log!(
+			debug,
+			"era = {:?}, account = {:?}, balance = {:?}",
+			era_index,
+			Self::era_payout_account(era_index),
+			T::Currency::total_balance(&Self::era_payout_account(era_index))
+		);
 		T::Currency::total_balance(&Self::era_payout_account(era_index))
 	}
 
@@ -553,7 +560,14 @@ impl<T: Config> Pallet<T> {
 		// Note: active_era_start can be None if end era is called during genesis config.
 		let pending_payout_account = Self::pending_payout_account();
 		let pending_payout = T::Currency::total_balance(&pending_payout_account);
+
 		let active_era_payouts = Self::era_payout_account(active_era.index);
+		log!(
+			info,
+			"ending era: {:?}, depositing {:?} from pending to account associated with this era",
+			active_era.index,
+			pending_payout
+		);
 
 		// TODO: deal with EDs etc.
 		T::Currency::transfer(

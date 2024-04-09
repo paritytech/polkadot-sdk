@@ -32,7 +32,12 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_io;
-use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
+use sp_runtime::{
+	curve::PiecewiseLinear,
+	testing::UintAuthorityId,
+	traits::{IdentityLookup, Zero},
+	BuildStorage,
+};
 use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
 	OnStakingUpdate,
@@ -41,8 +46,7 @@ use sp_staking::{
 pub const INIT_TIMESTAMP: u64 = 30_000;
 pub const BLOCK_TIME: u64 = 1000;
 
-/// The AccountId alias in this test module.
-pub(crate) type AccountId = u64;
+pub(crate) type AccountId = u128;
 pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u128;
 
@@ -122,13 +126,15 @@ impl frame_system::Config for Test {
 	type DbWeight = RocksDbWeight;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type AccountId = AccountId;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type Balance = Balance;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -522,12 +528,14 @@ impl ExtBuilder {
 				// set the keys for the first session.
 				stakers
 					.into_iter()
-					.map(|(id, ..)| (id, id, SessionKeys { other: id.into() }))
+					.map(|(id, ..)| {
+						(id, id, SessionKeys { other: UintAuthorityId::saturated_from(id) })
+					})
 					.collect()
 			} else {
 				// set some dummy validators in genesis.
-				(0..self.validator_count as u64)
-					.map(|id| (id, id, SessionKeys { other: id.into() }))
+				(0..self.validator_count as AccountId)
+					.map(|id| (id, id, SessionKeys { other: UintAuthorityId::saturated_from(id) }))
 					.collect()
 			},
 		}
@@ -542,7 +550,7 @@ impl ExtBuilder {
 			ext.execute_with(|| {
 				System::set_block_number(1);
 				Session::on_initialize(1);
-				<Staking as Hooks<u64>>::on_initialize(1);
+				<Staking as Hooks<BlockNumber>>::on_initialize(1);
 				Timestamp::set_timestamp(INIT_TIMESTAMP);
 			});
 		}
@@ -579,7 +587,7 @@ pub(crate) fn bond_validator(who: AccountId, val: Balance) {
 	assert_ok!(Staking::validate(RuntimeOrigin::signed(who), ValidatorPrefs::default()));
 	assert_ok!(Session::set_keys(
 		RuntimeOrigin::signed(who),
-		SessionKeys { other: who.into() },
+		SessionKeys { other: UintAuthorityId::saturated_from(who) },
 		vec![]
 	));
 }
@@ -599,7 +607,7 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
-		<Staking as Hooks<u64>>::on_initialize(b);
+		<Staking as Hooks<BlockNumber>>::on_initialize(b);
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 		if b != n {
 			Staking::on_finalize(System::block_number());
@@ -609,10 +617,10 @@ pub(crate) fn run_to_block(n: BlockNumber) {
 
 /// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
 pub(crate) fn start_session(session_index: SessionIndex) {
-	let end: u64 = if Offset::get().is_zero() {
-		(session_index as u64) * Period::get()
+	let end: BlockNumber = if Offset::get().is_zero() {
+		(session_index as BlockNumber) * Period::get()
 	} else {
-		Offset::get() + (session_index.saturating_sub(1) as u64) * Period::get()
+		Offset::get() + (session_index.saturating_sub(1) as BlockNumber) * Period::get()
 	};
 	run_to_block(end);
 	// session must have progressed properly.
@@ -638,27 +646,6 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 	// One way or another, current_era must have changed before the active era, so they must match
 	// at this point.
 	assert_eq!(current_era(), active_era());
-}
-
-// TODO: remove
-pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
-	let (payout, _rest) = InflationCalculator::era_payout(
-		Staking::eras_total_stake(active_era()),
-		Balances::total_issuance(),
-		duration,
-	);
-	assert!(payout > 0);
-	payout
-}
-
-// TODO: remove
-pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
-	let (payout, rest) = InflationCalculator::era_payout(
-		Staking::eras_total_stake(active_era()),
-		Balances::total_issuance(),
-		duration,
-	);
-	payout + rest
 }
 
 /// Time it takes to finish a session.
@@ -893,7 +880,7 @@ parameter_types! {
 	static StakingEventsIndex: usize = 0;
 }
 ord_parameter_types! {
-	pub const One: u64 = 1;
+	pub const One: AccountId = 1;
 }
 
 type EnsureOneOrRoot = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<One, AccountId>>;
