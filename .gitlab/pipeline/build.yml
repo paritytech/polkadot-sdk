@@ -17,6 +17,7 @@ build-linux-stable:
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     # Ensure we run the UI tests.
     RUN_UI_TESTS: 1
+    CI_IMAGE: paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240222
   script:
     - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
     - time ROCOCO_EPOCH_DURATION=10  ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
