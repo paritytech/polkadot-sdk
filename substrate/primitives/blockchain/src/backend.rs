@@ -107,6 +107,18 @@ pub trait ForkBackend<Block: BlockT>:
 		let mut missing_blocks = vec![];
 		let mut expanded_forks = BTreeSet::new();
 		for fork_head in fork_heads {
+			match tree_route(self, *fork_head, self.info().finalized_hash) {
+				Ok(tree_route) => {
+					for block in tree_route.retracted() {
+						expanded_forks.insert(block.hash);
+					}
+					continue
+				},
+				Err(_) => {
+					// Continue with fallback algorithm
+				},
+			}
+
 			let mut route_head = *fork_head;
 			// Insert stale blocks hashes until canonical chain is reached.
 			// If we reach a block that is already part of the `expanded_forks` we can stop
