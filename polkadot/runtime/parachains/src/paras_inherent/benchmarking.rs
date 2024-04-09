@@ -20,7 +20,7 @@ use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use sp_std::{cmp::min, collections::btree_map::BTreeMap};
 
-use primitives::v6::GroupIndex;
+use primitives::v7::GroupIndex;
 
 use crate::builder::BenchBuilder;
 
@@ -146,10 +146,6 @@ benchmarks! {
 		}
 
 		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			cores_with_backed.len()
-		);
-		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()
 		);
@@ -209,10 +205,6 @@ benchmarks! {
 				);
 			}
 
-		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			cores_with_backed.len()
-		);
 		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()

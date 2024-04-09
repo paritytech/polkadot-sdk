@@ -47,7 +47,7 @@ use futures::{
 	future::{BoxFuture, Fuse},
 	FutureExt, StreamExt,
 };
-use libp2p::{request_response::OutboundFailure, PeerId};
+use libp2p::request_response::OutboundFailure;
 use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
@@ -59,21 +59,22 @@ use tokio::time::{Interval, MissedTickBehavior};
 use sc_client_api::{BlockBackend, HeaderBackend, ProofProvider};
 use sc_consensus::{import_queue::ImportQueueService, IncomingBlock};
 use sc_network::{
-	config::{
-		FullNetworkConfiguration, NonDefaultSetConfig, NonReservedPeerMode, NotificationHandshake,
-		ProtocolId, SetConfig,
-	},
-	peer_store::{PeerStoreHandle, PeerStoreProvider},
+	config::{FullNetworkConfiguration, NotificationHandshake, ProtocolId, SetConfig},
+	peer_store::PeerStoreProvider,
 	request_responses::{IfDisconnected, RequestFailure},
-	service::traits::{Direction, NotificationEvent, ValidationResult},
+	service::{
+		traits::{Direction, NotificationConfig, NotificationEvent, ValidationResult},
+		NotificationMetrics,
+	},
 	types::ProtocolName,
 	utils::LruHashSet,
-	NotificationService, ReputationChange,
+	NetworkBackend, NotificationService, ReputationChange,
 };
 use sc_network_common::{
 	role::Roles,
 	sync::message::{BlockAnnounce, BlockAnnouncesHandshake, BlockRequest, BlockState},
 };
+use sc_network_types::PeerId;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::{Error as ClientError, HeaderMetadata};
 use sp_consensus::{block_validation::BlockAnnounceValidator, BlockOrigin};
@@ -110,7 +111,7 @@ const INACTIVITY_EVICT_THRESHOLD: Duration = Duration::from_secs(30);
 /// Parachain collator may incorrectly get evicted because it's waiting to receive a number of
 /// relaychain blocks before it can start creating parachain blocks. During this wait,
 /// `SyncingEngine` still counts it as active and as the peer is not sending blocks, it may get
-/// evicted if a block is not received within the first 30 secons since the peer connected.
+/// evicted if a block is not received within the first 30 seconds since the peer connected.
 ///
 /// To prevent this from happening, define a threshold for how long `SyncingEngine` should wait
 /// before it starts evicting peers.
@@ -296,7 +297,7 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	syncing_started: Option<Instant>,
 
 	/// Handle to `PeerStore`.
-	peer_store_handle: PeerStoreHandle,
+	peer_store_handle: Arc<dyn PeerStoreProvider>,
 
 	/// Instant when the last notification was sent or received.
 	last_notification_io: Instant,
@@ -328,11 +329,12 @@ where
 		+ Sync
 		+ 'static,
 {
-	pub fn new(
+	pub fn new<N>(
 		roles: Roles,
 		client: Arc<Client>,
 		metrics_registry: Option<&Registry>,
-		net_config: &FullNetworkConfiguration,
+		network_metrics: NotificationMetrics,
+		net_config: &FullNetworkConfiguration<B, <B as BlockT>::Hash, N>,
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		block_announce_validator: Box<dyn BlockAnnounceValidator<B> + Send>,
@@ -342,8 +344,11 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		state_request_protocol_name: ProtocolName,
 		warp_sync_protocol_name: Option<ProtocolName>,
-		peer_store_handle: PeerStoreHandle,
-	) -> Result<(Self, SyncingService<B>, NonDefaultSetConfig), ClientError> {
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
+	) -> Result<(Self, SyncingService<B>, N::NotificationProtocolConfig), ClientError>
+	where
+		N: NetworkBackend<B, <B as BlockT>::Hash>,
+	{
 		let mode = net_config.network_config.sync_mode;
 		let max_parallel_downloads = net_config.network_config.max_parallel_downloads;
 		let max_blocks_per_request =
@@ -411,20 +416,24 @@ where
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
 
-		let (block_announce_config, notification_service) = Self::get_block_announce_proto_config(
-			protocol_id,
-			fork_id,
-			roles,
-			client.info().best_number,
-			client.info().best_hash,
-			client
-				.block_hash(Zero::zero())
-				.ok()
-				.flatten()
-				.expect("Genesis block exists; qed"),
-		);
+		let (block_announce_config, notification_service) =
+			Self::get_block_announce_proto_config::<N>(
+				protocol_id,
+				fork_id,
+				roles,
+				client.info().best_number,
+				client.info().best_hash,
+				client
+					.block_hash(Zero::zero())
+					.ok()
+					.flatten()
+					.expect("Genesis block exists; qed"),
+				&net_config.network_config.default_peers_set,
+				network_metrics,
+				Arc::clone(&peer_store_handle),
+			);
 
-		// Split warp sync params into warp sync config and a channel to retreive target block
+		// Split warp sync params into warp sync config and a channel to retrieve target block
 		// header.
 		let (warp_sync_config, warp_sync_target_block_header_rx) =
 			warp_sync_params.map_or((None, None), |params| {
@@ -1057,7 +1066,7 @@ where
 	// still be under validation. If the peer has different genesis than the
 	// local node the validation fails but the peer cannot be reported in
 	// `validate_connection()` as that is also called by
-	// `ValiateInboundSubstream` which means that the peer is still being
+	// `ValidateInboundSubstream` which means that the peer is still being
 	// validated and banning the peer when handling that event would
 	// result in peer getting dropped twice.
 	//
@@ -1385,14 +1394,17 @@ where
 	}
 
 	/// Get config for the block announcement protocol
-	fn get_block_announce_proto_config(
+	fn get_block_announce_proto_config<N: NetworkBackend<B, <B as BlockT>::Hash>>(
 		protocol_id: ProtocolId,
 		fork_id: &Option<String>,
 		roles: Roles,
 		best_number: NumberFor<B>,
 		best_hash: B::Hash,
 		genesis_hash: B::Hash,
-	) -> (NonDefaultSetConfig, Box<dyn NotificationService>) {
+		set_config: &SetConfig,
+		metrics: NotificationMetrics,
+		peer_store_handle: Arc<dyn PeerStoreProvider>,
+	) -> (N::NotificationProtocolConfig, Box<dyn NotificationService>) {
 		let block_announces_protocol = {
 			let genesis_hash = genesis_hash.as_ref();
 			if let Some(ref fork_id) = fork_id {
@@ -1406,7 +1418,7 @@ where
 			}
 		};
 
-		NonDefaultSetConfig::new(
+		N::notification_config(
 			block_announces_protocol.into(),
 			iter::once(format!("/{}/block-announces/1", protocol_id.as_ref()).into()).collect(),
 			MAX_BLOCK_ANNOUNCE_SIZE,
@@ -1416,14 +1428,9 @@ where
 				best_hash,
 				genesis_hash,
 			))),
-			// NOTE: `set_config` will be ignored by `protocol.rs` as the block announcement
-			// protocol is still hardcoded into the peerset.
-			SetConfig {
-				in_peers: 0,
-				out_peers: 0,
-				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
-			},
+			set_config.clone(),
+			metrics,
+			peer_store_handle,
 		)
 	}
 
