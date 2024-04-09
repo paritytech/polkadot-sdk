@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712657076148,
+  "lastUpdate": 1712668046717,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2651,6 +2651,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.012250314580000001,
+            "unit": "seconds"
+          }
+        ]
+      }
+    ],
+    "availability-distribution-regression-bench": [
+      {
+        "commit": {
+          "author": {
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin",
+            "email": "dmitry@markin.tech"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a26d25d5c75d4feb02250f775cd162cc4952d8d2",
+          "message": "Detect closed notification substreams instead of evicting all peers (#3983)\n\nThis PR brings the fix\nhttps://github.com/paritytech/substrate/pull/13396 to polkadot-sdk.\n\nIn the past, due to insufficient inbound slot count on polkadot &\nkusama, this fix led to low peer count. The situation has improved since\nthen after changing the default ratio between `--in-peers` &\n`--out-peers`.\n\nNevertheless, it's expected that the reported total peer count with this\nfix is going to be lower than without it. This should be seen as the\ncorrect number of working connections reported, as opposed to also\nreporting already closed connections, and not as lower count of working\nconnections with peers.\n\nThis PR also removes the peer eviction mechanism, as closed substream\ndetection is a more granular way of detecting peers that stopped syncing\nwith us.\n\nThe burn-in has been already performed as part of testing these changes\nin https://github.com/paritytech/polkadot-sdk/pull/3426.\n\n---------\n\nCo-authored-by: Aaro Altonen <a.altonen@hotmail.com>",
+          "timestamp": "2024-04-09T12:40:52Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a26d25d5c75d4feb02250f775cd162cc4952d8d2"
+        },
+        "date": 1712668021624,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666662,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011941202213333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14837780000666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009245991313333346,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025657211680000003,
             "unit": "seconds"
           }
         ]
