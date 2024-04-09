@@ -231,7 +231,7 @@ pub struct HostConfiguration<BlockNumber> {
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
 	fn default() -> Self {
-		Self {
+		let ret = Self {
 			async_backing_params: AsyncBackingParams {
 				max_candidate_depth: 0,
 				allowed_ancestry_len: 0,
@@ -270,7 +270,30 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 			scheduler_params: Default::default(),
-		}
+		};
+
+		#[cfg(feature = "runtime-benchmarks")]
+		let ret = ret.with_benchmarking_default();
+		ret
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<BlockNumber: Default + From<u32>> HostConfiguration<BlockNumber> {
+	/// Mutate the values of self to be good estimates for benchmarking.
+	///
+	/// The values do not need to be worst-case, since the benchmarking logic extrapolates. They
+	/// should be a bit more than usually expected.
+	fn with_benchmarking_default(mut self) -> Self {
+		self.max_head_data_size = self.max_head_data_size.max(1 << 20);
+		self.max_downward_message_size = self.max_downward_message_size.max(1 << 16);
+		self.hrmp_channel_max_capacity = self.hrmp_channel_max_capacity.max(1000);
+		self.hrmp_channel_max_message_size = self.hrmp_channel_max_message_size.max(1 << 16);
+		self.hrmp_max_parachain_inbound_channels =
+			self.hrmp_max_parachain_inbound_channels.max(100);
+		self.hrmp_max_parachain_outbound_channels =
+			self.hrmp_max_parachain_outbound_channels.max(100);
+		self
 	}
 }
 
