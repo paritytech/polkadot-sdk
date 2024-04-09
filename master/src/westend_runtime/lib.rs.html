@@ -2771,6 +2771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2622" id="2622">2622</a>
 <a href="#2623" id="2623">2623</a>
 <a href="#2624" id="2624">2624</a>
+<a href="#2625" id="2625">2625</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4113,6 +4114,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>MaxUnbonding = &lt;<span class="self">Self </span><span class="kw">as </span>pallet_staking::Config&gt;::MaxUnlockingChunks;
 	<span class="kw">type </span>PalletId = PoolsPalletId;
 	<span class="kw">type </span>MaxPointsToBalance = MaxPointsToBalance;
+	<span class="kw">type </span>AdminOrigin = EitherOf&lt;EnsureRoot&lt;AccountId&gt;, StakingAdmin&gt;;
 }
 
 <span class="kw">impl </span>pallet_root_testing::Config <span class="kw">for </span>Runtime {

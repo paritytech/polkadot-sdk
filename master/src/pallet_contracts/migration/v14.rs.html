@@ -418,6 +418,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -455,6 +458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	pallet_prelude::<span class="kw-2">*</span>,
 	storage_alias,
 	traits::{fungible::MutateHold, ReservableCurrency},
+	weights::WeightMeter,
 	DefaultNoBound,
 };
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
@@ -552,7 +556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::WeightInfo::v14_migration_step()
 	}
 
-	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
+	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; IsFinished {
 		<span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_hash) = <span class="self">self</span>.last_code_hash.take() {
 			v13::CodeInfoOf::&lt;T, OldCurrency&gt;::iter_from(
 				v13::CodeInfoOf::&lt;T, OldCurrency&gt;::hashed_key_for(last_hash),
@@ -605,10 +609,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 
 			<span class="self">self</span>.last_code_hash = <span class="prelude-val">Some</span>(hash);
-			(IsFinished::No, T::WeightInfo::v14_migration_step())
+			meter.consume(T::WeightInfo::v14_migration_step());
+			IsFinished::No
 		} <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;No more code upload deposit to migrate&quot;</span>);
-			(IsFinished::Yes, T::WeightInfo::v14_migration_step())
+			meter.consume(T::WeightInfo::v14_migration_step());
+			IsFinished::Yes
 		}
 	}
 

@@ -2945,6 +2945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2796" id="2796">2796</a>
 <a href="#2797" id="2797">2797</a>
 <a href="#2798" id="2798">2798</a>
+<a href="#2799" id="2799">2799</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2987,7 +2988,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="self">self</span>,
 	pallet_prelude::StorageVersion,
 	traits::{fungible::InspectHold, Currency},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 };
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>pallet_balances;
@@ -3145,7 +3146,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>on_process_deletion_queue_batch() {
 		<span class="attr">#[block]
 		</span>{
-			ContractInfo::&lt;T&gt;::process_deletion_queue_batch(Weight::MAX);
+			ContractInfo::&lt;T&gt;::process_deletion_queue_batch(<span class="kw-2">&amp;mut </span>WeightMeter::new())
 		}
 	}
 
@@ -3160,7 +3161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="attr">#[block]
 		</span>{
-			ContractInfo::&lt;T&gt;::process_deletion_queue_batch(Weight::MAX);
+			ContractInfo::&lt;T&gt;::process_deletion_queue_batch(<span class="kw-2">&amp;mut </span>WeightMeter::new())
 		}
 
 		<span class="prelude-val">Ok</span>(())
@@ -3173,7 +3174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>m = v09::Migration::&lt;T&gt;::default();
 		<span class="attr">#[block]
 		</span>{
-			m.step();
+			m.step(<span class="kw-2">&amp;mut </span>WeightMeter::new());
 		}
 	}
 
@@ -3191,7 +3192,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="attr">#[block]
 		</span>{
-			m.step();
+			m.step(<span class="kw-2">&amp;mut </span>WeightMeter::new());
 		}
 
 		<span class="prelude-val">Ok</span>(())
@@ -3206,7 +3207,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="attr">#[block]
 		</span>{
-			m.step();
+			m.step(<span class="kw-2">&amp;mut </span>WeightMeter::new());
 		}
 	}
 
@@ -3223,7 +3224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="attr">#[block]
 		</span>{
-			m.step();
+			m.step(<span class="kw-2">&amp;mut </span>WeightMeter::new());
 		}
 	}
 
@@ -3238,7 +3239,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="attr">#[block]
 		</span>{
-			m.step();
+			m.step(<span class="kw-2">&amp;mut </span>WeightMeter::new());
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3254,7 +3255,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="attr">#[block]
 		</span>{
-			m.step();
+			m.step(<span class="kw-2">&amp;mut </span>WeightMeter::new());
 		}
 	}
 
@@ -3269,7 +3270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="attr">#[block]
 		</span>{
-			m.step();
+			m.step(<span class="kw-2">&amp;mut </span>WeightMeter::new());
 		}
 
 		<span class="prelude-val">Ok</span>(())
@@ -3282,7 +3283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		StorageVersion::new(version).put::&lt;Pallet&lt;T&gt;&gt;();
 		<span class="attr">#[block]
 		</span>{
-			Migration::&lt;T&gt;::migrate(Weight::MAX);
+			Migration::&lt;T&gt;::migrate(<span class="kw-2">&amp;mut </span>WeightMeter::new());
 		}
 		<span class="macro">assert_eq!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;(), version);
 	}
@@ -5723,7 +5724,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[benchmark(extra, pov_mode = Ignored)]
 	</span><span class="kw">fn </span>print_schedule() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>max_weight = &lt;T <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block;
-		<span class="kw">let </span>(weight_per_key, key_budget) = ContractInfo::&lt;T&gt;::deletion_budget(max_weight);
+		<span class="kw">let </span>(weight_per_key, key_budget) =
+			ContractInfo::&lt;T&gt;::deletion_budget(<span class="kw-2">&amp;mut </span>WeightMeter::with_limit(max_weight));
 		<span class="kw">let </span>schedule = T::Schedule::get();
 		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;
 		{schedule:#?}

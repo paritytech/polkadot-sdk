@@ -704,6 +704,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#555" id="555">555</a>
 <a href="#556" id="556">556</a>
 <a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -723,8 +732,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{<span class="self">self </span><span class="kw">as </span>pools};
-<span class="kw">use </span>frame_support::{assert_ok, derive_impl, parameter_types, traits::fungible::Mutate, PalletId};
-<span class="kw">use </span>frame_system::RawOrigin;
+<span class="kw">use </span>frame_support::{
+	assert_ok, derive_impl, ord_parameter_types, parameter_types, traits::fungible::Mutate,
+	PalletId,
+};
+<span class="kw">use </span>frame_system::{EnsureSignedBy, RawOrigin};
 <span class="kw">use </span>sp_runtime::{BuildStorage, FixedU128};
 <span class="kw">use </span>sp_staking::{OnStakingUpdate, Stake};
 
@@ -995,6 +1007,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub static </span>CheckLevel: u8 = <span class="number">255</span>;
 	<span class="kw">pub const </span>PoolsPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/nopls&quot;</span>);
 }
+
+<span class="macro">ord_parameter_types! </span>{
+	<span class="kw">pub const </span>Admin: u128 = <span class="number">42</span>;
+}
+
 <span class="kw">impl </span>pools::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>WeightInfo = ();
@@ -1009,6 +1026,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxMetadataLen = MaxMetadataLen;
 	<span class="kw">type </span>MaxUnbonding = MaxUnbonding;
 	<span class="kw">type </span>MaxPointsToBalance = frame_support::traits::ConstU8&lt;<span class="number">10</span>&gt;;
+	<span class="kw">type </span>AdminOrigin = EnsureSignedBy&lt;Admin, AccountId&gt;;
 }
 
 <span class="kw">type </span>Block = frame_system::mocking::MockBlock&lt;Runtime&gt;;

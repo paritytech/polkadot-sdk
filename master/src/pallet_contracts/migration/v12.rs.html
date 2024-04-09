@@ -495,6 +495,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -522,7 +525,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
-	pallet_prelude::<span class="kw-2">*</span>, storage_alias, traits::ReservableCurrency, DefaultNoBound, Identity,
+	pallet_prelude::<span class="kw-2">*</span>, storage_alias, traits::ReservableCurrency, weights::WeightMeter,
+	DefaultNoBound, Identity,
 };
 <span class="kw">use </span>scale_info::prelude::format;
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
@@ -643,7 +647,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::WeightInfo::v12_migration_step(T::MaxCodeLen::get())
 	}
 
-	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
+	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; IsFinished {
 		<span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_key) = <span class="self">self</span>.last_code_hash.take() {
 			v11::OwnerInfoOf::&lt;T, OldCurrency&gt;::iter_from(
 				v11::OwnerInfoOf::&lt;T, OldCurrency&gt;::hashed_key_for(last_key),
@@ -727,10 +731,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="self">self</span>.last_code_hash = <span class="prelude-val">Some</span>(hash);
 
-			(IsFinished::No, T::WeightInfo::v12_migration_step(code_len <span class="kw">as </span>u32))
+			meter.consume(T::WeightInfo::v12_migration_step(code_len <span class="kw">as </span>u32));
+			IsFinished::No
 		} <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;No more OwnerInfo to migrate&quot;</span>);
-			(IsFinished::Yes, T::WeightInfo::v12_migration_step(<span class="number">0</span>))
+			meter.consume(T::WeightInfo::v12_migration_step(<span class="number">0</span>));
+			IsFinished::Yes
 		}
 	}
 

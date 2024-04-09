@@ -282,6 +282,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -308,7 +310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AccountIdOf, BalanceOf, CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
 };
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage_alias, DefaultNoBound};
+<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage_alias, weights::WeightMeter, DefaultNoBound};
 <span class="kw">use </span>sp_runtime::BoundedBTreeMap;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
@@ -386,7 +388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::WeightInfo::v13_migration_step()
 	}
 
-	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
+	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; IsFinished {
 		<span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_account) = <span class="self">self</span>.last_account.take() {
 			v12::ContractInfoOf::&lt;T&gt;::iter_from(v12::ContractInfoOf::&lt;T&gt;::hashed_key_for(
 				last_account,
@@ -410,10 +412,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			ContractInfoOf::&lt;T&gt;::insert(key.clone(), info);
 			<span class="self">self</span>.last_account = <span class="prelude-val">Some</span>(key);
-			(IsFinished::No, T::WeightInfo::v13_migration_step())
+			meter.consume(T::WeightInfo::v13_migration_step());
+			IsFinished::No
 		} <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;No more contracts to migrate&quot;</span>);
-			(IsFinished::Yes, T::WeightInfo::v13_migration_step())
+			meter.consume(T::WeightInfo::v13_migration_step());
+			IsFinished::Yes
 		}
 	}
 }

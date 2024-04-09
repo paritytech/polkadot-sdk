@@ -464,6 +464,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -502,6 +505,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tokens::{fungible::Inspect, Fortitude::Polite, Preservation::Preserve},
 		ExistenceRequirement, ReservableCurrency,
 	},
+	weights::WeightMeter,
 	DefaultNoBound,
 };
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
@@ -626,7 +630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::WeightInfo::v10_migration_step()
 	}
 
-	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
+	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; IsFinished {
 		<span class="kw">let </span><span class="kw-2">mut </span>iter = <span class="kw">if let </span><span class="prelude-val">Some</span>(last_account) = <span class="self">self</span>.last_account.take() {
 			v9::ContractInfoOf::&lt;T, OldCurrency&gt;::iter_from(
 				v9::ContractInfoOf::&lt;T, OldCurrency&gt;::hashed_key_for(last_account),
@@ -733,10 +737,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Store last key for next migration step
 			</span><span class="self">self</span>.last_account = <span class="prelude-val">Some</span>(account);
 
-			(IsFinished::No, T::WeightInfo::v10_migration_step())
+			meter.consume(T::WeightInfo::v10_migration_step());
+			IsFinished::No
 		} <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Done Migrating contract info&quot;</span>);
-			(IsFinished::Yes, T::WeightInfo::v10_migration_step())
+			meter.consume(T::WeightInfo::v10_migration_step());
+			IsFinished::Yes
 		}
 	}
 

@@ -1939,6 +1939,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1790" id="1790">1790</a>
 <a href="#1791" id="1791">1791</a>
 <a href="#1792" id="1792">1792</a>
+<a href="#1793" id="1793">1793</a>
+<a href="#1794" id="1794">1794</a>
+<a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2064,7 +2069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, Contains, Get, Randomness, Time,
 	},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	BoundedVec, DefaultNoBound, RuntimeDebugNoBound,
 };
 <span class="kw">use </span>frame_system::{
@@ -2402,17 +2407,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-		<span class="kw">fn </span>on_idle(_block: BlockNumberFor&lt;T&gt;, <span class="kw-2">mut </span>remaining_weight: Weight) -&gt; Weight {
+		<span class="kw">fn </span>on_idle(_block: BlockNumberFor&lt;T&gt;, limit: Weight) -&gt; Weight {
 			<span class="kw">use </span>migration::MigrateResult::<span class="kw-2">*</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(limit);
 
 			<span class="kw">loop </span>{
-				<span class="kw">let </span>(result, weight) = Migration::&lt;T&gt;::migrate(remaining_weight);
-				remaining_weight.saturating_reduce(weight);
-
-				<span class="kw">match </span>result {
-					<span class="comment">// There is not enough weight to perform a migration, or make any progress, we
-					// just return the remaining weight.
-					</span>NoMigrationPerformed | InProgress { steps_done: <span class="number">0 </span>} =&gt; <span class="kw">return </span>remaining_weight,
+				<span class="kw">match </span>Migration::&lt;T&gt;::migrate(<span class="kw-2">&amp;mut </span>meter) {
+					<span class="comment">// There is not enough weight to perform a migration.
+					// We can&#39;t do anything more, so we return the used weight.
+					</span>NoMigrationPerformed | InProgress { steps_done: <span class="number">0 </span>} =&gt; <span class="kw">return </span>meter.consumed(),
 					<span class="comment">// Migration is still in progress, we can start the next step.
 					</span>InProgress { .. } =&gt; <span class="kw">continue</span>,
 					<span class="comment">// Either no migration is in progress, or we are done with all migrations, we
@@ -2421,8 +2424,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			ContractInfo::&lt;T&gt;::process_deletion_queue_batch(remaining_weight)
-				.saturating_add(T::WeightInfo::on_process_deletion_queue_batch())
+			ContractInfo::&lt;T&gt;::process_deletion_queue_batch(<span class="kw-2">&amp;mut </span>meter);
+			meter.consumed()
 		}
 
 		<span class="kw">fn </span>integrity_test() {
@@ -2865,18 +2868,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			<span class="kw">let </span>(result, weight) = Migration::&lt;T&gt;::migrate(weight_limit);
+			<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(weight_limit);
+			<span class="kw">let </span>result = Migration::&lt;T&gt;::migrate(<span class="kw-2">&amp;mut </span>meter);
 
 			<span class="kw">match </span>result {
-				Completed =&gt;
-					<span class="prelude-val">Ok</span>(PostDispatchInfo { actual_weight: <span class="prelude-val">Some</span>(weight), pays_fee: Pays::No }),
-				InProgress { steps_done, .. } <span class="kw">if </span>steps_done &gt; <span class="number">0 </span>=&gt;
-					<span class="prelude-val">Ok</span>(PostDispatchInfo { actual_weight: <span class="prelude-val">Some</span>(weight), pays_fee: Pays::No }),
-				InProgress { .. } =&gt;
-					<span class="prelude-val">Ok</span>(PostDispatchInfo { actual_weight: <span class="prelude-val">Some</span>(weight), pays_fee: Pays::Yes }),
+				Completed =&gt; <span class="prelude-val">Ok</span>(PostDispatchInfo {
+					actual_weight: <span class="prelude-val">Some</span>(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { steps_done, .. } <span class="kw">if </span>steps_done &gt; <span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(PostDispatchInfo {
+					actual_weight: <span class="prelude-val">Some</span>(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { .. } =&gt; <span class="prelude-val">Ok</span>(PostDispatchInfo {
+					actual_weight: <span class="prelude-val">Some</span>(meter.consumed()),
+					pays_fee: Pays::Yes,
+				}),
 				NoMigrationInProgress | NoMigrationPerformed =&gt; {
 					<span class="kw">let </span>err: DispatchError = &lt;Error&lt;T&gt;&gt;::NoMigrationPerformed.into();
-					<span class="prelude-val">Err</span>(err.with_weight(T::WeightInfo::migrate()))
+					<span class="prelude-val">Err</span>(err.with_weight(meter.consumed()))
 				},
 			}
 		}

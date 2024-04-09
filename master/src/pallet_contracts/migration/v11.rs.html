@@ -280,6 +280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -305,11 +306,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::WeightInfo,
 	Config, Pallet, TrieId, Weight, LOG_TARGET,
 };
+<span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage_alias, weights::WeightMeter, DefaultNoBound};
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
-
-<span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, storage_alias, DefaultNoBound};
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">mod </span>v10 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -361,9 +361,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::WeightInfo::v11_migration_step(<span class="number">128</span>)
 	}
 
-	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
+	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; IsFinished {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(old_queue) = v10::DeletionQueue::&lt;T&gt;::take() <span class="kw">else </span>{
-			<span class="kw">return </span>(IsFinished::Yes, Weight::zero())
+			meter.consume(T::WeightInfo::v11_migration_step(<span class="number">0</span>));
+			<span class="kw">return </span>IsFinished::Yes
 		};
 		<span class="kw">let </span>len = old_queue.len();
 
@@ -383,7 +384,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;DeletionQueueCounter&lt;T&gt;&gt;::set(queue);
 		}
 
-		(IsFinished::Yes, T::WeightInfo::v11_migration_step(len <span class="kw">as </span>u32))
+		meter.consume(T::WeightInfo::v11_migration_step(len <span class="kw">as </span>u32));
+		IsFinished::Yes
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]

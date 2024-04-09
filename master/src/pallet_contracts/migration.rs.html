@@ -804,6 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -877,6 +878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
 	traits::{ConstU32, OnRuntimeUpgrade},
+	weights::WeightMeter,
 };
 <span class="kw">use </span>sp_runtime::Saturating;
 <span class="kw">use </span>sp_std::marker::PhantomData;
@@ -918,8 +920,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Process one step of the migration.
 	///
-	/// Returns whether the migration is finished and the weight consumed.
-	</span><span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight);
+	/// Returns whether the migration is finished.
+	</span><span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; IsFinished;
 
 	<span class="doccomment">/// Verify that the migration step fits into `Cursor`, and that `max_step_weight` is not greater
 	/// than `max_block_weight`.
@@ -967,9 +969,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>max_step_weight() -&gt; Weight {
 		Weight::zero()
 	}
-	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
+	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; IsFinished {
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Noop migration for version {}&quot;</span>, N);
-		(IsFinished::Yes, Weight::zero())
+		IsFinished::Yes
 	}
 }
 
@@ -1015,8 +1017,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Execute the migration step until the weight limit is reached.
-	</span><span class="kw">fn </span>steps(version: StorageVersion, cursor: <span class="kw-2">&amp;</span>[u8], weight_left: <span class="kw-2">&amp;mut </span>Weight) -&gt; StepResult;
+	<span class="doccomment">/// Execute the migration step until the available weight is consumed.
+	</span><span class="kw">fn </span>steps(version: StorageVersion, cursor: <span class="kw-2">&amp;</span>[u8], meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; StepResult;
 
 	<span class="doccomment">/// Verify that the migration step fits into `Cursor`, and that `max_step_weight` is not greater
 	/// than `max_block_weight`.
@@ -1041,18 +1043,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 </span><span class="kw">impl</span>&lt;T: Config, <span class="kw">const </span>TEST_ALL_STEPS: bool&gt; Migration&lt;T, TEST_ALL_STEPS&gt; {
 	<span class="kw">fn </span>run_all_steps() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
+		<span class="kw">let </span><span class="kw-2">mut </span>meter = <span class="kw-2">&amp;mut </span>WeightMeter::new();
 		<span class="kw">let </span>name = &lt;Pallet&lt;T&gt;&gt;::name();
 		<span class="kw">loop </span>{
 			<span class="kw">let </span>in_progress_version = &lt;Pallet&lt;T&gt;&gt;::on_chain_storage_version() + <span class="number">1</span>;
 			<span class="kw">let </span>state = T::Migrations::pre_upgrade_step(in_progress_version)<span class="question-mark">?</span>;
-			<span class="kw">let </span>(status, w) = <span class="self">Self</span>::migrate(Weight::MAX);
-			weight.saturating_accrue(w);
+			<span class="kw">let </span>before = meter.consumed();
+			<span class="kw">let </span>status = <span class="self">Self</span>::migrate(<span class="kw-2">&amp;mut </span>meter);
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
 				<span class="string">&quot;{name}: Migration step {:?} weight = {}&quot;</span>,
 				in_progress_version,
-				weight
+				meter.consumed() - before
 			);
 			T::Migrations::post_upgrade_step(in_progress_version, state)<span class="question-mark">?</span>;
 			<span class="kw">if </span><span class="macro">matches!</span>(status, MigrateResult::Completed) {
@@ -1061,7 +1063,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>name = &lt;Pallet&lt;T&gt;&gt;::name();
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;{name}: Migration steps weight = {}&quot;</span>, weight);
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;{name}: Migration steps weight = {}&quot;</span>, meter.consumed());
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -1190,19 +1192,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::Migrations::integrity_test(max_weight)
 	}
 
-	<span class="doccomment">/// Migrate
-	/// Return the weight used and whether or not a migration is in progress
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>migrate(weight_limit: Weight) -&gt; (MigrateResult, Weight) {
+	<span class="doccomment">/// Execute the multi-step migration.
+	/// Returns whether or not a migration is in progress
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>migrate(<span class="kw-2">mut </span>meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; MigrateResult {
 		<span class="kw">let </span>name = &lt;Pallet&lt;T&gt;&gt;::name();
-		<span class="kw">let </span><span class="kw-2">mut </span>weight_left = weight_limit;
 
-		<span class="kw">if </span>weight_left.checked_reduce(T::WeightInfo::migrate()).is_none() {
-			<span class="kw">return </span>(MigrateResult::NoMigrationPerformed, Weight::zero())
+		<span class="kw">if </span>meter.try_consume(T::WeightInfo::migrate()).is_err() {
+			<span class="kw">return </span>MigrateResult::NoMigrationPerformed
 		}
 
 		MigrationInProgress::&lt;T&gt;::mutate_exists(|progress| {
 			<span class="kw">let </span><span class="prelude-val">Some</span>(cursor_before) = progress.as_mut() <span class="kw">else </span>{
-				<span class="kw">return </span>(MigrateResult::NoMigrationInProgress, T::WeightInfo::migration_noop())
+				meter.consume(T::WeightInfo::migration_noop());
+				<span class="kw">return </span>MigrateResult::NoMigrationInProgress
 			};
 
 			<span class="comment">// if a migration is running it is always upgrading to the next version
@@ -1216,38 +1218,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				in_progress_version,
 			);
 
-			<span class="kw">let </span>result = <span class="kw">match </span>T::Migrations::steps(
-				in_progress_version,
-				cursor_before.as_ref(),
-				<span class="kw-2">&amp;mut </span>weight_left,
-			) {
-				StepResult::InProgress { cursor, steps_done } =&gt; {
-					<span class="kw-2">*</span>progress = <span class="prelude-val">Some</span>(cursor);
-					MigrateResult::InProgress { steps_done }
-				},
-				StepResult::Completed { steps_done } =&gt; {
-					in_progress_version.put::&lt;Pallet&lt;T&gt;&gt;();
-					<span class="kw">if </span>&lt;Pallet&lt;T&gt;&gt;::in_code_storage_version() != in_progress_version {
-						<span class="macro">log::info!</span>(
-							target: LOG_TARGET,
-							<span class="string">&quot;{name}: Next migration is {:?},&quot;</span>,
-							in_progress_version + <span class="number">1
-						</span>);
-						<span class="kw-2">*</span>progress = <span class="prelude-val">Some</span>(T::Migrations::new(in_progress_version + <span class="number">1</span>));
+			<span class="kw">let </span>result =
+				<span class="kw">match </span>T::Migrations::steps(in_progress_version, cursor_before.as_ref(), <span class="kw-2">&amp;mut </span>meter)
+				{
+					StepResult::InProgress { cursor, steps_done } =&gt; {
+						<span class="kw-2">*</span>progress = <span class="prelude-val">Some</span>(cursor);
 						MigrateResult::InProgress { steps_done }
-					} <span class="kw">else </span>{
-						<span class="macro">log::info!</span>(
-							target: LOG_TARGET,
-							<span class="string">&quot;{name}: All migrations done. At version {:?},&quot;</span>,
-							in_progress_version
-						);
-						<span class="kw-2">*</span>progress = <span class="prelude-val">None</span>;
-						MigrateResult::Completed
-					}
-				},
-			};
+					},
+					StepResult::Completed { steps_done } =&gt; {
+						in_progress_version.put::&lt;Pallet&lt;T&gt;&gt;();
+						<span class="kw">if </span>&lt;Pallet&lt;T&gt;&gt;::in_code_storage_version() != in_progress_version {
+							<span class="macro">log::info!</span>(
+								target: LOG_TARGET,
+								<span class="string">&quot;{name}: Next migration is {:?},&quot;</span>,
+								in_progress_version + <span class="number">1
+							</span>);
+							<span class="kw-2">*</span>progress = <span class="prelude-val">Some</span>(T::Migrations::new(in_progress_version + <span class="number">1</span>));
+							MigrateResult::InProgress { steps_done }
+						} <span class="kw">else </span>{
+							<span class="macro">log::info!</span>(
+								target: LOG_TARGET,
+								<span class="string">&quot;{name}: All migrations done. At version {:?},&quot;</span>,
+								in_progress_version
+							);
+							<span class="kw-2">*</span>progress = <span class="prelude-val">None</span>;
+							MigrateResult::Completed
+						}
+					},
+				};
 
-			(result, weight_limit.saturating_sub(weight_left))
+			result
 		})
 	}
 
@@ -1322,7 +1322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		invalid_version(version)
 	}
 
-	<span class="kw">fn </span>steps(version: StorageVersion, <span class="kw-2">mut </span>cursor: <span class="kw-2">&amp;</span>[u8], weight_left: <span class="kw-2">&amp;mut </span>Weight) -&gt; StepResult {
+	<span class="kw">fn </span>steps(version: StorageVersion, <span class="kw-2">mut </span>cursor: <span class="kw-2">&amp;</span>[u8], meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; StepResult {
 		<span class="macro">for_tuples!</span>(
 			#(
 				<span class="kw">if </span>version == Tuple::VERSION {
@@ -1330,11 +1330,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.expect(PROOF_DECODE);
 					<span class="kw">let </span>max_weight = Tuple::max_step_weight();
 					<span class="kw">let </span><span class="kw-2">mut </span>steps_done = <span class="number">0</span>;
-					<span class="kw">while </span>weight_left.all_gt(max_weight) {
-						<span class="kw">let </span>(finished, weight) = migration.step();
+					<span class="kw">while </span>meter.can_consume(max_weight) {
 						steps_done.saturating_accrue(<span class="number">1</span>);
-						weight_left.saturating_reduce(weight);
-						<span class="kw">if </span><span class="macro">matches!</span>(finished, IsFinished::Yes) {
+						<span class="kw">if </span><span class="macro">matches!</span>(migration.step(meter), IsFinished::Yes) {
 							<span class="kw">return </span>StepResult::Completed{ steps_done }
 						}
 					}
@@ -1373,13 +1371,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>max_step_weight() -&gt; Weight {
 			Weight::from_all(<span class="number">1</span>)
 		}
-		<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (IsFinished, Weight) {
+		<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; IsFinished {
 			<span class="macro">assert!</span>(<span class="self">self</span>.count != N);
 			<span class="self">self</span>.count += <span class="number">1</span>;
+			meter.consume(Weight::from_all(<span class="number">1</span>));
 			<span class="kw">if </span><span class="self">self</span>.count == N {
-				(IsFinished::Yes, Weight::from_all(<span class="number">1</span>))
+				IsFinished::Yes
 			} <span class="kw">else </span>{
-				(IsFinished::No, Weight::from_all(<span class="number">1</span>))
+				IsFinished::No
 			}
 		}
 	}
@@ -1409,15 +1408,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>version = StorageVersion::new(<span class="number">2</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>cursor = Migrations::new(version);
 
-		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::from_all(<span class="number">2</span>);
-		<span class="kw">let </span>result = Migrations::steps(version, <span class="kw-2">&amp;</span>cursor, <span class="kw-2">&amp;mut </span>weight);
+		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(Weight::from_all(<span class="number">1</span>));
+		<span class="kw">let </span>result = Migrations::steps(version, <span class="kw-2">&amp;</span>cursor, <span class="kw-2">&amp;mut </span>meter);
 		cursor = <span class="macro">vec!</span>[<span class="number">1u8</span>, <span class="number">0</span>].try_into().unwrap();
 		<span class="macro">assert_eq!</span>(result, StepResult::InProgress { cursor: cursor.clone(), steps_done: <span class="number">1 </span>});
-		<span class="macro">assert_eq!</span>(weight, Weight::from_all(<span class="number">1</span>));
+		<span class="macro">assert_eq!</span>(meter.consumed(), Weight::from_all(<span class="number">1</span>));
 
-		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::from_all(<span class="number">2</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>meter = WeightMeter::with_limit(Weight::from_all(<span class="number">1</span>));
 		<span class="macro">assert_eq!</span>(
-			Migrations::steps(version, <span class="kw-2">&amp;</span>cursor, <span class="kw-2">&amp;mut </span>weight),
+			Migrations::steps(version, <span class="kw-2">&amp;</span>cursor, <span class="kw-2">&amp;mut </span>meter),
 			StepResult::Completed { steps_done: <span class="number">1 </span>}
 		);
 	}
@@ -1428,7 +1427,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		ExtBuilder::default().build().execute_with(|| {
 			<span class="macro">assert_eq!</span>(StorageVersion::get::&lt;Pallet&lt;Test&gt;&gt;(), LATEST_MIGRATION_VERSION);
-			<span class="macro">assert_eq!</span>(TestMigration::migrate(Weight::MAX).<span class="number">0</span>, MigrateResult::NoMigrationInProgress)
+			<span class="macro">assert_eq!</span>(
+				TestMigration::migrate(<span class="kw-2">&amp;mut </span>WeightMeter::new()),
+				MigrateResult::NoMigrationInProgress
+			)
 		});
 	}
 
@@ -1446,7 +1448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					(LATEST_MIGRATION_VERSION - <span class="number">1</span>, MigrateResult::InProgress { steps_done: <span class="number">1 </span>}),
 					(LATEST_MIGRATION_VERSION, MigrateResult::Completed),
 				] {
-					<span class="macro">assert_eq!</span>(TestMigration::migrate(Weight::MAX).<span class="number">0</span>, status);
+					<span class="macro">assert_eq!</span>(TestMigration::migrate(<span class="kw-2">&amp;mut </span>WeightMeter::new()), status);
 					<span class="macro">assert_eq!</span>(
 						&lt;Pallet&lt;Test&gt;&gt;::on_chain_storage_version(),
 						StorageVersion::new(version)
@@ -1454,7 +1456,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 
 				<span class="macro">assert_eq!</span>(
-					TestMigration::migrate(Weight::MAX).<span class="number">0</span>,
+					TestMigration::migrate(<span class="kw-2">&amp;mut </span>WeightMeter::new()),
 					MigrateResult::NoMigrationInProgress
 				);
 				<span class="macro">assert_eq!</span>(StorageVersion::get::&lt;Pallet&lt;Test&gt;&gt;(), LATEST_MIGRATION_VERSION);

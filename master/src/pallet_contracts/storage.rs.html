@@ -611,8 +611,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#462" id="462">462</a>
 <a href="#463" id="463">463</a>
 <a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -643,7 +641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
 	storage::child::{<span class="self">self</span>, ChildInfo},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	CloneNoBound, DefaultNoBound,
 };
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -894,14 +892,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Calculates the weight that is necessary to remove one key from the trie and how many
 	/// of those keys can be deleted from the deletion queue given the supplied weight limit.
-	</span><span class="kw">pub fn </span>deletion_budget(weight_limit: Weight) -&gt; (Weight, u32) {
+	</span><span class="kw">pub fn </span>deletion_budget(meter: <span class="kw-2">&amp;</span>WeightMeter) -&gt; (Weight, u32) {
 		<span class="kw">let </span>base_weight = T::WeightInfo::on_process_deletion_queue_batch();
 		<span class="kw">let </span>weight_per_key = T::WeightInfo::on_initialize_per_trie_key(<span class="number">1</span>) -
 			T::WeightInfo::on_initialize_per_trie_key(<span class="number">0</span>);
 
 		<span class="comment">// `weight_per_key` being zero makes no sense and would constitute a failure to
 		// benchmark properly. We opt for not removing any keys at all in this case.
-		</span><span class="kw">let </span>key_budget = weight_limit
+		</span><span class="kw">let </span>key_budget = meter
+			.limit()
 			.saturating_sub(base_weight)
 			.checked_div_per_component(<span class="kw-2">&amp;</span>weight_per_key)
 			.unwrap_or(<span class="number">0</span>) <span class="kw">as </span>u32;
@@ -910,24 +909,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Delete as many items from the deletion queue possible within the supplied weight limit.
-	///
-	/// It returns the amount of weight used for that task.
-	</span><span class="kw">pub fn </span>process_deletion_queue_batch(weight_limit: Weight) -&gt; Weight {
+	</span><span class="kw">pub fn </span>process_deletion_queue_batch(meter: <span class="kw-2">&amp;mut </span>WeightMeter) {
+		<span class="kw">if </span>meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
+			<span class="kw">return
+		</span>};
+
 		<span class="kw">let </span><span class="kw-2">mut </span>queue = &lt;DeletionQueueManager&lt;T&gt;&gt;::load();
-
 		<span class="kw">if </span>queue.is_empty() {
-			<span class="kw">return </span>Weight::zero()
+			<span class="kw">return</span>;
 		}
 
-		<span class="kw">let </span>(weight_per_key, <span class="kw-2">mut </span>remaining_key_budget) = <span class="self">Self</span>::deletion_budget(weight_limit);
-
-		<span class="comment">// We want to check whether we have enough weight to decode the queue before
-		// proceeding. Too little weight for decoding might happen during runtime upgrades
-		// which consume the whole block before the other `on_initialize` blocks are called.
-		</span><span class="kw">if </span>remaining_key_budget == <span class="number">0 </span>{
-			<span class="kw">return </span>weight_limit
-		}
-
+		<span class="kw">let </span>(weight_per_key, budget) = <span class="self">Self</span>::deletion_budget(<span class="kw-2">&amp;</span>meter);
+		<span class="kw">let </span><span class="kw-2">mut </span>remaining_key_budget = budget;
 		<span class="kw">while </span>remaining_key_budget &gt; <span class="number">0 </span>{
 			<span class="kw">let </span><span class="prelude-val">Some</span>(entry) = queue.next() <span class="kw">else </span>{ <span class="kw">break </span>};
 
@@ -939,7 +932,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">match </span>outcome {
 				<span class="comment">// This happens when our budget wasn&#39;t large enough to remove all keys.
-				</span>KillStorageResult::SomeRemaining(<span class="kw">_</span>) =&gt; <span class="kw">return </span>weight_limit,
+				</span>KillStorageResult::SomeRemaining(keys_removed) =&gt; {
+					remaining_key_budget.saturating_reduce(keys_removed);
+					<span class="kw">break
+				</span>},
 				KillStorageResult::AllRemoved(keys_removed) =&gt; {
 					entry.remove();
 					<span class="comment">// charge at least one key even if none were removed.
@@ -948,7 +944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 		}
 
-		weight_limit.saturating_sub(weight_per_key.saturating_mul(u64::from(remaining_key_budget)))
+		meter.consume(weight_per_key.saturating_mul(u64::from(budget - remaining_key_budget)))
 	}
 
 	<span class="doccomment">/// Returns the code hash of the contract specified by `account` ID.

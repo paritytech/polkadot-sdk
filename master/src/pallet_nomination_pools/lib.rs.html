@@ -3804,6 +3804,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3655" id="3655">3655</a>
 <a href="#3656" id="3656">3656</a>
 <a href="#3657" id="3657">3657</a>
+<a href="#3658" id="3658">3658</a>
+<a href="#3659" id="3659">3659</a>
+<a href="#3660" id="3660">3660</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5463,6 +5466,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// The maximum length, in bytes, that a pools metadata maybe.
 		</span><span class="kw">type </span>MaxMetadataLen: Get&lt;u32&gt;;
+
+		<span class="doccomment">/// The origin that can manage pool configurations.
+		</span><span class="kw">type </span>AdminOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 	}
 
 	<span class="doccomment">/// The sum of funds across all pools.
@@ -6301,7 +6307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="doccomment">/// Update configurations for the nomination pools. The origin for this call must be
-		/// Root.
+		/// [`Config::AdminOrigin`].
 		///
 		/// # Arguments
 		///
@@ -6322,7 +6328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			max_members_per_pool: ConfigOp&lt;u32&gt;,
 			global_max_commission: ConfigOp&lt;Perbill&gt;,
 		) -&gt; DispatchResult {
-			ensure_root(origin)<span class="question-mark">?</span>;
+			T::AdminOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="macro">macro_rules! </span>config_op_exp {
 				(<span class="macro-nonterminal">$storage</span>:ty, <span class="macro-nonterminal">$op</span>:ident) =&gt; {
