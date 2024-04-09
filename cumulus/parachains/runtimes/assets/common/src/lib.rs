@@ -26,36 +26,37 @@ pub mod runtime_api;
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
+use xcm::latest::Location;
 use xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, V4V3LocationConverter,
 };
 use xcm_executor::traits::JustTry;
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
-pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation> =
+pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L = Location> =
 	AsPrefixedGeneralIndex<
 		TrustBackedAssetsPalletLocation,
 		AssetIdForTrustBackedAssets,
 		JustTry,
-		xcm::v3::Location,
+		L,
 	>;
-
-pub type AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation> =
-	AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry>;
 
 /// `Location` vs `CollectionId` converter for `Uniques`
 pub type CollectionIdForUniquesConvert<UniquesPalletLocation> =
 	AsPrefixedGeneralIndex<UniquesPalletLocation, CollectionId, JustTry>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
-pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance> =
-	MatchedConvertedConcreteId<
-		AssetIdForTrustBackedAssets,
-		Balance,
-		StartsWith<TrustBackedAssetsPalletLocation>,
-		AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation>,
-		JustTry,
-	>;
+pub type TrustBackedAssetsConvertedConcreteId<
+	TrustBackedAssetsPalletLocation,
+	Balance,
+	L = Location,
+> = MatchedConvertedConcreteId<
+	AssetIdForTrustBackedAssets,
+	Balance,
+	StartsWith<TrustBackedAssetsPalletLocation>,
+	AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L>,
+	JustTry,
+>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for `Uniques`
 pub type UniquesConvertedConcreteId<UniquesPalletLocation> = MatchedConvertedConcreteId<

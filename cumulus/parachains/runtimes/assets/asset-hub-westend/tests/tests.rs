@@ -59,11 +59,13 @@ use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
 
-type AssetIdForTrustBackedAssetsConvert =
-	assets_common::AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3>;
+type AssetIdForTrustBackedAssetsConvert = assets_common::AssetIdForTrustBackedAssetsConvert<
+	TrustBackedAssetsPalletLocationV3,
+	xcm::v3::Location,
+>;
 
 type AssetIdForTrustBackedAssetsConvertLatest =
-	assets_common::AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation>;
+	assets_common::AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>;
 
 type RuntimeHelper = asset_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
 
