@@ -34,8 +34,8 @@ sp-io = { path = "../../primitives/io", default-features = false }
 log = { workspace = true }
 
 # Optional: use for testing and/or fuzzing
-pallet-balances = { path = "../balances", optional = true }
-sp-tracing = { path = "../../primitives/tracing", optional = true }
+pallet-balances = { path = "../balances", optional = true, default-features = false }
+sp-tracing = { path = "../../primitives/tracing", optional = true, default-features = false }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
