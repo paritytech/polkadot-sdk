@@ -396,6 +396,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -468,7 +471,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">struct </span>Verifier&lt;P, Client, Block, CIDP&gt; {
 	client: Arc&lt;Client&gt;,
 	create_inherent_data_providers: CIDP,
-	slot_duration: SlotDuration,
 	defender: NaiveEquivocationDefender,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 	_phantom: std::marker::PhantomData&lt;<span class="kw">fn</span>() -&gt; (Block, P)&gt;,
@@ -508,7 +510,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">format!</span>(<span class="string">&quot;Could not fetch authorities at {:?}: {}&quot;</span>, parent_hash, e)
 			})<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>slot_now = slot_now(<span class="self">self</span>.slot_duration);
+			<span class="kw">let </span>slot_duration = <span class="self">self
+				</span>.client
+				.runtime_api()
+				.slot_duration(parent_hash)
+				.map_err(|e| e.to_string())<span class="question-mark">?</span>;
+
+			<span class="kw">let </span>slot_now = slot_now(slot_duration);
 			<span class="kw">let </span>res = aura_internal::check_header_slot_and_seal::&lt;Block, P&gt;(
 				slot_now,
 				block_params.header,
@@ -616,7 +624,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	client: Arc&lt;Client&gt;,
 	block_import: I,
 	create_inherent_data_providers: CIDP,
-	slot_duration: SlotDuration,
 	spawner: <span class="kw-2">&amp;</span><span class="kw">impl </span>sp_core::traits::SpawnEssentialNamed,
 	registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>substrate_prometheus_endpoint::Registry&gt;,
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
@@ -638,7 +645,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		client,
 		create_inherent_data_providers,
 		defender: NaiveEquivocationDefender::default(),
-		slot_duration,
 		telemetry,
 		_phantom: std::marker::PhantomData,
 	};

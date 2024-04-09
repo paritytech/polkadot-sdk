@@ -535,13 +535,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::net::SocketAddr;
 
 <span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
@@ -554,7 +547,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	NetworkParams, <span class="prelude-ty">Result</span>, SharedParams, SubstrateCli,
 };
 <span class="kw">use </span>sc_service::config::{BasePath, PrometheusConfig};
-<span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 
 <span class="kw">use crate</span>::{
 	chain_spec,
@@ -785,17 +777,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">let </span>id = ParaId::from(para_id);
 
-				<span class="kw">let </span>parachain_account =
-					AccountIdConversion::&lt;polkadot_primitives::AccountId&gt;::into_account_truncating(
-						<span class="kw-2">&amp;</span>id,
-					);
-
 				<span class="kw">let </span>tokio_handle = config.tokio_handle.clone();
 				<span class="kw">let </span>polkadot_config =
 					SubstrateCli::create_configuration(<span class="kw-2">&amp;</span>polkadot_cli, <span class="kw-2">&amp;</span>polkadot_cli, tokio_handle)
 						.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;Relay chain argument error: {}&quot;</span>, err))<span class="question-mark">?</span>;
 
-				<span class="macro">info!</span>(<span class="string">&quot;Parachain Account: {parachain_account}&quot;</span>);
 				<span class="macro">info!</span>(<span class="string">&quot;Is collating: {}&quot;</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">&quot;yes&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;no&quot; </span>});
 
 				<span class="kw">crate</span>::service::start_parachain_node(

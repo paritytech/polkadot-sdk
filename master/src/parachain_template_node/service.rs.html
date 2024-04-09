@@ -551,42 +551,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 </span><span class="comment">// std
@@ -616,7 +580,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_client_api::Backend;
 <span class="kw">use </span>sc_consensus::ImportQueue;
 <span class="kw">use </span>sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-<span class="kw">use </span>sc_network::{NetworkBackend, NetworkBlock};
+<span class="kw">use </span>sc_network::NetworkBlock;
 <span class="kw">use </span>sc_network_sync::SyncingService;
 <span class="kw">use </span>sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 <span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
@@ -702,7 +666,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		config,
 		telemetry.as_ref().map(|telemetry| telemetry.handle()),
 		<span class="kw-2">&amp;</span>task_manager,
-	)<span class="question-mark">?</span>;
+	);
 
 	<span class="prelude-val">Ok</span>(PartialComponents {
 		backend,
@@ -716,11 +680,100 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	})
 }
 
+<span class="doccomment">/// Build the import queue for the parachain runtime.
+</span><span class="kw">fn </span>build_import_queue(
+	client: Arc&lt;ParachainClient&gt;,
+	block_import: ParachainBlockImport,
+	config: <span class="kw-2">&amp;</span>Configuration,
+	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
+	task_manager: <span class="kw-2">&amp;</span>TaskManager,
+) -&gt; sc_consensus::DefaultImportQueue&lt;Block&gt; {
+	cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::&lt;
+		sp_consensus_aura::sr25519::AuthorityPair,
+		<span class="kw">_</span>,
+		<span class="kw">_</span>,
+		<span class="kw">_</span>,
+		<span class="kw">_</span>,
+	&gt;(
+		client,
+		block_import,
+		<span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>| <span class="kw">async move </span>{
+			<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			<span class="prelude-val">Ok</span>(timestamp)
+		},
+		<span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
+		config.prometheus_registry(),
+		telemetry,
+	)
+}
+
+<span class="kw">fn </span>start_consensus(
+	client: Arc&lt;ParachainClient&gt;,
+	block_import: ParachainBlockImport,
+	prometheus_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
+	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
+	task_manager: <span class="kw-2">&amp;</span>TaskManager,
+	relay_chain_interface: Arc&lt;<span class="kw">dyn </span>RelayChainInterface&gt;,
+	transaction_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&gt;&gt;,
+	sync_oracle: Arc&lt;SyncingService&lt;Block&gt;&gt;,
+	keystore: KeystorePtr,
+	relay_chain_slot_duration: Duration,
+	para_id: ParaId,
+	collator_key: CollatorPair,
+	overseer_handle: OverseerHandle,
+	announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_service::Error&gt; {
+	<span class="kw">use </span>cumulus_client_consensus_aura::collators::basic::{
+		<span class="self">self </span><span class="kw">as </span>basic_aura, Params <span class="kw">as </span>BasicAuraParams,
+	};
+
+	<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		task_manager.spawn_handle(),
+		client.clone(),
+		transaction_pool,
+		prometheus_registry,
+		telemetry.clone(),
+	);
+
+	<span class="kw">let </span>proposer = Proposer::new(proposer_factory);
+
+	<span class="kw">let </span>collator_service = CollatorService::new(
+		client.clone(),
+		Arc::new(task_manager.spawn_handle()),
+		announce_block,
+		client.clone(),
+	);
+
+	<span class="kw">let </span>params = BasicAuraParams {
+		create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
+		block_import,
+		para_client: client,
+		relay_client: relay_chain_interface,
+		sync_oracle,
+		keystore,
+		collator_key,
+		para_id,
+		overseer_handle,
+		relay_chain_slot_duration,
+		proposer,
+		collator_service,
+		<span class="comment">// Very limited proposal time.
+		</span>authoring_duration: Duration::from_millis(<span class="number">500</span>),
+		collation_request_receiver: <span class="prelude-val">None</span>,
+	};
+
+	<span class="kw">let </span>fut =
+		basic_aura::run::&lt;Block, sp_consensus_aura::sr25519::AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+			params,
+		);
+	task_manager.spawn_essential_handle().spawn(<span class="string">&quot;aura&quot;</span>, <span class="prelude-val">None</span>, fut);
+
+	<span class="prelude-val">Ok</span>(())
+}
+
 <span class="doccomment">/// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
-///
-/// This is the actual implementation that is abstract over the executor and the runtime api.
 </span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">&quot;Parachain&quot;</span>)]
-</span><span class="kw">async fn </span>start_node_impl&lt;N: NetworkBackend&lt;Block, Hash&gt;&gt;(
+</span><span class="kw">pub async fn </span>start_parachain_node(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -731,8 +784,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>params = new_partial(<span class="kw-2">&amp;</span>parachain_config)<span class="question-mark">?</span>;
 	<span class="kw">let </span>(block_import, <span class="kw-2">mut </span>telemetry, telemetry_worker_handle) = params.other;
-	<span class="kw">let </span>net_config =
-		sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, N&gt;::new(<span class="kw-2">&amp;</span>parachain_config.network);
+	<span class="kw">let </span>net_config = sc_network::config::FullNetworkConfiguration::&lt;
+		<span class="kw">_</span>,
+		<span class="kw">_</span>,
+		sc_network::NetworkWorker&lt;Block, Hash&gt;,
+	&gt;::new(<span class="kw-2">&amp;</span>parachain_config.network);
 
 	<span class="kw">let </span>client = params.client.clone();
 	<span class="kw">let </span>backend = params.backend.clone();
@@ -754,7 +810,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>transaction_pool = params.transaction_pool.clone();
 	<span class="kw">let </span>import_queue_service = params.import_queue.service();
 
-	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+	<span class="comment">// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
+	// when starting the network.
+	</span><span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 		build_network(BuildNetworkParams {
 			parachain_config: <span class="kw-2">&amp;</span>parachain_config,
 			net_config,
@@ -896,136 +954,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	start_network.start_network();
 
 	<span class="prelude-val">Ok</span>((task_manager, client))
-}
-
-<span class="doccomment">/// Build the import queue for the parachain runtime.
-</span><span class="kw">fn </span>build_import_queue(
-	client: Arc&lt;ParachainClient&gt;,
-	block_import: ParachainBlockImport,
-	config: <span class="kw-2">&amp;</span>Configuration,
-	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
-	task_manager: <span class="kw-2">&amp;</span>TaskManager,
-) -&gt; <span class="prelude-ty">Result</span>&lt;sc_consensus::DefaultImportQueue&lt;Block&gt;, sc_service::Error&gt; {
-	<span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
-
-	<span class="prelude-val">Ok</span>(cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::&lt;
-		sp_consensus_aura::sr25519::AuthorityPair,
-		<span class="kw">_</span>,
-		<span class="kw">_</span>,
-		<span class="kw">_</span>,
-		<span class="kw">_</span>,
-	&gt;(
-		client,
-		block_import,
-		<span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>| <span class="kw">async move </span>{
-			<span class="kw">let </span>timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			<span class="prelude-val">Ok</span>(timestamp)
-		},
-		slot_duration,
-		<span class="kw-2">&amp;</span>task_manager.spawn_essential_handle(),
-		config.prometheus_registry(),
-		telemetry,
-	))
-}
-
-<span class="kw">fn </span>start_consensus(
-	client: Arc&lt;ParachainClient&gt;,
-	block_import: ParachainBlockImport,
-	prometheus_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
-	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
-	task_manager: <span class="kw-2">&amp;</span>TaskManager,
-	relay_chain_interface: Arc&lt;<span class="kw">dyn </span>RelayChainInterface&gt;,
-	transaction_pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&gt;&gt;,
-	sync_oracle: Arc&lt;SyncingService&lt;Block&gt;&gt;,
-	keystore: KeystorePtr,
-	relay_chain_slot_duration: Duration,
-	para_id: ParaId,
-	collator_key: CollatorPair,
-	overseer_handle: OverseerHandle,
-	announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), sc_service::Error&gt; {
-	<span class="kw">use </span>cumulus_client_consensus_aura::collators::basic::{
-		<span class="self">self </span><span class="kw">as </span>basic_aura, Params <span class="kw">as </span>BasicAuraParams,
-	};
-
-	<span class="comment">// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
-	// when starting the network.
-
-	</span><span class="kw">let </span>slot_duration = cumulus_client_consensus_aura::slot_duration(<span class="kw-2">&amp;*</span>client)<span class="question-mark">?</span>;
-
-	<span class="kw">let </span>proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-		task_manager.spawn_handle(),
-		client.clone(),
-		transaction_pool,
-		prometheus_registry,
-		telemetry.clone(),
-	);
-
-	<span class="kw">let </span>proposer = Proposer::new(proposer_factory);
-
-	<span class="kw">let </span>collator_service = CollatorService::new(
-		client.clone(),
-		Arc::new(task_manager.spawn_handle()),
-		announce_block,
-		client.clone(),
-	);
-
-	<span class="kw">let </span>params = BasicAuraParams {
-		create_inherent_data_providers: <span class="kw">move </span>|<span class="kw">_</span>, ()| <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(()) },
-		block_import,
-		para_client: client,
-		relay_client: relay_chain_interface,
-		sync_oracle,
-		keystore,
-		collator_key,
-		para_id,
-		overseer_handle,
-		slot_duration,
-		relay_chain_slot_duration,
-		proposer,
-		collator_service,
-		<span class="comment">// Very limited proposal time.
-		</span>authoring_duration: Duration::from_millis(<span class="number">500</span>),
-		collation_request_receiver: <span class="prelude-val">None</span>,
-	};
-
-	<span class="kw">let </span>fut =
-		basic_aura::run::&lt;Block, sp_consensus_aura::sr25519::AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
-			params,
-		);
-	task_manager.spawn_essential_handle().spawn(<span class="string">&quot;aura&quot;</span>, <span class="prelude-val">None</span>, fut);
-
-	<span class="prelude-val">Ok</span>(())
-}
-
-<span class="doccomment">/// Start a parachain node.
-</span><span class="kw">pub async fn </span>start_parachain_node(
-	parachain_config: Configuration,
-	polkadot_config: Configuration,
-	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
-) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&gt;)&gt; {
-	<span class="kw">match </span>polkadot_config.network.network_backend {
-		sc_network::config::NetworkBackendType::Libp2p =&gt;
-			start_node_impl::&lt;sc_network::NetworkWorker&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(
-				parachain_config,
-				polkadot_config,
-				collator_options,
-				para_id,
-				hwbench,
-			)
-			.<span class="kw">await</span>,
-		sc_network::config::NetworkBackendType::Litep2p =&gt;
-			start_node_impl::&lt;sc_network::Litep2pNetworkBackend&gt;(
-				parachain_config,
-				polkadot_config,
-				collator_options,
-				para_id,
-				hwbench,
-			)
-			.<span class="kw">await</span>,
-	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

@@ -414,6 +414,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -458,7 +461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_application_crypto::AppPublic;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_consensus::SyncOracle;
-<span class="kw">use </span>sp_consensus_aura::{AuraApi, SlotDuration};
+<span class="kw">use </span>sp_consensus_aura::AuraApi;
 <span class="kw">use </span>sp_core::crypto::Pair;
 <span class="kw">use </span>sp_inherents::CreateInherentDataProviders;
 <span class="kw">use </span>sp_keystore::KeystorePtr;
@@ -490,8 +493,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>para_id: ParaId,
 	<span class="doccomment">/// A handle to the relay-chain client&#39;s &quot;Overseer&quot; or task orchestrator.
 	</span><span class="kw">pub </span>overseer_handle: OverseerHandle,
-	<span class="doccomment">/// The length of slots in this chain.
-	</span><span class="kw">pub </span>slot_duration: SlotDuration,
 	<span class="doccomment">/// The length of slots in the relay chain.
 	</span><span class="kw">pub </span>relay_chain_slot_duration: Duration,
 	<span class="doccomment">/// The underlying block proposer this should call into.
@@ -613,11 +614,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(h)) =&gt; h,
 				};
 
+			<span class="kw">let </span>slot_duration = <span class="kw">match </span>params.para_client.runtime_api().slot_duration(parent_hash) {
+				<span class="prelude-val">Ok</span>(d) =&gt; d,
+				<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">reject_with_error!</span>(e),
+			};
+
 			<span class="kw">let </span>claim = <span class="kw">match </span>collator_util::claim_slot::&lt;<span class="kw">_</span>, <span class="kw">_</span>, P&gt;(
 				<span class="kw-2">&amp;*</span>params.para_client,
 				parent_hash,
 				<span class="kw-2">&amp;</span>relay_parent_header,
-				params.slot_duration,
+				slot_duration,
 				params.relay_chain_slot_duration,
 				<span class="kw-2">&amp;</span>params.keystore,
 			)
