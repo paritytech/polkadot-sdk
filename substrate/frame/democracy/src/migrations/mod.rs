@@ -15,8 +15,7 @@
 
 //! All migrations of this pallet.
 
-/// Migration to unlock and unreserve all pallet funds.
-pub mod unlock_and_unreserve_all_funds;
+pub mod v2;
 
-/// V1 storage migrations for the preimage pallet.
-pub mod v1;
+/// A unique migration identifier across all pallets.
+pub const PALLET_MIGRATIONS_ID: &[u8; 20] = b"pallet-democracy-mbm";
