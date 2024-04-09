@@ -59,8 +59,8 @@ fn fee_estimation_for_teleport() {
 			dry_run_effects.local_program,
 			VersionedXcm::V4(
 				Xcm::builder_unsafe()
-					.withdraw_asset((Here, 100u128).into())
-					.burn_asset((Here, 100u128).into())
+					.withdraw_asset((Here, 100u128))
+					.burn_asset((Here, 100u128))
 					.build()
 			),
 		);
@@ -70,13 +70,10 @@ fn fee_estimation_for_teleport() {
 				VersionedLocation::V4(Location::new(1, [Parachain(1000)])),
 				VersionedXcm::V4(
 					Xcm::<()>::builder_unsafe()
-						.receive_teleported_asset(((Parent, Parachain(2000)), 100u128).into())
+						.receive_teleported_asset(((Parent, Parachain(2000)), 100u128))
 						.clear_origin()
-						.buy_execution(((Parent, Parachain(2000)), 100u128).into(), Unlimited)
-						.deposit_asset(
-							AllCounted(1).into(),
-							AccountId32 { id: [0u8; 32], network: None }.into()
-						)
+						.buy_execution(((Parent, Parachain(2000)), 100u128), Unlimited)
+						.deposit_asset(AllCounted(1), [0u8; 32])
 						.build()
 				)
 			),],
@@ -171,8 +168,8 @@ fn dry_run_reserve_asset_transfer() {
 			dry_run_effects.local_program,
 			VersionedXcm::V4(
 				Xcm::builder_unsafe()
-					.withdraw_asset((Parent, 100u128).into())
-					.burn_asset((Parent, 100u128).into())
+					.withdraw_asset((Parent, 100u128))
+					.burn_asset((Parent, 100u128))
 					.build()
 			),
 		);
@@ -185,13 +182,10 @@ fn dry_run_reserve_asset_transfer() {
 				VersionedLocation::V4(Location::new(1, Parachain(1000))),
 				VersionedXcm::V4(
 					Xcm::<()>::builder_unsafe()
-						.withdraw_asset((Parent, 100u128).into())
+						.withdraw_asset((Parent, 100u128))
 						.clear_origin()
-						.buy_execution((Parent, 100u128).into(), Unlimited)
-						.deposit_asset(
-							AllCounted(1).into(),
-							AccountId32 { id: [0u8; 32], network: None }.into()
-						)
+						.buy_execution((Parent, 100u128), Unlimited)
+						.deposit_asset(AllCounted(1), [0u8; 32])
 						.build()
 				),
 			),],
@@ -208,18 +202,14 @@ fn dry_run_xcm() {
 	// that can pay for fees.
 	// There might be a better way.
 	let inner_xcm = Xcm::<()>::builder_unsafe()
-		.buy_execution((Here, 1u128).into(), Unlimited.into()) // We'd need to query the destination chain for fees.
-		.deposit_asset(AllCounted(1).into(), AccountId32 { network: None, id: [0u8; 32] }.into())
+		.buy_execution((Here, 1u128), Unlimited) // We'd need to query the destination chain for fees.
+		.deposit_asset(AllCounted(1), [0u8; 32])
 		.build();
 	let xcm_to_weigh = Xcm::<RuntimeCall>::builder_unsafe()
-		.withdraw_asset((Here, transfer_amount).into())
+		.withdraw_asset((Here, transfer_amount))
 		.clear_origin()
-		.buy_execution((Here, transfer_amount).into(), Unlimited)
-		.deposit_reserve_asset(
-			AllCounted(1).into(),
-			(Parent, Parachain(2100)).into(),
-			inner_xcm.clone(),
-		)
+		.buy_execution((Here, transfer_amount), Unlimited)
+		.deposit_reserve_asset(AllCounted(1), (Parent, Parachain(2100)), inner_xcm.clone())
 		.build();
 	let client = TestClient;
 	let runtime_api = client.runtime_api();
@@ -232,14 +222,10 @@ fn dry_run_xcm() {
 		.unwrap()
 		.unwrap();
 	let xcm = Xcm::<RuntimeCall>::builder_unsafe()
-		.withdraw_asset((Here, transfer_amount + execution_fees).into())
+		.withdraw_asset((Here, transfer_amount + execution_fees))
 		.clear_origin()
-		.buy_execution((Here, execution_fees).into(), Unlimited)
-		.deposit_reserve_asset(
-			AllCounted(1).into(),
-			(Parent, Parachain(2100)).into(),
-			inner_xcm.clone(),
-		)
+		.buy_execution((Here, execution_fees), Unlimited)
+		.deposit_reserve_asset(AllCounted(1), (Parent, Parachain(2100)), inner_xcm.clone())
 		.build();
 	let balances = vec![(
 		who,
@@ -261,19 +247,13 @@ fn dry_run_xcm() {
 				VersionedLocation::V4((Parent, Parachain(2100)).into()),
 				VersionedXcm::V4(
 					Xcm::<()>::builder_unsafe()
-						.reserve_asset_deposited(
-							(
-								(Parent, Parachain(2000)),
-								transfer_amount + execution_fees - DeliveryFees::get()
-							)
-								.into()
-						)
+						.reserve_asset_deposited((
+							(Parent, Parachain(2000)),
+							transfer_amount + execution_fees - DeliveryFees::get()
+						))
 						.clear_origin()
-						.buy_execution((Here, 1u128).into(), Unlimited.into())
-						.deposit_asset(
-							AllCounted(1).into(),
-							AccountId32 { id: [0u8; 32], network: None }.into()
-						)
+						.buy_execution((Here, 1u128), Unlimited)
+						.deposit_asset(AllCounted(1), [0u8; 32])
 						.build()
 				),
 			),]
