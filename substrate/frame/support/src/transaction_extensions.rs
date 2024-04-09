@@ -92,10 +92,9 @@ where
 	}
 }
 
-/// Transaction extension that sets the origin to the given account ID if the provided signature by
-/// that account is valid for all subsequent extensions. If signature is not provided, this
-/// extension is no-op.
-// TODO better doc.
+/// Transaction extension that sets the signed origin of the account ID from a given signature if
+/// that signature was derived from the `inherited_implication`, which contains the call and all
+/// subsequent extensions. If signature is not provided, this extension is no-op.
 #[derive(
 	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo,
 )]
@@ -127,11 +126,8 @@ where
 	<V::Signer as IdentifyAccount>::AccountId:
 		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
 {
-	pub fn new_with_sign(
-		signature: V,
-		account_id: <V::Signer as IdentifyAccount>::AccountId,
-	) -> Self {
-		Self { signature: Some((signature, account_id)) }
+	pub fn new_with_sign(signature: V, account: <V::Signer as IdentifyAccount>::AccountId) -> Self {
+		Self { signature: Some((signature, account)) }
 	}
 }
 
@@ -171,7 +167,7 @@ where
 		TransactionValidityError,
 	> {
 		let (signature, account_id) = match &self.signature {
-			Some((s, a)) => (s, a.clone()), // TODO check if origin None
+			Some((s, a)) => (s, a.clone()),
 			None => return Ok((ValidTransaction::default(), (), origin)),
 		};
 

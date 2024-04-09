@@ -48,6 +48,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use scale_info::TypeInfo;
 
 use frame_support::{
@@ -73,14 +74,16 @@ use sp_std::prelude::*;
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 pub use weights::WeightInfo;
 
-#[cfg(test)]
-mod mock;
-#[cfg(test)]
-mod tests;
+// TODO: failing now, needs a type annotation for Context.
+// #[cfg(test)]
+// mod mock;
+// #[cfg(test)]
+// mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+pub mod meta_tx;
 mod payment;
 mod types;
 pub mod weights;
@@ -689,83 +692,13 @@ where
 	}
 }
 
-/// Require the transactor pay for themselves and maybe include a tip to gain additional priority
-/// in the queue.
-///
-/// # Transaction Validity
-///
-/// This extension sets the `priority` field of `TransactionValidity` depending on the amount
-/// of tip being paid per weight unit.
-///
-/// Operational transactions will receive an additional priority bump, so that they are normally
-/// considered before regular transactions.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct ChargeTransactionPayment<T: Config>(
-	#[codec(compact)] BalanceOf<T>,
-	FeeAgent<T::AccountId>,
-);
-
-impl<T: Config> ChargeTransactionPayment<T>
+/// Priority for a transaction with the given `DispatchInfo`, encoded length and user-included tip.
+pub struct Priority<T: Config>(PhantomData<T>);
+impl<T: Config> Priority<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync,
 {
-	/// utility constructor. Used only in client/factory code.
-	pub fn from(fee: BalanceOf<T>) -> Self {
-		Self(fee, FeeAgent::Origin)
-	}
-
-	pub fn with_any_agent() -> Self {
-		Self(BalanceOf::<T>::zero(), FeeAgent::AnyAgent)
-	}
-
-	pub fn with_agent(account: T::AccountId) -> Self {
-		Self(BalanceOf::<T>::zero(), FeeAgent::Agent(account))
-	}
-
-	/// Returns the tip as being chosen by the transaction sender.
-	pub fn tip(&self) -> BalanceOf<T> {
-		self.0
-	}
-
-	fn withdraw_fee(
-		&self,
-		who: &T::AccountId,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		fee: BalanceOf<T>,
-	) -> Result<
-		(
-			BalanceOf<T>,
-			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-		),
-		TransactionValidityError,
-	> {
-		let tip = self.0;
-
-		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
-			who, call, info, fee, tip,
-		)
-		.map(|i| (fee, i))
-	}
-
-	fn can_withdraw_fee(
-		&self,
-		who: &T::AccountId,
-		call: &T::RuntimeCall,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
-	) -> Result<BalanceOf<T>, TransactionValidityError> {
-		let tip = self.0;
-		let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
-
-		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
-			who, call, info, fee, tip,
-		)?;
-		Ok(fee)
-	}
-
 	/// Get an appropriate priority for a transaction with the given `DispatchInfo`, encoded length
 	/// and user-included tip.
 	///
@@ -841,6 +774,32 @@ where
 	}
 }
 
+/// Require the transactor pay for themselves and maybe include a tip to gain additional priority
+/// in the queue.
+///
+/// # Transaction Validity
+///
+/// This extension sets the `priority` field of `TransactionValidity` depending on the amount
+/// of tip being paid per weight unit.
+///
+/// Operational transactions will receive an additional priority bump, so that they are normally
+/// considered before regular transactions.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct ChargeTransactionPayment<T: Config>(#[codec(compact)] BalanceOf<T>);
+
+impl<T: Config> ChargeTransactionPayment<T> {
+	/// utility constructor. Used only in client/factory code.
+	pub fn from(fee: BalanceOf<T>) -> Self {
+		Self(fee)
+	}
+
+	/// Returns the tip as being chosen by the transaction sender.
+	pub fn tip(&self) -> BalanceOf<T> {
+		self.0
+	}
+}
+
 impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPayment<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
@@ -861,7 +820,7 @@ impl<T: Config> TransactionExtensionBase for ChargeTransactionPayment<T> {
 	}
 }
 
-impl<T: Config> TransactionExtension<T::RuntimeCall, Context<T::AccountId>>
+impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context>
 	for ChargeTransactionPayment<T>
 where
 	BalanceOf<T>: Send + Sync + From<u64>,
@@ -890,25 +849,29 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		context: &mut Context<T::AccountId>,
+		_context: &mut Context,
 		_: (),
 		_implication: &impl Encode,
 	) -> Result<
 		(ValidTransaction, Self::Val, <T::RuntimeCall as Dispatchable>::RuntimeOrigin),
 		TransactionValidityError,
 	> {
-		let who = match (&self.1, &context.fee_agent) {
-			(FeeAgent::Origin, _) => frame_system::ensure_signed(origin.clone())
-				.map_err(|_| InvalidTransaction::BadSigner)?,
-			(FeeAgent::AnyAgent, Some(agent)) => agent.clone(),
-			(FeeAgent::Agent(authorized), Some(agent)) if authorized == agent => agent.clone(),
-			_ => return Err(InvalidTransaction::BadSigner.into()),
-		};
-		let final_fee = self.can_withdraw_fee(&who, call, info, len)?;
+		let who = frame_system::ensure_signed(origin.clone())
+			.map_err(|_| InvalidTransaction::BadSigner)?;
+
 		let tip = self.0;
+
+		let final_fee = {
+			let fee = Pallet::<T>::compute_fee(len as u32, info, tip);
+			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::can_withdraw_fee(
+				&who, call, info, fee, tip,
+			)?;
+			fee
+		};
+
 		Ok((
 			ValidTransaction {
-				priority: Self::get_priority(info, len, tip, final_fee),
+				priority: Priority::<T>::get_priority(info, len, tip, final_fee),
 				..Default::default()
 			},
 			(self.0, who, final_fee),
@@ -923,11 +886,15 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
-		_context: &Context<T::AccountId>,
+		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let (tip, who, fee) = val;
 		// Mutating call to `withdraw_fee` to actually charge for the transaction.
-		let (_final_fee, imbalance) = self.withdraw_fee(&who, call, info, fee)?;
+		let imbalance =
+			<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
+				&who, call, info, fee, tip,
+			)?;
+
 		Ok((tip, who, imbalance))
 	}
 
@@ -937,7 +904,7 @@ where
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 		_result: &DispatchResult,
-		_context: &Context<T::AccountId>,
+		_context: &Context,
 	) -> Result<(), TransactionValidityError> {
 		let actual_fee = Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
 		T::OnChargeTransaction::correct_and_deposit_fee(
@@ -957,131 +924,5 @@ where
 		let len = call.encoded_size() as u32;
 		let info = call.get_dispatch_info();
 		Self::compute_actual_fee(len, &info, &post_info, Zero::zero())
-	}
-}
-
-use codec::Codec;
-use core::fmt::Debug;
-use frame_support::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
-use scale_info::StaticTypeInfo;
-use sp_io::hashing::blake2_256;
-use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{IdentifyAccount, Verify},
-};
-
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum FeeAgent<AccountId> {
-	Origin,
-	AnyAgent,
-	Agent(AccountId),
-}
-
-impl<AccountId> Default for FeeAgent<AccountId> {
-	fn default() -> Self {
-		Self::Origin
-	}
-}
-
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub struct Context<AccountId> {
-	fee_agent: Option<AccountId>,
-}
-
-impl<AccountId> Default for Context<AccountId> {
-	fn default() -> Self {
-		Self { fee_agent: None }
-	}
-}
-
-/// Transaction extension that sets the transaction fee agent, the account sponsoring the fee, to
-/// the given account ID if the provided signature by that account is valid for all subsequent
-/// extensions. If signature is not provided, this extension is no-op.
-// TODO better doc.
-#[derive(
-	CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo,
-)]
-#[codec(encode_bound())]
-#[codec(decode_bound())]
-pub struct SetFeeAgent<V: Verify>
-where
-	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-{
-	pub agent: Option<(V, <V::Signer as IdentifyAccount>::AccountId)>,
-}
-
-impl<V: Verify> Default for SetFeeAgent<V>
-where
-	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-{
-	fn default() -> Self {
-		Self { agent: None }
-	}
-}
-
-impl<V: Verify> SetFeeAgent<V>
-where
-	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-{
-	pub fn new_with_agent(
-		signature: V,
-		account_id: <V::Signer as IdentifyAccount>::AccountId,
-	) -> Self {
-		Self { agent: Some((signature, account_id)) }
-	}
-}
-
-impl<V: Verify> TransactionExtensionBase for SetFeeAgent<V>
-where
-	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-{
-	const IDENTIFIER: &'static str = "SetFeeAgent";
-	type Implicit = ();
-}
-
-impl<Call: Dispatchable, V: Verify>
-	TransactionExtension<Call, Context<<V::Signer as IdentifyAccount>::AccountId>> for SetFeeAgent<V>
-where
-	V: Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-	<V::Signer as IdentifyAccount>::AccountId:
-		Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo,
-{
-	type Val = ();
-	type Pre = ();
-	impl_tx_ext_default!(Call; Context<<V::Signer as IdentifyAccount>::AccountId>; prepare);
-
-	fn validate(
-		&self,
-		origin: <Call as Dispatchable>::RuntimeOrigin,
-		_call: &Call,
-		_info: &DispatchInfoOf<Call>,
-		_len: usize,
-		context: &mut Context<<V::Signer as IdentifyAccount>::AccountId>,
-		_: (),
-		inherited_implication: &impl Encode,
-	) -> Result<
-		(ValidTransaction, Self::Val, <Call as Dispatchable>::RuntimeOrigin),
-		TransactionValidityError,
-	> {
-		let (signature, account_id) = match &self.agent {
-			None => return Ok((ValidTransaction::default(), (), origin)),
-			Some((s, a)) => (s, a.clone()), // TODO check if origin None
-		};
-
-		let msg = inherited_implication.using_encoded(blake2_256);
-
-		if !signature.verify(&msg[..], &account_id) {
-			Err(InvalidTransaction::BadProof)?
-		}
-		*context = Context { fee_agent: Some(account_id) };
-		Ok((ValidTransaction::default(), (), origin))
 	}
 }

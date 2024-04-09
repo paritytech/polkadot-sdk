@@ -11002,6 +11002,7 @@ dependencies = [
  "serde_json",
  "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "sp-std 14.0.0",
 ]
