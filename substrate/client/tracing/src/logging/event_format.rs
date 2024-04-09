@@ -21,12 +21,9 @@ use ansi_term::Colour;
 use regex::Regex;
 use std::fmt::{self, Write};
 use tracing::{Event, Level, Subscriber};
-use tracing_log::NormalizeEvent;
 use tracing_subscriber::{
-	field::RecordFields,
 	fmt::{format, time::FormatTime, FmtContext, FormatEvent, FormatFields},
-	layer::Context,
-	registry::{LookupSpan, SpanRef},
+	registry::LookupSpan,
 };
 
 /// A pre-configured event formatter.
@@ -258,7 +255,6 @@ mod time {
 		Ok(())
 	}
 }
-
 
 /// A writer which (optionally) strips out terminal control codes from the logs.
 ///
