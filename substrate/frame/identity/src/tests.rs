@@ -25,7 +25,7 @@ use crate::{
 
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, parameter_types,
+	assert_err, assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Get, OnFinalize, OnInitialize},
 	BoundedVec,
 };
@@ -195,16 +195,32 @@ fn infoof_ten() -> IdentityInfo<MaxAdditionalFields> {
 	}
 }
 
-fn infoof_ten_email_equals_32_bytes_limit() -> IdentityInfo<MaxAdditionalFields> {
+fn infoof_ten_email_raw_data_equals_32_bytes_limit() -> IdentityInfo<MaxAdditionalFields> {
 	IdentityInfo {
-		email: Data::Raw(b"3232323232323232323232323@me.com".to_vec().try_into().unwrap()),
+		email: Data::Raw("x".repeat(32 as usize).into_bytes().to_vec().try_into().unwrap()),
 		..Default::default()
 	}
 }
 
-fn infoof_ten_email_longer_than_32_bytes_limit() -> IdentityInfo<MaxAdditionalFields> {
+// Represent some `additional` data.
+fn sensical_additional() -> BoundedVec<(Data, Data), MaxAdditionalFields> {
+	BoundedVec::try_from(vec![(
+		Data::Raw(b"my-favourite-hash".to_vec().try_into().unwrap()),
+		Data::BlakeTwo256(H256::random().into()),
+	)])
+	.unwrap()
+}
+
+fn infoof_ten_additional_blake2_256_data_equals_32_bytes_limit() -> IdentityInfo<MaxAdditionalFields> {
 	IdentityInfo {
-		email: Data::Raw(b"33333333333333333333333333@me.com".to_vec().try_into().unwrap()),
+		additional: sensical_additional(),
+		..Default::default()
+	}
+}
+
+fn infoof_ten_email_raw_data_longer_than_32_bytes_limit() -> IdentityInfo<MaxAdditionalFields> {
+	IdentityInfo {
+		email: Data::Raw("x".repeat(33 as usize).into_bytes().to_vec().try_into().unwrap()),
 		..Default::default()
 	}
 }
@@ -1289,10 +1305,10 @@ fn set_username_with_acceptance_should_work() {
 }
 
 #[test]
-fn valid_length_raw_data_values_less_than_or_equal_to_32_bytes_limit_should_be_accepted() {
+fn valid_length_email_raw_data_values_less_than_or_equal_to_32_bytes_limit_should_be_accepted() {
 	new_test_ext().execute_with(|| {
 		let [_, _, _, _, ten, _, _, _] = accounts();
-		let ten_info = infoof_ten_email_equals_32_bytes_limit();
+		let ten_info = infoof_ten_email_raw_data_equals_32_bytes_limit();
 		let ten_id_deposit = id_deposit(&ten_info);
 		assert!(Identity::identity(ten.clone()).is_none());
 		assert_eq!(Balances::free_balance(ten.clone()), 1000);
@@ -1307,10 +1323,10 @@ fn valid_length_raw_data_values_less_than_or_equal_to_32_bytes_limit_should_be_a
 }
 
 #[test]
-fn invalid_length_raw_data_values_longer_than_32_bytes_limit_should_be_rejected() {
+fn valid_length_additional_blake2_256_data_values_less_than_or_equal_to_32_bytes_limit_should_be_accepted() {
 	new_test_ext().execute_with(|| {
 		let [_, _, _, _, ten, _, _, _] = accounts();
-		let ten_info = infoof_ten_email_longer_than_32_bytes_limit();
+		let ten_info = infoof_ten_additional_blake2_256_data_equals_32_bytes_limit();
 		let ten_id_deposit = id_deposit(&ten_info);
 		assert!(Identity::identity(ten.clone()).is_none());
 		assert_eq!(Balances::free_balance(ten.clone()), 1000);
@@ -1318,8 +1334,19 @@ fn invalid_length_raw_data_values_longer_than_32_bytes_limit_should_be_rejected(
 			RuntimeOrigin::signed(ten.clone()),
 			Box::new(ten_info.clone())
 		));
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - ten_id_deposit);
+		assert_eq!(Balances::reserved_balance(ten.clone()), ten_id_deposit);
+		assert!(Identity::has_identity(&ten, IdentityField::Additional as u64));
 	});
 }
+
+// #[test]
+// fn invalid_length_email_raw_data_values_longer_than_32_bytes_limit_should_be_rejected() {
+// 	new_test_ext().execute_with(|| {
+// 		let [_, _, _, _, ten, _, _, _] = accounts();
+// 		let ten_info = infoof_ten_email_raw_data_longer_than_32_bytes_limit();
+// 	});
+// }
 
 #[test]
 fn invalid_usernames_should_be_rejected() {

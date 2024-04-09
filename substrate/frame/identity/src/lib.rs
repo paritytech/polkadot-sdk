@@ -119,6 +119,8 @@ pub use types::{
 };
 pub use weights::WeightInfo;
 
+const LOG_TARGET: &str = "runtime::identity";
+
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
@@ -297,6 +299,7 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[derive(PartialEq)]
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Too many subs-accounts.
@@ -343,6 +346,8 @@ pub mod pallet {
 		InvalidSignature,
 		/// Setting this username requires a signature, but none was provided.
 		RequiresSignature,
+		/// The email does not meet the requirements.
+		InvalidEmail,
 		/// The username does not meet the requirements.
 		InvalidUsername,
 		/// The username is already taken.
