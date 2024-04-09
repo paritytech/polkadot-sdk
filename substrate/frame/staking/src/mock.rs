@@ -640,6 +640,27 @@ pub(crate) fn start_active_era(era_index: EraIndex) {
 	assert_eq!(current_era(), active_era());
 }
 
+// TODO: remove
+pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
+	let (payout, _rest) = InflationCalculator::era_payout(
+		Staking::eras_total_stake(active_era()),
+		Balances::total_issuance(),
+		duration,
+	);
+	assert!(payout > 0);
+	payout
+}
+
+// TODO: remove
+pub(crate) fn maximum_payout_for_duration(duration: u64) -> Balance {
+	let (payout, rest) = InflationCalculator::era_payout(
+		Staking::eras_total_stake(active_era()),
+		Balances::total_issuance(),
+		duration,
+	);
+	payout + rest
+}
+
 /// Time it takes to finish a session.
 ///
 /// Note, if you see `time_per_session() - BLOCK_TIME`, it is fine. This is because we set the
