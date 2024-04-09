@@ -42,12 +42,14 @@ use sp_api::CallApiAt;
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, NumberFor},
+	SaturatedConversion, Saturating,
+};
 use std::{
 	collections::{HashSet, VecDeque},
 	sync::Arc,
 };
-
 /// The maximum number of finalized blocks provided by the
 /// `Initialized` event.
 const MAX_FINALIZED_BLOCKS: usize = 16;
@@ -70,6 +72,9 @@ pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
 	current_best_block: Option<Block::Hash>,
 	/// LRU cache of pruned blocks.
 	pruned_blocks: LruMap<Block::Hash, ()>,
+	/// Stop all subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	max_lagging_distance: usize,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Client> {
@@ -80,6 +85,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 		sub_handle: SubscriptionManagement<Block, BE>,
 		with_runtime: bool,
 		sub_id: String,
+		max_lagging_distance: usize,
 	) -> Self {
 		Self {
 			client,
@@ -91,6 +97,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHeadFollower<BE, Block, Cli
 			pruned_blocks: LruMap::new(ByLength::new(
 				MAX_PINNED_BLOCKS.try_into().unwrap_or(u32::MAX),
 			)),
+			max_lagging_distance,
 		}
 	}
 }
@@ -199,6 +206,35 @@ where
 		}
 	}
 
+	/// Check the distance between the provided blocks does not exceed a
+	/// a reasonable range.
+	///
+	/// When the blocks are too far apart (potentially millions of blocks):
+	///  - Tree route is expensive to calculate.
+	///  - The RPC layer will not be able to generate the `NewBlock` events for all blocks.
+	///
+	/// This edge-case can happen for parachains where the relay chain syncs slower to
+	/// the head of the chain than the parachain node that is synced already.
+	fn distace_within_reason(
+		&self,
+		block: Block::Hash,
+		finalized: Block::Hash,
+	) -> Result<(), SubscriptionManagementError> {
+		let Some(block_num) = self.client.number(block)? else {
+			return Err(SubscriptionManagementError::BlockHashAbsent)
+		};
+		let Some(finalized_num) = self.client.number(finalized)? else {
+			return Err(SubscriptionManagementError::BlockHashAbsent)
+		};
+
+		let distance: usize = block_num.saturating_sub(finalized_num).saturated_into();
+		if distance > self.max_lagging_distance {
+			return Err(SubscriptionManagementError::BlockDistanceTooLarge);
+		}
+
+		Ok(())
+	}
+
 	/// Get the in-memory blocks of the client, starting from the provided finalized hash.
 	///
 	/// The reported blocks are pinned by this function.
@@ -211,6 +247,13 @@ where
 		let mut pruned_forks = HashSet::new();
 		let mut finalized_block_descendants = Vec::new();
 		let mut unique_descendants = HashSet::new();
+
+		// Ensure all leaves are within a reasonable distance from the finalized block,
+		// before traversing the tree.
+		for leaf in &leaves {
+			self.distace_within_reason(*leaf, finalized)?;
+		}
+
 		for leaf in leaves {
 			let tree_route = sp_blockchain::tree_route(blockchain, finalized, leaf)?;
 
@@ -554,7 +597,8 @@ where
 		mut stream: EventStream,
 		sink: SubscriptionSink,
 		rx_stop: oneshot::Receiver<()>,
-	) where
+	) -> Result<(), SubscriptionManagementError>
+	where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin,
 	{
 		let mut stream_item = stream.next();
@@ -588,7 +632,7 @@ where
 					);
 					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 					let _ = sink.send(msg).await;
-					return
+					return Err(err)
 				},
 			};
 
@@ -603,7 +647,8 @@ where
 
 					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 					let _ = sink.send(msg).await;
-					return
+					// No need to propagate this error further, the client disconnected.
+					return Ok(())
 				}
 			}
 
@@ -617,6 +662,7 @@ where
 		// - the client disconnected.
 		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 		let _ = sink.send(msg).await;
+		Ok(())
 	}
 
 	/// Generate the block events for the `chainHead_follow` method.
@@ -624,7 +670,7 @@ where
 		&mut self,
 		sink: SubscriptionSink,
 		sub_data: InsertedSubscriptionData<Block>,
-	) {
+	) -> Result<(), SubscriptionManagementError> {
 		// Register for the new block and finalized notifications.
 		let stream_import = self
 			.client
@@ -652,7 +698,7 @@ where
 				);
 				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
 				let _ = sink.send(msg).await;
-				return
+				return Err(err)
 			},
 		};
 
@@ -665,6 +711,6 @@ where
 		for pruned in pruned_forks {
 			self.pruned_blocks.insert(pruned, ());
 		}
-		self.submit_events(&startup_point, stream.boxed(), sink, sub_data.rx_stop).await;
+		self.submit_events(&startup_point, stream.boxed(), sink, sub_data.rx_stop).await
 	}
 }

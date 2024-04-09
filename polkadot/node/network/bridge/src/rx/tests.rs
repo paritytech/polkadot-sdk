@@ -366,13 +366,13 @@ impl NotificationService for TestNotificationService {
 	}
 
 	/// Send synchronous `notification` to `peer`.
-	fn send_sync_notification(&self, _peer: &PeerId, _notification: Vec<u8>) {
+	fn send_sync_notification(&mut self, _peer: &PeerId, _notification: Vec<u8>) {
 		unimplemented!();
 	}
 
 	/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	async fn send_async_notification(
-		&self,
+		&mut self,
 		_peer: &PeerId,
 		_notification: Vec<u8>,
 	) -> Result<(), sc_network::error::Error> {
