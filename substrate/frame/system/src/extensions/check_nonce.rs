@@ -15,10 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Config;
+use crate::{AccountInfo, Config};
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchInfo;
 use scale_info::TypeInfo;
+use sp_core::{Get, GetDefault};
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, One, SignedExtension, Zero},
 	transaction_validity::{
@@ -35,21 +36,39 @@ use sp_std::vec;
 /// This extension affects `requires` and `provides` tags of validity, but DOES NOT
 /// set the `priority` field. Make sure that AT LEAST one of the signed extension sets
 /// some kind of priority upon validating transactions.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct CheckNonce<T: Config>(#[codec(compact)] pub T::Nonce);
+#[derive(Encode, Decode, TypeInfo)]
+#[scale_info(skip_type_params(T, DefaultNonce))]
+pub struct CheckNonce<T: Config, DefaultNonce = GetDefault> {
+	#[codec(compact)]
+	pub nonce: T::Nonce,
+	_phantom: core::marker::PhantomData<DefaultNonce>,
+}
 
-impl<T: Config> CheckNonce<T> {
-	/// utility constructor. Used only in client/factory code.
-	pub fn from(nonce: T::Nonce) -> Self {
-		Self(nonce)
+impl<T: Config, DefaultNonce> Clone for CheckNonce<T, DefaultNonce> {
+	fn clone(&self) -> Self {
+		Self { nonce: self.nonce, _phantom: Default::default() }
 	}
 }
 
-impl<T: Config> sp_std::fmt::Debug for CheckNonce<T> {
+impl<T: Config, DefaultNonce> Eq for CheckNonce<T, DefaultNonce> {}
+
+impl<T: Config, DefaultNonce> PartialEq for CheckNonce<T, DefaultNonce> {
+	fn eq(&self, other: &Self) -> bool {
+		self.nonce == other.nonce
+	}
+}
+
+impl<T: Config, DefaultNonce> CheckNonce<T, DefaultNonce> {
+	/// utility constructor. Used only in client/factory code.
+	pub fn from(nonce: T::Nonce) -> Self {
+		Self { nonce, _phantom: Default::default() }
+	}
+}
+
+impl<T: Config, DefaultNonce> sp_std::fmt::Debug for CheckNonce<T, DefaultNonce> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "CheckNonce({})", self.0)
+		write!(f, "CheckNonce({})", self.nonce)
 	}
 
 	#[cfg(not(feature = "std"))]
@@ -58,7 +77,8 @@ impl<T: Config> sp_std::fmt::Debug for CheckNonce<T> {
 	}
 }
 
-impl<T: Config> SignedExtension for CheckNonce<T>
+impl<T: Config, DefaultNonce: Get<T::Nonce> + Send + Sync + 'static> SignedExtension
+	for CheckNonce<T, DefaultNonce>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo>,
 {
@@ -79,13 +99,14 @@ where
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> Result<(), TransactionValidityError> {
-		let mut account = crate::Account::<T>::get(who);
+		let mut account = crate::Account::<T>::try_get(who)
+			.unwrap_or_else(|_| AccountInfo { nonce: DefaultNonce::get(), ..Default::default() });
 		if account.providers.is_zero() && account.sufficients.is_zero() {
 			// Nonce storage not paid for
 			return Err(InvalidTransaction::Payment.into())
 		}
-		if self.0 != account.nonce {
-			return Err(if self.0 < account.nonce {
+		if self.nonce != account.nonce {
+			return Err(if self.nonce < account.nonce {
 				InvalidTransaction::Stale
 			} else {
 				InvalidTransaction::Future
@@ -104,18 +125,19 @@ where
 		_info: &DispatchInfoOf<Self::Call>,
 		_len: usize,
 	) -> TransactionValidity {
-		let account = crate::Account::<T>::get(who);
+		let account = crate::Account::<T>::try_get(who)
+			.unwrap_or_else(|_| AccountInfo { nonce: DefaultNonce::get(), ..Default::default() });
 		if account.providers.is_zero() && account.sufficients.is_zero() {
 			// Nonce storage not paid for
 			return InvalidTransaction::Payment.into()
 		}
-		if self.0 < account.nonce {
+		if self.nonce < account.nonce {
 			return InvalidTransaction::Stale.into()
 		}
 
-		let provides = vec![Encode::encode(&(who, self.0))];
-		let requires = if account.nonce < self.0 {
-			vec![Encode::encode(&(who, self.0 - One::one()))]
+		let provides = vec![Encode::encode(&(who, self.nonce))];
+		let requires = if account.nonce < self.nonce {
+			vec![Encode::encode(&(who, self.nonce - One::one()))]
 		} else {
 			vec![]
 		};
@@ -153,20 +175,20 @@ mod tests {
 			let len = 0_usize;
 			// stale
 			assert_noop!(
-				CheckNonce::<Test>(0).validate(&1, CALL, &info, len),
+				CheckNonce::<Test>::from(0).validate(&1, CALL, &info, len),
 				InvalidTransaction::Stale
 			);
 			assert_noop!(
-				CheckNonce::<Test>(0).pre_dispatch(&1, CALL, &info, len),
+				CheckNonce::<Test>::from(0).pre_dispatch(&1, CALL, &info, len),
 				InvalidTransaction::Stale
 			);
 			// correct
-			assert_ok!(CheckNonce::<Test>(1).validate(&1, CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).pre_dispatch(&1, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>::from(1).validate(&1, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>::from(1).pre_dispatch(&1, CALL, &info, len));
 			// future
-			assert_ok!(CheckNonce::<Test>(5).validate(&1, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>::from(5).validate(&1, CALL, &info, len));
 			assert_noop!(
-				CheckNonce::<Test>(5).pre_dispatch(&1, CALL, &info, len),
+				CheckNonce::<Test>::from(5).pre_dispatch(&1, CALL, &info, len),
 				InvalidTransaction::Future
 			);
 		})
@@ -199,19 +221,19 @@ mod tests {
 			let len = 0_usize;
 			// Both providers and sufficients zero
 			assert_noop!(
-				CheckNonce::<Test>(1).validate(&1, CALL, &info, len),
+				CheckNonce::<Test>::from(1).validate(&1, CALL, &info, len),
 				InvalidTransaction::Payment
 			);
 			assert_noop!(
-				CheckNonce::<Test>(1).pre_dispatch(&1, CALL, &info, len),
+				CheckNonce::<Test>::from(1).pre_dispatch(&1, CALL, &info, len),
 				InvalidTransaction::Payment
 			);
 			// Non-zero providers
-			assert_ok!(CheckNonce::<Test>(1).validate(&2, CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).pre_dispatch(&2, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>::from(1).validate(&2, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>::from(1).pre_dispatch(&2, CALL, &info, len));
 			// Non-zero sufficients
-			assert_ok!(CheckNonce::<Test>(1).validate(&3, CALL, &info, len));
-			assert_ok!(CheckNonce::<Test>(1).pre_dispatch(&3, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>::from(1).validate(&3, CALL, &info, len));
+			assert_ok!(CheckNonce::<Test>::from(1).pre_dispatch(&3, CALL, &info, len));
 		})
 	}
 }
