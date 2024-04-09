@@ -27,7 +27,7 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::{NetworkBackend, NetworkBlock};
+use sc_network::NetworkBlock;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
@@ -113,7 +113,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		config,
 		telemetry.as_ref().map(|telemetry| telemetry.handle()),
 		&task_manager,
-	)?;
+	);
 
 	Ok(PartialComponents {
 		backend,
@@ -127,11 +127,100 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 	})
 }
 
+/// Build the import queue for the parachain runtime.
+fn build_import_queue(
+	client: Arc<ParachainClient>,
+	block_import: ParachainBlockImport,
+	config: &Configuration,
+	telemetry: Option<TelemetryHandle>,
+	task_manager: &TaskManager,
+) -> sc_consensus::DefaultImportQueue<Block> {
+	cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
+		sp_consensus_aura::sr25519::AuthorityPair,
+		_,
+		_,
+		_,
+		_,
+	>(
+		client,
+		block_import,
+		move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			Ok(timestamp)
+		},
+		&task_manager.spawn_essential_handle(),
+		config.prometheus_registry(),
+		telemetry,
+	)
+}
+
+fn start_consensus(
+	client: Arc<ParachainClient>,
+	block_import: ParachainBlockImport,
+	prometheus_registry: Option<&Registry>,
+	telemetry: Option<TelemetryHandle>,
+	task_manager: &TaskManager,
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
+	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient>>,
+	sync_oracle: Arc<SyncingService<Block>>,
+	keystore: KeystorePtr,
+	relay_chain_slot_duration: Duration,
+	para_id: ParaId,
+	collator_key: CollatorPair,
+	overseer_handle: OverseerHandle,
+	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+) -> Result<(), sc_service::Error> {
+	use cumulus_client_consensus_aura::collators::basic::{
+		self as basic_aura, Params as BasicAuraParams,
+	};
+
+	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		task_manager.spawn_handle(),
+		client.clone(),
+		transaction_pool,
+		prometheus_registry,
+		telemetry.clone(),
+	);
+
+	let proposer = Proposer::new(proposer_factory);
+
+	let collator_service = CollatorService::new(
+		client.clone(),
+		Arc::new(task_manager.spawn_handle()),
+		announce_block,
+		client.clone(),
+	);
+
+	let params = BasicAuraParams {
+		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+		block_import,
+		para_client: client,
+		relay_client: relay_chain_interface,
+		sync_oracle,
+		keystore,
+		collator_key,
+		para_id,
+		overseer_handle,
+		relay_chain_slot_duration,
+		proposer,
+		collator_service,
+		// Very limited proposal time.
+		authoring_duration: Duration::from_millis(500),
+		collation_request_receiver: None,
+	};
+
+	let fut =
+		basic_aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _>(
+			params,
+		);
+	task_manager.spawn_essential_handle().spawn("aura", None, fut);
+
+	Ok(())
+}
+
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
-///
-/// This is the actual implementation that is abstract over the executor and the runtime api.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_node_impl<N: NetworkBackend<Block, Hash>>(
+pub async fn start_parachain_node(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -142,8 +231,11 @@ async fn start_node_impl<N: NetworkBackend<Block, Hash>>(
 
 	let params = new_partial(&parachain_config)?;
 	let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
-	let net_config =
-		sc_network::config::FullNetworkConfiguration::<_, _, N>::new(&parachain_config.network);
+	let net_config = sc_network::config::FullNetworkConfiguration::<
+		_,
+		_,
+		sc_network::NetworkWorker<Block, Hash>,
+	>::new(&parachain_config.network);
 
 	let client = params.client.clone();
 	let backend = params.backend.clone();
@@ -165,6 +257,8 @@ async fn start_node_impl<N: NetworkBackend<Block, Hash>>(
 	let transaction_pool = params.transaction_pool.clone();
 	let import_queue_service = params.import_queue.service();
 
+	// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
+	// when starting the network.
 	let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
@@ -307,134 +401,4 @@ async fn start_node_impl<N: NetworkBackend<Block, Hash>>(
 	start_network.start_network();
 
 	Ok((task_manager, client))
-}
-
-/// Build the import queue for the parachain runtime.
-fn build_import_queue(
-	client: Arc<ParachainClient>,
-	block_import: ParachainBlockImport,
-	config: &Configuration,
-	telemetry: Option<TelemetryHandle>,
-	task_manager: &TaskManager,
-) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error> {
-	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
-	Ok(cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
-		sp_consensus_aura::sr25519::AuthorityPair,
-		_,
-		_,
-		_,
-		_,
-	>(
-		client,
-		block_import,
-		move |_, _| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			Ok(timestamp)
-		},
-		slot_duration,
-		&task_manager.spawn_essential_handle(),
-		config.prometheus_registry(),
-		telemetry,
-	))
-}
-
-fn start_consensus(
-	client: Arc<ParachainClient>,
-	block_import: ParachainBlockImport,
-	prometheus_registry: Option<&Registry>,
-	telemetry: Option<TelemetryHandle>,
-	task_manager: &TaskManager,
-	relay_chain_interface: Arc<dyn RelayChainInterface>,
-	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient>>,
-	sync_oracle: Arc<SyncingService<Block>>,
-	keystore: KeystorePtr,
-	relay_chain_slot_duration: Duration,
-	para_id: ParaId,
-	collator_key: CollatorPair,
-	overseer_handle: OverseerHandle,
-	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
-) -> Result<(), sc_service::Error> {
-	use cumulus_client_consensus_aura::collators::basic::{
-		self as basic_aura, Params as BasicAuraParams,
-	};
-
-	// NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
-	// when starting the network.
-
-	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
-	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-		task_manager.spawn_handle(),
-		client.clone(),
-		transaction_pool,
-		prometheus_registry,
-		telemetry.clone(),
-	);
-
-	let proposer = Proposer::new(proposer_factory);
-
-	let collator_service = CollatorService::new(
-		client.clone(),
-		Arc::new(task_manager.spawn_handle()),
-		announce_block,
-		client.clone(),
-	);
-
-	let params = BasicAuraParams {
-		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-		block_import,
-		para_client: client,
-		relay_client: relay_chain_interface,
-		sync_oracle,
-		keystore,
-		collator_key,
-		para_id,
-		overseer_handle,
-		slot_duration,
-		relay_chain_slot_duration,
-		proposer,
-		collator_service,
-		// Very limited proposal time.
-		authoring_duration: Duration::from_millis(500),
-		collation_request_receiver: None,
-	};
-
-	let fut =
-		basic_aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _>(
-			params,
-		);
-	task_manager.spawn_essential_handle().spawn("aura", None, fut);
-
-	Ok(())
-}
-
-/// Start a parachain node.
-pub async fn start_parachain_node(
-	parachain_config: Configuration,
-	polkadot_config: Configuration,
-	collator_options: CollatorOptions,
-	para_id: ParaId,
-	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient>)> {
-	match polkadot_config.network.network_backend {
-		sc_network::config::NetworkBackendType::Libp2p =>
-			start_node_impl::<sc_network::NetworkWorker<_, _>>(
-				parachain_config,
-				polkadot_config,
-				collator_options,
-				para_id,
-				hwbench,
-			)
-			.await,
-		sc_network::config::NetworkBackendType::Litep2p =>
-			start_node_impl::<sc_network::Litep2pNetworkBackend>(
-				parachain_config,
-				polkadot_config,
-				collator_options,
-				para_id,
-				hwbench,
-			)
-			.await,
-	}
 }

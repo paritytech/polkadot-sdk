@@ -70,7 +70,6 @@ impl NaiveEquivocationDefender {
 struct Verifier<P, Client, Block, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
-	slot_duration: SlotDuration,
 	defender: NaiveEquivocationDefender,
 	telemetry: Option<TelemetryHandle>,
 	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
@@ -110,7 +109,13 @@ where
 				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
 			})?;
 
-			let slot_now = slot_now(self.slot_duration);
+			let slot_duration = self
+				.client
+				.runtime_api()
+				.slot_duration(parent_hash)
+				.map_err(|e| e.to_string())?;
+
+			let slot_now = slot_now(slot_duration);
 			let res = aura_internal::check_header_slot_and_seal::<Block, P>(
 				slot_now,
 				block_params.header,
@@ -218,7 +223,6 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	client: Arc<Client>,
 	block_import: I,
 	create_inherent_data_providers: CIDP,
-	slot_duration: SlotDuration,
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&substrate_prometheus_endpoint::Registry>,
 	telemetry: Option<TelemetryHandle>,
@@ -240,7 +244,6 @@ where
 		client,
 		create_inherent_data_providers,
 		defender: NaiveEquivocationDefender::default(),
-		slot_duration,
 		telemetry,
 		_phantom: std::marker::PhantomData,
 	};
