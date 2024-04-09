@@ -117,6 +117,10 @@ pub mod unversioned {
 	// FIXME(ank4n) convert to MBM.
 	impl<T: Config> OnRuntimeUpgrade for DelegationStakeMigration<T> {
 		fn on_runtime_upgrade() -> Weight {
+			if StakeStrategyType::<T>::get() == adapter::StakeStrategyType::Transfer {
+				return T::DbWeight::get().reads_writes(1, 0)
+			}
+
 			let mut migrate_count: u32 = 0;
 			let mut fail_count: u32 = 0;
 			BondedPools::<T>::iter().for_each(|(id, _inner)| {
@@ -126,6 +130,9 @@ pub mod unversioned {
 					fail_count.saturating_inc();
 				}
 			});
+
+			// mark migrated to Delegate Strategy.
+			StakeStrategyType::<T>::put(adapter::StakeStrategyType::Delegate);
 
 			// TODO(ank4n) bench `migrate_to_delegate_stake`.
 			Weight::default()

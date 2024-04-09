@@ -18,6 +18,24 @@
 use crate::*;
 use sp_staking::DelegationInterface;
 
+/// Types of stake strategies.
+///
+/// Useful for determining current staking strategy of a runtime and enforce integrity tests.
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq)]
+pub enum StakeStrategyType {
+	/// The older staking strategy where funds are transferred to pool account and staked.
+	Transfer,
+	/// The newer staking strategy where funds are delegated to pool account and staked.
+	Delegate,
+}
+
+impl Default for StakeStrategyType {
+	fn default() -> Self {
+		// default to the older strategy before migration.
+		StakeStrategyType::Transfer
+	}
+}
+
 /// An adapter trait that can support multiple staking strategies.
 ///
 /// Depending on which staking strategy we want to use, the staking logic can be slightly
@@ -27,6 +45,11 @@ pub trait StakeStrategy {
 	type Balance: frame_support::traits::tokens::Balance;
 	type AccountId: Clone + sp_std::fmt::Debug;
 	type CoreStaking: StakingInterface<Balance = Self::Balance, AccountId = Self::AccountId>;
+
+	/// The type of staking strategy.
+	fn strategy_type() -> StakeStrategyType {
+		StakeStrategyType::default()
+	}
 
 	/// See [`StakingInterface::bonding_duration`].
 	fn bonding_duration() -> EraIndex {
@@ -153,6 +176,10 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	type AccountId = T::AccountId;
 	type CoreStaking = Staking;
 
+	fn strategy_type() -> StakeStrategyType {
+		StakeStrategyType::Transfer
+	}
+
 	fn transferable_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
 		T::Currency::balance(pool_account).saturating_sub(Self::active_stake(pool_account))
 	}
@@ -235,6 +262,8 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 /// This is the newer staking strategy used by pools. Once switched to this and migrated, ideally
 /// the `TransferStake` strategy should not be used. Or a separate migration would be required for
 /// it which is not provided by this pallet.
+///
+/// Use [`migration::unversioned::DelegationStakeMigration`] to switch to DelegationStake strategy.
 pub struct DelegateStake<T: Config, Staking: StakingInterface, Delegation: DelegationInterface>(
 	PhantomData<(T, Staking, Delegation)>,
 );
@@ -248,6 +277,10 @@ impl<
 	type Balance = BalanceOf<T>;
 	type AccountId = T::AccountId;
 	type CoreStaking = Staking;
+
+	fn strategy_type() -> StakeStrategyType {
+		StakeStrategyType::Delegate
+	}
 
 	fn transferable_balance(pool_account: &Self::AccountId) -> BalanceOf<T> {
 		Delegation::agent_balance(pool_account).saturating_sub(Self::active_stake(pool_account))

@@ -1740,6 +1740,10 @@ pub mod pallet {
 	pub type ClaimPermissions<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, ClaimPermission, ValueQuery>;
 
+	/// Current strategy of the pool.
+	#[pallet::storage]
+	pub type StakeStrategyType<T: Config> = StorageValue<_, adapter::StakeStrategyType, ValueQuery>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub min_join_bond: BalanceOf<T>,
@@ -3603,6 +3607,13 @@ impl<T: Config> Pallet<T> {
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
 		// result of an intentional ED change.
 		let _ = Self::check_ed_imbalance()?;
+
+		// ensure staking strategy is correctly set.
+		assert_eq!(
+			<StakeStrategyType<T>>::get(),
+			T::StakeAdapter::strategy_type(),
+			"Mismatched staking strategy type."
+		);
 
 		Ok(())
 	}
