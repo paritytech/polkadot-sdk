@@ -51,8 +51,8 @@ use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
-	UnlockChunk
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnlockChunk,
+	ValidatorPrefs,
 };
 
 use super::pallet::*;
