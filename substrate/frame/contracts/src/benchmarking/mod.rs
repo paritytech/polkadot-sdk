@@ -40,7 +40,7 @@ use frame_support::{
 	self,
 	pallet_prelude::StorageVersion,
 	traits::{fungible::InspectHold, Currency},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
 use pallet_balances;
@@ -198,7 +198,7 @@ mod benchmarks {
 	fn on_process_deletion_queue_batch() {
 		#[block]
 		{
-			ContractInfo::<T>::process_deletion_queue_batch(Weight::MAX);
+			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
 	}
 
@@ -213,7 +213,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			ContractInfo::<T>::process_deletion_queue_batch(Weight::MAX);
+			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
 
 		Ok(())
@@ -226,7 +226,7 @@ mod benchmarks {
 		let mut m = v09::Migration::<T>::default();
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -244,7 +244,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 
 		Ok(())
@@ -259,7 +259,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -276,7 +276,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -291,7 +291,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 		Ok(())
 	}
@@ -307,7 +307,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 	}
 
@@ -322,7 +322,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 
 		Ok(())
@@ -332,15 +332,15 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn migration_noop() {
 		let version = LATEST_MIGRATION_VERSION;
-		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
+		StorageVersion::new(version).put::<Pallet<T>>();
 		#[block]
 		{
-			Migration::<T>::migrate(Weight::MAX);
+			Migration::<T>::migrate(&mut WeightMeter::new());
 		}
 		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
 	}
 
-	// This benchmarks the weight of dispatching migrate to execute 1 `NoopMigraton`
+	// This benchmarks the weight of dispatching migrate to execute 1 `NoopMigration`
 	#[benchmark(pov_mode = Measured)]
 	fn migrate() {
 		let latest_version = LATEST_MIGRATION_VERSION;
@@ -358,7 +358,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn on_runtime_upgrade_noop() {
 		let latest_version = LATEST_MIGRATION_VERSION;
-		assert_eq!(StorageVersion::get::<Pallet<T>>(), latest_version);
+		StorageVersion::new(latest_version).put::<Pallet<T>>();
 		#[block]
 		{
 			<Migration<T, false> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade();
@@ -1859,7 +1859,7 @@ mod benchmarks {
 
 	// We call unique accounts.
 	//
-	// This is a slow call: We redeuce the number of runs.
+	// This is a slow call: We reduce the number of runs.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(r: Linear<0, { API_BENCHMARK_RUNS / 2 }>) -> Result<(), BenchmarkError> {
 		let dummy_code = WasmModule::<T>::dummy_with_bytes(0);
@@ -1937,7 +1937,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// This is a slow call: We redeuce the number of runs.
+	// This is a slow call: We reduce the number of runs.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call(r: Linear<0, { API_BENCHMARK_RUNS / 2 }>) -> Result<(), BenchmarkError> {
 		let hashes = (0..r)
@@ -2473,7 +2473,7 @@ mod benchmarks {
 
 	// Only calling the function itself for the list of
 	// generated different ECDSA keys.
-	// This is a slow call: We redeuce the number of runs.
+	// This is a slow call: We reduce the number of runs.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_ecdsa_to_eth_address(
 		r: Linear<0, { API_BENCHMARK_RUNS / 10 }>,
@@ -2776,7 +2776,8 @@ mod benchmarks {
 	#[benchmark(extra, pov_mode = Ignored)]
 	fn print_schedule() -> Result<(), BenchmarkError> {
 		let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
-		let (weight_per_key, key_budget) = ContractInfo::<T>::deletion_budget(max_weight);
+		let (weight_per_key, key_budget) =
+			ContractInfo::<T>::deletion_budget(&mut WeightMeter::with_limit(max_weight));
 		let schedule = T::Schedule::get();
 		log::info!(target: LOG_TARGET, "
 		{schedule:#?}

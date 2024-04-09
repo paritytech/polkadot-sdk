@@ -21,8 +21,9 @@ mod schema_v1 {
 }
 
 use super::*;
-use libp2p::{identity::Keypair, multiaddr::Multiaddr, PeerId};
+use libp2p::identity::Keypair;
 use prost::Message;
+use sc_network::{Multiaddr, PeerId};
 
 #[test]
 fn v2_decodes_v1() {

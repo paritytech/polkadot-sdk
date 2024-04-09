@@ -543,9 +543,9 @@ async fn all_security_features_work() {
 // artifacts cache existing.
 #[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
 #[tokio::test]
-async fn nonexistant_cache_dir() {
+async fn nonexistent_cache_dir() {
 	let host = TestHost::new_with_config(|cfg| {
-		cfg.cache_path = cfg.cache_path.join("nonexistant_cache_dir");
+		cfg.cache_path = cfg.cache_path.join("nonexistent_cache_dir");
 	})
 	.await;
 
