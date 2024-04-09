@@ -111,7 +111,7 @@ pub type ForeignAssetsConvertedConcreteId<AdditionalLocationExclusionFilter, Bal
 		Balance,
 	>;
 
-type AssetIdForPoolAssets = u32;
+pub type AssetIdForPoolAssets = u32;
 /// `Location` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
 pub type AssetIdForPoolAssetsConvert<PoolAssetsPalletLocation> =
 	AsPrefixedGeneralIndex<PoolAssetsPalletLocation, AssetIdForPoolAssets, JustTry>;

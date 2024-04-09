@@ -81,7 +81,7 @@ pub use pallet::*;
 
 use frame_support::{
 	traits::{
-		fungibles::{Balanced, Inspect, Mutate},
+		fungibles::{Inspect, Mutate},
 		tokens::Balance,
 	},
 	PalletId,
@@ -182,8 +182,7 @@ pub mod pallet {
 		/// Registry of assets that can be configured to either stake for rewards, or be offered as
 		/// rewards for staking.
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetId, Balance = Self::Balance>
-			+ Mutate<Self::AccountId>
-			+ Balanced<Self::AccountId>;
+			+ Mutate<Self::AccountId>;
 
 		/// Weight information for extrinsics in this pallet.
 		// type WeightInfo: WeightInfo;
