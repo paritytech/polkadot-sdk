@@ -19,7 +19,7 @@
 //! See <https://github.com/paritytech/substrate/pull/14079>.
 
 use crate::{
-	migration::{IsFinished, MigrationStep},
+	migration::{IsFinished, ContractsMigrationStep},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
 };
@@ -95,7 +95,7 @@ pub struct Migration<T: Config> {
 	last_account: Option<T::AccountId>,
 }
 
-impl<T: Config> MigrationStep for Migration<T> {
+impl<T: Config> ContractsMigrationStep for Migration<T> {
 	const VERSION: u16 = 13;
 
 	fn max_step_weight() -> Weight {

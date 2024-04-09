@@ -19,7 +19,7 @@
 //! repay deposits.
 
 use crate::{
-	migration::{IsFinished, MigrationStep},
+	migration::{IsFinished, ContractsMigrationStep},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeHash, Config, Determinism, Pallet, Weight, LOG_TARGET,
 };
@@ -136,7 +136,7 @@ where
 	_phantom: PhantomData<OldCurrency>,
 }
 
-impl<T: Config, OldCurrency> MigrationStep for Migration<T, OldCurrency>
+impl<T: Config, OldCurrency> ContractsMigrationStep for Migration<T, OldCurrency>
 where
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId> + 'static,
 	OldCurrency::Balance: From<BalanceOf<T>>,

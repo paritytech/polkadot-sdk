@@ -22,7 +22,7 @@
 
 use crate::{
 	exec::AccountIdOf,
-	migration::{IsFinished, MigrationStep},
+	migration::{IsFinished, ContractsMigrationStep},
 	weights::WeightInfo,
 	BalanceOf, CodeHash, Config, Determinism, HoldReason, Pallet, Weight, LOG_TARGET,
 };
@@ -121,7 +121,7 @@ where
 	_phantom: PhantomData<(T, OldCurrency)>,
 }
 
-impl<T, OldCurrency> MigrationStep for Migration<T, OldCurrency>
+impl<T, OldCurrency> ContractsMigrationStep for Migration<T, OldCurrency>
 where
 	T: Config,
 	OldCurrency: 'static + ReservableCurrency<<T as frame_system::Config>::AccountId>,

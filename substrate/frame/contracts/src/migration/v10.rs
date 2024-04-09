@@ -20,7 +20,7 @@
 
 use crate::{
 	exec::AccountIdOf,
-	migration::{IsFinished, MigrationStep},
+	migration::{IsFinished, ContractsMigrationStep},
 	weights::WeightInfo,
 	CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
 };
@@ -150,7 +150,7 @@ fn deposit_address<T: Config>(
 		.expect("infinite length input; no invalid inputs for type; qed")
 }
 
-impl<T: Config, OldCurrency: 'static> MigrationStep for Migration<T, OldCurrency>
+impl<T: Config, OldCurrency: 'static> ContractsMigrationStep for Migration<T, OldCurrency>
 where
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>
 		+ Inspect<<T as frame_system::Config>::AccountId, Balance = v9::BalanceOf<T, OldCurrency>>,

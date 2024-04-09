@@ -23,7 +23,7 @@
 //! Then the deposit account is not needed anymore and we can get rid of it.
 
 use crate::{
-	migration::{IsFinished, MigrationStep},
+	migration::{IsFinished, ContractsMigrationStep},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeHash, Config, HoldReason, Pallet, TrieId, Weight, LOG_TARGET,
 };
@@ -119,7 +119,7 @@ pub struct Migration<T: Config> {
 	last_account: Option<T::AccountId>,
 }
 
-impl<T: Config> MigrationStep for Migration<T> {
+impl<T: Config> ContractsMigrationStep for Migration<T> {
 	const VERSION: u16 = 15;
 
 	fn max_step_weight() -> Weight {
