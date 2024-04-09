@@ -100,13 +100,26 @@ where
 	}
 
 	fn step(
-		cursor: Option<Self::Cursor>,
+		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		match cursor.unwrap_or_default() {
-			Cursor::Deposit(index) => Ok(Some(Self::deposit_step(index, meter)?)),
-			Cursor::Vote(account) => Self::vote_step(account, meter),
+		let required = T::WeightInfo::v2_migrate_deposit(MaxDepositsOf::<T>::get());
+		if !meter.can_consume(required) {
+			return Err(SteppedMigrationError::InsufficientWeight { required })
 		}
+
+		loop {
+			if meter.try_consume(required).is_err() {
+				break;
+			}
+
+			cursor = match cursor.unwrap_or_default() {
+				Cursor::Deposit(index) => Some(Self::deposit_step(index, meter)),
+				Cursor::Vote(account) => Self::vote_step(account, meter),
+			}
+		}
+
+		Ok(cursor)
 	}
 }
 
@@ -119,16 +132,7 @@ where
 	OldCurrency::Balance: IsType<BalanceOf<T>>,
 {
 	/// Migrate a single deposit from reserve to hold.
-	pub fn deposit_step(
-		index: Option<PropIndex>,
-		meter: &mut WeightMeter,
-	) -> Result<Cursor<T>, SteppedMigrationError> {
-		// Check there are enough weight to proceed.
-		let required = T::WeightInfo::v2_migrate_deposit(MaxDepositsOf::<T>::get());
-		if !meter.can_consume(required) {
-			return Err(SteppedMigrationError::InsufficientWeight { required })
-		}
-
+	pub fn deposit_step(index: Option<PropIndex>, meter: &mut WeightMeter) -> Cursor<T> {
 		// Iterate to next deposit.
 		let next_deposit = (if let Some(index) = index {
 			old::DepositOf::<T>::iter_from(old::DepositOf::<T>::hashed_key_for(index))
@@ -143,24 +147,15 @@ where
 			accounts
 				.into_iter()
 				.for_each(|depositor| Self::translate_reserve_to_hold(&depositor, amount.into()));
-			Ok(Cursor::Deposit(Some(index)))
+			Cursor::Deposit(Some(index))
 		} else {
 			meter.consume(T::WeightInfo::v2_migrate_deposit(0));
-			Ok(Cursor::Vote(None))
+			Cursor::Vote(None)
 		}
 	}
 
 	/// Migrate a single vote from lock to freeze.
-	pub fn vote_step(
-		index: Option<AccountIdOf<T>>,
-		meter: &mut WeightMeter,
-	) -> Result<Option<Cursor<T>>, SteppedMigrationError> {
-		// Check there are enough weight to proceed.
-		let required = T::WeightInfo::v2_migrate_vote(1);
-		if !meter.can_consume(required) {
-			return Err(SteppedMigrationError::InsufficientWeight { required })
-		}
-
+	pub fn vote_step(index: Option<AccountIdOf<T>>, meter: &mut WeightMeter) -> Option<Cursor<T>> {
 		// Iterate to next vote.
 		let next_vote = (if let Some(index) = index {
 			old::VotingOf::<T>::iter_from(old::VotingOf::<T>::hashed_key_for(index))
@@ -174,10 +169,10 @@ where
 			meter.consume(T::WeightInfo::v2_migrate_vote(1));
 			let balance = voting.locked_balance().into();
 			Self::translate_lock_to_freeze(&account_id, balance);
-			Ok(Some(Cursor::Vote(Some(account_id))))
+			Some(Cursor::Vote(Some(account_id)))
 		} else {
 			meter.consume(T::WeightInfo::v2_migrate_vote(0));
-			Ok(None)
+			None
 		}
 	}
 
