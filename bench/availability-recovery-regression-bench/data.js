@@ -2,7 +2,7 @@ window.BENCHMARK_DATA = {
   "lastUpdate": 1712671141039,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
-    "Benchmark": [
+    "availability-recovery-regression-bench": [
       {
         "commit": {
           "author": {
@@ -2144,9 +2144,7 @@ window.BENCHMARK_DATA = {
             "unit": "seconds"
           }
         ]
-      }
-    ],
-    "availability-recovery-regression-bench": [
+      },
       {
         "commit": {
           "author": {
