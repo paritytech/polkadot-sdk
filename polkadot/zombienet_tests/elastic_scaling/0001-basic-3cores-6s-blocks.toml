@@ -20,8 +20,8 @@ chain = "rococo-local"
 default_command = "polkadot"
 
   [relaychain.default_resources]
-  limits = { memory = "4G", cpu = "2" }
-  requests = { memory = "2G", cpu = "2" }
+  limits = { memory = "4G", cpu = "3" }
+  requests = { memory = "4G", cpu = "3" }
 
   [[relaychain.node_groups]]
   name = "elastic-validator"
@@ -33,8 +33,8 @@ default_command = "polkadot"
 id = {{id}}
 addToGenesis = true
     [parachains.default_resources]
-    limits = { memory = "4G", cpu = "2" }
-    requests = { memory = "2G", cpu = "2" }
+    limits = { memory = "4G", cpu = "3" }
+    requests = { memory = "4G", cpu = "3" }
 
     [parachains.collator]
     name = "some-parachain"
