@@ -262,7 +262,11 @@ fn dry_run_xcm() {
 				VersionedXcm::V4(
 					Xcm::<()>::builder_unsafe()
 						.reserve_asset_deposited(
-							((Parent, Parachain(2000)), transfer_amount + execution_fees - DeliveryFees::get()).into()
+							(
+								(Parent, Parachain(2000)),
+								transfer_amount + execution_fees - DeliveryFees::get()
+							)
+								.into()
 						)
 						.clear_origin()
 						.buy_execution((Here, 1u128).into(), Unlimited.into())
