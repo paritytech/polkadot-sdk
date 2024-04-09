@@ -222,13 +222,13 @@ pub(crate) struct NetworkBridge<B: BlockT, N: Network<B>, S: Syncing<B>> {
 	neighbor_sender: periodic::NeighborPacketSender<B>,
 
 	/// `NeighborPacketWorker` processing packets sent through the `NeighborPacketSender`.
-	// `NetworkBridge` is required to be cloneable, thus one needs to be able to clone its
+	// `NetworkBridge` is required to be clonable, thus one needs to be able to clone its
 	// children, thus one has to wrap `neighbor_packet_worker` with an `Arc` `Mutex`.
 	neighbor_packet_worker: Arc<Mutex<periodic::NeighborPacketWorker<B>>>,
 
 	/// Receiver side of the peer report stream populated by the gossip validator, forwarded to the
 	/// gossip engine.
-	// `NetworkBridge` is required to be cloneable, thus one needs to be able to clone its
+	// `NetworkBridge` is required to be clonable, thus one needs to be able to clone its
 	// children, thus one has to wrap gossip_validator_report_stream with an `Arc` `Mutex`. Given
 	// that it is just an `UnboundedReceiver`, one could also switch to a
 	// multi-producer-*multi*-consumer channel implementation.
@@ -488,7 +488,7 @@ impl<B: BlockT, N: Network<B>, S: Syncing<B>> NetworkBridge<B, N, S> {
 	/// connected to (NOTE: this assumption will change in the future #3629).
 	pub(crate) fn set_sync_fork_request(
 		&self,
-		peers: Vec<sc_network::PeerId>,
+		peers: Vec<sc_network_types::PeerId>,
 		hash: B::Hash,
 		number: NumberFor<B>,
 	) {
@@ -766,7 +766,7 @@ impl<Block: BlockT> Sink<Message<Block::Header>> for OutgoingMessages<Block> {
 			)
 			.ok_or_else(|| {
 				Error::Signing(format!(
-					"Failed to sign GRANDPA vote for round {} targetting {:?}",
+					"Failed to sign GRANDPA vote for round {} targeting {:?}",
 					self.round, target_hash
 				))
 			})?;
