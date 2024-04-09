@@ -1837,7 +1837,7 @@ mod tests {
 	)
 
 	(func (export "call")
-		;; Burn some PoV
+		;; Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we need to read its size first.
 		(call $clear_storage (i32.const 0))
 
 		;; This stores the weight left to the buffer
@@ -1851,7 +1851,7 @@ mod tests {
 			)
 		)
 
-		;; Burn some PoV
+		;; Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we need to read its size first.
 		(call $clear_storage (i32.const 0))
 
 		;; Return weight left and its encoded value len
