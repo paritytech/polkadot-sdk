@@ -397,13 +397,6 @@ pub mod pallet {
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
 
-			let delegator_balance = T::Currency::reducible_balance(
-				&delegator,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			);
-			ensure!(delegator_balance >= amount, Error::<T>::NotEnoughFunds);
-
 			// add to delegation
 			Self::do_delegate(&delegator, &agent, amount)?;
 
@@ -510,6 +503,8 @@ impl<T: Config> Pallet<T> {
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		let mut ledger = AgentLedger::<T>::get(agent).ok_or(Error::<T>::NotAgent)?;
+		// try to hold the funds.
+		T::Currency::hold(&HoldReason::Delegating.into(), delegator, amount)?;
 
 		let new_delegation_amount =
 			if let Some(existing_delegation) = Delegation::<T>::get(delegator) {
@@ -526,8 +521,6 @@ impl<T: Config> Pallet<T> {
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
 		ledger.save(agent);
-
-		T::Currency::hold(&HoldReason::Delegating.into(), delegator, amount)?;
 
 		Self::deposit_event(Event::<T>::Delegated {
 			agent: agent.clone(),
