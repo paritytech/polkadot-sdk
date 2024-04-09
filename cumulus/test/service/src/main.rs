@@ -118,6 +118,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
+								cli.use_slot_authoring,
 							)
 							.await,
 						sc_network::config::NetworkBackendType::Litep2p =>
@@ -135,6 +136,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								consensus,
 								collator_options,
 								true,
+								cli.use_slot_authoring,
 							)
 							.await,
 					}

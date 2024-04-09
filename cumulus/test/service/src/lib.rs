@@ -766,6 +766,7 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
+						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),
@@ -781,6 +782,7 @@ impl TestNodeBuilder {
 						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
+						false,
 					)
 					.await
 					.expect("could not create Cumulus test service"),
