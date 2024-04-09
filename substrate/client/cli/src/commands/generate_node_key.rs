@@ -89,7 +89,7 @@ impl GenerateNodeKeyCmd {
 }
 
 // Utility function for generating a key based on the provided CLI arguments
-// 
+//
 // `file`  - Name of file to save secret key to
 // `bin`
 fn generate_key(
