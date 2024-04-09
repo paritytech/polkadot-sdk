@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Introduce new `DefaultConfig`s to remove boilerplate code from SP runtimes"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The system parachains runtimes share a lot of copy and pasted boilerplate code which can be
+      removed through adding more specific default configs for the various pallets used throughout
+      these runtimes. This PR is a proof of concept for `frame_system`.
+
+crates:
+  - name: testnet-parachains-constants
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: patch
