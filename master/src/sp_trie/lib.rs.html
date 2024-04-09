@@ -1221,6 +1221,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1072" id="1072">1072</a>
 <a href="#1073" id="1073">1073</a>
 <a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1278,8 +1280,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
+	triedb::{TrieDBDoubleEndedIterator, TrieDBKeyDoubleEndedIterator},
 	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
-	TrieDBKeyIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
+	TrieDBKeyIterator, TrieDBNodeDoubleEndedIterator, TrieDBRawIterator, TrieLayout, TrieMut,
+	TrieRecorder,
 };
 <span class="kw">pub use </span>trie_db::{proof::VerifyError, MerkleValue};
 <span class="doccomment">/// The Substrate format implementation of `TrieStream`.
