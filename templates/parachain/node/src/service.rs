@@ -27,7 +27,7 @@ use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
 use sc_client_api::Backend;
 use sc_consensus::ImportQueue;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::{NetworkBackend, NetworkBlock};
+use sc_network::NetworkBlock;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
@@ -231,8 +231,11 @@ pub async fn start_parachain_node(
 
 	let params = new_partial(&parachain_config)?;
 	let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
-	let net_config =
-		sc_network::config::FullNetworkConfiguration::<_, _, N>::new(&parachain_config.network);
+	let net_config = sc_network::config::FullNetworkConfiguration::<
+		_,
+		_,
+		sc_network::NetworkWorker<Block, Hash>,
+	>::new(&parachain_config.network);
 
 	let client = params.client.clone();
 	let backend = params.backend.clone();
