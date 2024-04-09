@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712617935580,
+  "lastUpdate": 1712657076148,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "Benchmark": [
@@ -2599,6 +2599,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011503686333333341,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Branislav Kontur",
+            "username": "bkontur",
+            "email": "bkontur@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9d6c0f446a0b3d5774a2d667b67ecce2d4655209",
+          "message": "Removed unused deps from Snowbridge deps (#4029)\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-09T08:45:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9d6c0f446a0b3d5774a2d667b67ecce2d4655209"
+        },
+        "date": 1712657052560,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15522435239333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026236622840000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010162720766666671,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012250314580000001,
             "unit": "seconds"
           }
         ]
