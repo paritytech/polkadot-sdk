@@ -41,14 +41,14 @@ use polkadot_node_primitives::approval::{
 	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 };
 use polkadot_primitives::{
-	vstaging::ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex,
-	CoreIndex, Hash, SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
+	ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex, CoreIndex, Hash,
+	SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rand_distr::{Distribution, Normal};
 use sc_keystore::LocalKeystore;
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use sha1::Digest;
 use sp_application_crypto::AppCrypto;

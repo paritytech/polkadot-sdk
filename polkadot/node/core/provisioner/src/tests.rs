@@ -918,7 +918,11 @@ mod select_candidates {
 		let committed_receipts: Vec<_> = (0..mock_cores.len())
 			.map(|i| {
 				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
-				descriptor.para_id = mock_cores[i].para_id().unwrap();
+				descriptor.para_id = if let Scheduled(scheduled_core) = &mock_cores[i] {
+					scheduled_core.para_id
+				} else {
+					panic!("`mock_cores` is not initialized with `Scheduled`?")
+				};
 				descriptor.persisted_validation_data_hash = empty_hash;
 				descriptor.pov_hash = Hash::from_low_u64_be(i as u64);
 				CommittedCandidateReceipt {
