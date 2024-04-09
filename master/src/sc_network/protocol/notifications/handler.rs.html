@@ -1809,6 +1809,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1660" id="1660">1660</a>
 <a href="#1661" id="1661">1661</a>
 <a href="#1662" id="1662">1662</a>
+<a href="#1663" id="1663">1663</a>
+<a href="#1664" id="1664">1664</a>
+<a href="#1665" id="1665">1665</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2608,6 +2611,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// performed before the code paths that can produce `Ready` (with some rare exceptions).
 		// Importantly, however, the flush is performed *after* notifications are queued with
 		// `Sink::start_send`.
+		// Note that we must call `poll_flush` on all substreams and not only on those we
+		// have called `Sink::start_send` on, because `NotificationsOutSubstream::poll_flush`
+		// also reports the substream termination (even if no data was written into it).
 		</span><span class="kw">for </span>protocol_index <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.protocols.len() {
 			<span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.protocols[protocol_index].state {
 				State::Open { out_substream: out_substream @ <span class="prelude-val">Some</span>(<span class="kw">_</span>), .. } =&gt; {
@@ -2650,7 +2656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				State::OpenDesiredByRemote { in_substream, pending_opening } =&gt;
 					<span class="kw">match </span>NotificationsInSubstream::poll_process(Pin::new(in_substream), cx) {
 						Poll::Pending =&gt; {},
-						Poll::Ready(<span class="prelude-val">Ok</span>(void)) =&gt; <span class="kw">match </span>void {},
+						Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {},
 						Poll::Ready(<span class="prelude-val">Err</span>(<span class="kw">_</span>)) =&gt; {
 							<span class="self">self</span>.protocols[protocol_index].state =
 								State::Closed { pending_opening: <span class="kw-2">*</span>pending_opening };
@@ -2666,7 +2672,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						cx,
 					) {
 						Poll::Pending =&gt; {},
-						Poll::Ready(<span class="prelude-val">Ok</span>(void)) =&gt; <span class="kw">match </span>void {},
+						Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {},
 						Poll::Ready(<span class="prelude-val">Err</span>(<span class="kw">_</span>)) =&gt; <span class="kw-2">*</span>in_substream = <span class="prelude-val">None</span>,
 					},
 			}

@@ -843,6 +843,116 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#694" id="694">694</a>
 <a href="#695" id="695">695</a>
 <a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -889,7 +999,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>unsigned_varint::codec::UviBytes;
 
 <span class="kw">use </span>std::{
-	convert::Infallible,
 	io, mem,
 	pin::Pin,
 	task::{Context, Poll},
@@ -1068,10 +1177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Equivalent to `Stream::poll_next`, except that it only drives the handshake and is
 	/// guaranteed to not generate any notification.
-	</span><span class="kw">pub fn </span>poll_process(
-		<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-		cx: <span class="kw-2">&amp;mut </span>Context,
-	) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;Infallible, io::Error&gt;&gt; {
+	</span><span class="kw">pub fn </span>poll_process(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), io::Error&gt;&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>this = <span class="self">self</span>.project();
 
 		<span class="kw">loop </span>{
@@ -1093,8 +1199,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				NotificationsInSubstreamHandshake::Flush =&gt; {
 					<span class="kw">match </span>Sink::poll_flush(this.socket.as_mut(), cx)<span class="question-mark">? </span>{
-						Poll::Ready(()) =&gt;
-							<span class="kw-2">*</span>this.handshake = NotificationsInSubstreamHandshake::Sent,
+						Poll::Ready(()) =&gt; {
+							<span class="kw-2">*</span>this.handshake = NotificationsInSubstreamHandshake::Sent;
+							<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(()));
+						},
 						Poll::Pending =&gt; {
 							<span class="kw-2">*</span>this.handshake = NotificationsInSubstreamHandshake::Flush;
 							<span class="kw">return </span>Poll::Pending
@@ -1107,7 +1215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				st @ NotificationsInSubstreamHandshake::ClosingInResponseToRemote |
 				st @ NotificationsInSubstreamHandshake::BothSidesClosed =&gt; {
 					<span class="kw-2">*</span>this.handshake = st;
-					<span class="kw">return </span>Poll::Pending
+					<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(()));
 				},
 			}
 		}
@@ -1290,6 +1398,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>poll_flush(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>this = <span class="self">self</span>.project();
+
+		<span class="comment">// `Sink::poll_flush` does not expose stream closed error until we write something into
+		// the stream, so the code below makes sure we detect that the substream was closed
+		// even if we don&#39;t write anything into it.
+		</span><span class="kw">match </span>Stream::poll_next(this.socket.as_mut(), cx) {
+			Poll::Pending =&gt; {},
+			Poll::Ready(<span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; {
+				<span class="macro">error!</span>(
+					target: <span class="string">&quot;sub-libp2p&quot;</span>,
+					<span class="string">&quot;Unexpected incoming data in `NotificationsOutSubstream`&quot;</span>,
+				);
+			},
+			Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(NotificationsOutError::Terminated)),
+		}
+
 		Sink::poll_flush(this.socket.as_mut(), cx).map_err(NotificationsOutError::Io)
 	}
 
@@ -1339,13 +1462,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// I/O error on the substream.
 	</span><span class="attr">#[error(transparent)]
 	</span>Io(<span class="attr">#[from] </span>io::Error),
+	<span class="attr">#[error(<span class="string">&quot;substream was closed/reset&quot;</span>)]
+	</span>Terminated,
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-	<span class="kw">use super</span>::{NotificationsIn, NotificationsInOpen, NotificationsOut, NotificationsOutOpen};
-	<span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>};
+	<span class="kw">use super</span>::{
+		NotificationsIn, NotificationsInOpen, NotificationsOut, NotificationsOutError,
+		NotificationsOutOpen,
+	};
+	<span class="kw">use </span>futures::{channel::oneshot, future, prelude::<span class="kw-2">*</span>};
 	<span class="kw">use </span>libp2p::core::upgrade;
+	<span class="kw">use </span>std::{pin::Pin, task::Poll};
 	<span class="kw">use </span>tokio::net::{TcpListener, TcpStream};
 	<span class="kw">use </span>tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -1535,6 +1664,97 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// We check that a handshake that is too large gets refused.
 		</span>substream.send_handshake((<span class="number">0</span>..<span class="number">32768</span>).map(|<span class="kw">_</span>| <span class="number">0</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;());
 		<span class="kw">let _ </span>= substream.next().<span class="kw">await</span>;
+
+		client.<span class="kw">await</span>.unwrap();
+	}
+
+	<span class="attr">#[tokio::test]
+	</span><span class="kw">async fn </span>send_handshake_without_polling_for_incoming_data() {
+		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/test/proto/1&quot;</span>;
+		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
+
+		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
+			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
+			<span class="kw">let </span>NotificationsOutOpen { handshake, .. } = upgrade::apply_outbound(
+				socket.compat(),
+				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b&quot;initial message&quot;</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
+				upgrade::Version::V1,
+			)
+			.<span class="kw">await
+			</span>.unwrap();
+
+			<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;hello world&quot;</span>);
+		});
+
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).<span class="kw">await</span>.unwrap();
+		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
+
+		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>NotificationsInOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_inbound(
+			socket.compat(),
+			NotificationsIn::new(PROTO_NAME, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>),
+		)
+		.<span class="kw">await
+		</span>.unwrap();
+
+		<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;initial message&quot;</span>);
+		substream.send_handshake(<span class="kw-2">&amp;</span><span class="string">b&quot;hello world&quot;</span>[..]);
+
+		<span class="comment">// Actually send the handshake.
+		</span>future::poll_fn(|cx| Pin::new(<span class="kw-2">&amp;mut </span>substream).poll_process(cx)).<span class="kw">await</span>.unwrap();
+
+		client.<span class="kw">await</span>.unwrap();
+	}
+
+	<span class="attr">#[tokio::test]
+	</span><span class="kw">async fn </span>can_detect_dropped_out_substream_without_writing_data() {
+		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/test/proto/1&quot;</span>;
+		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
+
+		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
+			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
+			<span class="kw">let </span>NotificationsOutOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_outbound(
+				socket.compat(),
+				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b&quot;initial message&quot;</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
+				upgrade::Version::V1,
+			)
+			.<span class="kw">await
+			</span>.unwrap();
+
+			<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;hello world&quot;</span>);
+
+			future::poll_fn(|cx| <span class="kw">match </span>Pin::new(<span class="kw-2">&amp;mut </span>substream).poll_flush(cx) {
+				Poll::Pending =&gt; Poll::Pending,
+				Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {
+					cx.waker().wake_by_ref();
+					Poll::Pending
+				},
+				Poll::Ready(<span class="prelude-val">Err</span>(e)) =&gt; {
+					<span class="macro">assert!</span>(<span class="macro">matches!</span>(e, NotificationsOutError::Terminated));
+					Poll::Ready(())
+				},
+			})
+			.<span class="kw">await</span>;
+		});
+
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).<span class="kw">await</span>.unwrap();
+		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
+
+		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>NotificationsInOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_inbound(
+			socket.compat(),
+			NotificationsIn::new(PROTO_NAME, Vec::new(), <span class="number">1024 </span>* <span class="number">1024</span>),
+		)
+		.<span class="kw">await
+		</span>.unwrap();
+
+		<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;initial message&quot;</span>);
+
+		<span class="comment">// Send the handhsake.
+		</span>substream.send_handshake(<span class="kw-2">&amp;</span><span class="string">b&quot;hello world&quot;</span>[..]);
+		future::poll_fn(|cx| Pin::new(<span class="kw-2">&amp;mut </span>substream).poll_process(cx)).<span class="kw">await</span>.unwrap();
+
+		drop(substream);
 
 		client.<span class="kw">await</span>.unwrap();
 	}
