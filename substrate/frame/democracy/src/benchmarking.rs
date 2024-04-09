@@ -110,7 +110,7 @@ benchmarks! {
 		let depositors: Vec<_> = (0..c).map(|i| funded_account::<T>("caller", i)).collect();
 		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_deposit(0u32, depositors);
 	}: {
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::deposit_step(None, &mut WeightMeter::new()).unwrap();
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::deposit_step(None, &mut WeightMeter::new());
 	}
 
 	// Benchmark the cost of migrating one vote entry.
@@ -121,7 +121,7 @@ benchmarks! {
 			migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::bench_store_vote(voter.clone());
 		};
 	}: {
-		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::vote_step(None, &mut WeightMeter::new()).unwrap();
+		migrations::v2::Migration::<T, pallet_balances::Pallet<T>>::vote_step(None, &mut WeightMeter::new());
 	}
 
 	propose {
