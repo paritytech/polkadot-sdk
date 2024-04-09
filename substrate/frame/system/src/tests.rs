@@ -296,7 +296,7 @@ fn deposit_event_uses_actual_weight_and_pays_fee() {
 		// Call everything that Executive would also call:
 		System::note_finished_initialize();
 		System::note_inherents_applied();
-		System::note_post_inherents_applied();
+		System::note_after_inherents_done();
 
 		let normal_base = <Test as crate::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)

@@ -1444,11 +1444,8 @@ impl<T: Config> Pallet<T> {
 		ExecutionPhase::<T>::put(Phase::AfterInherent);
 	}
 
-	/// Note that all inherents have been applied
-	///
-	/// Must be called immediately after all inherents have been applied. This sets the phase to
-	/// `ApplyExtrinsics`.
-	pub fn note_post_inherents_applied() {
+	/// Note that that all post-inherent code was executed.
+	pub fn note_after_inherents_done() {
 		debug_assert!(matches!(ExecutionPhase::<T>::get(), Some(Phase::AfterInherent)));
 		ExecutionPhase::<T>::put(Phase::ApplyExtrinsic(Self::extrinsic_index().unwrap_or(0)));
 	}

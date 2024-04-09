@@ -672,7 +672,6 @@ where
 	pub fn inherents_applied() {
 		<frame_system::Pallet<System>>::note_inherents_applied();
 		<System as frame_system::Config>::PostInherents::post_inherents();
-		<frame_system::Pallet<System>>::note_post_inherents_applied();
 
 		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
 			let used_weight = <System as frame_system::Config>::MultiBlockMigrator::step();
@@ -684,6 +683,9 @@ where
 			let block_number = <frame_system::Pallet<System>>::block_number();
 			Self::on_poll_hook(block_number);
 		}
+
+		// MBMs and poll should run in phase `AfterInherent`, hence this goes here.
+		<frame_system::Pallet<System>>::note_after_inherents_done();
 	}
 
 	/// Execute given extrinsics.
@@ -748,7 +750,6 @@ where
 		let weight = <frame_system::Pallet<System>>::block_weight();
 		let max_weight = <System::BlockWeights as frame_support::traits::Get<_>>::get().max_block;
 		let remaining = max_weight.saturating_sub(weight.total());
-
 		if remaining.all_gt(Weight::zero()) {
 			let mut meter = WeightMeter::with_limit(remaining);
 			<AllPalletsWithSystem as OnPoll<BlockNumberFor<System>>>::on_poll(

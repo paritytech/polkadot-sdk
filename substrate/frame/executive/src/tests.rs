@@ -73,8 +73,6 @@ mod custom {
 			Weight::from_parts(175, 0)
 		}
 
-		fn on_poll(_: BlockNumberFor<T>, _: &mut WeightMeter) {}
-
 		fn on_finalize(_: BlockNumberFor<T>) {}
 
 		fn on_runtime_upgrade() -> Weight {
@@ -193,6 +191,15 @@ mod custom2 {
 			Weight::from_parts(0, 0)
 		}
 
+		fn on_poll(_: BlockNumberFor<T>, _: &mut WeightMeter) {
+			assert!(
+				MockedSystemCallbacks::pre_inherent_called(),
+				"Pre inherent hook goes before on_poll"
+			);
+			assert_execution_phase::<T>(&Phase::AfterInherent);
+			MockedSystemCallbacks::on_poll();
+		}
+
 		fn on_idle(_: BlockNumberFor<T>, _: Weight) -> Weight {
 			assert!(
 				MockedSystemCallbacks::post_transactions_called(),
@@ -237,7 +244,7 @@ mod custom2 {
 
 			assert!(matches!(
 				frame_system::ExecutionPhase::<T>::get(),
-				Some(frame_system::Phase::ApplyExtrinsic(_) | frame_system::Phase::AfterInherent)
+				Some(frame_system::Phase::ApplyExtrinsic(_))
 			));
 
 			Ok(())
@@ -445,6 +452,7 @@ type Executive = super::Executive<
 
 parameter_types! {
 	pub static SystemCallbacksCalled: u32 = 0;
+	pub static OnPollCalled: bool = false;
 }
 
 pub struct MockedSystemCallbacks;
@@ -464,6 +472,17 @@ impl PostInherents for MockedSystemCallbacks {
 		SystemCallbacksCalled::set(2);
 		// Change the storage to modify the root hash:
 		frame_support::storage::unhashed::put(b":post_inherent", b"0");
+		assert_execution_phase::<Runtime>(&Phase::AfterInherent);
+	}
+}
+
+impl MockedSystemCallbacks {
+	fn on_poll() {
+		assert_eq!(SystemCallbacksCalled::get(), 2, "Goes after post inherents");
+		assert!(!OnPollCalled::get());
+		OnPollCalled::set(true);
+		// Change the storage to modify the root hash:
+		frame_support::storage::unhashed::put(b":on_poll", b"0");
 		assert_execution_phase::<Runtime>(&Phase::AfterInherent);
 	}
 }
@@ -491,11 +510,18 @@ impl MockedSystemCallbacks {
 		SystemCallbacksCalled::get() >= 3
 	}
 
+	fn on_poll_called() -> bool {
+		OnPollCalled::get()
+	}
+
 	fn reset() {
 		SystemCallbacksCalled::set(0);
+		OnPollCalled::set(false);
+
 		frame_support::storage::unhashed::kill(b":pre_inherent");
 		frame_support::storage::unhashed::kill(b":post_inherent");
 		frame_support::storage::unhashed::kill(b":post_transaction");
+		frame_support::storage::unhashed::kill(b":on_poll");
 	}
 }
 
@@ -562,6 +588,7 @@ fn new_test_ext(balance_factor: Balance) -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = t.into();
 	ext.execute_with(|| {
 		SystemCallbacksCalled::set(0);
+		MockedSystemCallbacks::reset();
 	});
 	ext
 }
@@ -579,13 +606,13 @@ fn block_import_works() {
 	block_import_works_inner(
 		new_test_ext_v0(1),
 		array_bytes::hex_n_into_unchecked(
-			"4826d3bdf87dbbc883d2ab274cbe272f58ed94a904619b59953e48294d1142d2",
+			"f05b567508a81d304c5af50f8f094fa649a2a83e754b6135e594b2794f6ced03",
 		),
 	);
 	block_import_works_inner(
 		new_test_ext(1),
 		array_bytes::hex_n_into_unchecked(
-			"d6b465f5a50c9f8d5a6edc0f01d285a6b19030f097d3aaf1649b7be81649f118",
+			"818340a561ee78f7b2dd1e16fb150bb5515958d90a34c69005a8a1bd4c694a4d",
 		),
 	);
 }
@@ -1309,6 +1336,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 			MockedSystemCallbacks::reset();
 			Executive::initialize_block(&Header::new_from_number(1));
 			assert_eq!(SystemCallbacksCalled::get(), 1);
+			assert_execution_phase::<Runtime>(&Phase::ApplyInherent(0));
 
 			for i in 0..n_in {
 				let xt = if i % 2 == 0 {
@@ -1327,6 +1355,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 					)
 				};
 				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
+				assert_execution_phase::<Runtime>(&Phase::ApplyInherent(i as u32 + 1));
 
 				let class =
 					if i % 2 == 0 { DispatchClass::Mandatory } else { DispatchClass::Normal };
@@ -1346,6 +1375,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 				extrinsics.push(xt);
 			}
 
+			assert!(!MockedSystemCallbacks::on_poll_called());
 			for t in 0..n_tx {
 				let xt = TestXt::new(
 					RuntimeCall::Custom2(custom2::Call::assert_extrinsic_phase {
@@ -1356,6 +1386,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 				// Extrinsics can be applied even when MBMs are active. Only the `execute_block`
 				// will reject it.
 				Executive::apply_extrinsic(xt.clone()).unwrap().unwrap();
+				assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms_active);
 
 				expected_events.push(EventRecord {
 					phase: Phase::ApplyExtrinsic(extrinsics.len() as u32),
@@ -1374,6 +1405,7 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 			Executive::finalize_block()
 		});
 		assert!(MockedSystemCallbacks::post_inherent_called());
+		assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms_active);
 
 		new_test_ext(10).execute_with(|| {
 			MockedSystemCallbacks::reset();
@@ -1386,14 +1418,15 @@ fn callbacks_in_block_execution_works_inner(mbms_active: bool) {
 					let err = e.downcast::<&str>().unwrap();
 					assert_eq!(*err, "Only inherents are allowed in this block");
 					assert!(
-						MbmActive::get() && n_tx > 0,
+						mbms_active && n_tx > 0,
 						"Transactions should be rejected when MBMs are active"
 					);
 				},
 				Ok(_) => {
 					assert_eq!(SystemCallbacksCalled::get(), 3);
+					assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms_active);
 					assert!(
-						!MbmActive::get() || n_tx == 0,
+						!mbms_active || n_tx == 0,
 						"MBMs should be deactivated after finalization"
 					);
 
@@ -1676,4 +1709,27 @@ fn simple_extrinsic_and_inherent_phase_events_works() {
 		],
 		events,
 	);
+}
+
+#[test]
+fn mbm_active_does_not_call_poll() {
+	mbm_active_does_not_call_poll_inner(false);
+	mbm_active_does_not_call_poll_inner(true);
+}
+
+fn mbm_active_does_not_call_poll_inner(mbms: bool) {
+	MbmActive::set(mbms);
+
+	let header = new_test_ext(1).execute_with(|| {
+		Executive::initialize_block(&Header::new_from_number(1));
+
+		let h = Executive::finalize_block();
+		assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms);
+		h
+	});
+
+	new_test_ext(1).execute_with(|| {
+		Executive::execute_block(Block::new(header, vec![]));
+		assert_eq!(MockedSystemCallbacks::on_poll_called(), !mbms);
+	});
 }
