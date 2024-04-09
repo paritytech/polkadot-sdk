@@ -84,6 +84,7 @@ pub mod curve;
 pub mod generic;
 pub mod legacy;
 mod multiaddress;
+pub mod nonce;
 pub mod offchain;
 pub mod runtime_logger;
 mod runtime_string;
