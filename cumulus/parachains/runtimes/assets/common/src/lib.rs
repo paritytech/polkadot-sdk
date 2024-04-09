@@ -144,14 +144,14 @@ mod tests {
 			Location::new(5, [PalletInstance(13), GeneralIndex(local_asset_id.into())]);
 
 		assert_eq!(
-			AssetIdForTrustBackedAssetsConvertLatest::<TrustBackedAssetsPalletLocation>::convert_back(
+			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert_back(
 				&local_asset_id
 			)
 			.unwrap(),
 			expected_reverse_ref
 		);
 		assert_eq!(
-			AssetIdForTrustBackedAssetsConvertLatest::<TrustBackedAssetsPalletLocation>::convert(
+			AssetIdForTrustBackedAssetsConvert::<TrustBackedAssetsPalletLocation>::convert(
 				&expected_reverse_ref
 			)
 			.unwrap(),
