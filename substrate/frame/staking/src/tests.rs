@@ -4100,12 +4100,6 @@ fn full_unbond_works() {
 		mock::start_active_era(2);
 		assert_eq!(active_era(), 2);
 
-		// unbonding without chilling fails
-		assert_noop!(
-			Staking::unbond(RuntimeOrigin::signed(11), 1000),
-			Error::<Test>::InsufficientBond,
-		);
-
 		// Force Unbond all of the funds in stash which makes the call to chill first.
 		let res = Staking::full_unbond(RuntimeOrigin::signed(11));
 		assert!(res.is_ok());

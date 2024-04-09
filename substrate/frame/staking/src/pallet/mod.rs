@@ -23,11 +23,9 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	pallet_prelude::*,
-	traits::{
-		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+	traits::{EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, LockableCurrency, OnUnbalanced, UnixTime, WithdrawReasons,
-		Currency, Defensive, EnsureOrigin, EstimateNextNewSession, Get, LockableCurrency,
-		OnUnbalanced, UnixTime,
+		Currency, Defensive,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -52,10 +50,7 @@ use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, Exposure, ExposurePage, Forcing, LedgerIntegrityState, MaxNominationsOf,
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
-	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
-	EraRewardPoints, Exposure, ExposurePage, Forcing, MaxNominationsOf, NegativeImbalanceOf,
-	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
-	StakingLedger, UnappliedSlash, ValidatorPrefs,
+	SessionInterface, StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs
 };
 
 // The speculative number of spans are used as an input of the weight annotation of
@@ -1043,7 +1038,15 @@ pub mod pallet {
 			#[pallet::compact] value: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let controller = ensure_signed(origin)?;
+
+			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
+
+			if value == ledger.total {
+				Self::chill_stash(&ledger.stash);
+			}
+
 			let maybe_withdraw_weight = Self::do_unbond(controller, value)?;
+
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
 				Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
 			} else {
@@ -2021,7 +2024,7 @@ pub mod pallet {
 
 		/// Fully Unbonds by Chilling first
 		/// Emits `Unbonded`.
-		#[pallet::call_index(29)]
+		#[pallet::call_index(30)]
 		#[pallet::weight(
 		T::WeightInfo::withdraw_unbonded_kill(SPECULATIVE_NUM_SPANS).saturating_add(T::WeightInfo::full_unbond()))
 		]
