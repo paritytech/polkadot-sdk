@@ -57,8 +57,8 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, ExecutorParams, Hash, NodeFeatures,
-	SessionIndex, SessionInfo,
+	AuthorityDiscoveryId, Block, CandidateHash, CandidateReceipt, ExecutorParams, Hash,
+	NodeFeatures, SessionIndex, SessionInfo,
 };
 
 use self::mock::{
@@ -879,7 +879,10 @@ where
 
 	let genesis_hash = Hash::repeat_byte(0xff);
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, None);
-	let (req_receiver, req_cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (req_receiver, req_cfg) = IncomingRequest::get_config_receiver::<
+		Block,
+		sc_network::NetworkWorker<Block, Hash>,
+	>(&req_protocol_names);
 	let subsystem = DisputeDistributionSubsystem::new(
 		keystore,
 		req_receiver,

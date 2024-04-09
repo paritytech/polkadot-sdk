@@ -24,11 +24,11 @@ use crate::{
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},
 	LOG_TARGET,
 };
-use libp2p::PeerId;
 use log::{debug, error, trace};
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::BlockAnnounce;
+use sc_network_types::PeerId;
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
