@@ -259,9 +259,9 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 }
 
 // Allow Freezes for the `Assets` pallet
-pub type TrustBackedAssetsFreezerInstance = pallet_assets_freezer::Instance1;
-impl pallet_assets_freezer::Config<TrustBackedAssetsFreezerInstance> for Runtime {
-	type FreezeIdentifier = ();
+pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;
+impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
+	type FreezeIdentifier = RuntimeFreezeReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 	type MaxFreezes = ConstU32<8>;
@@ -305,7 +305,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 // Allow Freezes for the `PoolAssets` pallet
 pub type PoolAssetsFreezerInstance = pallet_assets_freezer::Instance3;
 impl pallet_assets_freezer::Config<PoolAssetsFreezerInstance> for Runtime {
-	type FreezeIdentifier = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 	type MaxFreezes = ConstU32<8>;
@@ -405,10 +405,10 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type BenchmarkHelper = xcm_config::XcmBenchmarkHelper;
 }
 
-// Allow Freezes for the `PoolAssets` pallet
+// Allow Freezes for the `ForeignAssets` pallet
 pub type ForeignAssetsFreezerInstance = pallet_assets_freezer::Instance2;
 impl pallet_assets_freezer::Config<ForeignAssetsFreezerInstance> for Runtime {
-	type FreezeIdentifier = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 	type MaxFreezes = ConstU32<8>;

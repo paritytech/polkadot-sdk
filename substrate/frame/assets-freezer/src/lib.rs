@@ -73,7 +73,7 @@ pub mod pallet {
 	#[pallet::config(with_default)]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_assets::Config<I> {
 		/// The ID type for freezes.
-		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Copy;
 
 		/// The overarching freeze reason.
 		#[pallet::no_default_bounds]
