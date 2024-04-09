@@ -114,7 +114,7 @@ mod test_weights {
 
 	#[test]
 	fn sane_parity_db_weights() {
-	let w = super::ParityDbWeight::get();
+		let w = super::ParityDbWeight::get();
 
 		// At least 1 µs.
 		assert!(
