@@ -125,29 +125,3 @@ impl From<ErrorBroadcast> for ErrorObject<'static> {
 		}
 	}
 }
-
-/// TransactionWatch error.
-#[derive(Debug, thiserror::Error)]
-pub enum ErrorWatch {
-	/// Maximum number of transactionWatch has been reached.
-	#[error("Maximum number of transactionWatch has been reached")]
-	ReachedLimits,
-}
-
-/// Errors for `transactionWatch` RPC module, as defined in
-/// <https://github.com/paritytech/json-rpc-interface-spec>.
-pub mod rpc_spec_v2 {
-	/// Maximum number of chainHead_follow has been reached.
-	pub const REACHED_LIMITS: i32 = -32800;
-}
-
-impl From<ErrorWatch> for ErrorObject<'static> {
-	fn from(e: ErrorWatch) -> Self {
-		let msg = e.to_string();
-
-		match e {
-			ErrorWatch::ReachedLimits =>
-				ErrorObject::owned(rpc_spec_v2::REACHED_LIMITS, msg, None::<()>),
-		}
-	}
-}
