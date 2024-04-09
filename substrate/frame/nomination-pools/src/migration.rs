@@ -108,10 +108,14 @@ pub mod unversioned {
 		}
 	}
 
-	/// Migrate existing pools from [`adapter::TransferStake`] to [`adapter::DelegateStake`].
+	/// Migrate existing pools from [`adapter::StakeStrategyType::Transfer`] to
+	/// [`adapter::StakeStrategyType::Delegate`].
 	///
 	/// Note: This only migrates the pools, the members are not migrated. They can use the
 	/// permission-less [`Pallet::claim_delegation()`] to migrate their funds.
+	///
+	/// This migration does not break any existing pool storage item, does not need to happen in any
+	/// sequence and hence can be applied unversioned on a production runtime.
 	pub struct DelegationStakeMigration<T>(sp_std::marker::PhantomData<T>);
 
 	// FIXME(ank4n) convert to MBM.
@@ -140,6 +144,11 @@ pub mod unversioned {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			ensure!(
+				StakeStrategyType::<T>::get() == adapter::StakeStrategyType::Transfer,
+				"Already migrated to Delegate Strategy"
+			);
+
 			let mut pool_balances: Vec<BalanceOf<T>> = Vec::new();
 			BondedPools::<T>::iter_keys().for_each(|id| {
 				pool_balances
@@ -150,6 +159,11 @@ pub mod unversioned {
 		}
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(data: Vec<u8>) -> Result<(), TryRuntimeError> {
+			ensure!(
+				StakeStrategyType::<T>::get() == adapter::StakeStrategyType::Delegate,
+				"Could not migrated to Delegate Strategy"
+			);
+
 			let expected_pool_balances: Vec<BalanceOf<T>> = Decode::decode(&mut &data[..]).unwrap();
 
 			for (index, id) in BondedPools::<T>::iter_keys().enumerate() {
