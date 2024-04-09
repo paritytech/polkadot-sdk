@@ -116,6 +116,10 @@ where
 			cursor = match cursor.unwrap_or_default() {
 				Cursor::Deposit(index) => Some(Self::deposit_step(index, meter)),
 				Cursor::Vote(account) => Self::vote_step(account, meter),
+			};
+
+			if cursor.is_none() {
+				break;
 			}
 		}
 
@@ -276,11 +280,7 @@ mod test {
 			assert_eq!(pallet_balances::Pallet::<T>::locks(&alice)[0].amount, 1_000_000);
 
 			// Run migration.
-			let mut cursor = None;
-			let mut meter = WeightMeter::new();
-			while let Ok(Some(next_cursor)) = MigrationOf::<T>::step(cursor, &mut meter) {
-				cursor = Some(next_cursor);
-			}
+			assert!(MigrationOf::<T>::step(None, &mut WeightMeter::new()).unwrap().is_none());
 
 			// Check that alice's deposit is now held instead of reserved.
 			assert_eq!(FungibleOf::<T>::balance_on_hold(&HoldReason::Proposal.into(), &alice), 1);
