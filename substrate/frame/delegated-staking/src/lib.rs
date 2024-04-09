@@ -517,12 +517,6 @@ impl<T: Config> Pallet<T> {
 				amount
 			};
 
-		// ensure amount is at least minimum to delegate.
-		ensure!(
-			new_delegation_amount >= T::Currency::minimum_balance(),
-			Error::<T>::NotEnoughFunds
-		);
-
 		Delegation::<T>::from(agent, new_delegation_amount).save_or_kill(delegator);
 		ledger.total_delegated =
 			ledger.total_delegated.checked_add(&amount).ok_or(ArithmeticError::Overflow)?;
