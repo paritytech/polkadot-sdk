@@ -1064,8 +1064,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#915" id="915">915</a>
 <a href="#916" id="916">916</a>
 <a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1738,11 +1736,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// We want to disallow users sending (arbitrary) XCMs from this chain.
 	</span><span class="kw">type </span>SendXcmOrigin = EnsureXcmOrigin&lt;RuntimeOrigin, ()&gt;;
 	<span class="kw">type </span>XcmRouter = XcmRouter;
-	<span class="comment">// We support local origins dispatching XCM executions in principle...
+	<span class="comment">// We support local origins dispatching XCM executions.
 	</span><span class="kw">type </span>ExecuteXcmOrigin = EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
-	<span class="comment">// ... but disallow generic XCM execution. As a result only teleports and reserve transfers are
-	// allowed.
-	</span><span class="kw">type </span>XcmExecuteFilter = Nothing;
+	<span class="kw">type </span>XcmExecuteFilter = Everything;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 	<span class="kw">type </span>XcmTeleportFilter = Everything;
 	<span class="kw">type </span>XcmReserveTransferFilter = Everything;

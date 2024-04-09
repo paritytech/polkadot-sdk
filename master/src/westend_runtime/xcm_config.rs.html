@@ -451,7 +451,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -730,10 +729,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// production.
 	</span><span class="kw">type </span>SendXcmOrigin = xcm_builder::EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
 	<span class="kw">type </span>XcmRouter = XcmRouter;
-	<span class="comment">// Anyone can execute XCM messages locally...
+	<span class="comment">// Anyone can execute XCM messages locally.
 	</span><span class="kw">type </span>ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
-	<span class="comment">// ...but they must match our filter, which rejects everything.
-	</span><span class="kw">type </span>XcmExecuteFilter = Nothing;
+	<span class="kw">type </span>XcmExecuteFilter = Everything;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 	<span class="kw">type </span>XcmTeleportFilter = Everything;
 	<span class="kw">type </span>XcmReserveTransferFilter = Everything;

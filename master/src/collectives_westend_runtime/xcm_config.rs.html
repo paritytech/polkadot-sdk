@@ -501,7 +501,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -829,10 +828,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// We only allow the Fellows to send messages.
 	</span><span class="kw">type </span>SendXcmOrigin = EnsureXcmOrigin&lt;RuntimeOrigin, FellowsToPlurality&gt;;
 	<span class="kw">type </span>XcmRouter = XcmRouter;
-	<span class="comment">// We support local origins dispatching XCM executions in principle...
+	<span class="comment">// We support local origins dispatching XCM executions.
 	</span><span class="kw">type </span>ExecuteXcmOrigin = EnsureXcmOrigin&lt;RuntimeOrigin, LocalOriginToLocation&gt;;
-	<span class="comment">// ... but disallow generic XCM execution. As a result only teleports are allowed.
-	</span><span class="kw">type </span>XcmExecuteFilter = Nothing;
+	<span class="kw">type </span>XcmExecuteFilter = Everything;
 	<span class="kw">type </span>XcmExecutor = XcmExecutor&lt;XcmConfig&gt;;
 	<span class="kw">type </span>XcmTeleportFilter = Everything;
 	<span class="kw">type </span>XcmReserveTransferFilter = Nothing; <span class="comment">// This parachain is not meant as a reserve location.
