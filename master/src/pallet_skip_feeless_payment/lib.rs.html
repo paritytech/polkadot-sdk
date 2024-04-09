@@ -302,6 +302,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -347,7 +361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>scale_info::{StaticTypeInfo, TypeInfo};
 <span class="kw">use </span>sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
-	transaction_validity::TransactionValidityError,
+	transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 };
 
 <span class="attr">#[cfg(test)]
@@ -424,6 +438,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
 		<span class="self">self</span>.<span class="number">0</span>.additional_signed()
+	}
+
+	<span class="kw">fn </span>validate(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
+		call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call,
+		info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
+		len: usize,
+	) -&gt; TransactionValidity {
+		<span class="kw">if </span>call.is_feeless(<span class="kw-2">&amp;</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin::signed(who.clone())) {
+			<span class="prelude-val">Ok</span>(ValidTransaction::default())
+		} <span class="kw">else </span>{
+			<span class="self">self</span>.<span class="number">0</span>.validate(who, call, info, len)
+		}
 	}
 
 	<span class="kw">fn </span>pre_dispatch(
