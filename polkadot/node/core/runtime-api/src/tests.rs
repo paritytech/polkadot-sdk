@@ -146,7 +146,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		_: Hash,
 		para_id: ParaId,
 	) -> Result<Vec<CommittedCandidateReceipt<Hash>>, ApiError> {
-		Ok(self.candidates_pending_availability.get(&para_id).cloned())
+		Ok(self.candidates_pending_availability.get(&para_id).cloned().unwrap_or_default())
 	}
 
 	async fn candidate_events(&self, _: Hash) -> Result<Vec<CandidateEvent<Hash>>, ApiError> {
