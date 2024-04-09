@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712671141039,
+  "lastUpdate": 1712676088698,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2183,6 +2183,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1567376294066667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "598e95577dbf10c4d940393c29a6476be91d8fd2",
+          "message": "rpc-v2/transaction: Generate `Invalid` events and add tests (#3784)\n\nThis PR ensures that the transaction API generates an `Invalid` events\nfor transaction bytes that fail to decode.\n\nThe spec mentioned the `Invalid` event at the jsonrpc error section,\nhowever this spec PR makes things clearer:\n- https://github.com/paritytech/json-rpc-interface-spec/pull/146\n\nWhile at it have discovered an inconsistency with the generated events.\nThe drop event from the transaction pool was incorrectly mapped to the\n`invalid` event.\n\nAdded tests for the API stabilize the API soon:\n- https://github.com/paritytech/json-rpc-interface-spec/pull/144\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/3083\n\n\ncc @paritytech/subxt-team\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>",
+          "timestamp": "2024-04-09T13:57:44Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/598e95577dbf10c4d940393c29a6476be91d8fd2"
+        },
+        "date": 1712676060027,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.47383377676,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.23429282756000006,
             "unit": "seconds"
           }
         ]
