@@ -18,9 +18,9 @@
 //! Migrate the democracy pallet to use the Fungible trait.
 //! See <https://github.com/paritytech/polkadot-sdk/pull/1861>
 
-use crate::{migrations::MigrationIdentifier, *};
+use crate::{migrations::PALLET_MIGRATIONS_ID, *};
 use frame_support::{
-	migrations::{SteppedMigration, SteppedMigrationError},
+	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::*,
 	storage_alias,
 	traits::{LockableCurrency, ReservableCurrency},
@@ -93,10 +93,10 @@ where
 	OldCurrency::Balance: IsType<BalanceOf<T>>,
 {
 	type Cursor = Cursor<T>;
-	type Identifier = MigrationIdentifier;
+	type Identifier = MigrationId<20>;
 
 	fn id() -> Self::Identifier {
-		MigrationIdentifier::new(2)
+		MigrationId { pallet_id: *PALLET_MIGRATIONS_ID, version_from: 1, version_to: 2 }
 	}
 
 	fn step(
