@@ -89,5 +89,6 @@ runtime-benchmarks = [
 	"snowbridge-pallet-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks"
 ]
 fast-runtime = []
