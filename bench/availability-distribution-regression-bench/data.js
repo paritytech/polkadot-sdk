@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712761246946,
+  "lastUpdate": 1712772425736,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3119,6 +3119,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011644010193333339,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "cd010925e12c3c1d22b47cc9185c394366e65c5f",
+          "message": "net/strategy: Log bad peerId from on_validated_block_announce (#4051)\n\nThis tiny PR extends the `on_validated_block_announce` log with the bad\nPeerID.\nUsed to identify if the peerID is malicious by correlating with other\nlogs (ie peer-set).\n\nWhile at it, have removed the `\\n` from a multiline log, which did not\nplay well with\n[sub-triage-logs](https://github.com/lexnv/sub-triage-logs/tree/master).\n\ncc @paritytech/networking\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-10T15:29:36Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd010925e12c3c1d22b47cc9185c394366e65c5f"
+        },
+        "date": 1712772400873,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.94,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026479643933333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01381253341333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16175993568,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011674306286666667,
             "unit": "seconds"
           }
         ]
