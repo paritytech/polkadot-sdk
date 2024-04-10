@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712744689484,
+  "lastUpdate": 1712761548577,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2435,6 +2435,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.18043470737999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0d71753e0eb1c0fdbeb09af5db7a2e1b5f150b13",
+          "message": "Contracts: Only exec parsed code in benchmarks (#3915)\n\n[Weights\ncompare](https://weights.tasty.limo/compare?unit=weight&ignore_errors=true&threshold=10&method=asymptotic&repo=polkadot-sdk&old=master&new=pg%2Fbench_tweaks&path_pattern=substrate%2Fframe%2F**%2Fsrc%2Fweights.rs%2Cpolkadot%2Fruntime%2F*%2Fsrc%2Fweights%2F**%2F*.rs%2Cpolkadot%2Fbridges%2Fmodules%2F*%2Fsrc%2Fweights.rs%2Ccumulus%2F**%2Fweights%2F*.rs%2Ccumulus%2F**%2Fweights%2Fxcm%2F*.rs%2Ccumulus%2F**%2Fsrc%2Fweights.rs)\n\nNote: Raw weights change does not mean much here, as this PR reduce the\nscope of what is benchmarked, they are therefore decreased by a good\nmargin. One should instead print the Schedule using\n\ncargo test --features runtime-benchmarks bench_print_schedule --\n--nocapture\nor following the instructions from the\n[README](https://github.com/paritytech/polkadot-sdk/tree/pg/bench_tweaks/substrate/frame/contracts#schedule)\nfor looking at the Schedule of a specific runtime\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-10T13:05:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d71753e0eb1c0fdbeb09af5db7a2e1b5f150b13"
+        },
+        "date": 1712761523308,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.20591315715333341,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.462354974453334,
             "unit": "seconds"
           }
         ]
