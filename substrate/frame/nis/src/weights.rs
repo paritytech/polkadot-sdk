@@ -74,7 +74,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `l` is `[0, 999]`.
 	fn place_bid(l: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `6176 + l * (48 ±0)`
+		//  Measured:  `6210 + l * (48 ±0)`
 		//  Estimated: `51487`
 		// Minimum execution time: 47_559_000 picoseconds.
 		Weight::from_parts(52_303_446, 51487)
@@ -91,7 +91,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Nis::QueueTotals` (`max_values`: Some(1), `max_size`: Some(6002), added: 6497, mode: `MaxEncodedLen`)
 	fn place_bid_max() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `54178`
+		//  Measured:  `54212`
 		//  Estimated: `51487`
 		// Minimum execution time: 108_853_000 picoseconds.
 		Weight::from_parts(115_243_000, 51487)
@@ -107,7 +107,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `l` is `[1, 1000]`.
 	fn retract_bid(l: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `6176 + l * (48 ±0)`
+		//  Measured:  `6210 + l * (48 ±0)`
 		//  Estimated: `51487`
 		// Minimum execution time: 47_996_000 picoseconds.
 		Weight::from_parts(47_913_930, 51487)
@@ -122,7 +122,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn fund_deficit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `191`
+		//  Measured:  `225`
 		//  Estimated: `3593`
 		// Minimum execution time: 31_393_000 picoseconds.
 		Weight::from_parts(32_398_000, 3593)
@@ -143,7 +143,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	fn communify() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `668`
+		//  Measured:  `702`
 		//  Estimated: `3675`
 		// Minimum execution time: 74_250_000 picoseconds.
 		Weight::from_parts(75_863_000, 3675)
@@ -164,7 +164,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `MaxEncodedLen`)
 	fn privatize() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `829`
+		//  Measured:  `863`
 		//  Estimated: `3675`
 		// Minimum execution time: 93_547_000 picoseconds.
 		Weight::from_parts(96_312_000, 3675)
@@ -200,7 +200,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn thaw_communal() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `773`
+		//  Measured:  `807`
 		//  Estimated: `3675`
 		// Minimum execution time: 94_248_000 picoseconds.
 		Weight::from_parts(97_436_000, 3675)
@@ -215,7 +215,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Nis::QueueTotals` (`max_values`: Some(1), `max_size`: Some(6002), added: 6497, mode: `MaxEncodedLen`)
 	fn process_queues() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `6624`
+		//  Measured:  `6658`
 		//  Estimated: `7487`
 		// Minimum execution time: 20_867_000 picoseconds.
 		Weight::from_parts(21_871_000, 7487)
@@ -226,7 +226,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Nis::Queues` (`max_values`: None, `max_size`: Some(48022), added: 50497, mode: `MaxEncodedLen`)
 	fn process_queue() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `42`
+		//  Measured:  `76`
 		//  Estimated: `51487`
 		// Minimum execution time: 4_447_000 picoseconds.
 		Weight::from_parts(4_761_000, 51487)
@@ -256,7 +256,7 @@ impl WeightInfo for () {
 	/// The range of component `l` is `[0, 999]`.
 	fn place_bid(l: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `6176 + l * (48 ±0)`
+		//  Measured:  `6210 + l * (48 ±0)`
 		//  Estimated: `51487`
 		// Minimum execution time: 47_559_000 picoseconds.
 		Weight::from_parts(52_303_446, 51487)
@@ -273,7 +273,7 @@ impl WeightInfo for () {
 	/// Proof: `Nis::QueueTotals` (`max_values`: Some(1), `max_size`: Some(6002), added: 6497, mode: `MaxEncodedLen`)
 	fn place_bid_max() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `54178`
+		//  Measured:  `54212`
 		//  Estimated: `51487`
 		// Minimum execution time: 108_853_000 picoseconds.
 		Weight::from_parts(115_243_000, 51487)
@@ -289,7 +289,7 @@ impl WeightInfo for () {
 	/// The range of component `l` is `[1, 1000]`.
 	fn retract_bid(l: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `6176 + l * (48 ±0)`
+		//  Measured:  `6210 + l * (48 ±0)`
 		//  Estimated: `51487`
 		// Minimum execution time: 47_996_000 picoseconds.
 		Weight::from_parts(47_913_930, 51487)
@@ -304,7 +304,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn fund_deficit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `191`
+		//  Measured:  `225`
 		//  Estimated: `3593`
 		// Minimum execution time: 31_393_000 picoseconds.
 		Weight::from_parts(32_398_000, 3593)
@@ -325,7 +325,7 @@ impl WeightInfo for () {
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	fn communify() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `668`
+		//  Measured:  `702`
 		//  Estimated: `3675`
 		// Minimum execution time: 74_250_000 picoseconds.
 		Weight::from_parts(75_863_000, 3675)
@@ -346,7 +346,7 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(193), added: 2668, mode: `MaxEncodedLen`)
 	fn privatize() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `829`
+		//  Measured:  `863`
 		//  Estimated: `3675`
 		// Minimum execution time: 93_547_000 picoseconds.
 		Weight::from_parts(96_312_000, 3675)
@@ -382,7 +382,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn thaw_communal() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `773`
+		//  Measured:  `807`
 		//  Estimated: `3675`
 		// Minimum execution time: 94_248_000 picoseconds.
 		Weight::from_parts(97_436_000, 3675)
@@ -397,7 +397,7 @@ impl WeightInfo for () {
 	/// Proof: `Nis::QueueTotals` (`max_values`: Some(1), `max_size`: Some(6002), added: 6497, mode: `MaxEncodedLen`)
 	fn process_queues() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `6624`
+		//  Measured:  `6658`
 		//  Estimated: `7487`
 		// Minimum execution time: 20_867_000 picoseconds.
 		Weight::from_parts(21_871_000, 7487)
@@ -408,7 +408,7 @@ impl WeightInfo for () {
 	/// Proof: `Nis::Queues` (`max_values`: None, `max_size`: Some(48022), added: 50497, mode: `MaxEncodedLen`)
 	fn process_queue() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `42`
+		//  Measured:  `76`
 		//  Estimated: `51487`
 		// Minimum execution time: 4_447_000 picoseconds.
 		Weight::from_parts(4_761_000, 51487)

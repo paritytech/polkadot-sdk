@@ -27,8 +27,13 @@
 // target/production/substrate-node
 // benchmark
 // pallet
+// --chain=dev
 // --steps=50
 // --repeat=20
+// --pallet=pallet_uniques
+// --no-storage-info
+// --no-median-slopes
+// --no-min-squares
 // --extrinsic=*
 // --wasm-execution=compiled
 // --heap-pages=4096
@@ -377,7 +382,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
-	/// Storage: `Uniques::Class` (r:1 w:0)
+	/// Storage: `Uniques::Class` (r:1 w:1)
 	/// Proof: `Uniques::Class` (`max_values`: None, `max_size`: Some(178), added: 2653, mode: `MaxEncodedLen`)
 	/// Storage: `Uniques::ClassMetadataOf` (r:1 w:1)
 	/// Proof: `Uniques::ClassMetadataOf` (`max_values`: None, `max_size`: Some(167), added: 2642, mode: `MaxEncodedLen`)
@@ -388,7 +393,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 26_568_000 picoseconds.
 		Weight::from_parts(27_354_000, 3643)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Uniques::Class` (r:1 w:0)
 	/// Proof: `Uniques::Class` (`max_values`: None, `max_size`: Some(178), added: 2653, mode: `MaxEncodedLen`)
@@ -771,7 +776,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
-	/// Storage: `Uniques::Class` (r:1 w:0)
+	/// Storage: `Uniques::Class` (r:1 w:1)
 	/// Proof: `Uniques::Class` (`max_values`: None, `max_size`: Some(178), added: 2653, mode: `MaxEncodedLen`)
 	/// Storage: `Uniques::ClassMetadataOf` (r:1 w:1)
 	/// Proof: `Uniques::ClassMetadataOf` (`max_values`: None, `max_size`: Some(167), added: 2642, mode: `MaxEncodedLen`)
@@ -782,7 +787,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 26_568_000 picoseconds.
 		Weight::from_parts(27_354_000, 3643)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Uniques::Class` (r:1 w:0)
 	/// Proof: `Uniques::Class` (`max_values`: None, `max_size`: Some(178), added: 2653, mode: `MaxEncodedLen`)

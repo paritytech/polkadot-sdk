@@ -37,6 +37,7 @@
 // --chain=dev
 // --header=./substrate/HEADER-APACHE2
 // --output=./substrate/frame/asset-conversion/src/weights.rs
+// --header=./substrate/HEADER-APACHE2
 // --template=./substrate/.maintain/frame-weight-template.hbs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]

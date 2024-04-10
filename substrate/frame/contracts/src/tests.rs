@@ -54,7 +54,7 @@ use frame_support::{
 		tokens::Preservation,
 		ConstU32, ConstU64, Contains, OnIdle, OnInitialize, StorageVersion,
 	},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightMeter},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts_fixtures::compile_module;
@@ -914,6 +914,21 @@ fn instantiate_unique_trie_id() {
 }
 
 #[test]
+fn storage_work() {
+	let (code, _code_hash) = compile_module::<Test>("storage").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		builder::bare_call(addr).build_and_unwrap_result();
+	});
+}
+
+#[test]
 fn storage_max_value_limit() {
 	let (wasm, _code_hash) = compile_module::<Test>("storage_size").unwrap();
 
@@ -1385,19 +1400,7 @@ fn crypto_hashes() {
 			// We offset data in the contract tables by 1.
 			let mut params = vec![(n + 1) as u8];
 			params.extend_from_slice(input);
-			let result = <Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				params,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-			.unwrap();
+			let result = builder::bare_call(addr.clone()).data(params).build_and_unwrap_result();
 			assert!(!result.did_revert());
 			let expected = hash_fn(input.as_ref());
 			assert_eq!(&result.data[..*expected_size], &*expected);
@@ -1732,8 +1735,8 @@ fn lazy_removal_partial_remove_works() {
 
 	// We create a contract with some extra keys above the weight limit
 	let extra_keys = 7u32;
-	let weight_limit = Weight::from_parts(5_000_000_000, 0);
-	let (_, max_keys) = ContractInfo::<Test>::deletion_budget(weight_limit);
+	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
+	let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
 	let vals: Vec<_> = (0..max_keys + extra_keys)
 		.map(|i| (blake2_256(&i.encode()), (i as u32), (i as u32).encode()))
 		.collect();
@@ -1778,10 +1781,10 @@ fn lazy_removal_partial_remove_works() {
 
 	ext.execute_with(|| {
 		// Run the lazy removal
-		let weight_used = ContractInfo::<Test>::process_deletion_queue_batch(weight_limit);
+		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
 
 		// Weight should be exhausted because we could not even delete all keys
-		assert_eq!(weight_used, weight_limit);
+		assert!(!meter.can_consume(weight_per_key));
 
 		let mut num_deleted = 0u32;
 		let mut num_remaining = 0u32;
@@ -1855,7 +1858,7 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 fn lazy_removal_does_not_use_all_weight() {
 	let (code, _hash) = compile_module::<Test>("self_destruct").unwrap();
 
-	let weight_limit = Weight::from_parts(5_000_000_000, 100 * 1024);
+	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
 
 	let (trie, vals, weight_per_key) = ext.execute_with(|| {
@@ -1867,7 +1870,8 @@ fn lazy_removal_does_not_use_all_weight() {
 			.build_and_unwrap_account_id();
 
 		let info = get_contract(&addr);
-		let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(weight_limit);
+		let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
+		assert!(max_keys > 0);
 
 		// We create a contract with one less storage item than we can remove within the limit
 		let vals: Vec<_> = (0..max_keys - 1)
@@ -1902,10 +1906,10 @@ fn lazy_removal_does_not_use_all_weight() {
 
 	ext.execute_with(|| {
 		// Run the lazy removal
-		let weight_used = ContractInfo::<Test>::process_deletion_queue_batch(weight_limit);
-
-		// We have one less key in our trie than our weight limit suffices for
-		assert_eq!(weight_used, weight_limit - weight_per_key);
+		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
+		let base_weight =
+			<<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
+		assert_eq!(meter.consumed(), weight_per_key.mul(vals.len() as _) + base_weight);
 
 		// All the keys are removed
 		for val in vals {
@@ -2276,19 +2280,7 @@ fn ecdsa_recover() {
 		params.extend_from_slice(&signature);
 		params.extend_from_slice(&message_hash);
 		assert!(params.len() == 65 + 32);
-		let result = <Pallet<Test>>::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			params,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone()).data(params).build_and_unwrap_result();
 		assert!(!result.did_revert());
 		assert_eq!(result.data, EXPECTED_COMPRESSED_PUBLIC_KEY);
 	})
@@ -2403,19 +2395,7 @@ fn sr25519_verify() {
 			params.extend_from_slice(&public_key);
 			params.extend_from_slice(message);
 
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				params,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-			.unwrap()
+			builder::bare_call(addr.clone()).data(params).build_and_unwrap_result()
 		};
 
 		// verification should succeed for "hello world"
@@ -3691,35 +3671,13 @@ fn cannot_instantiate_indeterministic_code() {
 
 		// Try to instantiate `code_hash` from another contract in deterministic mode
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result,
+			builder::bare_call(addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 
 		// Instantiations are not allowed even in non-determinism mode
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Relaxed,
-			)
-			.result,
+			builder::bare_call(addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 	});
@@ -3746,18 +3704,7 @@ fn cannot_set_code_indeterministic_code() {
 
 		// We do not allow to set the code hash to a non-deterministic wasm
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				caller_addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Relaxed,
-			)
-			.result,
+			builder::bare_call(caller_addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 	});
@@ -3784,35 +3731,17 @@ fn delegate_call_indeterministic_code() {
 
 		// The delegate call will fail in deterministic mode
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				caller_addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result,
+			builder::bare_call(caller_addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 
 		// The delegate call will work on non-deterministic mode
 		assert_ok!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				caller_addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Relaxed,
-			)
-			.result
+			builder::bare_call(caller_addr.clone())
+				.data(code_hash.encode())
+				.determinism(Determinism::Relaxed)
+				.build()
+				.result
 		);
 	});
 }
@@ -3844,19 +3773,8 @@ fn locking_delegate_dependency_works() {
 
 	// Call contract with the given input.
 	let call = |addr_caller: &AccountId32, input: &(u32, H256)| {
-		<Pallet<Test>>::bare_call(
-			ALICE,
-			addr_caller.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			input.encode(),
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
+		builder::bare_call(addr_caller.clone()).data(input.encode()).build()
 	};
-
 	const ED: u64 = 2000;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
@@ -4022,19 +3940,9 @@ fn native_dependency_deposit_works() {
 			assert_eq!(res.storage_deposit.charge_or_zero(), deposit);
 
 			// call set_code_hash
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				dummy_code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-			.unwrap();
+			builder::bare_call(addr.clone())
+				.data(dummy_code_hash.encode())
+				.build_and_unwrap_result();
 
 			// Check updated storage_deposit
 			let code_deposit = test_utils::get_code_deposit(&dummy_code_hash);

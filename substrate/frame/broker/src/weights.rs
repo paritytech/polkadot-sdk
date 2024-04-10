@@ -24,19 +24,21 @@
 //! WASM-EXECUTION: `Compiled`, CHAIN: `Some("dev")`, DB CACHE: `1024`
 
 // Executed Command:
-// target/production/substrate-node
+// ./target/production/substrate-node
 // benchmark
 // pallet
+// --chain=dev
 // --steps=50
 // --repeat=20
+// --pallet=pallet_broker
+// --no-storage-info
+// --no-median-slopes
+// --no-min-squares
 // --extrinsic=*
 // --wasm-execution=compiled
 // --heap-pages=4096
-// --json-file=/builds/parity/mirrors/polkadot-sdk/.git/.artifacts/bench.json
-// --pallet=pallet_broker
-// --chain=dev
-// --header=./substrate/HEADER-APACHE2
 // --output=./substrate/frame/broker/src/weights.rs
+// --header=./substrate/HEADER-APACHE2
 // --template=./substrate/.maintain/frame-weight-template.hbs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
@@ -140,7 +142,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Broker::Workplan` (r:0 w:10)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn start_sales(_n: u32, ) -> Weight {
+	fn start_sales(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6330`
 		//  Estimated: `8499`
@@ -543,7 +545,7 @@ impl WeightInfo for () {
 	/// Storage: `Broker::Workplan` (r:0 w:10)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[0, 1000]`.
-	fn start_sales(_n: u32, ) -> Weight {
+	fn start_sales(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `6330`
 		//  Estimated: `8499`

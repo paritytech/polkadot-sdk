@@ -1,0 +1,16 @@
+title: "Fix `schedule_code_upgrade` when called by the owner/root"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Fixes `schedule_code_upgrade` when being used by the owner/root. The call is used for
+      manually upgrading the validation code of a parachain on the relay chain. It was failing
+      before because the relay chain waited for the parachain to make progress. However, this
+      call is mostly used for when a parachain are bricked which means that they are not able
+      anymore to build any blocks. The fix is to schedule the validation code upgrade and then
+      to enact it at the scheduled block. The enacting happens now without requiring the parachain
+      to make any progress.
+
+crates:
+  - name: polkadot-runtime-common
+  - name: polkadot-runtime-parachains

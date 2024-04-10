@@ -24,19 +24,21 @@
 //! WASM-EXECUTION: `Compiled`, CHAIN: `Some("dev")`, DB CACHE: `1024`
 
 // Executed Command:
-// target/production/substrate-node
+// ./target/production/substrate-node
 // benchmark
 // pallet
+// --chain=dev
 // --steps=50
 // --repeat=20
+// --pallet=pallet_scheduler
+// --no-storage-info
+// --no-median-slopes
+// --no-min-squares
 // --extrinsic=*
 // --wasm-execution=compiled
 // --heap-pages=4096
-// --json-file=/builds/parity/mirrors/polkadot-sdk/.git/.artifacts/bench.json
-// --pallet=pallet_scheduler
-// --chain=dev
-// --header=./substrate/HEADER-APACHE2
 // --output=./substrate/frame/scheduler/src/weights.rs
+// --header=./substrate/HEADER-APACHE2
 // --template=./substrate/.maintain/frame-weight-template.hbs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
