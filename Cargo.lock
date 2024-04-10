@@ -13063,6 +13063,7 @@ dependencies = [
  "sc-executor",
  "sc-network",
  "sc-network-sync",
+ "sc-offchain",
  "sc-rpc",
  "sc-service",
  "sc-sysinfo",

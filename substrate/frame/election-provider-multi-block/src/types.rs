@@ -79,6 +79,21 @@ pub(crate) type TargetPageOf<T> =
 pub(crate) type MaxWinnersPerPageOf<T> =
 	<<T as crate::Config>::Verifier as Verifier>::MaxWinnersPerPage;
 
+/// Strategies for when the election fails.
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
+pub enum ElectionFailureStrategy {
+	/// Enters in emergency phase when election fails.
+	Emergency,
+	/// Restarts the election phase without starting a new era.
+	Restart,
+}
+
+impl Default for ElectionFailureStrategy {
+	fn default() -> Self {
+		ElectionFailureStrategy::Restart
+	}
+}
+
 /// Current phase of an election.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum Phase<Bn> {

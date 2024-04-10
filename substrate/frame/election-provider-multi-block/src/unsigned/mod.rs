@@ -20,11 +20,14 @@
 pub mod miner;
 
 use crate::{
-	unsigned::miner::{MinerError, OffchainWorkerMiner},
-	PageSize, Phase, SolutionAccuracyOf, Verifier,
+	unsigned::miner::{MinerError, OffchainMinerError, OffchainWorkerMiner},
+	verifier, PageSize, PagedRawSolution, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
 };
 use frame_election_provider_support::PageIndex;
-use frame_support::traits::Get;
+use frame_support::{
+	pallet_prelude::{TransactionValidity, ValidTransaction},
+	traits::Get,
+};
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
@@ -35,16 +38,12 @@ use sp_std::boxed::Box;
 
 // public re-exports.
 pub use pallet::{
-	Call, Config, Event, Pallet, __substrate_call_check, __substrate_event_check, tt_default_parts,
-	tt_error_token,
+	Call, Config, Event, Pallet, __substrate_call_check, __substrate_event_check,
+	__substrate_validate_unsigned_check, tt_default_parts, tt_error_token,
 };
-
-use self::miner::OffchainMinerError;
 
 #[frame_support::pallet(dev_mode)]
 pub(crate) mod pallet {
-
-	use crate::{verifier, PagedRawSolution, SolutionOf};
 
 	use super::*;
 	use frame_support::pallet_prelude::{ValueQuery, *};
@@ -95,11 +94,23 @@ pub(crate) mod pallet {
 	pub enum Event<T: Config> {
 		/// Unsigned solution submitted successfully.
 		UnsignedSolutionSubmitted { at: BlockNumberFor<T>, page: PageIndex },
-		UnsignedTrace,
 	}
 
 	#[pallet::storage]
 	pub type Something<T: Config> = StorageMap<_, Twox64Concat, u32, u32>;
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			if let Call::submit_page_unsigned { page, solution, partial_score } = call {
+				Self::validate_inherent(page, solution, partial_score)
+			} else {
+				InvalidTransaction::Call.into()
+			}
+		}
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -157,9 +168,6 @@ pub(crate) mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
-
-			Self::deposit_event(Event::UnsignedTrace);
-
 			// get lock for the unsigned phase.
 			let mut lock =
 				StorageLock::<BlockAndTime<frame_system::Pallet<T>>>::with_block_deadline(
@@ -202,8 +210,6 @@ impl<T: Config> Pallet<T> {
 		// TODO: signed phase has submitted a solution.
 		let missing_solution_page = <T::Verifier as Verifier>::next_missing_solution_page();
 
-		Self::deposit_event(Event::UnsignedTrace);
-
 		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
 			(Phase::Unsigned(started_at), Some(page)) => {
 				OffchainWorkerMiner::<T>::maybe_mine_and_submit(page)?;
@@ -212,6 +218,19 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+
+	pub(crate) fn validate_inherent(
+		page: &PageIndex,
+		solution: &SolutionOf<T>,
+		partial_score: &ElectionScore,
+	) -> TransactionValidity {
+		// TODO: perform checks, etc
+		ValidTransaction::with_tag_prefix("ElectionOffchainWorker")
+			.priority(T::MinerTxPriority::get())
+			.longevity(5) // todo
+			.propagate(true)
+			.build()
 	}
 }
 

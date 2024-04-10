@@ -214,8 +214,7 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		)?),
 
 		// -- Staking Rococo
-		"staking-rococo-dev" =>
-			Box::new(chain_spec::staking::staking_rococo_development_config()),
+		"staking-rococo-dev" => Box::new(chain_spec::staking::staking_rococo_development_config()),
 
 		// -- BridgeHub
 		bridge_like_id
@@ -692,10 +691,6 @@ pub fn run() -> Result<()> {
 				info!("Parachain id: {:?}", id);
 				info!("Parachain Account: {}", parachain_account);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
-
-                println!("================================");
-                println!("{:?}", config);
-                println!("================================");
 
 				match config.chain_spec.runtime()? {
 					AssetHubPolkadot => crate::service::start_asset_hub_node::<

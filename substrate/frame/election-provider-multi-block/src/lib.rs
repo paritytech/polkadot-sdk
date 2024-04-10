@@ -120,6 +120,7 @@ pub use crate::verifier::Verifier;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
+
 	use super::*;
 	use codec::EncodeLike;
 	use frame_election_provider_support::LockableElectionDataProvider;
@@ -211,6 +212,11 @@ pub mod pallet {
 		type Verifier: verifier::Verifier<AccountId = Self::AccountId, Solution = SolutionOf<Self>>
 			+ verifier::AsyncVerifier;
 	}
+
+	/// Election failure strategy.
+	#[pallet::storage]
+	pub(crate) type ElectionFailure<T: Config> =
+		StorageValue<_, ElectionFailureStrategy, ValueQuery>;
 
 	/// Current phase.
 	#[pallet::storage]
@@ -364,15 +370,17 @@ pub mod pallet {
 				// EPM is "serving" the staking pallet with the election results.
 				Phase::Export(started_at) => {
 					if now > started_at + T::ExportPhaseLimit::get() {
-						// TODO: test the edge case where the export phase saturates. maybe do not
-						// enter in emergency phase?
 						log!(
 					    error,
-					    "phase `Export` has been open for too long ({:?} blocks). entering emergency mode",
+					    "phase `Export` has been open for too long ({:?} blocks). election round failed.",
 					    T::ExportPhaseLimit::get(),
 				    );
 
-						Self::phase_transition(Phase::Emergency)
+						match ElectionFailure::<T>::get() {
+							ElectionFailureStrategy::Restart => Self::phase_transition(Phase::Off),
+							ElectionFailureStrategy::Emergency =>
+								Self::phase_transition(Phase::Emergency),
+						}
 					}
 
 					Weight::default()
@@ -601,15 +609,12 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 				supports.into()
 			})
 			.map_err(|err| {
-				// election failed, go to emergency phase. TODO(gpestana): rething emergency phase.
-				log!(
-					error,
-					"fetching election page {} and fallback failed. entering emergency mode",
-					remaining
-				);
-				//Self::phase_transition(Phase::Emergency);
-				// wrap around to off phase for testing purposes.
-				Self::phase_transition(Phase::Off);
+				log!(error, "fetching election page {} and fallback failed.", remaining);
+
+				match ElectionFailure::<T>::get() {
+					ElectionFailureStrategy::Restart => Self::phase_transition(Phase::Off),
+					ElectionFailureStrategy::Emergency => Self::phase_transition(Phase::Emergency),
+				}
 				err
 			})
 	}
