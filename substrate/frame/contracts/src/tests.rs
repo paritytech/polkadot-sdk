@@ -34,7 +34,7 @@ use crate::{
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
+	wasm::{Determinism, LoadingMode, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	Array, BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo,
 	ContractInfoOf, DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
@@ -1100,6 +1100,20 @@ fn delegate_call() {
 			.data(callee_code_hash.as_ref().to_vec())
 			.build());
 	});
+}
+
+#[test]
+fn track_check_uncheck_module_call() {
+	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		Contracts::bare_upload_code(ALICE, wasm, None, Determinism::Enforced).unwrap();
+		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_result();
+	});
+
+	// It should have recorded 1 `Checked` for the upload and 1 `Unchecked` for the instantiate.
+	let record = crate::wasm::tracker::LOADED_MODULE.with(|stack| stack.borrow().clone());
+	assert_eq!(record, vec![LoadingMode::Checked, LoadingMode::Unchecked]);
 }
 
 #[test]
