@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::TrailingZeroInput, DispatchError};
-use sp_std::{prelude::Box, vec::Vec};
+use sp_std::vec::Vec;
 use sp_storage::TrackedStorageKey;
 
 /// An alphabet of possible parameters to use for benchmarking.
@@ -342,6 +342,90 @@ pub trait Benchmarking {
 	) -> Result<Vec<BenchmarkResult>, BenchmarkError>;
 }
 
+/// The recording trait used to mark the start and end of a benchmark.
+pub trait Recording {
+	/// Start the benchmark.
+	fn start(&mut self) {}
+
+	// Stop the benchmark.
+	fn stop(&mut self) {}
+}
+
+/// A no-op recording, used for unit test.
+struct NoopRecording;
+impl Recording for NoopRecording {}
+
+/// A no-op recording, used for tests that should setup some state before running the benchmark.
+struct TestRecording<'a> {
+	on_before_start: Option<&'a dyn Fn()>,
+}
+
+impl<'a> TestRecording<'a> {
+	fn new(on_before_start: &'a dyn Fn()) -> Self {
+		Self { on_before_start: Some(on_before_start) }
+	}
+}
+
+impl<'a> Recording for TestRecording<'a> {
+	fn start(&mut self) {
+		(self.on_before_start.take().expect("start called more than once"))();
+	}
+}
+
+/// Records the time and proof size of a single benchmark iteration.
+pub struct BenchmarkRecording<'a> {
+	on_before_start: Option<&'a dyn Fn()>,
+	start_extrinsic: Option<u128>,
+	finish_extrinsic: Option<u128>,
+	start_pov: Option<u32>,
+	end_pov: Option<u32>,
+}
+
+impl<'a> BenchmarkRecording<'a> {
+	pub fn new(on_before_start: &'a dyn Fn()) -> Self {
+		Self {
+			on_before_start: Some(on_before_start),
+			start_extrinsic: None,
+			finish_extrinsic: None,
+			start_pov: None,
+			end_pov: None,
+		}
+	}
+}
+
+impl<'a> Recording for BenchmarkRecording<'a> {
+	fn start(&mut self) {
+		(self.on_before_start.take().expect("start called more than once"))();
+		self.start_pov = crate::benchmarking::proof_size();
+		self.start_extrinsic = Some(crate::benchmarking::current_time());
+	}
+
+	fn stop(&mut self) {
+		self.finish_extrinsic = Some(crate::benchmarking::current_time());
+		self.end_pov = crate::benchmarking::proof_size();
+	}
+}
+
+impl<'a> BenchmarkRecording<'a> {
+	pub fn start_pov(&self) -> Option<u32> {
+		self.start_pov
+	}
+
+	pub fn end_pov(&self) -> Option<u32> {
+		self.end_pov
+	}
+
+	pub fn diff_pov(&self) -> Option<u32> {
+		self.start_pov.zip(self.end_pov).map(|(start, end)| end.saturating_sub(start))
+	}
+
+	pub fn elapsed_extrinsic(&self) -> Option<u128> {
+		self.start_extrinsic
+			.zip(self.finish_extrinsic)
+			.map(|(start, end)| end.saturating_sub(start))
+	}
+}
+
 /// The required setup for creating a benchmark.
 ///
 /// Instance generic parameter is optional and can be used in order to capture unused generics for
@@ -353,9 +437,27 @@ pub trait BenchmarkingSetup<T, I = ()> {
 	/// Set up the storage, and prepare a closure to run the benchmark.
 	fn instance(
 		&self,
+		recording: &mut impl Recording,
 		components: &[(BenchmarkParameter, u32)],
 		verify: bool,
-	) -> Result<Box<dyn FnOnce() -> Result<(), BenchmarkError>>, BenchmarkError>;
+	) -> Result<(), BenchmarkError>;
+
+	/// Same as `instance` but passing a closure to run before the benchmark starts.
+	fn test_instance(
+		&self,
+		components: &[(BenchmarkParameter, u32)],
+		on_before_start: &dyn Fn(),
+	) -> Result<(), BenchmarkError> {
+		return self.instance(&mut TestRecording::new(on_before_start), components, true);
+	}
+
+	/// Same as `instance` but passing a no-op recording for unit tests.
+	fn unit_test_instance(
+		&self,
+		components: &[(BenchmarkParameter, u32)],
+	) -> Result<(), BenchmarkError> {
+		return self.instance(&mut NoopRecording {}, components, true);
+	}
 }
 
 /// Grab an account, seeded by a name and index.
