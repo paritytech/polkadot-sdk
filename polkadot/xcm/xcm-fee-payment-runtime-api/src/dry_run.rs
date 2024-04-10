@@ -19,16 +19,24 @@
 //! that need to be paid.
 
 use codec::{Decode, Encode};
-use frame_support::pallet_prelude::TypeInfo;
+use frame_support::pallet_prelude::{TypeInfo, DispatchResult};
 use sp_runtime::traits::Block as BlockT;
 use sp_std::vec::Vec;
 use xcm::prelude::*;
 
 #[derive(Encode, Decode, Debug, TypeInfo)]
-pub struct XcmDryRunEffects<Event> {
+pub struct ExtrinsicDryRunEffects<Event> {
 	pub local_program: VersionedXcm<()>,
 	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
 	pub emitted_events: Vec<Event>,
+	pub execution_result: DispatchResult,
+}
+
+#[derive(Encode, Decode, Debug, TypeInfo)]
+pub struct XcmDryRunEffects<Event> {
+	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
+	pub emitted_events: Vec<Event>,
+	pub execution_result: Outcome,
 }
 
 sp_api::decl_runtime_apis! {
@@ -39,7 +47,7 @@ sp_api::decl_runtime_apis! {
 	/// This vector can be used to calculate both execution and delivery fees.
 	pub trait XcmDryRunApi<Call, Event: Decode> {
 		/// Dry run extrinsic.
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects<Event>, ()>;
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<Event>, ()>;
 
 		/// Dry run XCM program
 		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>, weight: Weight) -> Result<XcmDryRunEffects<Event>, ()>;

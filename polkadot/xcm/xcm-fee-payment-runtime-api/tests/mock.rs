@@ -45,7 +45,7 @@ use xcm_executor::{
 };
 
 use xcm_fee_payment_runtime_api::{
-	XcmDryRunApi, XcmDryRunEffects, XcmPaymentApi, XcmPaymentApiError,
+	XcmDryRunApi, ExtrinsicDryRunEffects, XcmDryRunEffects, XcmPaymentApi, XcmPaymentApiError,
 };
 
 construct_runtime! {
@@ -451,13 +451,13 @@ sp_api::mock_impl_runtime_apis! {
 	}
 
 	impl XcmDryRunApi<Block, RuntimeCall, RuntimeEvent> for RuntimeApi {
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects<RuntimeEvent>, ()> {
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<ExtrinsicDryRunEffects<RuntimeEvent>, ()> {
 			// We want to record the XCM that's executed, so we can return it.
 			pallet_xcm::ShouldRecordXcm::<TestRuntime>::put(true);
 			// Asserting only because it's a test.
-			assert_ok!(Executive::apply_extrinsic(extrinsic));
+			let result = Executive::apply_extrinsic(extrinsic).unwrap(); // TODO: Why is it a double result?
 			// Nothing gets committed to storage in runtime APIs, so there's no harm in leaving the flag as true.
-			let local_xcm = pallet_xcm::RecordedXcm::<TestRuntime>::get().unwrap();
+			let local_xcm = pallet_xcm::RecordedXcm::<TestRuntime>::get().unwrap_or(Xcm(Vec::new()));
 			let forwarded_messages = sent_xcm()
 				.into_iter()
 				.map(|(location, message)| (
@@ -465,10 +465,11 @@ sp_api::mock_impl_runtime_apis! {
 					VersionedXcm::V4(message)
 				)).collect();
 			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
-			Ok(XcmDryRunEffects {
+			Ok(ExtrinsicDryRunEffects {
 				local_program: VersionedXcm::<()>::V4(local_xcm),
 				forwarded_messages,
 				emitted_events: events,
+				execution_result: result,
 			})
 		}
 
@@ -476,13 +477,13 @@ sp_api::mock_impl_runtime_apis! {
 			let origin_location: Location = origin_location.try_into()?;
 			let xcm: Xcm<RuntimeCall> = xcm.try_into()?;
 			let mut hash = fake_message_hash(&xcm);
-			assert_ok!(XcmExecutor::<XcmConfig>::prepare_and_execute(
+			let result = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				origin_location,
 				xcm,
 				&mut hash,
 				max_weight,
 				Weight::zero(),
-			).ensure_complete()); // Asserting only because it's a test.
+			);
 			let forwarded_messages = sent_xcm()
 				.into_iter()
 				.map(|(location, message)| (
@@ -491,9 +492,9 @@ sp_api::mock_impl_runtime_apis! {
 				)).collect();
 			let events: Vec<RuntimeEvent> = System::events().iter().map(|record| record.event.clone()).collect();
 			Ok(XcmDryRunEffects {
-				local_program: VersionedXcm::V4(Xcm(Vec::new())),
 				forwarded_messages,
 				emitted_events: events,
+				execution_result: result,
 			})
 		}
 	}

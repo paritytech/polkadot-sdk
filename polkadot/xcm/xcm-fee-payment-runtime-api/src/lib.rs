@@ -31,5 +31,5 @@ mod dry_run;
 /// Estimates fees.
 mod fees;
 
-pub use dry_run::{XcmDryRunApi, XcmDryRunEffects};
+pub use dry_run::{XcmDryRunApi, ExtrinsicDryRunEffects, XcmDryRunEffects};
 pub use fees::{Error as XcmPaymentApiError, XcmPaymentApi};
