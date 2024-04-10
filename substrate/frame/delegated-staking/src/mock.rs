@@ -181,6 +181,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type StakeAdapter =
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 }
 
 frame_support::construct_runtime!(
