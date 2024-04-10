@@ -828,6 +828,8 @@ pub mod pallet {
 		SnapshotTargetsSizeExceeded { size: u32 },
 		/// A new force era mode was set.
 		ForceEra { mode: Forcing },
+
+		StakingTrace { election_estimation: BlockNumberFor<T>, now: BlockNumberFor<T> },
 	}
 
 	#[pallet::error]
@@ -920,6 +922,8 @@ pub mod pallet {
 				}
 			} else {
 				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
+
+				Self::deposit_event(Event::StakingTrace{now, election_estimation: next_election});
 
 				if now == (next_election.saturating_sub(pages)) {
 					// start calling elect.

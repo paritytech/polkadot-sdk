@@ -95,6 +95,7 @@ pub(crate) mod pallet {
 	pub enum Event<T: Config> {
 		/// Unsigned solution submitted successfully.
 		UnsignedSolutionSubmitted { at: BlockNumberFor<T>, page: PageIndex },
+		UnsignedTrace,
 	}
 
 	#[pallet::storage]
@@ -137,6 +138,8 @@ pub(crate) mod pallet {
 			// let SolutionOrSnapshotSize { voters, targets } =
 			//  Self::snapshot_metadata().expect(error_message);
 
+			// TODO: block author -> slash validator.
+
 			// The verifier will store the paged solution, if valid.
 			let _ = <T::Verifier as Verifier>::verify_synchronous(solution, partial_score, page)
 				.expect(error_message);
@@ -154,6 +157,8 @@ pub(crate) mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			use sp_runtime::offchain::storage_lock::{BlockAndTime, StorageLock};
+
+			Self::deposit_event(Event::UnsignedTrace);
 
 			// get lock for the unsigned phase.
 			let mut lock =
@@ -194,7 +199,10 @@ impl<T: Config> Pallet<T> {
 	pub fn do_synchronized_offchain_worker(
 		now: BlockNumberFor<T>,
 	) -> Result<(), OffchainMinerError> {
+		// TODO: signed phase has submitted a solution.
 		let missing_solution_page = <T::Verifier as Verifier>::next_missing_solution_page();
+
+		Self::deposit_event(Event::UnsignedTrace);
 
 		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
 			(Phase::Unsigned(started_at), Some(page)) => {

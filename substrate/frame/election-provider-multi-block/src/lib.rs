@@ -607,7 +607,9 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 					"fetching election page {} and fallback failed. entering emergency mode",
 					remaining
 				);
-				Self::phase_transition(Phase::Emergency);
+				//Self::phase_transition(Phase::Emergency);
+				// wrap around to off phase for testing purposes.
+				Self::phase_transition(Phase::Off);
 				err
 			})
 	}

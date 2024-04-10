@@ -693,6 +693,10 @@ pub fn run() -> Result<()> {
 				info!("Parachain Account: {}", parachain_account);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
+                println!("================================");
+                println!("{:?}", config);
+                println!("================================");
+
 				match config.chain_spec.runtime()? {
 					AssetHubPolkadot => crate::service::start_asset_hub_node::<
 						AssetHubPolkadotRuntimeApi,

@@ -1,6 +1,6 @@
 [relaychain]
 default_command = "./target/release/polkadot"
-default_args = [ "-lparachain=debug" ]
+default_args = [ "-lparachain=debug --offchain-worker=always" ]
 chain = "rococo-local"
 
   [[relaychain.nodes]]
@@ -21,4 +21,4 @@ chain = "staking-rococo-dev"
   name = "charlie-collator"
   validator = true
   command = "./target/release/polkadot-parachain"
-  args = ["--force-authoring"]
+  args = ["--force-authoring --log=runtime::multiblock-election=trace --offchain-worker=always"]

@@ -638,6 +638,8 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 				Miner::<T, T::OffchainSolver>::compute_partial_score(&solution_page, page)?;
 			Self::submit_paged_call(page, solution_page.clone(), partial_score)?;
 		} else {
+
+
 			sublog!(debug, "unsigned::ocw-miner", "offchain miner computing a new solution.");
 
 			// no solution cached, compute it first.

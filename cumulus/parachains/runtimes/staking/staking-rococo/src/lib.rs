@@ -269,11 +269,13 @@ pub fn native_version() -> NativeVersion {
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 
-	pub EpochDuration: u64 = prod_or_fast!(
-		EPOCH_DURATION_IN_SLOTS as u64,
-		2 * MINUTES as u64,
-		"EPOCH_DURATION"
-	);
+	//pub EpochDuration: u64 = prod_or_fast!(
+	//	EPOCH_DURATION_IN_SLOTS as u64,
+	//	2 * MINUTES as u64,
+	//	"EPOCH_DURATION"
+	//);
+
+	pub EpochDuration: u64 = 2 * MINUTES as u64;
 
 	// This part is copied from Substrate's `bin/node/runtime/src/lib.rs`.
 	//  The `RuntimeBlockLength` and `RuntimeBlockWeights` exist here because the
@@ -480,7 +482,8 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 }
 
 parameter_types! {
-	pub const Period: u32 = 6 * HOURS;
+	//pub const Period: u32 = 10 * HOURS;
+	pub const Period: u32 = 5 * MINUTES;
 	pub const Offset: u32 = 0;
 }
 
@@ -509,7 +512,8 @@ impl pallet_aura::Config for Runtime {
 
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
-	pub const SessionLength: BlockNumber = 6 * HOURS;
+	//pub const SessionLength: BlockNumber = prod_or_fast!(6 * HOURS, 5 * MINUTES);
+	pub const SessionLength: BlockNumber = 5 * MINUTES;
 	// StakingAdmin pluralistic body.
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 }
@@ -536,17 +540,28 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = ();
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
+
 parameter_types! {
-	pub SignedPhase: u32 = prod_or_fast!(
-		EPOCH_DURATION_IN_SLOTS / 4,
-		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
-		"SIGNED_PHASE"
-	);
-	pub UnsignedPhase: u32 = prod_or_fast!(
-		EPOCH_DURATION_IN_SLOTS / 4,
-		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
-		"UNSIGNED_PHASE"
-	);
+	//pub SignedPhase: u32 = prod_or_fast!(
+	//	EPOCH_DURATION_IN_SLOTS / 4,
+	//	(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
+	//	"SIGNED_PHASE"
+	//);
+	//pub UnsignedPhase: u32 = prod_or_fast!(
+	//	EPOCH_DURATION_IN_SLOTS / 4,
+	//	(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
+	//	"UNSIGNED_PHASE"
+	//);
+
+	pub SignedPhase: u32 = (1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2);
+	pub UnsignedPhase: u32 = (1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2);
 
 	pub SignedValidationPhase: BlockNumber = Pages::get();
 	pub Lookhaead: BlockNumber = Pages::get();
@@ -712,7 +727,8 @@ pallet_staking_reward_curve::build! {
 }
 
 parameter_types! {
-	pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_fast!(6, 1);
+	//pub const SessionsPerEra: sp_staking::SessionIndex = prod_or_fast!(6, 1);
+	pub const SessionsPerEra: sp_staking::SessionIndex = 1;
 	pub const BondingDuration: sp_staking::EraIndex = 2;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
@@ -802,7 +818,7 @@ construct_runtime!(
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
 
-		// Governance
+		// Governance.
 		Sudo: pallet_sudo = 15,
 
 		// Collator support. The order of these 4 are important and shall not change.
@@ -817,6 +833,9 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm = 31,
 		CumulusXcm: cumulus_pallet_xcm = 32,
 		MessageQueue: pallet_message_queue = 33,
+
+		// Utility module.
+		Utility: pallet_utility = 50,
 
 		// Staking.
 		Staking: pallet_staking = 34,
@@ -848,6 +867,7 @@ mod benches {
 		[pallet_epm_verifier, ElectionVerifierPallet]
 		[pallet_epm_signed, ElectionSignedPallet]
 		[pallet_epm_unsigned, ElectionUnsignedPallet]
+		[pallet_utility, Utility]
 	);
 }
 
