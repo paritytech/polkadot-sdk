@@ -23,8 +23,8 @@
     "/dns/people-westend.bootnode.amforc.com/tcp/30346/p2p/12D3KooWQrMQFAXxJJJCtVr8nViBR6EDsuT1RyqU3eoCMebRQxTf",
     "/dns/people-westend-bootnode.turboflakes.io/tcp/30650/p2p/12D3KooWQEhmZg3uMkuxVUx3jbsD84zEX4dUKtvHfmCoBWMhybKW",
     "/dns/people-westend-bootnode.turboflakes.io/tcp/30750/wss/p2p/12D3KooWQEhmZg3uMkuxVUx3jbsD84zEX4dUKtvHfmCoBWMhybKW",
-    "/dns/people-westend-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWFFF5qg8gJN3Aq9WJwtqdb4rXuztLRk5DopyeCj25TQrX",
-    "/dns/people-westend-boot-ng.dwellir.com/tcp/30355/p2p/12D3KooWFFF5qg8gJN3Aq9WJwtqdb4rXuztLRk5DopyeCj25TQrX"
+    "/dns/people-westend-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWBdCpCabhgBpLn67LWcXE2JJCCTMhuJHrfDNiTiCCr3KX",
+    "/dns/people-westend-boot-ng.dwellir.com/tcp/30355/p2p/12D3KooWBdCpCabhgBpLn67LWcXE2JJCCTMhuJHrfDNiTiCCr3KX"    
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
