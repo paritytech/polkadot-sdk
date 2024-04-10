@@ -1744,7 +1744,6 @@ impl<T: Config> Pallet<T> {
 				(local, Some(remote))
 			},
 		};
-
 		let weight =
 			T::Weigher::weight(&mut local_xcm).map_err(|()| Error::<T>::UnweighableMessage)?;
 		let mut hash = local_xcm.using_encoded(sp_io::hashing::blake2_256);
@@ -1758,7 +1757,7 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 		outcome.ensure_complete().map_err(|error| {
 			log::error!(
-				target: "xcm::pallet_xcm::build_and_execute_xcm_transfer",
+				target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
 				"XCM execution failed with error {:?}", error
 			);
 			Error::<T>::LocalExecutionIncomplete
@@ -1770,7 +1769,7 @@ impl<T: Config> Pallet<T> {
 			if origin != Here.into_location() {
 				Self::charge_fees(origin.clone(), price).map_err(|error| {
 					log::error!(
-						target: "xcm::pallet_xcm::build_and_execute_xcm_transfer",
+						target: "xcm::pallet_xcm::build_and_execute_xcm_transfer_type",
 						"Unable to charge fee with error {:?}", error
 					);
 					Error::<T>::FeesNotMet
