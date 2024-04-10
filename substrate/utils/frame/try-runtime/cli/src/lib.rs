@@ -288,7 +288,7 @@ impl State {
 		executor: &WasmExecutor<HostFns>,
 		state_snapshot: Option<SnapshotConfig>,
 		try_runtime_check: bool,
-	) -> sc_cli::Result<RemoteExternalities<Block>>
+	) -> sc_cli::Result<RemoteExternalities<HashingFor<Block>>>
 	where
 		Block::Header: DeserializeOwned,
 		<Block::Hash as FromStr>::Err: Debug,
