@@ -37,9 +37,9 @@ use futures::{channel::oneshot, prelude::*};
 use polkadot_node_subsystem::{
 	messages::{
 		Ancestors, ChainApiMessage, HypotheticalCandidate, HypotheticalMembership,
-		HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest, MemberState,
-		ParentHeadData, ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
-		RuntimeApiMessage, RuntimeApiRequest,
+		HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest, ParentHeadData,
+		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
+		RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -794,14 +794,13 @@ fn answer_hypothetical_membership_request(
 				},
 			};
 
-			membership.push((
-				*active_leaf,
-				fragment_chain.hypothetical_membership(
-					candidate_hash,
-					hypothetical,
-					candidate_storage,
-				),
-			));
+			if fragment_chain.hypothetical_membership(
+				candidate_hash,
+				hypothetical,
+				candidate_storage,
+			) {
+				membership.push(*active_leaf);
+			}
 		}
 	}
 

@@ -92,7 +92,7 @@ use std::{
 };
 
 use super::LOG_TARGET;
-use polkadot_node_subsystem::messages::{Ancestors, MemberState};
+use polkadot_node_subsystem::messages::Ancestors;
 use polkadot_node_subsystem_util::inclusion_emulator::{
 	ConstraintModifications, Constraints, Fragment, ProspectiveCandidate, RelayChainBlockInfo,
 };
@@ -501,15 +501,24 @@ impl FragmentChain {
 
 	/// Returns the hypothetical state of a candidate with the given hash and parent head data
 	/// in regards to the existing chain.
+	///
+	/// Returns true if either:
+	/// - the candidate is already present
+	/// - the candidate can be added to the chain
+	/// - the candidate could potentially be added to the chain in the future (its ancestors are
+	///   still unknown but it doesn't violate other rules).
+	///
+	/// If this returns false, the candidate could never be added to the current chain (not now, not
+	/// ever)
 	pub(crate) fn hypothetical_membership(
 		&self,
 		candidate_hash: CandidateHash,
 		candidate: HypotheticalCandidate,
 		candidate_storage: &CandidateStorage,
-	) -> MemberState {
+	) -> bool {
 		// If we've already used this candidate in the chain
 		if self.candidates.contains(&candidate_hash) {
-			return MemberState::Present
+			return true
 		}
 
 		if !self.can_add_candidate_as_potential(
@@ -518,18 +527,13 @@ impl FragmentChain {
 			candidate.parent_head_data_hash(),
 			candidate.output_head_data_hash(),
 		) {
-			gum::debug!(
-				target: LOG_TARGET,
-				"Check potential returned false in hypothetical membership for {:?}",
-				candidate_hash
-			);
-			return MemberState::None
+			return false
 		}
 
 		let Some(candidate_relay_parent) = self.scope.ancestor_by_hash(&candidate.relay_parent())
 		else {
 			// can_add_candidate_as_potential already checked for this, but just to be safe.
-			return MemberState::None
+			return false
 		};
 
 		let identity_modifications = ConstraintModifications::identity();
@@ -545,11 +549,12 @@ impl FragmentChain {
 					gum::debug!(
 						target: LOG_TARGET,
 						new_parent_head = ?cumulative_modifications.required_parent,
+						?candidate_hash,
 						err = ?e,
 						"Failed to apply modifications",
 					);
 
-					return MemberState::None
+					return false
 				},
 				Ok(c) => c,
 			};
@@ -580,19 +585,15 @@ impl FragmentChain {
 						target: LOG_TARGET,
 						"Fragment::new() returned error",
 					);
-					return MemberState::None
+					return false
 				}
 			}
 
-			return MemberState::Potential
-		}
-
-		// Check if this is already an unconnected candidate
-		if candidate_storage.contains(&candidate_hash) {
-			MemberState::Unconnected
+			// If we got this far, it can be added to the chain right now.
+			true
 		} else {
-			// Otherwise, it already passed the checks for a potential candidate.
-			MemberState::Potential
+			// Otherwise it is or can be an unconnected candidate.
+			true
 		}
 	}
 

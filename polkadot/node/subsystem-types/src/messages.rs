@@ -1148,22 +1148,8 @@ impl ParentHeadData {
 }
 
 /// Indicates the relay-parents whose fragment tree a candidate
-/// is present in.
-pub type HypotheticalMembership = Vec<(Hash, MemberState)>;
-
-#[derive(Debug, PartialEq)]
-/// The possible states a candidate can be in a leaf's fragment chain.
-pub enum MemberState {
-	/// Present in the candidate storage, but not connected to the prospective chain.
-	Unconnected,
-	/// Present in the fragment chain
-	Present,
-	/// Could be added to the fragment chain in the future
-	Potential,
-	/// Not present in the candidate storage and cannot be added to the fragment chain in the
-	/// future.
-	None,
-}
+/// is present in or can be added in (right now or in the future).
+pub type HypotheticalMembership = Vec<Hash>;
 
 /// A collection of ancestor candidates of a parachain.
 pub type Ancestors = HashSet<CandidateHash>;
@@ -1194,11 +1180,19 @@ pub enum ProspectiveParachainsMessage {
 		Ancestors,
 		oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 	),
-	/// Get the hypothetical frontier membership of candidates with the given properties
-	/// under the specified active leaves' fragment trees.
+	/// Get the hypothetical or actual membership of candidates with the given properties
+	/// under the specified active leave's fragment chain.
 	///
-	/// For any candidate which is already known, this returns the depths the candidate
-	/// occupies.
+	/// For each candidate, we return a vector of leaves where the candidate is present or could be
+	/// added. "Could be added" either means that the candidate can be added to the chain right now
+	/// or could be added in the future (we may not have its ancestors yet).
+	/// Note that even if we think it could be added in the future, we may find out that it was
+	/// invalid, as time passes.
+	/// If an active leaf is not in the vector, it means that there's no
+	/// chance this candidate will become valid under that leaf in the future.
+	///
+	/// If `fragment_chain_relay_parent` in the request is `Some()`, the return vector can only
+	/// contain this relay parent (or none).
 	GetHypotheticalMembership(
 		HypotheticalMembershipRequest,
 		oneshot::Sender<Vec<(HypotheticalCandidate, HypotheticalMembership)>>,

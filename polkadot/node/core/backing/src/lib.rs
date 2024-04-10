@@ -89,9 +89,8 @@ use polkadot_node_subsystem::{
 		AvailabilityDistributionMessage, AvailabilityStoreMessage, CanSecondRequest,
 		CandidateBackingMessage, CandidateValidationMessage, CollatorProtocolMessage,
 		HypotheticalCandidate, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		MemberState, ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage,
-		RuntimeApiMessage, RuntimeApiRequest, StatementDistributionMessage,
-		StoreAvailableDataError,
+		ProspectiveParachainsMessage, ProvisionableData, ProvisionerMessage, RuntimeApiMessage,
+		RuntimeApiRequest, StatementDistributionMessage, StoreAvailableDataError,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -1248,40 +1247,28 @@ async fn seconding_sanity_check<Context>(
 			))
 			.await;
 			let response = rx.map_ok(move |frontiers| {
-				let mut res = (MemberState::None, head);
-				if let Some(states) = frontiers.into_iter().find_map(|(candidate, states)| {
-					(candidate.candidate_hash() == candidate_hash).then_some(states)
-				}) {
-					if let Some(state) = states
-						.into_iter()
-						.find_map(|(relay_parent, state)| (&relay_parent == head).then_some(state))
-					{
-						res = (state, head);
-					} else {
-						gum::error!(
-							target: LOG_TARGET,
-							"unexpected 1"
-						);
-					}
-				} else {
-					gum::error!(
-						target: LOG_TARGET,
-						"unexpected 2"
-					);
-				}
+				let is_member_or_potential = frontiers
+					.into_iter()
+					.find_map(|(candidate, leaves)| {
+						(candidate.candidate_hash() == candidate_hash).then_some(leaves)
+					})
+					.map(|leaves| leaves.into_iter().find(|leaf| leaf == head))
+					.flatten()
+					.is_some();
 
-				res
+				(is_member_or_potential, head)
 			});
 			responses.push_back(response.boxed());
 		} else {
 			if *head == candidate_relay_parent {
 				if let ActiveLeafState::ProspectiveParachainsDisabled { seconded } = leaf_state {
 					if seconded.contains(&candidate_para) {
-						// The leaf is already occupied.
+						// The leaf is already occupied. For non-prospective parachains, we only
+						// second one candidate.
 						return SecondingAllowed::No
 					}
 				}
-				responses.push_back(futures::future::ok((MemberState::Potential, head)).boxed());
+				responses.push_back(futures::future::ok((true, head)).boxed());
 			}
 		}
 	}
@@ -1295,30 +1282,32 @@ async fn seconding_sanity_check<Context>(
 			Err(oneshot::Canceled) => {
 				gum::warn!(
 					target: LOG_TARGET,
-					"Failed to reach prospective parachains subsystem for hypothetical frontiers",
+					"Failed to reach prospective parachains subsystem for hypothetical membership",
 				);
 
 				return SecondingAllowed::No
 			},
-			Ok((member_state, head)) => match member_state {
-				MemberState::None => {
+			Ok((is_member_or_potential, head)) => match is_member_or_potential {
+				false => {
 					gum::debug!(
 						target: LOG_TARGET,
 						?candidate_hash,
 						leaf_hash = ?head,
-						"Refusing to second candidate",
+						"Refusing to second candidate at leaf. Is not a potential member.",
 					);
-
-					return SecondingAllowed::No
 				},
-				_ => {
+				true => {
 					leaves_for_seconding.push(*head);
 				},
 			},
 		}
 	}
 
-	SecondingAllowed::Yes(leaves_for_seconding)
+	if leaves_for_seconding.is_empty() {
+		SecondingAllowed::No
+	} else {
+		SecondingAllowed::Yes(leaves_for_seconding)
+	}
 }
 
 /// Performs seconding sanity check for an advertisement.
