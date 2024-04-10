@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712744393973,
+  "lastUpdate": 1712761246946,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3067,6 +3067,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025634620213333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "0d71753e0eb1c0fdbeb09af5db7a2e1b5f150b13",
+          "message": "Contracts: Only exec parsed code in benchmarks (#3915)\n\n[Weights\ncompare](https://weights.tasty.limo/compare?unit=weight&ignore_errors=true&threshold=10&method=asymptotic&repo=polkadot-sdk&old=master&new=pg%2Fbench_tweaks&path_pattern=substrate%2Fframe%2F**%2Fsrc%2Fweights.rs%2Cpolkadot%2Fruntime%2F*%2Fsrc%2Fweights%2F**%2F*.rs%2Cpolkadot%2Fbridges%2Fmodules%2F*%2Fsrc%2Fweights.rs%2Ccumulus%2F**%2Fweights%2F*.rs%2Ccumulus%2F**%2Fweights%2Fxcm%2F*.rs%2Ccumulus%2F**%2Fsrc%2Fweights.rs)\n\nNote: Raw weights change does not mean much here, as this PR reduce the\nscope of what is benchmarked, they are therefore decreased by a good\nmargin. One should instead print the Schedule using\n\ncargo test --features runtime-benchmarks bench_print_schedule --\n--nocapture\nor following the instructions from the\n[README](https://github.com/paritytech/polkadot-sdk/tree/pg/bench_tweaks/substrate/frame/contracts#schedule)\nfor looking at the Schedule of a specific runtime\n\n---------\n\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-10T13:05:34Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0d71753e0eb1c0fdbeb09af5db7a2e1b5f150b13"
+        },
+        "date": 1712761221498,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.926666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01379872139333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16378812730000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026526825519999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011644010193333339,
             "unit": "seconds"
           }
         ]
