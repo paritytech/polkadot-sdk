@@ -21,7 +21,7 @@
 use crate::{
 	migration::{IsFinished, MigrationStep},
 	weights::WeightInfo,
-	BalanceOf, CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
+	BalanceOf, CodeHash, Config, Pallet, TrieId, Weight, WeightMeter, LOG_TARGET,
 };
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound};
@@ -80,7 +80,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 		T::WeightInfo::v16_migration_step()
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_account) = self.last_account.take() {
 			ContractInfoOf::<T>::iter_keys_from(ContractInfoOf::<T>::hashed_key_for(last_account))
 		} else {
@@ -96,10 +96,12 @@ impl<T: Config> MigrationStep for Migration<T> {
 				*info = Some(updated_info);
 			});
 			self.last_account = Some(key);
-			(IsFinished::No, T::WeightInfo::v16_migration_step())
+			meter.consume(T::WeightInfo::v16_migration_step());
+			IsFinished::No
 		} else {
 			log::debug!(target: LOG_TARGET, "No more contracts to migrate");
-			(IsFinished::Yes, T::WeightInfo::v16_migration_step())
+			meter.consume(T::WeightInfo::v16_migration_step());
+			IsFinished::Yes
 		}
 	}
 }

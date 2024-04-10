@@ -343,7 +343,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			m.step();
+			m.step(&mut WeightMeter::new());
 		}
 		let ed = Pallet::<T>::min_balance();
 		let info = v16::ContractInfoOf::<T>::get(&contract.account_id).unwrap();
