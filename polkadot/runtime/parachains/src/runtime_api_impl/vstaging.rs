@@ -34,7 +34,7 @@ pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaI
 	// scheduled to the client.
 	<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(Vec::new(), now);
 
-	<scheduler::Pallet<T>>::claimqueue()
+	scheduler::ClaimQueue::<T>::get()
 		.into_iter()
 		.map(|(core_index, entries)| {
 			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
