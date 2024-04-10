@@ -790,15 +790,9 @@ impl FragmentChain {
 			return false
 		}
 
-		let unconnected = self.count_unconnected_potential_candidates(storage);
+		let unconnected = self.find_unconnected_potential_candidates(storage).len();
 
 		if (self.chain.len() + unconnected) < self.scope.max_depth {
-			// if unconnected > 0 {
-			// 	gum::debug!(
-			// 		target: LOG_TARGET,
-			// 		"Can add candidate as unconnected",
-			// 	);
-			// }
 			true
 		} else {
 			gum::debug!(
@@ -811,21 +805,28 @@ impl FragmentChain {
 
 	// How many candidates are present in CandidateStorage, are not part of this chain but could
 	// become part of this chain in the future.
-	fn count_unconnected_potential_candidates(&self, storage: &CandidateStorage) -> usize {
-		let mut count = 0;
+	pub(crate) fn find_unconnected_potential_candidates(
+		&self,
+		storage: &CandidateStorage,
+	) -> Vec<CandidateHash> {
+		let mut candidates = vec![];
 		for candidate in storage.candidates() {
+			// We stop at max_depth with the search. There's no point in looping further.
+			if (self.chain.len() + candidates.len()) >= self.scope.max_depth {
+				break
+			}
 			if !self.candidates.contains(&candidate.candidate_hash) {
 				if self.check_potential(
 					&candidate.relay_parent,
 					candidate.candidate.persisted_validation_data.parent_head.hash(),
 					Some(candidate.candidate.commitments.head_data.hash()),
 				) {
-					count += 1;
+					candidates.push(candidate.candidate_hash);
 				}
 			}
 		}
 
-		count
+		candidates
 	}
 
 	// Check if adding a candidate which transitions `parent_head_hash` to `output_head_hash` would

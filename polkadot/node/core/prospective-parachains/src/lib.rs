@@ -334,7 +334,7 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 	let active_leaves = &view.active_leaves;
 	let mut live_candidates = HashSet::new();
 	let mut live_paras = HashSet::new();
-	for sub_view in active_leaves.values() {
+	for (leaf, sub_view) in active_leaves.iter() {
 		live_candidates.extend(sub_view.pending_availability.iter().cloned());
 
 		for (para_id, fragment_chain) in &sub_view.fragment_chains {
@@ -342,26 +342,17 @@ fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
 			live_paras.insert(*para_id);
 
 			if let Some(storage) = view.candidate_storage.get(para_id) {
-				for candidate in storage.candidates() {
-					if !live_candidates.contains(&candidate.hash()) {
-						if fragment_chain.can_add_candidate_as_potential(
-							storage,
-							&storage
-								.relay_parent_by_candidate_hash(&candidate.hash())
-								.expect("Candidate hash is taken from the storage iterator"),
-							candidate.parent_head_data_hash(),
-							Some(candidate.output_head_data_hash()),
-						) {
-							gum::trace!(
-								target: LOG_TARGET,
-								candidate = ?candidate.hash(),
-								"Keeping unconnected candidate in storage"
-							);
-
-							live_candidates.insert(candidate.hash());
-						}
-					}
+				let unconnected_potential =
+					fragment_chain.find_unconnected_potential_candidates(storage);
+				if !unconnected_potential.is_empty() {
+					gum::trace!(
+						target: LOG_TARGET,
+						?leaf,
+						"Keeping unconnected candidates in storage: {:?}",
+						unconnected_potential
+					);
 				}
+				live_candidates.extend(unconnected_potential);
 			}
 		}
 	}
