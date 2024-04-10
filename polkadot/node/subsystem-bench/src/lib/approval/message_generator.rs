@@ -48,7 +48,7 @@ use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rand_distr::{Distribution, Normal};
 use sc_keystore::LocalKeystore;
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use sha1::Digest;
 use sp_application_crypto::AppCrypto;

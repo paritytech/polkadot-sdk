@@ -38,14 +38,14 @@ use polkadot_node_primitives::{
 	SubmitCollationParams,
 };
 use polkadot_node_subsystem::{
-	messages::{CollationGenerationMessage, CollatorProtocolMessage, RuntimeApiRequest},
+	messages::{CollationGenerationMessage, CollatorProtocolMessage},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError, SpawnedSubsystem,
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	has_required_runtime, request_async_backing_params, request_availability_cores,
-	request_claim_queue, request_para_backing_state, request_persisted_validation_data,
-	request_validation_code, request_validation_code_hash, request_validators,
+	request_async_backing_params, request_availability_cores, request_para_backing_state,
+	request_persisted_validation_data, request_validation_code, request_validation_code_hash,
+	request_validators, vstaging::fetch_claim_queue,
 };
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
@@ -53,10 +53,7 @@ use polkadot_primitives::{
 	PersistedValidationData, ScheduledCore, ValidationCodeHash,
 };
 use sp_core::crypto::Pair;
-use std::{
-	collections::{BTreeMap, VecDeque},
-	sync::Arc,
-};
+use std::sync::Arc;
 
 mod error;
 
@@ -228,7 +225,9 @@ async fn handle_new_activations<Context>(
 		let availability_cores = availability_cores??;
 		let async_backing_params = async_backing_params?.ok();
 		let n_validators = validators??.len();
-		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent).await?;
+		let maybe_claim_queue = fetch_claim_queue(ctx.sender(), relay_parent)
+			.await
+			.map_err(crate::error::Error::UtilRuntime)?;
 
 		// The loop bellow will fill in cores that the para is allowed to build on.
 		let mut cores_to_build_on = Vec::new();
@@ -245,11 +244,10 @@ async fn handle_new_activations<Context>(
 						// Use claim queue if available, or fallback to `next_up_on_available`
 						let res = match maybe_claim_queue {
 							Some(ref claim_queue) => {
-								// read what's in the claim queue for this core
-								fetch_next_scheduled_on_core(
-									claim_queue,
-									CoreIndex(core_idx as u32),
-								)
+								// read what's in the claim queue for this core at depth 0.
+								claim_queue
+									.get_claim_for(CoreIndex(core_idx as u32), 0)
+									.map(|para_id| ScheduledCore { para_id, collator: None })
 							},
 							None => {
 								// Runtime doesn't support claim queue runtime api. Fallback to
@@ -654,38 +652,4 @@ fn erasure_root(
 
 	let chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, &available_data)?;
 	Ok(polkadot_erasure_coding::branches(&chunks).root())
-}
-
-// Checks if the runtime supports `request_claim_queue` and executes it. Returns `Ok(None)`
-// otherwise. Any [`RuntimeApiError`]s are bubbled up to the caller.
-async fn fetch_claim_queue(
-	sender: &mut impl overseer::CollationGenerationSenderTrait,
-	relay_parent: Hash,
-) -> crate::error::Result<Option<BTreeMap<CoreIndex, VecDeque<ParaId>>>> {
-	if has_required_runtime(
-		sender,
-		relay_parent,
-		RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
-	)
-	.await
-	{
-		let res = request_claim_queue(relay_parent, sender).await.await??;
-		Ok(Some(res))
-	} else {
-		gum::trace!(target: LOG_TARGET, "Runtime doesn't support `request_claim_queue`");
-		Ok(None)
-	}
-}
-
-// Returns the next scheduled `ParaId` for a core in the claim queue, wrapped in `ScheduledCore`.
-// This function is supposed to be used in `handle_new_activations` hence the return type.
-fn fetch_next_scheduled_on_core(
-	claim_queue: &BTreeMap<CoreIndex, VecDeque<ParaId>>,
-	core_idx: CoreIndex,
-) -> Option<ScheduledCore> {
-	claim_queue
-		.get(&core_idx)?
-		.front()
-		.cloned()
-		.map(|para_id| ScheduledCore { para_id, collator: None })
 }

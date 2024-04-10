@@ -16,6 +16,7 @@ parking_lot = "0.12.1"
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 sc-network = { path = "../../../substrate/client/network" }
+sc-network-types = { path = "../../../substrate/client/network/types" }
 sp-core = { path = "../../../substrate/primitives/core" }
 thiserror = { workspace = true }
 tokio = "1.37"
