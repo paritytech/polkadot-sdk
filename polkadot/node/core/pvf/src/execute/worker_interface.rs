@@ -197,27 +197,6 @@ pub async fn start_work(
 			}),
 			Err(worker_error) => Err(worker_error.into()),
 		}
-
-		// match response {
-		// 	WorkerResponse::Ok { result_descriptor, duration } => Outcome::Ok {
-		// 		result_descriptor,
-		// 		duration,
-		// 		idle_worker: IdleWorker { stream, pid, worker_dir },
-		// 	},
-		// 	WorkerResponse::InvalidCandidate(err) => Outcome::InvalidCandidate {
-		// 		err,
-		// 		idle_worker: IdleWorker { stream, pid, worker_dir },
-		// 	},
-		// 	WorkerResponse::RuntimeConstruction(err) => Outcome::RuntimeConstruction {
-		// 		err,
-		// 		idle_worker: IdleWorker { stream, pid, worker_dir },
-		// 	},
-		// 	WorkerResponse::JobTimedOut => Outcome::HardTimeout,
-		// 	WorkerResponse::JobDied { err, job_pid: _ } => Outcome::JobDied { err },
-		// 	WorkerResponse::JobError(err) => Outcome::JobError { err },
-
-		// 	WorkerResponse::InternalError(err) => Outcome::InternalError { err },
-		// }
 	})
 	.await
 }
