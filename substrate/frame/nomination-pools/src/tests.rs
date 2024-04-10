@@ -7389,18 +7389,22 @@ mod chill {
 }
 
 mod delegation {
+    #[test]
 	fn withdraw_unbonded_correct_weight() {
 		// TODO(ank4n): there are integration tests in pallet-nomination-pools-delegate-stake but
 		// should do more unit testing here
 	}
 
+	#[test]
 	fn apply_slash() {
 		// TODO(ank4n)
 	}
 
+	#[test]
 	fn pool_migration() {
 		// TODO(ank4n)
 	}
+	#[test]
 	fn claim_delegation() {
 		// TODO(ank4n)
 	}
