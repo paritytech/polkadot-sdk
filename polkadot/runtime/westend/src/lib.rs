@@ -1340,6 +1340,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = <Self as pallet_staking::Config>::MaxUnlockingChunks;
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
+	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 }
 
 impl pallet_root_testing::Config for Runtime {

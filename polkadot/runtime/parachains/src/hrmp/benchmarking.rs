@@ -76,6 +76,8 @@ where
 	let deposit: BalanceOf<T> = config.hrmp_sender_deposit.unique_saturated_into();
 	let capacity = config.hrmp_channel_max_capacity;
 	let message_size = config.hrmp_channel_max_message_size;
+	assert!(message_size > 0, "Invalid genesis for benchmarking");
+	assert!(capacity > 0, "Invalid genesis for benchmarking");
 
 	let sender: ParaId = from.into();
 	let sender_origin: crate::Origin = from.into();

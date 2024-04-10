@@ -337,7 +337,7 @@ fn to_incoming_req(
 
 			IncomingRequest::new(
 				// We don't really care:
-				network::PeerId::random(),
+				network::PeerId::random().into(),
 				payload,
 				tx,
 			)
