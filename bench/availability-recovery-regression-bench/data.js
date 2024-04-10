@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712697114686,
+  "lastUpdate": 1712711389236,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2267,6 +2267,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19716123428666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "df818d2974e059008cd8fa531f70b6657787b5be",
+          "message": "Move cumulus zombienet tests to aura & async backing (#3568)\n\nCumulus test-parachain node and test runtime were still using relay\nchain consensus and 12s blocktimes. With async backing around the corner\non the major chains we should switch our tests too.\n\nAlso needed to nicely test the changes coming to collators in #3168.\n\n### Changes Overview\n- Followed the [migration\nguide](https://wiki.polkadot.network/docs/maintain-guides-async-backing)\nfor async backing for the cumulus-test-runtime\n- Adjusted the cumulus-test-service to use the correct import-queue,\nlookahead collator etc.\n- The block validation function now uses the Aura Ext Executor so that\nthe seal of the block is validated\n- Previous point requires that we seal block before calling into\n`validate_block`, I introduced a helper function for that\n- Test client adjusted to provide a slot to the relay chain proof and\nthe aura pre-digest",
+          "timestamp": "2024-04-09T16:53:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/df818d2974e059008cd8fa531f70b6657787b5be"
+        },
+        "date": 1712711365211,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.19417283856,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17280806947333333,
             "unit": "seconds"
           }
         ]
