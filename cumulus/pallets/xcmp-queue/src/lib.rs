@@ -608,10 +608,7 @@ impl<T: Config> Pallet<T> {
 				details.state = OutboundState::Suspended;
 			} else {
 				if s.try_push(OutboundChannelDetails::new(target).with_suspended_state()).is_err() {
-					// Nothing that we can do here. The outbound channel does not exist either, so
-					// there should be no message going out as well. The next time that the channel
-					// can be created it will again get the suspension from the remote side. It can
-					// therefore result in a few lost messages, but should eventually self-repair.
+					// We got a suspension signal on either an unidirectional or a new channel.
 					defensive!("Cannot pause channel; too many outbound channels");
 				}
 			}
