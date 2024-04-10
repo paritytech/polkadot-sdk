@@ -1740,7 +1740,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(10)]
+	#[api_version(11)]
 	impl primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -1896,9 +1896,9 @@ sp_api::impl_runtime_apis! {
 			parachains_runtime_api_impl::node_features::<Runtime>()
 		}
 
-		// fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-		// 	vstaging_parachains_runtime_api_impl::claim_queue::<Runtime>()
-		// }
+		fn claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+			vstaging_parachains_runtime_api_impl::claim_queue::<Runtime>()
+		}
 	}
 
 	#[api_version(3)]
