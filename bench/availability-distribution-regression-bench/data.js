@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712772425736,
+  "lastUpdate": 1712781928418,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3171,6 +3171,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011674306286666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Milos Kriz",
+            "username": "miloskriz",
+            "email": "82968568+miloskriz@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d21a41f23847f1aeca637ace60f58723c38f6bf3",
+          "message": "Amend chainspecs for `people-westend` and add IBP bootnodes (#4072)\n\nDear team, dear @NachoPal @joepetrowski @bkchr @ggwpez,\n\nThis is a retry of #3957, after merging master as advised!,\n\nMany thanks!\n\n**_Milos_**\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-04-10T19:31:31Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d21a41f23847f1aeca637ace60f58723c38f6bf3"
+        },
+        "date": 1712781902311,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.94,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025734098619999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15135547393999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009256530433333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011834370739999996,
             "unit": "seconds"
           }
         ]
