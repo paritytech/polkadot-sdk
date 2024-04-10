@@ -2126,17 +2126,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1977" id="1977">1977</a>
 <a href="#1978" id="1978">1978</a>
 <a href="#1979" id="1979">1979</a>
-<a href="#1980" id="1980">1980</a>
-<a href="#1981" id="1981">1981</a>
-<a href="#1982" id="1982">1982</a>
-<a href="#1983" id="1983">1983</a>
-<a href="#1984" id="1984">1984</a>
-<a href="#1985" id="1985">1985</a>
-<a href="#1986" id="1986">1986</a>
-<a href="#1987" id="1987">1987</a>
-<a href="#1988" id="1988">1988</a>
-<a href="#1989" id="1989">1989</a>
-<a href="#1990" id="1990">1990</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2925,9 +2914,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">fn </span>instance(
 				<span class="kw-2">&amp;</span><span class="self">self</span>,
+				recording: <span class="kw-2">&amp;mut </span><span class="kw">impl </span><span class="macro-nonterminal">$crate::Recording</span>,
 				components: <span class="kw-2">&amp;</span>[(<span class="macro-nonterminal">$crate::BenchmarkParameter</span>, u32)],
 				verify: bool
-			) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$crate::__private::Box</span>&lt;<span class="kw">dyn </span>FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="macro-nonterminal">$crate::BenchmarkError</span>&gt;&gt;, <span class="macro-nonterminal">$crate::BenchmarkError</span>&gt; {
+			) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="macro-nonterminal">$crate::BenchmarkError</span>&gt; {
 				$(
 					<span class="comment">// Prepare instance
 					</span><span class="kw">let </span><span class="macro-nonterminal">$param </span>= components.iter()
@@ -2941,13 +2931,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				$( <span class="macro-nonterminal">$param_instancer </span>; )*
 				$( <span class="macro-nonterminal">$post </span>)*
 
-				<span class="prelude-val">Ok</span>(<span class="macro-nonterminal">$crate::__private::Box::new</span>(<span class="kw">move </span>|| -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="macro-nonterminal">$crate::BenchmarkError</span>&gt; {
-					<span class="macro-nonterminal">$eval</span>;
-					<span class="kw">if </span>verify {
-						<span class="macro-nonterminal">$postcode</span>;
-					}
-					<span class="prelude-val">Ok</span>(())
-				}))
+				recording.start();
+				<span class="macro-nonterminal">$eval</span>;
+				recording.stop();
+
+				<span class="kw">if </span>verify {
+					<span class="macro-nonterminal">$postcode</span>;
+				}
+				<span class="prelude-val">Ok</span>(())
 			}
 		}
 	};
@@ -3099,14 +3090,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">fn </span>instance(
 				<span class="kw-2">&amp;</span><span class="self">self</span>,
+				recording: <span class="kw-2">&amp;mut </span><span class="kw">impl </span><span class="macro-nonterminal">$crate::Recording</span>,
 				components: <span class="kw-2">&amp;</span>[(<span class="macro-nonterminal">$crate::BenchmarkParameter</span>, u32)],
 				verify: bool
-			) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$crate::__private::Box</span>&lt;<span class="kw">dyn </span>FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="macro-nonterminal">$crate::BenchmarkError</span>&gt;&gt;, <span class="macro-nonterminal">$crate::BenchmarkError</span>&gt; {
+			) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="macro-nonterminal">$crate::BenchmarkError</span>&gt; {
 				<span class="kw">match </span><span class="self">self </span>{
 					$(
 						<span class="self">Self</span>::<span class="macro-nonterminal">$bench </span>=&gt; &lt;
 							<span class="macro-nonterminal">$bench </span><span class="kw">as </span><span class="macro-nonterminal">$crate::BenchmarkingSetup</span>&lt;T $(, <span class="macro-nonterminal">$bench_inst</span>)<span class="question-mark">? </span>&gt;
-						&gt;::instance(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$bench</span>, components, verify),
+						&gt;::instance(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$bench</span>, recording, components, verify),
 					)*
 				}
 			}
@@ -3208,18 +3200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro-nonterminal">$crate::benchmarking::set_whitelist</span>(whitelist.clone());
 
 				<span class="kw">let </span><span class="kw-2">mut </span>results: <span class="macro-nonterminal">$crate::__private::Vec</span>&lt;<span class="macro-nonterminal">$crate::BenchmarkResult</span>&gt; = <span class="macro-nonterminal">$crate::__private::Vec::new</span>();
-
-				<span class="comment">// Always do at least one internal repeat...
-				</span><span class="kw">for _ in </span><span class="number">0 </span>.. internal_repeats.max(<span class="number">1</span>) {
-					<span class="comment">// Always reset the state after the benchmark.
-					</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::defer!</span>(<span class="macro-nonterminal">$crate::benchmarking::wipe_db</span>());
-
-					<span class="comment">// Set up the externalities environment for the setup we want to
-					// benchmark.
-					</span><span class="kw">let </span>closure_to_benchmark = &lt;
-						SelectedBenchmark <span class="kw">as </span><span class="macro-nonterminal">$crate::BenchmarkingSetup</span>&lt;T $(, <span class="macro-nonterminal">$instance</span>)<span class="question-mark">?</span>&gt;
-					&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, c, verify)<span class="question-mark">?</span>;
-
+				<span class="kw">let </span>on_before_start = || {
 					<span class="comment">// Set the block number to at least 1 so events are deposited.
 					</span><span class="kw">if </span><span class="macro-nonterminal">$crate::__private::Zero::is_zero</span>(<span class="kw-2">&amp;</span>frame_system::Pallet::&lt;T&gt;::block_number()) {
 						frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
@@ -3237,6 +3218,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="comment">// Reset the read/write counter so we don&#39;t count operations in the setup process.
 					</span><span class="macro-nonterminal">$crate::benchmarking::reset_read_write_count</span>();
+				};
+
+				<span class="comment">// Always do at least one internal repeat...
+				</span><span class="kw">for _ in </span><span class="number">0 </span>.. internal_repeats.max(<span class="number">1</span>) {
+					<span class="comment">// Always reset the state after the benchmark.
+					</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::defer!</span>(<span class="macro-nonterminal">$crate::benchmarking::wipe_db</span>());
 
 					<span class="comment">// Time the extrinsic logic.
 					</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::trace!</span>(
@@ -3247,20 +3234,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						verify
 					);
 
-					<span class="kw">let </span>start_pov = <span class="macro-nonterminal">$crate::benchmarking::proof_size</span>();
-					<span class="kw">let </span>start_extrinsic = <span class="macro-nonterminal">$crate::benchmarking::current_time</span>();
-
-					closure_to_benchmark()<span class="question-mark">?</span>;
-
-					<span class="kw">let </span>finish_extrinsic = <span class="macro-nonterminal">$crate::benchmarking::current_time</span>();
-					<span class="kw">let </span>end_pov = <span class="macro-nonterminal">$crate::benchmarking::proof_size</span>();
+					<span class="comment">// Set up the externalities environment for the setup we want to
+					// benchmark.
+					</span><span class="kw">let </span><span class="kw-2">mut </span>recording = <span class="macro-nonterminal">$crate::BenchmarkRecording::new</span>(<span class="kw-2">&amp;</span>on_before_start);
+					&lt;SelectedBenchmark <span class="kw">as </span><span class="macro-nonterminal">$crate::BenchmarkingSetup</span>&lt;T $(, <span class="macro-nonterminal">$instance</span>)<span class="question-mark">?</span>&gt;&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, <span class="kw-2">&amp;mut </span>recording, c, verify)<span class="question-mark">?</span>;
 
 					<span class="comment">// Calculate the diff caused by the benchmark.
-					</span><span class="kw">let </span>elapsed_extrinsic = finish_extrinsic.saturating_sub(start_extrinsic);
-					<span class="kw">let </span>diff_pov = <span class="kw">match </span>(start_pov, end_pov) {
-						(<span class="prelude-val">Some</span>(start), <span class="prelude-val">Some</span>(end)) =&gt; end.saturating_sub(start),
-						<span class="kw">_ </span>=&gt; Default::default(),
-					};
+					</span><span class="kw">let </span>elapsed_extrinsic = recording.elapsed_extrinsic().expect(<span class="string">&quot;elapsed time should be recorded&quot;</span>);
+					<span class="kw">let </span>diff_pov = recording.diff_pov().unwrap_or_default();
 
 					<span class="comment">// Commit the changes to get proper write count
 					</span><span class="macro-nonterminal">$crate::benchmarking::commit_db</span>();
@@ -3275,7 +3256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					);
 					<span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::trace!</span>(
 						<span class="macro-nonterminal">target</span>: <span class="string">&quot;benchmark&quot;</span>,
-						<span class="string">&quot;Proof sizes: before {:?} after {:?} diff {}&quot;</span>, <span class="kw-2">&amp;</span>start_pov, <span class="kw-2">&amp;</span>end_pov, <span class="kw-2">&amp;</span>diff_pov
+						<span class="string">&quot;Proof sizes: before {:?} after {:?} diff {}&quot;</span>, recording.start_pov(), recording.end_pov(), <span class="kw-2">&amp;</span>diff_pov
 					);
 
 					<span class="comment">// Time the storage root recalculation.
@@ -3369,18 +3350,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// Always reset the state after the benchmark.
 						</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::defer!</span>(<span class="macro-nonterminal">$crate::benchmarking::wipe_db</span>());
 
-						<span class="comment">// Set up the benchmark, return execution + verification function.
-						</span><span class="kw">let </span>closure_to_verify = &lt;
-							SelectedBenchmark <span class="kw">as </span><span class="macro-nonterminal">$crate::BenchmarkingSetup</span>&lt;T, <span class="kw">_</span>&gt;
-						&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, <span class="kw-2">&amp;</span>c, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
-
-						<span class="comment">// Set the block number to at least 1 so events are deposited.
-						</span><span class="kw">if </span><span class="macro-nonterminal">$crate::__private::Zero::is_zero</span>(<span class="kw-2">&amp;</span>frame_system::Pallet::&lt;T&gt;::block_number()) {
-							frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
-						}
+						<span class="kw">let </span>on_before_start = || {
+							<span class="comment">// Set the block number to at least 1 so events are deposited.
+							</span><span class="kw">if </span><span class="macro-nonterminal">$crate::__private::Zero::is_zero</span>(<span class="kw-2">&amp;</span>frame_system::Pallet::&lt;T&gt;::block_number()) {
+								frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
+							}
+						};
 
 						<span class="comment">// Run execution + verification
-						</span>closure_to_verify()
+						</span>&lt;SelectedBenchmark <span class="kw">as </span><span class="macro-nonterminal">$crate::BenchmarkingSetup</span>&lt;T, <span class="kw">_</span>&gt;&gt;::test_instance(<span class="kw-2">&amp;</span>selected_benchmark, <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>on_before_start)
 					};
 
 					<span class="kw">if </span>components.is_empty() {

@@ -527,6 +527,108 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
 <a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -552,7 +654,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_io::hashing::blake2_256;
 <span class="kw">use </span>sp_runtime::{traits::TrailingZeroInput, DispatchError};
-<span class="kw">use </span>sp_std::{prelude::Box, vec::Vec};
+<span class="kw">use </span>sp_std::vec::Vec;
 <span class="kw">use </span>sp_storage::TrackedStorageKey;
 
 <span class="doccomment">/// An alphabet of possible parameters to use for benchmarking.
@@ -871,6 +973,90 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BenchmarkResult&gt;, BenchmarkError&gt;;
 }
 
+<span class="doccomment">/// The recording trait used to mark the start and end of a benchmark.
+</span><span class="kw">pub trait </span>Recording {
+	<span class="doccomment">/// Start the benchmark.
+	</span><span class="kw">fn </span>start(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
+
+	<span class="comment">// Stop the benchmark.
+	</span><span class="kw">fn </span>stop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
+}
+
+<span class="doccomment">/// A no-op recording, used for unit test.
+</span><span class="kw">struct </span>NoopRecording;
+<span class="kw">impl </span>Recording <span class="kw">for </span>NoopRecording {}
+
+<span class="doccomment">/// A no-op recording, used for tests that should setup some state before running the benchmark.
+</span><span class="kw">struct </span>TestRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+	on_before_start: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Fn()&gt;,
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TestRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+	<span class="kw">fn </span>new(on_before_start: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Fn()) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ on_before_start: <span class="prelude-val">Some</span>(on_before_start) }
+	}
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Recording <span class="kw">for </span>TestRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+	<span class="kw">fn </span>start(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		(<span class="self">self</span>.on_before_start.take().expect(<span class="string">&quot;start called more than once&quot;</span>))();
+	}
+}
+
+<span class="doccomment">/// Records the time and proof size of a single benchmark iteration.
+</span><span class="kw">pub struct </span>BenchmarkRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+	on_before_start: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Fn()&gt;,
+	start_extrinsic: <span class="prelude-ty">Option</span>&lt;u128&gt;,
+	finish_extrinsic: <span class="prelude-ty">Option</span>&lt;u128&gt;,
+	start_pov: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+	end_pov: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BenchmarkRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+	<span class="kw">pub fn </span>new(on_before_start: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Fn()) -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{
+			on_before_start: <span class="prelude-val">Some</span>(on_before_start),
+			start_extrinsic: <span class="prelude-val">None</span>,
+			finish_extrinsic: <span class="prelude-val">None</span>,
+			start_pov: <span class="prelude-val">None</span>,
+			end_pov: <span class="prelude-val">None</span>,
+		}
+	}
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Recording <span class="kw">for </span>BenchmarkRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+	<span class="kw">fn </span>start(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		(<span class="self">self</span>.on_before_start.take().expect(<span class="string">&quot;start called more than once&quot;</span>))();
+		<span class="self">self</span>.start_pov = <span class="kw">crate</span>::benchmarking::proof_size();
+		<span class="self">self</span>.start_extrinsic = <span class="prelude-val">Some</span>(<span class="kw">crate</span>::benchmarking::current_time());
+	}
+
+	<span class="kw">fn </span>stop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+		<span class="self">self</span>.finish_extrinsic = <span class="prelude-val">Some</span>(<span class="kw">crate</span>::benchmarking::current_time());
+		<span class="self">self</span>.end_pov = <span class="kw">crate</span>::benchmarking::proof_size();
+	}
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BenchmarkRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+	<span class="kw">pub fn </span>start_pov(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+		<span class="self">self</span>.start_pov
+	}
+
+	<span class="kw">pub fn </span>end_pov(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+		<span class="self">self</span>.end_pov
+	}
+
+	<span class="kw">pub fn </span>diff_pov(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+		<span class="self">self</span>.start_pov.zip(<span class="self">self</span>.end_pov).map(|(start, end)| end.saturating_sub(start))
+	}
+
+	<span class="kw">pub fn </span>elapsed_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u128&gt; {
+		<span class="self">self</span>.start_extrinsic
+			.zip(<span class="self">self</span>.finish_extrinsic)
+			.map(|(start, end)| end.saturating_sub(start))
+	}
+}
+
 <span class="doccomment">/// The required setup for creating a benchmark.
 ///
 /// Instance generic parameter is optional and can be used in order to capture unused generics for
@@ -882,9 +1068,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Set up the storage, and prepare a closure to run the benchmark.
 	</span><span class="kw">fn </span>instance(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		recording: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Recording,
 		components: <span class="kw-2">&amp;</span>[(BenchmarkParameter, u32)],
 		verify: bool,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt;&gt;, BenchmarkError&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt;;
+
+	<span class="doccomment">/// Same as `instance` but passing a closure to run before the benchmark starts.
+	</span><span class="kw">fn </span>test_instance(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		components: <span class="kw-2">&amp;</span>[(BenchmarkParameter, u32)],
+		on_before_start: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(),
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+		<span class="kw">return </span><span class="self">self</span>.instance(<span class="kw-2">&amp;mut </span>TestRecording::new(on_before_start), components, <span class="bool-val">true</span>);
+	}
+
+	<span class="doccomment">/// Same as `instance` but passing a no-op recording for unit tests.
+	</span><span class="kw">fn </span>unit_test_instance(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		components: <span class="kw-2">&amp;</span>[(BenchmarkParameter, u32)],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+		<span class="kw">return </span><span class="self">self</span>.instance(<span class="kw-2">&amp;mut </span>NoopRecording {}, components, <span class="bool-val">true</span>);
+	}
 }
 
 <span class="doccomment">/// Grab an account, seeded by a name and index.

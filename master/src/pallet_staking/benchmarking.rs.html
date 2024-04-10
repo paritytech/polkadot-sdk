@@ -1236,8 +1236,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1087" id="1087">1087</a>
 <a href="#1088" id="1088">1088</a>
 <a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2317,15 +2315,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(frame_benchmarking::BenchmarkParameter::v, v),
 				(frame_benchmarking::BenchmarkParameter::n, n),
 			];
-			<span class="kw">let </span>closure_to_benchmark =
-				&lt;SelectedBenchmark <span class="kw">as </span>frame_benchmarking::BenchmarkingSetup&lt;Test&gt;&gt;::instance(
+
+			<span class="macro">assert_ok!</span>(
+				&lt;SelectedBenchmark <span class="kw">as </span>frame_benchmarking::BenchmarkingSetup&lt;Test&gt;&gt;::unit_test_instance(
 					<span class="kw-2">&amp;</span>selected_benchmark,
 					<span class="kw-2">&amp;</span>c,
-					<span class="bool-val">true</span>,
 				)
-				.unwrap();
-
-			<span class="macro">assert_ok!</span>(closure_to_benchmark());
+			);
 		});
 	}
 }

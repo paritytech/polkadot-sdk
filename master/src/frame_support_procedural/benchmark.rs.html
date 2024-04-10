@@ -1349,6 +1349,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1200" id="1200">1200</a>
 <a href="#1201" id="1201">1201</a>
 <a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1654,6 +1659,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(())
 }
 
+<span class="doccomment">/// Ensure that the passed statements do not contain any forbidden variable names
+</span><span class="kw">fn </span>ensure_no_forbidden_variable_names(stmts: <span class="kw-2">&amp;</span>[Stmt]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+	<span class="kw">const </span>FORBIDDEN_VAR_NAMES: [<span class="kw-2">&amp;</span>str; <span class="number">2</span>] = [<span class="string">&quot;recording&quot;</span>, <span class="string">&quot;verify&quot;</span>];
+	<span class="kw">for </span>stmt <span class="kw">in </span>stmts {
+		<span class="kw">let </span>Stmt::Local(l) = stmt <span class="kw">else </span>{ <span class="kw">continue </span>};
+		<span class="kw">let </span>Pat::Ident(ident) = <span class="kw-2">&amp;</span>l.pat <span class="kw">else </span>{ <span class="kw">continue </span>};
+		<span class="kw">if </span>FORBIDDEN_VAR_NAMES.contains(<span class="kw-2">&amp;</span>ident.ident.to_string().as_str()) {
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
+				ident.span(),
+				<span class="macro">format!</span>(
+					<span class="string">&quot;Variables {FORBIDDEN_VAR_NAMES:?} are reserved for benchmarking internals.&quot;</span>,
+				),
+			));
+		}
+	}
+	<span class="prelude-val">Ok</span>(())
+}
+
 <span class="doccomment">/// Parses params such as `x: Linear&lt;0, 1&gt;`
 </span><span class="kw">fn </span>parse_params(item_fn: <span class="kw-2">&amp;</span>ItemFn) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ParamDef&gt;&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>params: Vec&lt;ParamDef&gt; = Vec::new();
@@ -1787,9 +1810,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		};
 
+		<span class="kw">let </span>setup_stmts = Vec::from(<span class="kw-2">&amp;</span>item_fn.block.stmts[<span class="number">0</span>..i]);
+		ensure_no_forbidden_variable_names(<span class="kw-2">&amp;</span>setup_stmts)<span class="question-mark">?</span>;
+
 		<span class="prelude-val">Ok</span>(BenchmarkDef {
 			params,
-			setup_stmts: Vec::from(<span class="kw-2">&amp;</span>item_fn.block.stmts[<span class="number">0</span>..i]),
+			setup_stmts,
 			call_def,
 			verify_stmts,
 			last_stmt,
@@ -1984,18 +2010,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">fn </span>instance(
 					<span class="kw-2">&amp;</span><span class="self">self</span>,
+					recording: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>#krate::Recording,
 					components: <span class="kw-2">&amp;</span>[(#krate::BenchmarkParameter, u32)],
 					verify: bool,
-				) -&gt; <span class="prelude-ty">Result</span>&lt;
-					#krate::__private::Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;(), #krate::BenchmarkError&gt;&gt;,
-					#krate::BenchmarkError,
-				&gt; {
+				) -&gt; <span class="prelude-ty">Result</span>&lt;(), #krate::BenchmarkError&gt; {
 					<span class="kw">match </span><span class="self">self </span>{
 						#(
 							<span class="self">Self</span>::#benchmark_names =&gt; {
 								&lt;#benchmark_names <span class="kw">as </span>#krate::BenchmarkingSetup&lt;
 									#type_use_generics
-								&gt;&gt;::instance(<span class="kw-2">&amp;</span>#benchmark_names, components, verify)
+								&gt;&gt;::instance(<span class="kw-2">&amp;</span>#benchmark_names, recording, components, verify)
 							}
 						)
 						*
@@ -2086,17 +2110,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					#krate::benchmarking::set_whitelist(whitelist.clone());
 					<span class="kw">let </span><span class="kw-2">mut </span>results: #krate::__private::Vec&lt;#krate::BenchmarkResult&gt; = #krate::__private::Vec::new();
 
-					<span class="comment">// Always do at least one internal repeat...
-					</span><span class="kw">for _ in </span><span class="number">0 </span>.. internal_repeats.max(<span class="number">1</span>) {
-						<span class="comment">// Always reset the state after the benchmark.
-						</span>#<span class="macro">krate::__private::defer!</span>(#krate::benchmarking::wipe_db());
-
-						<span class="comment">// Set up the externalities environment for the setup we want to
-						// benchmark.
-						</span><span class="kw">let </span>closure_to_benchmark = &lt;
-							SelectedBenchmark <span class="kw">as </span>#krate::BenchmarkingSetup&lt;#type_use_generics&gt;
-						&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, c, verify)<span class="question-mark">?</span>;
-
+					<span class="kw">let </span>on_before_start = || {
 						<span class="comment">// Set the block number to at least 1 so events are deposited.
 						</span><span class="kw">if </span>#krate::__private::Zero::is_zero(<span class="kw-2">&amp;</span>#frame_system::Pallet::&lt;T&gt;::block_number()) {
 							#frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
@@ -2114,6 +2128,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="comment">// Reset the read/write counter so we don&#39;t count operations in the setup process.
 						</span>#krate::benchmarking::reset_read_write_count();
+					};
+
+					<span class="comment">// Always do at least one internal repeat...
+					</span><span class="kw">for _ in </span><span class="number">0 </span>.. internal_repeats.max(<span class="number">1</span>) {
+						<span class="comment">// Always reset the state after the benchmark.
+						</span>#<span class="macro">krate::__private::defer!</span>(#krate::benchmarking::wipe_db());
 
 						<span class="comment">// Time the extrinsic logic.
 						</span>#<span class="macro">krate::__private::log::trace!</span>(
@@ -2123,20 +2143,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							c
 						);
 
-						<span class="kw">let </span>start_pov = #krate::benchmarking::proof_size();
-						<span class="kw">let </span>start_extrinsic = #krate::benchmarking::current_time();
-
-						closure_to_benchmark()<span class="question-mark">?</span>;
-
-						<span class="kw">let </span>finish_extrinsic = #krate::benchmarking::current_time();
-						<span class="kw">let </span>end_pov = #krate::benchmarking::proof_size();
+						<span class="kw">let </span><span class="kw-2">mut </span>recording = #krate::BenchmarkRecording::new(<span class="kw-2">&amp;</span>on_before_start);
+						&lt;SelectedBenchmark <span class="kw">as </span>#krate::BenchmarkingSetup&lt;#type_use_generics&gt;&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, <span class="kw-2">&amp;mut </span>recording, c, verify)<span class="question-mark">?</span>;
 
 						<span class="comment">// Calculate the diff caused by the benchmark.
-						</span><span class="kw">let </span>elapsed_extrinsic = finish_extrinsic.saturating_sub(start_extrinsic);
-						<span class="kw">let </span>diff_pov = <span class="kw">match </span>(start_pov, end_pov) {
-							(<span class="prelude-val">Some</span>(start), <span class="prelude-val">Some</span>(end)) =&gt; end.saturating_sub(start),
-							<span class="kw">_ </span>=&gt; Default::default(),
-						};
+						</span><span class="kw">let </span>elapsed_extrinsic = recording.elapsed_extrinsic().expect(<span class="string">&quot;elapsed time should be recorded&quot;</span>);
+						<span class="kw">let </span>diff_pov = recording.diff_pov().unwrap_or_default();
 
 						<span class="comment">// Commit the changes to get proper write count
 						</span>#krate::benchmarking::commit_db();
@@ -2437,9 +2449,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">fn </span>instance(
 				<span class="kw-2">&amp;</span><span class="self">self</span>,
+				recording: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>#krate::Recording,
 				components: <span class="kw-2">&amp;</span>[(#krate::BenchmarkParameter, u32)],
 				verify: bool
-			) -&gt; <span class="prelude-ty">Result</span>&lt;#krate::__private::Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; <span class="prelude-ty">Result</span>&lt;(), #krate::BenchmarkError&gt;&gt;, #krate::BenchmarkError&gt; {
+			) -&gt; <span class="prelude-ty">Result</span>&lt;(), #krate::BenchmarkError&gt; {
 				#(
 					<span class="comment">// prepare instance #param_names
 					</span><span class="kw">let </span>#param_names = components.iter()
@@ -2453,15 +2466,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					#setup_stmts
 				)*
 				#pre_call
-				<span class="prelude-val">Ok</span>(#krate::__private::Box::new(<span class="kw">move </span>|| -&gt; <span class="prelude-ty">Result</span>&lt;(), #krate::BenchmarkError&gt; {
-					#post_call
-					<span class="kw">if </span>verify {
-						#(
-							#verify_stmts
-						)*
-					}
-					#impl_last_stmt
-				}))
+				recording.start();
+				#post_call
+				recording.stop();
+				<span class="kw">if </span>verify {
+					#(
+						#verify_stmts
+					)*
+				}
+				#impl_last_stmt
 			}
 		}
 
@@ -2479,18 +2492,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Always reset the state after the benchmark.
 					</span>#<span class="macro">krate::__private::defer!</span>(#krate::benchmarking::wipe_db());
 
-					<span class="comment">// Set up the benchmark, return execution + verification function.
-					</span><span class="kw">let </span>closure_to_verify = &lt;
-						SelectedBenchmark <span class="kw">as </span>#krate::BenchmarkingSetup&lt;T, <span class="kw">_</span>&gt;
-					&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, <span class="kw-2">&amp;</span>c, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
-
-					<span class="comment">// Set the block number to at least 1 so events are deposited.
-					</span><span class="kw">if </span>#krate::__private::Zero::is_zero(<span class="kw-2">&amp;</span>#frame_system::Pallet::&lt;T&gt;::block_number()) {
-						#frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
-					}
+					<span class="kw">let </span>on_before_start = || {
+						<span class="comment">// Set the block number to at least 1 so events are deposited.
+						</span><span class="kw">if </span>#krate::__private::Zero::is_zero(<span class="kw-2">&amp;</span>#frame_system::Pallet::&lt;T&gt;::block_number()) {
+							#frame_system::Pallet::&lt;T&gt;::set_block_number(<span class="number">1u32</span>.into());
+						}
+					};
 
 					<span class="comment">// Run execution + verification
-					</span>closure_to_verify()
+					</span>&lt;SelectedBenchmark <span class="kw">as </span>#krate::BenchmarkingSetup&lt;T, <span class="kw">_</span>&gt;&gt;::test_instance(<span class="kw-2">&amp;</span>selected_benchmark,  <span class="kw-2">&amp;</span>c, <span class="kw-2">&amp;</span>on_before_start)
 				};
 
 				<span class="kw">if </span>components.is_empty() {
