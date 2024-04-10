@@ -3885,6 +3885,7 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
+ "cumulus-test-runtime",
  "environmental",
  "frame-benchmarking",
  "frame-support",
@@ -3902,6 +3903,7 @@ dependencies = [
  "rand 0.8.5",
  "sc-client-api",
  "scale-info",
+ "sp-consensus-slots",
  "sp-core",
  "sp-crypto-hashing",
  "sp-externalities 0.25.0",
@@ -4264,15 +4266,19 @@ dependencies = [
  "polkadot-primitives",
  "sc-block-builder",
  "sc-consensus",
+ "sc-consensus-aura",
  "sc-executor",
  "sc-executor-common",
  "sc-service",
  "sp-api",
+ "sp-application-crypto",
  "sp-blockchain",
+ "sp-consensus-aura",
  "sp-core",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
+ "sp-keystore",
  "sp-runtime",
  "sp-timestamp",
  "substrate-test-client",
@@ -4295,16 +4301,22 @@ dependencies = [
 name = "cumulus-test-runtime"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
+ "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-storage-weight-reclaim",
  "frame-executive",
  "frame-support",
  "frame-system",
  "frame-system-rpc-runtime-api",
+ "pallet-aura",
+ "pallet-authorship",
  "pallet-balances",
+ "pallet-collator-selection",
  "pallet-glutton",
  "pallet-message-queue",
+ "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -4312,6 +4324,7 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-block-builder",
+ "sp-consensus-aura",
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",
@@ -4333,7 +4346,10 @@ dependencies = [
  "clap 4.5.3",
  "criterion 0.5.1",
  "cumulus-client-cli",
+ "cumulus-client-collator",
+ "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
+ "cumulus-client-consensus-proposer",
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
  "cumulus-client-pov-recovery",
@@ -4370,6 +4386,7 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
+ "sc-consensus-aura",
  "sc-executor",
  "sc-executor-common",
  "sc-executor-wasmtime",
@@ -4386,6 +4403,7 @@ dependencies = [
  "sp-authority-discovery",
  "sp-blockchain",
  "sp-consensus",
+ "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-core",
  "sp-io",
@@ -21103,11 +21121,10 @@ checksum = "b6bc1c9ce2b5135ac7f93c72918fc37feb872bdc6a5533a8b85eb4b86bfdae52"
 
 [[package]]
 name = "tracing"
-version = "0.1.37"
+version = "0.1.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
+checksum = "c3523ab5a71916ccf420eebdf5521fcef02141234bbc0b8a49f2fdc4544364ef"
 dependencies = [
- "cfg-if",
  "log",
  "pin-project-lite 0.2.12",
  "tracing-attributes",
@@ -21116,9 +21133,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.26"
+version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f4f31f56159e98206da9efd823404b79b6ef3143b4a7ab76e67b1751b25a4ab"
+checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
