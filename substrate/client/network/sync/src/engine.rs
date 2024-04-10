@@ -91,7 +91,6 @@ use std::{
 		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Arc,
 	},
-	time::{Duration, Instant},
 };
 
 /// Interval at which we perform time based maintenance
@@ -99,23 +98,6 @@ const TICK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(1100)
 
 /// Maximum number of known block hashes to keep for a peer.
 const MAX_KNOWN_BLOCKS: usize = 1024; // ~32kb per peer + LruHashSet overhead
-
-/// If the block announces stream to peer has been inactive for 30 seconds meaning local node
-/// has not sent or received block announcements to/from the peer, report the node for inactivity,
-/// disconnect it and attempt to establish connection to some other peer.
-const INACTIVITY_EVICT_THRESHOLD: Duration = Duration::from_secs(30);
-
-/// When `SyncingEngine` is started, wait two minutes before actually staring to count peers as
-/// evicted.
-///
-/// Parachain collator may incorrectly get evicted because it's waiting to receive a number of
-/// relaychain blocks before it can start creating parachain blocks. During this wait,
-/// `SyncingEngine` still counts it as active and as the peer is not sending blocks, it may get
-/// evicted if a block is not received within the first 30 seconds since the peer connected.
-///
-/// To prevent this from happening, define a threshold for how long `SyncingEngine` should wait
-/// before it starts evicting peers.
-const INITIAL_EVICTION_WAIT_PERIOD: Duration = Duration::from_secs(2 * 60);
 
 /// Maximum allowed size for a block announce.
 const MAX_BLOCK_ANNOUNCE_SIZE: u64 = 1024 * 1024;
@@ -126,8 +108,6 @@ mod rep {
 	pub const GENESIS_MISMATCH: Rep = Rep::new_fatal("Genesis mismatch");
 	/// Peer send us a block announcement that failed at validation.
 	pub const BAD_BLOCK_ANNOUNCEMENT: Rep = Rep::new(-(1 << 12), "Bad block announcement");
-	/// Block announce substream with the peer has been inactive too long
-	pub const INACTIVE_SUBSTREAM: Rep = Rep::new(-(1 << 10), "Inactive block announce substream");
 	/// We received a message that failed to decode.
 	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad message");
 	/// Peer is on unsupported protocol version.
@@ -290,17 +270,8 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Handle that is used to communicate with `sc_network::Notifications`.
 	notification_service: Box<dyn NotificationService>,
 
-	/// When the syncing was started.
-	///
-	/// Stored as an `Option<Instant>` so once the initial wait has passed, `SyncingEngine`
-	/// can reset the peer timers and continue with the normal eviction process.
-	syncing_started: Option<Instant>,
-
 	/// Handle to `PeerStore`.
 	peer_store_handle: Arc<dyn PeerStoreProvider>,
-
-	/// Instant when the last notification was sent or received.
-	last_notification_io: Instant,
 
 	/// Pending responses
 	pending_responses: PendingResponses<B>,
@@ -499,9 +470,7 @@ where
 				event_streams: Vec::new(),
 				notification_service,
 				tick_timeout,
-				syncing_started: None,
 				peer_store_handle,
-				last_notification_io: Instant::now(),
 				metrics: if let Some(r) = metrics_registry {
 					match Metrics::register(r, is_major_syncing.clone()) {
 						Ok(metrics) => Some(metrics),
@@ -647,15 +616,12 @@ where
 					data: Some(data.clone()),
 				};
 
-				self.last_notification_io = Instant::now();
 				let _ = self.notification_service.send_sync_notification(peer_id, message.encode());
 			}
 		}
 	}
 
 	pub async fn run(mut self) {
-		self.syncing_started = Some(Instant::now());
-
 		loop {
 			tokio::select! {
 				_ = self.tick_timeout.tick() => self.perform_periodic_actions(),
@@ -789,39 +755,6 @@ where
 
 	fn perform_periodic_actions(&mut self) {
 		self.report_metrics();
-
-		// if `SyncingEngine` has just started, don't evict seemingly inactive peers right away
-		// as they may not have produced blocks not because they've disconnected but because
-		// they're still waiting to receive enough relaychain blocks to start producing blocks.
-		if let Some(started) = self.syncing_started {
-			if started.elapsed() < INITIAL_EVICTION_WAIT_PERIOD {
-				return
-			}
-
-			self.syncing_started = None;
-			self.last_notification_io = Instant::now();
-		}
-
-		// if syncing hasn't sent or received any blocks within `INACTIVITY_EVICT_THRESHOLD`,
-		// it means the local node has stalled and is connected to peers who either don't
-		// consider it connected or are also all stalled. In order to unstall the node,
-		// disconnect all peers and allow `ProtocolController` to establish new connections.
-		if self.last_notification_io.elapsed() > INACTIVITY_EVICT_THRESHOLD {
-			log::debug!(
-				target: LOG_TARGET,
-				"syncing has halted due to inactivity, evicting all peers",
-			);
-
-			for peer in self.peers.keys() {
-				self.network_service.report_peer(*peer, rep::INACTIVE_SUBSTREAM);
-				self.network_service
-					.disconnect_peer(*peer, self.block_announce_protocol_name.clone());
-			}
-
-			// after all the peers have been evicted, start timer again to prevent evicting
-			// new peers that join after the old peer have been evicted
-			self.last_notification_io = Instant::now();
-		}
 	}
 
 	fn process_service_command(&mut self, command: ToServiceCommand<B>) {
@@ -956,7 +889,6 @@ where
 					return
 				};
 
-				self.last_notification_io = Instant::now();
 				self.push_block_announce_validation(peer, announce);
 			},
 		}
