@@ -115,7 +115,7 @@ mod tests {
 		let threshold = ticket_id_threshold(redundancy, slots, attempts, validators);
 		let threshold = threshold as f64 / TicketId::MAX as f64;
 
-		// We expect that the total number of tickets allowed to be submited
+		// We expect that the total number of tickets allowed to be submitted
 		// is slots*redundancy
 		let avt = ((attempts * validators) as f64 * threshold) as u32;
 		assert_eq!(avt, slots * redundancy);

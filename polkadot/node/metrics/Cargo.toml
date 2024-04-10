@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../gum" }
 
@@ -30,7 +30,7 @@ log = { workspace = true, default-features = true }
 assert_cmd = "2.0.4"
 tempfile = "3.2.0"
 hyper = { version = "0.14.20", default-features = false, features = ["http1", "tcp"] }
-tokio = "1.24.2"
+tokio = "1.37"
 polkadot-test-service = { path = "../test/service", features = ["runtime-metrics"] }
 substrate-test-utils = { path = "../../../substrate/test-utils" }
 sc-service = { path = "../../../substrate/client/service" }

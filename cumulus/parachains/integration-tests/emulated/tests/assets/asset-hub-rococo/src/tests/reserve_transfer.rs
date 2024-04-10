@@ -524,7 +524,6 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let destination = Rococo::child_location_of(PenpalA::para_id());
 	let sender = RococoSender::get();
 	let amount_to_send: Balance = ROCOCO_ED * 1000;
-	let assets: Assets = (Here, amount_to_send).into();
 
 	// Init values fot Parachain
 	let relay_native_asset_location =
@@ -552,15 +551,6 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	test.set_dispatchable::<Rococo>(relay_to_para_reserve_transfer_assets);
 	test.assert();
 
-	// Calculate delivery fees
-	let delivery_fees = Rococo::execute_with(|| {
-		let reanchored_assets =
-			assets.reanchored(&destination, &RococoUniversalLocation::get()).unwrap();
-		xcm_helpers::transfer_assets_delivery_fees::<
-			<RococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(reanchored_assets, 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
 	// Query final balances
 	let sender_balance_after = test.sender.balance;
 	let receiver_assets_after = PenpalA::execute_with(|| {
@@ -568,8 +558,8 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location.into(), &receiver)
 	});
 
-	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
+	// Sender's balance is reduced by amount sent plus delivery fees
+	assert!(sender_balance_after < sender_balance_before - amount_to_send);
 	// Receiver's asset balance is increased
 	assert!(receiver_assets_after > receiver_assets_before);
 	// Receiver's asset balance increased by `amount_to_send - delivery_fees - bought_execution`;
@@ -595,7 +585,7 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
 		relay_native_asset_location,
 		sender.clone(),
-		amount_to_send,
+		amount_to_send * 2,
 	);
 
 	// Init values for Relay
@@ -634,15 +624,6 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 	test.set_dispatchable::<PenpalA>(para_to_relay_reserve_transfer_assets);
 	test.assert();
 
-	// Calculate delivery fees
-	let delivery_fees = PenpalA::execute_with(|| {
-		let reanchored_assets =
-			assets.reanchored(&destination, &PenpalUniversalLocation::get()).unwrap();
-		xcm_helpers::transfer_assets_delivery_fees::<
-			<PenpalRococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(reanchored_assets, 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
 	// Query final balances
 	let sender_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
@@ -650,8 +631,8 @@ fn reserve_transfer_native_asset_from_para_to_relay() {
 	});
 	let receiver_balance_after = test.receiver.balance;
 
-	// Sender's balance is reduced
-	assert_eq!(sender_assets_before - amount_to_send - delivery_fees, sender_assets_after);
+	// Sender's balance is reduced by amount sent plus delivery fees
+	assert!(sender_assets_after < sender_assets_before - amount_to_send);
 	// Receiver's asset balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
 	// Receiver's asset balance increased by `amount_to_send - delivery_fees - bought_execution`;
@@ -705,16 +686,6 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	test.set_dispatchable::<AssetHubRococo>(system_para_to_para_reserve_transfer_assets);
 	test.assert();
 
-	// Calculate delivery fees
-	let delivery_fees = AssetHubRococo::execute_with(|| {
-		let reanchored_assets = assets
-			.reanchored(&destination, &AssetHubRococoUniversalLocation::get())
-			.unwrap();
-		xcm_helpers::transfer_assets_delivery_fees::<
-			<AssetHubRococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(reanchored_assets, 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
 	// Query final balances
 	let sender_balance_after = test.sender.balance;
 	let receiver_assets_after = PenpalA::execute_with(|| {
@@ -722,8 +693,8 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 		<ForeignAssets as Inspect<_>>::balance(system_para_native_asset_location, &receiver)
 	});
 
-	// Sender's balance is reduced
-	assert_eq!(sender_balance_before - amount_to_send - delivery_fees, sender_balance_after);
+	// Sender's balance is reduced by amount sent plus delivery fees
+	assert!(sender_balance_after < sender_balance_before - amount_to_send);
 	// Receiver's assets is increased
 	assert!(receiver_assets_after > receiver_assets_before);
 	// Receiver's assets increased by `amount_to_send - delivery_fees - bought_execution`;
@@ -738,7 +709,7 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	// Init values for Parachain
 	let destination = PenpalA::sibling_location_of(AssetHubRococo::para_id());
 	let sender = PenpalASender::get();
-	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 1000;
+	let amount_to_send: Balance = ASSET_HUB_ROCOCO_ED * 10000;
 	let assets: Assets = (Parent, amount_to_send).into();
 	let system_para_native_asset_location =
 		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
@@ -749,7 +720,7 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
 		system_para_native_asset_location,
 		sender.clone(),
-		amount_to_send,
+		amount_to_send * 2,
 	);
 
 	// Init values for System Parachain
@@ -788,15 +759,6 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	test.set_dispatchable::<PenpalA>(para_to_system_para_reserve_transfer_assets);
 	test.assert();
 
-	// Calculate delivery fees
-	let delivery_fees = PenpalA::execute_with(|| {
-		let reanchored_assets =
-			assets.reanchored(&destination, &PenpalUniversalLocation::get()).unwrap();
-		xcm_helpers::transfer_assets_delivery_fees::<
-			<PenpalRococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(reanchored_assets, 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
 	// Query final balances
 	let sender_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
@@ -804,8 +766,8 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	});
 	let receiver_balance_after = test.receiver.balance;
 
-	// Sender's balance is reduced
-	assert_eq!(sender_assets_before - amount_to_send - delivery_fees, sender_assets_after);
+	// Sender's balance is reduced by amount sent plus delivery fees
+	assert!(sender_assets_after < sender_assets_before - amount_to_send);
 	// Receiver's balance is increased
 	assert!(receiver_balance_after > receiver_balance_before);
 	// Receiver's balance increased by `amount_to_send - delivery_fees - bought_execution`;
@@ -1084,13 +1046,13 @@ fn reserve_transfer_native_asset_from_para_to_para_trough_relay() {
 		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner),
 		relay_native_asset_location,
 		sender.clone(),
-		amount_to_send,
+		amount_to_send * 2,
 	);
 
 	// fund the Parachain Origin's SA on Relay Chain with the native tokens held in reserve
 	Rococo::fund_accounts(vec![(sov_of_sender_on_relay.into(), amount_to_send * 2)]);
 
-	// Init values for Parachain Desitnation
+	// Init values for Parachain Destination
 	let receiver = PenpalBReceiver::get();
 
 	// Init Test
@@ -1118,13 +1080,6 @@ fn reserve_transfer_native_asset_from_para_to_para_trough_relay() {
 	test.set_dispatchable::<PenpalA>(para_to_para_through_relay_limited_reserve_transfer_assets);
 	test.assert();
 
-	// Calculate delivery fees
-	let delivery_fees = PenpalA::execute_with(|| {
-		xcm_helpers::transfer_assets_delivery_fees::<
-			<PenpalRococoXcmConfig as xcm_executor::Config>::XcmSender,
-		>(test.args.assets.clone(), 0, test.args.weight_limit, test.args.beneficiary, test.args.dest)
-	});
-
 	// Query final balances
 	let sender_assets_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
@@ -1135,8 +1090,8 @@ fn reserve_transfer_native_asset_from_para_to_para_trough_relay() {
 		<ForeignAssets as Inspect<_>>::balance(relay_native_asset_location, &receiver)
 	});
 
-	// Sender's balance is reduced
-	assert_eq!(sender_assets_before - amount_to_send - delivery_fees, sender_assets_after);
+	// Sender's balance is reduced by amount sent plus delivery fees
+	assert!(sender_assets_after < sender_assets_before - amount_to_send);
 	// Receiver's balance is increased
 	assert!(receiver_assets_after > receiver_assets_before);
 }

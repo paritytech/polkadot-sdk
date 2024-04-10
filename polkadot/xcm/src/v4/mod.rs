@@ -1488,7 +1488,21 @@ mod tests {
 		let encoded = big_xcm.encode();
 		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
 
-		let nested_xcm = Xcm::<()>(vec![
+		let mut many_assets = Assets::new();
+		for index in 0..MAX_ITEMS_IN_ASSETS {
+			many_assets.push((GeneralIndex(index as u128), 1u128).into());
+		}
+
+		let full_xcm_pass =
+			Xcm::<()>(vec![
+				TransferAsset { assets: many_assets, beneficiary: Here.into() };
+				MAX_INSTRUCTIONS_TO_DECODE as usize
+			]);
+		let encoded = full_xcm_pass.encode();
+		assert_eq!(encoded.len(), 12402);
+		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_ok());
+
+		let nested_xcm_fail = Xcm::<()>(vec![
 			DepositReserveAsset {
 				assets: All.into(),
 				dest: Here.into(),
@@ -1496,10 +1510,10 @@ mod tests {
 			};
 			(MAX_INSTRUCTIONS_TO_DECODE / 2) as usize
 		]);
-		let encoded = nested_xcm.encode();
+		let encoded = nested_xcm_fail.encode();
 		assert!(Xcm::<()>::decode(&mut &encoded[..]).is_err());
 
-		let even_more_nested_xcm = Xcm::<()>(vec![SetAppendix(nested_xcm); 64]);
+		let even_more_nested_xcm = Xcm::<()>(vec![SetAppendix(nested_xcm_fail); 64]);
 		let encoded = even_more_nested_xcm.encode();
 		assert_eq!(encoded.len(), 342530);
 		// This should not decode since the limit is 100

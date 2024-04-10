@@ -24,12 +24,6 @@ source "$FRAMEWORK_PATH/utils/bridges.sh"
 #						 &MultiLocation { parents: 2, interior: X1(GlobalConsensus(Rococo)) }).unwrap()
 #				 ).to_ss58check_with_version(42_u16.into())
 #		);
-#		println!("GLOBAL_CONSENSUS_ROCOCO_ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT=\"{}\"",
-#				 frame_support::sp_runtime::AccountId32::new(
-#					 GlobalConsensusParachainConvertsFor::<UniversalLocationAHW, [u8; 32]>::convert_location(
-#						 &MultiLocation { parents: 2, interior: X2(GlobalConsensus(Rococo), Parachain(1000)) }).unwrap()
-#				 ).to_ss58check_with_version(42_u16.into())
-#		);
 #		println!("ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND=\"{}\"",
 #				 frame_support::sp_runtime::AccountId32::new(
 #					 SiblingParachainConvertsVia::<Sibling, [u8; 32]>::convert_location(
@@ -44,12 +38,6 @@ source "$FRAMEWORK_PATH/utils/bridges.sh"
 #						 &MultiLocation { parents: 2, interior: X1(GlobalConsensus(Westend)) }).unwrap()
 #				 ).to_ss58check_with_version(42_u16.into())
 #		);
-#		println!("GLOBAL_CONSENSUS_WESTEND_ASSET_HUB_WESTEND_1000_SOVEREIGN_ACCOUNT=\"{}\"",
-#				 frame_support::sp_runtime::AccountId32::new(
-#					 GlobalConsensusParachainConvertsFor::<UniversalLocationAHR, [u8; 32]>::convert_location(
-#						 &MultiLocation { parents: 2, interior: X2(GlobalConsensus(Westend), Parachain(1000)) }).unwrap()
-#				 ).to_ss58check_with_version(42_u16.into())
-#		);
 #		println!("ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO=\"{}\"",
 #				 frame_support::sp_runtime::AccountId32::new(
 #					 SiblingParachainConvertsVia::<Sibling, [u8; 32]>::convert_location(
@@ -58,10 +46,8 @@ source "$FRAMEWORK_PATH/utils/bridges.sh"
 #		);
 #	}
 GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT="5GxRGwT8bU1JeBPTUXc7LEjZMxNrK8MyL2NJnkWFQJTQ4sii"
-GLOBAL_CONSENSUS_ROCOCO_ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT="5CfNu7eH3SJvqqPt3aJh38T8dcFvhGzEohp9tsd41ANhXDnQ"
 ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
 GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT="5He2Qdztyxxa4GoagY6q1jaiLMmKy1gXS7PdZkhfj8ZG9hk5"
-GLOBAL_CONSENSUS_WESTEND_ASSET_HUB_WESTEND_1000_SOVEREIGN_ACCOUNT="5GUD9X494SnhfBTNReHwhV1599McpyVrAqFY6WnTfVQVYNUM"
 ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
 
 # Expected sovereign accounts for rewards on BridgeHubs.
@@ -201,12 +187,6 @@ case "$1" in
           "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
-      # drip SA which holds reserves
-      transfer_balance \
-          "ws://127.0.0.1:9910" \
-          "//Alice" \
-          "$GLOBAL_CONSENSUS_WESTEND_ASSET_HUB_WESTEND_1000_SOVEREIGN_ACCOUNT" \
-          $((1000000000000 + 50000000000 * 20))
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9942" \
@@ -266,12 +246,6 @@ case "$1" in
           "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
           10000000000 \
           true
-      # drip SA which holds reserves
-      transfer_balance \
-          "ws://127.0.0.1:9010" \
-          "//Alice" \
-          "$GLOBAL_CONSENSUS_ROCOCO_ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT" \
-          $((1000000000000000 + 50000000000 * 20))
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9945" \

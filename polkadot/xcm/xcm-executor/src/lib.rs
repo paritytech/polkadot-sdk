@@ -31,7 +31,8 @@ use xcm::latest::prelude::*;
 pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
-	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, OnResponse, ProcessTransaction,
+	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, HandleHrmpChannelAccepted,
+	HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
 };
@@ -1212,9 +1213,21 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 				Ok(())
 			},
-			HrmpNewChannelOpenRequest { .. } => Err(XcmError::Unimplemented),
-			HrmpChannelAccepted { .. } => Err(XcmError::Unimplemented),
-			HrmpChannelClosing { .. } => Err(XcmError::Unimplemented),
+			HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity } =>
+				Config::TransactionalProcessor::process(|| {
+					Config::HrmpNewChannelOpenRequestHandler::handle(
+						sender,
+						max_message_size,
+						max_capacity,
+					)
+				}),
+			HrmpChannelAccepted { recipient } => Config::TransactionalProcessor::process(|| {
+				Config::HrmpChannelAcceptedHandler::handle(recipient)
+			}),
+			HrmpChannelClosing { initiator, sender, recipient } =>
+				Config::TransactionalProcessor::process(|| {
+					Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)
+				}),
 		}
 	}
 }

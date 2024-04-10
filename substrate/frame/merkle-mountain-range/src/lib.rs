@@ -89,7 +89,7 @@ mod tests;
 /// is not available (since the block is not finished yet),
 /// we use the `parent_hash` here along with parent block number.
 pub struct ParentNumberAndHash<T: frame_system::Config> {
-	_phanthom: sp_std::marker::PhantomData<T>,
+	_phantom: sp_std::marker::PhantomData<T>,
 }
 
 impl<T: frame_system::Config> LeafDataProvider for ParentNumberAndHash<T> {
@@ -183,7 +183,6 @@ pub mod pallet {
 
 	/// Latest MMR Root hash.
 	#[pallet::storage]
-	#[pallet::getter(fn mmr_root_hash)]
 	pub type RootHash<T: Config<I>, I: 'static = ()> = StorageValue<_, HashOf<T, I>, ValueQuery>;
 
 	/// Current size of the MMR (number of leaves).
@@ -204,7 +203,7 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			use primitives::LeafDataProvider;
-			let leaves = Self::mmr_leaves();
+			let leaves = NumberOfLeaves::<T, I>::get();
 			let peaks_before = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 			let data = T::LeafData::leaf_data();
 
@@ -225,8 +224,8 @@ pub mod pallet {
 			};
 			<T::OnNewRoot as primitives::OnNewRoot<_>>::on_new_root(&root);
 
-			<NumberOfLeaves<T, I>>::put(leaves);
-			<RootHash<T, I>>::put(root);
+			NumberOfLeaves::<T, I>::put(leaves);
+			RootHash::<T, I>::put(root);
 
 			let peaks_after = sp_mmr_primitives::utils::NodesUtils::new(leaves).number_of_peaks();
 
@@ -301,7 +300,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	{
 		let first_mmr_block = utils::first_mmr_block_num::<HeaderFor<T>>(
 			<frame_system::Pallet<T>>::block_number(),
-			Self::mmr_leaves(),
+			NumberOfLeaves::<T, I>::get(),
 		)?;
 
 		utils::block_num_to_leaf_index::<HeaderFor<T>>(block_num, first_mmr_block)
@@ -341,7 +340,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Return the on-chain MMR root hash.
 	pub fn mmr_root() -> HashOf<T, I> {
-		Self::mmr_root_hash()
+		RootHash::<T, I>::get()
 	}
 
 	/// Verify MMR proof for given `leaves`.
@@ -354,7 +353,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		leaves: Vec<LeafOf<T, I>>,
 		proof: primitives::Proof<HashOf<T, I>>,
 	) -> Result<(), primitives::Error> {
-		if proof.leaf_count > Self::mmr_leaves() ||
+		if proof.leaf_count > NumberOfLeaves::<T, I>::get() ||
 			proof.leaf_count == 0 ||
 			(proof.items.len().saturating_add(leaves.len())) as u64 > proof.leaf_count
 		{

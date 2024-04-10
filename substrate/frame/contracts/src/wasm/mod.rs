@@ -243,9 +243,10 @@ impl<T: Config> WasmBlob<T> {
 			.define("env", "memory", memory)
 			.expect("We just created the Linker. It has no definitions with this name; qed");
 
-		let instance = linker
-			.instantiate(&mut store, &contract.module)
-			.map_err(|_| "can't instantiate module with provided definitions")?;
+		let instance = linker.instantiate(&mut store, &contract.module).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to instantiate module: {:?}", err);
+			"can't instantiate module with provided definitions"
+		})?;
 
 		Ok((store, memory, instance))
 	}
@@ -1425,7 +1426,7 @@ mod tests {
 
 	#[test]
 	fn contract_ecdsa_to_eth_address() {
-		/// calls `seal_ecdsa_to_eth_address` for the contstant and ensures the result equals the
+		/// calls `seal_ecdsa_to_eth_address` for the constant and ensures the result equals the
 		/// expected one.
 		const CODE_ECDSA_TO_ETH_ADDRESS: &str = r#"
 (module

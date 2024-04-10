@@ -421,7 +421,7 @@ mod tests {
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
-			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
+			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
@@ -456,7 +456,7 @@ mod tests {
 				.unwrap();
 			assert_eq!(pre, Some(100));
 
-			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
+			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
@@ -500,7 +500,7 @@ mod tests {
 				&Ok(())
 			));
 			// `CheckWeight` gets called after `StorageWeightReclaim` this time.
-			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
+			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 
@@ -536,7 +536,7 @@ mod tests {
 				&Ok(())
 			));
 			// `CheckWeight` gets called after `StorageWeightReclaim` this time.
-			// The `CheckWeight` extension will refunt `actual_weight` from `PostDispatchInfo`
+			// The `CheckWeight` extension will refund `actual_weight` from `PostDispatchInfo`
 			// we always need to call `post_dispatch` to verify that they interoperate correctly.
 			assert_ok!(CheckWeight::<Test>::post_dispatch(None, &info, &post_info, 0, &Ok(())));
 

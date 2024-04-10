@@ -322,7 +322,7 @@ impl Parse for PalletDeclaration {
 /// A struct representing a path to a pallet. `PalletPath` is almost identical to the standard
 /// Rust path with a few restrictions:
 /// - No leading colons allowed
-/// - Path segments can only consist of identifers separated by colons
+/// - Path segments can only consist of identifiers separated by colons
 #[derive(Debug, Clone)]
 pub struct PalletPath {
 	pub inner: Path,
@@ -595,7 +595,7 @@ pub struct Pallet {
 	pub is_expanded: bool,
 	/// The name of the pallet, e.g.`System` in `System: frame_system`.
 	pub name: Ident,
-	/// Either automatically infered, or defined (e.g. `MyPallet ...  = 3,`).
+	/// Either automatically inferred, or defined (e.g. `MyPallet ...  = 3,`).
 	pub index: u8,
 	/// The path of the pallet, e.g. `frame_system` in `System: frame_system`.
 	pub path: PalletPath,
@@ -634,7 +634,7 @@ impl Pallet {
 /// +----------+    +----------+    +------------------+
 /// ```
 enum PalletsConversion {
-	/// Pallets implicitely declare parts.
+	/// Pallets implicitly declare parts.
 	///
 	/// `System: frame_system`.
 	Implicit(Vec<PalletDeclaration>),
@@ -648,7 +648,7 @@ enum PalletsConversion {
 	/// Pallets explicitly declare parts that are fully expanded.
 	///
 	/// This is the end state that contains extra parts included by
-	/// default by Subtrate.
+	/// default by Substrate.
 	///
 	/// `System: frame_system expanded::{Error} ::{Pallet, Call}`
 	///
@@ -660,7 +660,7 @@ enum PalletsConversion {
 ///
 /// Check if all pallet have explicit declaration of their parts, if so then assign index to each
 /// pallet using same rules as rust for fieldless enum. I.e. implicit are assigned number
-/// incrementedly from last explicit or 0.
+/// incrementally from last explicit or 0.
 fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConversion> {
 	if pallets.iter().any(|pallet| pallet.pallet_parts.is_none()) {
 		return Ok(PalletsConversion::Implicit(pallets))

@@ -340,8 +340,8 @@ impl Statement {
 			Some(Proof::OnChain { .. }) | None => SignatureVerificationResult::NoSignature,
 			Some(Proof::Sr25519 { signature, signer }) => {
 				let to_sign = self.signature_material();
-				let signature = sp_core::sr25519::Signature(*signature);
-				let public = sp_core::sr25519::Public(*signer);
+				let signature = sp_core::sr25519::Signature::from(*signature);
+				let public = sp_core::sr25519::Public::from(*signer);
 				if signature.verify(to_sign.as_slice(), &public) {
 					SignatureVerificationResult::Valid(*signer)
 				} else {
@@ -350,8 +350,8 @@ impl Statement {
 			},
 			Some(Proof::Ed25519 { signature, signer }) => {
 				let to_sign = self.signature_material();
-				let signature = sp_core::ed25519::Signature(*signature);
-				let public = sp_core::ed25519::Public(*signer);
+				let signature = sp_core::ed25519::Signature::from(*signature);
+				let public = sp_core::ed25519::Public::from(*signer);
 				if signature.verify(to_sign.as_slice(), &public) {
 					SignatureVerificationResult::Valid(*signer)
 				} else {
@@ -360,8 +360,8 @@ impl Statement {
 			},
 			Some(Proof::Secp256k1Ecdsa { signature, signer }) => {
 				let to_sign = self.signature_material();
-				let signature = sp_core::ecdsa::Signature(*signature);
-				let public = sp_core::ecdsa::Public(*signer);
+				let signature = sp_core::ecdsa::Signature::from(*signature);
+				let public = sp_core::ecdsa::Public::from(*signer);
 				if signature.verify(to_sign.as_slice(), &public) {
 					let sender_hash =
 						<sp_runtime::traits::BlakeTwo256 as sp_core::Hasher>::hash(signer);
