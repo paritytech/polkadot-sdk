@@ -240,9 +240,10 @@ impl<T: Config> WasmBlob<T> {
 			.define("env", "memory", memory)
 			.expect("We just created the Linker. It has no definitions with this name; qed");
 
-		let instance = linker
-			.instantiate(&mut store, &contract.module)
-			.map_err(|_| "can't instantiate module with provided definitions")?;
+		let instance = linker.instantiate(&mut store, &contract.module).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to instantiate module: {:?}", err);
+			"can't instantiate module with provided definitions"
+		})?;
 
 		Ok((store, memory, instance))
 	}
@@ -334,26 +335,49 @@ impl<T: Config> CodeInfo<T> {
 	}
 }
 
-impl<T: Config> Executable<T> for WasmBlob<T> {
-	fn from_storage(
-		code_hash: CodeHash<T>,
-		gas_meter: &mut GasMeter<T>,
-	) -> Result<Self, DispatchError> {
-		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		gas_meter.charge(CodeLoadToken(code_info.code_len))?;
-		let code = <PristineCode<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		Ok(Self { code, code_info, code_hash })
+use crate::{ExecError, ExecReturnValue};
+use wasmi::Func;
+enum InstanceOrExecReturn<'a, E: Ext> {
+	Instance((Func, Store<Runtime<'a, E>>)),
+	ExecReturn(ExecReturnValue),
+}
+
+type PreExecResult<'a, E> = Result<InstanceOrExecReturn<'a, E>, ExecError>;
+
+impl<T: Config> WasmBlob<T> {
+	/// Sync the frame's gas meter with the engine's one.
+	pub fn process_result<E: Ext<T = T>>(
+		mut store: Store<Runtime<E>>,
+		result: Result<(), wasmi::Error>,
+	) -> ExecResult {
+		let engine_consumed_total = store.fuel_consumed().expect("Fuel metering is enabled; qed");
+		let gas_meter = store.data_mut().ext().gas_meter_mut();
+		let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
+		store.into_data().to_execution_result(result)
 	}
 
-	fn execute<E: Ext<T = T>>(
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_prepare_call<E: Ext<T = T>>(
 		self,
 		ext: &mut E,
-		function: &ExportedFunction,
 		input_data: Vec<u8>,
-	) -> ExecResult {
+	) -> (Func, Store<Runtime<E>>) {
+		use InstanceOrExecReturn::*;
+		match Self::prepare_execute(self, Runtime::new(ext, input_data), &ExportedFunction::Call)
+			.expect("Benchmark should provide valid module")
+		{
+			Instance((func, store)) => (func, store),
+			ExecReturn(_) => panic!("Expected Instance"),
+		}
+	}
+
+	fn prepare_execute<'a, E: Ext<T = T>>(
+		self,
+		runtime: Runtime<'a, E>,
+		function: &'a ExportedFunction,
+	) -> PreExecResult<'a, E> {
 		let code = self.code.as_slice();
 		// Instantiate the Wasm module to the engine.
-		let runtime = Runtime::new(ext, input_data);
 		let schedule = <T>::Schedule::get();
 
 		let contract = LoadedModule::new::<T>(
@@ -397,15 +421,6 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 			.add_fuel(fuel_limit)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
-		// Sync this frame's gas meter with the engine's one.
-		let process_result = |mut store: Store<Runtime<E>>, result| {
-			let engine_consumed_total =
-				store.fuel_consumed().expect("Fuel metering is enabled; qed");
-			let gas_meter = store.data_mut().ext().gas_meter_mut();
-			let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
-			store.into_data().to_execution_result(result)
-		};
-
 		// Start function should already see the correct refcount in case it will be ever inspected.
 		if let &ExportedFunction::Constructor = function {
 			E::increment_refcount(self.code_hash)?;
@@ -424,10 +439,37 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 						Error::<T>::CodeRejected
 					})?;
 
-				let result = exported_func.call(&mut store, &[], &mut []);
-				process_result(store, result)
+				Ok(InstanceOrExecReturn::Instance((exported_func, store)))
 			},
-			Err(err) => process_result(store, Err(err)),
+			Err(err) => Self::process_result(store, Err(err)).map(InstanceOrExecReturn::ExecReturn),
+		}
+	}
+}
+
+impl<T: Config> Executable<T> for WasmBlob<T> {
+	fn from_storage(
+		code_hash: CodeHash<T>,
+		gas_meter: &mut GasMeter<T>,
+	) -> Result<Self, DispatchError> {
+		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
+		gas_meter.charge(CodeLoadToken(code_info.code_len))?;
+		let code = <PristineCode<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
+		Ok(Self { code, code_info, code_hash })
+	}
+
+	fn execute<E: Ext<T = T>>(
+		self,
+		ext: &mut E,
+		function: &ExportedFunction,
+		input_data: Vec<u8>,
+	) -> ExecResult {
+		use InstanceOrExecReturn::*;
+		match Self::prepare_execute(self, Runtime::new(ext, input_data), function)? {
+			Instance((func, mut store)) => {
+				let result = func.call(&mut store, &[], &mut []);
+				Self::process_result(store, result)
+			},
+			ExecReturn(exec_return) => Ok(exec_return),
 		}
 	}
 
@@ -1433,7 +1475,7 @@ mod tests {
 
 	#[test]
 	fn contract_ecdsa_to_eth_address() {
-		/// calls `seal_ecdsa_to_eth_address` for the contstant and ensures the result equals the
+		/// calls `seal_ecdsa_to_eth_address` for the constant and ensures the result equals the
 		/// expected one.
 		const CODE_ECDSA_TO_ETH_ADDRESS: &str = r#"
 (module
@@ -1787,6 +1829,7 @@ mod tests {
 	const CODE_GAS_LEFT: &str = r#"
 (module
 	(import "seal1" "gas_left" (func $seal_gas_left (param i32 i32)))
+	(import "seal0" "clear_storage" (func $clear_storage (param i32)))
 	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
 	(import "env" "memory" (memory 1 1))
 
@@ -1803,6 +1846,9 @@ mod tests {
 	)
 
 	(func (export "call")
+		;; Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we need to read its size first.
+		(call $clear_storage (i32.const 0))
+
 		;; This stores the weight left to the buffer
 		(call $seal_gas_left (i32.const 0) (i32.const 20))
 
@@ -1813,6 +1859,9 @@ mod tests {
 				(i32.const 16)
 			)
 		)
+
+		;; Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we need to read its size first.
+		(call $clear_storage (i32.const 0))
 
 		;; Return weight left and its encoded value len
 		(call $seal_return (i32.const 0) (i32.const 0) (i32.load (i32.const 20)))

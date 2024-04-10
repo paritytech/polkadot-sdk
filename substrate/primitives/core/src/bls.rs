@@ -23,17 +23,11 @@
 //! Chaum-Pedersen proof uses the same hash-to-field specified in RFC 9380 for the field of the BLS
 //! curve.
 
-#[cfg(feature = "serde")]
-use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoType, Derive, DeriveError, DeriveJunction, Pair as TraitPair, Public as TraitPublic,
-	PublicBytes, SecretStringError, SignatureBytes, UncheckedFrom,
+	CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError,
+	SignatureBytes, UncheckedFrom,
 };
 
-#[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::{format, string::String};
 use sp_std::vec::Vec;
 
 use w3f_bls::{
@@ -115,109 +109,12 @@ pub struct BlsTag;
 /// A public key.
 pub type Public<SubTag> = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, (BlsTag, SubTag)>;
 
-impl<T: BlsBound> From<Pair<T>> for Public<T> {
-	fn from(x: Pair<T>) -> Self {
-		x.public()
-	}
-}
-
-#[cfg(feature = "std")]
-impl<T: BlsBound> std::str::FromStr for Public<T> {
-	type Err = crate::crypto::PublicError;
-
-	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Self::from_ss58check(s)
-	}
-}
-
-#[cfg(feature = "std")]
-impl<T: BlsBound> std::fmt::Display for Public<T> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{}", self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "std")]
-impl<T: BlsBound> sp_std::fmt::Debug for Public<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
-	}
-}
-
-#[cfg(not(feature = "std"))]
-impl<T> sp_std::fmt::Debug for Public<T> {
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<T: BlsBound> Serialize for Public<T> {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&self.to_ss58check())
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de, T: BlsBound> Deserialize<'de> for Public<T> {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		Public::from_ss58check(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
-impl<T: BlsBound> TraitPublic for Public<T> {}
-
-impl<T> Derive for Public<T> {}
-
 impl<T: BlsBound> CryptoType for Public<T> {
 	type Pair = Pair<T>;
 }
 
 /// A generic BLS signature.
 pub type Signature<SubTag> = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, (BlsTag, SubTag)>;
-
-#[cfg(feature = "serde")]
-impl<T> Serialize for Signature<T> {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&array_bytes::bytes2hex("", self))
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de, T> Deserialize<'de> for Signature<T> {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let signature_hex = array_bytes::hex2bytes(&String::deserialize(deserializer)?)
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))?;
-		Signature::try_from(signature_hex.as_ref())
-			.map_err(|e| de::Error::custom(format!("{:?}", e)))
-	}
-}
-
-impl<T> sp_std::fmt::Debug for Signature<T> {
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))
-	}
-
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
 
 impl<T: BlsBound> CryptoType for Signature<T> {
 	type Pair = Pair<T>;
@@ -333,8 +230,10 @@ impl<T: BlsBound> CryptoType for Pair<T> {
 
 // Test set exercising the BLS12-377 implementation
 #[cfg(test)]
-mod test {
+mod tests {
 	use super::*;
+	#[cfg(feature = "serde")]
+	use crate::crypto::Ss58Codec;
 	use crate::crypto::DEV_PHRASE;
 	use bls377::{Pair, Signature};
 

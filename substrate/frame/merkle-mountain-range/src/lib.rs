@@ -89,7 +89,7 @@ mod tests;
 /// is not available (since the block is not finished yet),
 /// we use the `parent_hash` here along with parent block number.
 pub struct ParentNumberAndHash<T: frame_system::Config> {
-	_phanthom: sp_std::marker::PhantomData<T>,
+	_phantom: sp_std::marker::PhantomData<T>,
 }
 
 impl<T: frame_system::Config> LeafDataProvider for ParentNumberAndHash<T> {

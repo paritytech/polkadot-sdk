@@ -935,7 +935,7 @@ mod tests {
 	}
 
 	#[test]
-	fn succesfully_imports_header_with_valid_finality() {
+	fn successfully_imports_header_with_valid_finality() {
 		run_test(|| {
 			initialize_substrate_bridge();
 
@@ -1192,7 +1192,7 @@ mod tests {
 			header.digest = change_log(0);
 			let justification = make_justification_for_header(JustificationGeneratorParams {
 				header: header.clone(),
-				ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY + 1,
+				ancestors: TestBridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY + 1,
 				..Default::default()
 			});
 

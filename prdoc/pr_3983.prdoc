@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Detect closed notification substreams instead of evicting all peers
+
+doc:
+  - audience: Node Operator
+    description: |
+      Replace eviction of all peers when syncing has completely stalled with a more granular
+      detection of notification substreams closed by remote peers.
+
+      This change is expected to make the _reported_ peer count lower, as before this change
+      the number also included already closed substreams. Nevertheless, the currently reported
+      number should be seen as the real number of working connections.
+
+crates:
+  - name: sc-network-sync
+    bump: minor
+  - name: sc-network
+    bump: minor

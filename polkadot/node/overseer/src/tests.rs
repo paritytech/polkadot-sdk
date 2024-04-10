@@ -811,7 +811,7 @@ fn test_candidate_validation_msg() -> CandidateValidationMessage {
 
 fn test_candidate_backing_msg() -> CandidateBackingMessage {
 	let (sender, _) = oneshot::channel();
-	CandidateBackingMessage::GetBackedCandidates(Vec::new(), sender)
+	CandidateBackingMessage::GetBackedCandidates(Default::default(), sender)
 }
 
 fn test_chain_api_msg() -> ChainApiMessage {

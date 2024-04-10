@@ -82,7 +82,7 @@ fn module_error_outer_enum_expand_explicit() {
 
 	// Check that all error types are propagated
 	match RuntimeError::Example(pallet::Error::InsufficientProposersBalance) {
-		// Error passed implicitely to the pallet system.
+		// Error passed implicitly to the pallet system.
 		RuntimeError::System(system) => match system {
 			frame_system::Error::InvalidSpecName => (),
 			frame_system::Error::SpecVersionNeedsToIncrease => (),

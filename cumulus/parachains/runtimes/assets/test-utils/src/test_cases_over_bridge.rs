@@ -386,7 +386,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				existential_deposit,
 			);
 
-			// create foreign asset for wrapped/derivated representation
+			// create foreign asset for wrapped/derived representation
 			assert_ok!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::force_create(
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::root_origin(),
