@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712711091541,
+  "lastUpdate": 1712730240505,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -2911,6 +2911,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010312346980000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2d927b077263f2d39586a49cf993ecf3885e4de5",
+          "message": "Contracts: Fix legacy uapi (#3994)\n\nFix some broken legacy definitions of pallet_contracts_uapi storage host\nfunctions",
+          "timestamp": "2024-04-10T05:05:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d927b077263f2d39586a49cf993ecf3885e4de5"
+        },
+        "date": 1712730215025,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.926666666663,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025973819813333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011012876966666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013607199713333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16275950642,
             "unit": "seconds"
           }
         ]
