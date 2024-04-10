@@ -13,3 +13,12 @@ doc:
 
 crates:
   - name: polkadot-collator-protocol
+    bump: major
+  - name: polkadot-node-network-protocol
+    bump: major
+  - name: polkadot-node-subsystem-types
+    bump: major
+  - name: polkadot-node-collation-generation
+    bump: minor
+  - name: polkadot-node-core-prospective-parachains
+    bump: minor
