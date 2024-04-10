@@ -524,8 +524,8 @@ subsystem-regression-tests:
     - .common-refs
     - .run-immediately
   script:
-    - cargo bench --profile=testnet -p polkadot-availability-recovery --bench availability-recovery-regression-bench --features subsystem-benchmarks
-    - cargo bench --profile=testnet -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks
+    - cargo bench -p polkadot-availability-recovery --bench availability-recovery-regression-bench --features subsystem-benchmarks
+    - cargo bench -p polkadot-availability-distribution --bench availability-distribution-regression-bench --features subsystem-benchmarks
   tags:
     - benchmark
   allow_failure: true
