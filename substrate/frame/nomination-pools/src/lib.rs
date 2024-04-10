@@ -554,8 +554,9 @@ impl<T: Config> PoolMember<T> {
 	///
 	/// Worst case, iterates over [`TotalUnbondingPools`] member unbonding pools to calculate member
 	/// balance.
-	fn total_balance(&self) -> BalanceOf<T> {
+	pub fn total_balance(&self) -> BalanceOf<T> {
 		let maybe_pool = BondedPool::<T>::get(self.pool_id);
+		// this internal function is always called with a valid pool id.
 		if maybe_pool.is_none() {
 			defensive!("pool should exist; qed");
 			return Zero::zero();
@@ -2841,7 +2842,7 @@ pub mod pallet {
 		/// Apply a pending slash on a member.
 		#[pallet::call_index(23)]
 		// FIXME(ank4n): fix weight. Depends on unbonding pool count for member_account.
-		#[pallet::weight(Weight::default())]
+		#[pallet::weight(T::WeightInfo::apply_slash())]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,

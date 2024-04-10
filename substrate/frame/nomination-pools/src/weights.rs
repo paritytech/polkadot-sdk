@@ -73,6 +73,7 @@ pub trait WeightInfo {
 	fn set_claim_permission() -> Weight;
 	fn claim_commission() -> Weight;
 	fn adjust_pool_deposit() -> Weight;
+	fn apply_slash() -> Weight;
 }
 
 /// Weights for `pallet_nomination_pools` using the Substrate node and recommended hardware.
@@ -664,6 +665,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+
+	fn apply_slash() -> Weight {
+		unimplemented!("will be updated by bench bot")
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1253,5 +1258,9 @@ impl WeightInfo for () {
 		Weight::from_parts(75_966_000, 4764)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+
+	fn apply_slash() -> Weight {
+		unimplemented!("will be updated by bench bot")
 	}
 }

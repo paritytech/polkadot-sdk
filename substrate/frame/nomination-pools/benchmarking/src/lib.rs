@@ -29,7 +29,7 @@ use frame_support::{
 	assert_ok, ensure,
 	traits::{
 		fungible::{Inspect, Mutate, Unbalanced},
-		Get,
+		Get, Imbalance,
 	},
 };
 use frame_system::RawOrigin as RuntimeOrigin;
@@ -238,6 +238,13 @@ impl<T: Config> ListScenario<T> {
 }
 
 frame_benchmarking::benchmarks! {
+	where_clause {
+		where
+			T: pallet_staking::Config,
+			pallet_staking::BalanceOf<T>: From<u128> + Into<u128>,
+			BalanceOf<T>: From<u128> + Into<u128>,
+	}
+
 	join {
 		let origin_weight = Pools::<T>::depositor_min_bond() * 2u32.into();
 
@@ -843,6 +850,53 @@ frame_benchmarking::benchmarks! {
 	}:_(RuntimeOrigin::Signed(depositor), 1)
 	verify {
 		assert!(&Pools::<T>::check_ed_imbalance().is_ok());
+	}
+
+	apply_slash {
+		// We want to fill member's unbonding pools. So let's bond with big enough amount.
+		let deposit_amount = Pools::<T>::depositor_min_bond() * T::MaxUnbonding::get().into() * 4u32.into();
+		// Create a pool with 1000 tokens staked.
+		let (depositor, pool_account) = create_pool_account::<T>(0, deposit_amount, None);
+		let depositor_lookup = T::Lookup::unlookup(depositor.clone());
+
+		// verify user balance in the pool.
+		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
+		// verify delegated balance.
+		assert_eq!(T::StakeAdapter::member_delegation_balance(&depositor), deposit_amount);
+
+		// ugly type conversion between balances of pallet staking and pools (which really are same
+		// type). Maybe there is a better way?
+		let slash_amount: u128 = deposit_amount.into()/2;
+
+		// slash pool by half
+		pallet_staking::slashing::do_slash::<T>(
+			&pool_account,
+			slash_amount.into(),
+			&mut pallet_staking::BalanceOf::<T>::zero(),
+			&mut pallet_staking::NegativeImbalanceOf::<T>::zero(),
+			EraIndex::zero()
+		);
+
+		// verify user balance is slashed in the pool.
+		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount/2u32.into());
+		// verify delegated balance are not yet slashed.
+		assert_eq!(T::StakeAdapter::member_delegation_balance(&depositor), deposit_amount);
+
+		// Fill member's sub pools for the worst case.
+		for i in 1..(T::MaxUnbonding::get() + 1) {
+			pallet_staking::CurrentEra::<T>::put(i);
+			assert!(Pools::<T>::unbond(RuntimeOrigin::Signed(depositor.clone()).into(), depositor_lookup.clone(), Pools::<T>::depositor_min_bond()).is_ok());
+		}
+
+		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 2);
+
+		let slash_reporter = create_funded_user_with_balance::<T>("slasher", 0, CurrencyOf::<T>::minimum_balance());
+		whitelist_account!(depositor);
+	}:_(RuntimeOrigin::Signed(slash_reporter), depositor_lookup)
+	verify {
+		// verify balances are correct and slash applied.
+		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount/2u32.into());
+		assert_eq!(T::StakeAdapter::member_delegation_balance(&depositor), deposit_amount/2u32.into());
 	}
 
 	impl_benchmark_test_suite!(
