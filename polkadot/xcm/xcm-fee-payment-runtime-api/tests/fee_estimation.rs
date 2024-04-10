@@ -31,27 +31,33 @@ use mock::{
 	DeliveryFees, ExistentialDeposit, HereLocation, RuntimeCall, RuntimeEvent, TestClient, TestXt,
 };
 
-// Scenario: User `1` in the local chain wants to transfer assets to account `[0u8; 32]` on
+// Scenario: User `1` in the local chain (id 2000) wants to transfer assets to account `[0u8; 32]` on
 // "AssetHub". He wants to make sure he has enough for fees, so before he calls the `transfer_asset`
 // extrinsic to do the transfer, he decides to use the `XcmDryRunApi` and `XcmPaymentApi` runtime
 // APIs to estimate fees. This uses a teleport because we're dealing with the native token of the
-// chain, which is registered on "AssetHub".
+// chain, which is registered on "AssetHub". The fees are sent as a reserve asset transfer, since they're
+// paid in the relay token.
+//
+//                 Teleport Parachain(2000) Token
+//                 Reserve Asset Transfer Relay Token for fees
+// Parachain(2000) -------------------------------------------> Parachain(1000)
 #[test]
 fn fee_estimation_for_teleport() {
 	let _ = env_logger::builder().is_test(true).try_init();
-	let balances = vec![(1, 100 + DeliveryFees::get() + ExistentialDeposit::get())];
-	new_test_ext_with_balances(balances).execute_with(|| {
+	let who = 1; // AccountId = u64.
+	let balances = vec![(who, 100 + DeliveryFees::get() + ExistentialDeposit::get())];
+	let assets = vec![(1, who, 50)];
+	new_test_ext_with_balances_and_assets(balances, assets).execute_with(|| {
 		let client = TestClient;
 		let runtime_api = client.runtime_api();
-		let who = 1; // AccountId = u64.
 		let extrinsic = TestXt::new(
 			RuntimeCall::XcmPallet(pallet_xcm::Call::transfer_assets {
 				dest: Box::new(VersionedLocation::V4((Parent, Parachain(1000)).into())),
 				beneficiary: Box::new(VersionedLocation::V4(
 					AccountId32 { id: [0u8; 32], network: None }.into(),
 				)),
-				assets: Box::new(VersionedAssets::V4((Here, 100u128).into())),
-				fee_asset_item: 0,
+				assets: Box::new(VersionedAssets::V4(vec![(Here, 100u128).into(), (Parent, 20u128).into()].into())),
+				fee_asset_item: 1, // Fees are paid with the RelayToken
 				weight_limit: Unlimited,
 			}),
 			Some((who, extra())),
@@ -63,6 +69,8 @@ fn fee_estimation_for_teleport() {
 			dry_run_effects.local_program,
 			VersionedXcm::V4(
 				Xcm::builder_unsafe()
+					.withdraw_asset((Parent, 20u128))
+					.burn_asset((Parent, 20u128))
 					.withdraw_asset((Here, 100u128))
 					.burn_asset((Here, 100u128))
 					.build()
@@ -70,10 +78,11 @@ fn fee_estimation_for_teleport() {
 		);
 		let send_destination = Location::new(1, [Parachain(1000)]);
 		let send_message = Xcm::<()>::builder_unsafe()
+			.withdraw_asset((Parent, 20u128))
+			.buy_execution((Parent, 20u128), Unlimited)
 			.receive_teleported_asset(((Parent, Parachain(2000)), 100u128))
 			.clear_origin()
-			.buy_execution(((Parent, Parachain(2000)), 100u128), Unlimited)
-			.deposit_asset(AllCounted(1), [0u8; 32])
+			.deposit_asset(AllCounted(2), [0u8; 32])
 			.build();
 		assert_eq!(
 			dry_run_effects.forwarded_messages,
@@ -97,9 +106,10 @@ fn fee_estimation_for_teleport() {
 					who: 8660274132218572653,
 					amount: 100
 				}),
+				RuntimeEvent::AssetsPallet(pallet_assets::Event::Burned { asset_id: 1, owner: 1, balance: 20 }),
 				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 100 }),
 				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted {
-					outcome: Outcome::Complete { used: Weight::from_parts(200, 20) },
+					outcome: Outcome::Complete { used: Weight::from_parts(400, 40) },
 				}),
 				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 20 }),
 				RuntimeEvent::XcmPallet(pallet_xcm::Event::FeesPaid {
@@ -114,7 +124,7 @@ fn fee_estimation_for_teleport() {
 				}),
 				RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
 					dispatch_info: DispatchInfo {
-						weight: Weight::from_parts(124414066, 0),
+						weight: Weight::from_parts(124414070, 0),
 						class: DispatchClass::Normal,
 						pays_fee: Pays::Yes,
 					}
@@ -133,7 +143,7 @@ fn fee_estimation_for_teleport() {
 			.query_xcm_weight(H256::zero(), local_program.clone())
 			.unwrap()
 			.unwrap();
-		assert_eq!(weight, Weight::from_parts(200, 20));
+		assert_eq!(weight, Weight::from_parts(400, 40));
 		let execution_fees = runtime_api
 			.query_weight_to_asset_fee(
 				H256::zero(),
@@ -142,7 +152,7 @@ fn fee_estimation_for_teleport() {
 			)
 			.unwrap()
 			.unwrap();
-		assert_eq!(execution_fees, 220);
+		assert_eq!(execution_fees, 440);
 
 		let mut forwarded_messages_iter = dry_run_effects.forwarded_messages.into_iter();
 
@@ -170,7 +180,7 @@ fn fee_estimation_for_teleport() {
 			)
 			.unwrap()
 			.unwrap();
-		assert_eq!(remote_execution_fees, 440u128);
+		assert_eq!(remote_execution_fees, 550);
 
 		// Now we know that locally we need to use `execution_fees` and
 		// `delivery_fees`.
@@ -181,6 +191,12 @@ fn fee_estimation_for_teleport() {
 	});
 }
 
+// Same scenario as in `fee_estimation_for_teleport`, but the user in parachain 2000 wants
+// to send relay tokens over to parachain 1000.
+//
+//                 Reserve Asset Transfer Relay Token
+//                 Reserve Asset Transfer Relay Token for fees
+// Parachain(2000) -------------------------------------------> Parachain(1000)
 #[test]
 fn dry_run_reserve_asset_transfer() {
 	let _ = env_logger::builder().is_test(true).try_init();
