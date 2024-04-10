@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712773041594,
+  "lastUpdate": 1712779910347,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2519,6 +2519,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.23198031086,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Milos Kriz",
+            "username": "miloskriz",
+            "email": "82968568+miloskriz@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d21a41f23847f1aeca637ace60f58723c38f6bf3",
+          "message": "Amend chainspecs for `people-westend` and add IBP bootnodes (#4072)\n\nDear team, dear @NachoPal @joepetrowski @bkchr @ggwpez,\n\nThis is a retry of #3957, after merging master as advised!,\n\nMany thanks!\n\n**_Milos_**\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-04-10T19:31:31Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d21a41f23847f1aeca637ace60f58723c38f6bf3"
+        },
+        "date": 1712779878083,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 2.2333333333333356,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307997.38,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.53667422076,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2083107538266666,
             "unit": "seconds"
           }
         ]
