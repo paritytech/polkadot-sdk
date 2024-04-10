@@ -155,7 +155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
         origin: Origin,
         message: BoundedVec&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>, <a class="struct" href="struct.MaxXcmEncodedSize.html" title="struct staging_xcm_builder::MaxXcmEncodedSize">MaxXcmEncodedSize</a>&gt;,
         max_weight: <a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>, DispatchErrorWithPostInfo&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>, <a class="type" href="../frame_support/dispatch/type.DispatchErrorWithPostInfo.html" title="type frame_support::dispatch::DispatchErrorWithPostInfo">DispatchErrorWithPostInfo</a>&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Execute an XCM locally, for a given origin.</p>
 <p>An implementation of that trait will handle the low-level details of the execution, such as:</p>
 <ul>
@@ -168,7 +168,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     origin: Origin,
     message: BoundedVec&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>, <a class="struct" href="struct.MaxXcmEncodedSize.html" title="struct staging_xcm_builder::MaxXcmEncodedSize">MaxXcmEncodedSize</a>&gt;,
     max_weight: <a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>, DispatchErrorWithPostInfo&gt;</h4></section></summary><div class="docblock"><p>Attempt to execute an XCM locally, returns Ok with the weight consumed if the execution
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>, <a class="type" href="../frame_support/dispatch/type.DispatchErrorWithPostInfo.html" title="type frame_support::dispatch::DispatchErrorWithPostInfo">DispatchErrorWithPostInfo</a>&gt;</h4></section></summary><div class="docblock"><p>Attempt to execute an XCM locally, returns Ok with the weight consumed if the execution
 complete successfully, Err otherwise.</p>
 <h5 id="parameters"><a href="#parameters">Parameters</a></h5>
 <ul>
@@ -180,7 +180,7 @@ complete successfully, Err otherwise.</p>
     _origin: Origin,
     _message: BoundedVec&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>, <a class="struct" href="struct.MaxXcmEncodedSize.html" title="struct staging_xcm_builder::MaxXcmEncodedSize">MaxXcmEncodedSize</a>&gt;,
     _max_weight: <a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>, DispatchErrorWithPostInfo&gt;</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/staging_xcm_builder/controller/trait.ExecuteController.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>, <a class="type" href="../frame_support/dispatch/type.DispatchErrorWithPostInfo.html" title="type frame_support::dispatch::DispatchErrorWithPostInfo">DispatchErrorWithPostInfo</a>&gt;</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/staging_xcm_builder/controller/trait.ExecuteController.js" data-ignore-extern-crates="std" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
 </body></html>
