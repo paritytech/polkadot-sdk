@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712738040326,
+  "lastUpdate": 1712744393973,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3015,6 +3015,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16180000010666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Matteo Muraca",
+            "username": "muraca",
+            "email": "56828990+muraca@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "92e142555d45f97aa88d241665d9952d12f4ae40",
+          "message": "Removed `pallet::getter` usage from Polkadot Runtime pallets (#3660)\n\nPart of #3326 \n\n@kianenigma @ggwpez \n\npolkadot address: 12poSUQPtcF1HUPQGY3zZu2P8emuW9YnsPduA4XG3oCEfJVp\n\n---------\n\nSigned-off-by: Matteo Muraca <mmuraca247@gmail.com>\nCo-authored-by: ordian <write@reusable.software>",
+          "timestamp": "2024-04-10T08:35:10Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/92e142555d45f97aa88d241665d9952d12f4ae40"
+        },
+        "date": 1712744368481,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.933333333334,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.011864311826666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.008711184726666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15040602485333326,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025634620213333334,
             "unit": "seconds"
           }
         ]
