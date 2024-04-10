@@ -43,10 +43,6 @@ impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, As
 	}
 }
 
-/// Implement [`fungibles::Inspect`](frame_support::traits::fungibles::Inspect) as it is bound by
-/// [`fungibles::InspectFreeze`](frame_support::traits::fungibles::InspectFreeze) and
-/// [`fungibles::MutateFreeze`](frame_support::traits::fungibles::MutateFreeze). To do so, we'll
-/// re-export all of `pallet-assets` implementation of the same trait.
 impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 	type AssetId = AssetIdOf<T, I>;
 	type Balance = AssetBalanceOf<T, I>;

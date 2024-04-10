@@ -17,15 +17,12 @@
 
 //! # Assets Freezer Pallet
 //!
-//! A pallet capable of freezing fungibles from `pallet-assets`.
-//!
-//! > Made with *Substrate*, for *Polkadot*.
-//!
-//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/examples/basic)
-//! [![polkadot]](https://polkadot.network)
-//!
-//! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
-//! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
+//! A pallet capable of freezing fungibles from `pallet-assets`. This is an extension of
+//! `pallet-assets`, wrapping [`fungibles::Inspect`](`frame_support::traits::fungibles::Inspect`).
+//! It implements both
+//! [`fungibles::freeze::Inspect`](frame_support::traits::fungibles::freeze::Inspect) and
+//! [`fungibles::freeze::Mutate`](frame_support::traits::fungibles::freeze::Mutate). The complexity
+//! of the operations is `O(MaxFreezes)`.
 //!
 //! ## Pallet API
 //!
@@ -39,9 +36,9 @@
 //! - Pallet hooks allowing [`pallet-assets`] to know the frozen balance for an account on a given
 //!   asset (see [`pallet_assets::FrozenBalance`]).
 //! - An implementation of
-//!   [`fungibles::InspectFreeze`)(frame_support::traits::fungibles::InspectFreeze) and
-//!   [`fungibles::MutateFreeze`](frame_support::traits::fungibles::MutateFreeze), allowing other
-//!   pallets to manage freezes for the `pallet-assets` assets.
+//!   [`fungibles::freeze::Inspect`](frame_support::traits::fungibles::freeze::Inspect) and
+//!   [`fungibles::freeze::Mutate`](frame_support::traits::fungibles::freeze::Mutate), allowing
+//!   other pallets to manage freezes for the `pallet-assets` assets.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -102,9 +99,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		// `who`s frozen balance was increased by `amount`.
-		Frozen { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
+		Frozen { who: T::AccountId, asset_id: T::AssetId, amount: T::Balance },
 		// `who`s frozen balance was decreased by `amount`.
-		Thawed { who: AccountIdOf<T>, asset_id: AssetIdOf<T, I>, amount: AssetBalanceOf<T, I> },
+		Thawed { who: T::AccountId, asset_id: T::AssetId, amount: T::Balance },
 	}
 
 	/// A map that stores freezes applied on an account for a given AssetId.
@@ -119,7 +116,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// A map that stores the current frozen balance for every account on a given AssetId.
+	/// A map that stores the current total frozen balance for every account on a given AssetId.
 	#[pallet::storage]
 	pub(super) type FrozenBalances<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
