@@ -113,7 +113,7 @@ impl EnsureOrigin<RuntimeOrigin> for MockPermissionedOrigin {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		todo!()
+		Ok(RuntimeOrigin::root())
 	}
 }
 
