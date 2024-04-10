@@ -803,8 +803,9 @@ impl FragmentChain {
 		}
 	}
 
-	// How many candidates are present in CandidateStorage, are not part of this chain but could
-	// become part of this chain in the future.
+	// The candidates which are present in `CandidateStorage`, are not part of this chain but could
+	// become part of this chain in the future. Capped at the max depth minus the existing chain
+	// length.
 	pub(crate) fn find_unconnected_potential_candidates(
 		&self,
 		storage: &CandidateStorage,
@@ -836,7 +837,6 @@ impl FragmentChain {
 	fn check_forks_and_cycles(
 		&self,
 		parent_head_hash: Hash,
-		// TODO: deserves a comment.
 		output_head_hash: Option<Hash>,
 	) -> bool {
 		if self.by_parent_head.contains_key(&parent_head_hash) {
@@ -866,6 +866,11 @@ impl FragmentChain {
 		true
 	}
 
+	// Checks the potential of a candidate to be added to the chain in the future.
+	// Verifies that the relay parent is in scope and not moving backwards and that we're not
+	// introducing forks or cycles with other candidates in the chain.
+	// `output_head_hash` is optional because we sometimes make this check before retrieving the
+	// collation.
 	fn check_potential(
 		&self,
 		relay_parent: &Hash,
