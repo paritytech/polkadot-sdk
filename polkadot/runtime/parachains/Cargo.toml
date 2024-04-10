@@ -108,13 +108,13 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-keystore",
+	"sp-keystore?/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-std/std",
 	"xcm-executor/std",
 	"xcm/std",
-	"sp-keystore?/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

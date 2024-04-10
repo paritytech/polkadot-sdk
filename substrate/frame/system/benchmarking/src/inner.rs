@@ -17,9 +17,6 @@
 
 //! Frame System benchmarks.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg(feature = "runtime-benchmarks")]
-
 use codec::Encode;
 use frame_benchmarking::v2::*;
 use frame_support::{dispatch::DispatchClass, storage, traits::Get};

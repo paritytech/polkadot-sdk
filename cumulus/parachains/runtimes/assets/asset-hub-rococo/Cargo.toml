@@ -108,7 +108,7 @@ default = ["std"]
 # This pallet will migrate the entire state, controlled through some account.
 #
 # This feature should be removed when the main-net will be migrated.
-state-trie-version-1 = [ ]
+state-trie-version-1 = []
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
