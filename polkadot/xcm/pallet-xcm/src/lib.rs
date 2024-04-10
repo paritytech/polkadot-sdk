@@ -1326,7 +1326,7 @@ pub mod pallet {
 				Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
 
 			// local and remote XCM programs to potentially handle fees separately
-						let fees = if fees_transfer_type == assets_transfer_type {
+			let fees = if fees_transfer_type == assets_transfer_type {
 				// no need for custom fees instructions, fees are batched with assets
 				FeesHandling::Batched { fees }
 			} else {

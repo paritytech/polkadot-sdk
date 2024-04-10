@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Runtime API definition for getting xcm transfer messages.
-//! These messages can be used to get the fees that need to be paid.
+//! Runtime API definition for dry-running XCM-related extrinsics.
+//! This API can be used to simulate XCMs and, for example, find the fees
+//! that need to be paid.
 
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::TypeInfo;
@@ -24,9 +25,10 @@ use sp_std::vec::Vec;
 use xcm::prelude::*;
 
 #[derive(Encode, Decode, Debug, TypeInfo)]
-pub struct XcmDryRunEffects {
+pub struct XcmDryRunEffects<Event> {
 	pub local_program: VersionedXcm<()>,
 	pub forwarded_messages: Vec<(VersionedLocation, VersionedXcm<()>)>,
+	pub emitted_events: Vec<Event>,
 }
 
 sp_api::decl_runtime_apis! {
@@ -35,11 +37,11 @@ sp_api::decl_runtime_apis! {
 	/// All calls return a vector of tuples (location, xcm) where each "xcm" is executed in "location".
 	/// If there's local execution, the location will be "Here".
 	/// This vector can be used to calculate both execution and delivery fees.
-	pub trait XcmDryRunApi<Call> {
+	pub trait XcmDryRunApi<Call, Event: Decode> {
 		/// Dry run extrinsic.
-		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects, ()>;
+		fn dry_run_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> Result<XcmDryRunEffects<Event>, ()>;
 
 		/// Dry run XCM program
-		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>, weight: Weight) -> Result<XcmDryRunEffects, ()>;
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<Call>, weight: Weight) -> Result<XcmDryRunEffects<Event>, ()>;
 	}
 }

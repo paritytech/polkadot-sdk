@@ -16,6 +16,10 @@
 
 //! Tests for using both the XCM fee payment API and the transfers API.
 
+use frame_support::{
+	dispatch::DispatchInfo,
+	pallet_prelude::{DispatchClass, Pays},
+};
 use sp_api::ProvideRuntimeApi;
 use sp_runtime::testing::H256;
 use xcm::prelude::*;
@@ -23,8 +27,8 @@ use xcm_fee_payment_runtime_api::{XcmDryRunApi, XcmPaymentApi};
 
 mod mock;
 use mock::{
-	extra, new_test_ext_with_balances, new_test_ext_with_balances_and_assets, DeliveryFees,
-	ExistentialDeposit, HereLocation, RuntimeCall, TestClient, TestXt,
+	extra, fake_message_hash, new_test_ext_with_balances, new_test_ext_with_balances_and_assets,
+	DeliveryFees, ExistentialDeposit, HereLocation, RuntimeCall, RuntimeEvent, TestClient, TestXt,
 };
 
 // Scenario: User `1` in the local chain wants to transfer assets to account `[0u8; 32]` on
@@ -64,22 +68,61 @@ fn fee_estimation_for_teleport() {
 					.build()
 			),
 		);
+		let send_destination = Location::new(1, [Parachain(1000)]);
+		let send_message = Xcm::<()>::builder_unsafe()
+			.receive_teleported_asset(((Parent, Parachain(2000)), 100u128))
+			.clear_origin()
+			.buy_execution(((Parent, Parachain(2000)), 100u128), Unlimited)
+			.deposit_asset(AllCounted(1), [0u8; 32])
+			.build();
 		assert_eq!(
 			dry_run_effects.forwarded_messages,
 			vec![(
-				VersionedLocation::V4(Location::new(1, [Parachain(1000)])),
-				VersionedXcm::V4(
-					Xcm::<()>::builder_unsafe()
-						.receive_teleported_asset(((Parent, Parachain(2000)), 100u128))
-						.clear_origin()
-						.buy_execution(((Parent, Parachain(2000)), 100u128), Unlimited)
-						.deposit_asset(AllCounted(1), [0u8; 32])
-						.build()
-				)
+				VersionedLocation::V4(send_destination.clone()),
+				VersionedXcm::V4(send_message.clone()),
 			),],
 		);
 
-		// TODO: Weighing the local program is not relevant for extrinsics that already
+		assert_eq!(
+			dry_run_effects.emitted_events,
+			vec![
+				RuntimeEvent::System(frame_system::Event::NewAccount {
+					account: 8660274132218572653 // TODO: Why is this not `1`?
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Endowed {
+					account: 8660274132218572653,
+					free_balance: 100
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Minted {
+					who: 8660274132218572653,
+					amount: 100
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 100 }),
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted {
+					outcome: Outcome::Complete { used: Weight::from_parts(200, 20) },
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 20 }),
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::FeesPaid {
+					paying: AccountIndex64 { index: 1, network: None }.into(),
+					fees: (Here, 20u128).into(),
+				}),
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent {
+					origin: AccountIndex64 { index: 1, network: None }.into(),
+					destination: (Parent, Parachain(1000)).into(),
+					message: send_message.clone(),
+					message_id: fake_message_hash(&send_message),
+				}),
+				RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
+					dispatch_info: DispatchInfo {
+						weight: Weight::from_parts(124414066, 0),
+						class: DispatchClass::Normal,
+						pays_fee: Pays::Yes,
+					}
+				}),
+			]
+		);
+
+		// Weighing the local program is not relevant for extrinsics that already
 		// take this weight into account.
 		// In this case, we really only care about delivery fees.
 		let local_program = dry_run_effects.local_program;
@@ -176,19 +219,51 @@ fn dry_run_reserve_asset_transfer() {
 
 		// In this case, the transfer type is `DestinationReserve`, so the remote xcm just withdraws
 		// the assets.
+		let send_destination = Location::new(1, Parachain(1000));
+		let send_message = Xcm::<()>::builder_unsafe()
+			.withdraw_asset((Parent, 100u128))
+			.clear_origin()
+			.buy_execution((Parent, 100u128), Unlimited)
+			.deposit_asset(AllCounted(1), [0u8; 32])
+			.build();
 		assert_eq!(
 			dry_run_effects.forwarded_messages,
 			vec![(
-				VersionedLocation::V4(Location::new(1, Parachain(1000))),
-				VersionedXcm::V4(
-					Xcm::<()>::builder_unsafe()
-						.withdraw_asset((Parent, 100u128))
-						.clear_origin()
-						.buy_execution((Parent, 100u128), Unlimited)
-						.deposit_asset(AllCounted(1), [0u8; 32])
-						.build()
-				),
+				VersionedLocation::V4(send_destination.clone()),
+				VersionedXcm::V4(send_message.clone()),
 			),],
+		);
+
+		assert_eq!(
+			dry_run_effects.emitted_events,
+			vec![
+				RuntimeEvent::AssetsPallet(pallet_assets::Event::Burned {
+					asset_id: 1,
+					owner: 1,
+					balance: 100
+				}),
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Attempted {
+					outcome: Outcome::Complete { used: Weight::from_parts(200, 20) }
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 20 }),
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::FeesPaid {
+					paying: AccountIndex64 { index: 1, network: None }.into(),
+					fees: (Here, 20u128).into()
+				}),
+				RuntimeEvent::XcmPallet(pallet_xcm::Event::Sent {
+					origin: AccountIndex64 { index: 1, network: None }.into(),
+					destination: send_destination.clone(),
+					message: send_message.clone(),
+					message_id: fake_message_hash(&send_message),
+				}),
+				RuntimeEvent::System(frame_system::Event::ExtrinsicSuccess {
+					dispatch_info: DispatchInfo {
+						weight: Weight::from_parts(124414066, 0),
+						class: DispatchClass::Normal,
+						pays_fee: Pays::Yes,
+					}
+				}),
+			]
 		);
 	});
 }
@@ -257,6 +332,19 @@ fn dry_run_xcm() {
 						.build()
 				),
 			),]
+		);
+
+		assert_eq!(
+			dry_run_effects.emitted_events,
+			vec![
+				RuntimeEvent::Balances(pallet_balances::Event::Burned { who: 1, amount: 540 }),
+				RuntimeEvent::System(frame_system::Event::NewAccount { account: 2100 }),
+				RuntimeEvent::Balances(pallet_balances::Event::Endowed {
+					account: 2100,
+					free_balance: 520
+				}),
+				RuntimeEvent::Balances(pallet_balances::Event::Minted { who: 2100, amount: 520 }),
+			]
 		);
 	});
 }
