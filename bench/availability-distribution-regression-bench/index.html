@@ -49,6 +49,11 @@
         font-size: 2rem;
         word-break: break-word;
         text-align: center;
+        margin-bottom: 0.4em;
+      }
+      .benchmark-desc {
+        text-align: center;
+        margin-bottom: 2em;
       }
       .benchmark-graphs {
         display: flex;
@@ -298,6 +303,11 @@
           nameElem.className = "benchmark-title";
           nameElem.textContent = name;
           setElem.appendChild(nameElem);
+
+          const descElem = document.createElement("div");
+          descElem.className = "benchmark-desc";
+          descElem.innerHTML = `<span style='border: 2px solid ${color}80;'>A baseline value</span> along with <span style='background: ${color}30;'>a ±5% threshold</span> is displayed for the metrics being tracked`;
+          setElem.appendChild(descElem);
 
           const graphsElem = document.createElement("div");
           graphsElem.className = "benchmark-graphs";
