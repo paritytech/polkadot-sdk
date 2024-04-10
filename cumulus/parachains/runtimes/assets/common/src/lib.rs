@@ -28,7 +28,9 @@ use frame_support::traits::{Equals, EverythingBut};
 use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use sp_runtime::traits::TryConvertInto;
 use xcm::latest::Location;
-use xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
+use xcm_builder::{
+	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, WithLatestLocationConverter,
+};
 
 /// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation, L = Location> =
@@ -81,15 +83,22 @@ pub type LocationConvertedConcreteId<
 	TryConvertInto,
 >;
 
-/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
-pub type TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance> =
-	MatchedConvertedConcreteId<
-		xcm::v3::Location,
-		Balance,
-		StartsWith<TrustBackedAssetsPalletLocation>,
-		V4V3LocationConverter,
-		TryConvertInto,
-	>;
+/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`,
+/// it is a similar implementation to `TrustBackedAssetsConvertedConcreteId`,
+/// but it converts `AssetId` to `xcm::v*::Location` type instead of `AssetIdForTrustBackedAssets =
+/// u32`
+pub type TrustBackedAssetsAsLocation<
+	TrustBackedAssetsPalletLocation,
+	Balance,
+	L,
+	LocationConverter = WithLatestLocationConverter<L>,
+> = MatchedConvertedConcreteId<
+	L,
+	Balance,
+	StartsWith<TrustBackedAssetsPalletLocation>,
+	LocationConverter,
+	TryConvertInto,
+>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
 /// `Location`.
@@ -173,7 +182,7 @@ mod tests {
 		frame_support::parameter_types! {
 			pub TrustBackedAssetsPalletLocation: Location = Location::new(0, [PalletInstance(13)]);
 		}
-		// setup a converter
+		// set up a converter
 		type TrustBackedAssetsConvert =
 			TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, u128>;
 
@@ -256,13 +265,13 @@ mod tests {
 	}
 
 	#[test]
-	fn location_converted_concrete_id_converter_works() {
+	fn foreign_assets_converted_concrete_id_converter_works() {
 		frame_support::parameter_types! {
 			pub Parachain100Pattern: Location = Location::new(1, [Parachain(100)]);
 			pub UniversalLocationNetworkId: NetworkId = NetworkId::ByGenesis([9; 32]);
 		}
 
-		// setup a converter which uses `xcm::v3::Location` under the hood
+		// set up a converter which uses `xcm::v3::Location` under the hood
 		type Convert = ForeignAssetsConvertedConcreteId<
 			(
 				StartsWith<Parachain100Pattern>,
