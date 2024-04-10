@@ -240,9 +240,10 @@ impl<T: Config> WasmBlob<T> {
 			.define("env", "memory", memory)
 			.expect("We just created the Linker. It has no definitions with this name; qed");
 
-		let instance = linker
-			.instantiate(&mut store, &contract.module)
-			.map_err(|_| "can't instantiate module with provided definitions")?;
+		let instance = linker.instantiate(&mut store, &contract.module).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to instantiate module: {:?}", err);
+			"can't instantiate module with provided definitions"
+		})?;
 
 		Ok((store, memory, instance))
 	}

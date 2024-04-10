@@ -37,8 +37,8 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::HeadSupportsParachains;
 use polkadot_primitives::{
-	vstaging::NodeFeatures, ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex,
-	GroupIndex, Header, Id as ParaId, IndexedVec, ValidationCode, ValidatorSignature,
+	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, GroupIndex, Header,
+	Id as ParaId, IndexedVec, NodeFeatures, ValidationCode, ValidatorSignature,
 };
 use std::time::Duration;
 
