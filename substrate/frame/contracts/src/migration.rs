@@ -125,8 +125,10 @@ impl<T: Config, V: ContractsMigrationStep> SteppedMigration for SteppedMigration
 		cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
-		let required = V::max_step_weight();
+		#[cfg(feature = "try-runtime")]
+		let data = V::pre_upgrade_step().expect("pre_upgrade_step failed");
 
+		let required = V::max_step_weight();
 		let mut cursor = match cursor {
 			None => {
 				let required = required.saturating_add(T::WeightInfo::migration_version_bump());
@@ -144,29 +146,22 @@ impl<T: Config, V: ContractsMigrationStep> SteppedMigration for SteppedMigration
 			},
 		};
 
-		#[cfg(feature = "try-runtime")]
-		{
-			assert!(
-				cursor.is_empty(),
-				"try-runtime should run all ContractsMigrationStep in one go"
-			);
-			let data = V::pre_upgrade_step(&cursor).expect("pre_upgrade_step failed");
-		}
-
 		loop {
 			if meter.try_consume(required).is_err() {
 				break;
 			}
 
-			let result = V::step(&mut cursor, meter);
-
-			if let IsFinished::Yes = result {
+			if let IsFinished::Yes = V::step(&mut cursor, meter) {
 				#[cfg(feature = "try-runtime")]
 				V::post_upgrade_step(data).expect("post_upgrade_step failed");
 				return Ok(None)
 			}
 		}
 
+		#[cfg(feature = "try-runtime")]
+		panic!("try-runtime should run all ContractsMigrationStep in one go");
+
+		#[cfg(not(feature = "try-runtime"))]
 		Ok(Some(cursor))
 	}
 }
