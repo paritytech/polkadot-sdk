@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712696835913,
+  "lastUpdate": 1712711091541,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -2859,6 +2859,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02594547025333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Sebastian Kunert",
+            "username": "skunert",
+            "email": "skunert49@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "df818d2974e059008cd8fa531f70b6657787b5be",
+          "message": "Move cumulus zombienet tests to aura & async backing (#3568)\n\nCumulus test-parachain node and test runtime were still using relay\nchain consensus and 12s blocktimes. With async backing around the corner\non the major chains we should switch our tests too.\n\nAlso needed to nicely test the changes coming to collators in #3168.\n\n### Changes Overview\n- Followed the [migration\nguide](https://wiki.polkadot.network/docs/maintain-guides-async-backing)\nfor async backing for the cumulus-test-runtime\n- Adjusted the cumulus-test-service to use the correct import-queue,\nlookahead collator etc.\n- The block validation function now uses the Aura Ext Executor so that\nthe seal of the block is validated\n- Previous point requires that we seal block before calling into\n`validate_block`, I introduced a helper function for that\n- Test client adjusted to provide a slot to the relay chain proof and\nthe aura pre-digest",
+          "timestamp": "2024-04-09T16:53:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/df818d2974e059008cd8fa531f70b6657787b5be"
+        },
+        "date": 1712711066717,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.899999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025773482119999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1565702389066667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012297343400000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010312346980000003,
             "unit": "seconds"
           }
         ]
