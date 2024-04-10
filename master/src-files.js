@@ -13,6 +13,7 @@ var srcIndex = JSON.parse('{\
 "binary_merkle_tree":["",[],["lib.rs"]],\
 "bp_asset_hub_rococo":["",[],["lib.rs"]],\
 "bp_asset_hub_westend":["",[],["lib.rs"]],\
+"bp_beefy":["",[],["lib.rs"]],\
 "bp_bridge_hub_cumulus":["",[],["lib.rs"]],\
 "bp_bridge_hub_kusama":["",[],["lib.rs"]],\
 "bp_bridge_hub_polkadot":["",[],["lib.rs"]],\
@@ -84,6 +85,8 @@ var srcIndex = JSON.parse('{\
 "cumulus_test_runtime":["",[],["lib.rs","test_pallet.rs"]],\
 "cumulus_test_service":["",[],["bench_utils.rs","chain_spec.rs","lib.rs"]],\
 "emulated_integration_tests_common":["",[],["impls.rs","lib.rs","macros.rs","xcm_helpers.rs"]],\
+"equivocation_detector":["",[],["block_checker.rs","equivocation_loop.rs","lib.rs","reporter.rs"]],\
+"finality_relay":["",[],["base.rs","finality_loop.rs","finality_proofs.rs","headers.rs","lib.rs","sync_loop_metrics.rs"]],\
 "fixed_point":["",[],["fixed_point.rs"]],\
 "fork_tree":["",[],["lib.rs"]],\
 "frame_benchmarking":["",[],["analysis.rs","baseline.rs","lib.rs","utils.rs","v1.rs"]],\
@@ -110,6 +113,7 @@ var srcIndex = JSON.parse('{\
 "glutton_westend_runtime":["",[["weights",[],["cumulus_pallet_parachain_system.rs","mod.rs","pallet_glutton.rs","pallet_message_queue.rs","pallet_timestamp.rs"]]],["lib.rs","xcm_config.rs"]],\
 "kitchensink_runtime":["",[],["assets_api.rs","constants.rs","impls.rs","lib.rs","voter_bags.rs"]],\
 "malus":["",[["variants",[],["back_garbage_candidate.rs","common.rs","dispute_finalized_candidates.rs","dispute_valid_candidates.rs","mod.rs","suggest_garbage_candidate.rs","support_disabled.rs"]]],["interceptor.rs","malus.rs","shared.rs"]],\
+"messages_relay":["",[],["lib.rs","message_lane.rs","message_lane_loop.rs","message_race_delivery.rs","message_race_limits.rs","message_race_loop.rs","message_race_receiving.rs","message_race_strategy.rs","metrics.rs"]],\
 "minimal_template_node":["",[],["chain_spec.rs","cli.rs","lib.rs","rpc.rs","service.rs"]],\
 "minimal_template_runtime":["",[],["lib.rs"]],\
 "mmr_gadget":["",[],["aux_schema.rs","lib.rs","offchain_mmr.rs"]],\
@@ -139,6 +143,7 @@ var srcIndex = JSON.parse('{\
 "pallet_beefy":["",[],["default_weights.rs","equivocation.rs","lib.rs"]],\
 "pallet_beefy_mmr":["",[],["lib.rs"]],\
 "pallet_bounties":["",[["migrations",[],["mod.rs","v4.rs"]]],["benchmarking.rs","lib.rs","weights.rs"]],\
+"pallet_bridge_beefy":["",[],["lib.rs","utils.rs"]],\
 "pallet_bridge_grandpa":["",[],["benchmarking.rs","call_ext.rs","lib.rs","storage_types.rs","weights.rs"]],\
 "pallet_bridge_messages":["",[],["benchmarking.rs","inbound_lane.rs","lib.rs","outbound_lane.rs","weights.rs","weights_ext.rs"]],\
 "pallet_bridge_parachains":["",[],["benchmarking.rs","call_ext.rs","lib.rs","weights.rs","weights_ext.rs"]],\
@@ -245,6 +250,7 @@ var srcIndex = JSON.parse('{\
 "parachain_template_node":["",[],["chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
 "parachain_template_runtime":["",[["configs",[],["mod.rs","xcm_config.rs"]],["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["apis.rs","benchmarks.rs","lib.rs"]],\
 "parachains_common":["",[],["impls.rs","lib.rs","message_queue.rs","xcm_config.rs"]],\
+"parachains_relay":["",[],["lib.rs","parachains_loop.rs","parachains_loop_metrics.rs"]],\
 "parachains_runtimes_test_utils":["",[],["lib.rs","test_cases.rs"]],\
 "penpal_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
 "penpal_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
@@ -320,6 +326,8 @@ var srcIndex = JSON.parse('{\
 "polkadot_voter_bags":["",[],["main.rs"]],\
 "reconstruct":["",[],["reconstruct.rs"]],\
 "reduce":["",[],["common.rs","reduce.rs"]],\
+"relay_substrate_client":["",[["metrics",[],["float_storage_value.rs","mod.rs"]]],["calls.rs","chain.rs","client.rs","error.rs","guard.rs","lib.rs","rpc.rs","sync_header.rs","test_chain.rs","transaction_tracker.rs"]],\
+"relay_utils":["",[["metrics",[],["float_json_value.rs","global.rs"]]],["error.rs","initialize.rs","lib.rs","metrics.rs","relay_loop.rs"]],\
 "remote_ext_tests_bags_list":["",[],["main.rs"]],\
 "rococo_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
 "rococo_parachain_runtime":["",[],["lib.rs"]],\
@@ -482,6 +490,7 @@ var srcIndex = JSON.parse('{\
 "substrate_frame_rpc_system":["",[],["lib.rs"]],\
 "substrate_node":["",[],["main.rs"]],\
 "substrate_prometheus_endpoint":["",[],["lib.rs","sourced.rs"]],\
+"substrate_relay_helper":["",[["cli",[["relay_headers_and_messages",[],["mod.rs","parachain_to_parachain.rs","relay_to_parachain.rs","relay_to_relay.rs"]]],["bridge.rs","chain_schema.rs","detect_equivocations.rs","init_bridge.rs","mod.rs","relay_headers.rs","relay_messages.rs","relay_parachains.rs"]],["equivocation",[],["mod.rs","source.rs","target.rs"]],["finality",[],["initialize.rs","mod.rs","source.rs","target.rs"]],["finality_base",[],["engine.rs","mod.rs"]],["on_demand",[],["headers.rs","mod.rs","parachains.rs"]],["parachains",[],["mod.rs","source.rs","target.rs"]]],["error.rs","lib.rs","messages_lane.rs","messages_metrics.rs","messages_source.rs","messages_target.rs"]],\
 "substrate_rpc_client":["",[],["lib.rs"]],\
 "substrate_state_trie_migration_rpc":["",[],["lib.rs"]],\
 "substrate_test_client":["",[],["client_ext.rs","lib.rs"]],\

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["parachain_to_parachain","relay_to_parachain","relay_to_relay"],"struct":["BridgeEndCommonParams","Full2WayBridgeCommonParams","FullBridge","HeadersAndMessagesSharedParams"],"trait":["Full2WayBridge","Full2WayBridgeBase"]};

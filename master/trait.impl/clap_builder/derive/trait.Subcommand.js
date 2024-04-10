@@ -1,7 +1,7 @@
 (function() {var implementors = {
 "adder_collator":[["impl Subcommand for <a class=\"enum\" href=\"adder_collator/cli/enum.Subcommand.html\" title=\"enum adder_collator::cli::Subcommand\">Subcommand</a>"]],
 "frame_benchmarking_cli":[["impl Subcommand for <a class=\"enum\" href=\"frame_benchmarking_cli/enum.BenchmarkCmd.html\" title=\"enum frame_benchmarking_cli::BenchmarkCmd\">BenchmarkCmd</a>"]],
-"frame_omni_bencher":[["impl Subcommand for <a class=\"enum\" href=\"frame_omni_bencher/command/enum.V1SubCommand.html\" title=\"enum frame_omni_bencher::command::V1SubCommand\">V1SubCommand</a>"],["impl Subcommand for <a class=\"enum\" href=\"frame_omni_bencher/command/enum.SubCommand.html\" title=\"enum frame_omni_bencher::command::SubCommand\">SubCommand</a>"]],
+"frame_omni_bencher":[["impl Subcommand for <a class=\"enum\" href=\"frame_omni_bencher/command/enum.SubCommand.html\" title=\"enum frame_omni_bencher::command::SubCommand\">SubCommand</a>"],["impl Subcommand for <a class=\"enum\" href=\"frame_omni_bencher/command/enum.V1SubCommand.html\" title=\"enum frame_omni_bencher::command::V1SubCommand\">V1SubCommand</a>"]],
 "malus":[["impl Subcommand for <a class=\"enum\" href=\"malus/enum.NemesisVariant.html\" title=\"enum malus::NemesisVariant\">NemesisVariant</a>"]],
 "parachain_template_node":[["impl Subcommand for <a class=\"enum\" href=\"parachain_template_node/cli/enum.Subcommand.html\" title=\"enum parachain_template_node::cli::Subcommand\">Subcommand</a>"]],
 "polkadot_cli":[["impl Subcommand for <a class=\"enum\" href=\"polkadot_cli/enum.Subcommand.html\" title=\"enum polkadot_cli::Subcommand\">Subcommand</a>"]],
@@ -13,6 +13,6 @@
 "staging_node_inspect":[["impl Subcommand for <a class=\"enum\" href=\"staging_node_inspect/cli/enum.InspectSubCmd.html\" title=\"enum staging_node_inspect::cli::InspectSubCmd\">InspectSubCmd</a>"]],
 "subkey":[["impl Subcommand for <a class=\"enum\" href=\"subkey/enum.Subkey.html\" title=\"enum subkey::Subkey\">Subkey</a>"]],
 "test_parachain":[["impl Subcommand for <a class=\"enum\" href=\"test_parachain/cli/enum.Subcommand.html\" title=\"enum test_parachain::cli::Subcommand\">Subcommand</a>"]],
-"try_runtime_cli":[["impl Subcommand for <a class=\"enum\" href=\"try_runtime_cli/enum.Command.html\" title=\"enum try_runtime_cli::Command\">Command</a>"],["impl Subcommand for <a class=\"enum\" href=\"try_runtime_cli/enum.State.html\" title=\"enum try_runtime_cli::State\">State</a>"]],
+"try_runtime_cli":[["impl Subcommand for <a class=\"enum\" href=\"try_runtime_cli/enum.State.html\" title=\"enum try_runtime_cli::State\">State</a>"],["impl Subcommand for <a class=\"enum\" href=\"try_runtime_cli/enum.Command.html\" title=\"enum try_runtime_cli::Command\">Command</a>"]],
 "undying_collator":[["impl Subcommand for <a class=\"enum\" href=\"undying_collator/cli/enum.Subcommand.html\" title=\"enum undying_collator::cli::Subcommand\">Subcommand</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
