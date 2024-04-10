@@ -69,20 +69,6 @@ pub type UniquesConvertedConcreteId<UniquesPalletLocation> = MatchedConvertedCon
 	TryConvertInto,
 >;
 
-/// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `xcm::v*::Location`.
-pub type LocationConvertedConcreteId<
-	AssetLocationFilter,
-	Balance,
-	AssetId,
-	LocationToAssetIdConverter,
-> = MatchedConvertedConcreteId<
-	AssetId,
-	Balance,
-	AssetLocationFilter,
-	LocationToAssetIdConverter,
-	TryConvertInto,
->;
-
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`,
 /// it is a similar implementation to `TrustBackedAssetsConvertedConcreteId`,
 /// but it converts `AssetId` to `xcm::v*::Location` type instead of `AssetIdForTrustBackedAssets =
@@ -112,8 +98,11 @@ pub type ForeignAssetsConvertedConcreteId<
 	AdditionalLocationExclusionFilter,
 	Balance,
 	AssetId,
-	LocationToAssetIdConverter,
-> = LocationConvertedConcreteId<
+	LocationToAssetIdConverter = WithLatestLocationConverter<AssetId>,
+	BalanceConverter = TryConvertInto,
+> = MatchedConvertedConcreteId<
+	AssetId,
+	Balance,
 	EverythingBut<(
 		// Excludes relay/parent chain currency
 		Equals<ParentLocation>,
@@ -125,9 +114,8 @@ pub type ForeignAssetsConvertedConcreteId<
 		// Here we can exclude more stuff or leave it as `()`
 		AdditionalLocationExclusionFilter,
 	)>,
-	Balance,
-	AssetId,
 	LocationToAssetIdConverter,
+	BalanceConverter,
 >;
 
 type AssetIdForPoolAssets = u32;

@@ -54,8 +54,8 @@ use xcm_builder::{
 	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
 	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic,
-	XcmFeeManagerFromComponents, XcmFeeToAccount,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -173,7 +173,6 @@ pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConverte
 	),
 	Balance,
 	xcm::v3::Location,
-	WithLatestLocationConverter<xcm::v3::Location>,
 >;
 
 /// Means for transacting foreign assets from different global consensus.
