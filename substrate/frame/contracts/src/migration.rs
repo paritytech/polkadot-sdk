@@ -144,12 +144,25 @@ impl<T: Config, V: ContractsMigrationStep> SteppedMigration for SteppedMigration
 			},
 		};
 
+		#[cfg(feature = "try-runtime")]
+		{
+			assert!(
+				cursor.is_empty(),
+				"try-runtime should run all ContractsMigrationStep in one go"
+			);
+			let data = V::pre_upgrade_step(&cursor).expect("pre_upgrade_step failed");
+		}
+
 		loop {
 			if meter.try_consume(required).is_err() {
 				break;
 			}
 
-			if let IsFinished::Yes = ContractsMigrationStep::step(&mut cursor, meter) {
+			let result = V::step(&mut cursor, meter);
+
+			if let IsFinished::Yes = result {
+				#[cfg(feature = "try-runtime")]
+				V::post_upgrade_step(data).expect("post_upgrade_step failed");
 				return Ok(None)
 			}
 		}
