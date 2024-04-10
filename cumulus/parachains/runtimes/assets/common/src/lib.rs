@@ -111,7 +111,15 @@ pub type ForeignAssetsConvertedConcreteId<AdditionalLocationExclusionFilter, Bal
 		Balance,
 	>;
 
-type AssetIdForPoolAssets = u32;
+pub type AssetIdForPoolAssets = u32;
+/// `Location` vs `AssetIdForPoolAssets` converter for `PoolAssets` with explicit `v3 Location`.
+pub type AssetIdForPoolAssetsConvertV3Location<PoolAssetsPalletLocation> = AsPrefixedGeneralIndex<
+	PoolAssetsPalletLocation,
+	AssetIdForPoolAssets,
+	JustTry,
+	xcm::v3::Location,
+>;
+
 /// `Location` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
 pub type AssetIdForPoolAssetsConvert<PoolAssetsPalletLocation> =
 	AsPrefixedGeneralIndex<PoolAssetsPalletLocation, AssetIdForPoolAssets, JustTry>;

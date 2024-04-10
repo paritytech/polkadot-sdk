@@ -31,6 +31,7 @@ use assets_common::{
 	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
 	matching::{FromNetwork, FromSiblingParachain},
+	AssetIdForPoolAssets, AssetIdForPoolAssetsConvertV3Location,
 	AssetIdForTrustBackedAssetsConvert,
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
@@ -81,7 +82,7 @@ use sp_runtime::{Perbill, RuntimeDebug};
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
-	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
+	PoolAssetsConvertedConcreteId, PoolAssetsPalletLocationV3, TokenLocation, TokenLocationV3,
 	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
 };
 
@@ -290,7 +291,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type RemoveItemsLimit = ConstU32<1000>;
-	type AssetId = u32;
+	type AssetId = AssetIdForPoolAssets;
 	type AssetIdParameter = u32;
 	type Currency = Balances;
 	type CreateOrigin =
@@ -324,11 +325,26 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	AccountId,
 >;
 
-/// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
-pub type NativeAndAssets = fungible::UnionOf<
+/// Union fungibles implementation for [`LocalAndForeignAssets`] and [`Balances`].
+pub type NativeAndNonPoolAssets = fungible::UnionOf<
 	Balances,
 	LocalAndForeignAssets,
 	TargetFromLeft<TokenLocationV3, xcm::v3::Location>,
+	xcm::v3::Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`PoolAssets`] and [`NativeAndAssets`].
+///
+/// Should be kept updated to include ALL balances and assets in the runtime.
+pub type NativeAndAllAssets = fungibles::UnionOf<
+	PoolAssets,
+	NativeAndNonPoolAssets,
+	LocalFromLeft<
+		AssetIdForPoolAssetsConvertV3Location<PoolAssetsPalletLocationV3>,
+		AssetIdForPoolAssets,
+		xcm::v3::Location,
+	>,
 	xcm::v3::Location,
 	AccountId,
 >;
@@ -338,7 +354,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type AssetKind = xcm::v3::Location;
-	type Assets = NativeAndAssets;
+	type Assets = NativeAndNonPoolAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator =
 		pallet_asset_conversion::WithFirstAsset<TokenLocationV3, AccountId, Self::AssetKind>;
@@ -887,6 +903,21 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
 
+parameter_types! {
+	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/asrwd");
+}
+
+impl pallet_asset_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = AssetRewardsPalletId;
+	type Balance = Balance;
+	type Assets = NativeAndAllAssets;
+	type AssetId = xcm::v3::Location;
+	type PermissionedPoolCreator = EnsureRoot<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -931,6 +962,7 @@ construct_runtime!(
 		NftFractionalization: pallet_nft_fractionalization = 54,
 		PoolAssets: pallet_assets::<Instance3> = 55,
 		AssetConversion: pallet_asset_conversion = 56,
+		AssetRewards: pallet_asset_rewards = 57,
 
 		#[cfg(feature = "state-trie-version-1")]
 		StateTrieMigration: pallet_state_trie_migration = 70,

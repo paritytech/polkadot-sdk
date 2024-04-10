@@ -579,12 +579,12 @@ impl xcm_executor::Config for XcmConfig {
 			TokenLocationV3,
 			crate::AssetConversion,
 			WeightToFee,
-			crate::NativeAndAssets,
+			crate::NativeAndNonPoolAssets,
 			(
 				TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance>,
 				ForeignAssetsConvertedConcreteId,
 			),
-			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,
+			ResolveAssetTo<StakingPot, crate::NativeAndNonPoolAssets>,
 			AccountId,
 		>,
 		// This trader allows to pay with `is_sufficient=true` "Trust Backed" assets from dedicated
