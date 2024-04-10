@@ -905,6 +905,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 
 parameter_types! {
 	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/asrwd");
+	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 }
 
 impl pallet_asset_rewards::Config for Runtime {
@@ -913,7 +914,10 @@ impl pallet_asset_rewards::Config for Runtime {
 	type Balance = Balance;
 	type Assets = NativeAndAllAssets;
 	type AssetId = xcm::v3::Location;
-	type PermissionedPoolCreator = EnsureRoot<AccountId>;
+	type PermissionedPoolCreator = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,
+	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
