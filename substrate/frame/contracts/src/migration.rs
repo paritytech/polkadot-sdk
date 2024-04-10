@@ -131,8 +131,7 @@ impl<T: Config, V: ContractsMigrationStep> SteppedMigration for SteppedMigration
 		let required = V::max_step_weight();
 		let mut cursor = match cursor {
 			None => {
-				let required = required.saturating_add(T::WeightInfo::migration_version_bump());
-				if !meter.can_consume(required) {
+				if !meter.can_consume(T::WeightInfo::migration_version_bump()) {
 					return Err(SteppedMigrationError::InsufficientWeight { required })
 				}
 				StorageVersion::new(V::VERSION).put::<Pallet<T>>();
