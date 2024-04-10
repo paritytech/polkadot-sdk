@@ -17,8 +17,6 @@
 
 //! Mock file for offences benchmarking.
 
-#![cfg(test)]
-
 use crate::inner::*;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
