@@ -2242,7 +2242,6 @@ pub mod pallet {
 		/// pool slashes must have been already applied via permissionless [`Call::apply_slash`].
 		#[pallet::call_index(5)]
 		#[pallet::weight(
-		// fixme(ank4n): fix weight taking into account potential slashing.
 			T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans)
 		)]
 		pub fn withdraw_unbonded(
@@ -2261,10 +2260,15 @@ pub mod pallet {
 			let mut sub_pools =
 				SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::SubPoolsNotFound)?;
 
-			if bonded_pool.has_pending_slash() {
+			let slash_weight = if bonded_pool.has_pending_slash() {
 				// apply slash if any before withdraw.
-				let _ = Self::do_apply_slash(&member_account, None);
-			}
+				match Self::do_apply_slash(&member_account, None) {
+					Ok(_) => T::WeightInfo::apply_slash(),
+					Err(_) => T::WeightInfo::apply_slash_fail(),
+				}
+			} else {
+				Weight::default()
+			};
 
 			bonded_pool.ok_to_withdraw_unbonded_with(&caller, &member_account)?;
 
@@ -2340,20 +2344,20 @@ pub mod pallet {
 
 				if member_account == bonded_pool.roles.depositor {
 					Pallet::<T>::dissolve_pool(bonded_pool);
-					None
+					Weight::default()
 				} else {
 					bonded_pool.dec_members().put();
 					SubPoolsStorage::<T>::insert(member.pool_id, sub_pools);
-					Some(T::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
+					T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
 				}
 			} else {
 				// we certainly don't need to delete any pools, because no one is being removed.
 				SubPoolsStorage::<T>::insert(member.pool_id, sub_pools);
 				PoolMembers::<T>::insert(&member_account, member);
-				Some(T::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
+				T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
 			};
 
-			Ok(post_info_weight.into())
+			Ok(Some(post_info_weight.saturating_add(slash_weight)).into())
 		}
 
 		/// Create a new delegation pool.
@@ -2841,7 +2845,6 @@ pub mod pallet {
 
 		/// Apply a pending slash on a member.
 		#[pallet::call_index(23)]
-		// FIXME(ank4n): fix weight. Depends on unbonding pool count for member_account.
 		#[pallet::weight(T::WeightInfo::apply_slash())]
 		pub fn apply_slash(
 			origin: OriginFor<T>,
@@ -2859,8 +2862,7 @@ pub mod pallet {
 		/// If the pool has migrated to delegation based staking, the staked tokens of pool members
 		/// can be moved and held in their own account. See [`adapter::DelegateStake`]
 		#[pallet::call_index(24)]
-		// FIXME(ank4n): Bench and migration tests for pool.
-		#[pallet::weight(Weight::default())]
+		#[pallet::weight(T::WeightInfo::claim_delegation())]
 		pub fn claim_delegation(
 			origin: OriginFor<T>,
 			member_account: AccountIdLookupOf<T>,
@@ -2883,6 +2885,7 @@ pub mod pallet {
 				diff,
 			)?;
 
+			// if successful, we refund the fee.
 			Ok(Pays::No.into())
 		}
 	}

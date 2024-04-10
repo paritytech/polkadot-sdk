@@ -19,6 +19,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![recursion_limit = "256"]
 
 #[cfg(test)]
 mod mock;
@@ -897,6 +898,45 @@ frame_benchmarking::benchmarks! {
 		// verify balances are correct and slash applied.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount/2u32.into());
 		assert_eq!(T::StakeAdapter::member_delegation_balance(&depositor), deposit_amount/2u32.into());
+	}
+
+	apply_slash_fail {
+		// we want to bench the scenario where pool has some unapplied slash but the member does not
+		// have any unapplied slash.
+		let deposit_amount = Pools::<T>::depositor_min_bond() * 10u32.into();
+		// Create a pool with 1000 tokens staked.
+		let (depositor, pool_account) = create_pool_account::<T>(0, deposit_amount, None);
+
+		// slash pool by half
+		let slash_amount: u128 = deposit_amount.into()/2;
+		pallet_staking::slashing::do_slash::<T>(
+			&pool_account,
+			slash_amount.into(),
+			&mut pallet_staking::BalanceOf::<T>::zero(),
+			&mut pallet_staking::NegativeImbalanceOf::<T>::zero(),
+			EraIndex::zero()
+		);
+
+		pallet_staking::CurrentEra::<T>::put(1);
+
+		// new member joins the pool who should not be affected by slash.
+		let min_join_bond = MinJoinBond::<T>::get().max(CurrencyOf::<T>::minimum_balance());
+		let join_amount = min_join_bond * T::MaxUnbonding::get().into() * 2u32.into();
+		let joiner = create_funded_user_with_balance::<T>("joiner", 0, join_amount * 2u32.into());
+		let joiner_lookup = T::Lookup::unlookup(joiner.clone());
+		assert!(Pools::<T>::join(RuntimeOrigin::Signed(joiner.clone()).into(), join_amount, 1).is_ok());
+
+		// Fill member's sub pools for the worst case.
+		for i in 0..T::MaxUnbonding::get() {
+			pallet_staking::CurrentEra::<T>::put(i + 2); // +2 because we already set the current era to 1.
+			assert!(Pools::<T>::unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone(), Pools::<T>::depositor_min_bond()).is_ok());
+		}
+
+		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 3);
+		whitelist_account!(joiner);
+
+	}: {
+		assert!(Pools::<T>::apply_slash(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone()).is_err());
 	}
 
 	impl_benchmark_test_suite!(

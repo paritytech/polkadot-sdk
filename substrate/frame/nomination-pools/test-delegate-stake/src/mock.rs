@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{ConstU64, ConstU8},
 	PalletId,
 };
+use frame_system::EnsureRoot;
 use pallet_nomination_pools::BondType;
 use sp_runtime::{
 	traits::{Convert, IdentityLookup},
@@ -282,6 +283,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = ConstU32<8>;
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
+	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {
