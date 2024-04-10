@@ -294,7 +294,7 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 
-		/// Provider for the block number.
+		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 	}
 
