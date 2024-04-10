@@ -25,7 +25,8 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	pallet_prelude::*, storage_alias, traits::ReservableCurrency, DefaultNoBound, Identity,
+	pallet_prelude::*, storage_alias, traits::ReservableCurrency, weights::WeightMeter,
+	DefaultNoBound, Identity,
 };
 use scale_info::prelude::format;
 use sp_core::hexdisplay::HexDisplay;
@@ -146,7 +147,7 @@ where
 		T::WeightInfo::v12_migration_step(T::MaxCodeLen::get())
 	}
 
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let mut iter = if let Some(last_key) = self.last_code_hash.take() {
 			v11::OwnerInfoOf::<T, OldCurrency>::iter_from(
 				v11::OwnerInfoOf::<T, OldCurrency>::hashed_key_for(last_key),
@@ -230,10 +231,12 @@ where
 
 			self.last_code_hash = Some(hash);
 
-			(IsFinished::No, T::WeightInfo::v12_migration_step(code_len as u32))
+			meter.consume(T::WeightInfo::v12_migration_step(code_len as u32));
+			IsFinished::No
 		} else {
 			log::debug!(target: LOG_TARGET, "No more OwnerInfo to migrate");
-			(IsFinished::Yes, T::WeightInfo::v12_migration_step(0))
+			meter.consume(T::WeightInfo::v12_migration_step(0));
+			IsFinished::Yes
 		}
 	}
 

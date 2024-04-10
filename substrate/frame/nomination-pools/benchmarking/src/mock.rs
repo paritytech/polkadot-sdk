@@ -173,6 +173,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = ConstU32<8>;
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
