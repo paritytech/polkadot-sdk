@@ -19,7 +19,6 @@ use parity_scale_codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::ValidationCodeHash;
 use polkadot_primitives::ExecutorParams;
 use std::{
-	cmp::{Eq, PartialEq},
 	fmt,
 	sync::Arc,
 	time::Duration,
