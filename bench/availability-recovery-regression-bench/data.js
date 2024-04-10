@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712730537203,
+  "lastUpdate": 1712737489633,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2351,6 +2351,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.208015568,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "d38f6e6728b2a0ac337b0b7b9f87862af5cb87b4",
+          "message": "Update benchmarking macros (#3934)\n\nCurrent benchmarking macro returns a closure with the captured\nbenchmarked code.\nThis can cause issues when the benchmarked code has complex lifetime\nrequirements.\n\nThis PR updates the existing macro by injecting the recording parameter\nand invoking the start / stop method around the benchmarked block\ninstead of returning a closure\n\nOne other added benefit is that you can write this kind of code now as\nwell:\n\n```rust\nlet v;\n#[block]\n{ v = func.call(); }\ndbg!(v); // or assert something on v\n```\n\n\n[Weights compare\nlink](https://weights.tasty.limo/compare?unit=weight&ignore_errors=true&threshold=10&method=asymptotic&repo=polkadot-sdk&old=pg/fix-weights&new=pg/bench_update&path_pattern=substrate/frame/**/src/weights.rs,polkadot/runtime/*/src/weights/**/*.rs,polkadot/bridges/modules/*/src/weights.rs,cumulus/**/weights/*.rs,cumulus/**/weights/xcm/*.rs,cumulus/**/src/weights.rs)\n\n---------\n\nCo-authored-by: command-bot <>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
+          "timestamp": "2024-04-10T06:44:46Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d38f6e6728b2a0ac337b0b7b9f87862af5cb87b4"
+        },
+        "date": 1712737463944,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.44102709568,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19278916063333337,
             "unit": "seconds"
           }
         ]
