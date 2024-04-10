@@ -320,30 +320,27 @@ async fn handle_new_activations<Context>(
 		// If at least one core is assigned to us, `para_assumption` is `Some`.
 		let Some(mut para_assumption) = para_assumption else { continue };
 
-		match async_backing_params {
+		// If it is none it means that neither async backing or elastic scaling (which
+		// depends on it) are supported. We'll use the `para_assumption` we got from
+		// iterating cores.
+		if async_backing_params.is_some() {
 			// We are being very optimistic here, but one of the cores could pend availability some
 			// more block, ore even time out.
 			// For timeout assumption the collator can't really know because it doesn't receive
 			// bitfield gossip.
-			Some(_) => {
-				let para_backing_state = request_para_backing_state(relay_parent, config.para_id, ctx.sender())
+			let para_backing_state =
+				request_para_backing_state(relay_parent, config.para_id, ctx.sender())
 					.await
 					.await??
 					.ok_or(crate::error::Error::MissingParaBackingState)?;
 
-				// Override the assumption about the para's assigned cores.
-				para_assumption = if para_backing_state.pending_availability.is_empty() {
-					OccupiedCoreAssumption::Free
-				} else {
-					OccupiedCoreAssumption::Included
-				}
-			},
-			None => {
-				// If we are here it means that neither async backing or elastic scaling (which
-				// depends on it) are supported. We'll use the `para_assumption` we got from
-				// iterating cores.
-			},
-		};
+			// Override the assumption about the para's assigned cores.
+			para_assumption = if para_backing_state.pending_availability.is_empty() {
+				OccupiedCoreAssumption::Free
+			} else {
+				OccupiedCoreAssumption::Included
+			}
+		}
 
 		gum::debug!(
 			target: LOG_TARGET,
