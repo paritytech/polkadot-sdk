@@ -960,8 +960,7 @@ pub(crate) mod tests {
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
 	use polkadot_node_core_pvf_common::{
-		error::PrepareError,
-		prepare::{PrepareStats, PrepareSuccess},
+		prepare::PrepareStats,
 	};
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);

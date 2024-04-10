@@ -37,6 +37,7 @@ polkadot-primitives = { path = "../../../primitives" }
 
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-compressed-blob", optional = true }
+polkadot-node-core-pvf-prepare-worker = { path = "prepare-worker", optional = true }
 polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = true }
 
 [dev-dependencies]
@@ -69,6 +70,7 @@ jemalloc-allocator = ["polkadot-node-core-pvf-common/jemalloc-allocator"]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = [
 	"dep:is_executable",
+	"dep:polkadot-node-core-pvf-prepare-worker",
 	"dep:polkadot-node-core-pvf-execute-worker",
 	"dep:sp-maybe-compressed-blob",
 ]
