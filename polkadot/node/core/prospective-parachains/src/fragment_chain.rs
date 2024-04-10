@@ -92,7 +92,7 @@ use std::{
 };
 
 use super::LOG_TARGET;
-use polkadot_node_subsystem::messages::Ancestors;
+use polkadot_node_subsystem::messages::{self, Ancestors};
 use polkadot_node_subsystem_util::inclusion_emulator::{
 	ConstraintModifications, Constraints, Fragment, ProspectiveCandidate, RelayChainBlockInfo,
 };
@@ -142,6 +142,8 @@ impl CandidateStorage {
 
 		let entry = CandidateEntry {
 			candidate_hash,
+			parent_head_data_hash: persisted_validation_data.parent_head.hash(),
+			output_head_data_hash: candidate.commitments.head_data.hash(),
 			relay_parent: candidate.descriptor.relay_parent,
 			state,
 			candidate: ProspectiveCandidate {
@@ -238,9 +240,11 @@ pub(crate) enum CandidateState {
 
 #[derive(Debug)]
 pub(crate) struct CandidateEntry {
-	pub candidate_hash: CandidateHash,
+	candidate_hash: CandidateHash,
+	parent_head_data_hash: Hash,
+	output_head_data_hash: Hash,
 	relay_parent: Hash,
-	pub candidate: ProspectiveCandidate<'static>,
+	candidate: ProspectiveCandidate<'static>,
 	state: CandidateState,
 }
 
@@ -250,11 +254,19 @@ impl CandidateEntry {
 	}
 
 	pub fn parent_head_data_hash(&self) -> Hash {
-		self.candidate.persisted_validation_data.parent_head.hash()
+		self.parent_head_data_hash
 	}
 
 	pub fn output_head_data_hash(&self) -> Hash {
-		self.candidate.commitments.head_data.hash()
+		self.output_head_data_hash
+	}
+
+	pub fn output_head_data(&self) -> HeadData {
+		self.candidate.commitments.head_data.clone()
+	}
+
+	pub fn parent_head_data(&self) -> HeadData {
+		self.candidate.persisted_validation_data.parent_head.clone()
 	}
 }
 
@@ -413,6 +425,29 @@ impl<'a> HypotheticalCandidate<'a> {
 			HypotheticalCandidate::Complete { ref receipt, .. } =>
 				receipt.descriptor().relay_parent,
 			HypotheticalCandidate::Incomplete { ref relay_parent, .. } => *relay_parent,
+		}
+	}
+}
+
+impl<'a> From<&'a messages::HypotheticalCandidate> for HypotheticalCandidate<'a> {
+	fn from(value: &'a messages::HypotheticalCandidate) -> Self {
+		match value {
+			messages::HypotheticalCandidate::Complete {
+				receipt,
+				persisted_validation_data,
+				..
+			} => Self::Complete {
+				receipt: Cow::Borrowed(receipt),
+				persisted_validation_data: Cow::Borrowed(persisted_validation_data),
+			},
+			messages::HypotheticalCandidate::Incomplete {
+				parent_head_data_hash,
+				candidate_relay_parent,
+				..
+			} => Self::Incomplete {
+				relay_parent: *candidate_relay_parent,
+				parent_head_data_hash: *parent_head_data_hash,
+			},
 		}
 	}
 }
@@ -649,6 +684,27 @@ impl FragmentChain {
 		self.chain.len()
 	}
 
+	// Return the earliest relay parent a new candidate can have in order to be added to the chain.
+	// This is the relay parent of the last candidate in the chain.
+	// The value returned may not be valid if we want to add a candidate pending availability, which
+	// may have a relay parent which is out of scope. Special handling is needed in that case.
+	fn earliest_relay_parent(&self) -> RelayChainBlockInfo {
+		if let Some(last_candidate) = self.chain.last() {
+			self.scope
+				.ancestor_by_hash(&last_candidate.relay_parent())
+				.or_else(|| {
+					// if the relay-parent is out of scope _and_ it is in the chain,
+					// it must be a candidate pending availability.
+					self.scope
+						.get_pending_availability(&last_candidate.candidate_hash)
+						.map(|c| c.relay_parent.clone())
+				})
+				.expect("All nodes in chain are either pending availability or within scope; qed")
+		} else {
+			self.scope.earliest_relay_parent()
+		}
+	}
+
 	// Checks if this candidate could be added in the future to this chain.
 	// This assumes that the chain does not already contain this candidate.
 	pub(crate) fn can_add_candidate_as_potential(
@@ -752,34 +808,11 @@ impl FragmentChain {
 			return false;
 		}
 
-		let earliest_rp = if let Some(last_candidate) = self.chain.last() {
-			self.scope
-				.ancestor_by_hash(&last_candidate.relay_parent())
-				.or_else(|| {
-					// if the relay-parent is out of scope _and_ it is in the chain,
-					// it must be a candidate pending availability.
-					self.scope
-						.get_pending_availability(&last_candidate.candidate_hash)
-						.map(|c| c.relay_parent.clone())
-				})
-				.expect("All nodes in chain are either pending availability or within scope; qed")
-		} else {
-			self.scope.earliest_relay_parent()
-		};
+		let earliest_rp = self.earliest_relay_parent();
 
-		let Some(relay_parent) = self.scope.ancestor_by_hash(relay_parent) else {
-			// gum::debug!(
-			// 	target: LOG_TARGET,
-			// 	"Ancestor by hash not fouund",
-			// );
-			return false
-		};
+		let Some(relay_parent) = self.scope.ancestor_by_hash(relay_parent) else { return false };
 
 		if relay_parent.number < earliest_rp.number {
-			gum::debug!(
-				target: LOG_TARGET,
-				"Relay parent moved backwards",
-			);
 			return false // relay parent moved backwards.
 		}
 
@@ -796,20 +829,7 @@ impl FragmentChain {
 		} else {
 			ConstraintModifications::identity()
 		};
-		let mut earliest_rp = if let Some(last_candidate) = self.chain.last() {
-			self.scope
-				.ancestor_by_hash(&last_candidate.relay_parent())
-				.or_else(|| {
-					// if the relay-parent is out of scope _and_ it is in the chain,
-					// it must be a candidate pending availability.
-					self.scope
-						.get_pending_availability(&last_candidate.candidate_hash)
-						.map(|c| c.relay_parent.clone())
-				})
-				.expect("All nodes in chain are either pending availability or within scope; qed")
-		} else {
-			self.scope.earliest_relay_parent()
-		};
+		let mut earliest_rp = self.earliest_relay_parent();
 
 		loop {
 			if self.chain.len() > self.scope.max_depth {
@@ -864,8 +884,8 @@ impl FragmentChain {
 					continue
 				};
 
-				// require: pending availability candidates don't move backwards
-				// and only those can be out-of-scope.
+				// require: candidates don't move backwards
+				// and only pending availability candidates can be out-of-scope.
 				//
 				// earliest_rp can be before the earliest relay parent in the scope
 				// when the parent is a pending availability candidate as well, but
@@ -931,14 +951,10 @@ impl FragmentChain {
 				self.chain.push(node);
 				self.candidates.insert(candidate.candidate_hash);
 				// We've already checked for forks and cycles.
-				self.by_parent_head.insert(
-					candidate.candidate.persisted_validation_data.parent_head.hash(),
-					candidate.candidate_hash,
-				);
-				self.by_output_head.insert(
-					candidate.candidate.commitments.head_data.hash(),
-					candidate.candidate_hash,
-				);
+				self.by_parent_head
+					.insert(candidate.parent_head_data_hash(), candidate.candidate_hash);
+				self.by_output_head
+					.insert(candidate.output_head_data_hash(), candidate.candidate_hash);
 				added_child = true;
 				// We can only add one child for a candidate. (it's a chain, not a tree)
 				break;

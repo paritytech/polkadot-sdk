@@ -26,10 +26,7 @@
 //!
 //! This subsystem also handles concerns such as the relay-chain being forkful and session changes.
 
-use std::{
-	borrow::Cow,
-	collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
 use fragment_chain::FragmentChain;
 use futures::{channel::oneshot, prelude::*};
@@ -509,14 +506,6 @@ async fn handle_introduce_seconded_candidate<Context>(
 	let mut keep_in_storage = false;
 	for (relay_parent, leaf_data) in view.active_leaves.iter_mut() {
 		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
-			// let can_add_as_potential = chain.can_add_candidate_as_potential(
-			// 	&*storage,
-			// 	&actual_relay_parent,
-			// 	parent_head_hash,
-			// 	output_head_hash,
-			// 	true,
-			// );
-
 			gum::debug!(
 				target: LOG_TARGET,
 				para = ?para,
@@ -697,7 +686,7 @@ fn answer_get_backable_candidates(
 		?relay_parent,
 		para_id = ?para,
 		"Candidate storage for para: {:?}",
-		storage.candidates().map(|candidate| candidate.candidate_hash).collect::<Vec<_>>()
+		storage.candidates().map(|candidate| candidate.hash()).collect::<Vec<_>>()
 	);
 
 	gum::debug!(
@@ -714,8 +703,8 @@ fn answer_get_backable_candidates(
 		.filter_map(|child_hash| {
 			storage.relay_parent_by_candidate_hash(&child_hash).map_or_else(
 				|| {
-					// TODO: Here, we actually need to trim all of the candidates that follow. or
-					// not, the runtime will do this. Impossible scenario anyway
+					// Here, we'd actually need to trim all of the candidates that follow. Or
+					// not, the runtime will do this. Impossible scenario anyway.
 					gum::error!(
 						target: LOG_TARGET,
 						?child_hash,
@@ -777,28 +766,8 @@ fn answer_hypothetical_membership_request(
 			};
 
 			let candidate_hash = c.candidate_hash();
-			// TODO: create a Into impl for this
-			let hypothetical = match c {
-				HypotheticalCandidate::Complete { receipt, persisted_validation_data, .. } =>
-					fragment_chain::HypotheticalCandidate::Complete {
-						receipt: Cow::Borrowed(receipt),
-						persisted_validation_data: Cow::Borrowed(persisted_validation_data),
-					},
-				HypotheticalCandidate::Incomplete {
-					parent_head_data_hash,
-					candidate_relay_parent,
-					..
-				} => fragment_chain::HypotheticalCandidate::Incomplete {
-					relay_parent: *candidate_relay_parent,
-					parent_head_data_hash: *parent_head_data_hash,
-				},
-			};
 
-			if fragment_chain.hypothetical_membership(
-				candidate_hash,
-				hypothetical,
-				candidate_storage,
-			) {
+			if fragment_chain.hypothetical_membership(candidate_hash, c.into(), candidate_storage) {
 				membership.push(*active_leaf);
 			}
 		}
@@ -892,10 +861,10 @@ fn answer_prospective_validation_data_request(
 	if head_data.is_none() {
 		for candidate in storage.candidates() {
 			if candidate.output_head_data_hash() == parent_head_data_hash {
-				head_data = Some(candidate.candidate.commitments.head_data.clone());
+				head_data = Some(candidate.output_head_data());
 				break
 			} else if candidate.parent_head_data_hash() == parent_head_data_hash {
-				head_data = Some(candidate.candidate.persisted_validation_data.parent_head.clone());
+				head_data = Some(candidate.parent_head_data());
 				break
 			}
 		}
