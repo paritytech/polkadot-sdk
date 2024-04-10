@@ -17,10 +17,12 @@
 
 //! Test utilities
 
+use core::marker::PhantomData;
+
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, SequentialPhragmen, VoteWeight,
+	onchain, ElectionDataProvider, SequentialPhragmen, VoteWeight,
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
@@ -212,11 +214,74 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	type Score = VoteWeight;
 }
 
+use frame_election_provider_support::{
+	data_provider::{self},
+	DataProviderBounds, VoterOf,
+};
+
+// This is all a massive hack to make sure `basic_setup_works` test works while we change the
+// internals of this pallet. This is a huge technical debt and the tests should be refactored to not
+// care about the order of genesis voters/targets, but sadly for now they do.
+pub struct SortedElectionDataProvider<EDP>(PhantomData<EDP>);
+impl<EDP: ElectionDataProvider> ElectionDataProvider for SortedElectionDataProvider<EDP>
+where
+	EDP::AccountId: Ord + Clone,
+{
+	type AccountId = EDP::AccountId;
+	type BlockNumber = EDP::BlockNumber;
+	type MaxVotesPerVoter = EDP::MaxVotesPerVoter;
+
+	fn desired_targets() -> data_provider::Result<u32> {
+		EDP::desired_targets()
+	}
+	fn electable_targets(
+		bounds: DataProviderBounds,
+	) -> data_provider::Result<Vec<Self::AccountId>> {
+		let mut targets = EDP::electable_targets(bounds)?;
+		targets.sort();
+		targets.reverse();
+		Ok(targets)
+	}
+	fn electing_voters(bounds: DataProviderBounds) -> data_provider::Result<Vec<VoterOf<Self>>> {
+		let mut voters = EDP::electing_voters(bounds)?;
+		voters.sort_by_key(|v| v.0.clone());
+		// voters.reverse();
+		Ok(voters)
+	}
+	fn next_election_prediction(now: Self::BlockNumber) -> Self::BlockNumber {
+		EDP::next_election_prediction(now)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn put_snapshot(
+		_voters: Vec<frame_election_provider_support::VoterOf<Self>>,
+		_targets: Vec<Self::AccountId>,
+		_target_stake: Option<VoteWeight>,
+	) {
+		EDP::put_snapshot(_voters, _targets, _target_stake)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_target(_target: Self::AccountId) {
+		EDP::add_target(_target)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn add_voter(
+		_voter: Self::AccountId,
+		_weight: VoteWeight,
+		_targets: BoundedVec<Self::AccountId, Self::MaxVotesPerVoter>,
+	) {
+		EDP::add_voter(_voter, _weight, _targets)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn clear() {
+		EDP::clear()
+	}
+}
+
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Test;
 	type Solver = SequentialPhragmen<AccountId, Perbill>;
-	type DataProvider = Staking;
+	type DataProvider = SortedElectionDataProvider<Staking>;
 	type WeightInfo = ();
 	type MaxWinners = MaxWinners;
 	type Bounds = ElectionsBounds;

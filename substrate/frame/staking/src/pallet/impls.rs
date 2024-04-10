@@ -233,9 +233,9 @@ impl<T: Config> Pallet<T> {
 
 		// Note: if era has no reward to be claimed, era may be future. better not to update
 		// `ledger.legacy_claimed_rewards` in this case.
-		let era_payout = Self::era_payout(dbg!(era));
+		let era_payout = Self::era_payout(era);
 		ensure!(
-			!dbg!(era_payout).is_zero(),
+			!era_payout.is_zero(),
 			Error::<T>::InvalidEraToReward
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		);
@@ -984,10 +984,11 @@ impl<T: Config> Pallet<T> {
 
 		log!(
 			info,
-			"generated {} npos voters, {} from validators and {} nominators",
+			"generated {} npos voters, {} from validators and {} nominators, bounds: {:?}",
 			all_voters.len(),
 			validators_taken,
-			nominators_taken
+			nominators_taken,
+			bounds,
 		);
 
 		all_voters
@@ -1033,7 +1034,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
-		log!(info, "generated {} npos targets", all_targets.len());
+		log!(info, "generated {} npos targets, bounds: {:?}", all_targets.len(), bounds);
 
 		all_targets
 	}

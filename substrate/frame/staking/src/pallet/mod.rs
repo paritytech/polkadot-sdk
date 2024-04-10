@@ -113,18 +113,30 @@ pub mod pallet {
 		type CurrencyToVote: sp_staking::currency_to_vote::CurrencyToVote<BalanceOf<Self>>;
 
 		/// Something that provides the election functionality.
+		#[cfg(not(test))]
 		type ElectionProvider: ElectionProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			// we only accept an election provider that has staking as data provider.
 			DataProvider = Pallet<Self>,
 		>;
+		#[cfg(test)]
+		type ElectionProvider: ElectionProvider<
+			AccountId = Self::AccountId,
+			BlockNumber = BlockNumberFor<Self>,
+		>;
 
 		/// Something that provides the election functionality at genesis.
+		#[cfg(not(test))]
 		type GenesisElectionProvider: ElectionProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 			DataProvider = Pallet<Self>,
+		>;
+		#[cfg(test)]
+		type GenesisElectionProvider: ElectionProvider<
+			AccountId = Self::AccountId,
+			BlockNumber = BlockNumberFor<Self>,
 		>;
 
 		/// Something that defines the maximum number of nominations per nominator.

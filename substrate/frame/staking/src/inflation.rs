@@ -22,6 +22,142 @@
 
 use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill};
 
+#[frame_support::pallet]
+pub mod inflation {
+	//! Polkadot inflation pallet.
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{
+			fungible::{self as fung, Inspect, Mutate},
+			UnixTime,
+		},
+	};
+	use frame_system::pallet_prelude::*;
+	use sp_runtime::{traits::Saturating, Perquintill};
+
+	type BalanceOf<T> = <T as Config>::CurrencyBalance;
+
+	const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		type UnixTime: frame_support::traits::UnixTime;
+
+		type IdealStakingRate: Get<Perquintill>;
+		type MaxInflation: Get<Perquintill>;
+		type MinInflation: Get<Perquintill>;
+		type Falloff: Get<Perquintill>;
+
+		type LeftoverRecipients: Get<Vec<(Self::AccountId, Perquintill)>>;
+		type StakingRecipient: Get<Self::AccountId>;
+
+		type Currency: fung::Mutate<Self::AccountId>
+			+ fung::Inspect<Self::AccountId, Balance = Self::CurrencyBalance>;
+		type CurrencyBalance: frame_support::traits::tokens::Balance + From<u64>;
+
+		/// Customize how this pallet reads the total issuance, if need be.
+		///
+		/// This is mainly here to cater for Nis in Kusama.
+		///
+		/// NOTE: one should not use `T::Currency::total_issuance()` directly within the pallet in
+		/// case it has been overwritten here.
+		fn adjusted_total_issuance() -> BalanceOf<Self> {
+			Self::Currency::total_issuance()
+		}
+
+		/// A simple and possibly short terms means for updating the total stake, esp. so long as
+		/// this pallet is in the same runtime as with `pallet-staking`.
+		///
+		/// Once multi-chain, we should expect an extrinsic, gated by the origin of the staking
+		/// parachain that can update this value. This can be `Transact`-ed via XCM.
+		fn update_total_stake(new_total_stake: BalanceOf<Self>) {
+			LastKnownStaked::<Self>::put(new_total_stake);
+		}
+	}
+
+	// TODO: needs a migration that sets the initial value.
+	// TODO: test if this is not set, that we are still bound to max inflation.
+	#[pallet::storage]
+	pub type LastInflated<T> = StorageValue<Value = u64, QueryKind = ValueQuery>;
+
+	#[pallet::storage]
+	pub type LastKnownStaked<T: Config> =
+		StorageValue<Value = BalanceOf<T>, QueryKind = ValueQuery>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		Inflated { staking: BalanceOf<T>, leftovers: BalanceOf<T> },
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// `force_inflate`
+		#[pallet::weight(0)]
+		#[pallet::call_index(0)]
+		pub fn force_inflate(origin: OriginFor<T>) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::inflate_with_bookkeeping();
+			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Trigger an inflation,
+		pub fn inflate_with_duration(since_last_inflation: u64) {
+			let adjusted_total_issuance = T::adjusted_total_issuance();
+
+			// what percentage of a year has passed since last inflation?
+			let annual_proportion =
+				Perquintill::from_rational(since_last_inflation, MILLISECONDS_PER_YEAR);
+
+			let total_staked = LastKnownStaked::<T>::get();
+
+			let min_annual_inflation = T::MinInflation::get();
+			let max_annual_inflation = T::MaxInflation::get();
+			let delta_annual_inflation = max_annual_inflation.saturating_sub(min_annual_inflation);
+			let ideal_stake = T::IdealStakingRate::get();
+
+			let staked_ratio = Perquintill::from_rational(total_staked, adjusted_total_issuance);
+			let falloff = T::Falloff::get();
+
+			let adjustment =
+				pallet_staking_reward_fn::compute_inflation(staked_ratio, ideal_stake, falloff);
+			let staking_annual_inflation: Perquintill =
+				min_annual_inflation.saturating_add(delta_annual_inflation * adjustment);
+
+			// final inflation formula.
+			let payout_with_annual_inflation = |i| annual_proportion * i * adjusted_total_issuance;
+
+			// ideal amount that we want to payout.
+			let max_payout = payout_with_annual_inflation(max_annual_inflation);
+			let staking_payout = payout_with_annual_inflation(staking_annual_inflation);
+			let leftover_inflation = max_payout.saturating_sub(staking_payout);
+
+			T::LeftoverRecipients::get().into_iter().for_each(|(who, proportion)| {
+				let amount = proportion * leftover_inflation;
+				// not much we can do about errors here.
+				let _ = T::Currency::mint_into(&who, amount).defensive();
+			});
+
+			Self::deposit_event(Event::Inflated { staking: staking_payout, leftovers: max_payout });
+		}
+
+		pub fn inflate_with_bookkeeping() {
+			let last_inflated = LastInflated::<T>::get();
+			let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
+			let since_last_inflation = now.saturating_sub(last_inflated);
+			Self::inflate_with_duration(since_last_inflation);
+			LastInflated::<T>::put(T::UnixTime::now().as_millis().saturated_into::<u64>());
+		}
+	}
+}
+
 /// The total payout to all validators (and their nominators) per era and maximum payout.
 ///
 /// Defined as such:
@@ -29,6 +165,7 @@ use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill};
 /// era_per_year` `maximum-payout = max_yearly_inflation * total_tokens / era_per_year`
 ///
 /// `era_duration` is expressed in millisecond.
+#[deprecated]
 pub fn compute_total_payout<N>(
 	yearly_inflation: &PiecewiseLinear<'static>,
 	npos_token_staked: N,
