@@ -206,10 +206,6 @@ async fn handle_new_activations<Context>(
 	// follow the procedure from the guide:
 	// https://paritytech.github.io/polkadot-sdk/book/node/collators/collation-generation.html
 
-	if config.collator.is_none() {
-		return Ok(())
-	}
-
 	// If there is no collation function provided, bail out early.
 	// Important: Lookahead collator and slot based collator do not use `CollatorFn`.
 	if config.collator.is_none() {
@@ -345,14 +341,14 @@ async fn handle_new_activations<Context>(
 		gum::debug!(
 			target: LOG_TARGET,
 			relay_parent = ?relay_parent,
-			our_para = %config.para_id,
+			our_para = %para_id,
 			?para_assumption,
 			"Occupied core(s) assumption",
 		);
 
 		let mut validation_data = match request_persisted_validation_data(
 			relay_parent,
-			config.para_id,
+			para_id,
 			para_assumption,
 			ctx.sender(),
 		)
@@ -364,7 +360,7 @@ async fn handle_new_activations<Context>(
 				gum::debug!(
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
-					our_para = %config.para_id,
+					our_para = %para_id,
 					"validation data is not available",
 				);
 				continue
@@ -373,7 +369,7 @@ async fn handle_new_activations<Context>(
 
 		let validation_code_hash = match obtain_validation_code_hash_with_assumption(
 			relay_parent,
-			config.para_id,
+			para_id,
 			para_assumption,
 			ctx.sender(),
 		)
@@ -384,7 +380,7 @@ async fn handle_new_activations<Context>(
 				gum::debug!(
 					target: LOG_TARGET,
 					relay_parent = ?relay_parent,
-					our_para = %config.para_id,
+					our_para = %para_id,
 					"validation code hash is not found.",
 				);
 				continue
