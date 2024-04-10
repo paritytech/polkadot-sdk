@@ -30,7 +30,6 @@ use crate::{
 		Result as ExtensionResult, RetVal, ReturnFlags, SysConfig,
 	},
 	exec::{Frame, Key},
-	migration::codegen::LATEST_MIGRATION_VERSION,
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
@@ -38,7 +37,7 @@ use crate::{
 	weights::WeightInfo,
 	Array, BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo,
 	ContractInfoOf, DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
-	MigrationInProgress, Origin, Pallet, PristineCode, Schedule,
+	Origin, Pallet, PristineCode, Schedule,
 };
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
@@ -491,7 +490,6 @@ impl Config for Test {
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
@@ -534,10 +532,6 @@ impl ExtBuilder {
 	}
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
-	}
-	pub fn set_storage_version(mut self, version: u16) -> Self {
-		self.storage_version = Some(StorageVersion::new(version));
-		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		use env_logger::{Builder, Env};
@@ -619,64 +613,6 @@ fn calling_plain_account_fails() {
 					pays_fee: Default::default(),
 				},
 			})
-		);
-	});
-}
-
-#[test]
-fn migration_on_idle_hooks_works() {
-	// Defines expectations of how many migration steps can be done given the weight limit.
-	let tests = [
-		(Weight::zero(), LATEST_MIGRATION_VERSION - 2),
-		(<Test as Config>::WeightInfo::migrate() + 1.into(), LATEST_MIGRATION_VERSION - 1),
-		(Weight::MAX, LATEST_MIGRATION_VERSION),
-	];
-
-	for (weight, expected_version) in tests {
-		ExtBuilder::default()
-			.set_storage_version(LATEST_MIGRATION_VERSION - 2)
-			.build()
-			.execute_with(|| {
-				MigrationInProgress::<Test>::set(Some(Default::default()));
-				Contracts::on_idle(System::block_number(), weight);
-				assert_eq!(StorageVersion::get::<Pallet<Test>>(), expected_version);
-			});
-	}
-}
-
-#[test]
-fn migration_in_progress_works() {
-	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
-
-	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		MigrationInProgress::<Test>::set(Some(Default::default()));
-
-		assert_err!(
-			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
-				vec![],
-				None,
-				Determinism::Enforced
-			),
-			Error::<Test>::MigrationInProgress,
-		);
-		assert_err!(
-			Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
-			Error::<Test>::MigrationInProgress,
-		);
-		assert_err!(
-			Contracts::set_code(RuntimeOrigin::signed(ALICE), BOB.clone(), code_hash),
-			Error::<Test>::MigrationInProgress,
-		);
-		assert_err_ignore_postinfo!(builder::call(BOB).build(), Error::<Test>::MigrationInProgress);
-		assert_err_ignore_postinfo!(
-			builder::instantiate_with_code(wasm).value(100_000).build(),
-			Error::<Test>::MigrationInProgress,
-		);
-		assert_err_ignore_postinfo!(
-			builder::instantiate(code_hash).value(100_000).build(),
-			Error::<Test>::MigrationInProgress,
 		);
 	});
 }

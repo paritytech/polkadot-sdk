@@ -82,7 +82,6 @@ impl pallet_contracts::Config for Runtime {
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type MaxStorageKeyLen = ConstU32<128>;
-	type Migrations = ();
 	type Randomness = DummyRandomness<Self>;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;

@@ -51,6 +51,9 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn on_process_deletion_queue_batch() -> Weight;
 	fn on_initialize_per_trie_key(k: u32, ) -> Weight;
+	fn migration_version_bump() -> Weight {
+		Weight::zero()
+	}
 	fn v9_migration_step(c: u32, ) -> Weight;
 	fn v10_migration_step() -> Weight;
 	fn v11_migration_step(k: u32, ) -> Weight;

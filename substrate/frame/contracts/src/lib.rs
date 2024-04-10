@@ -116,7 +116,7 @@ use crate::{
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
-	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
+	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin},
 	ensure,
 	error::BadOrigin,
 	traits::{
@@ -143,7 +143,6 @@ pub use crate::{
 	address::{AddressGenerator, DefaultAddressGenerator},
 	debug::Tracing,
 	exec::Frame,
-	migration::{MigrateSequence, Migration, NoopMigration},
 	pallet::*,
 	schedule::{HostFnWeights, InstructionWeights, Limits, Schedule},
 	wasm::Determinism,
@@ -412,25 +411,6 @@ pub mod pallet {
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
 
-		/// The sequence of migration steps that will be applied during a migration.
-		///
-		/// # Examples
-		/// ```
-		/// use pallet_contracts::migration::{v10, v11};
-		/// # struct Runtime {};
-		/// # struct Currency {};
-		/// type Migrations = (v10::Migration<Runtime, Currency>, v11::Migration<Runtime>);
-		/// ```
-		///
-		/// If you have a single migration step, you can use a tuple with a single element:
-		/// ```
-		/// use pallet_contracts::migration::v10;
-		/// # struct Runtime {};
-		/// # struct Currency {};
-		/// type Migrations = (v10::Migration<Runtime, Currency>,);
-		/// ```
-		type Migrations: MigrateSequence;
-
 		/// # Note
 		/// For most production chains, it's recommended to use the `()` implementation of this
 		/// trait. This implementation offers additional logging when the log target
@@ -462,29 +442,12 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-			use migration::MigrateResult::*;
 			let mut meter = WeightMeter::with_limit(limit);
-
-			loop {
-				match Migration::<T>::migrate(&mut meter) {
-					// There is not enough weight to perform a migration.
-					// We can't do anything more, so we return the used weight.
-					NoMigrationPerformed | InProgress { steps_done: 0 } => return meter.consumed(),
-					// Migration is still in progress, we can start the next step.
-					InProgress { .. } => continue,
-					// Either no migration is in progress, or we are done with all migrations, we
-					// can do some more other work with the remaining weight.
-					Completed | NoMigrationInProgress => break,
-				}
-			}
-
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
 			meter.consumed()
 		}
 
 		fn integrity_test() {
-			Migration::<T>::integrity_test();
-
 			// Total runtime memory limit
 			let max_runtime_mem: u32 = T::Schedule::get().limits.runtime_memory;
 			// Memory limits for a single contract:
@@ -672,7 +635,6 @@ pub mod pallet {
 			storage_deposit_limit: Option<<BalanceOf<T> as codec::HasCompact>::Type>,
 			determinism: Determinism,
 		) -> DispatchResult {
-			Migration::<T>::ensure_migrated()?;
 			let origin = T::UploadOrigin::ensure_origin(origin)?;
 			Self::bare_upload_code(origin, code, storage_deposit_limit.map(Into::into), determinism)
 				.map(|_| ())
@@ -688,7 +650,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			code_hash: CodeHash<T>,
 		) -> DispatchResultWithPostInfo {
-			Migration::<T>::ensure_migrated()?;
 			let origin = ensure_signed(origin)?;
 			<WasmBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
@@ -712,7 +673,6 @@ pub mod pallet {
 			dest: AccountIdLookupOf<T>,
 			code_hash: CodeHash<T>,
 		) -> DispatchResult {
-			Migration::<T>::ensure_migrated()?;
 			ensure_root(origin)?;
 			let dest = T::Lookup::lookup(dest)?;
 			<ContractInfoOf<T>>::try_mutate(&dest, |contract| {
@@ -762,7 +722,6 @@ pub mod pallet {
 			storage_deposit_limit: Option<<BalanceOf<T> as codec::HasCompact>::Type>,
 			data: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			Migration::<T>::ensure_migrated()?;
 			let common = CommonInput {
 				origin: Origin::from_runtime_origin(origin)?,
 				value,
@@ -821,8 +780,6 @@ pub mod pallet {
 			data: Vec<u8>,
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			Migration::<T>::ensure_migrated()?;
-
 			// These two origins will usually be the same; however, we treat them as separate since
 			// it is possible for the `Success` value of `UploadOrigin` and `InstantiateOrigin` to
 			// differ.
@@ -886,7 +843,6 @@ pub mod pallet {
 			data: Vec<u8>,
 			salt: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			Migration::<T>::ensure_migrated()?;
 			let origin = T::InstantiateOrigin::ensure_origin(origin)?;
 			let data_len = data.len() as u32;
 			let salt_len = salt.len() as u32;
@@ -909,40 +865,6 @@ pub mod pallet {
 				output.result.map(|(_address, output)| output),
 				T::WeightInfo::instantiate(data_len, salt_len),
 			)
-		}
-
-		/// When a migration is in progress, this dispatchable can be used to run migration steps.
-		/// Calls that contribute to advancing the migration have their fees waived, as it's helpful
-		/// for the chain. Note that while the migration is in progress, the pallet will also
-		/// leverage the `on_idle` hooks to run migration steps.
-		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::migrate().saturating_add(*weight_limit))]
-		pub fn migrate(origin: OriginFor<T>, weight_limit: Weight) -> DispatchResultWithPostInfo {
-			use migration::MigrateResult::*;
-			ensure_signed(origin)?;
-
-			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			let mut meter = WeightMeter::with_limit(weight_limit);
-			let result = Migration::<T>::migrate(&mut meter);
-
-			match result {
-				Completed => Ok(PostDispatchInfo {
-					actual_weight: Some(meter.consumed()),
-					pays_fee: Pays::No,
-				}),
-				InProgress { steps_done, .. } if steps_done > 0 => Ok(PostDispatchInfo {
-					actual_weight: Some(meter.consumed()),
-					pays_fee: Pays::No,
-				}),
-				InProgress { .. } => Ok(PostDispatchInfo {
-					actual_weight: Some(meter.consumed()),
-					pays_fee: Pays::Yes,
-				}),
-				NoMigrationInProgress | NoMigrationPerformed => {
-					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
-					Err(err.with_weight(meter.consumed()))
-				},
-			}
 		}
 	}
 
@@ -1466,21 +1388,6 @@ impl<T: Config> Invokable<T> for InstantiateInput<T> {
 	}
 }
 
-macro_rules! ensure_no_migration_in_progress {
-	() => {
-		if Migration::<T>::in_progress() {
-			return ContractResult {
-				gas_consumed: Zero::zero(),
-				gas_required: Zero::zero(),
-				storage_deposit: Default::default(),
-				debug_message: Vec::new(),
-				result: Err(Error::<T>::MigrationInProgress.into()),
-				events: None,
-			}
-		}
-	};
-}
-
 impl<T: Config> Pallet<T> {
 	/// Perform a call to a specified contract.
 	///
@@ -1505,8 +1412,6 @@ impl<T: Config> Pallet<T> {
 		collect_events: CollectEvents,
 		determinism: Determinism,
 	) -> ContractExecResult<BalanceOf<T>, EventRecordOf<T>> {
-		ensure_no_migration_in_progress!();
-
 		let mut debug_message = if matches!(debug, DebugInfo::UnsafeDebug) {
 			Some(DebugBufferVec::<T>::default())
 		} else {
@@ -1563,8 +1468,6 @@ impl<T: Config> Pallet<T> {
 		debug: DebugInfo,
 		collect_events: CollectEvents,
 	) -> ContractInstantiateResult<T::AccountId, BalanceOf<T>, EventRecordOf<T>> {
-		ensure_no_migration_in_progress!();
-
 		let mut debug_message = if debug == DebugInfo::UnsafeDebug {
 			Some(DebugBufferVec::<T>::default())
 		} else {
@@ -1644,7 +1547,6 @@ impl<T: Config> Pallet<T> {
 		storage_deposit_limit: Option<BalanceOf<T>>,
 		determinism: Determinism,
 	) -> CodeUploadResult<CodeHash<T>, BalanceOf<T>> {
-		Migration::<T>::ensure_migrated()?;
 		let (module, deposit) =
 			Self::try_upload_code(origin, code, storage_deposit_limit, determinism, None)?;
 		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
@@ -1674,9 +1576,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Query storage of a specified contract under a specified key.
 	pub fn get_storage(address: T::AccountId, key: Vec<u8>) -> GetStorageResult {
-		if Migration::<T>::in_progress() {
-			return Err(ContractAccessError::MigrationInProgress)
-		}
 		let contract_info =
 			ContractInfoOf::<T>::get(&address).ok_or(ContractAccessError::DoesntExist)?;
 
