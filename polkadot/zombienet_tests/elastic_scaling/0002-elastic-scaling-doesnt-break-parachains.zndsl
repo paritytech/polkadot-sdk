@@ -1,0 +1,20 @@
+Description: Test that a paraid acquiring multiple cores does not brick itself if ElasticScalingMVP feature is enabled in genesis
+Network: ./0002-elastic-scaling-doesnt-break-parachains.toml
+Creds: config
+
+# Check authority status.
+validator: reports node_roles is 4
+
+validator: reports substrate_block_height{status="finalized"} is at least 10 within 100 seconds
+
+# Ensure parachain was able to make progress.
+validator: parachain 2000 block height is at least 10 within 200 seconds
+
+# Register the second core assigned to this parachain.
+alice: js-script ./assign-core.js with "2000,0" return is 0 within 600 seconds
+alice: js-script ./assign-core.js with "2000,1" return is 0 within 600 seconds
+
+validator: reports substrate_block_height{status="finalized"} is at least 35 within 100 seconds
+
+# Ensure parachain is now making progress.
+validator: parachain 2000 block height is at least 30 within 200 seconds

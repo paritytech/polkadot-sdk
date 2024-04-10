@@ -441,6 +441,16 @@ pub enum SteppedMigrationError {
 	Failed,
 }
 
+/// A generic migration identifier that can be used by MBMs.
+///
+/// It is not required that migrations use this identifier type, but it can help.
+#[derive(MaxEncodedLen, Encode, Decode)]
+pub struct MigrationId<const N: usize> {
+	pub pallet_id: [u8; N],
+	pub version_from: u8,
+	pub version_to: u8,
+}
+
 /// Notification handler for status updates regarding Multi-Block-Migrations.
 #[impl_trait_for_tuples::impl_for_tuples(8)]
 pub trait MigrationStatusHandler {

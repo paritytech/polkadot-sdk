@@ -19,7 +19,11 @@ use super::*;
 use crate::{mock::*, Event};
 use frame_support::{assert_err, assert_noop, assert_ok, assert_storage_noop};
 use pallet_balances::Event as BEvent;
-use sp_runtime::{bounded_btree_map, traits::Dispatchable, FixedU128};
+use sp_runtime::{
+	bounded_btree_map,
+	traits::{BadOrigin, Dispatchable},
+	FixedU128,
+};
 
 macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
@@ -4996,9 +5000,23 @@ mod set_configs {
 	#[test]
 	fn set_configs_works() {
 		ExtBuilder::default().build_and_execute(|| {
-			// Setting works
+			// only admin origin can set configs
+			assert_noop!(
+				Pools::set_configs(
+					RuntimeOrigin::signed(20),
+					ConfigOp::Set(1 as Balance),
+					ConfigOp::Set(2 as Balance),
+					ConfigOp::Set(3u32),
+					ConfigOp::Set(4u32),
+					ConfigOp::Set(5u32),
+					ConfigOp::Set(Perbill::from_percent(6))
+				),
+				BadOrigin
+			);
+
+			// Setting works by Admin (42)
 			assert_ok!(Pools::set_configs(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(42),
 				ConfigOp::Set(1 as Balance),
 				ConfigOp::Set(2 as Balance),
 				ConfigOp::Set(3u32),
@@ -5015,7 +5033,7 @@ mod set_configs {
 
 			// Noop does nothing
 			assert_storage_noop!(assert_ok!(Pools::set_configs(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(42),
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
@@ -5026,7 +5044,7 @@ mod set_configs {
 
 			// Removing works
 			assert_ok!(Pools::set_configs(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(42),
 				ConfigOp::Remove,
 				ConfigOp::Remove,
 				ConfigOp::Remove,

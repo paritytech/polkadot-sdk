@@ -16,12 +16,15 @@ scale-info = { version = "2.11.1", default-features = false, features = ["derive
 log = { workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 static_assertions = "1.1.0"
 smallvec = "1.8.0"
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/primitives/consensus/babe", default-features = false }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/primitives/consensus/beefy", default-features = false }
+grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../substrate/primitives/consensus/grandpa", default-features = false }
 binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false }
 rococo-runtime-constants = { package = "rococo-runtime-constants", path = "constants", default-features = false }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
@@ -126,6 +129,7 @@ std = [
 	"babe-primitives/std",
 	"beefy-primitives/std",
 	"binary-merkle-tree/std",
+	"bitvec/std",
 	"block-builder-api/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
@@ -134,6 +138,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
+	"grandpa_primitives/std",
 	"inherents/std",
 	"log/std",
 	"offchain-primitives/std",
@@ -190,6 +195,7 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"serde_derive",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
