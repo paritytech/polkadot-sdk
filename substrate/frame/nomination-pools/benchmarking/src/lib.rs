@@ -951,7 +951,11 @@ frame_benchmarking::benchmarks! {
 
 	/*
 	pool_migrate {
-
+		// Setup a non-migrated pool
+		// DelegatedStaking::unlock funds from all members.
+		// DelegatedStaking::clean all delegated staking storage entries.
+		// Currency::transfer funds to the bonded account.
+		// Staking::remove virtual bonder.
 	}
 
 	claim_delegation {

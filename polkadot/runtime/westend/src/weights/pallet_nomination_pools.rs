@@ -640,4 +640,18 @@ impl<T: frame_system::Config> pallet_nomination_pools::WeightInfo for WeightInfo
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+
+	fn apply_slash() -> Weight {
+		// will be updated by bench bot
+		Weight::default()
+	}
+	fn apply_slash_fail() -> Weight {
+		// will be updated by bench bot
+		Weight::default()
+	}
+
+	fn claim_delegation() -> Weight {
+		// will be updated by bench bot
+		Weight::default()
+	}
 }
