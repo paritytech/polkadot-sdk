@@ -627,58 +627,58 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 	pub(crate) const OFFCHAIN_CACHED_SCORE: &'static [u8] =
 		b"parity/multi-block-unsigned-election/score";
 
-	pub fn maybe_mine_and_submit(page: PageIndex) -> Result<(), OffchainMinerError> {
+	pub fn fetch_or_mine(
+		page: PageIndex,
+	) -> Result<(ElectionScore, ElectionScore, SolutionOf<T>), OffchainMinerError> {
 		let cache_id = Self::paged_cache_id(page)?;
+		let score_storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SCORE);
 		let maybe_storage = StorageValueRef::persistent(&cache_id);
 
-		if let Ok(Some(solution_page)) = maybe_storage.get::<SolutionOf<T>>() {
-			sublog!(debug, "unsigned::ocw-miner", "offchain restoring a solution from cache.");
+		let (full_score, paged_solution) =
+			if let Ok(Some(solution_page)) = maybe_storage.get::<SolutionOf<T>>() {
+				sublog!(debug, "unsigned::ocw-miner", "offchain restoring a solution from cache.");
 
-			let partial_score =
-				Miner::<T, T::OffchainSolver>::compute_partial_score(&solution_page, page)?;
-			Self::submit_paged_call(page, solution_page.clone(), partial_score)?;
-		} else {
-			sublog!(debug, "unsigned::ocw-miner", "offchain miner computing a new solution.");
+				let full_score = score_storage
+					.get()
+					.map_err(|_| OffchainMinerError::StorageError)?
+					.ok_or(OffchainMinerError::StorageError)?;
 
-			// no solution cached, compute it first.
-			let reduce = true;
-			let (solution, _trimming_status) =
-				Miner::<T, T::OffchainSolver>::mine_paged_solution(T::Pages::get(), reduce)?;
+				(full_score, solution_page)
+			} else {
+				sublog!(debug, "unsigned::ocw-miner", "offchain miner computing a new solution.");
 
-			// caches the solution score.
-			let score_storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_SCORE);
-			score_storage
-				.mutate::<_, (), _>(|_| Ok((solution.score.clone())))
-				.map_err(|_| OffchainMinerError::StorageError)?;
+				// no solution cached, compute it first.
+				let reduce = true;
+				let (solution, _trimming_status) =
+					Miner::<T, T::OffchainSolver>::mine_paged_solution(T::Pages::get(), reduce)?;
 
-			// caches each of the individual pages under its own key.
-			for (idx, paged_solution) in solution.solution_pages.into_iter().enumerate() {
-				// submit requested page as we stored it in the cache.
-				if idx as PageIndex == page {
-					let partial_score = Miner::<T, T::OffchainSolver>::compute_partial_score(
-						&paged_solution,
-						page,
-					)?;
-					Self::submit_paged_call(page, paged_solution.clone(), partial_score)?;
+				// caches the solution score.
+				score_storage
+					.mutate::<_, (), _>(|_| Ok((solution.score.clone())))
+					.map_err(|_| OffchainMinerError::StorageError)?;
+
+				let mut solution_page = Default::default();
+
+				// caches each of the individual pages under its own key.
+				for (idx, paged_solution) in solution.solution_pages.into_iter().enumerate() {
+					if idx as PageIndex == page {
+						solution_page = paged_solution.clone();
+					}
+
+					let cache_id = Self::paged_cache_id(idx as PageIndex)?;
+					let storage = StorageValueRef::persistent(&cache_id);
+					storage
+						.mutate::<_, (), _>(|_| Ok((paged_solution.clone())))
+						.map_err(|_| OffchainMinerError::StorageError)?;
 				}
 
-				let cache_id = Self::paged_cache_id(idx as PageIndex)?;
-				let storage = StorageValueRef::persistent(&cache_id);
-				storage
-					.mutate::<_, (), _>(|_| Ok((paged_solution.clone())))
-					.map_err(|_| OffchainMinerError::StorageError)?;
-			}
-		}
+				(solution.score, solution_page)
+			};
 
-		Ok(())
-	}
+		let partial_score =
+			Miner::<T, T::OffchainSolver>::compute_partial_score(&paged_solution, page)?;
 
-	pub(crate) fn restore_or_compute_then_maybe_submit() {
-		sublog!(
-			debug,
-			"unsigned::ocw-miner",
-			"offchain miner submitting a cached unsigned solution."
-		);
+		Ok((full_score, partial_score, paged_solution))
 	}
 
 	fn paged_cache_id(page: PageIndex) -> Result<Vec<u8>, OffchainMinerError> {
@@ -691,6 +691,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		page: PageIndex,
 		solution: SolutionOf<T>,
 		partial_score: ElectionScore,
+		full_score: ElectionScore,
 	) -> Result<(), OffchainMinerError> {
 		sublog!(
 			debug,
@@ -698,8 +699,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 			"miner submitting a solution as an unsigned transaction"
 		);
 
-		let call = Call::submit_page_unsigned { page, solution, partial_score };
-
+		let call = Call::submit_page_unsigned { page, solution, partial_score, full_score };
 		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
 			call.into(),
 		)

@@ -34,7 +34,7 @@
 
 // TODO(gpestana): clean up imports.
 use frame_election_provider_support::{
-	ElectionProvider, NposSolution, PageIndex, TryIntoBoundedSupports,
+    NposSolution, PageIndex, TryIntoBoundedSupports,
 };
 use frame_support::{
 	ensure,
@@ -176,46 +176,10 @@ pub(crate) mod pallet {
 			})
 		}
 
-		pub(crate) fn set_page_valid(
-			page: PageIndex,
-			supports: SupportsOf<Pallet<T>>,
-			score: ElectionScore,
-		) {
-			let _ = match Self::valid() {
-				SolutionPointer::X => QueuedSolutionX::<T>::insert(page, supports),
-				SolutionPointer::Y => QueuedSolutionY::<T>::insert(page, supports),
-			};
-
-			// TODO: setting partial score, not overall. rethink. re-think the sync/offchain
-			// election score and feasibility checks story.
-			QueuedSolutionScore::<T>::put(score);
-		}
-
-		/// Write a single page directly into the valid variant.
-		fn force_set_single_page_valid(
-			page: PageIndex,
-			supports: SupportsOf<Pallet<T>>,
-			score: ElectionScore,
-		) {
-			Self::mutate_checked(|| {
-				// clear all the data of the current valid solution.
-				let _ = match Self::valid() {
-					SolutionPointer::X => QueuedSolutionX::<T>::clear(u32::MAX, None),
-					SolutionPointer::Y => QueuedSolutionY::<T>::clear(u32::MAX, None),
-				};
-				QueuedSolutionScore::<T>::kill();
-
-				// write the new single page and new score.
-				Self::set_page_valid(page, supports, score);
-			})
-		}
-
 		/// Computes the score and the winner count of a stored variant solution.
 		/// TODO(gpestana): comments
 		pub(crate) fn compute_current_score() -> Result<(ElectionScore, u32), FeasibilityError> {
 			// ensures that all the pages are complete;
-			// TODO(gpestana): maybe keep track of the number of pages of the variant that has been
-			// stored to make this check cheaper.
 			if QueuedSolutionBackings::<T>::iter_keys().count() != T::Pages::get() as usize {
 				return Err(FeasibilityError::Incomplete)
 			}
@@ -228,9 +192,10 @@ pub(crate) mod pallet {
 				entry.total = entry.total.saturating_add(total);
 				entry.backers = entry.backers.saturating_add(backers);
 
-				if entry.backers > T::MaxBackersPerWinner::get() {
-					return Err(FeasibilityError::TooManyBackings)
-				}
+				// TODO:: revive
+				//if entry.backers > T::MaxBackersPerWinner::get() {
+				//	return Err(FeasibilityError::TooManyBackings)
+				//}
 			}
 
 			let winners_count = supports.len() as u32;
@@ -353,7 +318,7 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 
 	fn next_missing_solution_page() -> Option<PageIndex> {
 		for key in (0..T::Pages::get()).rev() {
-			let exists = match QueuedSolution::<T>::valid() {
+			let exists = match QueuedSolution::<T>::invalid() {
 				SolutionPointer::X => QueuedSolutionX::<T>::contains_key(key as PageIndex),
 				SolutionPointer::Y => QueuedSolutionY::<T>::contains_key(key as PageIndex),
 			};
@@ -400,6 +365,12 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 
 impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
 	type SolutionDataProvider = T::SolutionDataProvider;
+
+	fn force_finalize_async_verification(
+		claimed_score: ElectionScore,
+	) -> Result<(), FeasibilityError> {
+		Self::finalize_async_verification(claimed_score)
+	}
 
 	fn status() -> Status {
 		VerificationStatus::<T>::get()
@@ -538,12 +509,15 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		ensure!(score == partial_score, FeasibilityError::InvalidScore);
 
 		// queue valid solution of single page.
-		QueuedSolution::<T>::set_page_valid(page, supports.clone(), partial_score);
+		//QueuedSolution::<T>::set_page_invalid(page, supports.clone());
+		QueuedSolution::<T>::set_page(page, supports.clone());
 
 		Ok(supports)
 	}
 
-	fn finalize_async_verification(claimed_score: ElectionScore) -> Result<(), FeasibilityError> {
+	pub fn finalize_async_verification(
+		claimed_score: ElectionScore,
+	) -> Result<(), FeasibilityError> {
 		let outcome = QueuedSolution::<T>::compute_current_score()
 			.and_then(|(final_score, winner_count)| {
 				let desired_targets = crate::Snapshot::<T>::desired_targets().unwrap_or_default();

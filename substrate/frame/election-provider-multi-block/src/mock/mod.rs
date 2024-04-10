@@ -353,10 +353,6 @@ pub(crate) fn roll_to(n: BlockNumber) {
 	}
 }
 
-pub(crate) fn roll_one() {
-	roll_to(System::block_number() + 1);
-}
-
 // Fast forward until a given election phase.
 pub fn roll_to_phase(phase: Phase<BlockNumber>) {
 	while MultiPhase::current_phase() != phase {

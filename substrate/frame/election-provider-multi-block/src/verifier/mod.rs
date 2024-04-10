@@ -177,6 +177,11 @@ pub trait AsyncVerifier: Verifier {
 	/// verification is returned back to this entity.
 	type SolutionDataProvider: SolutionDataProvider;
 
+	/// Forces finalizing the async verification.
+	fn force_finalize_async_verification(
+		claimed_score: ElectionScore,
+	) -> Result<(), FeasibilityError>;
+
 	/// Returns the status of the current verification.
 	fn status() -> Status;
 

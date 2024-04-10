@@ -288,7 +288,6 @@ pub mod pallet {
 			);
 
 			// closure that tries to progress paged snapshot creation.
-			// TODO(gpestana): weights
 			let try_snapshot_next = |remaining_pages: PageIndex| {
 				let _ = <T::DataProvider as LockableElectionDataProvider>::set_lock();
 
@@ -514,6 +513,13 @@ impl<T: Config> Pallet<T> {
 	/// Based on the contract with `ElectionDataProvider`, tis is the first page to be filled.
 	fn msp() -> PageIndex {
 		T::Pages::get().checked_sub(1).defensive_unwrap_or_default()
+	}
+
+	/// Return the least significant page of the snapshot.
+	///
+	/// Based on the contract with `ElectionDataProvider`, tis is the last page to be filled.
+	fn lsp() -> PageIndex {
+		Zero::zero()
 	}
 
 	/// Creates the target snapshot.

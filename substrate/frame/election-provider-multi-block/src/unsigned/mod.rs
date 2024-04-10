@@ -21,7 +21,8 @@ pub mod miner;
 
 use crate::{
 	unsigned::miner::{MinerError, OffchainMinerError, OffchainWorkerMiner},
-	verifier, PageSize, PagedRawSolution, Phase, SolutionAccuracyOf, SolutionOf, Verifier,
+	verifier, PageSize, PagedRawSolution, Pallet as EPM, Phase, SolutionAccuracyOf, SolutionOf,
+	Verifier,
 };
 use frame_election_provider_support::PageIndex;
 use frame_support::{
@@ -104,8 +105,8 @@ pub(crate) mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::submit_page_unsigned { page, solution, partial_score } = call {
-				Self::validate_inherent(page, solution, partial_score)
+			if let Call::submit_page_unsigned { page, solution, partial_score, full_score } = call {
+				Self::validate_inherent(page, solution, partial_score, full_score)
 			} else {
 				InvalidTransaction::Call.into()
 			}
@@ -135,6 +136,7 @@ pub(crate) mod pallet {
 			page: PageIndex,
 			solution: SolutionOf<T>,
 			partial_score: ElectionScore,
+			full_score: ElectionScore,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			let error_message = "Invalid unsigned submission must produce invalid block and \
@@ -152,8 +154,21 @@ pub(crate) mod pallet {
 			// TODO: block author -> slash validator.
 
 			// The verifier will store the paged solution, if valid.
-			let _ = <T::Verifier as Verifier>::verify_synchronous(solution, partial_score, page)
+			let _ = <T::Verifier as verifier::Verifier>::verify_synchronous(
+				solution,
+				partial_score,
+				page,
+			)
+			.expect(error_message);
+
+			// if this is the last page, request an async verification finalization which will work
+			// on the queued paged solutions.
+			if page == EPM::<T>::lsp() {
+				<T::Verifier as verifier::AsyncVerifier>::force_finalize_async_verification(
+					full_score,
+				)
 				.expect(error_message);
+			}
 
 			Self::deposit_event(Event::UnsignedSolutionSubmitted {
 				at: <frame_system::Pallet<T>>::block_number(),
@@ -207,12 +222,29 @@ impl<T: Config> Pallet<T> {
 	pub fn do_synchronized_offchain_worker(
 		now: BlockNumberFor<T>,
 	) -> Result<(), OffchainMinerError> {
-		// TODO: signed phase has submitted a solution.
 		let missing_solution_page = <T::Verifier as Verifier>::next_missing_solution_page();
 
 		match (crate::Pallet::<T>::current_phase(), missing_solution_page) {
-			(Phase::Unsigned(started_at), Some(page)) => {
-				OffchainWorkerMiner::<T>::maybe_mine_and_submit(page)?;
+			(Phase::Unsigned(_), Some(page)) => {
+				let (full_score, partial_score, partial_solution) =
+					OffchainWorkerMiner::<T>::fetch_or_mine(page)?;
+
+				// submit page only if full score improves the current queued score.
+				if <T::Verifier as Verifier>::ensure_score_improves(full_score) {
+					OffchainWorkerMiner::<T>::submit_paged_call(
+						page,
+						partial_solution,
+						partial_score,
+						full_score,
+					)?;
+				} else {
+					sublog!(
+						debug,
+						"unsigned",
+						"unsigned solution with score {:?} does not improve current queued solution; skip it.",
+						full_score
+					);
+				}
 			},
 			_ => (), // nothing to do here.
 		}
@@ -224,6 +256,7 @@ impl<T: Config> Pallet<T> {
 		page: &PageIndex,
 		solution: &SolutionOf<T>,
 		partial_score: &ElectionScore,
+		full_score: &ElectionScore,
 	) -> TransactionValidity {
 		// TODO: perform checks, etc
 		ValidTransaction::with_tag_prefix("ElectionOffchainWorker")
