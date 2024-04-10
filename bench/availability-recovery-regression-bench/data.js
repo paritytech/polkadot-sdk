@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712782228927,
+  "lastUpdate": 1712787921415,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2603,6 +2603,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1736486705933333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "643aa2be2a2c0611eeb648cfc21eb4cb3c1c9cd8",
+          "message": "Contracts: Remove ED from base deposit (#3536)\n\n- Update internal logic so that the storage_base_deposit does not\ninclude ED\n- add v16 migration to update ContractInfo struct with this change\n\nBefore:\n<img width=\"820\" alt=\"Screenshot 2024-03-21 at 11 23 29\"\nsrc=\"https://github.com/paritytech/polkadot-sdk/assets/521091/a0a8df0d-e743-42c5-9e16-cf2ec1aa949c\">\n\nAfter:\n![Screenshot 2024-03-21 at 11 23\n42](https://github.com/paritytech/polkadot-sdk/assets/521091/593235b0-b866-4915-b653-2071d793228b)\n\n---------\n\nCo-authored-by: Cyrill Leutwiler <cyrill@parity.io>\nCo-authored-by: command-bot <>",
+          "timestamp": "2024-04-10T20:32:53Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/643aa2be2a2c0611eeb648cfc21eb4cb3c1c9cd8"
+        },
+        "date": 1712787895281,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21392959954000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.464937940086672,
             "unit": "seconds"
           }
         ]
