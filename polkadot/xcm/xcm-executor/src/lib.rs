@@ -205,8 +205,8 @@ impl<Config: config::Config> ExecuteXcm<Config::RuntimeCall> for XcmExecutor<Con
 		);
 		let mut properties = Properties { weight_credit, message_id: None };
 
-		// We only want to record under certain conditions, so as to not
-		// degrade regular performance.
+		// We only want to record under certain conditions (mainly only during dry-running),
+		// so as to not degrade regular performance.
 		if Config::XcmRecorder::should_record() {
 			Config::XcmRecorder::record(message.clone().into());
 		}
