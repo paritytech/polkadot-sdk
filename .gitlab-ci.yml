@@ -286,7 +286,6 @@ test-linux-stable-codecov:
     # "upgrade_version_checks_should_work" is currently failing
     - |
       time cargo nextest run \
-        --filter-expr 'not deps(/polkadot-subsystem-bench/)' \
         --workspace \
         --locked \
         --release \
@@ -323,7 +322,6 @@ test-linux-stable-llvm-cov:
     - rustup component add llvm-tools-preview
     - cargo install cargo-llvm-cov
     - cargo llvm-cov nextest --workspace \
-      --filter-expr 'not deps(/polkadot-subsystem-bench/)' \
       --locked \
       --release \
       --no-fail-fast \
@@ -349,7 +347,6 @@ test-linux-stable:
     # "upgrade_version_checks_should_work" is currently failing
     - |
       time cargo nextest run \
-        --filter-expr 'not deps(/polkadot-subsystem-bench/)' \
         --workspace \
         --locked \
         --release \
