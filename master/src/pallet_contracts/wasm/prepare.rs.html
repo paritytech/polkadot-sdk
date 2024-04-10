@@ -978,6 +978,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
 <a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1028,6 +1052,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>engine: Engine,
 }
 
+<span class="attr">#[derive(PartialEq, Debug, Clone)]
+</span><span class="kw">pub enum </span>LoadingMode {
+	Checked,
+	Unchecked,
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">pub mod </span>tracker {
+	<span class="kw">use </span>sp_std::cell::RefCell;
+	<span class="macro">thread_local! </span>{
+		<span class="kw">pub static </span>LOADED_MODULE: RefCell&lt;Vec&lt;<span class="kw">super</span>::LoadingMode&gt;&gt; = RefCell::new(Vec::new());
+	}
+}
+
 <span class="kw">impl </span>LoadedModule {
 	<span class="doccomment">/// Creates a new instance of `LoadedModule`.
 	///
@@ -1037,6 +1075,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code: <span class="kw-2">&amp;</span>[u8],
 		determinism: Determinism,
 		stack_limits: <span class="prelude-ty">Option</span>&lt;StackLimits&gt;,
+		_mode: LoadingMode,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
 		<span class="comment">// NOTE: wasmi does not support unstable WebAssembly features. The module is implicitly
 		// checked for not having those ones when creating `wasmi::Module` below.
@@ -1059,10 +1098,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>engine = Engine::new(<span class="kw-2">&amp;</span>config);
-		<span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, code).map_err(|err| {
+
+		<span class="comment">// TODO use Module::new_unchecked when validate_module is true once we are on wasmi@0.32
+		</span><span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, code).map_err(|err| {
 			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Module creation failed: {:?}&quot;</span>, err);
 			<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;
 		</span>})<span class="question-mark">?</span>;
+
+		<span class="attr">#[cfg(test)]
+		</span>tracker::LOADED_MODULE.with(|t| t.borrow_mut().push(_mode));
 
 		<span class="comment">// Return a `LoadedModule` instance with
 		// __valid__ module.
@@ -1209,24 +1253,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>E: Environment&lt;()&gt;,
 	T: Config,
 {
-	(|| {
+	<span class="kw">let </span>module = (|| {
+		<span class="comment">// We don&#39;t actually ever execute this instance so we can get away with a minimal stack
+		// which reduces the amount of memory that needs to be zeroed.
+		</span><span class="kw">let </span>stack_limits = <span class="prelude-val">Some</span>(StackLimits::new(<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>).expect(<span class="string">&quot;initial &lt;= max; qed&quot;</span>));
+
 		<span class="comment">// We check that the module is generally valid,
 		// and does not have restricted WebAssembly features, here.
 		</span><span class="kw">let </span>contract_module = <span class="kw">match </span><span class="kw-2">*</span>determinism {
 			Determinism::Relaxed =&gt;
-				<span class="kw">if let </span><span class="prelude-val">Ok</span>(module) = LoadedModule::new::&lt;T&gt;(code, Determinism::Enforced, <span class="prelude-val">None</span>) {
+				<span class="kw">if let </span><span class="prelude-val">Ok</span>(module) = LoadedModule::new::&lt;T&gt;(
+					code,
+					Determinism::Enforced,
+					stack_limits,
+					LoadingMode::Checked,
+				) {
 					<span class="kw-2">*</span>determinism = Determinism::Enforced;
 					module
 				} <span class="kw">else </span>{
-					LoadedModule::new::&lt;T&gt;(code, Determinism::Relaxed, <span class="prelude-val">None</span>)<span class="question-mark">?
+					LoadedModule::new::&lt;T&gt;(code, Determinism::Relaxed, <span class="prelude-val">None</span>, LoadingMode::Checked)<span class="question-mark">?
 				</span>},
-			Determinism::Enforced =&gt; LoadedModule::new::&lt;T&gt;(code, Determinism::Enforced, <span class="prelude-val">None</span>)<span class="question-mark">?</span>,
+			Determinism::Enforced =&gt; LoadedModule::new::&lt;T&gt;(
+				code,
+				Determinism::Enforced,
+				stack_limits,
+				LoadingMode::Checked,
+			)<span class="question-mark">?</span>,
 		};
 
 		<span class="comment">// The we check that module satisfies constraints the pallet puts on contracts.
 		</span>contract_module.scan_exports()<span class="question-mark">?</span>;
 		contract_module.scan_imports::&lt;T&gt;(schedule)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(())
+		<span class="prelude-val">Ok</span>(contract_module)
 	})()
 	.map_err(|msg: <span class="kw-2">&amp;</span>str| {
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;New code rejected on validation: {}&quot;</span>, msg);
@@ -1237,22 +1295,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//
 	// - It doesn&#39;t use any unknown imports.
 	// - It doesn&#39;t explode the wasmi bytecode generation.
-	//
-	// We don&#39;t actually ever execute this instance so we can get away with a minimal stack which
-	// reduces the amount of memory that needs to be zeroed.
-	</span><span class="kw">let </span>stack_limits = StackLimits::new(<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>).expect(<span class="string">&quot;initial &lt;= max; qed&quot;</span>);
-	WasmBlob::&lt;T&gt;::instantiate::&lt;E, <span class="kw">_</span>&gt;(
-		<span class="kw-2">&amp;</span>code,
-		(),
-		schedule,
-		<span class="kw-2">*</span>determinism,
-		stack_limits,
-		AllowDeprecatedInterface::No,
-	)
-	.map_err(|err| {
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>, err);
-		(Error::&lt;T&gt;::CodeRejected.into(), <span class="string">&quot;New code rejected on wasmi instantiation!&quot;</span>)
-	})<span class="question-mark">?</span>;
+	</span>WasmBlob::&lt;T&gt;::instantiate::&lt;E, <span class="kw">_</span>&gt;(module, (), schedule, AllowDeprecatedInterface::No)
+		.map_err(|err| {
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{err}&quot;</span>);
+			(Error::&lt;T&gt;::CodeRejected.into(), <span class="string">&quot;New code rejected on wasmi instantiation!&quot;</span>)
+		})<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(())
 }
@@ -1305,7 +1352,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		owner: AccountIdOf&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;WasmBlob&lt;T&gt;, DispatchError&gt; {
 		<span class="kw">let </span>determinism = Determinism::Enforced;
-		<span class="kw">let </span>contract_module = LoadedModule::new::&lt;T&gt;(<span class="kw-2">&amp;</span>code, determinism, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>contract_module =
+			LoadedModule::new::&lt;T&gt;(<span class="kw-2">&amp;</span>code, determinism, <span class="prelude-val">None</span>, LoadingMode::Checked)<span class="question-mark">?</span>;
 		<span class="kw">let _ </span>= contract_module.scan_imports::&lt;T&gt;(schedule)<span class="question-mark">?</span>;
 		<span class="kw">let </span>code: CodeVec&lt;T&gt; = code.try_into().map_err(|<span class="kw">_</span>| &lt;Error&lt;T&gt;&gt;::CodeTooLarge)<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_info = CodeInfo {

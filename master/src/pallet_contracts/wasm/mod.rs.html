@@ -3662,6 +3662,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3513" id="3513">3513</a>
 <a href="#3514" id="3514">3514</a>
 <a href="#3515" id="3515">3515</a>
+<a href="#3516" id="3516">3516</a>
+<a href="#3517" id="3517">3517</a>
+<a href="#3518" id="3518">3518</a>
+<a href="#3519" id="3519">3519</a>
+<a href="#3520" id="3520">3520</a>
+<a href="#3521" id="3521">3521</a>
+<a href="#3522" id="3522">3522</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3685,26 +3692,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>prepare;
 <span class="kw">mod </span>runtime;
 
-<span class="attr">#[cfg(test)]
-</span><span class="kw">pub use </span>runtime::STABLE_API_COUNT;
-
 <span class="attr">#[cfg(doc)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::api_doc;
 
-<span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::{
-	AllowDeprecatedInterface, AllowUnstableInterface, Environment, Runtime, RuntimeCosts,
+<span class="attr">#[cfg(test)]
+</span><span class="kw">pub use </span>{
+	<span class="kw">crate</span>::wasm::{prepare::tracker, runtime::ReturnErrorCode},
+	runtime::STABLE_API_COUNT,
+	tests::MockExt,
 };
 
-<span class="attr">#[cfg(test)]
-</span><span class="kw">pub use </span>tests::MockExt;
-
-<span class="attr">#[cfg(test)]
-</span><span class="kw">pub use </span><span class="kw">crate</span>::wasm::runtime::ReturnErrorCode;
+<span class="kw">pub use </span><span class="kw">crate</span>::wasm::{
+	prepare::{LoadedModule, LoadingMode},
+	runtime::{
+		AllowDeprecatedInterface, AllowUnstableInterface, Environment, Runtime, RuntimeCosts,
+	},
+};
 
 <span class="kw">use crate</span>::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
-	wasm::prepare::LoadedModule,
 	weights::WeightInfo,
 	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
 	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
@@ -3865,17 +3872,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// When validating we pass `()` as `host_state`. Please note that such a dummy instance must
 	/// **never** be called/executed, since it will panic the executor.
 	</span><span class="kw">pub fn </span>instantiate&lt;E, H&gt;(
-		code: <span class="kw-2">&amp;</span>[u8],
+		contract: LoadedModule,
 		host_state: H,
 		schedule: <span class="kw-2">&amp;</span>Schedule&lt;T&gt;,
-		determinism: Determinism,
-		stack_limits: StackLimits,
 		allow_deprecated: AllowDeprecatedInterface,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Store&lt;H&gt;, Memory, InstancePre), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;
 	<span class="kw">where
 		</span>E: Environment&lt;H&gt;,
 	{
-		<span class="kw">let </span>contract = LoadedModule::new::&lt;T&gt;(<span class="kw-2">&amp;</span>code, determinism, <span class="prelude-val">Some</span>(stack_limits))<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>store = Store::new(<span class="kw-2">&amp;</span>contract.engine, host_state);
 		<span class="kw">let </span><span class="kw-2">mut </span>linker = Linker::new(<span class="kw-2">&amp;</span>contract.engine);
 		E::define(
@@ -4046,12 +4050,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = <span class="self">self</span>.code.as_slice();
 		<span class="comment">// Instantiate the Wasm module to the engine.
 		</span><span class="kw">let </span>schedule = &lt;T&gt;::Schedule::get();
+
+		<span class="kw">let </span>contract = LoadedModule::new::&lt;T&gt;(
+			<span class="kw-2">&amp;</span>code,
+			<span class="self">self</span>.code_info.determinism,
+			<span class="prelude-val">Some</span>(StackLimits::default()),
+			LoadingMode::Unchecked,
+		)
+		.map_err(|err| {
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;failed to create wasmi module: {err:?}&quot;</span>);
+			Error::&lt;T&gt;::CodeRejected
+		})<span class="question-mark">?</span>;
+
 		<span class="kw">let </span>(<span class="kw-2">mut </span>store, memory, instance) = <span class="self">Self</span>::instantiate::&lt;<span class="kw">crate</span>::wasm::runtime::Env, <span class="kw">_</span>&gt;(
-			code,
+			contract,
 			runtime,
 			<span class="kw-2">&amp;</span>schedule,
-			<span class="self">self</span>.code_info.determinism,
-			StackLimits::default(),
 			<span class="kw">match </span>function {
 				ExportedFunction::Call =&gt; AllowDeprecatedInterface::Yes,
 				ExportedFunction::Constructor =&gt; AllowDeprecatedInterface::No,
