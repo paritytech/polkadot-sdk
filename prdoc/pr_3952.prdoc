@@ -3,9 +3,8 @@ title: Storage bound the XCMP queue pallet
 doc:
   - audience: Runtime Dev
     description: |
-      Enforce upper limits for the number of suspended channels and on
-      the number of channels that have messages pending. This is needed to use
-      the worst-case PoV benchmarking.
+      Enforce upper limits for the number of active XCMP channels, the number of outgoing XCMP
+      messages per channel and the number of signals per channel.
 
 migrations:
   db: []
@@ -16,5 +15,6 @@ migrations:
 
 crates:
   - name: cumulus-pallet-xcmp-queue
+    bump: major
 
 host_functions: []
