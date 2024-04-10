@@ -20,7 +20,7 @@
 
 use crate::{
 	exec::AccountIdOf,
-	migration::{IsFinished, ContractsMigrationStep},
+	migration::{ContractsMigrationStep, IsFinished},
 	weights::WeightInfo,
 	CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
 };

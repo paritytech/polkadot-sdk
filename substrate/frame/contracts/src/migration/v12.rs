@@ -19,7 +19,7 @@
 //! repay deposits.
 
 use crate::{
-	migration::{IsFinished, ContractsMigrationStep},
+	migration::{ContractsMigrationStep, IsFinished},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeHash, Config, Determinism, Pallet, Weight, LOG_TARGET,
 };

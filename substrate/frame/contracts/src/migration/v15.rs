@@ -23,7 +23,7 @@
 //! Then the deposit account is not needed anymore and we can get rid of it.
 
 use crate::{
-	migration::{IsFinished, ContractsMigrationStep},
+	migration::{ContractsMigrationStep, IsFinished},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeHash, Config, HoldReason, Pallet, TrieId, Weight, LOG_TARGET,
 };

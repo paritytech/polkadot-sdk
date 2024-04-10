@@ -19,7 +19,7 @@
 //! See <https://github.com/paritytech/substrate/pull/14079>.
 
 use crate::{
-	migration::{IsFinished, ContractsMigrationStep},
+	migration::{ContractsMigrationStep, IsFinished},
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
 };

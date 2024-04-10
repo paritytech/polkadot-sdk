@@ -18,7 +18,7 @@
 //! Update `CodeStorage` with the new `determinism` field.
 
 use crate::{
-	migration::{IsFinished, ContractsMigrationStep},
+	migration::{ContractsMigrationStep, IsFinished},
 	weights::WeightInfo,
 	CodeHash, Config, Determinism, Pallet, Weight, LOG_TARGET,
 };
