@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712761548577,
+  "lastUpdate": 1712773041594,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2477,6 +2477,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.462354974453334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexandru Vasile",
+            "username": "lexnv",
+            "email": "60601340+lexnv@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "cd010925e12c3c1d22b47cc9185c394366e65c5f",
+          "message": "net/strategy: Log bad peerId from on_validated_block_announce (#4051)\n\nThis tiny PR extends the `on_validated_block_announce` log with the bad\nPeerID.\nUsed to identify if the peerID is malicious by correlating with other\nlogs (ie peer-set).\n\nWhile at it, have removed the `\\n` from a multiline log, which did not\nplay well with\n[sub-triage-logs](https://github.com/lexnv/sub-triage-logs/tree/master).\n\ncc @paritytech/networking\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2024-04-10T15:29:36Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd010925e12c3c1d22b47cc9185c394366e65c5f"
+        },
+        "date": 1712773015860,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.497953049586668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.23198031086,
             "unit": "seconds"
           }
         ]
