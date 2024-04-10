@@ -177,7 +177,10 @@ pub mod pallet {
 
 		/// The origin with permission to create pools. This will be removed in a later release of
 		/// this pallet, which will allow permissionless pool creation.
-		type PermissionedPoolCreator: EnsureOrigin<Self::RuntimeOrigin>;
+		///
+		/// The Origin must return an AccountId. This can be achieved for any Origin by wrapping it
+		/// with `EnsureSuccess`.
+		type PermissionedOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Registry of assets that can be configured to either stake for rewards, or be offered as
 		/// rewards for staking.
@@ -333,8 +336,8 @@ pub mod pallet {
 			expiry_block: BlockNumberFor<T>,
 			admin: Option<T::AccountId>,
 		) -> DispatchResult {
-			// Ensure Origin is allowed to create pools.
-			T::PermissionedPoolCreator::ensure_origin(origin.clone())?;
+			// Check the origin.
+			let creator = T::PermissionedOrigin::ensure_origin(origin.clone())?;
 
 			// Ensure the assets exist.
 			ensure!(
@@ -353,11 +356,7 @@ pub mod pallet {
 			);
 
 			// Get the admin, defaulting to the origin.
-			let origin_acc_id = ensure_signed(origin)?;
-			let admin = match admin {
-				Some(admin) => admin,
-				None => origin_acc_id.clone(),
-			};
+			let admin = admin.unwrap_or(creator.clone());
 
 			// Create the pool.
 			let pool = PoolInfoFor::<T> {
@@ -378,7 +377,7 @@ pub mod pallet {
 
 			// Emit created event.
 			Self::deposit_event(Event::PoolCreated {
-				creator: origin_acc_id,
+				creator,
 				pool_id,
 				staked_asset_id: *staked_asset_id,
 				reward_asset_id: *reward_asset_id,
@@ -459,10 +458,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			let staker = match staker {
-				Some(staker) => staker,
-				None => caller.clone(),
-			};
+			let staker = staker.unwrap_or(caller.clone());
 
 			// Always start by updating the pool and staker rewards.
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
@@ -502,9 +498,11 @@ pub mod pallet {
 			pool_id: PoolId,
 			new_reward_rate_per_block: T::Balance,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			let caller = T::PermissionedOrigin::ensure_origin(origin.clone())
+				.or_else(|_| ensure_signed(origin))?;
+
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
-			ensure!(pool_info.admin == caller, BadOrigin);
+			ensure!(caller == pool_info.admin, BadOrigin);
 
 			// Always start by updating the pool rewards.
 			let mut pool_info = Self::update_pool_rewards(pool_info)?;
@@ -526,7 +524,8 @@ pub mod pallet {
 			pool_id: PoolId,
 			new_admin: T::AccountId,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			let caller = T::PermissionedOrigin::ensure_origin(origin.clone())
+				.or_else(|_| ensure_signed(origin))?;
 
 			let mut pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			ensure!(pool_info.admin == caller, BadOrigin);
@@ -544,7 +543,8 @@ pub mod pallet {
 			pool_id: PoolId,
 			new_expiry_block: BlockNumberFor<T>,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			let caller = T::PermissionedOrigin::ensure_origin(origin.clone())
+				.or_else(|_| ensure_signed(origin))?;
 
 			ensure!(
 				new_expiry_block > frame_system::Pallet::<T>::block_number(),
@@ -592,14 +592,17 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			pool_id: PoolId,
 			amount: T::Balance,
+			dest: T::AccountId,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			let caller = T::PermissionedOrigin::ensure_origin(origin.clone())
+				.or_else(|_| ensure_signed(origin))?;
+
 			let pool_info = Pools::<T>::get(pool_id).ok_or(Error::<T>::NonExistentPool)?;
 			ensure!(pool_info.admin == caller, BadOrigin);
 			T::Assets::transfer(
 				pool_info.reward_asset_id,
 				&Self::pool_account_id(&pool_id)?,
-				&caller,
+				&dest,
 				amount,
 				Preservation::Preserve,
 			)?;
@@ -624,8 +627,7 @@ pub mod pallet {
 		///
 		/// Returns the updated pool and staker info.
 		///
-		/// NOTE: this is a pure function without side effects. It does not modify any state
-		/// directly, that is the responsibility of the caller.
+		/// NOTE: does not modify any storage, that is the responsibility of the caller.
 		pub fn update_pool_and_staker_rewards(
 			pool_info: PoolInfoFor<T>,
 			mut staker_info: PoolStakerInfo<T::Balance>,
@@ -643,8 +645,7 @@ pub mod pallet {
 		///
 		/// Returns the updated pool and staker info.
 		///
-		/// NOTE: this is a pure function without side effects. It does not modify any state
-		/// directly, that is the responsibility of the caller.
+		/// NOTE: does not modify any storage, that is the responsibility of the caller.
 		pub fn update_pool_rewards(
 			mut pool_info: PoolInfoFor<T>,
 		) -> Result<PoolInfoFor<T>, DispatchError> {

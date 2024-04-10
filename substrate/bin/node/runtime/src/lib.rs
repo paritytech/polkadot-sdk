@@ -1763,7 +1763,7 @@ impl pallet_asset_rewards::Config for Runtime {
 	type Balance = u128;
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
-	type PermissionedPoolCreator = EnsureRoot<AccountId>;
+	type PermissionedOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }

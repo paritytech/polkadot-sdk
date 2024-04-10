@@ -19,6 +19,12 @@ use crate::{mock::*, *};
 use frame_support::{assert_err, assert_ok, hypothetically, traits::fungible::NativeOrWithId};
 use sp_runtime::{traits::BadOrigin, ArithmeticError, TokenError};
 
+const DEFAULT_STAKED_ASSET_ID: NativeOrWithId<u32> = NativeOrWithId::<u32>::WithId(1);
+const DEFAULT_REWARD_ASSET_ID: NativeOrWithId<u32> = NativeOrWithId::<u32>::Native;
+const DEFAULT_REWARD_RATE_PER_BLOCK: u128 = 100;
+const DEFAULT_EXPIRY_BLOCK: u64 = 200;
+const DEFAULT_ADMIN: u128 = 1;
+
 /// Creates a basic pool with values:
 /// - Staking asset: 1
 /// - Reward asset: Native
@@ -29,13 +35,24 @@ use sp_runtime::{traits::BadOrigin, ArithmeticError, TokenError};
 /// Useful to reduce boilerplate in tests when it's not important to customise or reusing pool
 /// params.
 pub fn create_default_pool() {
-	let staked_asset_id = NativeOrWithId::<u32>::WithId(1);
 	assert_ok!(StakingRewards::create_pool(
-		RuntimeOrigin::signed(1),
-		Box::new(staked_asset_id),
-		Box::new(NativeOrWithId::<u32>::Native),
-		100,
-		100u64,
+		RuntimeOrigin::root(),
+		Box::new(DEFAULT_STAKED_ASSET_ID.clone()),
+		Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
+		DEFAULT_REWARD_RATE_PER_BLOCK,
+		DEFAULT_EXPIRY_BLOCK,
+		Some(DEFAULT_ADMIN)
+	));
+}
+
+/// The same as [`create_default_pool`], but with the admin parameter set to `None`.
+pub fn create_default_pool_permissioned_admin() {
+	assert_ok!(StakingRewards::create_pool(
+		RuntimeOrigin::root(),
+		Box::new(DEFAULT_STAKED_ASSET_ID.clone()),
+		Box::new(DEFAULT_REWARD_ASSET_ID.clone()),
+		DEFAULT_REWARD_RATE_PER_BLOCK,
+		DEFAULT_EXPIRY_BLOCK,
 		None
 	));
 }
@@ -92,19 +109,16 @@ mod create_pool {
 	#[test]
 	fn success() {
 		new_test_ext().execute_with(|| {
-			let user = 1;
-			let staked_asset_id = NativeOrWithId::<u32>::Native;
-			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
-			let reward_rate_per_block = 100;
-			let expiry_block = 200u64;
-
 			assert_eq!(NextPoolId::<MockRuntime>::get(), 0);
+
+			// Create a pool with default values, and no admin override so [`PermissionedAccountId`]
+			// is admin.
 			assert_ok!(StakingRewards::create_pool(
-				RuntimeOrigin::signed(user),
-				Box::new(staked_asset_id.clone()),
-				Box::new(reward_asset_id.clone()),
-				reward_rate_per_block,
-				expiry_block,
+				RuntimeOrigin::root(),
+				Box::new(DEFAULT_STAKED_ASSET_ID),
+				Box::new(DEFAULT_REWARD_ASSET_ID),
+				DEFAULT_REWARD_RATE_PER_BLOCK,
+				DEFAULT_EXPIRY_BLOCK,
 				None
 			));
 
@@ -112,13 +126,13 @@ mod create_pool {
 			assert_eq!(
 				events(),
 				[Event::<MockRuntime>::PoolCreated {
-					creator: user,
+					creator: PermissionedAccountId::get(),
 					pool_id: 0,
-					staked_asset_id: staked_asset_id.clone(),
-					reward_asset_id: reward_asset_id.clone(),
-					reward_rate_per_block,
-					expiry_block,
-					admin: user,
+					staked_asset_id: DEFAULT_STAKED_ASSET_ID,
+					reward_asset_id: DEFAULT_REWARD_ASSET_ID,
+					reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
+					expiry_block: DEFAULT_EXPIRY_BLOCK,
+					admin: PermissionedAccountId::get(),
 				}]
 			);
 
@@ -129,11 +143,11 @@ mod create_pool {
 				vec![(
 					0,
 					PoolInfo {
-						staked_asset_id: staked_asset_id.clone(),
-						reward_asset_id: reward_asset_id.clone(),
-						reward_rate_per_block,
-						expiry_block,
-						admin: user,
+						staked_asset_id: DEFAULT_STAKED_ASSET_ID,
+						reward_asset_id: DEFAULT_REWARD_ASSET_ID,
+						reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
+						expiry_block: DEFAULT_EXPIRY_BLOCK,
+						admin: PermissionedAccountId::get(),
 						total_tokens_staked: 0,
 						reward_per_token_stored: 0,
 						last_update_block: 0
@@ -141,10 +155,14 @@ mod create_pool {
 				)]
 			);
 
-			// Create another pool with explicit admin.
+			// Create another pool with explicit admin and other overrides.
 			let admin = 2;
+			let staked_asset_id = NativeOrWithId::<u32>::WithId(10);
+			let reward_asset_id = NativeOrWithId::<u32>::WithId(20);
+			let reward_rate_per_block = 250;
+			let expiry_block = 500;
 			assert_ok!(StakingRewards::create_pool(
-				RuntimeOrigin::signed(user),
+				RuntimeOrigin::root(),
 				Box::new(staked_asset_id.clone()),
 				Box::new(reward_asset_id.clone()),
 				reward_rate_per_block,
@@ -156,7 +174,7 @@ mod create_pool {
 			assert_eq!(
 				events(),
 				[Event::<MockRuntime>::PoolCreated {
-					creator: user,
+					creator: PermissionedAccountId::get(),
 					pool_id: 1,
 					staked_asset_id: staked_asset_id.clone(),
 					reward_asset_id: reward_asset_id.clone(),
@@ -174,11 +192,11 @@ mod create_pool {
 					(
 						0,
 						PoolInfo {
-							staked_asset_id: staked_asset_id.clone(),
-							reward_asset_id: reward_asset_id.clone(),
-							reward_rate_per_block,
-							admin: user,
-							expiry_block,
+							staked_asset_id: DEFAULT_STAKED_ASSET_ID,
+							reward_asset_id: DEFAULT_REWARD_ASSET_ID,
+							reward_rate_per_block: DEFAULT_REWARD_RATE_PER_BLOCK,
+							admin: PermissionedAccountId::get(),
+							expiry_block: DEFAULT_EXPIRY_BLOCK,
 							total_tokens_staked: 0,
 							reward_per_token_stored: 0,
 							last_update_block: 0
@@ -210,7 +228,7 @@ mod create_pool {
 
 			assert_err!(
 				StakingRewards::create_pool(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::root(),
 					Box::new(valid_asset.clone()),
 					Box::new(invalid_asset.clone()),
 					10,
@@ -222,7 +240,7 @@ mod create_pool {
 
 			assert_err!(
 				StakingRewards::create_pool(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::root(),
 					Box::new(invalid_asset.clone()),
 					Box::new(valid_asset.clone()),
 					10,
@@ -234,7 +252,7 @@ mod create_pool {
 
 			assert_err!(
 				StakingRewards::create_pool(
-					RuntimeOrigin::signed(1),
+					RuntimeOrigin::root(),
 					Box::new(invalid_asset.clone()),
 					Box::new(invalid_asset.clone()),
 					10,
@@ -247,7 +265,7 @@ mod create_pool {
 	}
 
 	#[test]
-	fn fails_for_not_admin() {
+	fn fails_for_not_permissioned() {
 		new_test_ext().execute_with(|| {
 			let user = 100;
 			let staked_asset_id = NativeOrWithId::<u32>::Native;
@@ -261,7 +279,7 @@ mod create_pool {
 					Box::new(reward_asset_id.clone()),
 					reward_rate_per_block,
 					expiry_block,
-					Some(999)
+					None
 				),
 				BadOrigin
 			);
@@ -271,18 +289,14 @@ mod create_pool {
 	#[test]
 	fn fails_for_bad_expiry_block() {
 		new_test_ext().execute_with(|| {
-			let user = 1;
-			let staked_asset_id = NativeOrWithId::<u32>::Native;
-			let reward_asset_id = NativeOrWithId::<u32>::WithId(1);
-			let reward_rate_per_block = 100;
 			let expiry_block = 100u64;
 			System::set_block_number(expiry_block + 1u64);
 			assert_err!(
 				StakingRewards::create_pool(
-					RuntimeOrigin::signed(user),
-					Box::new(staked_asset_id.clone()),
-					Box::new(reward_asset_id.clone()),
-					reward_rate_per_block,
+					RuntimeOrigin::root(),
+					Box::new(DEFAULT_STAKED_ASSET_ID),
+					Box::new(DEFAULT_REWARD_ASSET_ID),
+					DEFAULT_REWARD_RATE_PER_BLOCK,
 					expiry_block,
 					None
 				),
@@ -555,7 +569,7 @@ mod set_pool_admin {
 	use super::*;
 
 	#[test]
-	fn success() {
+	fn success_signed_admin() {
 		new_test_ext().execute_with(|| {
 			let admin = 1;
 			let new_admin = 2;
@@ -568,6 +582,25 @@ mod set_pool_admin {
 				pool_id,
 				new_admin
 			));
+
+			// Check state
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::PoolAdminModified { pool_id, new_admin }
+			);
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().admin, new_admin);
+		});
+	}
+
+	#[test]
+	fn success_permissioned_admin() {
+		new_test_ext().execute_with(|| {
+			let new_admin = 2;
+			let pool_id = 0;
+			create_default_pool_permissioned_admin();
+
+			// Modify the pool admin
+			assert_ok!(StakingRewards::set_pool_admin(RuntimeOrigin::root(), pool_id, new_admin));
 
 			// Check state
 			assert_eq!(
@@ -620,7 +653,29 @@ mod set_pool_expiry_block {
 	use super::*;
 
 	#[test]
-	fn updates_state_correctly() {
+	fn success_permissioned_admin() {
+		new_test_ext().execute_with(|| {
+			let pool_id = 0;
+			let new_expiry_block = 200u64;
+			create_default_pool_permissioned_admin();
+
+			assert_ok!(StakingRewards::set_pool_expiry_block(
+				RuntimeOrigin::root(),
+				pool_id,
+				new_expiry_block
+			));
+
+			// Check state
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().expiry_block, new_expiry_block);
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::PoolExpiryBlockModified { pool_id, new_expiry_block }
+			);
+		});
+	}
+
+	#[test]
+	fn success_signed_admin() {
 		new_test_ext().execute_with(|| {
 			let admin = 1;
 			let pool_id = 0;
@@ -648,18 +703,28 @@ mod set_pool_expiry_block {
 			let admin = 1;
 			let staker = 2;
 			let pool_id = 0;
-			let new_expiry_block = 200u64;
+			let new_expiry_block = 300u64;
 			create_default_pool();
 
 			// Regular reward accumulation
 			System::set_block_number(10);
 			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
 			System::set_block_number(20);
-			assert_hypothetically_earned(staker, 100 * 10, pool_id, NativeOrWithId::<u32>::Native);
+			assert_hypothetically_earned(
+				staker,
+				DEFAULT_REWARD_RATE_PER_BLOCK * 10,
+				pool_id,
+				NativeOrWithId::<u32>::Native,
+			);
 
-			// Expiry was block 100, or only earned 90 blocks at block 150
-			System::set_block_number(150);
-			assert_hypothetically_earned(staker, 100 * 90, pool_id, NativeOrWithId::<u32>::Native);
+			// Expiry was block 200, so earned 190 at block 250
+			System::set_block_number(250);
+			assert_hypothetically_earned(
+				staker,
+				DEFAULT_REWARD_RATE_PER_BLOCK * 190,
+				pool_id,
+				NativeOrWithId::<u32>::Native,
+			);
 
 			// Extend expiry 50 more blocks
 			assert_ok!(StakingRewards::set_pool_expiry_block(
@@ -667,10 +732,15 @@ mod set_pool_expiry_block {
 				pool_id,
 				new_expiry_block
 			));
-			System::set_block_number(300);
+			System::set_block_number(350);
 
-			// Staker has been in pool with rewards active for 140 blocks total
-			assert_hypothetically_earned(staker, 100 * 140, pool_id, NativeOrWithId::<u32>::Native);
+			// Staker has been in pool with rewards active for 240 blocks total
+			assert_hypothetically_earned(
+				staker,
+				DEFAULT_REWARD_RATE_PER_BLOCK * 240,
+				pool_id,
+				NativeOrWithId::<u32>::Native,
+			);
 		});
 	}
 
@@ -763,15 +833,46 @@ mod set_pool_reward_rate_per_block {
 	use super::*;
 
 	#[test]
-	fn state_is_modified_correctly() {
+	fn success_signed_admin() {
 		new_test_ext().execute_with(|| {
-			let admin = 1;
 			let pool_id = 0;
 			let new_reward_rate = 200;
 			create_default_pool();
 
+			// Pool Admin can modify
 			assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
-				RuntimeOrigin::signed(admin),
+				RuntimeOrigin::signed(DEFAULT_ADMIN),
+				pool_id,
+				new_reward_rate
+			));
+
+			// Check state
+			assert_eq!(
+				Pools::<MockRuntime>::get(pool_id).unwrap().reward_rate_per_block,
+				new_reward_rate
+			);
+
+			// Check event
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::PoolRewardRateModified {
+					pool_id,
+					new_reward_rate_per_block: new_reward_rate
+				}
+			);
+		});
+	}
+
+	#[test]
+	fn success_permissioned_admin() {
+		new_test_ext().execute_with(|| {
+			let pool_id = 0;
+			let new_reward_rate = 200;
+			create_default_pool_permissioned_admin();
+
+			// Root can modify
+			assert_ok!(StakingRewards::set_pool_reward_rate_per_block(
+				RuntimeOrigin::root(),
 				pool_id,
 				new_reward_rate
 			));
@@ -925,13 +1026,58 @@ mod withdraw_reward_tokens {
 	use super::*;
 
 	#[test]
-	fn success() {
+	fn success_permissioned_admin() {
 		new_test_ext().execute_with(|| {
 			let admin = 1;
 			let pool_id = 0;
 			let reward_asset_id = NativeOrWithId::<u32>::Native;
 			let initial_deposit = 10;
 			let withdraw_amount = 5;
+			let dest = 10u128;
+			create_default_pool_permissioned_admin();
+			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
+
+			// Deposit initial reward tokens
+			assert_ok!(StakingRewards::deposit_reward_tokens(
+				RuntimeOrigin::signed(admin),
+				pool_id,
+				initial_deposit
+			));
+
+			// Withdraw some tokens
+			let dest_balance_before =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &dest);
+			let pool_balance_before = <<MockRuntime as Config>::Assets>::balance(
+				reward_asset_id.clone(),
+				&pool_account_id,
+			);
+			assert_ok!(StakingRewards::withdraw_reward_tokens(
+				RuntimeOrigin::root(),
+				pool_id,
+				withdraw_amount,
+				dest
+			));
+			let dest_balance_after =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &dest);
+			let pool_balance_after = <<MockRuntime as Config>::Assets>::balance(
+				reward_asset_id.clone(),
+				&pool_account_id,
+			);
+
+			assert_eq!(pool_balance_after, pool_balance_before - withdraw_amount);
+			assert_eq!(dest_balance_after, dest_balance_before + withdraw_amount);
+		});
+	}
+
+	#[test]
+	fn success_signed_origin() {
+		new_test_ext().execute_with(|| {
+			let admin = 1;
+			let pool_id = 0;
+			let reward_asset_id = NativeOrWithId::<u32>::Native;
+			let initial_deposit = 10;
+			let withdraw_amount = 5;
+			let dest = 10u128;
 			create_default_pool();
 			let pool_account_id = StakingRewards::pool_account_id(&pool_id).unwrap();
 
@@ -943,8 +1089,8 @@ mod withdraw_reward_tokens {
 			));
 
 			// Withdraw some tokens
-			let admin_balance_before =
-				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &admin);
+			let dest_balance_before =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &dest);
 			let pool_balance_before = <<MockRuntime as Config>::Assets>::balance(
 				reward_asset_id.clone(),
 				&pool_account_id,
@@ -952,17 +1098,18 @@ mod withdraw_reward_tokens {
 			assert_ok!(StakingRewards::withdraw_reward_tokens(
 				RuntimeOrigin::signed(admin),
 				pool_id,
-				withdraw_amount
+				withdraw_amount,
+				dest
 			));
-			let admin_balance_after =
-				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &admin);
+			let dest_balance_after =
+				<<MockRuntime as Config>::Assets>::balance(reward_asset_id.clone(), &dest);
 			let pool_balance_after = <<MockRuntime as Config>::Assets>::balance(
 				reward_asset_id.clone(),
 				&pool_account_id,
 			);
 
 			assert_eq!(pool_balance_after, pool_balance_before - withdraw_amount);
-			assert_eq!(admin_balance_after, admin_balance_before + withdraw_amount);
+			assert_eq!(dest_balance_after, dest_balance_before + withdraw_amount);
 		});
 	}
 
@@ -970,7 +1117,7 @@ mod withdraw_reward_tokens {
 	fn fails_for_non_existent_pool() {
 		new_test_ext().execute_with(|| {
 			assert_err!(
-				StakingRewards::withdraw_reward_tokens(RuntimeOrigin::signed(1), 900, 100),
+				StakingRewards::withdraw_reward_tokens(RuntimeOrigin::signed(1), 900, 100, 1u128),
 				Error::<MockRuntime>::NonExistentPool
 			);
 		});
@@ -981,7 +1128,7 @@ mod withdraw_reward_tokens {
 		new_test_ext().execute_with(|| {
 			create_default_pool();
 			assert_err!(
-				StakingRewards::withdraw_reward_tokens(RuntimeOrigin::signed(5), 0, 100),
+				StakingRewards::withdraw_reward_tokens(RuntimeOrigin::signed(5), 0, 100, 1u128),
 				BadOrigin
 			);
 		});
@@ -1009,7 +1156,8 @@ mod withdraw_reward_tokens {
 				StakingRewards::withdraw_reward_tokens(
 					RuntimeOrigin::signed(admin),
 					pool_id,
-					withdraw_amount
+					withdraw_amount,
+					admin
 				),
 				TokenError::FundsUnavailable
 			);
@@ -1037,12 +1185,12 @@ fn integration() {
 		let reward_rate_per_block = 100;
 		let expiry_block = 25u64.into();
 		assert_ok!(StakingRewards::create_pool(
-			RuntimeOrigin::signed(admin),
+			RuntimeOrigin::root(),
 			Box::new(staked_asset_id.clone()),
 			Box::new(reward_asset_id.clone()),
 			reward_rate_per_block,
 			expiry_block,
-			None
+			Some(admin)
 		));
 		let pool_id = 0;
 
@@ -1168,7 +1316,7 @@ fn integration() {
 			events(),
 			[
 				Event::PoolCreated {
-					creator: admin,
+					creator: PermissionedAccountId::get(),
 					pool_id,
 					staked_asset_id,
 					reward_asset_id,

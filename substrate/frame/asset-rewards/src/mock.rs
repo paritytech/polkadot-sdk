@@ -23,18 +23,15 @@ use core::default::Default;
 use frame_support::{
 	construct_runtime, derive_impl,
 	instances::Instance1,
-	ord_parameter_types, parameter_types,
+	parameter_types,
 	traits::{
 		tokens::fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
 		AsEnsureOriginWithArg, ConstU128, ConstU32, EnsureOrigin,
 	},
 	PalletId,
 };
-use frame_system::{ensure_signed, EnsureSigned};
-use sp_runtime::{
-	traits::{AccountIdConversion, IdentityLookup},
-	BuildStorage,
-};
+use frame_system::EnsureSigned;
+use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<MockRuntime>;
 
@@ -99,24 +96,19 @@ impl pallet_assets::Config<Instance1> for MockRuntime {
 parameter_types! {
 	pub const StakingRewardsPalletId: PalletId = PalletId(*b"py/stkrd");
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
-	pub const PermissionedAccountId: u128 = 1;
-}
-ord_parameter_types! {
-	pub const AssetConversionOrigin: u128 = AccountIdConversion::<u128>::into_account_truncating(&StakingRewardsPalletId::get());
+	pub const PermissionedAccountId: u128 = 0;
 }
 
-// Set account id 1 to the permissioned creator
-pub struct MockPermissionedPoolCreator;
-impl EnsureOrigin<RuntimeOrigin> for MockPermissionedPoolCreator {
-	type Success = ();
+/// Give Root Origin permission to create pools.
+pub struct MockPermissionedOrigin;
+impl EnsureOrigin<RuntimeOrigin> for MockPermissionedOrigin {
+	type Success = <MockRuntime as frame_system::Config>::AccountId;
 
 	fn try_origin(origin: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
-		// Set account 1 to admin in tests
-		if ensure_signed(origin.clone()).map_or(false, |acc| acc == 1) {
-			return Ok(());
+		match origin.clone().into() {
+			Ok(frame_system::RawOrigin::Root) => Ok(PermissionedAccountId::get()),
+			_ => Err(origin),
 		}
-
-		return Err(origin);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -133,7 +125,7 @@ impl Config for MockRuntime {
 	type Balance = <Self as pallet_balances::Config>::Balance;
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
-	type PermissionedPoolCreator = MockPermissionedPoolCreator;
+	type PermissionedOrigin = MockPermissionedOrigin;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -144,10 +136,14 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	pallet_assets::GenesisConfig::<MockRuntime, Instance1> {
 		// Genesis assets: id, owner, is_sufficient, min_balance
 		// pub assets: Vec<(T::AssetId, T::AccountId, bool, T::Balance)>,
-		assets: vec![(1, 1, true, 10000)],
+		assets: vec![(1, 1, true, 10000), (10, 1, true, 10000), (20, 1, true, 10000)],
 		// Genesis metadata: id, name, symbol, decimals
 		// pub metadata: Vec<(T::AssetId, Vec<u8>, Vec<u8>, u8)>,
-		metadata: vec![(1, b"test".to_vec(), b"TST".to_vec(), 18)],
+		metadata: vec![
+			(1, b"test".to_vec(), b"TST".to_vec(), 18),
+			(10, b"test10".to_vec(), b"T10".to_vec(), 18),
+			(20, b"test20".to_vec(), b"T20".to_vec(), 18),
+		],
 		// Genesis accounts: id, account_id, balance
 		// pub accounts: Vec<(T::AssetId, T::AccountId, T::Balance)>,
 		accounts: vec![
