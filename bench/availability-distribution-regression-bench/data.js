@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712730240505,
+  "lastUpdate": 1712738040326,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -2963,6 +2963,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16275950642,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Serban Iorga",
+            "username": "serban300",
+            "email": "serban@parity.io"
+          },
+          "committer": {
+            "name": "Bastian Köcher",
+            "username": "bkchr",
+            "email": "git@kchr.de"
+          },
+          "id": "b8956fe1500860fad1dc0b9c55966834fc9a60c8",
+          "message": "Reapply lost changes",
+          "timestamp": "2024-04-10T07:29:18Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b8956fe1500860fad1dc0b9c55966834fc9a60c8"
+        },
+        "date": 1712738014172,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.91333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.013439692586666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011197681240000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.026302755686666675,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16180000010666667,
             "unit": "seconds"
           }
         ]
