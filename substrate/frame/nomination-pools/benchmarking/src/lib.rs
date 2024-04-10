@@ -901,6 +901,8 @@ frame_benchmarking::benchmarks! {
 	}:
 	{
 		let res = Pools::<T>::apply_slash(RuntimeOrigin::Signed(slash_reporter.clone()).into(), depositor_lookup.clone());
+		// for transfer stake strategy, apply slash would error, otherwise success.
+		assert!(is_transfer_stake_strategy::<T>() ^ res.is_ok());
 	}
 	verify {
 		// verify balances are correct and slash applied.
