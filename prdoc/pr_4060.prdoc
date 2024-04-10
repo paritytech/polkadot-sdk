@@ -22,8 +22,6 @@ crates:
     bump: patch
   - name: pallet-atomic-swap
     bump: patch
-  - name: pallet-contracts
-    bump: patch
   - name: pallet-election-provider-support-benchmarking
     bump: patch
   - name: pallet-dev-mode

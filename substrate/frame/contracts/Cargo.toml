@@ -44,7 +44,7 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 pallet-balances = { path = "../balances", default-features = false, optional = true }
-pallet-contracts-uapi = { path = "uapi", default-features = false, features = ["scale"] }
+pallet-contracts-uapi = { path = "uapi" }
 pallet-contracts-proc-macro = { path = "proc-macro" }
 sp-api = { path = "../../primitives/api", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
