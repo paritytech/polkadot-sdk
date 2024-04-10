@@ -3472,7 +3472,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>peer = <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer_id) {
 			peer
 		} <span class="kw">else </span>{
-			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;💔 Called `on_validated_block_announce` with a bad peer ID&quot;</span>);
+			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;💔 Called `on_validated_block_announce` with a bad peer ID {peer_id}&quot;</span>);
 			<span class="kw">return </span><span class="prelude-val">Some</span>((hash, number))
 		};
 
