@@ -812,7 +812,10 @@ fn answer_prospective_validation_data_request(
 	};
 
 	let (mut head_data, parent_head_data_hash) = match request.parent_head_data {
-		ParentHeadData::OnlyHash(parent_head_data_hash) => (None, parent_head_data_hash),
+		ParentHeadData::OnlyHash(parent_head_data_hash) => (
+			storage.head_data_by_hash(&parent_head_data_hash).map(|x| x.clone()),
+			parent_head_data_hash,
+		),
 		ParentHeadData::WithData { head_data, hash } => (Some(head_data), hash),
 	};
 
@@ -835,12 +838,6 @@ fn answer_prospective_validation_data_request(
 			let required_parent = &fragment_chain.scope().base_constraints().required_parent;
 			if required_parent.hash() == parent_head_data_hash {
 				head_data = Some(required_parent.clone());
-			} else {
-				if let Some(found_head_data) =
-					fragment_chain.head_data_by_hash(storage, &parent_head_data_hash)
-				{
-					head_data = Some(found_head_data);
-				}
 			}
 		}
 		if max_pov_size.is_none() {
@@ -854,18 +851,6 @@ fn answer_prospective_validation_data_request(
 				//    children is different from that of the base block's.
 				// 2. That the max_pov_size is only configurable per session.
 				max_pov_size = Some(fragment_chain.scope().base_constraints().max_pov_size);
-			}
-		}
-	}
-
-	if head_data.is_none() {
-		for candidate in storage.candidates() {
-			if candidate.output_head_data_hash() == parent_head_data_hash {
-				head_data = Some(candidate.output_head_data());
-				break
-			} else if candidate.parent_head_data_hash() == parent_head_data_hash {
-				head_data = Some(candidate.parent_head_data());
-				break
 			}
 		}
 	}

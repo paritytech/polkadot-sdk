@@ -88,7 +88,10 @@
 
 use std::{
 	borrow::Cow,
-	collections::{hash_map::HashMap, BTreeMap, HashSet},
+	collections::{
+		hash_map::{Entry, HashMap},
+		BTreeMap, HashSet,
+	},
 };
 
 use super::LOG_TARGET;
@@ -114,6 +117,19 @@ pub enum CandidateStorageInsertionError {
 /// Stores candidates and information about them such as their relay-parents and their backing
 /// states.
 pub(crate) struct CandidateStorage {
+	// Index from head data hash to candidate hashes with that head data as a parent. Purely for
+	// efficiency when responding to `ProspectiveValidationDataRequest`s or when trying to find a
+	// new candidate to push to a chain.
+	// Even though having multiple candidates with same parent would be invalid for a parachain, it
+	// could happen across different relay chain forks, hence the HashSet.
+	by_parent_head: HashMap<Hash, HashSet<CandidateHash>>,
+
+	// Index from head data hash to candidate hashes outputting that head data. Purely for
+	// efficiency when responding to `ProspectiveValidationDataRequest`s.
+	// Even though having multiple candidates with same output would be invalid for a parachain,
+	// it could happen across different relay chain forks.
+	by_output_head: HashMap<Hash, HashSet<CandidateHash>>,
+
 	// Index from candidate hash to fragment node.
 	by_candidate_hash: HashMap<CandidateHash, CandidateEntry>,
 }
@@ -121,7 +137,11 @@ pub(crate) struct CandidateStorage {
 impl CandidateStorage {
 	/// Create a new `CandidateStorage`.
 	pub fn new() -> Self {
-		CandidateStorage { by_candidate_hash: HashMap::new() }
+		CandidateStorage {
+			by_parent_head: HashMap::new(),
+			by_output_head: HashMap::new(),
+			by_candidate_hash: HashMap::new(),
+		}
 	}
 
 	/// Introduce a new candidate.
@@ -156,6 +176,15 @@ impl CandidateStorage {
 			},
 		};
 
+		self.by_parent_head
+			.entry(entry.parent_head_data_hash())
+			.or_default()
+			.insert(candidate_hash);
+		self.by_output_head
+			.entry(entry.output_head_data_hash())
+			.or_default()
+			.insert(candidate_hash);
+		// sanity-checked already.
 		self.by_candidate_hash.insert(candidate_hash, entry);
 
 		Ok(candidate_hash)
@@ -163,7 +192,23 @@ impl CandidateStorage {
 
 	/// Remove a candidate from the store.
 	pub fn remove_candidate(&mut self, candidate_hash: &CandidateHash) {
-		self.by_candidate_hash.remove(candidate_hash);
+		if let Some(entry) = self.by_candidate_hash.remove(candidate_hash) {
+			if let Entry::Occupied(mut e) = self.by_parent_head.entry(entry.parent_head_data_hash())
+			{
+				e.get_mut().remove(&candidate_hash);
+				if e.get().is_empty() {
+					e.remove();
+				}
+			}
+
+			if let Entry::Occupied(mut e) = self.by_output_head.entry(entry.output_head_data_hash())
+			{
+				e.get_mut().remove(&candidate_hash);
+				if e.get().is_empty() {
+					e.remove();
+				}
+			}
+		}
 	}
 
 	/// Note that an existing candidate has been backed.
@@ -196,6 +241,35 @@ impl CandidateStorage {
 	/// Retain only candidates which pass the predicate.
 	pub(crate) fn retain(&mut self, pred: impl Fn(&CandidateHash) -> bool) {
 		self.by_candidate_hash.retain(|h, _v| pred(h));
+		self.by_parent_head.retain(|_parent, children| {
+			children.retain(|h| pred(h));
+			!children.is_empty()
+		});
+		self.by_output_head.retain(|_output, candidates| {
+			candidates.retain(|h| pred(h));
+			!candidates.is_empty()
+		});
+	}
+
+	/// Get head-data by hash.
+	pub(crate) fn head_data_by_hash(&self, hash: &Hash) -> Option<&HeadData> {
+		// First, search for candidates outputting this head data and extract the head data
+		// from their commitments if they exist.
+		//
+		// Otherwise, search for candidates building upon this head data and extract the head data
+		// from their persisted validation data if they exist.
+		self.by_output_head
+			.get(hash)
+			.and_then(|m| m.iter().next())
+			.and_then(|a_candidate| self.by_candidate_hash.get(a_candidate))
+			.map(|e| &e.candidate.commitments.head_data)
+			.or_else(|| {
+				self.by_parent_head
+					.get(hash)
+					.and_then(|m| m.iter().next())
+					.and_then(|a_candidate| self.by_candidate_hash.get(a_candidate))
+					.map(|e| &e.candidate.persisted_validation_data.parent_head)
+			})
 	}
 
 	/// Returns candidate's relay parent, if present.
@@ -214,11 +288,12 @@ impl CandidateStorage {
 		&'a self,
 		parent_head_hash: &'a Hash,
 	) -> impl Iterator<Item = &'a CandidateEntry> + 'a {
-		// TODO: we could add a by_parent_head here, but it complicates the code for little benefit.
-		// This vector shouldn't get large.
-		self.by_candidate_hash
-			.values()
-			.filter(|c| c.parent_head_data_hash() == *parent_head_hash)
+		let by_candidate_hash = &self.by_candidate_hash;
+		self.by_parent_head
+			.get(parent_head_hash)
+			.into_iter()
+			.flat_map(|hashes| hashes.iter())
+			.filter_map(move |h| by_candidate_hash.get(h))
 	}
 
 	#[cfg(test)]
@@ -259,14 +334,6 @@ impl CandidateEntry {
 
 	pub fn output_head_data_hash(&self) -> Hash {
 		self.output_head_data_hash
-	}
-
-	pub fn output_head_data(&self) -> HeadData {
-		self.candidate.commitments.head_data.clone()
-	}
-
-	pub fn parent_head_data(&self) -> HeadData {
-		self.candidate.persisted_validation_data.parent_head.clone()
 	}
 }
 
@@ -964,30 +1031,6 @@ impl FragmentChain {
 				break
 			}
 		}
-	}
-
-	// Get head-data by hash.
-	pub(crate) fn head_data_by_hash(
-		&self,
-		storage: &CandidateStorage,
-		hash: &Hash,
-	) -> Option<HeadData> {
-		// First, search for candidates outputting this head data and extract the head data
-		// from their commitments if they exist.
-		//
-		// Otherwise, search for candidates building upon this head data and extract the head data
-		// from their persisted validation data if they exist.
-		self.by_output_head
-			.get(hash)
-			.and_then(|a_candidate| storage.by_candidate_hash.get(a_candidate))
-			.map(|e| &e.candidate.commitments.head_data)
-			.or_else(|| {
-				self.by_parent_head
-					.get(hash)
-					.and_then(|a_candidate| storage.by_candidate_hash.get(a_candidate))
-					.map(|e| &e.candidate.persisted_validation_data.parent_head)
-			})
-			.cloned()
 	}
 }
 
