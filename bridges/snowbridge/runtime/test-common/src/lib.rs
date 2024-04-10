@@ -7,7 +7,6 @@ use frame_support::{
 	traits::{fungible::Mutate, OnFinalize, OnInitialize},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom,
 };

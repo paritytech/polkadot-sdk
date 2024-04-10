@@ -146,9 +146,9 @@ pub mod pallet {
 			xcm: Box<xcm::opaque::VersionedXcm>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(<paras::Pallet<T>>::is_valid_para(id), Error::<T>::ParaDoesntExist);
-			let config = <configuration::Pallet<T>>::config();
-			<dmp::Pallet<T>>::queue_downward_message(&config, id, xcm.encode()).map_err(|e| match e
+			ensure!(paras::Pallet::<T>::is_valid_para(id), Error::<T>::ParaDoesntExist);
+			let config = configuration::ActiveConfig::<T>::get();
+			dmp::Pallet::<T>::queue_downward_message(&config, id, xcm.encode()).map_err(|e| match e
 			{
 				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize =>
 					Error::<T>::ExceedsMaxMessageSize.into(),
@@ -170,13 +170,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			<hrmp::Pallet<T>>::init_open_channel(
+			hrmp::Pallet::<T>::init_open_channel(
 				sender,
 				recipient,
 				max_capacity,
 				max_message_size,
 			)?;
-			<hrmp::Pallet<T>>::accept_open_channel(recipient, sender)?;
+			hrmp::Pallet::<T>::accept_open_channel(recipient, sender)?;
 			Ok(())
 		}
 	}
