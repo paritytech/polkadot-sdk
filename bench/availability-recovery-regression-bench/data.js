@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712737489633,
+  "lastUpdate": 1712744689484,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2393,6 +2393,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.19278916063333337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Matteo Muraca",
+            "username": "muraca",
+            "email": "56828990+muraca@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "92e142555d45f97aa88d241665d9952d12f4ae40",
+          "message": "Removed `pallet::getter` usage from Polkadot Runtime pallets (#3660)\n\nPart of #3326 \n\n@kianenigma @ggwpez \n\npolkadot address: 12poSUQPtcF1HUPQGY3zZu2P8emuW9YnsPduA4XG3oCEfJVp\n\n---------\n\nSigned-off-by: Matteo Muraca <mmuraca247@gmail.com>\nCo-authored-by: ordian <write@reusable.software>",
+          "timestamp": "2024-04-10T08:35:10Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/92e142555d45f97aa88d241665d9952d12f4ae40"
+        },
+        "date": 1712744663981,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.08063457244667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.18043470737999998,
             "unit": "seconds"
           }
         ]
