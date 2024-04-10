@@ -15,8 +15,6 @@
 //! ## Consensus Updates
 //!
 //! * [`Call::submit`]: Submit a finalized beacon header with an optional sync committee update
-//! * [`Call::submit_execution_header`]: Submit an execution header together with an ancestry proof
-//!   that can be verified against an already imported finalized beacon header.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod config;

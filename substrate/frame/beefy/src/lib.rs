@@ -280,6 +280,14 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -291,6 +299,60 @@ pub mod pallet {
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			Self::validate_unsigned(source, call)
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_authorities()?;
+		Self::try_state_validators()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * `Authorities` should not exceed the `MaxAuthorities` capacity.
+	/// * `NextAuthorities` should not exceed the `MaxAuthorities` capacity.
+	fn try_state_authorities() -> Result<(), sp_runtime::TryRuntimeError> {
+		if let Some(authorities_len) = <Authorities<T>>::decode_len() {
+			ensure!(
+				authorities_len as u32 <= T::MaxAuthorities::get(),
+				"Authorities number exceeds what the pallet config allows."
+			);
+		} else {
+			return Err(sp_runtime::TryRuntimeError::Other(
+				"Failed to decode length of authorities",
+			));
+		}
+
+		if let Some(next_authorities_len) = <NextAuthorities<T>>::decode_len() {
+			ensure!(
+				next_authorities_len as u32 <= T::MaxAuthorities::get(),
+				"Next authorities number exceeds what the pallet config allows."
+			);
+		} else {
+			return Err(sp_runtime::TryRuntimeError::Other(
+				"Failed to decode length of next authorities",
+			));
+		}
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// `ValidatorSetId` must be present in `SetIdSession`
+	fn try_state_validators() -> Result<(), sp_runtime::TryRuntimeError> {
+		let validator_set_id = <ValidatorSetId<T>>::get();
+		ensure!(
+			SetIdSession::<T>::get(validator_set_id).is_some(),
+			"Validator set id must be present in SetIdSession"
+		);
+		Ok(())
 	}
 }
 

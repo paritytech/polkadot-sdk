@@ -1446,6 +1446,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+#[allow(deprecated)]
 impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {
@@ -1480,6 +1481,8 @@ impl<T: Config> schedule::v2::Anon<BlockNumberFor<T>, <T as Config>::RuntimeCall
 	}
 }
 
+// TODO: migrate `schedule::v2::Anon` to `v3`
+#[allow(deprecated)]
 impl<T: Config> schedule::v2::Named<BlockNumberFor<T>, <T as Config>::RuntimeCall, T::PalletsOrigin>
 	for Pallet<T>
 {

@@ -271,7 +271,7 @@ pub mod pallet {
 				Fortitude::Polite,
 			)
 			.min(delivery_cost);
-			if amount > BalanceOf::<T>::zero() {
+			if !amount.is_zero() {
 				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
 			}
 

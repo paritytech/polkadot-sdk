@@ -22,7 +22,7 @@ cfg-if = "1.0"
 clap = { version = "4.5.3", features = ["derive"], optional = true }
 log = { workspace = true, default-features = true }
 thiserror = { workspace = true }
-futures = "0.3.21"
+futures = "0.3.30"
 pyro = { package = "pyroscope", version = "0.5.3", optional = true }
 pyroscope_pprofrs = { version = "0.2", optional = true }
 
