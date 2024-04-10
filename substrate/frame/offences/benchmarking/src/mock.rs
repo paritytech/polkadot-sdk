@@ -17,7 +17,6 @@
 
 //! Mock file for offences benchmarking.
 
-use crate::inner::*;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -31,7 +30,7 @@ use pallet_session::historical as pallet_session_historical;
 use sp_runtime::{
 	testing::{Header, UintAuthorityId},
 	traits::IdentityLookup,
-	BuildStorage,
+	BuildStorage, Perbill,
 };
 
 type AccountId = u64;
