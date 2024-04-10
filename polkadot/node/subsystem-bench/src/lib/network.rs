@@ -474,19 +474,17 @@ impl EmulatedPeer {
 	pub async fn send_message(&mut self, message: NetworkMessage) {
 		self.tx_limiter.reap(message.size()).await;
 
-		if self.latency_ms == 0 {
-			self.to_node.unbounded_send(message).expect("Sending to the node never fails");
-		} else {
-			let to_node = self.to_node.clone();
-			let latency_ms = std::time::Duration::from_millis(self.latency_ms as u64);
+		let to_node = self.to_node.clone();
+		let latency_ms = std::time::Duration::from_millis(self.latency_ms as u64);
 
-			// Emulate RTT latency
-			self.spawn_handle
-				.spawn("peer-latency-emulator", "test-environment", async move {
+		self.spawn_handle
+			.spawn("peer-latency-emulator", "test-environment", async move {
+				// Emulate RTT latency
+				if !latency_ms.is_zero() {
 					tokio::time::sleep(latency_ms).await;
-					to_node.unbounded_send(message).expect("Sending to the node never fails");
-				});
-		}
+				}
+				to_node.unbounded_send(message).expect("Sending to the node never fails");
+			});
 	}
 
 	/// Returns the rx bandwidth limiter.
