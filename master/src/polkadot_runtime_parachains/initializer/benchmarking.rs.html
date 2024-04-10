@@ -221,12 +221,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	force_approve {
 		<span class="kw">let </span>d <span class="kw">in </span><span class="number">0 </span>.. DIGEST_MAX_LEN;
 		<span class="kw">for _ in </span><span class="number">0 </span>.. d {
-			&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_log(ConsensusLog::ForceApprove(d).into());
+			frame_system::Pallet::&lt;T&gt;::deposit_log(ConsensusLog::ForceApprove(d).into());
 		}
 	}: <span class="kw">_</span>(RawOrigin::Root, d + <span class="number">1</span>)
 	verify {
 		<span class="macro">assert_eq!</span>(
-			&lt;frame_system::Pallet&lt;T&gt;&gt;::digest().logs.last().unwrap(),
+			frame_system::Pallet::&lt;T&gt;::digest().logs.last().unwrap(),
 			<span class="kw-2">&amp;</span>DigestItem::from(ConsensusLog::ForceApprove(d + <span class="number">1</span>)),
 		);
 	}

@@ -685,9 +685,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#536" id="536">536</a>
 <a href="#537" id="537">537</a>
 <a href="#538" id="538">538</a>
-<a href="#539" id="539">539</a>
-<a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -731,7 +728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Implementation for the `validators` function of the runtime API.
 </span><span class="kw">pub fn </span>validators&lt;T: initializer::Config&gt;() -&gt; Vec&lt;ValidatorId&gt; {
-	&lt;shared::Pallet&lt;T&gt;&gt;::active_validator_keys()
+	shared::ActiveValidatorKeys::&lt;T&gt;::get()
 }
 
 <span class="doccomment">/// Implementation for the `validator_groups` function of the runtime API.
@@ -739,29 +736,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; (Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;, GroupRotationInfo&lt;BlockNumberFor&lt;T&gt;&gt;) {
 	<span class="comment">// This formula needs to be the same as the one we use
 	// when populating group_responsible in `availability_cores`
-	</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
+	</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number() + One::one();
 
-	<span class="kw">let </span>groups = &lt;scheduler::Pallet&lt;T&gt;&gt;::validator_groups();
-	<span class="kw">let </span>rotation_info = &lt;scheduler::Pallet&lt;T&gt;&gt;::group_rotation_info(now);
+	<span class="kw">let </span>groups = scheduler::ValidatorGroups::&lt;T&gt;::get();
+	<span class="kw">let </span>rotation_info = scheduler::Pallet::&lt;T&gt;::group_rotation_info(now);
 
 	(groups, rotation_info)
 }
 
 <span class="doccomment">/// Implementation for the `availability_cores` function of the runtime API.
 </span><span class="kw">pub fn </span>availability_cores&lt;T: initializer::Config&gt;() -&gt; Vec&lt;CoreState&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
-	<span class="kw">let </span>cores = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_cores();
-	<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
+	<span class="kw">let </span>cores = scheduler::AvailabilityCores::&lt;T&gt;::get();
+	<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number() + One::one();
 
 	<span class="comment">// This explicit update is only strictly required for session boundaries:
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	</span>&lt;scheduler::Pallet&lt;T&gt;&gt;::free_cores_and_fill_claimqueue(Vec::new(), now);
+	</span>scheduler::Pallet::&lt;T&gt;::free_cores_and_fill_claimqueue(Vec::new(), now);
 
-	<span class="kw">let </span>time_out_for = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_timeout_predicate();
+	<span class="kw">let </span>time_out_for = scheduler::Pallet::&lt;T&gt;::availability_timeout_predicate();
 
 	<span class="kw">let </span>group_responsible_for =
-		|backed_in_number, core_index| <span class="kw">match </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::group_assigned_to_core(
+		|backed_in_number, core_index| <span class="kw">match </span>scheduler::Pallet::&lt;T&gt;::group_assigned_to_core(
 			core_index,
 			backed_in_number,
 		) {
@@ -777,7 +774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		};
 
-	<span class="kw">let </span>scheduled: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = &lt;scheduler::Pallet&lt;T&gt;&gt;::scheduled_paras().collect();
+	<span class="kw">let </span>scheduled: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = scheduler::Pallet::&lt;T&gt;::scheduled_paras().collect();
 
 	cores
 		.into_iter()
@@ -788,13 +785,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// this runtime API to panic. We explicitly handle the storage for version 0 to
 				// prevent that. When removing the inclusion v0 -&gt; v1 migration, this bit of code
 				// can also be removed.
-				</span><span class="kw">let </span>pending_availability = <span class="kw">if </span>&lt;inclusion::Pallet&lt;T&gt;&gt;::on_chain_storage_version() ==
+				</span><span class="kw">let </span>pending_availability = <span class="kw">if </span>inclusion::Pallet::&lt;T&gt;::on_chain_storage_version() ==
 					StorageVersion::new(<span class="number">0</span>)
 				{
 					inclusion::migration::v0::PendingAvailability::&lt;T&gt;::get(entry.para_id())
 						.expect(<span class="string">&quot;Occupied core always has pending availability; qed&quot;</span>)
 				} <span class="kw">else </span>{
-					<span class="kw">let </span>candidate = &lt;inclusion::Pallet&lt;T&gt;&gt;::pending_availability_with_core(
+					<span class="kw">let </span>candidate = inclusion::Pallet::&lt;T&gt;::pending_availability_with_core(
 						entry.para_id(),
 						CoreIndex(i <span class="kw">as </span>u32),
 					)
@@ -820,12 +817,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>backing_group_allocation_time =
 					pending_availability.relay_parent_number + One::one();
 				CoreState::Occupied(OccupiedCore {
-					next_up_on_available: &lt;scheduler::Pallet&lt;T&gt;&gt;::next_up_on_available(CoreIndex(
+					next_up_on_available: scheduler::Pallet::&lt;T&gt;::next_up_on_available(CoreIndex(
 						i <span class="kw">as </span>u32,
 					)),
 					occupied_since: backed_in_number,
 					time_out_at: time_out_for(backed_in_number).live_until,
-					next_up_on_time_out: &lt;scheduler::Pallet&lt;T&gt;&gt;::next_up_on_time_out(CoreIndex(
+					next_up_on_time_out: scheduler::Pallet::&lt;T&gt;::next_up_on_time_out(CoreIndex(
 						i <span class="kw">as </span>u32,
 					)),
 					availability: pending_availability.availability_votes.clone(),
@@ -852,8 +849,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>current_relay_parent&lt;T: frame_system::Config&gt;(
 ) -&gt; (BlockNumberFor&lt;T&gt;, &lt;T <span class="kw">as </span>frame_system::Config&gt;::Hash) {
 	<span class="kw">use </span>parity_scale_codec::Decode <span class="kw">as _</span>;
-	<span class="kw">let </span>state_version = &lt;frame_system::Pallet&lt;T&gt;&gt;::runtime_version().state_version();
-	<span class="kw">let </span>relay_parent_number = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+	<span class="kw">let </span>state_version = frame_system::Pallet::&lt;T&gt;::runtime_version().state_version();
+	<span class="kw">let </span>relay_parent_number = frame_system::Pallet::&lt;T&gt;::block_number();
 	<span class="kw">let </span>relay_parent_storage_root = T::Hash::decode(<span class="kw-2">&amp;mut &amp;</span>sp_io::storage::root(state_version)[..])
 		.expect(<span class="string">&quot;storage root must decode to the Hash type; qed&quot;</span>);
 	(relay_parent_number, relay_parent_storage_root)
@@ -919,13 +916,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>persisted_validation_data = make_validation_data().or_else(|| {
 		<span class="comment">// Try again with force enacting the pending candidates. This check only makes sense if
 		// there are any pending candidates.
-		</span>&lt;inclusion::Pallet&lt;T&gt;&gt;::pending_availability(para_id).and_then(|<span class="kw">_</span>| {
-			&lt;inclusion::Pallet&lt;T&gt;&gt;::force_enact(para_id);
+		</span>inclusion::Pallet::&lt;T&gt;::pending_availability(para_id).and_then(|<span class="kw">_</span>| {
+			inclusion::Pallet::&lt;T&gt;::force_enact(para_id);
 			make_validation_data()
 		})
 	});
 	<span class="comment">// If we were successful, also query current validation code hash.
-	</span>persisted_validation_data.zip(&lt;paras::Pallet&lt;T&gt;&gt;::current_code_hash(<span class="kw-2">&amp;</span>para_id))
+	</span>persisted_validation_data.zip(paras::CurrentCodeHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para_id))
 }
 
 <span class="doccomment">/// Implementation for the `check_validation_outputs` function of the runtime API.
@@ -933,8 +930,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	para_id: ParaId,
 	outputs: primitives::CandidateCommitments,
 ) -&gt; bool {
-	<span class="kw">let </span>relay_parent_number = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
-	&lt;inclusion::Pallet&lt;T&gt;&gt;::check_validation_outputs_for_runtime_api(
+	<span class="kw">let </span>relay_parent_number = frame_system::Pallet::&lt;T&gt;::block_number();
+	inclusion::Pallet::&lt;T&gt;::check_validation_outputs_for_runtime_api(
 		para_id,
 		relay_parent_number,
 		outputs,
@@ -950,7 +947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//
 	// Incidentally, this is also the rationale for why it is OK to query validators or
 	// occupied cores or etc. and expect the correct response &quot;for child&quot;.
-	</span>&lt;shared::Pallet&lt;T&gt;&gt;::session_index()
+	</span>shared::CurrentSessionIndex::&lt;T&gt;::get()
 }
 
 <span class="doccomment">/// Implementation for the `AuthorityDiscoveryApi::authorities()` function of the runtime API.
@@ -959,18 +956,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>relevant_authority_ids&lt;T: initializer::Config + pallet_authority_discovery::Config&gt;(
 ) -&gt; Vec&lt;AuthorityDiscoveryId&gt; {
 	<span class="kw">let </span>current_session_index = session_index_for_child::&lt;T&gt;();
-	<span class="kw">let </span>earliest_stored_session = &lt;session_info::Pallet&lt;T&gt;&gt;::earliest_stored_session();
+	<span class="kw">let </span>earliest_stored_session = session_info::EarliestStoredSession::&lt;T&gt;::get();
 
 	<span class="comment">// Due to `max_validators`, the `SessionInfo` stores only the validators who are actively
 	// selected to participate in parachain consensus. We&#39;d like all authorities for the current
 	// and next sessions to be used in authority-discovery. The two sets likely have large overlap.
-	</span><span class="kw">let </span><span class="kw-2">mut </span>authority_ids = &lt;pallet_authority_discovery::Pallet&lt;T&gt;&gt;::current_authorities().to_vec();
-	authority_ids.extend(&lt;pallet_authority_discovery::Pallet&lt;T&gt;&gt;::next_authorities().to_vec());
+	</span><span class="kw">let </span><span class="kw-2">mut </span>authority_ids = pallet_authority_discovery::Pallet::&lt;T&gt;::current_authorities().to_vec();
+	authority_ids.extend(pallet_authority_discovery::Pallet::&lt;T&gt;::next_authorities().to_vec());
 
 	<span class="comment">// Due to disputes, we&#39;d like to remain connected to authorities of the previous few sessions.
 	// For this, we don&#39;t need anyone other than the validators actively participating in consensus.
 	</span><span class="kw">for </span>session_index <span class="kw">in </span>earliest_stored_session..current_session_index {
-		<span class="kw">let </span>info = &lt;session_info::Pallet&lt;T&gt;&gt;::session_info(session_index);
+		<span class="kw">let </span>info = session_info::Sessions::&lt;T&gt;::get(session_index);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>info) = info {
 			authority_ids.append(<span class="kw-2">&amp;mut </span>info.discovery_keys);
 		}
@@ -987,14 +984,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	para_id: ParaId,
 	assumption: OccupiedCoreAssumption,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;ValidationCode&gt; {
-	with_assumption::&lt;T, <span class="kw">_</span>, <span class="kw">_</span>&gt;(para_id, assumption, || &lt;paras::Pallet&lt;T&gt;&gt;::current_code(<span class="kw-2">&amp;</span>para_id))
+	with_assumption::&lt;T, <span class="kw">_</span>, <span class="kw">_</span>&gt;(para_id, assumption, || paras::Pallet::&lt;T&gt;::current_code(<span class="kw-2">&amp;</span>para_id))
 }
 
 <span class="doccomment">/// Implementation for the `candidate_pending_availability` function of the runtime API.
 </span><span class="kw">pub fn </span>candidate_pending_availability&lt;T: initializer::Config&gt;(
 	para_id: ParaId,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&lt;T::Hash&gt;&gt; {
-	&lt;inclusion::Pallet&lt;T&gt;&gt;::candidate_pending_availability(para_id)
+	inclusion::Pallet::&lt;T&gt;::candidate_pending_availability(para_id)
 }
 
 <span class="doccomment">/// Implementation for the `candidate_events` function of the runtime API.
@@ -1007,7 +1004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">use </span>inclusion::Event <span class="kw">as </span>RawEvent;
 
-	&lt;frame_system::Pallet&lt;T&gt;&gt;::read_events_no_consensus()
+	frame_system::Pallet::&lt;T&gt;::read_events_no_consensus()
 		.into_iter()
 		.filter_map(|record| extract_event(record.event))
 		.filter_map(|event| {
@@ -1028,33 +1025,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Get the session info for the given session, if stored.
 </span><span class="kw">pub fn </span>session_info&lt;T: session_info::Config&gt;(index: SessionIndex) -&gt; <span class="prelude-ty">Option</span>&lt;SessionInfo&gt; {
-	&lt;session_info::Pallet&lt;T&gt;&gt;::session_info(index)
+	session_info::Sessions::&lt;T&gt;::get(index)
 }
 
 <span class="doccomment">/// Implementation for the `dmq_contents` function of the runtime API.
 </span><span class="kw">pub fn </span>dmq_contents&lt;T: dmp::Config&gt;(
 	recipient: ParaId,
 ) -&gt; Vec&lt;InboundDownwardMessage&lt;BlockNumberFor&lt;T&gt;&gt;&gt; {
-	&lt;dmp::Pallet&lt;T&gt;&gt;::dmq_contents(recipient)
+	dmp::Pallet::&lt;T&gt;::dmq_contents(recipient)
 }
 
 <span class="doccomment">/// Implementation for the `inbound_hrmp_channels_contents` function of the runtime API.
 </span><span class="kw">pub fn </span>inbound_hrmp_channels_contents&lt;T: hrmp::Config&gt;(
 	recipient: ParaId,
 ) -&gt; BTreeMap&lt;ParaId, Vec&lt;InboundHrmpMessage&lt;BlockNumberFor&lt;T&gt;&gt;&gt;&gt; {
-	&lt;hrmp::Pallet&lt;T&gt;&gt;::inbound_hrmp_channels_contents(recipient)
+	hrmp::Pallet::&lt;T&gt;::inbound_hrmp_channels_contents(recipient)
 }
 
 <span class="doccomment">/// Implementation for the `validation_code_by_hash` function of the runtime API.
 </span><span class="kw">pub fn </span>validation_code_by_hash&lt;T: paras::Config&gt;(
 	hash: ValidationCodeHash,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;ValidationCode&gt; {
-	&lt;paras::Pallet&lt;T&gt;&gt;::code_by_hash(hash)
+	paras::CodeByHash::&lt;T&gt;::get(hash)
 }
 
 <span class="doccomment">/// Disputes imported via means of on-chain imports.
 </span><span class="kw">pub fn </span>on_chain_votes&lt;T: paras_inherent::Config&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;ScrapedOnChainVotes&lt;T::Hash&gt;&gt; {
-	&lt;paras_inherent::Pallet&lt;T&gt;&gt;::on_chain_votes()
+	paras_inherent::OnChainVotes::&lt;T&gt;::get()
 }
 
 <span class="doccomment">/// Submits an PVF pre-checking vote.
@@ -1062,12 +1059,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	stmt: PvfCheckStatement,
 	signature: ValidatorSignature,
 ) {
-	&lt;paras::Pallet&lt;T&gt;&gt;::submit_pvf_check_statement(stmt, signature)
+	paras::Pallet::&lt;T&gt;::submit_pvf_check_statement(stmt, signature)
 }
 
 <span class="doccomment">/// Returns the list of all PVF code hashes that require pre-checking.
 </span><span class="kw">pub fn </span>pvfs_require_precheck&lt;T: paras::Config&gt;() -&gt; Vec&lt;ValidationCodeHash&gt; {
-	&lt;paras::Pallet&lt;T&gt;&gt;::pvfs_require_precheck()
+	paras::Pallet::&lt;T&gt;::pvfs_require_precheck()
 }
 
 <span class="doccomment">/// Returns the validation code hash for the given parachain making the given
@@ -1079,28 +1076,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>T: inclusion::Config,
 {
-	with_assumption::&lt;T, <span class="kw">_</span>, <span class="kw">_</span>&gt;(para_id, assumption, || {
-		&lt;paras::Pallet&lt;T&gt;&gt;::current_code_hash(<span class="kw-2">&amp;</span>para_id)
-	})
+	with_assumption::&lt;T, <span class="kw">_</span>, <span class="kw">_</span>&gt;(para_id, assumption, || paras::CurrentCodeHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para_id))
 }
 
 <span class="doccomment">/// Implementation for `get_session_disputes` function from the runtime API
 </span><span class="kw">pub fn </span>get_session_disputes&lt;T: disputes::Config&gt;(
 ) -&gt; Vec&lt;(SessionIndex, CandidateHash, DisputeState&lt;BlockNumberFor&lt;T&gt;&gt;)&gt; {
-	&lt;disputes::Pallet&lt;T&gt;&gt;::disputes()
+	disputes::Pallet::&lt;T&gt;::disputes()
 }
 
 <span class="doccomment">/// Get session executor parameter set
 </span><span class="kw">pub fn </span>session_executor_params&lt;T: session_info::Config&gt;(
 	session_index: SessionIndex,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;ExecutorParams&gt; {
-	&lt;session_info::Pallet&lt;T&gt;&gt;::session_executor_params(session_index)
+	session_info::SessionExecutorParams::&lt;T&gt;::get(session_index)
 }
 
 <span class="doccomment">/// Implementation of `unapplied_slashes` runtime API
 </span><span class="kw">pub fn </span>unapplied_slashes&lt;T: disputes::slashing::Config&gt;(
 ) -&gt; Vec&lt;(SessionIndex, CandidateHash, slashing::PendingSlashes)&gt; {
-	&lt;disputes::slashing::Pallet&lt;T&gt;&gt;::unapplied_slashes()
+	disputes::slashing::Pallet::&lt;T&gt;::unapplied_slashes()
 }
 
 <span class="doccomment">/// Implementation of `submit_report_dispute_lost` runtime API
@@ -1110,7 +1105,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
 	<span class="kw">let </span>key_ownership_proof = key_ownership_proof.decode()<span class="question-mark">?</span>;
 
-	&lt;disputes::slashing::Pallet&lt;T&gt;&gt;::submit_unsigned_slashing_report(
+	disputes::slashing::Pallet::&lt;T&gt;::submit_unsigned_slashing_report(
 		dispute_proof,
 		key_ownership_proof,
 	)
@@ -1118,46 +1113,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Return the min backing votes threshold from the configuration.
 </span><span class="kw">pub fn </span>minimum_backing_votes&lt;T: initializer::Config&gt;() -&gt; u32 {
-	&lt;configuration::Pallet&lt;T&gt;&gt;::config().minimum_backing_votes
+	configuration::ActiveConfig::&lt;T&gt;::get().minimum_backing_votes
 }
 
 <span class="doccomment">/// Implementation for `ParaBackingState` function from the runtime API
 </span><span class="kw">pub fn </span>backing_state&lt;T: initializer::Config&gt;(
 	para_id: ParaId,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;BackingState&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
-	<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+	<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 	<span class="comment">// Async backing is only expected to be enabled with a tracker capacity of 1.
 	// Subsequent configuration update gets applied on new session, which always
 	// clears the buffer.
 	//
 	// Thus, minimum relay parent is ensured to have asynchronous backing enabled.
-	</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
-	<span class="kw">let </span>min_relay_parent_number = &lt;shared::Pallet&lt;T&gt;&gt;::allowed_relay_parents()
+	</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+	<span class="kw">let </span>min_relay_parent_number = shared::AllowedRelayParents::&lt;T&gt;::get()
 		.hypothetical_earliest_block_number(now, config.async_backing_params.allowed_ancestry_len);
 
-	<span class="kw">let </span>required_parent = &lt;paras::Pallet&lt;T&gt;&gt;::para_head(para_id)<span class="question-mark">?</span>;
-	<span class="kw">let </span>validation_code_hash = &lt;paras::Pallet&lt;T&gt;&gt;::current_code_hash(para_id)<span class="question-mark">?</span>;
+	<span class="kw">let </span>required_parent = paras::Heads::&lt;T&gt;::get(para_id)<span class="question-mark">?</span>;
+	<span class="kw">let </span>validation_code_hash = paras::CurrentCodeHash::&lt;T&gt;::get(para_id)<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>upgrade_restriction = &lt;paras::Pallet&lt;T&gt;&gt;::upgrade_restriction_signal(para_id);
+	<span class="kw">let </span>upgrade_restriction = paras::UpgradeRestrictionSignal::&lt;T&gt;::get(para_id);
 	<span class="kw">let </span>future_validation_code =
-		&lt;paras::Pallet&lt;T&gt;&gt;::future_code_upgrade_at(para_id).and_then(|block_num| {
+		paras::FutureCodeUpgrades::&lt;T&gt;::get(para_id).and_then(|block_num| {
 			<span class="comment">// Only read the storage if there&#39;s a pending upgrade.
-			</span><span class="prelude-val">Some</span>(block_num).zip(&lt;paras::Pallet&lt;T&gt;&gt;::future_code_hash(para_id))
+			</span><span class="prelude-val">Some</span>(block_num).zip(paras::FutureCodeHash::&lt;T&gt;::get(para_id))
 		});
 
 	<span class="kw">let </span>(ump_msg_count, ump_total_bytes) =
-		&lt;inclusion::Pallet&lt;T&gt;&gt;::relay_dispatch_queue_size(para_id);
+		inclusion::Pallet::&lt;T&gt;::relay_dispatch_queue_size(para_id);
 	<span class="kw">let </span>ump_remaining = config.max_upward_queue_count - ump_msg_count;
 	<span class="kw">let </span>ump_remaining_bytes = config.max_upward_queue_size - ump_total_bytes;
 
-	<span class="kw">let </span>dmp_remaining_messages = &lt;dmp::Pallet&lt;T&gt;&gt;::dmq_contents(para_id)
+	<span class="kw">let </span>dmp_remaining_messages = dmp::Pallet::&lt;T&gt;::dmq_contents(para_id)
 		.into_iter()
 		.map(|msg| msg.sent_at)
 		.collect();
 
-	<span class="kw">let </span>valid_watermarks = &lt;hrmp::Pallet&lt;T&gt;&gt;::valid_watermarks(para_id);
+	<span class="kw">let </span>valid_watermarks = hrmp::Pallet::&lt;T&gt;::valid_watermarks(para_id);
 	<span class="kw">let </span>hrmp_inbound = InboundHrmpLimitations { valid_watermarks };
-	<span class="kw">let </span>hrmp_channels_out = &lt;hrmp::Pallet&lt;T&gt;&gt;::outbound_remaining_capacity(para_id)
+	<span class="kw">let </span>hrmp_channels_out = hrmp::Pallet::&lt;T&gt;::outbound_remaining_capacity(para_id)
 		.into_iter()
 		.map(|(para, (messages_remaining, bytes_remaining))| {
 			(para, OutboundHrmpChannelLimitations { messages_remaining, bytes_remaining })
@@ -1206,7 +1201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Implementation for `AsyncBackingParams` function from the runtime API
 </span><span class="kw">pub fn </span>async_backing_params&lt;T: configuration::Config&gt;() -&gt; AsyncBackingParams {
-	&lt;configuration::Pallet&lt;T&gt;&gt;::config().async_backing_params
+	configuration::ActiveConfig::&lt;T&gt;::get().async_backing_params
 }
 
 <span class="doccomment">/// Implementation for `DisabledValidators`
@@ -1221,13 +1216,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Returns the current state of the node features.
 </span><span class="kw">pub fn </span>node_features&lt;T: initializer::Config&gt;() -&gt; NodeFeatures {
-	&lt;configuration::Pallet&lt;T&gt;&gt;::config().node_features
+	configuration::ActiveConfig::&lt;T&gt;::get().node_features
 }
 
 <span class="doccomment">/// Approval voting subsystem configuration parameters
 </span><span class="kw">pub fn </span>approval_voting_params&lt;T: initializer::Config&gt;() -&gt; ApprovalVotingParams {
-	<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-	config.approval_voting_params
+	configuration::ActiveConfig::&lt;T&gt;::get().approval_voting_params
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

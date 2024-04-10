@@ -2099,10 +2099,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1950" id="1950">1950</a>
 <a href="#1951" id="1951">1951</a>
 <a href="#1952" id="1952">1952</a>
-<a href="#1953" id="1953">1953</a>
-<a href="#1954" id="1954">1954</a>
-<a href="#1955" id="1955">1955</a>
-<a href="#1956" id="1956">1956</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2279,7 +2275,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Number of auctions started so far.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>auction_counter)]
 	</span><span class="kw">pub type </span>AuctionCounter&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, AuctionIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// Information relating to the current auction, if there is one.
@@ -2288,13 +2283,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// contiguous lease periods on auction is for. The second is the block number when the
 	/// auction will &quot;begin to end&quot;, i.e. the first block of the Ending Period of the auction.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>auction_info)]
 	</span><span class="kw">pub type </span>AuctionInfo&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, (LeasePeriodOf&lt;T&gt;, BlockNumberFor&lt;T&gt;)&gt;;
 
 	<span class="doccomment">/// Amounts currently reserved in the accounts of the bidders currently winning
 	/// (sub-)ranges.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>reserved_amounts)]
 	</span><span class="kw">pub type </span>ReservedAmounts&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, (T::AccountId, ParaId), BalanceOf&lt;T&gt;&gt;;
 
@@ -2302,7 +2295,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the current auction. The map&#39;s key is the 0-based index into the Sample Size. The
 	/// first sample of the ending period is 0; the last is `Sample Size - 1`.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>winning)]
 	</span><span class="kw">pub type </span>Winning&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, BlockNumberFor&lt;T&gt;, WinningData&lt;T&gt;&gt;;
 
 	<span class="attr">#[pallet::extra_constants]
@@ -3088,7 +3080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="number">1</span>), <span class="number">5</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">1</span>), <span class="number">5</span>);
 			<span class="macro">assert_eq!</span>(
-				Auctions::winning(<span class="number">0</span>).unwrap()[SlotRange::ZeroThree <span class="kw">as </span>u8 <span class="kw">as </span>usize],
+				Winning::&lt;Test&gt;::get(<span class="number">0</span>).unwrap()[SlotRange::ZeroThree <span class="kw">as </span>u8 <span class="kw">as </span>usize],
 				<span class="prelude-val">Some</span>((<span class="number">1</span>, <span class="number">0</span>.into(), <span class="number">5</span>))
 			);
 		});
@@ -3121,7 +3113,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="number">2</span>), <span class="number">6</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">2</span>), <span class="number">14</span>);
 			<span class="macro">assert_eq!</span>(
-				Auctions::winning(<span class="number">0</span>).unwrap()[SlotRange::ZeroThree <span class="kw">as </span>u8 <span class="kw">as </span>usize],
+				Winning::&lt;Test&gt;::get(<span class="number">0</span>).unwrap()[SlotRange::ZeroThree <span class="kw">as </span>u8 <span class="kw">as </span>usize],
 				<span class="prelude-val">Some</span>((<span class="number">2</span>, <span class="number">0</span>.into(), <span class="number">6</span>))
 			);
 		});
@@ -3558,7 +3550,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>winning = [<span class="prelude-val">None</span>; SlotRange::SLOT_RANGE_COUNT];
 			winning[SlotRange::ZeroThree <span class="kw">as </span>u8 <span class="kw">as </span>usize] = <span class="prelude-val">Some</span>((<span class="number">1</span>, para_1, <span class="number">9</span>));
 			winning[SlotRange::TwoThree <span class="kw">as </span>u8 <span class="kw">as </span>usize] = <span class="prelude-val">Some</span>((<span class="number">2</span>, para_2, <span class="number">19</span>));
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
 
 			run_to_block(<span class="number">9</span>);
 			<span class="macro">assert_eq!</span>(
@@ -3571,14 +3563,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::&lt;u32&gt;::EndingPeriod(<span class="number">0</span>, <span class="number">0</span>)
 			);
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
 
 			run_to_block(<span class="number">11</span>);
 			<span class="macro">assert_eq!</span>(
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::&lt;u32&gt;::EndingPeriod(<span class="number">1</span>, <span class="number">0</span>)
 			);
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">1</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">1</span>), <span class="prelude-val">Some</span>(winning));
 			<span class="macro">assert_ok!</span>(Auctions::bid(RuntimeOrigin::signed(<span class="number">3</span>), para_3, <span class="number">1</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">29</span>));
 
 			run_to_block(<span class="number">12</span>);
@@ -3587,7 +3579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				AuctionStatus::&lt;u32&gt;::EndingPeriod(<span class="number">2</span>, <span class="number">0</span>)
 			);
 			winning[SlotRange::TwoThree <span class="kw">as </span>u8 <span class="kw">as </span>usize] = <span class="prelude-val">Some</span>((<span class="number">3</span>, para_3, <span class="number">29</span>));
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">2</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">2</span>), <span class="prelude-val">Some</span>(winning));
 		});
 	}
 
@@ -3674,7 +3666,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>winning = [<span class="prelude-val">None</span>; SlotRange::SLOT_RANGE_COUNT];
 			winning[SlotRange::ZeroThree <span class="kw">as </span>u8 <span class="kw">as </span>usize] = <span class="prelude-val">Some</span>((<span class="number">1</span>, para_1, <span class="number">9</span>));
 			winning[SlotRange::TwoThree <span class="kw">as </span>u8 <span class="kw">as </span>usize] = <span class="prelude-val">Some</span>((<span class="number">2</span>, para_2, <span class="number">19</span>));
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
 
 			run_to_block(<span class="number">9</span>);
 			<span class="macro">assert_eq!</span>(
@@ -3687,31 +3679,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::&lt;u32&gt;::EndingPeriod(<span class="number">0</span>, <span class="number">0</span>)
 			);
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
 
 			<span class="comment">// New bids update the current winning
 			</span><span class="macro">assert_ok!</span>(Auctions::bid(RuntimeOrigin::signed(<span class="number">3</span>), para_3, <span class="number">1</span>, <span class="number">14</span>, <span class="number">14</span>, <span class="number">29</span>));
 			winning[SlotRange::ThreeThree <span class="kw">as </span>u8 <span class="kw">as </span>usize] = <span class="prelude-val">Some</span>((<span class="number">3</span>, para_3, <span class="number">29</span>));
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">0</span>), <span class="prelude-val">Some</span>(winning));
 
 			run_to_block(<span class="number">20</span>);
 			<span class="macro">assert_eq!</span>(
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::&lt;u32&gt;::EndingPeriod(<span class="number">1</span>, <span class="number">0</span>)
 			);
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">1</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">1</span>), <span class="prelude-val">Some</span>(winning));
 			run_to_block(<span class="number">25</span>);
 			<span class="comment">// Overbid mid sample
 			</span><span class="macro">assert_ok!</span>(Auctions::bid(RuntimeOrigin::signed(<span class="number">3</span>), para_3, <span class="number">1</span>, <span class="number">13</span>, <span class="number">14</span>, <span class="number">29</span>));
 			winning[SlotRange::TwoThree <span class="kw">as </span>u8 <span class="kw">as </span>usize] = <span class="prelude-val">Some</span>((<span class="number">3</span>, para_3, <span class="number">29</span>));
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">1</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">1</span>), <span class="prelude-val">Some</span>(winning));
 
 			run_to_block(<span class="number">30</span>);
 			<span class="macro">assert_eq!</span>(
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::&lt;u32&gt;::EndingPeriod(<span class="number">2</span>, <span class="number">0</span>)
 			);
-			<span class="macro">assert_eq!</span>(Auctions::winning(<span class="number">2</span>), <span class="prelude-val">Some</span>(winning));
+			<span class="macro">assert_eq!</span>(Winning::&lt;Test&gt;::get(<span class="number">2</span>), <span class="prelude-val">Some</span>(winning));
 
 			set_last_random(H256::from([<span class="number">254</span>; <span class="number">32</span>]), <span class="number">40</span>);
 			run_to_block(<span class="number">40</span>);

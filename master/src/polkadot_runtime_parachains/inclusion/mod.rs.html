@@ -1930,7 +1930,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 		<span class="comment">// unlike most drain methods, drained elements are not cleared on `Drop` of the iterator
 		// and require consumption.
-		</span><span class="kw">for _ in </span>&lt;PendingAvailability&lt;T&gt;&gt;::drain() {}
+		</span><span class="kw">for _ in </span>PendingAvailability::&lt;T&gt;::drain() {}
 
 		<span class="self">Self</span>::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
 	}
@@ -1978,9 +1978,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>freed_cores = <span class="macro">vec!</span>[];
 
-		<span class="kw">let </span>pending_paraids: Vec&lt;<span class="kw">_</span>&gt; = &lt;PendingAvailability&lt;T&gt;&gt;::iter_keys().collect();
+		<span class="kw">let </span>pending_paraids: Vec&lt;<span class="kw">_</span>&gt; = PendingAvailability::&lt;T&gt;::iter_keys().collect();
 		<span class="kw">for </span>paraid <span class="kw">in </span>pending_paraids {
-			&lt;PendingAvailability&lt;T&gt;&gt;::mutate(paraid, |candidates| {
+			PendingAvailability::&lt;T&gt;::mutate(paraid, |candidates| {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(candidates) = candidates {
 					<span class="kw">let </span><span class="kw-2">mut </span>last_enacted_index: <span class="prelude-ty">Option</span>&lt;usize&gt; = <span class="prelude-val">None</span>;
 
@@ -2067,8 +2067,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(ProcessedCandidates::default())
 		}
 
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
-		<span class="kw">let </span>validators = shared::Pallet::&lt;T&gt;::active_validator_keys();
+		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+		<span class="kw">let </span>validators = shared::ActiveValidatorKeys::&lt;T&gt;::get();
 
 		<span class="comment">// Collect candidate receipts with backers.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>candidate_receipt_with_backing_validator_indices =
@@ -2098,7 +2098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// group assigned to core at block `N + 1`. Thus,
 				// `relay_parent_number + 1` will always land in the current
 				// session.
-				</span><span class="kw">let </span>group_idx = &lt;scheduler::Pallet&lt;T&gt;&gt;::group_assigned_to_core(
+				</span><span class="kw">let </span>group_idx = scheduler::Pallet::&lt;T&gt;::group_assigned_to_core(
 					<span class="kw-2">*</span>core,
 					relay_parent_number + One::one(),
 				)
@@ -2128,7 +2128,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				core_indices.push((<span class="kw-2">*</span>core, <span class="kw-2">*</span>para_id));
 
 				<span class="comment">// Update storage now
-				</span>&lt;PendingAvailability&lt;T&gt;&gt;::mutate(<span class="kw-2">&amp;</span>para_id, |pending_availability| {
+				</span>PendingAvailability::&lt;T&gt;::mutate(<span class="kw-2">&amp;</span>para_id, |pending_availability| {
 					<span class="kw">let </span>new_candidate = CandidatePendingAvailability {
 						core: <span class="kw-2">*</span>core,
 						hash: candidate_hash,
@@ -2168,11 +2168,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Get the latest backed output head data of this para.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>para_latest_head_data(para_id: <span class="kw-2">&amp;</span>ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;HeadData&gt; {
-		<span class="kw">match </span>&lt;PendingAvailability&lt;T&gt;&gt;::get(para_id).and_then(|pending_candidates| {
+		<span class="kw">match </span>PendingAvailability::&lt;T&gt;::get(para_id).and_then(|pending_candidates| {
 			pending_candidates.back().map(|x| x.commitments.head_data.clone())
 		}) {
 			<span class="prelude-val">Some</span>(head_data) =&gt; <span class="prelude-val">Some</span>(head_data),
-			<span class="prelude-val">None </span>=&gt; &lt;paras::Pallet&lt;T&gt;&gt;::para_head(para_id),
+			<span class="prelude-val">None </span>=&gt; paras::Heads::&lt;T&gt;::get(para_id),
 		}
 	}
 
@@ -2182,12 +2182,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		group_vals: Vec&lt;ValidatorIndex&gt;,
 		core_index_enabled: bool,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(BitVec&lt;u8, BitOrderLsb0&gt;, Vec&lt;(ValidatorIndex, ValidityAttestation)&gt;), Error&lt;T&gt;&gt; {
-		<span class="kw">let </span>minimum_backing_votes = configuration::Pallet::&lt;T&gt;::config().minimum_backing_votes;
+		<span class="kw">let </span>minimum_backing_votes = configuration::ActiveConfig::&lt;T&gt;::get().minimum_backing_votes;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>backers = <span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">0</span>; validators.len()];
 		<span class="kw">let </span>signing_context = SigningContext {
 			parent_hash: backed_candidate.descriptor().relay_parent,
-			session_index: shared::Pallet::&lt;T&gt;::session_index(),
+			session_index: shared::CurrentSessionIndex::&lt;T&gt;::get(),
 		};
 
 		<span class="kw">let </span>(validator_indices, <span class="kw">_</span>) =
@@ -2245,7 +2245,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relay_parent_number: BlockNumberFor&lt;T&gt;,
 		validation_outputs: primitives::CandidateCommitments,
 	) -&gt; bool {
-		<span class="kw">let </span>prev_context = &lt;paras::Pallet&lt;T&gt;&gt;::para_most_recent_context(para_id);
+		<span class="kw">let </span>prev_context = paras::MostRecentContext::&lt;T&gt;::get(para_id);
 		<span class="kw">let </span>check_ctx = CandidateCheckContext::&lt;T&gt;::new(prev_context);
 
 		<span class="kw">if </span>check_ctx
@@ -2282,7 +2282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; Weight {
 		<span class="kw">let </span>plain = receipt.to_plain();
 		<span class="kw">let </span>commitments = receipt.commitments;
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		T::RewardValidators::reward_backing(
 			backers
@@ -2304,9 +2304,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">0</span>);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(new_code) = commitments.new_validation_code {
 			<span class="comment">// Block number of candidate&#39;s inclusion.
-			</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+			</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 
-			weight.saturating_add(&lt;paras::Pallet&lt;T&gt;&gt;::schedule_code_upgrade(
+			weight.saturating_add(paras::Pallet::&lt;T&gt;::schedule_code_upgrade(
 				receipt.descriptor.para_id,
 				new_code,
 				now,
@@ -2316,7 +2316,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// enact the messaging facet of the candidate.
-		</span>weight.saturating_accrue(&lt;dmp::Pallet&lt;T&gt;&gt;::prune_dmq(
+		</span>weight.saturating_accrue(dmp::Pallet::&lt;T&gt;::prune_dmq(
 			receipt.descriptor.para_id,
 			commitments.processed_downward_messages,
 		));
@@ -2324,11 +2324,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			receipt.descriptor.para_id,
 			commitments.upward_messages.as_slice(),
 		));
-		weight.saturating_accrue(&lt;hrmp::Pallet&lt;T&gt;&gt;::prune_hrmp(
+		weight.saturating_accrue(hrmp::Pallet::&lt;T&gt;::prune_hrmp(
 			receipt.descriptor.para_id,
 			BlockNumberFor::&lt;T&gt;::from(commitments.hrmp_watermark),
 		));
-		weight.saturating_accrue(&lt;hrmp::Pallet&lt;T&gt;&gt;::queue_outbound_hrmp(
+		weight.saturating_accrue(hrmp::Pallet::&lt;T&gt;::queue_outbound_hrmp(
 			receipt.descriptor.para_id,
 			commitments.horizontal_messages,
 		));
@@ -2340,7 +2340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			backing_group,
 		));
 
-		weight.saturating_add(&lt;paras::Pallet&lt;T&gt;&gt;::note_new_head(
+		weight.saturating_add(paras::Pallet::&lt;T&gt;::note_new_head(
 			receipt.descriptor.para_id,
 			commitments.head_data,
 			relay_parent_number,
@@ -2359,7 +2359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		upward_messages: <span class="kw-2">&amp;</span>[UpwardMessage],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), UmpAcceptanceCheckErr&gt; {
 		<span class="comment">// Cannot send UMP messages while off-boarding.
-		</span><span class="kw">if </span>&lt;paras::Pallet&lt;T&gt;&gt;::is_offboarding(para) {
+		</span><span class="kw">if </span>paras::Pallet::&lt;T&gt;::is_offboarding(para) {
 			<span class="macro">ensure!</span>(upward_messages.is_empty(), UmpAcceptanceCheckErr::IsOffboarding);
 		}
 
@@ -2447,7 +2447,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns a vector of cleaned-up core IDs.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>free_timedout() -&gt; Vec&lt;CoreIndex&gt; {
-		<span class="kw">let </span>timeout_pred = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_timeout_predicate();
+		<span class="kw">let </span>timeout_pred = scheduler::Pallet::&lt;T&gt;::availability_timeout_predicate();
 
 		<span class="kw">let </span>timed_out: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">Self</span>::free_failed_cores(
 			|candidate| timeout_pred(candidate.backed_in_number).timed_out,
@@ -2500,7 +2500,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = CandidatePendingAvailability&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>earliest_dropped_indices: BTreeMap&lt;ParaId, usize&gt; = BTreeMap::new();
 
-		<span class="kw">for </span>(para_id, pending_candidates) <span class="kw">in </span>&lt;PendingAvailability&lt;T&gt;&gt;::iter() {
+		<span class="kw">for </span>(para_id, pending_candidates) <span class="kw">in </span>PendingAvailability::&lt;T&gt;::iter() {
 			<span class="comment">// We assume that pending candidates are stored in dependency order. So we need to store
 			// the earliest dropped candidate. All others that follow will get freed as well.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>earliest_dropped_idx = <span class="prelude-val">None</span>;
@@ -2523,7 +2523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">for </span>(para_id, earliest_dropped_idx) <span class="kw">in </span>earliest_dropped_indices {
 			<span class="comment">// Do cleanups and record the cleaned up cores
-			</span>&lt;PendingAvailability&lt;T&gt;&gt;::mutate(<span class="kw-2">&amp;</span>para_id, |record| {
+			</span>PendingAvailability::&lt;T&gt;::mutate(<span class="kw-2">&amp;</span>para_id, |record| {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(record) = record {
 					<span class="kw">let </span>cleaned_up = record.drain(earliest_dropped_idx..);
 					cleaned_up_cores.extend(cleaned_up);
@@ -2542,7 +2542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// them. This should generally not be used but it is useful during execution of Runtime APIs,
 	/// where the changes to the state are expected to be discarded directly after.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>force_enact(para: ParaId) {
-		&lt;PendingAvailability&lt;T&gt;&gt;::mutate(<span class="kw-2">&amp;</span>para, |candidates| {
+		PendingAvailability::&lt;T&gt;::mutate(<span class="kw-2">&amp;</span>para, |candidates| {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(candidates) = candidates {
 				<span class="kw">for </span>candidate <span class="kw">in </span>candidates.drain(..) {
 					<span class="kw">let </span>receipt = CommittedCandidateReceipt {
@@ -2568,7 +2568,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>candidate_pending_availability(
 		para: ParaId,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&lt;T::Hash&gt;&gt; {
-		&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para).and_then(|p| {
+		PendingAvailability::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para).and_then(|p| {
 			p.get(<span class="number">0</span>).map(|p| CommittedCandidateReceipt {
 				descriptor: p.descriptor.clone(),
 				commitments: p.commitments.clone(),
@@ -2581,7 +2581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>pending_availability(
 		para: ParaId,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;CandidatePendingAvailability&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
-		&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para).and_then(|p| p.get(<span class="number">0</span>).cloned())
+		PendingAvailability::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para).and_then(|p| p.get(<span class="number">0</span>).cloned())
 	}
 
 	<span class="doccomment">/// Returns the metadata around the candidate pending availability occupying the supplied core,
@@ -2590,7 +2590,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para: ParaId,
 		core: CoreIndex,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;CandidatePendingAvailability&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
-		&lt;PendingAvailability&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>para)
+		PendingAvailability::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para)
 			.and_then(|p| p.iter().find(|c| c.core == core).cloned())
 	}
 }
@@ -2628,7 +2628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[allow(deprecated)]
 		</span>well_known_keys::relay_dispatch_queue_size_typed(para).set((count, size));
 
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="kw">let </span>remaining_count = config.max_upward_queue_count.saturating_sub(count);
 		<span class="kw">let </span>remaining_size = config.max_upward_queue_size.saturating_sub(size);
 		well_known_keys::relay_dispatch_queue_remaining_capacity(para)
@@ -2644,7 +2644,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config&gt; CandidateCheckContext&lt;T&gt; {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(prev_context: <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ config: &lt;configuration::Pallet&lt;T&gt;&gt;::config(), prev_context }
+		<span class="self">Self </span>{ config: configuration::ActiveConfig::&lt;T&gt;::get(), prev_context }
 	}
 
 	<span class="doccomment">/// Execute verification of the candidate.
@@ -2693,7 +2693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Error::&lt;T&gt;::NotCollatorSigned,
 		);
 
-		<span class="kw">let </span>validation_code_hash = &lt;paras::Pallet&lt;T&gt;&gt;::current_code_hash(para_id)
+		<span class="kw">let </span>validation_code_hash = paras::CurrentCodeHash::&lt;T&gt;::get(para_id)
 			<span class="comment">// A candidate for a parachain without current validation code is not scheduled.
 			</span>.ok_or_else(|| Error::&lt;T&gt;::UnscheduledCandidate)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(
@@ -2763,7 +2763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// if any, the code upgrade attempt is allowed.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(new_validation_code) = new_validation_code {
 			<span class="macro">ensure!</span>(
-				&lt;paras::Pallet&lt;T&gt;&gt;::can_upgrade_validation_code(para_id),
+				paras::Pallet::&lt;T&gt;::can_upgrade_validation_code(para_id),
 				AcceptanceCheckErr::PrematureCodeUpgrade,
 			);
 			<span class="macro">ensure!</span>(
@@ -2773,14 +2773,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// check if the candidate passes the messaging acceptance criteria
-		</span>&lt;dmp::Pallet&lt;T&gt;&gt;::check_processed_downward_messages(
+		</span>dmp::Pallet::&lt;T&gt;::check_processed_downward_messages(
 			para_id,
 			relay_parent_number,
 			processed_downward_messages,
 		)<span class="question-mark">?</span>;
 		Pallet::&lt;T&gt;::check_upward_messages(<span class="kw-2">&amp;</span><span class="self">self</span>.config, para_id, upward_messages)<span class="question-mark">?</span>;
-		&lt;hrmp::Pallet&lt;T&gt;&gt;::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)<span class="question-mark">?</span>;
-		&lt;hrmp::Pallet&lt;T&gt;&gt;::check_outbound_hrmp(<span class="kw-2">&amp;</span><span class="self">self</span>.config, para_id, horizontal_messages)<span class="question-mark">?</span>;
+		hrmp::Pallet::&lt;T&gt;::check_hrmp_watermark(para_id, relay_parent_number, hrmp_watermark)<span class="question-mark">?</span>;
+		hrmp::Pallet::&lt;T&gt;::check_outbound_hrmp(<span class="kw-2">&amp;</span><span class="self">self</span>.config, para_id, horizontal_messages)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(())
 	}

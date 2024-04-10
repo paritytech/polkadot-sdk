@@ -1819,8 +1819,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1670" id="1670">1670</a>
 <a href="#1671" id="1671">1671</a>
 <a href="#1672" id="1672">1672</a>
-<a href="#1673" id="1673">1673</a>
-<a href="#1674" id="1674">1674</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2026,20 +2024,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>claims)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Claims&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, EthereumAddress, BalanceOf&lt;T&gt;&gt;;
+	</span><span class="kw">pub type </span>Claims&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, EthereumAddress, BalanceOf&lt;T&gt;&gt;;
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>total)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Total&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, BalanceOf&lt;T&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>Total&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, BalanceOf&lt;T&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Vesting schedule for a claim.
 	/// First balance is the total amount that should be held for vesting.
 	/// Second balance is how much should be unlocked per block.
 	/// The block number is when the vesting should start.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>vesting)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Vesting&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>Vesting&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Identity, EthereumAddress, (BalanceOf&lt;T&gt;, BalanceOf&lt;T&gt;, BlockNumberFor&lt;T&gt;)&gt;;
 
 	<span class="doccomment">/// The statement kind that must be signed, if any.
@@ -2164,10 +2159,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 
-			&lt;Total&lt;T&gt;&gt;::mutate(|t| <span class="kw-2">*</span>t += value);
-			&lt;Claims&lt;T&gt;&gt;::insert(who, value);
+			Total::&lt;T&gt;::mutate(|t| <span class="kw-2">*</span>t += value);
+			Claims::&lt;T&gt;::insert(who, value);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(vs) = vesting_schedule {
-				&lt;Vesting&lt;T&gt;&gt;::insert(who, vs);
+				Vesting::&lt;T&gt;::insert(who, vs);
 			}
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(s) = statement {
 				Signing::&lt;T&gt;::insert(who, s);
@@ -2315,7 +2310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			))<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>e = InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into());
-			<span class="macro">ensure!</span>(&lt;Claims&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span>signer), e);
+			<span class="macro">ensure!</span>(Claims::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>signer), e);
 
 			<span class="kw">let </span>e = InvalidTransaction::Custom(ValidityError::InvalidStatement.into());
 			<span class="kw">match </span>Signing::&lt;T&gt;::get(signer) {
@@ -2374,9 +2369,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>process_claim(signer: EthereumAddress, dest: T::AccountId) -&gt; sp_runtime::DispatchResult {
-		<span class="kw">let </span>balance_due = &lt;Claims&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>signer).ok_or(Error::&lt;T&gt;::SignerHasNoClaim)<span class="question-mark">?</span>;
+		<span class="kw">let </span>balance_due = Claims::&lt;T&gt;::get(<span class="kw-2">&amp;</span>signer).ok_or(Error::&lt;T&gt;::SignerHasNoClaim)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>new_total = <span class="self">Self</span>::total().checked_sub(<span class="kw-2">&amp;</span>balance_due).ok_or(Error::&lt;T&gt;::PotUnderflow)<span class="question-mark">?</span>;
+		<span class="kw">let </span>new_total =
+			Total::&lt;T&gt;::get().checked_sub(<span class="kw-2">&amp;</span>balance_due).ok_or(Error::&lt;T&gt;::PotUnderflow)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>vesting = Vesting::&lt;T&gt;::get(<span class="kw-2">&amp;</span>signer);
 		<span class="kw">if </span>vesting.is_some() &amp;&amp; T::VestingSchedule::vesting_balance(<span class="kw-2">&amp;</span>dest).is_some() {
@@ -2394,9 +2390,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.expect(<span class="string">&quot;No other vesting schedule exists, as checked above; qed&quot;</span>);
 		}
 
-		&lt;Total&lt;T&gt;&gt;::put(new_total);
-		&lt;Claims&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>signer);
-		&lt;Vesting&lt;T&gt;&gt;::remove(<span class="kw-2">&amp;</span>signer);
+		Total::&lt;T&gt;::put(new_total);
+		Claims::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>signer);
+		Vesting::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>signer);
 		Signing::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>signer);
 
 		<span class="comment">// Let&#39;s deposit an event to let the outside world know this happened.
@@ -2506,7 +2502,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		what: <span class="kw-2">&amp;</span>[u8],
 		extra: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; EcdsaSignature {
-		<span class="kw">let </span>msg = keccak_256(<span class="kw-2">&amp;</span>&lt;<span class="kw">super</span>::Pallet&lt;T&gt;&gt;::ethereum_signable_message(
+		<span class="kw">let </span>msg = keccak_256(<span class="kw-2">&amp;</span><span class="kw">super</span>::Pallet::&lt;T&gt;::ethereum_signable_message(
 			<span class="kw-2">&amp;</span>to_ascii_hex(what)[..],
 			extra,
 		));
@@ -2660,13 +2656,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>basic_setup_works() {
 		new_test_ext().execute_with(|| {
-			<span class="macro">assert_eq!</span>(Claims::total(), total_claims());
-			<span class="macro">assert_eq!</span>(Claims::claims(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>alice())), <span class="prelude-val">Some</span>(<span class="number">100</span>));
-			<span class="macro">assert_eq!</span>(Claims::claims(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>dave())), <span class="prelude-val">Some</span>(<span class="number">200</span>));
-			<span class="macro">assert_eq!</span>(Claims::claims(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>eve())), <span class="prelude-val">Some</span>(<span class="number">300</span>));
-			<span class="macro">assert_eq!</span>(Claims::claims(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>frank())), <span class="prelude-val">Some</span>(<span class="number">400</span>));
-			<span class="macro">assert_eq!</span>(Claims::claims(<span class="kw-2">&amp;</span>EthereumAddress::default()), <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(Claims::vesting(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>alice())), <span class="prelude-val">Some</span>((<span class="number">50</span>, <span class="number">10</span>, <span class="number">1</span>)));
+			<span class="macro">assert_eq!</span>(claims::Total::&lt;Test&gt;::get(), total_claims());
+			<span class="macro">assert_eq!</span>(claims::Claims::&lt;Test&gt;::get(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>alice())), <span class="prelude-val">Some</span>(<span class="number">100</span>));
+			<span class="macro">assert_eq!</span>(claims::Claims::&lt;Test&gt;::get(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>dave())), <span class="prelude-val">Some</span>(<span class="number">200</span>));
+			<span class="macro">assert_eq!</span>(claims::Claims::&lt;Test&gt;::get(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>eve())), <span class="prelude-val">Some</span>(<span class="number">300</span>));
+			<span class="macro">assert_eq!</span>(claims::Claims::&lt;Test&gt;::get(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>frank())), <span class="prelude-val">Some</span>(<span class="number">400</span>));
+			<span class="macro">assert_eq!</span>(claims::Claims::&lt;Test&gt;::get(<span class="kw-2">&amp;</span>EthereumAddress::default()), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(claims::Vesting::&lt;Test&gt;::get(<span class="kw-2">&amp;</span>eth(<span class="kw-2">&amp;</span>alice())), <span class="prelude-val">Some</span>((<span class="number">50</span>, <span class="number">10</span>, <span class="number">1</span>)));
 		});
 	}
 
@@ -2690,7 +2686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			));
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">42</span>), <span class="number">100</span>);
 			<span class="macro">assert_eq!</span>(Vesting::vesting_balance(<span class="kw-2">&amp;</span><span class="number">42</span>), <span class="prelude-val">Some</span>(<span class="number">50</span>));
-			<span class="macro">assert_eq!</span>(Claims::total(), total_claims() - <span class="number">100</span>);
+			<span class="macro">assert_eq!</span>(claims::Total::&lt;Test&gt;::get(), total_claims() - <span class="number">100</span>);
 		});
 	}
 
@@ -2723,7 +2719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			));
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">42</span>), <span class="number">100</span>);
 			<span class="macro">assert_eq!</span>(Vesting::vesting_balance(<span class="kw-2">&amp;</span><span class="number">42</span>), <span class="prelude-val">Some</span>(<span class="number">50</span>));
-			<span class="macro">assert_eq!</span>(Claims::total(), total_claims() - <span class="number">100</span>);
+			<span class="macro">assert_eq!</span>(claims::Total::&lt;Test&gt;::get(), total_claims() - <span class="number">100</span>);
 		});
 	}
 
@@ -2827,7 +2823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				StatementKind::Regular.to_text().to_vec()
 			));
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">42</span>), <span class="number">200</span>);
-			<span class="macro">assert_eq!</span>(Claims::total(), total_claims() - <span class="number">200</span>);
+			<span class="macro">assert_eq!</span>(claims::Total::&lt;Test&gt;::get(), total_claims() - <span class="number">200</span>);
 
 			<span class="kw">let </span>s = sig::&lt;Test&gt;(<span class="kw-2">&amp;</span>dave(), <span class="kw-2">&amp;</span><span class="number">42u64</span>.encode(), StatementKind::Regular.to_text());
 			<span class="kw">let </span>r = Claims::claim_attest(
@@ -2860,7 +2856,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				StatementKind::Saft.to_text().to_vec()
 			));
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">42</span>), <span class="number">300</span>);
-			<span class="macro">assert_eq!</span>(Claims::total(), total_claims() - <span class="number">300</span>);
+			<span class="macro">assert_eq!</span>(claims::Total::&lt;Test&gt;::get(), total_claims() - <span class="number">300</span>);
 		});
 	}
 
@@ -2881,7 +2877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				StatementKind::Saft.to_text().to_vec()
 			));
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">42</span>), <span class="number">100 </span>+ <span class="number">300</span>);
-			<span class="macro">assert_eq!</span>(Claims::total(), total_claims() - <span class="number">400</span>);
+			<span class="macro">assert_eq!</span>(claims::Total::&lt;Test&gt;::get(), total_claims() - <span class="number">400</span>);
 		});
 	}
 
@@ -2945,7 +2941,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;Test&gt;::SignerHasNoClaim,
 			);
 			<span class="macro">assert_ok!</span>(Claims::mint_claim(RuntimeOrigin::root(), eth(<span class="kw-2">&amp;</span>bob()), <span class="number">200</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
-			<span class="macro">assert_eq!</span>(Claims::total(), total_claims() + <span class="number">200</span>);
+			<span class="macro">assert_eq!</span>(claims::Total::&lt;Test&gt;::get(), total_claims() + <span class="number">200</span>);
 			<span class="macro">assert_ok!</span>(Claims::claim(
 				RuntimeOrigin::none(),
 				<span class="number">69</span>,
@@ -2953,7 +2949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			));
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">69</span>), <span class="number">200</span>);
 			<span class="macro">assert_eq!</span>(Vesting::vesting_balance(<span class="kw-2">&amp;</span><span class="number">69</span>), <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(Claims::total(), total_claims());
+			<span class="macro">assert_eq!</span>(claims::Total::&lt;Test&gt;::get(), total_claims());
 		});
 	}
 
@@ -3107,7 +3103,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None
 			</span>));
 			<span class="comment">// New total
-			</span><span class="macro">assert_eq!</span>(Claims::total(), total_claims() + <span class="number">200</span>);
+			</span><span class="macro">assert_eq!</span>(claims::Total::&lt;Test&gt;::get(), total_claims() + <span class="number">200</span>);
 
 			<span class="comment">// They should not be able to claim
 			</span><span class="macro">assert_noop!</span>(
@@ -3170,7 +3166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		new_test_ext().execute_with(|| {
 			<span class="macro">assert_eq!</span>(
-				&lt;Pallet&lt;Test&gt;&gt;::validate_unsigned(
+				Pallet::&lt;Test&gt;::validate_unsigned(
 					source,
 					<span class="kw-2">&amp;</span>ClaimsCall::claim {
 						dest: <span class="number">1</span>,
@@ -3186,14 +3182,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 			);
 			<span class="macro">assert_eq!</span>(
-				&lt;Pallet&lt;Test&gt;&gt;::validate_unsigned(
+				Pallet::&lt;Test&gt;::validate_unsigned(
 					source,
 					<span class="kw-2">&amp;</span>ClaimsCall::claim { dest: <span class="number">0</span>, ethereum_signature: EcdsaSignature([<span class="number">0</span>; <span class="number">65</span>]) }
 				),
 				InvalidTransaction::Custom(ValidityError::InvalidEthereumSignature.into()).into(),
 			);
 			<span class="macro">assert_eq!</span>(
-				&lt;Pallet&lt;Test&gt;&gt;::validate_unsigned(
+				Pallet::&lt;Test&gt;::validate_unsigned(
 					source,
 					<span class="kw-2">&amp;</span>ClaimsCall::claim {
 						dest: <span class="number">1</span>,
@@ -3209,7 +3205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				statement: StatementKind::Regular.to_text().to_vec(),
 			};
 			<span class="macro">assert_eq!</span>(
-				&lt;Pallet&lt;Test&gt;&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call),
+				Pallet::&lt;Test&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call),
 				<span class="prelude-val">Ok</span>(ValidTransaction {
 					priority: <span class="number">100</span>,
 					requires: <span class="macro">vec!</span>[],
@@ -3219,7 +3215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 			);
 			<span class="macro">assert_eq!</span>(
-				&lt;Pallet&lt;Test&gt;&gt;::validate_unsigned(
+				Pallet::&lt;Test&gt;::validate_unsigned(
 					source,
 					<span class="kw-2">&amp;</span>ClaimsCall::claim_attest {
 						dest: <span class="number">1</span>,
@@ -3237,7 +3233,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				statement: StatementKind::Regular.to_text().to_vec(),
 			};
 			<span class="macro">assert_eq!</span>(
-				&lt;Pallet&lt;Test&gt;&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call),
+				Pallet::&lt;Test&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call),
 				InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()).into(),
 			);
 
@@ -3248,7 +3244,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				statement: StatementKind::Regular.to_text().to_vec(),
 			};
 			<span class="macro">assert_eq!</span>(
-				&lt;Pallet&lt;Test&gt;&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call),
+				Pallet::&lt;Test&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call),
 				InvalidTransaction::Custom(ValidityError::SignerHasNoClaim.into()).into(),
 			);
 
@@ -3259,7 +3255,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				statement: StatementKind::Saft.to_text().to_vec(),
 			};
 			<span class="macro">assert_eq!</span>(
-				&lt;Pallet&lt;Test&gt;&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call),
+				Pallet::&lt;Test&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call),
 				InvalidTransaction::Custom(ValidityError::InvalidStatement.into()).into(),
 			);
 		});

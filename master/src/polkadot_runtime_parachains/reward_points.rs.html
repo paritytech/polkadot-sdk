@@ -286,7 +286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		indices: <span class="kw">impl </span>IntoIterator&lt;Item = ValidatorIndex&gt;,
 		points: u32,
 	) {
-		<span class="kw">let </span>validators = session_info::Pallet::&lt;C&gt;::account_keys(<span class="kw-2">&amp;</span>session_index);
+		<span class="kw">let </span>validators = session_info::AccountKeys::&lt;C&gt;::get(<span class="kw-2">&amp;</span>session_index);
 		<span class="kw">let </span>validators = <span class="kw">match </span>validators
 			.defensive_proof(<span class="string">&quot;account_keys are present for dispute_period sessions&quot;</span>)
 		{
@@ -312,7 +312,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C::ValidatorSet: ValidatorSet&lt;C::AccountId, ValidatorId = C::AccountId&gt;,
 {
 	<span class="kw">fn </span>reward_backing(indices: <span class="kw">impl </span>IntoIterator&lt;Item = ValidatorIndex&gt;) {
-		<span class="kw">let </span>session_index = shared::Pallet::&lt;C&gt;::session_index();
+		<span class="kw">let </span>session_index = shared::CurrentSessionIndex::&lt;C&gt;::get();
 		<span class="self">Self</span>::reward_only_active(session_index, indices, BACKING_POINTS);
 	}
 

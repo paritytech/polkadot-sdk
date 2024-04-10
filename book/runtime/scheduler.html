@@ -311,7 +311,7 @@ being occupied across session boundaries and it is safe to re-size the <code>Ava
 <li>Fetch <code>Shared::ActiveValidators</code> as AV.</li>
 <li>Determine the number of cores &amp; validator groups as <code>n_cores</code>. This is the maximum of
 <ol>
-<li><code>Paras::parachains().len() + configuration.parathread_cores</code></li>
+<li><code>paras::Parachains::&lt;T&gt;::get().len() + configuration.parathread_cores</code></li>
 <li><code>n_validators / max_validators_per_core</code> if <code>configuration.max_validators_per_core</code> is <code>Some</code> and non-zero.</li>
 </ol>
 </li>
@@ -348,7 +348,7 @@ on-demand cores.</li>
 <li>Fails if any on-demand claim on the same parachain is currently indexed.</li>
 <li>Fails if the queue length is &gt;= <code>config.scheduling_lookahead * config.parathread_cores</code>.</li>
 <li>The core used for the on-demand claim is the <code>next_core</code> field of the <code>ParathreadQueue</code> (on-demand queue) and adding
-<code>Paras::parachains().len()</code> to it.</li>
+<code>paras::Parachains::&lt;T&gt;::get().len()</code> to it.</li>
 <li><code>next_core</code> is then updated by adding 1 and taking it modulo <code>config.parathread_cores</code>.</li>
 <li>The claim is then added to the claim index.</li>
 </ul>
@@ -410,7 +410,7 @@ which no longer exist under paras.</li>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer>
+<footer id="last-change">Last change: 2024-04-10, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/92e142555d">92e142555d</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

@@ -202,7 +202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Returns the claimqueue from the scheduler
 </span><span class="kw">pub fn </span>claim_queue&lt;T: scheduler::Config&gt;() -&gt; BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt; {
-	&lt;scheduler::Pallet&lt;T&gt;&gt;::claimqueue()
+	scheduler::ClaimQueue::&lt;T&gt;::get()
 		.into_iter()
 		.map(|(core_index, entries)| {
 			(core_index, entries.into_iter().map(|e| e.para_id()).collect())

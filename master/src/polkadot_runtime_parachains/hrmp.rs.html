@@ -2571,7 +2571,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T&gt;::WrongWitness
 			);
 
-			<span class="kw">let </span>host_config = configuration::Pallet::&lt;T&gt;::config();
+			<span class="kw">let </span>host_config = configuration::ActiveConfig::&lt;T&gt;::get();
 			<span class="self">Self</span>::process_hrmp_open_channel_requests(<span class="kw-2">&amp;</span>host_config);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -2698,7 +2698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T&gt;::ChannelCreationNotAuthorized
 			);
 
-			<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+			<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 			<span class="kw">let </span>max_message_size = config.hrmp_channel_max_message_size;
 			<span class="kw">let </span>max_capacity = config.hrmp_channel_max_capacity;
 
@@ -2735,7 +2735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>channel_id = HrmpChannelId { sender, recipient };
 			<span class="kw">let </span>is_system = sender.is_system() || recipient.is_system();
 
-			<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+			<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 			<span class="comment">// Channels with and amongst the system do not require a deposit.
 			</span><span class="kw">let </span>(new_sender_deposit, new_recipient_deposit) = <span class="kw">if </span>is_system {
@@ -2814,7 +2814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>initialize_storage&lt;T: Config&gt;(preopen_hrmp_channels: <span class="kw-2">&amp;</span>[(ParaId, ParaId, u32, u32)]) {
-	<span class="kw">let </span>host_config = configuration::Pallet::&lt;T&gt;::config();
+	<span class="kw">let </span>host_config = configuration::ActiveConfig::&lt;T&gt;::get();
 	<span class="kw">for </span><span class="kw-2">&amp;</span>(sender, recipient, max_capacity, max_message_size) <span class="kw">in </span>preopen_hrmp_channels {
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
 			preopen_hrmp_channel::&lt;T&gt;(sender, recipient, max_capacity, max_message_size)
@@ -2822,7 +2822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">panic!</span>(<span class="string">&quot;failed to initialize the genesis storage: {:?}&quot;</span>, err);
 		}
 	}
-	&lt;Pallet&lt;T&gt;&gt;::process_hrmp_open_channel_requests(<span class="kw-2">&amp;</span>host_config);
+	Pallet::&lt;T&gt;::process_hrmp_open_channel_requests(<span class="kw-2">&amp;</span>host_config);
 }
 
 <span class="kw">fn </span>preopen_hrmp_channel&lt;T: Config&gt;(
@@ -2831,8 +2831,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	max_capacity: u32,
 	max_message_size: u32,
 ) -&gt; DispatchResult {
-	&lt;Pallet&lt;T&gt;&gt;::init_open_channel(sender, recipient, max_capacity, max_message_size)<span class="question-mark">?</span>;
-	&lt;Pallet&lt;T&gt;&gt;::accept_open_channel(recipient, sender)<span class="question-mark">?</span>;
+	Pallet::&lt;T&gt;::init_open_channel(sender, recipient, max_capacity, max_message_size)<span class="question-mark">?</span>;
+	Pallet::&lt;T&gt;::accept_open_channel(recipient, sender)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(())
 }
 
@@ -2992,8 +2992,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>recipient_deposit = <span class="kw">if </span>system_channel { <span class="number">0 </span>} <span class="kw">else </span>{ config.hrmp_recipient_deposit };
 
 			<span class="kw">if </span>request.confirmed {
-				<span class="kw">if </span>&lt;paras::Pallet&lt;T&gt;&gt;::is_valid_para(channel_id.sender) &amp;&amp;
-					&lt;paras::Pallet&lt;T&gt;&gt;::is_valid_para(channel_id.recipient)
+				<span class="kw">if </span>paras::Pallet::&lt;T&gt;::is_valid_para(channel_id.sender) &amp;&amp;
+					paras::Pallet::&lt;T&gt;::is_valid_para(channel_id.recipient)
 				{
 					HrmpChannels::&lt;T&gt;::insert(
 						<span class="kw-2">&amp;</span>channel_id,
@@ -3284,7 +3284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Returns the amount of weight consumed.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>queue_outbound_hrmp(sender: ParaId, out_hrmp_msgs: HorizontalMessages) -&gt; Weight {
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 
 		<span class="kw">for </span>out_msg <span class="kw">in </span>out_hrmp_msgs {
 			<span class="kw">let </span>channel_id = HrmpChannelId { sender, recipient: out_msg.recipient };
@@ -3361,11 +3361,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; DispatchResult {
 		<span class="macro">ensure!</span>(origin != recipient, Error::&lt;T&gt;::OpenHrmpChannelToSelf);
 		<span class="macro">ensure!</span>(
-			&lt;paras::Pallet&lt;T&gt;&gt;::is_valid_para(recipient),
+			paras::Pallet::&lt;T&gt;::is_valid_para(recipient),
 			Error::&lt;T&gt;::OpenHrmpChannelInvalidRecipient,
 		);
 
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="macro">ensure!</span>(proposed_max_capacity &gt; <span class="number">0</span>, Error::&lt;T&gt;::OpenHrmpChannelZeroCapacity);
 		<span class="macro">ensure!</span>(
 			proposed_max_capacity &lt;= config.hrmp_channel_max_capacity,
@@ -3433,7 +3433,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.encode()
 		};
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			&lt;dmp::Pallet&lt;T&gt;&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, recipient, notification_bytes)
+			dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, recipient, notification_bytes)
 		{
 			<span class="comment">// this should never happen unless the max downward message size is configured to a
 			// jokingly small number.
@@ -3459,7 +3459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// check if by accepting this open channel request, this parachain would exceed the
 		// number of inbound channels.
-		</span><span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		</span><span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="kw">let </span>channel_num_limit = config.hrmp_max_parachain_inbound_channels;
 		<span class="kw">let </span>ingress_cnt = HrmpIngressChannelsIndex::&lt;T&gt;::decode_len(<span class="kw-2">&amp;</span>origin).unwrap_or(<span class="number">0</span>) <span class="kw">as </span>u32;
 		<span class="kw">let </span>accepted_cnt = HrmpAcceptedChannelRequestCount::&lt;T&gt;::get(<span class="kw-2">&amp;</span>origin);
@@ -3491,7 +3491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			VersionedXcm::from(xcm).encode()
 		};
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			&lt;dmp::Pallet&lt;T&gt;&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, sender, notification_bytes)
+			dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, sender, notification_bytes)
 		{
 			<span class="comment">// this should never happen unless the max downward message size is configured to an
 			// jokingly small number.
@@ -3554,7 +3554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		HrmpCloseChannelRequests::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>channel_id, ());
 		HrmpCloseChannelRequestsList::&lt;T&gt;::append(channel_id.clone());
 
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="kw">let </span>notification_bytes = {
 			<span class="kw">use </span>parity_scale_codec::Encode <span class="kw">as _</span>;
 			<span class="kw">use </span>xcm::opaque::{latest::prelude::<span class="kw-2">*</span>, VersionedXcm};
@@ -3569,7 +3569,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>opposite_party =
 			<span class="kw">if </span>origin == channel_id.sender { channel_id.recipient } <span class="kw">else </span>{ channel_id.sender };
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(dmp::QueueDownwardMessageError::ExceedsMaxMessageSize) =
-			&lt;dmp::Pallet&lt;T&gt;&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, opposite_party, notification_bytes)
+			dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, opposite_party, notification_bytes)
 		{
 			<span class="comment">// this should never happen unless the max downward message size is configured to an
 			// jokingly small number.

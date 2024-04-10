@@ -1064,13 +1064,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validators: <span class="kw">impl </span>IntoIterator&lt;Item = ValidatorIndex&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;IdentificationTuple&lt;T&gt;&gt;&gt; {
 		<span class="comment">// We use `ValidatorSet::session_index` and not
-		// `shared::Pallet&lt;T&gt;::session_index()` because at the first block of a new era,
+		// `shared::CurrentSessionIndex::&lt;T&gt;::get()` because at the first block of a new era,
 		// the `IdentificationOf` of a validator in the previous session might be
 		// missing, while `shared` pallet would return the same session index as being
 		// updated at the end of the block.
 		</span><span class="kw">let </span>current_session = T::ValidatorSet::session_index();
 		<span class="kw">if </span>session_index == current_session {
-			<span class="kw">let </span>account_keys = <span class="kw">crate</span>::session_info::Pallet::&lt;T&gt;::account_keys(session_index);
+			<span class="kw">let </span>account_keys = <span class="kw">crate</span>::session_info::AccountKeys::&lt;T&gt;::get(session_index);
 			<span class="kw">let </span>account_ids = account_keys.defensive_unwrap_or_default();
 
 			<span class="kw">let </span>fully_identified = validators
@@ -1109,7 +1109,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>}
 
-		<span class="kw">let </span>session_info = <span class="kw">crate</span>::session_info::Pallet::&lt;T&gt;::session_info(session_index);
+		<span class="kw">let </span>session_info = <span class="kw">crate</span>::session_info::Sessions::&lt;T&gt;::get(session_index);
 		<span class="kw">let </span>session_info = <span class="kw">match </span>session_info.defensive_proof(DEFENSIVE_PROOF) {
 			<span class="prelude-val">Some</span>(info) =&gt; info,
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
@@ -1421,7 +1421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// fine.
 		</span><span class="kw">const </span>REMOVE_LIMIT: u32 = u32::MAX;
 
-		<span class="kw">let </span>config = &lt;<span class="kw">crate</span>::configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = <span class="kw">crate</span>::configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="kw">if </span>session_index &lt;= config.dispute_period + <span class="number">1 </span>{
 			<span class="kw">return
 		</span>}

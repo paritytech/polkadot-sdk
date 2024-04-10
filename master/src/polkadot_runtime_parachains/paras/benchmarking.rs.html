@@ -422,7 +422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>generate_disordered_actions_queue&lt;T: Config&gt;() {
 	<span class="kw">let </span><span class="kw-2">mut </span>queue = Vec::new();
-	<span class="kw">let </span>next_session = shared::Pallet::&lt;T&gt;::session_index().saturating_add(One::one());
+	<span class="kw">let </span>next_session = shared::CurrentSessionIndex::&lt;T&gt;::get().saturating_add(One::one());
 
 	<span class="kw">for _ in </span><span class="number">0</span>..SAMPLE_SIZE {
 		<span class="kw">let </span>id = ParaId::from(<span class="number">1000</span>);
@@ -494,7 +494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		generate_disordered_actions_queue::&lt;T&gt;();
 	}: <span class="kw">_</span>(RawOrigin::Root, para_id)
 	verify {
-		<span class="kw">let </span>next_session = <span class="kw">crate</span>::shared::Pallet::&lt;T&gt;::session_index().saturating_add(One::one());
+		<span class="kw">let </span>next_session = <span class="kw">crate</span>::shared::CurrentSessionIndex::&lt;T&gt;::get().saturating_add(One::one());
 		assert_last_event::&lt;T&gt;(Event::ActionQueued(para_id, next_session).into());
 	}
 

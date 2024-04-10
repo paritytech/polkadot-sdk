@@ -395,8 +395,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 	initializer::Pallet::&lt;T&gt;::on_finalize(BlockNumberFor::&lt;T&gt;::one());
 
-	<span class="kw">let </span>session_index = <span class="kw">crate</span>::shared::Pallet::&lt;T&gt;::session_index();
-	<span class="kw">let </span>session_info = <span class="kw">crate</span>::session_info::Pallet::&lt;T&gt;::session_info(session_index);
+	<span class="kw">let </span>session_index = <span class="kw">crate</span>::shared::CurrentSessionIndex::&lt;T&gt;::get();
+	<span class="kw">let </span>session_info = <span class="kw">crate</span>::session_info::Sessions::&lt;T&gt;::get(session_index);
 	<span class="kw">let </span>session_info = session_info.unwrap();
 	<span class="kw">let </span>validator_id = session_info.validators.get(ValidatorIndex::from(<span class="number">0</span>)).unwrap().clone();
 	<span class="kw">let </span>key = (PARACHAIN_KEY_TYPE_ID, validator_id.clone());
@@ -407,7 +407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	pallet_session::Pallet::&lt;T&gt;::rotate_session();
 	initializer::Pallet::&lt;T&gt;::on_finalize(BlockNumberFor::&lt;T&gt;::one());
 
-	<span class="kw">let </span>idx = <span class="kw">crate</span>::shared::Pallet::&lt;T&gt;::session_index();
+	<span class="kw">let </span>idx = <span class="kw">crate</span>::shared::CurrentSessionIndex::&lt;T&gt;::get();
 	<span class="macro">assert!</span>(
 		idx &gt; session_index,
 		<span class="string">&quot;session rotation should work for parachain pallets: {} &lt;= {}&quot;</span>,

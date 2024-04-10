@@ -2511,21 +2511,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2362" id="2362">2362</a>
 <a href="#2363" id="2363">2363</a>
 <a href="#2364" id="2364">2364</a>
-<a href="#2365" id="2365">2365</a>
-<a href="#2366" id="2366">2366</a>
-<a href="#2367" id="2367">2367</a>
-<a href="#2368" id="2368">2368</a>
-<a href="#2369" id="2369">2369</a>
-<a href="#2370" id="2370">2370</a>
-<a href="#2371" id="2371">2371</a>
-<a href="#2372" id="2372">2372</a>
-<a href="#2373" id="2373">2373</a>
-<a href="#2374" id="2374">2374</a>
-<a href="#2375" id="2375">2375</a>
-<a href="#2376" id="2376">2376</a>
-<a href="#2377" id="2377">2377</a>
-<a href="#2378" id="2378">2378</a>
-<a href="#2379" id="2379">2379</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3250,8 +3235,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Consider using the [`ParachainsCache`] type of modifying.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>parachains)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Parachains&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;ParaId&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>Parachains&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;ParaId&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current lifecycle of a all known Para IDs.
 	</span><span class="attr">#[pallet::storage]
@@ -3259,22 +3243,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The head-data of every registered para.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>para_head)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Heads&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, HeadData&gt;;
+	</span><span class="kw">pub type </span>Heads&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, HeadData&gt;;
 
 	<span class="doccomment">/// The context (relay-chain block number) of the most recent parachain head.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>para_most_recent_context)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>MostRecentContext&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, BlockNumberFor&lt;T&gt;&gt;;
+	</span><span class="kw">pub type </span>MostRecentContext&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, BlockNumberFor&lt;T&gt;&gt;;
 
 	<span class="doccomment">/// The validation code hash of every live para.
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>current_code_hash)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CurrentCodeHash&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, ValidationCodeHash&gt;;
+	</span><span class="kw">pub type </span>CurrentCodeHash&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, ValidationCodeHash&gt;;
 
 	<span class="doccomment">/// Actual past code hash, indicated by the para id as well as the block number at which it
 	/// became outdated.
@@ -3288,8 +3267,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// but we also keep their code on-chain for the same amount of time as outdated code
 	/// to keep it available for approval checkers.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>past_code_meta)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>PastCodeMeta&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>PastCodeMeta&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, ParaPastCodeMeta&lt;BlockNumberFor&lt;T&gt;&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Which paras have past code that needs pruning and the relay-chain block at which the code
@@ -3307,9 +3285,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The change will be applied after the first parablock for this ID included which executes
 	/// in the context of a relay chain block with a number &gt;= `expected_at`.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>future_code_upgrade_at)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>FutureCodeUpgrades&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, BlockNumberFor&lt;T&gt;&gt;;
+	</span><span class="kw">pub type </span>FutureCodeUpgrades&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, BlockNumberFor&lt;T&gt;&gt;;
 
 	<span class="doccomment">/// The list of upcoming future code upgrades.
 	///
@@ -3327,9 +3303,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>future_code_hash)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>FutureCodeHash&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, ValidationCodeHash&gt;;
+	</span><span class="kw">pub type </span>FutureCodeHash&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, ValidationCodeHash&gt;;
 
 	<span class="doccomment">/// This is used by the relay-chain to communicate to a parachain a go-ahead with in the upgrade
 	/// procedure.
@@ -3355,8 +3329,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// NOTE that this field is used by parachains via merkle storage proofs, therefore changing
 	/// the format will require migration of parachains.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>upgrade_restriction_signal)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UpgradeRestrictionSignal&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>UpgradeRestrictionSignal&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, UpgradeRestriction&gt;;
 
 	<span class="doccomment">/// The list of parachains that are awaiting for their upgrade restriction to cooldown.
@@ -3378,8 +3351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The actions to perform during the start of a specific session index.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>actions_queue)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ActionsQueue&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>ActionsQueue&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, SessionIndex, Vec&lt;ParaId&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Upcoming paras instantiation arguments.
@@ -3400,9 +3372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This storage is consistent with [`FutureCodeHash`], [`CurrentCodeHash`] and
 	/// [`PastCodeHash`].
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>code_by_hash)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CodeByHash&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Identity, ValidationCodeHash, ValidationCode&gt;;
+	</span><span class="kw">pub type </span>CodeByHash&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, ValidationCodeHash, ValidationCode&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -3469,7 +3439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			relay_parent_number: BlockNumberFor&lt;T&gt;,
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>config = configuration::Pallet::&lt;T&gt;::config();
+			<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 			<span class="self">Self</span>::schedule_code_upgrade(
 				para,
 				new_code,
@@ -3503,7 +3473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::force_queue_action())]
 		</span><span class="kw">pub fn </span>force_queue_action(origin: OriginFor&lt;T&gt;, para: ParaId) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>next_session = shared::Pallet::&lt;T&gt;::session_index().saturating_add(One::one());
+			<span class="kw">let </span>next_session = shared::CurrentSessionIndex::&lt;T&gt;::get().saturating_add(One::one());
 			ActionsQueue::&lt;T&gt;::mutate(next_session, |v| {
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(i) = v.binary_search(<span class="kw-2">&amp;</span>para) {
 					v.insert(i, para);
@@ -3545,9 +3515,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				});
 
-				<span class="kw">let </span>cfg = configuration::Pallet::&lt;T&gt;::config();
+				<span class="kw">let </span>cfg = configuration::ActiveConfig::&lt;T&gt;::get();
 				<span class="self">Self</span>::enact_pvf_accepted(
-					&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number(),
+					frame_system::Pallet::&lt;T&gt;::block_number(),
 					<span class="kw-2">&amp;</span>code_hash,
 					<span class="kw-2">&amp;</span>vote.causes,
 					vote.age,
@@ -3606,8 +3576,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResultWithPostInfo {
 			ensure_none(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>validators = shared::Pallet::&lt;T&gt;::active_validator_keys();
-			<span class="kw">let </span>current_session = shared::Pallet::&lt;T&gt;::session_index();
+			<span class="kw">let </span>validators = shared::ActiveValidatorKeys::&lt;T&gt;::get();
+			<span class="kw">let </span>current_session = shared::CurrentSessionIndex::&lt;T&gt;::get();
 			<span class="kw">if </span>stmt.session_index &lt; current_session {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::PvfCheckStatementStale.into())
 			} <span class="kw">else if </span>stmt.session_index &gt; current_session {
@@ -3655,9 +3625,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 				<span class="kw">match </span>outcome {
 					PvfCheckOutcome::Accepted =&gt; {
-						<span class="kw">let </span>cfg = configuration::Pallet::&lt;T&gt;::config();
+						<span class="kw">let </span>cfg = configuration::ActiveConfig::&lt;T&gt;::get();
 						<span class="self">Self</span>::enact_pvf_accepted(
-							&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number(),
+							frame_system::Pallet::&lt;T&gt;::block_number(),
 							<span class="kw-2">&amp;</span>stmt.subject,
 							<span class="kw-2">&amp;</span>active_vote.causes,
 							active_vote.age,
@@ -3705,7 +3675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">_ </span>=&gt; <span class="kw">return </span>InvalidTransaction::Call.into(),
 			};
 
-			<span class="kw">let </span>current_session = shared::Pallet::&lt;T&gt;::session_index();
+			<span class="kw">let </span>current_session = shared::CurrentSessionIndex::&lt;T&gt;::get();
 			<span class="kw">if </span>stmt.session_index &lt; current_session {
 				<span class="kw">return </span>InvalidTransaction::Stale.into()
 			} <span class="kw">else if </span>stmt.session_index &gt; current_session {
@@ -3713,7 +3683,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="kw">let </span>validator_index = stmt.validator_index.<span class="number">0 </span><span class="kw">as </span>usize;
-			<span class="kw">let </span>validators = shared::Pallet::&lt;T&gt;::active_validator_keys();
+			<span class="kw">let </span>validators = shared::ActiveValidatorKeys::&lt;T&gt;::get();
 			<span class="kw">let </span>validator_public = <span class="kw">match </span>validators.get(validator_index) {
 				<span class="prelude-val">Some</span>(pk) =&gt; pk,
 				<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
@@ -3778,7 +3748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; DispatchResult {
 		<span class="comment">// Check that we can schedule an upgrade at all.
 		</span><span class="macro">ensure!</span>(<span class="self">Self</span>::can_upgrade_validation_code(id), Error::&lt;T&gt;::CannotUpgradeCode);
-		<span class="kw">let </span>config = configuration::Pallet::&lt;T&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="comment">// Validation code sanity checks:
 		</span><span class="macro">ensure!</span>(new_code.<span class="number">0</span>.len() &gt;= MIN_CODE_SIZE <span class="kw">as </span>usize, Error::&lt;T&gt;::InvalidCode);
 		<span class="macro">ensure!</span>(new_code.<span class="number">0</span>.len() &lt;= config.max_code_size <span class="kw">as </span>usize, Error::&lt;T&gt;::InvalidCode);
@@ -3822,7 +3792,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The validation code of live para.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>current_code(para_id: <span class="kw-2">&amp;</span>ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;ValidationCode&gt; {
-		<span class="self">Self</span>::current_code_hash(para_id).and_then(|code_hash| {
+		CurrentCodeHash::&lt;T&gt;::get(para_id).and_then(|code_hash| {
 			<span class="kw">let </span>code = CodeByHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>code_hash);
 			<span class="kw">if </span>code.is_none() {
 				<span class="macro">log::error!</span>(
@@ -3846,7 +3816,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>apply_actions_queue(session: SessionIndex) -&gt; Vec&lt;ParaId&gt; {
 		<span class="kw">let </span>actions = ActionsQueue::&lt;T&gt;::take(session);
 		<span class="kw">let </span><span class="kw-2">mut </span>parachains = ParachainsCache::new();
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">let </span><span class="kw-2">mut </span>outgoing = Vec::new();
 
 		<span class="kw">for </span>para <span class="kw">in </span>actions {
@@ -3951,7 +3921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// looks at old code metadata, compares them to the current acceptance window, and prunes those
 	// that are too old.
 	</span><span class="kw">fn </span>prune_old_code(now: BlockNumberFor&lt;T&gt;) -&gt; Weight {
-		<span class="kw">let </span>config = configuration::Pallet::&lt;T&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="kw">let </span>code_retention_period = config.code_retention_period;
 		<span class="kw">if </span>now &lt;= code_retention_period {
 			<span class="kw">let </span>weight = T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">0</span>);
@@ -3987,7 +3957,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}
 						}
 
-						meta.is_empty() &amp;&amp; <span class="self">Self</span>::para_head(<span class="kw-2">&amp;</span>para_id).is_none()
+						meta.is_empty() &amp;&amp; Heads::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para_id).is_none()
 					});
 
 					<span class="comment">// This parachain has been removed and now the vestigial code
@@ -4179,7 +4149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// we cannot onboard at the current session, so it must be at least one
 		// session ahead.
-		</span><span class="kw">let </span>onboard_at: SessionIndex = shared::Pallet::&lt;T&gt;::session_index() +
+		</span><span class="kw">let </span>onboard_at: SessionIndex = shared::CurrentSessionIndex::&lt;T&gt;::get() +
 			cmp::max(shared::SESSION_DELAY.saturating_sub(sessions_observed), <span class="number">1</span>);
 
 		ActionsQueue::&lt;T&gt;::mutate(onboard_at, |v| {
@@ -4245,7 +4215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>expected_at = expected_at.saturated_into();
 		<span class="kw">let </span>log = ConsensusLog::ParaScheduleUpgradeCode(id, <span class="kw-2">*</span>code_hash, expected_at);
-		&lt;frame_system::Pallet&lt;T&gt;&gt;::deposit_log(log.into());
+		frame_system::Pallet::&lt;T&gt;::deposit_log(log.into());
 
 		weight
 	}
@@ -4353,7 +4323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>validation_code_hash = validation_code.hash();
 		CurrentCodeHash::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>id, validation_code_hash);
 
-		<span class="kw">let </span>cfg = configuration::Pallet::&lt;T&gt;::config();
+		<span class="kw">let </span>cfg = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="self">Self</span>::kick_off_pvf_check(
 			PvfCheckCause::Onboarding(id),
 			validation_code_hash,
@@ -4582,14 +4552,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// The code is known and there is no active PVF vote for it meaning it is
 					// already checked -- fast track the PVF checking into the accepted state.
 					</span>weight += T::DbWeight::get().reads(<span class="number">1</span>);
-					<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+					<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 					weight += <span class="self">Self</span>::enact_pvf_accepted(now, <span class="kw-2">&amp;</span>code_hash, <span class="kw-2">&amp;</span>[cause], <span class="number">0</span>, cfg);
 				} <span class="kw">else </span>{
 					<span class="comment">// PVF is not being pre-checked and it is not known. Start a new pre-checking
 					// process.
 					</span>weight += T::DbWeight::get().reads_writes(<span class="number">3</span>, <span class="number">2</span>);
-					<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
-					<span class="kw">let </span>n_validators = shared::Pallet::&lt;T&gt;::active_validator_keys().len();
+					<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+					<span class="kw">let </span>n_validators = shared::ActiveValidatorKeys::&lt;T&gt;::get().len();
 					PvfActiveVoteMap::&lt;T&gt;::insert(
 						<span class="kw-2">&amp;</span>code_hash,
 						PvfCheckActiveVoteState::new(now, n_validators, cause),
@@ -4819,7 +4789,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
 	</span><span class="kw">pub fn </span>test_on_new_session() {
 		<span class="self">Self</span>::initializer_on_new_session(<span class="kw-2">&amp;</span>SessionChangeNotification {
-			session_index: shared::Pallet::&lt;T&gt;::session_index(),
+			session_index: shared::CurrentSessionIndex::&lt;T&gt;::get(),
 			..Default::default()
 		});
 	}

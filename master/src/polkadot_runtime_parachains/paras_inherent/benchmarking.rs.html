@@ -521,7 +521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	enter_backed_candidate_code_upgrade {
 		<span class="comment">// For now we always assume worst case code size. In the future we could vary over this.
-		</span><span class="kw">let </span>v = <span class="kw">crate</span>::configuration::Pallet::&lt;T&gt;::config().max_code_size;
+		</span><span class="kw">let </span>v = <span class="kw">crate</span>::configuration::ActiveConfig::&lt;T&gt;::get().max_code_size;
 
 		<span class="kw">let </span>cores_with_backed: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;
 			= <span class="macro">vec!</span>[(<span class="number">0</span>, BenchBuilder::&lt;T&gt;::fallback_min_validity_votes())]

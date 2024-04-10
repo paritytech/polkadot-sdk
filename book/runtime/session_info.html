@@ -221,11 +221,11 @@ parachain validation. Only these validators should appear in the <code>SessionIn
 </ol>
 <h2 id="routines"><a class="header" href="#routines">Routines</a></h2>
 <ul>
-<li><code>earliest_stored_session() -&gt; SessionIndex</code>: Yields the earliest session for which we have information stored.</li>
-<li><code>session_info(session: SessionIndex) -&gt; Option&lt;SessionInfo&gt;</code>: Yields the session info for the given session, if
+<li><code>EarliestStoredSession::&lt;T&gt;::get() -&gt; SessionIndex</code>: Yields the earliest session for which we have information stored.</li>
+<li><code>Sessions::&lt;T&gt;::get(session: SessionIndex) -&gt; Option&lt;SessionInfo&gt;</code>: Yields the session info for the given session, if
 stored.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-04-10, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/92e142555d">92e142555d</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

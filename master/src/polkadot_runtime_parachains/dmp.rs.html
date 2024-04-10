@@ -736,7 +736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>inbound =
-			InboundDownwardMessage { msg, sent_at: &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() };
+			InboundDownwardMessage { msg, sent_at: frame_system::Pallet::&lt;T&gt;::block_number() };
 
 		<span class="comment">// obtain the new link in the MQC and update the head.
 		</span>DownwardMessageQueueHeads::&lt;T&gt;::mutate(para, |head| {
@@ -856,14 +856,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>increase_fee_factor(id: <span class="self">Self</span>::Id, message_size_factor: FixedU128) -&gt; FixedU128 {
-		&lt;DeliveryFeeFactor&lt;T&gt;&gt;::mutate(id, |f| {
+		DeliveryFeeFactor::&lt;T&gt;::mutate(id, |f| {
 			<span class="kw-2">*</span>f = f.saturating_mul(EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor));
 			<span class="kw-2">*</span>f
 		})
 	}
 
 	<span class="kw">fn </span>decrease_fee_factor(id: <span class="self">Self</span>::Id) -&gt; FixedU128 {
-		&lt;DeliveryFeeFactor&lt;T&gt;&gt;::mutate(id, |f| {
+		DeliveryFeeFactor::&lt;T&gt;::mutate(id, |f| {
 			<span class="kw-2">*</span>f = InitialFactor::get().max(<span class="kw-2">*</span>f / EXPONENTIAL_FEE_BASE);
 			<span class="kw-2">*</span>f
 		})

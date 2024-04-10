@@ -1641,7 +1641,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1492" id="1492">1492</a>
 <a href="#1493" id="1493">1493</a>
 <a href="#1494" id="1494">1494</a>
-<a href="#1495" id="1495">1495</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1798,8 +1797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Scraped on chain data for extracting resolved disputes as well as backing votes.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>on_chain_votes)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>OnChainVotes&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, ScrapedOnChainVotes&lt;T::Hash&gt;&gt;;
+	</span><span class="kw">pub type </span>OnChainVotes&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, ScrapedOnChainVotes&lt;T::Hash&gt;&gt;;
 
 	<span class="doccomment">/// Update the disputes statements set part of the on-chain votes.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_scrapable_on_chain_disputes&lt;T: Config&gt;(
@@ -1962,15 +1960,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			disputes.len()
 		);
 
-		<span class="kw">let </span>parent_hash = &lt;frame_system::Pallet&lt;T&gt;&gt;::parent_hash();
+		<span class="kw">let </span>parent_hash = frame_system::Pallet::&lt;T&gt;::parent_hash();
 
 		<span class="macro">ensure!</span>(
 			parent_header.hash().as_ref() == parent_hash.as_ref(),
 			Error::&lt;T&gt;::InvalidParentHeader,
 		);
 
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		<span class="comment">// Before anything else, update the allowed relay-parents.
 		</span>{
@@ -1986,7 +1984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 			});
 		}
-		<span class="kw">let </span>allowed_relay_parents = &lt;shared::Pallet&lt;T&gt;&gt;::allowed_relay_parents();
+		<span class="kw">let </span>allowed_relay_parents = shared::AllowedRelayParents::&lt;T&gt;::get();
 
 		<span class="kw">let </span>candidates_weight = backed_candidates_weight::&lt;T&gt;(<span class="kw-2">&amp;</span>backed_candidates);
 		<span class="kw">let </span>bitfields_weight = signed_bitfields_weight::&lt;T&gt;(<span class="kw-2">&amp;</span>bitfields);
@@ -1999,9 +1997,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Size before filter: {}, candidates + bitfields: {}, disputes: {}&quot;</span>, all_weight_before.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
 		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Time weight before filter: {}, candidates + bitfields: {}, disputes: {}&quot;</span>, all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
-		<span class="kw">let </span>current_session = &lt;shared::Pallet&lt;T&gt;&gt;::session_index();
-		<span class="kw">let </span>expected_bits = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_cores().len();
-		<span class="kw">let </span>validator_public = shared::Pallet::&lt;T&gt;::active_validator_keys();
+		<span class="kw">let </span>current_session = shared::CurrentSessionIndex::&lt;T&gt;::get();
+		<span class="kw">let </span>expected_bits = scheduler::AvailabilityCores::&lt;T&gt;::get().len();
+		<span class="kw">let </span>validator_public = shared::ActiveValidatorKeys::&lt;T&gt;::get();
 
 		<span class="comment">// We are assuming (incorrectly) to have all the weight (for the mandatory class or even
 		// full block) available to us. This can lead to slightly overweight blocks, which still
@@ -2152,7 +2150,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Get the cores freed as a result of concluded invalid candidates.
 		</span><span class="kw">let </span>(freed_disputed, concluded_invalid_hashes): (Vec&lt;CoreIndex&gt;, BTreeSet&lt;CandidateHash&gt;) =
-			&lt;inclusion::Pallet&lt;T&gt;&gt;::free_disputed(<span class="kw-2">&amp;</span>current_concluded_invalid_disputes)
+			inclusion::Pallet::&lt;T&gt;::free_disputed(<span class="kw-2">&amp;</span>current_concluded_invalid_disputes)
 				.into_iter()
 				.unzip();
 
@@ -2175,7 +2173,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Process new availability bitfields, yielding any availability cores whose
 		// work has now concluded.
 		</span><span class="kw">let </span>freed_concluded =
-			&lt;inclusion::Pallet&lt;T&gt;&gt;::update_pending_availability_and_get_freed_cores(
+			inclusion::Pallet::&lt;T&gt;::update_pending_availability_and_get_freed_cores(
 				<span class="kw-2">&amp;</span>validator_public[..],
 				bitfields.clone(),
 			);
@@ -2188,8 +2186,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		METRICS.on_candidates_included(freed_concluded.len() <span class="kw">as </span>u64);
 
 		<span class="comment">// Get the timed out candidates
-		</span><span class="kw">let </span>freed_timeout = <span class="kw">if </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::availability_timeout_check_required() {
-			&lt;inclusion::Pallet&lt;T&gt;&gt;::free_timedout()
+		</span><span class="kw">let </span>freed_timeout = <span class="kw">if </span>scheduler::Pallet::&lt;T&gt;::availability_timeout_check_required() {
+			inclusion::Pallet::&lt;T&gt;::free_timedout()
 		} <span class="kw">else </span>{
 			Vec::new()
 		};
@@ -2205,11 +2203,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.chain(freed_disputed.into_iter().map(|core| (core, FreedReason::Concluded)))
 			.chain(freed_timeout.into_iter().map(|c| (c, FreedReason::TimedOut)))
 			.collect::&lt;BTreeMap&lt;CoreIndex, FreedReason&gt;&gt;();
-		&lt;scheduler::Pallet&lt;T&gt;&gt;::free_cores_and_fill_claimqueue(freed, now);
+		scheduler::Pallet::&lt;T&gt;::free_cores_and_fill_claimqueue(freed, now);
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() <span class="kw">as </span>u64);
 
-		<span class="kw">let </span>core_index_enabled = configuration::Pallet::&lt;T&gt;::config()
+		<span class="kw">let </span>core_index_enabled = configuration::ActiveConfig::&lt;T&gt;::get()
 			.node_features
 			.get(FeatureIndex::ElasticScalingMVP <span class="kw">as </span>usize)
 			.map(|b| <span class="kw-2">*</span>b)
@@ -2218,7 +2216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>scheduled: BTreeMap&lt;ParaId, BTreeSet&lt;CoreIndex&gt;&gt; = BTreeMap::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>total_scheduled_cores = <span class="number">0</span>;
 
-		<span class="kw">for </span>(core_idx, para_id) <span class="kw">in </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::scheduled_paras() {
+		<span class="kw">for </span>(core_idx, para_id) <span class="kw">in </span>scheduler::Pallet::&lt;T&gt;::scheduled_paras() {
 			total_scheduled_cores += <span class="number">1</span>;
 			scheduled.entry(para_id).or_default().insert(core_idx);
 		}
@@ -2251,14 +2249,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>inclusion::ProcessedCandidates::&lt;&lt;HeaderFor&lt;T&gt; <span class="kw">as </span>HeaderT&gt;::Hash&gt; {
 			core_indices: occupied,
 			candidate_receipt_with_backing_validator_indices,
-		} = &lt;inclusion::Pallet&lt;T&gt;&gt;::process_candidates(
+		} = inclusion::Pallet::&lt;T&gt;::process_candidates(
 			<span class="kw-2">&amp;</span>allowed_relay_parents,
 			<span class="kw-2">&amp;</span>backed_candidates_with_core,
-			&lt;scheduler::Pallet&lt;T&gt;&gt;::group_validators,
+			scheduler::Pallet::&lt;T&gt;::group_validators,
 			core_index_enabled,
 		)<span class="question-mark">?</span>;
 		<span class="comment">// Note which of the scheduled cores were actually occupied by a backed candidate.
-		</span>&lt;scheduler::Pallet&lt;T&gt;&gt;::occupied(occupied.into_iter().map(|e| (e.<span class="number">0</span>, e.<span class="number">1</span>)).collect());
+		</span>scheduler::Pallet::&lt;T&gt;::occupied(occupied.into_iter().map(|e| (e.<span class="number">0</span>, e.<span class="number">1</span>)).collect());
 
 		set_scrapable_on_chain_backings::&lt;T&gt;(
 			current_session,
@@ -2795,7 +2793,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">return
 	</span>}
 
-	<span class="kw">let </span>minimum_backing_votes = configuration::Pallet::&lt;T&gt;::config().minimum_backing_votes;
+	<span class="kw">let </span>minimum_backing_votes = configuration::ActiveConfig::&lt;T&gt;::get().minimum_backing_votes;
 
 	<span class="comment">// Process all backed candidates. `validator_indices` in `BackedCandidates` are indices within
 	// the validator group assigned to the parachain. To obtain this group we need:
@@ -2822,7 +2820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 		<span class="comment">// Get the group index for the core
-		</span><span class="kw">let </span>group_idx = <span class="kw">match </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::group_assigned_to_core(
+		</span><span class="kw">let </span>group_idx = <span class="kw">match </span>scheduler::Pallet::&lt;T&gt;::group_assigned_to_core(
 			<span class="kw-2">*</span>core_idx,
 			relay_parent_block_number + One::one(),
 		) {
@@ -2834,7 +2832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="comment">// And finally get the validator group for this group index
-		</span><span class="kw">let </span>validator_group = <span class="kw">match </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::group_validators(group_idx) {
+		</span><span class="kw">let </span>validator_group = <span class="kw">match </span>scheduler::Pallet::&lt;T&gt;::group_validators(group_idx) {
 			<span class="prelude-val">Some</span>(validator_group) =&gt; validator_group,
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Can&#39;t get the validators from group {:?}. Dropping the candidate.&quot;</span>, group_idx);
@@ -2889,7 +2887,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="kw">let </span><span class="kw-2">mut </span>para_latest_head_data: BTreeMap&lt;ParaId, HeadData&gt; = BTreeMap::new();
 	<span class="kw">for </span>para_id <span class="kw">in </span>candidates.keys() {
-		<span class="kw">let </span>latest_head_data = <span class="kw">match </span>&lt;inclusion::Pallet&lt;T&gt;&gt;::para_latest_head_data(<span class="kw-2">&amp;</span>para_id) {
+		<span class="kw">let </span>latest_head_data = <span class="kw">match </span>inclusion::Pallet::&lt;T&gt;::para_latest_head_data(<span class="kw-2">&amp;</span>para_id) {
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">defensive!</span>(<span class="string">&quot;Latest included head data for paraid {:?} is None&quot;</span>, para_id);
 				<span class="kw">continue
@@ -2921,7 +2919,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			visited_candidates.insert(candidate_hash);
 		}
 
-		<span class="kw">let </span>prev_context = &lt;paras::Pallet&lt;T&gt;&gt;::para_most_recent_context(para_id);
+		<span class="kw">let </span>prev_context = paras::MostRecentContext::&lt;T&gt;::get(para_id);
 		<span class="kw">let </span>check_ctx = CandidateCheckContext::&lt;T&gt;::new(prev_context);
 
 		<span class="kw">let </span>res = <span class="kw">match </span>check_ctx.verify_backed_candidate(
@@ -3103,7 +3101,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 	<span class="comment">// Get the backing group of the candidate backed at `core_idx`.
-	</span><span class="kw">let </span>group_idx = <span class="kw">match </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::group_assigned_to_core(
+	</span><span class="kw">let </span>group_idx = <span class="kw">match </span>scheduler::Pallet::&lt;T&gt;::group_assigned_to_core(
 		core_idx,
 		relay_parent_block_number + One::one(),
 	) {
@@ -3118,7 +3116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>},
 	};
 
-	<span class="kw">let </span>group_validators = <span class="kw">match </span>&lt;scheduler::Pallet&lt;T&gt;&gt;::group_validators(group_idx) {
+	<span class="kw">let </span>group_validators = <span class="kw">match </span>scheduler::Pallet::&lt;T&gt;::group_validators(group_idx) {
 		<span class="prelude-val">Some</span>(validators) =&gt; validators,
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 	};

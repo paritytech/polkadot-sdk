@@ -728,7 +728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			v0::ParathreadQueue::&lt;T&gt;::kill();
 			v0::ParathreadClaimIndex::&lt;T&gt;::kill();
 
-			<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 			<span class="kw">let </span>scheduled = v0::Scheduled::&lt;T&gt;::take();
 			<span class="kw">let </span>sched_len = scheduled.len() <span class="kw">as </span>u64;
 			<span class="kw">for </span>core_assignment <span class="kw">in </span>scheduled {
@@ -738,7 +738,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				v1::add_to_claimqueue::&lt;T&gt;(core_idx, pe);
 			}
 
-			<span class="kw">let </span>parachains = paras::Pallet::&lt;T&gt;::parachains();
+			<span class="kw">let </span>parachains = paras::Parachains::&lt;T&gt;::get();
 			<span class="kw">let </span>availability_cores = v0::AvailabilityCores::&lt;T&gt;::take();
 			<span class="kw">let </span><span class="kw-2">mut </span>new_availability_cores = Vec::new();
 

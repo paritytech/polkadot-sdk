@@ -1039,9 +1039,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#890" id="890">890</a>
 <a href="#891" id="891">891</a>
 <a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1245,7 +1242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Maximum number of validators that may be part of a validator group.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fallback_max_validators() -&gt; u32 {
-		configuration::Pallet::&lt;T&gt;::config().max_validators.unwrap_or(<span class="number">200</span>)
+		configuration::ActiveConfig::&lt;T&gt;::get().max_validators.unwrap_or(<span class="number">200</span>)
 	}
 
 	<span class="doccomment">/// Maximum number of validators participating in parachains consensus (a.k.a. active
@@ -1264,7 +1261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Maximum number of validators per core (a.k.a. max validators per group). This value is used
 	/// if none is explicitly set on the builder.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fallback_max_validators_per_core() -&gt; u32 {
-		configuration::Pallet::&lt;T&gt;::config()
+		configuration::ActiveConfig::&lt;T&gt;::get()
 			.scheduler_params
 			.max_validators_per_core
 			.unwrap_or(<span class="number">5</span>)
@@ -1312,7 +1309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="kw">fn </span>mock_head_data() -&gt; HeadData {
-		<span class="kw">let </span>max_head_size = configuration::Pallet::&lt;T&gt;::config().max_head_data_size;
+		<span class="kw">let </span>max_head_size = configuration::ActiveConfig::&lt;T&gt;::get().max_head_data_size;
 		HeadData(<span class="macro">vec!</span>[<span class="number">0xFF</span>; max_head_size <span class="kw">as </span>usize])
 	}
 
@@ -1503,19 +1500,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>Digest { logs: Vec::new() },
 		);
 
-		<span class="macro">assert_eq!</span>(&lt;shared::Pallet&lt;T&gt;&gt;::session_index(), target_session);
+		<span class="macro">assert_eq!</span>(shared::CurrentSessionIndex::&lt;T&gt;::get(), target_session);
 
 		<span class="comment">// We need to refetch validators since they have been shuffled.
-		</span><span class="kw">let </span>validators_shuffled = session_info::Pallet::&lt;T&gt;::session_info(target_session)
-			.unwrap()
-			.validators
-			.clone();
+		</span><span class="kw">let </span>validators_shuffled =
+			session_info::Sessions::&lt;T&gt;::get(target_session).unwrap().validators.clone();
 
 		<span class="self">self</span>.validators = <span class="prelude-val">Some</span>(validators_shuffled);
 		<span class="self">self</span>.block_number = block_number;
 		<span class="self">self</span>.session = target_session;
-
-		<span class="macro">assert_eq!</span>(paras::Pallet::&lt;T&gt;::parachains().len(), total_cores - extra_cores);
+		<span class="macro">assert_eq!</span>(paras::Parachains::&lt;T&gt;::get().len(), total_cores - extra_cores);
 
 		<span class="self">self
 	</span>}
@@ -1594,7 +1588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; Vec&lt;BackedCandidate&lt;T::Hash&gt;&gt; {
 		<span class="kw">let </span>validators =
 			<span class="self">self</span>.validators.as_ref().expect(<span class="string">&quot;must have some validators prior to calling&quot;</span>);
-		<span class="kw">let </span>config = configuration::Pallet::&lt;T&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>current_core_idx = <span class="number">0u32</span>;
 		paras_with_backed_candidates
@@ -1708,7 +1702,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="comment">// Check if the elastic scaling bit is set, if so we need to supply the core
 						// index in the generated candidate.
-						</span><span class="kw">let </span>core_idx = configuration::Pallet::&lt;T&gt;::config()
+						</span><span class="kw">let </span>core_idx = configuration::ActiveConfig::&lt;T&gt;::get()
 							.node_features
 							.get(FeatureIndex::ElasticScalingMVP <span class="kw">as </span>usize)
 							.map(|_the_bit| core_idx);
@@ -1865,7 +1859,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Mark all the used cores as occupied. We expect that there are
 		// `backed_and_concluding_paras` that are pending availability and that there are
 		// `used_cores - backed_and_concluding_paras ` which are about to be disputed.
-		</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
+		</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number() + One::one();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>core_idx = <span class="number">0u32</span>;
 		<span class="kw">let </span>elastic_paras = <span class="kw-2">&amp;</span>builder.elastic_paras;
@@ -1875,7 +1869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.flat_map(|(para_id, <span class="kw">_</span>)| {
 				(<span class="number">0</span>..elastic_paras.get(<span class="kw-2">&amp;</span>para_id).cloned().unwrap_or(<span class="number">1</span>))
 					.map(|_para_local_core_idx| {
-						<span class="kw">let </span>ttl = configuration::Pallet::&lt;T&gt;::config().scheduler_params.ttl;
+						<span class="kw">let </span>ttl = configuration::ActiveConfig::&lt;T&gt;::get().scheduler_params.ttl;
 						<span class="comment">// Load an assignment into provider so that one is present to pop
 						</span><span class="kw">let </span>assignment =
 							&lt;T <span class="kw">as </span>scheduler::Config&gt;::AssignmentProvider::get_mock_assignment(
@@ -1898,7 +1892,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.flat_map(|para_id| {
 					(<span class="number">0</span>..elastic_paras.get(<span class="kw-2">&amp;</span>para_id).cloned().unwrap_or(<span class="number">1</span>))
 						.filter_map(|_para_local_core_idx| {
-							<span class="kw">let </span>ttl = configuration::Pallet::&lt;T&gt;::config().scheduler_params.ttl;
+							<span class="kw">let </span>ttl = configuration::ActiveConfig::&lt;T&gt;::get().scheduler_params.ttl;
 							<span class="comment">// Load an assignment into provider so that one is present to pop
 							</span><span class="kw">let </span>assignment =
 								&lt;T <span class="kw">as </span>scheduler::Config&gt;::AssignmentProvider::get_mock_assignment(

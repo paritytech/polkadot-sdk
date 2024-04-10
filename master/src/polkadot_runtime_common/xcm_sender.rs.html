@@ -565,11 +565,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Downward message passing.
 		</span><span class="kw">let </span>xcm = msg.take().ok_or(MissingArgument)<span class="question-mark">?</span>;
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="kw">let </span>para = id.into();
 		<span class="kw">let </span>price = P::price_for_delivery(para, <span class="kw-2">&amp;</span>xcm);
 		<span class="kw">let </span>blob = W::wrap_version(<span class="kw-2">&amp;</span>d, xcm).map_err(|()| DestinationUnsupported)<span class="question-mark">?</span>.encode();
-		&lt;dmp::Pallet&lt;T&gt;&gt;::can_queue_downward_message(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>para, <span class="kw-2">&amp;</span>blob)
+		dmp::Pallet::&lt;T&gt;::can_queue_downward_message(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>para, <span class="kw-2">&amp;</span>blob)
 			.map_err(Into::&lt;SendError&gt;::into)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(((config, para, blob), price))
@@ -579,7 +579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(config, para, blob): (HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;, ParaId, Vec&lt;u8&gt;),
 	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
 		<span class="kw">let </span>hash = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>blob[..]);
-		&lt;dmp::Pallet&lt;T&gt;&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, para, blob)
+		dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, para, blob)
 			.map(|()| hash)
 			.map_err(|<span class="kw">_</span>| SendError::Transport(<span class="kw-2">&amp;</span><span class="string">&quot;Error placing into DMP queue&quot;</span>))
 	}

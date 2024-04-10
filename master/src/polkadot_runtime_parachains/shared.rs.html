@@ -420,11 +420,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -565,25 +560,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The current session index.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>session_index)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CurrentSessionIndex&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, SessionIndex, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>CurrentSessionIndex&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, SessionIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// All the validators actively participating in parachain consensus.
 	/// Indices are into the broader validator set.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>active_validator_indices)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ActiveValidatorIndices&lt;T: Config&gt; =
-		StorageValue&lt;<span class="kw">_</span>, Vec&lt;ValidatorIndex&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>ActiveValidatorIndices&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;ValidatorIndex&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The parachain attestation keys of the validators actively participating in parachain
 	/// consensus. This should be the same length as `ActiveValidatorIndices`.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>active_validator_keys)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ActiveValidatorKeys&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;ValidatorId&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>ActiveValidatorKeys&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;ValidatorId&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// All allowed relay-parents.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>allowed_relay_parents)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AllowedRelayParents&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, AllowedRelayParentsTracker&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;, ValueQuery&gt;;
 
@@ -645,13 +635,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Return the session index that should be used for any future scheduled changes.
 	</span><span class="kw">pub fn </span>scheduled_session() -&gt; SessionIndex {
-		<span class="self">Self</span>::session_index().saturating_add(SESSION_DELAY)
+		CurrentSessionIndex::&lt;T&gt;::get().saturating_add(SESSION_DELAY)
 	}
 
 	<span class="doccomment">/// Fetches disabled validators list from session pallet.
 	/// CAVEAT: this might produce incorrect results on session boundaries
 	</span><span class="kw">pub fn </span>disabled_validators() -&gt; Vec&lt;ValidatorIndex&gt; {
-		<span class="kw">let </span>shuffled_indices = Pallet::&lt;T&gt;::active_validator_indices();
+		<span class="kw">let </span>shuffled_indices = ActiveValidatorIndices::&lt;T&gt;::get();
 		<span class="comment">// mapping from raw validator index to `ValidatorIndex`
 		// this computation is the same within a session, but should be cheap
 		</span><span class="kw">let </span>reverse_index = shuffled_indices

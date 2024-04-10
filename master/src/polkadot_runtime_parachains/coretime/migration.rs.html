@@ -438,6 +438,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -553,7 +555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="kw">let </span>legacy_paras = paras::Parachains::&lt;T&gt;::get();
-			<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+			<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 			<span class="kw">let </span>total_core_count = config.scheduler_params.num_cores + legacy_paras.len() <span class="kw">as </span>u32;
 
 			<span class="kw">let </span>dmp_queue_size =
@@ -596,9 +598,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;,
 	&gt;() -&gt; Weight {
-		<span class="kw">let </span>legacy_paras = paras::Pallet::&lt;T&gt;::parachains();
+		<span class="kw">let </span>legacy_paras = paras::Parachains::&lt;T&gt;::get();
 		<span class="kw">let </span>legacy_count = legacy_paras.len() <span class="kw">as </span>u32;
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">for </span>(core, para_id) <span class="kw">in </span>legacy_paras.into_iter().enumerate() {
 			<span class="kw">let </span>r = assigner_coretime::Pallet::&lt;T&gt;::assign_core(
 				CoreIndex(core <span class="kw">as </span>u32),
@@ -615,7 +617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="comment">// num_cores was on_demand_cores until now:
 		</span><span class="kw">for </span>on_demand <span class="kw">in </span><span class="number">0</span>..config.scheduler_params.num_cores {
 			<span class="kw">let </span>core = CoreIndex(legacy_count.saturating_add(on_demand <span class="kw">as _</span>));
@@ -652,7 +654,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;,
 	&gt;() -&gt; result::Result&lt;(), SendError&gt; {
-		<span class="kw">let </span>legacy_paras = paras::Pallet::&lt;T&gt;::parachains();
+		<span class="kw">let </span>legacy_paras = paras::Parachains::&lt;T&gt;::get();
 		<span class="kw">let </span>legacy_paras_count = legacy_paras.len();
 		<span class="kw">let </span>(system_chains, lease_holding): (Vec&lt;<span class="kw">_</span>&gt;, Vec&lt;<span class="kw">_</span>&gt;) =
 			legacy_paras.into_iter().partition(IsSystem::is_system);
@@ -686,8 +688,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(mk_coretime_call(<span class="kw">crate</span>::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
 
-		<span class="kw">let </span>core_count: u16 =
-			configuration::Pallet::&lt;T&gt;::config().scheduler_params.num_cores.saturated_into();
+		<span class="kw">let </span>core_count: u16 = configuration::ActiveConfig::&lt;T&gt;::get()
+			.scheduler_params
+			.num_cores
+			.saturated_into();
 		<span class="kw">let </span>set_core_count = iter::once(mk_coretime_call(
 			<span class="kw">crate</span>::coretime::CoretimeCalls::NotifyCoreCount(core_count),
 		));

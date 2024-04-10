@@ -1618,8 +1618,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1469" id="1469">1469</a>
 <a href="#1470" id="1470">1470</a>
 <a href="#1471" id="1471">1471</a>
-<a href="#1472" id="1472">1472</a>
-<a href="#1473" id="1473">1473</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1770,18 +1768,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Assigned permanent slots, with their start lease period, and duration.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>permanent_slots)]
 	</span><span class="kw">pub type </span>PermanentSlots&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, (LeasePeriodOf&lt;T&gt;, LeasePeriodOf&lt;T&gt;), OptionQuery&gt;;
 
 	<span class="doccomment">/// Number of assigned (and active) permanent slots.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>permanent_slot_count)]
 	</span><span class="kw">pub type </span>PermanentSlotCount&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// Assigned temporary slots.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>temporary_slots)]
 	</span><span class="kw">pub type </span>TemporarySlots&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -1792,12 +1787,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Number of assigned temporary slots.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>temporary_slot_count)]
 	</span><span class="kw">pub type </span>TemporarySlotCount&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// Number of active temporary slots in current slot lease period.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>active_temporary_slot_count)]
 	</span><span class="kw">pub type </span>ActiveTemporarySlotCount&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">///  The max number of temporary slots that can be assigned.
@@ -1819,8 +1812,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::genesis_build]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-			&lt;MaxPermanentSlots&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span><span class="self">self</span>.max_permanent_slots);
-			&lt;MaxTemporarySlots&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span><span class="self">self</span>.max_temporary_slots);
+			MaxPermanentSlots::&lt;T&gt;::put(<span class="kw-2">&amp;</span><span class="self">self</span>.max_permanent_slots);
+			MaxTemporarySlots::&lt;T&gt;::put(<span class="kw-2">&amp;</span><span class="self">self</span>.max_temporary_slots);
 		}
 	}
 
@@ -1928,7 +1921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					LeasePeriodOf::&lt;T&gt;::from(T::PermanentSlotLeasePeriodLength::get()),
 				),
 			);
-			&lt;PermanentSlotCount&lt;T&gt;&gt;::mutate(|count| count.saturating_inc());
+			PermanentSlotCount::&lt;T&gt;::mutate(|count| count.saturating_inc());
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::PermanentSlotAssigned(id));
 			<span class="prelude-val">Ok</span>(())
@@ -1986,7 +1979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 			<span class="kw">if </span>lease_period_start == SlotLeasePeriodStart::Current &amp;&amp;
-				<span class="self">Self</span>::active_temporary_slot_count() &lt; T::MaxTemporarySlotPerLeasePeriod::get()
+				ActiveTemporarySlotCount::&lt;T&gt;::get() &lt; T::MaxTemporarySlotPerLeasePeriod::get()
 			{
 				<span class="comment">// Try to allocate slot directly
 				</span><span class="kw">match </span><span class="self">Self</span>::configure_slot_lease(
@@ -2016,7 +2009,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			TemporarySlots::&lt;T&gt;::insert(id, temp_slot);
-			&lt;TemporarySlotCount&lt;T&gt;&gt;::mutate(|count| count.saturating_inc());
+			TemporarySlotCount::&lt;T&gt;::mutate(|count| count.saturating_inc());
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::TemporarySlotAssigned(id));
 
@@ -2042,12 +2035,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if </span>PermanentSlots::&lt;T&gt;::contains_key(id) {
 				PermanentSlots::&lt;T&gt;::remove(id);
-				&lt;PermanentSlotCount&lt;T&gt;&gt;::mutate(|count| <span class="kw-2">*</span>count = count.saturating_sub(One::one()));
+				PermanentSlotCount::&lt;T&gt;::mutate(|count| <span class="kw-2">*</span>count = count.saturating_sub(One::one()));
 			} <span class="kw">else if </span>TemporarySlots::&lt;T&gt;::contains_key(id) {
 				TemporarySlots::&lt;T&gt;::remove(id);
-				&lt;TemporarySlotCount&lt;T&gt;&gt;::mutate(|count| <span class="kw-2">*</span>count = count.saturating_sub(One::one()));
+				TemporarySlotCount::&lt;T&gt;::mutate(|count| <span class="kw-2">*</span>count = count.saturating_sub(One::one()));
 				<span class="kw">if </span>is_parachain {
-					&lt;ActiveTemporarySlotCount&lt;T&gt;&gt;::mutate(|active_count| {
+					ActiveTemporarySlotCount::&lt;T&gt;::mutate(|active_count| {
 						<span class="kw-2">*</span>active_count = active_count.saturating_sub(One::one())
 					});
 				}
@@ -2078,7 +2071,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>set_max_permanent_slots(origin: OriginFor&lt;T&gt;, slots: u32) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 
-			&lt;MaxPermanentSlots&lt;T&gt;&gt;::put(slots);
+			MaxPermanentSlots::&lt;T&gt;::put(slots);
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::MaxPermanentSlotsChanged { slots });
 			<span class="prelude-val">Ok</span>(())
@@ -2090,7 +2083,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>set_max_temporary_slots(origin: OriginFor&lt;T&gt;, slots: u32) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 
-			&lt;MaxTemporarySlots&lt;T&gt;&gt;::put(slots);
+			MaxTemporarySlots::&lt;T&gt;::put(slots);
 
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::MaxTemporarySlotsChanged { slots });
 			<span class="prelude-val">Ok</span>(())
@@ -2587,7 +2580,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				RuntimeOrigin::root(),
 				ParaId::from(<span class="number">2_u32</span>),
 			));
-			<span class="macro">assert_eq!</span>(AssignedSlots::permanent_slot_count(), <span class="number">2</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::PermanentSlotCount::&lt;Test&gt;::get(), <span class="number">2</span>);
 
 			<span class="macro">assert_noop!</span>(
 				AssignedSlots::assign_perm_parachain_slot(
@@ -2611,8 +2604,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				dummy_validation_code(),
 			));
 
-			<span class="macro">assert_eq!</span>(AssignedSlots::permanent_slot_count(), <span class="number">0</span>);
-			<span class="macro">assert_eq!</span>(AssignedSlots::permanent_slots(ParaId::from(<span class="number">1_u32</span>)), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::PermanentSlotCount::&lt;Test&gt;::get(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::PermanentSlots::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)), <span class="prelude-val">None</span>);
 
 			<span class="macro">assert_ok!</span>(AssignedSlots::assign_perm_parachain_slot(
 				RuntimeOrigin::root(),
@@ -2626,9 +2619,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
 
-				<span class="macro">assert_eq!</span>(AssignedSlots::permanent_slot_count(), <span class="number">1</span>);
+				<span class="macro">assert_eq!</span>(assigned_slots::PermanentSlotCount::&lt;Test&gt;::get(), <span class="number">1</span>);
 				<span class="macro">assert_eq!</span>(AssignedSlots::has_permanent_slot(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
-				<span class="macro">assert_eq!</span>(AssignedSlots::permanent_slots(ParaId::from(<span class="number">1_u32</span>)), <span class="prelude-val">Some</span>((<span class="number">0</span>, <span class="number">3</span>)));
+				<span class="macro">assert_eq!</span>(
+					assigned_slots::PermanentSlots::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)),
+					<span class="prelude-val">Some</span>((<span class="number">0</span>, <span class="number">3</span>))
+				);
 
 				<span class="macro">assert_eq!</span>(Slots::already_leased(ParaId::from(<span class="number">1_u32</span>), <span class="number">0</span>, <span class="number">2</span>), <span class="bool-val">true</span>);
 
@@ -2760,7 +2756,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				));
 			}
 
-			<span class="macro">assert_eq!</span>(AssignedSlots::temporary_slot_count(), <span class="number">6</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::TemporarySlotCount::&lt;Test&gt;::get(), <span class="number">6</span>);
 
 			<span class="comment">// Attempt to assign one more temp slot
 			</span><span class="macro">assert_ok!</span>(TestRegistrar::&lt;Test&gt;::register(
@@ -2792,15 +2788,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				dummy_validation_code(),
 			));
 
-			<span class="macro">assert_eq!</span>(AssignedSlots::temporary_slots(ParaId::from(<span class="number">1_u32</span>)), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::TemporarySlots::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)), <span class="prelude-val">None</span>);
 
 			<span class="macro">assert_ok!</span>(AssignedSlots::assign_temp_parachain_slot(
 				RuntimeOrigin::root(),
 				ParaId::from(<span class="number">1_u32</span>),
 				SlotLeasePeriodStart::Current
 			));
-			<span class="macro">assert_eq!</span>(AssignedSlots::temporary_slot_count(), <span class="number">1</span>);
-			<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::TemporarySlotCount::&lt;Test&gt;::get(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">1</span>);
 
 			<span class="comment">// Block 1-5
 			// Para is a lease holding parachain for TemporarySlotLeasePeriodLength * LeasePeriod
@@ -2808,14 +2804,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">while </span>block &lt; <span class="number">6 </span>{
 				<span class="macro">println!</span>(<span class="string">&quot;block #{}&quot;</span>, block);
 				<span class="macro">println!</span>(<span class="string">&quot;lease period #{}&quot;</span>, AssignedSlots::current_lease_period_index());
-				<span class="macro">println!</span>(<span class="string">&quot;lease {:?}&quot;</span>, Slots::lease(ParaId::from(<span class="number">1_u32</span>)));
+				<span class="macro">println!</span>(<span class="string">&quot;lease {:?}&quot;</span>, slots::Leases::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)));
 
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
 
 				<span class="macro">assert_eq!</span>(AssignedSlots::has_temporary_slot(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
-				<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">1</span>);
+				<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">1</span>);
 				<span class="macro">assert_eq!</span>(
-					AssignedSlots::temporary_slots(ParaId::from(<span class="number">1_u32</span>)),
+					assigned_slots::TemporarySlots::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)),
 					<span class="prelude-val">Some</span>(ParachainTemporarySlot {
 						manager: <span class="number">1</span>,
 						period_begin: <span class="number">0</span>,
@@ -2834,23 +2830,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Block 6
 			</span><span class="macro">println!</span>(<span class="string">&quot;block #{}&quot;</span>, block);
 			<span class="macro">println!</span>(<span class="string">&quot;lease period #{}&quot;</span>, AssignedSlots::current_lease_period_index());
-			<span class="macro">println!</span>(<span class="string">&quot;lease {:?}&quot;</span>, Slots::lease(ParaId::from(<span class="number">1_u32</span>)));
+			<span class="macro">println!</span>(<span class="string">&quot;lease {:?}&quot;</span>, slots::Leases::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)));
 
 			<span class="comment">// Para lease ended, downgraded back to on-demand parachain
 			</span><span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parathread(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
 			<span class="macro">assert_eq!</span>(Slots::already_leased(ParaId::from(<span class="number">1_u32</span>), <span class="number">0</span>, <span class="number">3</span>), <span class="bool-val">false</span>);
-			<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">0</span>);
 
 			<span class="comment">// Block 12
 			// Para should get a turn after TemporarySlotLeasePeriodLength * LeasePeriod blocks
 			</span>run_to_block(<span class="number">12</span>);
 			<span class="macro">println!</span>(<span class="string">&quot;block #{}&quot;</span>, block);
 			<span class="macro">println!</span>(<span class="string">&quot;lease period #{}&quot;</span>, AssignedSlots::current_lease_period_index());
-			<span class="macro">println!</span>(<span class="string">&quot;lease {:?}&quot;</span>, Slots::lease(ParaId::from(<span class="number">1_u32</span>)));
+			<span class="macro">println!</span>(<span class="string">&quot;lease {:?}&quot;</span>, slots::Leases::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)));
 
 			<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
 			<span class="macro">assert_eq!</span>(Slots::already_leased(ParaId::from(<span class="number">1_u32</span>), <span class="number">4</span>, <span class="number">5</span>), <span class="bool-val">true</span>);
-			<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">1</span>);
 		});
 	}
 
@@ -2892,7 +2888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">3_u32</span>)), <span class="bool-val">false</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">4_u32</span>)), <span class="bool-val">false</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">5_u32</span>)), <span class="bool-val">false</span>);
-				<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">2</span>);
+				<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">2</span>);
 			}
 
 			<span class="comment">// Block 6-11, Period 2-3
@@ -2904,7 +2900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">3_u32</span>)), <span class="bool-val">true</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">4_u32</span>)), <span class="bool-val">false</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">5_u32</span>)), <span class="bool-val">false</span>);
-				<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">2</span>);
+				<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">2</span>);
 			}
 
 			<span class="comment">// Block 12-17, Period 4-5
@@ -2916,7 +2912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">3_u32</span>)), <span class="bool-val">false</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">4_u32</span>)), <span class="bool-val">true</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">5_u32</span>)), <span class="bool-val">true</span>);
-				<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">2</span>);
+				<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">2</span>);
 			}
 
 			<span class="comment">// Block 18-23, Period 6-7
@@ -2928,7 +2924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">3_u32</span>)), <span class="bool-val">false</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">4_u32</span>)), <span class="bool-val">false</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">5_u32</span>)), <span class="bool-val">false</span>);
-				<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">2</span>);
+				<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">2</span>);
 			}
 
 			<span class="comment">// Block 24-29, Period 8-9
@@ -2940,7 +2936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">3_u32</span>)), <span class="bool-val">true</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">4_u32</span>)), <span class="bool-val">false</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">5_u32</span>)), <span class="bool-val">false</span>);
-				<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">2</span>);
+				<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">2</span>);
 			}
 
 			<span class="comment">// Block 30-35, Period 10-11
@@ -2952,7 +2948,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">3_u32</span>)), <span class="bool-val">false</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">4_u32</span>)), <span class="bool-val">true</span>);
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">5_u32</span>)), <span class="bool-val">true</span>);
-				<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">2</span>);
+				<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">2</span>);
 			}
 		});
 	}
@@ -3008,9 +3004,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ParaId::from(<span class="number">1_u32</span>),
 			));
 
-			<span class="macro">assert_eq!</span>(AssignedSlots::permanent_slot_count(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::PermanentSlotCount::&lt;Test&gt;::get(), <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(AssignedSlots::has_permanent_slot(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">false</span>);
-			<span class="macro">assert_eq!</span>(AssignedSlots::permanent_slots(ParaId::from(<span class="number">1_u32</span>)), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::PermanentSlots::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)), <span class="prelude-val">None</span>);
 
 			<span class="macro">assert_eq!</span>(Slots::already_leased(ParaId::from(<span class="number">1_u32</span>), <span class="number">0</span>, <span class="number">2</span>), <span class="bool-val">false</span>);
 		});
@@ -3041,10 +3037,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ParaId::from(<span class="number">1_u32</span>),
 			));
 
-			<span class="macro">assert_eq!</span>(AssignedSlots::temporary_slot_count(), <span class="number">0</span>);
-			<span class="macro">assert_eq!</span>(AssignedSlots::active_temporary_slot_count(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::TemporarySlotCount::&lt;Test&gt;::get(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::ActiveTemporarySlotCount::&lt;Test&gt;::get(), <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(AssignedSlots::has_temporary_slot(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">false</span>);
-			<span class="macro">assert_eq!</span>(AssignedSlots::temporary_slots(ParaId::from(<span class="number">1_u32</span>)), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(assigned_slots::TemporarySlots::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)), <span class="prelude-val">None</span>);
 
 			<span class="macro">assert_eq!</span>(Slots::already_leased(ParaId::from(<span class="number">1_u32</span>), <span class="number">0</span>, <span class="number">1</span>), <span class="bool-val">false</span>);
 		});

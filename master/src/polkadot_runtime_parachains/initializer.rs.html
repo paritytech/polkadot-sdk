@@ -846,15 +846,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">where
 		</span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T::AccountId, <span class="self">Self</span>::Key)&gt;,
 	{
-		&lt;Pallet&lt;T&gt;&gt;::on_new_session(<span class="bool-val">false</span>, <span class="number">0</span>, validators, <span class="prelude-val">None</span>);
+		Pallet::&lt;T&gt;::on_new_session(<span class="bool-val">false</span>, <span class="number">0</span>, validators, <span class="prelude-val">None</span>);
 	}
 
 	<span class="kw">fn </span>on_new_session&lt;<span class="lifetime">&#39;a</span>, I: <span class="lifetime">&#39;a</span>&gt;(changed: bool, validators: I, queued: I)
 	<span class="kw">where
 		</span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T::AccountId, <span class="self">Self</span>::Key)&gt;,
 	{
-		<span class="kw">let </span>session_index = &lt;pallet_session::Pallet&lt;T&gt;&gt;::current_index();
-		&lt;Pallet&lt;T&gt;&gt;::on_new_session(changed, session_index, validators, <span class="prelude-val">Some</span>(queued));
+		<span class="kw">let </span>session_index = pallet_session::Pallet::&lt;T&gt;::current_index();
+		Pallet::&lt;T&gt;::on_new_session(changed, session_index, validators, <span class="prelude-val">Some</span>(queued));
 	}
 
 	<span class="kw">fn </span>on_disabled(_i: u32) {}

@@ -670,6 +670,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -743,7 +745,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin: From&lt;<span class="kw">crate</span>::Origin&gt;,
 {
-	<span class="kw">let </span>config = Configuration::&lt;T&gt;::config();
+	<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 	<span class="kw">let </span>ed = T::Currency::minimum_balance();
 	<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; = config.hrmp_sender_deposit.unique_saturated_into();
 	<span class="kw">let </span>capacity = config.hrmp_channel_max_capacity;
@@ -783,7 +785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span>output
 	}
 
-	Hrmp::&lt;T&gt;::process_hrmp_open_channel_requests(<span class="kw-2">&amp;</span>Configuration::&lt;T&gt;::config());
+	Hrmp::&lt;T&gt;::process_hrmp_open_channel_requests(<span class="kw-2">&amp;</span>configuration::ActiveConfig::&lt;T&gt;::get());
 	<span class="kw">if </span><span class="macro">matches!</span>(until, ParachainSetupStep::Established) {
 		<span class="kw">return </span>output
 	}
@@ -828,13 +830,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// make sure para is registered, and has enough balance.
 		</span><span class="kw">let </span>ed = T::Currency::minimum_balance();
-		<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; =
-			Configuration::&lt;T&gt;::config().hrmp_sender_deposit.unique_saturated_into();
+		<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; = configuration::ActiveConfig::&lt;T&gt;::get()
+			.hrmp_sender_deposit
+			.unique_saturated_into();
 		register_parachain_with_balance::&lt;T&gt;(sender_id, deposit + ed);
 		register_parachain_with_balance::&lt;T&gt;(recipient_id, deposit + ed);
 
-		<span class="kw">let </span>capacity = Configuration::&lt;T&gt;::config().hrmp_channel_max_capacity;
-		<span class="kw">let </span>message_size = Configuration::&lt;T&gt;::config().hrmp_channel_max_message_size;
+		<span class="kw">let </span>capacity = configuration::ActiveConfig::&lt;T&gt;::get().hrmp_channel_max_capacity;
+		<span class="kw">let </span>message_size = configuration::ActiveConfig::&lt;T&gt;::get().hrmp_channel_max_message_size;
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(sender_origin, recipient_id, capacity, message_size);
@@ -900,7 +903,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// .. and enact it.
 		</span>Configuration::&lt;T&gt;::initializer_on_new_session(<span class="kw-2">&amp;</span>Shared::&lt;T&gt;::scheduled_session());
 
-		<span class="kw">let </span>config = Configuration::&lt;T&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="kw">let </span>deposit: BalanceOf&lt;T&gt; = config.hrmp_sender_deposit.unique_saturated_into();
 
 		<span class="kw">let </span>para: ParaId = <span class="number">1u32</span>.into();
@@ -1032,7 +1035,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_eq!</span>(HrmpOpenChannelRequestsList::&lt;T&gt;::decode_len().unwrap_or_default() <span class="kw">as </span>u32, c);
 		<span class="kw">let </span>outgoing = (<span class="number">0</span>..c).map(|id| (id + PREFIX_1).into()).collect::&lt;Vec&lt;ParaId&gt;&gt;();
-		<span class="kw">let </span>config = Configuration::&lt;T&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		<span class="attr">#[block]
 		</span>{
@@ -1055,13 +1058,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Make sure para is registered. The sender does actually need the normal deposit because it
 		// is first going the &quot;init&quot; route.
 		</span><span class="kw">let </span>ed = T::Currency::minimum_balance();
-		<span class="kw">let </span>sender_deposit: BalanceOf&lt;T&gt; =
-			Configuration::&lt;T&gt;::config().hrmp_sender_deposit.unique_saturated_into();
+		<span class="kw">let </span>sender_deposit: BalanceOf&lt;T&gt; = configuration::ActiveConfig::&lt;T&gt;::get()
+			.hrmp_sender_deposit
+			.unique_saturated_into();
 		register_parachain_with_balance::&lt;T&gt;(sender_id, sender_deposit + ed);
 		register_parachain_with_balance::&lt;T&gt;(recipient_id, Zero::zero());
 
-		<span class="kw">let </span>capacity = Configuration::&lt;T&gt;::config().hrmp_channel_max_capacity;
-		<span class="kw">let </span>message_size = Configuration::&lt;T&gt;::config().hrmp_channel_max_message_size;
+		<span class="kw">let </span>capacity = configuration::ActiveConfig::&lt;T&gt;::get().hrmp_channel_max_capacity;
+		<span class="kw">let </span>message_size = configuration::ActiveConfig::&lt;T&gt;::get().hrmp_channel_max_message_size;
 
 		<span class="kw">let </span>channel_id = HrmpChannelId { sender: sender_id, recipient: recipient_id };
 		<span class="kw">if </span>c == <span class="number">1 </span>{
@@ -1108,7 +1112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>recipient_id: ParaId = <span class="number">2u32</span>.into();
 
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
-		<span class="kw">let </span>config = Configuration::&lt;T&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		<span class="comment">// make sure para is registered, and has zero balance.
 		</span>register_parachain_with_balance::&lt;T&gt;(sender_id, Zero::zero());
@@ -1138,7 +1142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>channel_id = HrmpChannelId { sender: sender_id, recipient: recipient_id };
 
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
-		<span class="kw">let </span>config = Configuration::&lt;T&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		<span class="comment">// make sure para is registered, and has balance to reserve.
 		</span><span class="kw">let </span>ed = T::Currency::minimum_balance();

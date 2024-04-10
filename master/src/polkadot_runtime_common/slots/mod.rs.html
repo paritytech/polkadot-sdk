@@ -1316,7 +1316,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1167" id="1167">1167</a>
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
-<a href="#1170" id="1170">1170</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1433,7 +1432,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// It is illegal for a `None` value to trail in the list.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>lease)]
 	</span><span class="kw">pub type </span>Leases&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, Vec&lt;<span class="prelude-ty">Option</span>&lt;(T::AccountId, BalanceOf&lt;T&gt;)&gt;&gt;, ValueQuery&gt;;
 

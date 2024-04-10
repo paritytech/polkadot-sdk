@@ -280,10 +280,6 @@ in the negative.</p>
 <p><code>is_frozen()</code>: Load the value of <code>Frozen</code> from storage. Return true if <code>Some</code> and false if <code>None</code>.</p>
 </li>
 <li>
-<p><code>last_valid_block()</code>: Load the value of <code>Frozen</code> from storage and return. None indicates that all blocks in the chain
-are potentially valid.</p>
-</li>
-<li>
 <p><code>revert_and_freeze(BlockNumber)</code>:</p>
 <ol>
 <li>If <code>is_frozen()</code> return.</li>
@@ -330,7 +326,7 @@ inconclusive disputes are not slashed. Thanks to the applied filtering (describe
 confident that there are no spam disputes in the runtime. So if a validator is not voting it is due to another reason
 (e.g. being under DoS attack). There is no reason to punish such validators with a slash.</p>
 <p><em>Implementation note</em>: Slashing is performed in <code>process_checked_dispute_data</code> from <code>Disputes</code> pallet.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-04-10, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/92e142555d">92e142555d</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

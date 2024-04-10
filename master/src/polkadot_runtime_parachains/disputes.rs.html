@@ -1457,7 +1457,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1308" id="1308">1308</a>
 <a href="#1309" id="1309">1309</a>
 <a href="#1310" id="1310">1310</a>
-<a href="#1311" id="1311">1311</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1892,8 +1891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// and its value indicates the last valid block number in the chain.
 	/// It can only be set back to `None` by governance intervention.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>last_valid_block)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Frozen&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>Frozen&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub fn </span>deposit_event)]
@@ -2325,7 +2323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initializer_on_new_session(
 		notification: <span class="kw-2">&amp;</span>SessionChangeNotification&lt;BlockNumberFor&lt;T&gt;&gt;,
 	) {
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		<span class="kw">if </span>notification.session_index &lt;= config.dispute_period + <span class="number">1 </span>{
 			<span class="kw">return
@@ -2343,14 +2341,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>to_prune <span class="kw">in </span>to_prune {
 				<span class="comment">// This should be small, as disputes are rare, so `None` is fine.
 				</span><span class="attr">#[allow(deprecated)]
-				</span>&lt;Disputes&lt;T&gt;&gt;::remove_prefix(to_prune, <span class="prelude-val">None</span>);
+				</span>Disputes::&lt;T&gt;::remove_prefix(to_prune, <span class="prelude-val">None</span>);
 				<span class="attr">#[allow(deprecated)]
-				</span>&lt;BackersOnDisputes&lt;T&gt;&gt;::remove_prefix(to_prune, <span class="prelude-val">None</span>);
+				</span>BackersOnDisputes::&lt;T&gt;::remove_prefix(to_prune, <span class="prelude-val">None</span>);
 
 				<span class="comment">// This is larger, and will be extracted to the `shared` pallet for more proper
 				// pruning. TODO: https://github.com/paritytech/polkadot/issues/3469
 				</span><span class="attr">#[allow(deprecated)]
-				</span>&lt;Included&lt;T&gt;&gt;::remove_prefix(to_prune, <span class="prelude-val">None</span>);
+				</span>Included::&lt;T&gt;::remove_prefix(to_prune, <span class="prelude-val">None</span>);
 			}
 
 			<span class="kw-2">*</span>last_pruned = <span class="prelude-val">Some</span>(pruning_target);
@@ -2370,7 +2368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_checked_multi_dispute_data(
 		statement_sets: <span class="kw-2">&amp;</span>CheckedMultiDisputeStatementSet,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(SessionIndex, CandidateHash)&gt;, DispatchError&gt; {
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>fresh = Vec::with_capacity(statement_sets.len());
 		<span class="kw">for </span>statement_set <span class="kw">in </span>statement_sets {
@@ -2403,22 +2401,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Dispute statement sets on any dispute which concluded
 		// before this point are to be rejected.
-		</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">let </span>oldest_accepted = now.saturating_sub(post_conclusion_acceptance_period);
 
 		<span class="comment">// Load session info to access validators
-		</span><span class="kw">let </span>session_info = <span class="kw">match </span>&lt;session_info::Pallet&lt;T&gt;&gt;::session_info(set.session) {
+		</span><span class="kw">let </span>session_info = <span class="kw">match </span>session_info::Sessions::&lt;T&gt;::get(set.session) {
 			<span class="prelude-val">Some</span>(s) =&gt; s,
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>StatementSetFilter::RemoveAll,
 		};
 
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		<span class="kw">let </span>n_validators = session_info.validators.len();
 
 		<span class="comment">// Check for ancient.
 		</span><span class="kw">let </span>dispute_state = {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(dispute_state) = &lt;Disputes&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash) {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(dispute_state) = Disputes::&lt;T&gt;::get(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash) {
 				<span class="kw">if </span>dispute_state.concluded_at.as_ref().map_or(<span class="bool-val">false</span>, |c| c &lt; <span class="kw-2">&amp;</span>oldest_accepted) {
 					<span class="kw">return </span>StatementSetFilter::RemoveAll
 				}
@@ -2436,7 +2434,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>backers =
-			&lt;BackersOnDisputes&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash).unwrap_or_default();
+			BackersOnDisputes::&lt;T&gt;::get(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash).unwrap_or_default();
 
 		<span class="comment">// Check and import all votes.
 		</span><span class="kw">let </span>summary = {
@@ -2521,13 +2519,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, DispatchError&gt; {
 		<span class="comment">// Dispute statement sets on any dispute which concluded
 		// before this point are to be rejected.
-		</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">let </span>oldest_accepted = now.saturating_sub(dispute_post_conclusion_acceptance_period);
 
 		<span class="kw">let </span>set = set.as_ref();
 
 		<span class="comment">// Load session info to access validators
-		</span><span class="kw">let </span>session_info = <span class="kw">match </span>&lt;session_info::Pallet&lt;T&gt;&gt;::session_info(set.session) {
+		</span><span class="kw">let </span>session_info = <span class="kw">match </span>session_info::Sessions::&lt;T&gt;::get(set.session) {
 			<span class="prelude-val">Some</span>(s) =&gt; s,
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AncientDisputeStatement.into()),
 		};
@@ -2536,7 +2534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Check for ancient.
 		</span><span class="kw">let </span>(fresh, dispute_state) = {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(dispute_state) = &lt;Disputes&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash) {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(dispute_state) = Disputes::&lt;T&gt;::get(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash) {
 				<span class="macro">ensure!</span>(
 					dispute_state.concluded_at.as_ref().map_or(<span class="bool-val">true</span>, |c| c &gt;= <span class="kw-2">&amp;</span>oldest_accepted),
 					Error::&lt;T&gt;::AncientDisputeStatement,
@@ -2557,7 +2555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>backers =
-			&lt;BackersOnDisputes&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash).unwrap_or_default();
+			BackersOnDisputes::&lt;T&gt;::get(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash).unwrap_or_default();
 
 		<span class="comment">// Import all votes. They were pre-checked.
 		</span><span class="kw">let </span>summary = {
@@ -2587,7 +2585,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>backers = summary.backers;
 		<span class="comment">// Reject statements with no accompanying backing votes.
 		</span><span class="macro">ensure!</span>(!backers.is_empty(), Error::&lt;T&gt;::MissingBackingVotes);
-		&lt;BackersOnDisputes&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash, backers.clone());
+		BackersOnDisputes::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>set.session, <span class="kw-2">&amp;</span>set.candidate_hash, backers.clone());
 		<span class="comment">// AUDIT: from now on, no error should be returned.
 
 		</span><span class="kw">let </span>DisputeStatementSet { <span class="kw-2">ref </span>session, <span class="kw-2">ref </span>candidate_hash, .. } = set;
@@ -2595,7 +2593,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>candidate_hash = <span class="kw-2">*</span>candidate_hash;
 
 		<span class="kw">if </span>fresh {
-			<span class="kw">let </span>is_local = &lt;Included&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash);
+			<span class="kw">let </span>is_local = Included::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash);
 
 			<span class="self">Self</span>::deposit_event(Event::DisputeInitiated(
 				candidate_hash,
@@ -2645,12 +2643,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		&lt;Disputes&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash, <span class="kw-2">&amp;</span>summary.state);
+		Disputes::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash, <span class="kw-2">&amp;</span>summary.state);
 
 		<span class="comment">// Freeze if the INVALID votes against some local candidate are above the byzantine
 		// threshold
 		</span><span class="kw">if </span>summary.new_flags.contains(DisputeStateFlags::AGAINST_BYZANTINE) {
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(revert_to) = &lt;Included&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash) {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(revert_to) = Included::&lt;T&gt;::get(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash) {
 				<span class="self">Self</span>::revert_and_freeze(revert_to);
 			}
 		}
@@ -2661,7 +2659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[allow(unused)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>disputes() -&gt; Vec&lt;(SessionIndex, CandidateHash, DisputeState&lt;BlockNumberFor&lt;T&gt;&gt;)&gt;
 	{
-		&lt;Disputes&lt;T&gt;&gt;::iter().collect()
+		Disputes::&lt;T&gt;::iter().collect()
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>note_included(
@@ -2675,9 +2673,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>revert_to = included_in - One::one();
 
-		&lt;Included&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash, revert_to);
+		Included::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash, revert_to);
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(state) = &lt;Disputes&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>session, candidate_hash) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(state) = Disputes::&lt;T&gt;::get(<span class="kw-2">&amp;</span>session, candidate_hash) {
 			<span class="kw">if </span>has_supermajority_against(<span class="kw-2">&amp;</span>state) {
 				<span class="self">Self</span>::revert_and_freeze(revert_to);
 			}
@@ -2688,22 +2686,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		session: SessionIndex,
 		candidate_hash: CandidateHash,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt; {
-		&lt;Included&lt;T&gt;&gt;::get(session, candidate_hash)
+		Included::&lt;T&gt;::get(session, candidate_hash)
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>concluded_invalid(session: SessionIndex, candidate_hash: CandidateHash) -&gt; bool {
-		&lt;Disputes&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash).map_or(<span class="bool-val">false</span>, |dispute| {
+		Disputes::&lt;T&gt;::get(<span class="kw-2">&amp;</span>session, <span class="kw-2">&amp;</span>candidate_hash).map_or(<span class="bool-val">false</span>, |dispute| {
 			<span class="comment">// A dispute that has concluded with supermajority-against.
 			</span>has_supermajority_against(<span class="kw-2">&amp;</span>dispute)
 		})
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_frozen() -&gt; bool {
-		<span class="self">Self</span>::last_valid_block().is_some()
+		Frozen::&lt;T&gt;::get().is_some()
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>revert_and_freeze(revert_to: BlockNumberFor&lt;T&gt;) {
-		<span class="kw">if </span><span class="self">Self</span>::last_valid_block().map_or(<span class="bool-val">true</span>, |last| last &gt; revert_to) {
+		<span class="kw">if </span>Frozen::&lt;T&gt;::get().map_or(<span class="bool-val">true</span>, |last| last &gt; revert_to) {
 			Frozen::&lt;T&gt;::set(<span class="prelude-val">Some</span>(revert_to));
 
 			<span class="comment">// The `Revert` log is about reverting a block, not reverting to a block.

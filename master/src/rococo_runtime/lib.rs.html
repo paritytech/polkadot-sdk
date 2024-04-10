@@ -2582,6 +2582,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2433" id="2433">2433</a>
 <a href="#2434" id="2434">2434</a>
 <a href="#2435" id="2435">2435</a>
+<a href="#2436" id="2436">2436</a>
+<a href="#2437" id="2437">2437</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3783,9 +3785,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub struct </span>ParaHeadsRootProvider;
 <span class="kw">impl </span>BeefyDataProvider&lt;H256&gt; <span class="kw">for </span>ParaHeadsRootProvider {
 	<span class="kw">fn </span>extra_data() -&gt; H256 {
-		<span class="kw">let </span><span class="kw-2">mut </span>para_heads: Vec&lt;(u32, Vec&lt;u8&gt;)&gt; = Paras::parachains()
+		<span class="kw">let </span><span class="kw-2">mut </span>para_heads: Vec&lt;(u32, Vec&lt;u8&gt;)&gt; = parachains_paras::Parachains::&lt;Runtime&gt;::get()
 			.into_iter()
-			.filter_map(|id| Paras::para_head(<span class="kw-2">&amp;</span>id).map(|head| (id.into(), head.<span class="number">0</span>)))
+			.filter_map(|id| {
+				parachains_paras::Heads::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>id).map(|head| (id.into(), head.<span class="number">0</span>))
+			})
 			.collect();
 		para_heads.sort();
 		binary_merkle_tree::merkle_root::&lt;mmr::Hashing, <span class="kw">_</span>&gt;(
@@ -4030,7 +4034,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl </span>coretime::migration::GetLegacyLease&lt;BlockNumber&gt; <span class="kw">for </span>GetLegacyLeaseImpl {
 		<span class="kw">fn </span>get_parachain_lease_in_blocks(para: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;BlockNumber&gt; {
 			<span class="kw">let </span>now = frame_system::Pallet::&lt;Runtime&gt;::block_number();
-			<span class="kw">let </span>lease = slots::Pallet::&lt;Runtime&gt;::lease(para);
+			<span class="kw">let </span>lease = slots::Leases::&lt;Runtime&gt;::get(para);
 			<span class="kw">if </span>lease.is_empty() {
 				<span class="kw">return </span><span class="prelude-val">None</span>;
 			}

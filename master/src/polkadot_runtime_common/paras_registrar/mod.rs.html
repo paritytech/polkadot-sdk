@@ -2291,7 +2291,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// All lease holding parachains. Ordered ascending by ParaId. On-demand parachains are not
 	// included.
 	</span><span class="kw">fn </span>parachains() -&gt; Vec&lt;ParaId&gt; {
-		paras::Pallet::&lt;T&gt;::parachains()
+		paras::Parachains::&lt;T&gt;::get()
 	}
 
 	<span class="comment">// Return if a para is a parathread (on-demand parachain)
@@ -2359,14 +2359,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
 	</span><span class="kw">fn </span>worst_head_data() -&gt; HeadData {
-		<span class="kw">let </span>max_head_size = configuration::Pallet::&lt;T&gt;::config().max_head_data_size;
+		<span class="kw">let </span>max_head_size = configuration::ActiveConfig::&lt;T&gt;::get().max_head_data_size;
 		<span class="macro">assert!</span>(max_head_size &gt; <span class="number">0</span>, <span class="string">&quot;max_head_data can&#39;t be zero for generating worst head data.&quot;</span>);
 		<span class="macro">vec!</span>[<span class="number">0u8</span>; max_head_size <span class="kw">as </span>usize].into()
 	}
 
 	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
 	</span><span class="kw">fn </span>worst_validation_code() -&gt; ValidationCode {
-		<span class="kw">let </span>max_code_size = configuration::Pallet::&lt;T&gt;::config().max_code_size;
+		<span class="kw">let </span>max_code_size = configuration::ActiveConfig::&lt;T&gt;::get().max_code_size;
 		<span class="macro">assert!</span>(max_code_size &gt; <span class="number">0</span>, <span class="string">&quot;max_code_size can&#39;t be zero for generating worst code data.&quot;</span>);
 		<span class="kw">let </span>validation_code = <span class="macro">vec!</span>[<span class="number">0u8</span>; max_code_size <span class="kw">as </span>usize];
 		validation_code.into()
@@ -2496,7 +2496,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_code: ValidationCode,
 		para_kind: ParaKind,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(ParaGenesisArgs, BalanceOf&lt;T&gt;), sp_runtime::DispatchError&gt; {
-		<span class="kw">let </span>config = configuration::Pallet::&lt;T&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="macro">ensure!</span>(validation_code.<span class="number">0</span>.len() &gt;= MIN_CODE_SIZE <span class="kw">as </span>usize, Error::&lt;T&gt;::InvalidCode);
 		<span class="macro">ensure!</span>(validation_code.<span class="number">0</span>.len() &lt;= config.max_code_size <span class="kw">as </span>usize, Error::&lt;T&gt;::CodeTooLarge);
 		<span class="macro">ensure!</span>(
@@ -2744,7 +2744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 			<span class="comment">// Session change every 3 blocks.
 			</span><span class="kw">if </span>(b + <span class="number">1</span>) % BLOCKS_PER_SESSION == <span class="number">0 </span>{
-				<span class="kw">let </span>session_index = shared::Pallet::&lt;Test&gt;::session_index() + <span class="number">1</span>;
+				<span class="kw">let </span>session_index = shared::CurrentSessionIndex::&lt;Test&gt;::get() + <span class="number">1</span>;
 				<span class="kw">let </span>validators_pub_keys = VALIDATORS.iter().map(|v| v.public().into()).collect();
 
 				shared::Pallet::&lt;Test&gt;::set_session_index(session_index);
@@ -2776,11 +2776,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>max_code_size() -&gt; u32 {
-		Configuration::config().max_code_size
+		configuration::ActiveConfig::&lt;Test&gt;::get().max_code_size
 	}
 
 	<span class="kw">fn </span>max_head_size() -&gt; u32 {
-		Configuration::config().max_head_data_size
+		configuration::ActiveConfig::&lt;Test&gt;::get().max_head_data_size
 	}
 
 	<span class="attr">#[test]

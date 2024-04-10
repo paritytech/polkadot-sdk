@@ -386,7 +386,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>weight: Weight = Weight::zero();
 
 			<span class="comment">// Migrate the current traffic value
-			</span><span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+			</span><span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 			QueueStatus::&lt;T&gt;::mutate(|<span class="kw-2">mut </span>queue_status| {
 				Pallet::&lt;T&gt;::update_spot_traffic(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;mut </span>queue_status);
 

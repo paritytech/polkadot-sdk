@@ -2415,10 +2415,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2266" id="2266">2266</a>
 <a href="#2267" id="2267">2267</a>
 <a href="#2268" id="2268">2268</a>
-<a href="#2269" id="2269">2269</a>
-<a href="#2270" id="2270">2270</a>
-<a href="#2271" id="2271">2271</a>
-<a href="#2272" id="2272">2272</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2646,8 +2642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Info on all of the funds.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>funds)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Funds&lt;T: Config&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Funds&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		ParaId,
@@ -2657,18 +2652,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The funds that have had additional contributions during the last block. This is used
 	/// in order to determine which funds should submit new or updated bids.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>new_raise)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>NewRaise&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;ParaId&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>NewRaise&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;ParaId&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The number of auctions that have entered into their ending period so far.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>endings_count)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>EndingsCount&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>EndingsCount&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// Tracker for the next available fund index
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>next_fund_index)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>NextFundIndex&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>NextFundIndex&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
@@ -2759,7 +2751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>new_raise = NewRaise::&lt;T&gt;::take();
 				<span class="kw">let </span>new_raise_len = new_raise.len() <span class="kw">as </span>u32;
 				<span class="kw">for </span>(fund, para_id) <span class="kw">in
-					</span>new_raise.into_iter().filter_map(|i| <span class="self">Self</span>::funds(i).map(|f| (f, i)))
+					</span>new_raise.into_iter().filter_map(|i| Funds::&lt;T&gt;::get(i).map(|f| (f, i)))
 				{
 					<span class="comment">// Care needs to be taken by the crowdloan creator that this function will
 					// succeed given the crowdloaning configuration. We do some checks ahead of time
@@ -2833,7 +2825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(depositor == manager, Error::&lt;T&gt;::InvalidOrigin);
 			<span class="macro">ensure!</span>(T::Registrar::is_registered(index), Error::&lt;T&gt;::InvalidParaId);
 
-			<span class="kw">let </span>fund_index = <span class="self">Self</span>::next_fund_index();
+			<span class="kw">let </span>fund_index = NextFundIndex::&lt;T&gt;::get();
 			<span class="kw">let </span>new_fund_index = fund_index.checked_add(<span class="number">1</span>).ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>deposit = T::SubmissionDeposit::get();
@@ -2903,7 +2895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span><span class="kw-2">mut </span>fund = <span class="self">Self</span>::funds(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>fund = Funds::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
 			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 			<span class="kw">let </span>fund_account = <span class="self">Self</span>::fund_account_id(fund.fund_index);
 			<span class="self">Self</span>::ensure_crowdloan_ended(now, <span class="kw-2">&amp;</span>fund_account, <span class="kw-2">&amp;</span>fund)<span class="question-mark">?</span>;
@@ -2936,7 +2928,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResultWithPostInfo {
 			ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span><span class="kw-2">mut </span>fund = <span class="self">Self</span>::funds(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>fund = Funds::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
 			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 			<span class="kw">let </span>fund_account = <span class="self">Self</span>::fund_account_id(fund.fund_index);
 			<span class="self">Self</span>::ensure_crowdloan_ended(now, <span class="kw-2">&amp;</span>fund_account, <span class="kw-2">&amp;</span>fund)<span class="question-mark">?</span>;
@@ -2979,7 +2971,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>dissolve(origin: OriginFor&lt;T&gt;, <span class="attr">#[pallet::compact] </span>index: ParaId) -&gt; DispatchResult {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>fund = <span class="self">Self</span>::funds(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
+			<span class="kw">let </span>fund = Funds::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
 			<span class="kw">let </span>pot = <span class="self">Self</span>::fund_account_id(fund.fund_index);
 			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 
@@ -3020,7 +3012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>fund = <span class="self">Self</span>::funds(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
+			<span class="kw">let </span>fund = Funds::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
 
 			Funds::&lt;T&gt;::insert(
 				index,
@@ -3051,7 +3043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="macro">ensure!</span>(memo.len() &lt;= T::MaxMemoLength::get().into(), Error::&lt;T&gt;::MemoTooLarge);
-			<span class="kw">let </span>fund = <span class="self">Self</span>::funds(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
+			<span class="kw">let </span>fund = Funds::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>(balance, <span class="kw">_</span>) = <span class="self">Self</span>::contribution_get(fund.fund_index, <span class="kw-2">&amp;</span>who);
 			<span class="macro">ensure!</span>(balance &gt; Zero::zero(), Error::&lt;T&gt;::NoContributions);
@@ -3068,7 +3060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight(T::WeightInfo::poke())]
 		</span><span class="kw">pub fn </span>poke(origin: OriginFor&lt;T&gt;, index: ParaId) -&gt; DispatchResult {
 			ensure_signed(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>fund = <span class="self">Self</span>::funds(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
+			<span class="kw">let </span>fund = Funds::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(!fund.raised.is_zero(), Error::&lt;T&gt;::NoContributions);
 			<span class="macro">ensure!</span>(!NewRaise::&lt;T&gt;::get().contains(<span class="kw-2">&amp;</span>index), Error::&lt;T&gt;::AlreadyInNewRaise);
 			NewRaise::&lt;T&gt;::append(index);
@@ -3178,12 +3170,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		existence: ExistenceRequirement,
 	) -&gt; DispatchResult {
 		<span class="macro">ensure!</span>(value &gt;= T::MinContribution::get(), Error::&lt;T&gt;::ContributionTooSmall);
-		<span class="kw">let </span><span class="kw-2">mut </span>fund = <span class="self">Self</span>::funds(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>fund = Funds::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::InvalidParaId)<span class="question-mark">?</span>;
 		fund.raised = fund.raised.checked_add(<span class="kw-2">&amp;</span>value).ok_or(Error::&lt;T&gt;::Overflow)<span class="question-mark">?</span>;
 		<span class="macro">ensure!</span>(fund.raised &lt;= fund.cap, Error::&lt;T&gt;::CapExceeded);
 
 		<span class="comment">// Make sure crowdloan has not ended
-		</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="macro">ensure!</span>(now &lt; fund.end, Error::&lt;T&gt;::ContributionPeriodOver);
 
 		<span class="comment">// Make sure crowdloan is in a valid lease period
@@ -3232,7 +3224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 			}
 		} <span class="kw">else </span>{
-			<span class="kw">let </span>endings_count = <span class="self">Self</span>::endings_count();
+			<span class="kw">let </span>endings_count = EndingsCount::&lt;T&gt;::get();
 			<span class="kw">match </span>fund.last_contribution {
 				LastContribution::PreEnding(a) <span class="kw">if </span>a == endings_count =&gt; {
 					<span class="comment">// Not in ending period and no auctions have ended ending since our
@@ -3576,11 +3568,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>basic_setup_works() {
 		new_test_ext().execute_with(|| {
 			<span class="macro">assert_eq!</span>(System::block_number(), <span class="number">0</span>);
-			<span class="macro">assert_eq!</span>(Crowdloan::funds(ParaId::from(<span class="number">0</span>)), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(crowdloan::Funds::&lt;Test&gt;::get(ParaId::from(<span class="number">0</span>)), <span class="prelude-val">None</span>);
 			<span class="kw">let </span>empty: Vec&lt;ParaId&gt; = Vec::new();
-			<span class="macro">assert_eq!</span>(Crowdloan::new_raise(), empty);
+			<span class="macro">assert_eq!</span>(crowdloan::NewRaise::&lt;Test&gt;::get(), empty);
 			<span class="macro">assert_eq!</span>(Crowdloan::contribution_get(<span class="number">0u32</span>, <span class="kw-2">&amp;</span><span class="number">1</span>).<span class="number">0</span>, <span class="number">0</span>);
-			<span class="macro">assert_eq!</span>(Crowdloan::endings_count(), <span class="number">0</span>);
+			<span class="macro">assert_eq!</span>(crowdloan::EndingsCount::&lt;Test&gt;::get(), <span class="number">0</span>);
 
 			<span class="macro">assert_ok!</span>(TestAuctioneer::new_auction(<span class="number">5</span>, <span class="number">0</span>));
 
@@ -3622,14 +3614,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				last_period: <span class="number">4</span>,
 				fund_index: <span class="number">0</span>,
 			};
-			<span class="macro">assert_eq!</span>(Crowdloan::funds(para), <span class="prelude-val">Some</span>(fund_info));
+			<span class="macro">assert_eq!</span>(crowdloan::Funds::&lt;Test&gt;::get(para), <span class="prelude-val">Some</span>(fund_info));
 			<span class="comment">// User has deposit removed from their free balance
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">1</span>), <span class="number">999</span>);
 			<span class="comment">// Deposit is placed in reserved
 			</span><span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="number">1</span>), <span class="number">1</span>);
 			<span class="comment">// No new raise until first contribution
 			</span><span class="kw">let </span>empty: Vec&lt;ParaId&gt; = Vec::new();
-			<span class="macro">assert_eq!</span>(Crowdloan::new_raise(), empty);
+			<span class="macro">assert_eq!</span>(crowdloan::NewRaise::&lt;Test&gt;::get(), empty);
 		});
 	}
 
@@ -3662,14 +3654,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				last_period: <span class="number">4</span>,
 				fund_index: <span class="number">0</span>,
 			};
-			<span class="macro">assert_eq!</span>(Crowdloan::funds(ParaId::from(<span class="number">0</span>)), <span class="prelude-val">Some</span>(fund_info));
+			<span class="macro">assert_eq!</span>(crowdloan::Funds::&lt;Test&gt;::get(ParaId::from(<span class="number">0</span>)), <span class="prelude-val">Some</span>(fund_info));
 			<span class="comment">// User has deposit removed from their free balance
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">1</span>), <span class="number">999</span>);
 			<span class="comment">// Deposit is placed in reserved
 			</span><span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="number">1</span>), <span class="number">1</span>);
 			<span class="comment">// No new raise until first contribution
 			</span><span class="kw">let </span>empty: Vec&lt;ParaId&gt; = Vec::new();
-			<span class="macro">assert_eq!</span>(Crowdloan::new_raise(), empty);
+			<span class="macro">assert_eq!</span>(crowdloan::NewRaise::&lt;Test&gt;::get(), empty);
 		});
 	}
 
@@ -3742,9 +3734,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Contributions appear in free balance of crowdloan
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(Crowdloan::fund_account_id(index)), <span class="number">49</span>);
 			<span class="comment">// Crowdloan is added to NewRaise
-			</span><span class="macro">assert_eq!</span>(Crowdloan::new_raise(), <span class="macro">vec!</span>[para]);
+			</span><span class="macro">assert_eq!</span>(crowdloan::NewRaise::&lt;Test&gt;::get(), <span class="macro">vec!</span>[para]);
 
-			<span class="kw">let </span>fund = Crowdloan::funds(para).unwrap();
+			<span class="kw">let </span>fund = crowdloan::Funds::&lt;Test&gt;::get(para).unwrap();
 
 			<span class="comment">// Last contribution time recorded
 			</span><span class="macro">assert_eq!</span>(fund.last_contribution, LastContribution::PreEnding(<span class="number">0</span>));
@@ -3839,7 +3831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(Crowdloan::fund_account_id(index)), <span class="number">59</span>);
 
 			<span class="comment">// Contribution amount is correct
-			</span><span class="kw">let </span>fund = Crowdloan::funds(para).unwrap();
+			</span><span class="kw">let </span>fund = crowdloan::Funds::&lt;Test&gt;::get(para).unwrap();
 			<span class="macro">assert_eq!</span>(fund.raised, <span class="number">59</span>);
 		});
 	}
@@ -3991,7 +3983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="comment">// Endings count incremented
-			</span><span class="macro">assert_eq!</span>(Crowdloan::endings_count(), <span class="number">1</span>);
+			</span><span class="macro">assert_eq!</span>(crowdloan::EndingsCount::&lt;Test&gt;::get(), <span class="number">1</span>);
 		});
 	}
 
@@ -4179,7 +4171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// We test the historic case where crowdloan accounts only have one provider:
 			</span>{
-				<span class="kw">let </span>fund = Crowdloan::funds(para).unwrap();
+				<span class="kw">let </span>fund = crowdloan::Funds::&lt;Test&gt;::get(para).unwrap();
 				<span class="kw">let </span>pot = Crowdloan::fund_account_id(fund.fund_index);
 				System::dec_providers(<span class="kw-2">&amp;</span>pot).unwrap();
 				<span class="macro">assert_eq!</span>(System::providers(<span class="kw-2">&amp;</span>pot), <span class="number">1</span>);
@@ -4331,10 +4323,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_ok!</span>(Crowdloan::create(RuntimeOrigin::signed(<span class="number">1</span>), para_1, <span class="number">1000</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">9</span>, <span class="prelude-val">None</span>));
 			<span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">2</span>), para_1, <span class="number">100</span>, <span class="prelude-val">None</span>));
-			<span class="kw">let </span>old_crowdloan = Crowdloan::funds(para_1).unwrap();
+			<span class="kw">let </span>old_crowdloan = crowdloan::Funds::&lt;Test&gt;::get(para_1).unwrap();
 
 			<span class="macro">assert_ok!</span>(Crowdloan::edit(RuntimeOrigin::root(), para_1, <span class="number">1234</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="prelude-val">None</span>));
-			<span class="kw">let </span>new_crowdloan = Crowdloan::funds(para_1).unwrap();
+			<span class="kw">let </span>new_crowdloan = crowdloan::Funds::&lt;Test&gt;::get(para_1).unwrap();
 
 			<span class="comment">// Some things stay the same
 			</span><span class="macro">assert_eq!</span>(old_crowdloan.depositor, new_crowdloan.depositor);
@@ -4395,7 +4387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">2</span>), para_1, <span class="number">100</span>, <span class="prelude-val">None</span>));
 			run_to_block(<span class="number">6</span>);
 			<span class="macro">assert_ok!</span>(Crowdloan::poke(RuntimeOrigin::signed(<span class="number">1</span>), para_1));
-			<span class="macro">assert_eq!</span>(Crowdloan::new_raise(), <span class="macro">vec!</span>[para_1]);
+			<span class="macro">assert_eq!</span>(crowdloan::NewRaise::&lt;Test&gt;::get(), <span class="macro">vec!</span>[para_1]);
 			<span class="macro">assert_noop!</span>(
 				Crowdloan::poke(RuntimeOrigin::signed(<span class="number">1</span>), para_1),
 				Error::&lt;Test&gt;::AlreadyInNewRaise

@@ -1543,10 +1543,6 @@ in the negative.</p>
 <p><code>is_frozen()</code>: Load the value of <code>Frozen</code> from storage. Return true if <code>Some</code> and false if <code>None</code>.</p>
 </li>
 <li>
-<p><code>last_valid_block()</code>: Load the value of <code>Frozen</code> from storage and return. None indicates that all blocks in the chain
-are potentially valid.</p>
-</li>
-<li>
 <p><code>revert_and_freeze(BlockNumber)</code>:</p>
 <ol>
 <li>If <code>is_frozen()</code> return.</li>
@@ -1593,7 +1589,7 @@ inconclusive disputes are not slashed. Thanks to the applied filtering (describe
 confident that there are no spam disputes in the runtime. So if a validator is not voting it is due to another reason
 (e.g. being under DoS attack). There is no reason to punish such validators with a slash.</p>
 <p><em>Implementation note</em>: Slashing is performed in <code>process_checked_dispute_data</code> from <code>Disputes</code> pallet.</p>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="paras-pallet"><a class="header" href="#paras-pallet">Paras Pallet</a></h1>
+<footer id="last-change">Last change: 2024-04-10, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/92e142555d">92e142555d</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="paras-pallet"><a class="header" href="#paras-pallet">Paras Pallet</a></h1>
 <p>The Paras module is responsible for storing information on parachains. Registered parachains cannot change except at
 session boundaries and after at least a full session has passed. This is primarily to ensure that the number and meaning
 of bits required for the availability bitfields does not change except at session boundaries.</p>
@@ -2039,7 +2035,7 @@ being occupied across session boundaries and it is safe to re-size the <code>Ava
 <li>Fetch <code>Shared::ActiveValidators</code> as AV.</li>
 <li>Determine the number of cores &amp; validator groups as <code>n_cores</code>. This is the maximum of
 <ol>
-<li><code>Paras::parachains().len() + configuration.parathread_cores</code></li>
+<li><code>paras::Parachains::&lt;T&gt;::get().len() + configuration.parathread_cores</code></li>
 <li><code>n_validators / max_validators_per_core</code> if <code>configuration.max_validators_per_core</code> is <code>Some</code> and non-zero.</li>
 </ol>
 </li>
@@ -2076,7 +2072,7 @@ on-demand cores.</li>
 <li>Fails if any on-demand claim on the same parachain is currently indexed.</li>
 <li>Fails if the queue length is &gt;= <code>config.scheduling_lookahead * config.parathread_cores</code>.</li>
 <li>The core used for the on-demand claim is the <code>next_core</code> field of the <code>ParathreadQueue</code> (on-demand queue) and adding
-<code>Paras::parachains().len()</code> to it.</li>
+<code>paras::Parachains::&lt;T&gt;::get().len()</code> to it.</li>
 <li><code>next_core</code> is then updated by adding 1 and taking it modulo <code>config.parathread_cores</code>.</li>
 <li>The claim is then added to the claim index.</li>
 </ul>
@@ -2138,7 +2134,7 @@ which no longer exist under paras.</li>
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2024-03-21, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/4842faf65d">4842faf65d</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
+<footer id="last-change">Last change: 2024-04-10, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/92e142555d">92e142555d</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="inclusion-pallet"><a class="header" href="#inclusion-pallet">Inclusion Pallet</a></h1>
 <p>The inclusion module is responsible for inclusion and availability of scheduled parachains. It also manages the UMP
 dispatch queue of each parachain.</p>
 <h2 id="storage-6"><a class="header" href="#storage-6">Storage</a></h2>
@@ -2914,11 +2910,11 @@ parachain validation. Only these validators should appear in the <code>SessionIn
 </ol>
 <h2 id="routines-7"><a class="header" href="#routines-7">Routines</a></h2>
 <ul>
-<li><code>earliest_stored_session() -&gt; SessionIndex</code>: Yields the earliest session for which we have information stored.</li>
-<li><code>session_info(session: SessionIndex) -&gt; Option&lt;SessionInfo&gt;</code>: Yields the session info for the given session, if
+<li><code>EarliestStoredSession::&lt;T&gt;::get() -&gt; SessionIndex</code>: Yields the earliest session for which we have information stored.</li>
+<li><code>Sessions::&lt;T&gt;::get(session: SessionIndex) -&gt; Option&lt;SessionInfo&gt;</code>: Yields the session info for the given session, if
 stored.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime-apis"><a class="header" href="#runtime-apis">Runtime APIs</a></h1>
+<footer id="last-change">Last change: 2024-04-10, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/92e142555d">92e142555d</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="runtime-apis"><a class="header" href="#runtime-apis">Runtime APIs</a></h1>
 <p>Runtime APIs are the means by which the node-side code extracts information from the state of the runtime.</p>
 <p>Every block in the relay-chain contains a <em>state root</em> which is the root hash of a state trie encapsulating all storage
 of runtime modules after execution of the block. This is a cryptographic commitment to a unique state. We use the

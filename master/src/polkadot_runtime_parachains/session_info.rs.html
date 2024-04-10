@@ -372,11 +372,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -465,28 +460,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The earliest session for which previous session info is stored.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>earliest_stored_session)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>EarliestStoredSession&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, SessionIndex, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>EarliestStoredSession&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, SessionIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// Session information in a rolling window.
 	/// Should have an entry in range `EarliestStoredSession..=CurrentSessionIndex`.
 	/// Does not have any entries before the session index in the first session change notification.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>session_info)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Sessions&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, SessionIndex, SessionInfo&gt;;
+	</span><span class="kw">pub type </span>Sessions&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, SessionIndex, SessionInfo&gt;;
 
 	<span class="doccomment">/// The validator account keys of the validators actively participating in parachain consensus.
 	</span><span class="comment">// We do not store this in `SessionInfo` to avoid leaking the `AccountId` type to the client,
 	// which would complicate the migration process if we are to change it in the future.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>account_keys)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AccountKeys&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Identity, SessionIndex, Vec&lt;AccountId&lt;T&gt;&gt;&gt;;
+	</span><span class="kw">pub type </span>AccountKeys&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, SessionIndex, Vec&lt;AccountId&lt;T&gt;&gt;&gt;;
 
 	<span class="doccomment">/// Executor parameter set for a given session index
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>session_executor_params)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SessionExecutorParams&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>SessionExecutorParams&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Identity, SessionIndex, ExecutorParams&gt;;
 }
 
@@ -499,7 +489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: pallet_authority_discovery::Config&gt; AuthorityDiscoveryConfig <span class="kw">for </span>T {
 	<span class="kw">fn </span>authorities() -&gt; Vec&lt;AuthorityDiscoveryId&gt; {
-		&lt;pallet_authority_discovery::Pallet&lt;T&gt;&gt;::current_authorities().to_vec()
+		pallet_authority_discovery::Pallet::&lt;T&gt;::current_authorities().to_vec()
 	}
 }
 
@@ -508,17 +498,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initializer_on_new_session(
 		notification: <span class="kw-2">&amp;</span><span class="kw">crate</span>::initializer::SessionChangeNotification&lt;BlockNumberFor&lt;T&gt;&gt;,
 	) {
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 		<span class="kw">let </span>dispute_period = config.dispute_period;
 
 		<span class="kw">let </span>validators = notification.validators.clone().into();
 		<span class="kw">let </span>discovery_keys = &lt;T <span class="kw">as </span>AuthorityDiscoveryConfig&gt;::authorities();
 		<span class="kw">let </span>assignment_keys = AssignmentKeysUnsafe::&lt;T&gt;::get();
-		<span class="kw">let </span>active_set = &lt;shared::Pallet&lt;T&gt;&gt;::active_validator_indices();
+		<span class="kw">let </span>active_set = shared::ActiveValidatorIndices::&lt;T&gt;::get();
 
-		<span class="kw">let </span>validator_groups = &lt;scheduler::Pallet&lt;T&gt;&gt;::validator_groups().into();
-		<span class="kw">let </span>n_cores = &lt;scheduler::Pallet&lt;T&gt;&gt;::availability_cores().len() <span class="kw">as </span>u32;
+		<span class="kw">let </span>validator_groups = scheduler::ValidatorGroups::&lt;T&gt;::get().into();
+		<span class="kw">let </span>n_cores = scheduler::AvailabilityCores::&lt;T&gt;::get().len() <span class="kw">as </span>u32;
 		<span class="kw">let </span>zeroth_delay_tranche_width = config.zeroth_delay_tranche_width;
 		<span class="kw">let </span>relay_vrf_modulo_samples = config.relay_vrf_modulo_samples;
 		<span class="kw">let </span>n_delay_tranches = config.n_delay_tranches;

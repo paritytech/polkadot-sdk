@@ -478,9 +478,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			xcm: Box&lt;xcm::opaque::VersionedXcm&gt;,
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(&lt;paras::Pallet&lt;T&gt;&gt;::is_valid_para(id), Error::&lt;T&gt;::ParaDoesntExist);
-			<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-			&lt;dmp::Pallet&lt;T&gt;&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, id, xcm.encode()).map_err(|e| <span class="kw">match </span>e
+			<span class="macro">ensure!</span>(paras::Pallet::&lt;T&gt;::is_valid_para(id), Error::&lt;T&gt;::ParaDoesntExist);
+			<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
+			dmp::Pallet::&lt;T&gt;::queue_downward_message(<span class="kw-2">&amp;</span>config, id, xcm.encode()).map_err(|e| <span class="kw">match </span>e
 			{
 				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize =&gt;
 					Error::&lt;T&gt;::ExceedsMaxMessageSize.into(),
@@ -502,13 +502,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 
-			&lt;hrmp::Pallet&lt;T&gt;&gt;::init_open_channel(
+			hrmp::Pallet::&lt;T&gt;::init_open_channel(
 				sender,
 				recipient,
 				max_capacity,
 				max_message_size,
 			)<span class="question-mark">?</span>;
-			&lt;hrmp::Pallet&lt;T&gt;&gt;::accept_open_channel(recipient, sender)<span class="question-mark">?</span>;
+			hrmp::Pallet::&lt;T&gt;::accept_open_channel(recipient, sender)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 	}

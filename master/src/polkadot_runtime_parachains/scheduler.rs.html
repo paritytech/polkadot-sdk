@@ -829,9 +829,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#680" id="680">680</a>
 <a href="#681" id="681">681</a>
 <a href="#682" id="682">682</a>
-<a href="#683" id="683">683</a>
-<a href="#684" id="684">684</a>
-<a href="#685" id="685">685</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -920,8 +917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// multiplexers. Reasonably, 100-1000. The dominant factor is the number of validators: safe
 	/// upper bound at 10k.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>validator_groups)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ValidatorGroups&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>ValidatorGroups&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// One entry for each availability core. The i&#39;th parachain belongs to the i&#39;th core, with the
 	/// remaining cores all being on demand parachain multiplexers.
@@ -930,9 +926,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///   * The number of parachains and parathread multiplexers
 	///   * The number of validators divided by `configuration.max_validators_per_core`.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>availability_cores)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AvailabilityCores&lt;T: Config&gt; =
-		StorageValue&lt;<span class="kw">_</span>, Vec&lt;CoreOccupiedType&lt;T&gt;&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>AvailabilityCores&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;CoreOccupiedType&lt;T&gt;&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Representation of a core in `AvailabilityCores`.
 	///
@@ -974,15 +968,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Thus for all intents and purposes the effect of the session change is observed at the
 	/// block following the session change, block number of which we save in this storage value.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>session_start_block)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SessionStartBlock&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, BlockNumberFor&lt;T&gt;, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>SessionStartBlock&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, BlockNumberFor&lt;T&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// One entry for each availability core. The `VecDeque` represents the assignments to be
 	/// scheduled on that core. The value contained here will not be valid after the end of
 	/// a block. Runtime APIs should be used to determine scheduled cores for the upcoming block.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::getter(<span class="kw">fn </span>claimqueue)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ClaimQueue&lt;T: Config&gt; =
+	</span><span class="kw">pub type </span>ClaimQueue&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BTreeMap&lt;CoreIndex, VecDeque&lt;ParasEntryType&lt;T&gt;&gt;&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Assignments as tracked in the claim queue.
@@ -1107,8 +1099,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ValidatorGroups::&lt;T&gt;::set(groups);
 		}
 
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
-		&lt;SessionStartBlock&lt;T&gt;&gt;::set(now);
+		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number() + One::one();
+		SessionStartBlock::&lt;T&gt;::set(now);
 	}
 
 	<span class="doccomment">/// Free unassigned cores. Provide a list of cores that should be considered newly-freed along
@@ -1189,9 +1181,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `AssignmentProvider`. A claim is considered expired if it&#39;s `ttl` field is lower than the
 	/// current block height.
 	</span><span class="kw">fn </span>drop_expired_claims_from_claimqueue() {
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">let </span>availability_cores = AvailabilityCores::&lt;T&gt;::get();
-		<span class="kw">let </span>ttl = &lt;configuration::Pallet&lt;T&gt;&gt;::config().scheduler_params.ttl;
+		<span class="kw">let </span>ttl = configuration::ActiveConfig::&lt;T&gt;::get().scheduler_params.ttl;
 
 		ClaimQueue::&lt;T&gt;::mutate(|cq| {
 			<span class="kw">for </span>(idx, <span class="kw">_</span>) <span class="kw">in </span>(<span class="number">0u32</span>..).zip(availability_cores) {
@@ -1244,8 +1236,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		core: CoreIndex,
 		at: BlockNumberFor&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;GroupIndex&gt; {
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-		<span class="kw">let </span>session_start_block = &lt;SessionStartBlock&lt;T&gt;&gt;::get();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
+		<span class="kw">let </span>session_start_block = SessionStartBlock::&lt;T&gt;::get();
 
 		<span class="kw">if </span>at &lt; session_start_block {
 			<span class="kw">return </span><span class="prelude-val">None
@@ -1276,8 +1268,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This only ever times out cores that have been occupied across a group rotation boundary.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>availability_timeout_predicate(
 	) -&gt; <span class="kw">impl </span>Fn(BlockNumberFor&lt;T&gt;) -&gt; AvailabilityTimeoutStatus&lt;BlockNumberFor&lt;T&gt;&gt; {
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
+		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">let </span>rotation_info = <span class="self">Self</span>::group_rotation_info(now);
 
 		<span class="kw">let </span>next_rotation = rotation_info.next_rotation_at();
@@ -1304,8 +1296,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This can be used to avoid calling `availability_timeout_predicate` for each core in case
 	/// this function returns false.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>availability_timeout_check_required() -&gt; bool {
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
-		<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
+		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number() + One::one();
 		<span class="kw">let </span>rotation_info = <span class="self">Self</span>::group_rotation_info(now);
 
 		<span class="kw">let </span>current_window =
@@ -1317,9 +1309,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>group_rotation_info(
 		now: BlockNumberFor&lt;T&gt;,
 	) -&gt; GroupRotationInfo&lt;BlockNumberFor&lt;T&gt;&gt; {
-		<span class="kw">let </span>session_start_block = <span class="self">Self</span>::session_start_block();
-		<span class="kw">let </span>group_rotation_frequency =
-			&lt;configuration::Pallet&lt;T&gt;&gt;::config().scheduler_params.group_rotation_frequency;
+		<span class="kw">let </span>session_start_block = SessionStartBlock::&lt;T&gt;::get();
+		<span class="kw">let </span>group_rotation_frequency = configuration::ActiveConfig::&lt;T&gt;::get()
+			.scheduler_params
+			.group_rotation_frequency;
 
 		GroupRotationInfo { session_start_block, now, group_rotation_frequency }
 	}
@@ -1339,8 +1332,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Return the next thing that will be scheduled on this core assuming it is currently
 	/// occupied and the candidate occupying it times out.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>next_up_on_time_out(core: CoreIndex) -&gt; <span class="prelude-ty">Option</span>&lt;ScheduledCore&gt; {
-		<span class="kw">let </span>max_availability_timeouts =
-			&lt;configuration::Pallet&lt;T&gt;&gt;::config().scheduler_params.max_availability_timeouts;
+		<span class="kw">let </span>max_availability_timeouts = configuration::ActiveConfig::&lt;T&gt;::get()
+			.scheduler_params
+			.max_availability_timeouts;
 		<span class="self">Self</span>::next_up_on_available(core).or_else(|| {
 			<span class="comment">// Or, if none, the claim currently occupying the core,
 			// as it would be put back on the queue after timing out if number of retries is not at
@@ -1395,7 +1389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//  ClaimQueue related functions
 	//
 	</span><span class="kw">fn </span>claimqueue_lookahead() -&gt; u32 {
-		&lt;configuration::Pallet&lt;T&gt;&gt;::config().scheduler_params.lookahead
+		configuration::ActiveConfig::&lt;T&gt;::get().scheduler_params.lookahead
 	}
 
 	<span class="doccomment">/// Frees cores and fills the free claimqueue spots by popping from the `AssignmentProvider`.
@@ -1414,7 +1408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>n_lookahead = <span class="self">Self</span>::claimqueue_lookahead().max(<span class="number">1</span>);
 		<span class="kw">let </span>n_session_cores = T::AssignmentProvider::session_core_count();
 		<span class="kw">let </span>cq = ClaimQueue::&lt;T&gt;::get();
-		<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+		<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 		<span class="kw">let </span>max_availability_timeouts = config.scheduler_params.max_availability_timeouts;
 		<span class="kw">let </span>ttl = config.scheduler_params.ttl;
 

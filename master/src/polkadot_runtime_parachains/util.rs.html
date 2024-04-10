@@ -317,10 +317,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_parent_number: BlockNumberFor&lt;T&gt;,
 	relay_parent_storage_root: T::Hash,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt;&gt; {
-	<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+	<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 	<span class="prelude-val">Some</span>(PersistedValidationData {
-		parent_head: &lt;paras::Pallet&lt;T&gt;&gt;::para_head(<span class="kw-2">&amp;</span>para_id)<span class="question-mark">?</span>,
+		parent_head: paras::Heads::&lt;T&gt;::get(<span class="kw-2">&amp;</span>para_id)<span class="question-mark">?</span>,
 		relay_parent_number,
 		relay_parent_storage_root,
 		max_pov_size: config.max_pov_size,
@@ -334,7 +334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_parent_storage_root: T::Hash,
 	parent_head: HeadData,
 ) -&gt; PersistedValidationData&lt;T::Hash, BlockNumberFor&lt;T&gt;&gt; {
-	<span class="kw">let </span>config = &lt;configuration::Pallet&lt;T&gt;&gt;::config();
+	<span class="kw">let </span>config = configuration::ActiveConfig::&lt;T&gt;::get();
 
 	PersistedValidationData {
 		parent_head,

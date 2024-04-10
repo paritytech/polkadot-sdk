@@ -260,8 +260,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">const </span>MAX_PERMANENT_SLOTS: u32 = <span class="number">100</span>;
 				<span class="kw">const </span>MAX_TEMPORARY_SLOTS: u32 = <span class="number">100</span>;
 
-				&lt;MaxPermanentSlots&lt;T&gt;&gt;::put(MAX_PERMANENT_SLOTS);
-				&lt;MaxTemporarySlots&lt;T&gt;&gt;::put(MAX_TEMPORARY_SLOTS);
+				MaxPermanentSlots::&lt;T&gt;::put(MAX_PERMANENT_SLOTS);
+				MaxTemporarySlots::&lt;T&gt;::put(MAX_TEMPORARY_SLOTS);
 				<span class="comment">// Return the weight consumed by the migration.
 				</span>T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">3</span>)
 			} <span class="kw">else </span>{
@@ -274,8 +274,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 			<span class="kw">let </span>on_chain_version = Pallet::&lt;T&gt;::on_chain_storage_version();
 			<span class="macro">ensure!</span>(on_chain_version == <span class="number">1</span>, <span class="string">&quot;assigned_slots::MigrateToV1 needs to be run&quot;</span>);
-			<span class="macro">assert_eq!</span>(&lt;MaxPermanentSlots&lt;T&gt;&gt;::get(), <span class="number">100</span>);
-			<span class="macro">assert_eq!</span>(&lt;MaxTemporarySlots&lt;T&gt;&gt;::get(), <span class="number">100</span>);
+			<span class="macro">assert_eq!</span>(MaxPermanentSlots::&lt;T&gt;::get(), <span class="number">100</span>);
+			<span class="macro">assert_eq!</span>(MaxTemporarySlots::&lt;T&gt;::get(), <span class="number">100</span>);
 			<span class="prelude-val">Ok</span>(())
 		}
 	}

@@ -346,12 +346,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	id: ParaId,
 	genesis: paras::ParaGenesisArgs,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-	&lt;paras::Pallet&lt;T&gt;&gt;::schedule_para_initialize(id, genesis).map_err(|<span class="kw">_</span>| ())
+	paras::Pallet::&lt;T&gt;::schedule_para_initialize(id, genesis).map_err(|<span class="kw">_</span>| ())
 }
 
 <span class="doccomment">/// Schedule a para to be cleaned up at the start of the next session.
 </span><span class="kw">pub fn </span>schedule_para_cleanup&lt;T: paras::Config&gt;(id: primitives::Id) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-	&lt;paras::Pallet&lt;T&gt;&gt;::schedule_para_cleanup(id).map_err(|<span class="kw">_</span>| ())
+	paras::Pallet::&lt;T&gt;::schedule_para_cleanup(id).map_err(|<span class="kw">_</span>| ())
 }
 
 <span class="doccomment">/// Schedule a parathread (on-demand parachain) to be upgraded to a lease holding parachain.
