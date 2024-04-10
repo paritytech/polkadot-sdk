@@ -1060,15 +1060,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#911" id="911">911</a>
 <a href="#912" id="912">912</a>
 <a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1506,32 +1497,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		contract: <span class="kw-2">&amp;</span>T::AccountId,
 		contract_info: <span class="kw-2">&amp;mut </span>ContractInfo&lt;T&gt;,
 		code_info: <span class="kw-2">&amp;</span>CodeInfo&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;DepositOf&lt;T&gt;, DispatchError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		<span class="macro">debug_assert!</span>(<span class="macro">matches!</span>(<span class="self">self</span>.contract_state(), ContractState::Alive));
-		<span class="kw">let </span>ed = Pallet::&lt;T&gt;::min_balance();
-
-		<span class="kw">let </span>deposit = contract_info.update_base_deposit(<span class="kw-2">&amp;</span>code_info);
-		<span class="kw">if </span>deposit &gt; <span class="self">self</span>.limit {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(&lt;Error&lt;T&gt;&gt;::StorageDepositLimitExhausted.into())
-		}
-
-		<span class="kw">let </span>deposit = Deposit::Charge(deposit);
-
-		<span class="comment">// We do not increase `own_contribution` because this will be charged later when the
-		// contract execution does conclude and hence would lead to a double charge.
-		</span><span class="self">self</span>.total_deposit = Deposit::Charge(ed);
 
 		<span class="comment">// We need to make sure that the contract&#39;s account exists.
-		</span>T::Currency::transfer(origin, contract, ed, Preservation::Preserve)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>ed = Pallet::&lt;T&gt;::min_balance();
+		<span class="self">self</span>.total_deposit = Deposit::Charge(ed);
+		T::Currency::transfer(origin, contract, ed, Preservation::Preserve)<span class="question-mark">?</span>;
 
 		<span class="comment">// A consumer is added at account creation and removed it on termination, otherwise the
 		// runtime could remove the account. As long as a contract exists its account must exist.
 		// With the consumer, a correct runtime cannot remove the account.
 		</span>System::&lt;T&gt;::inc_consumers(contract)<span class="question-mark">?</span>;
 
-		<span class="self">self</span>.charge_deposit(contract.clone(), deposit.saturating_sub(<span class="kw-2">&amp;</span>Deposit::Charge(ed)));
+		<span class="kw">let </span>deposit = contract_info.update_base_deposit(<span class="kw-2">&amp;</span>code_info);
+		<span class="kw">let </span>deposit = Deposit::Charge(deposit);
 
-		<span class="prelude-val">Ok</span>(deposit)
+		<span class="self">self</span>.charge_deposit(contract.clone(), deposit);
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Call to tell the meter that the currently executing contract was terminated.
@@ -1930,14 +1913,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>test_cases = <span class="macro">vec!</span>[
 			ChargingTestCase {
 				origin: Origin::&lt;Test&gt;::from_account_id(ALICE),
-				deposit: Deposit::Refund(<span class="number">107</span>),
+				deposit: Deposit::Refund(<span class="number">108</span>),
 				expected: TestExt {
 					limit_checks: <span class="macro">vec!</span>[LimitCheck { origin: ALICE, limit: <span class="number">1_000</span>, min_leftover: <span class="number">0 </span>}],
 					charges: <span class="macro">vec!</span>[
 						Charge {
 							origin: ALICE,
 							contract: CHARLIE,
-							amount: Deposit::Refund(<span class="number">119</span>),
+							amount: Deposit::Refund(<span class="number">120</span>),
 							state: ContractState::Terminated { beneficiary: CHARLIE },
 						},
 						Charge {
@@ -1986,7 +1969,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			meter.absorb(nested0, <span class="kw-2">&amp;</span>BOB, <span class="prelude-val">None</span>);
 			<span class="macro">assert_eq!</span>(meter.try_into_deposit(<span class="kw-2">&amp;</span>test_case.origin).unwrap(), test_case.deposit);
-
 			<span class="macro">assert_eq!</span>(TestExtTestValue::get(), test_case.expected)
 		}
 	}

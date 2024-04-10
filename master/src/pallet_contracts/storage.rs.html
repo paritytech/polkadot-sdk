@@ -604,13 +604,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#455" id="455">455</a>
 <a href="#456" id="456">456</a>
 <a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -636,7 +629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	exec::{AccountIdOf, Key},
 	weights::WeightInfo,
 	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
-	Error, Pallet, TrieId, SENTINEL,
+	Error, TrieId, SENTINEL,
 };
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
@@ -738,9 +731,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Same as [`Self::extra_deposit`] but including the base deposit.
 	</span><span class="kw">pub fn </span>total_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
-		<span class="self">self</span>.extra_deposit()
-			.saturating_add(<span class="self">self</span>.storage_base_deposit)
-			.saturating_sub(Pallet::&lt;T&gt;::min_balance())
+		<span class="self">self</span>.extra_deposit().saturating_add(<span class="self">self</span>.storage_base_deposit)
 	}
 
 	<span class="doccomment">/// Returns the storage base deposit of the contract.
@@ -826,7 +817,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
 	/// the deposit paid to upload the contract&#39;s code.
 	</span><span class="kw">pub fn </span>update_base_deposit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_info: <span class="kw-2">&amp;</span>CodeInfo&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
-		<span class="kw">let </span>ed = Pallet::&lt;T&gt;::min_balance();
 		<span class="kw">let </span>info_deposit =
 			Diff { bytes_added: <span class="self">self</span>.encoded_size() <span class="kw">as </span>u32, items_added: <span class="number">1</span>, ..Default::default() }
 				.update_contract::&lt;T&gt;(<span class="prelude-val">None</span>)
@@ -837,11 +827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// to prevent abuse.
 		</span><span class="kw">let </span>upload_deposit = T::CodeHashLockupDepositPercent::get().mul_ceil(code_info.deposit());
 
-		<span class="comment">// Instantiate needs to transfer at least the minimum balance in order to pull the
-		// contract&#39;s own account into existence, as the deposit itself does not contribute to the
-		// `ed`.
-		</span><span class="kw">let </span>deposit = info_deposit.saturating_add(upload_deposit).saturating_add(ed);
-
+		<span class="kw">let </span>deposit = info_deposit.saturating_add(upload_deposit);
 		<span class="self">self</span>.storage_base_deposit = deposit;
 		deposit
 	}

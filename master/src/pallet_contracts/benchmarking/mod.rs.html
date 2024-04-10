@@ -2942,6 +2942,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2793" id="2793">2793</a>
 <a href="#2794" id="2794">2794</a>
 <a href="#2795" id="2795">2795</a>
+<a href="#2796" id="2796">2796</a>
+<a href="#2797" id="2797">2797</a>
+<a href="#2798" id="2798">2798</a>
+<a href="#2799" id="2799">2799</a>
+<a href="#2800" id="2800">2800</a>
+<a href="#2801" id="2801">2801</a>
+<a href="#2802" id="2802">2802</a>
+<a href="#2803" id="2803">2803</a>
+<a href="#2804" id="2804">2804</a>
+<a href="#2805" id="2805">2805</a>
+<a href="#2806" id="2806">2806</a>
+<a href="#2807" id="2807">2807</a>
+<a href="#2808" id="2808">2808</a>
+<a href="#2809" id="2809">2809</a>
+<a href="#2810" id="2810">2810</a>
+<a href="#2811" id="2811">2811</a>
+<a href="#2812" id="2812">2812</a>
+<a href="#2813" id="2813">2813</a>
+<a href="#2814" id="2814">2814</a>
+<a href="#2815" id="2815">2815</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2976,7 +2996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use crate</span>::{
 	exec::Key,
 	migration::{
-		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, MigrationStep,
+		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, v16, MigrationStep,
 	},
 	Pallet <span class="kw">as </span>Contracts, <span class="kw-2">*</span>,
 };
@@ -3272,6 +3292,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			m.step(<span class="kw-2">&amp;mut </span>WeightMeter::new());
 		}
 
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="comment">// This benchmarks the v16 migration step (Remove ED from base_deposit).
+	</span><span class="attr">#[benchmark(pov_mode = Measured)]
+	</span><span class="kw">fn </span>v16_migration_step() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+		<span class="kw">let </span>contract =
+			&lt;Contract&lt;T&gt;&gt;::with_caller(whitelisted_caller(), WasmModule::dummy(), <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
+
+		<span class="kw">let </span>info = contract.info()<span class="question-mark">?</span>;
+		<span class="kw">let </span>base_deposit = v16::store_old_contract_info::&lt;T&gt;(contract.account_id.clone(), <span class="kw-2">&amp;</span>info);
+		<span class="kw">let </span><span class="kw-2">mut </span>m = v16::Migration::&lt;T&gt;::default();
+
+		<span class="attr">#[block]
+		</span>{
+			m.step(<span class="kw-2">&amp;mut </span>WeightMeter::new());
+		}
+		<span class="kw">let </span>ed = Pallet::&lt;T&gt;::min_balance();
+		<span class="kw">let </span>info = v16::ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>contract.account_id).unwrap();
+		<span class="macro">assert_eq!</span>(info.storage_base_deposit, base_deposit - ed);
 		<span class="prelude-val">Ok</span>(())
 	}
 
