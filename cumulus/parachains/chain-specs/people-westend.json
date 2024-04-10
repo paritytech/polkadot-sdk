@@ -14,7 +14,9 @@
     "/dns/identity-westend.bootnodes.polkadotters.com/tcp/30532/p2p/12D3KooWKr9San6KTM7REJ95cBaDoiciGcWnW8TTftEJgxGF5Ehb",
     "/dns/identity-westend.bootnodes.polkadotters.com/tcp/30534/wss/p2p/12D3KooWKr9San6KTM7REJ95cBaDoiciGcWnW8TTftEJgxGF5Ehb",
     "/dns/boot-node.helikon.io/tcp/9520/p2p/12D3KooWHhZk21Wzvsd3Un1Cp63diXqr6idbG1MEiUWaitUZuX4c",
-    "/dns/boot-node.helikon.io/tcp/9522/wss/p2p/12D3KooWHhZk21Wzvsd3Un1Cp63diXqr6idbG1MEiUWaitUZuX4c"
+    "/dns/boot-node.helikon.io/tcp/9522/wss/p2p/12D3KooWHhZk21Wzvsd3Un1Cp63diXqr6idbG1MEiUWaitUZuX4c",
+    "/dns/people-westend-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWBdCpCabhgBpLn67LWcXE2JJCCTMhuJHrfDNiTiCCr3KX",
+    "/dns/people-westend-boot-ng.dwellir.com/tcp/30355/p2p/12D3KooWBdCpCabhgBpLn67LWcXE2JJCCTMhuJHrfDNiTiCCr3KX"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
