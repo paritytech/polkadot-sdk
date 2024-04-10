@@ -110,8 +110,7 @@ fn para_dest_assertions(t: RelayToSystemParaTest) {
 
 fn penpal_to_ah_foreign_assets_sender_assertions(t: ParaToSystemParaTest) {
 	type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-	let system_para_native_asset_location =
-		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let system_para_native_asset_location = RelayLocation::get();
 	let expected_asset_id = t.args.asset_id.unwrap();
 	let (_, expected_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
@@ -204,8 +203,7 @@ fn ah_to_penpal_foreign_assets_receiver_assertions(t: SystemParaToParaTest) {
 	let (_, expected_asset_amount) =
 		non_fee_asset(&t.args.assets, t.args.fee_asset_item as usize).unwrap();
 	let checking_account = <PenpalA as PenpalAPallet>::PolkadotXcm::check_account();
-	let system_para_native_asset_location =
-		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let system_para_native_asset_location = RelayLocation::get();
 
 	PenpalA::assert_xcmp_queue_success(None);
 
@@ -428,8 +426,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	};
 	let asset_amount_to_send = ASSET_HUB_WESTEND_ED * 100;
 	let asset_owner = PenpalAssetOwner::get();
-	let system_para_native_asset_location =
-		v3::Location::try_from(RelayLocation::get()).expect("conversion works");
+	let system_para_native_asset_location = RelayLocation::get();
 	let sender = PenpalASender::get();
 	let penpal_check_account = <PenpalA as PenpalAPallet>::PolkadotXcm::check_account();
 	let ah_as_seen_by_penpal = PenpalA::sibling_location_of(AssetHubWestend::para_id());
@@ -448,7 +445,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	// fund Parachain's sender account
 	PenpalA::mint_foreign_asset(
 		<PenpalA as Chain>::RuntimeOrigin::signed(asset_owner.clone()),
-		system_para_native_asset_location,
+		system_para_native_asset_location.clone(),
 		sender.clone(),
 		fee_amount_to_send * 2,
 	);
@@ -497,7 +494,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	let penpal_sender_balance_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(
-			system_para_native_asset_location,
+			system_para_native_asset_location.clone(),
 			&PenpalASender::get(),
 		)
 	});
@@ -524,7 +521,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	let penpal_sender_balance_after = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(
-			system_para_native_asset_location,
+			system_para_native_asset_location.clone(),
 			&PenpalASender::get(),
 		)
 	});
@@ -606,7 +603,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	let penpal_receiver_balance_before = PenpalA::execute_with(|| {
 		type ForeignAssets = <PenpalA as PenpalAPallet>::ForeignAssets;
 		<ForeignAssets as Inspect<_>>::balance(
-			system_para_native_asset_location,
+			system_para_native_asset_location.clone(),
 			&PenpalAReceiver::get(),
 		)
 	});
