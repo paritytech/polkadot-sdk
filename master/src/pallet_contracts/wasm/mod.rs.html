@@ -3614,6 +3614,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#3465" id="3465">3465</a>
 <a href="#3466" id="3466">3466</a>
 <a href="#3467" id="3467">3467</a>
+<a href="#3468" id="3468">3468</a>
+<a href="#3469" id="3469">3469</a>
+<a href="#3470" id="3470">3470</a>
+<a href="#3471" id="3471">3471</a>
+<a href="#3472" id="3472">3472</a>
+<a href="#3473" id="3473">3473</a>
+<a href="#3474" id="3474">3474</a>
+<a href="#3475" id="3475">3475</a>
+<a href="#3476" id="3476">3476</a>
+<a href="#3477" id="3477">3477</a>
+<a href="#3478" id="3478">3478</a>
+<a href="#3479" id="3479">3479</a>
+<a href="#3480" id="3480">3480</a>
+<a href="#3481" id="3481">3481</a>
+<a href="#3482" id="3482">3482</a>
+<a href="#3483" id="3483">3483</a>
+<a href="#3484" id="3484">3484</a>
+<a href="#3485" id="3485">3485</a>
+<a href="#3486" id="3486">3486</a>
+<a href="#3487" id="3487">3487</a>
+<a href="#3488" id="3488">3488</a>
+<a href="#3489" id="3489">3489</a>
+<a href="#3490" id="3490">3490</a>
+<a href="#3491" id="3491">3491</a>
+<a href="#3492" id="3492">3492</a>
+<a href="#3493" id="3493">3493</a>
+<a href="#3494" id="3494">3494</a>
+<a href="#3495" id="3495">3495</a>
+<a href="#3496" id="3496">3496</a>
+<a href="#3497" id="3497">3497</a>
+<a href="#3498" id="3498">3498</a>
+<a href="#3499" id="3499">3499</a>
+<a href="#3500" id="3500">3500</a>
+<a href="#3501" id="3501">3501</a>
+<a href="#3502" id="3502">3502</a>
+<a href="#3503" id="3503">3503</a>
+<a href="#3504" id="3504">3504</a>
+<a href="#3505" id="3505">3505</a>
+<a href="#3506" id="3506">3506</a>
+<a href="#3507" id="3507">3507</a>
+<a href="#3508" id="3508">3508</a>
+<a href="#3509" id="3509">3509</a>
+<a href="#3510" id="3510">3510</a>
+<a href="#3511" id="3511">3511</a>
+<a href="#3512" id="3512">3512</a>
+<a href="#3513" id="3513">3513</a>
+<a href="#3514" id="3514">3514</a>
+<a href="#3515" id="3515">3515</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3954,27 +4002,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&gt; Executable&lt;T&gt; <span class="kw">for </span>WasmBlob&lt;T&gt; {
-	<span class="kw">fn </span>from_storage(
-		code_hash: CodeHash&lt;T&gt;,
-		gas_meter: <span class="kw-2">&amp;mut </span>GasMeter&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
-		<span class="kw">let </span>code_info = &lt;CodeInfoOf&lt;T&gt;&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
-		gas_meter.charge(CodeLoadToken(code_info.code_len))<span class="question-mark">?</span>;
-		<span class="kw">let </span>code = &lt;PristineCode&lt;T&gt;&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ code, code_info, code_hash })
+<span class="kw">use crate</span>::{ExecError, ExecReturnValue};
+<span class="kw">use </span>wasmi::Func;
+<span class="kw">enum </span>InstanceOrExecReturn&lt;<span class="lifetime">&#39;a</span>, E: Ext&gt; {
+	Instance((Func, Store&lt;Runtime&lt;<span class="lifetime">&#39;a</span>, E&gt;&gt;)),
+	ExecReturn(ExecReturnValue),
+}
+
+<span class="kw">type </span>PreExecResult&lt;<span class="lifetime">&#39;a</span>, E&gt; = <span class="prelude-ty">Result</span>&lt;InstanceOrExecReturn&lt;<span class="lifetime">&#39;a</span>, E&gt;, ExecError&gt;;
+
+<span class="kw">impl</span>&lt;T: Config&gt; WasmBlob&lt;T&gt; {
+	<span class="doccomment">/// Sync the frame&#39;s gas meter with the engine&#39;s one.
+	</span><span class="kw">pub fn </span>process_result&lt;E: Ext&lt;T = T&gt;&gt;(
+		<span class="kw-2">mut </span>store: Store&lt;Runtime&lt;E&gt;&gt;,
+		result: <span class="prelude-ty">Result</span>&lt;(), wasmi::Error&gt;,
+	) -&gt; ExecResult {
+		<span class="kw">let </span>engine_consumed_total = store.fuel_consumed().expect(<span class="string">&quot;Fuel metering is enabled; qed&quot;</span>);
+		<span class="kw">let </span>gas_meter = store.data_mut().ext().gas_meter_mut();
+		<span class="kw">let _ </span>= gas_meter.sync_from_executor(engine_consumed_total)<span class="question-mark">?</span>;
+		store.into_data().to_execution_result(result)
 	}
 
-	<span class="kw">fn </span>execute&lt;E: Ext&lt;T = T&gt;&gt;(
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">pub fn </span>bench_prepare_call&lt;E: Ext&lt;T = T&gt;&gt;(
 		<span class="self">self</span>,
 		ext: <span class="kw-2">&amp;mut </span>E,
-		function: <span class="kw-2">&amp;</span>ExportedFunction,
 		input_data: Vec&lt;u8&gt;,
-	) -&gt; ExecResult {
+	) -&gt; (Func, Store&lt;Runtime&lt;E&gt;&gt;) {
+		<span class="kw">use </span>InstanceOrExecReturn::<span class="kw-2">*</span>;
+		<span class="kw">match </span><span class="self">Self</span>::prepare_execute(<span class="self">self</span>, Runtime::new(ext, input_data), <span class="kw-2">&amp;</span>ExportedFunction::Call)
+			.expect(<span class="string">&quot;Benchmark should provide valid module&quot;</span>)
+		{
+			Instance((func, store)) =&gt; (func, store),
+			ExecReturn(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected Instance&quot;</span>),
+		}
+	}
+
+	<span class="kw">fn </span>prepare_execute&lt;<span class="lifetime">&#39;a</span>, E: Ext&lt;T = T&gt;&gt;(
+		<span class="self">self</span>,
+		runtime: Runtime&lt;<span class="lifetime">&#39;a</span>, E&gt;,
+		function: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ExportedFunction,
+	) -&gt; PreExecResult&lt;<span class="lifetime">&#39;a</span>, E&gt; {
 		<span class="kw">let </span>code = <span class="self">self</span>.code.as_slice();
 		<span class="comment">// Instantiate the Wasm module to the engine.
-		</span><span class="kw">let </span>runtime = Runtime::new(ext, input_data);
-		<span class="kw">let </span>schedule = &lt;T&gt;::Schedule::get();
+		</span><span class="kw">let </span>schedule = &lt;T&gt;::Schedule::get();
 		<span class="kw">let </span>(<span class="kw-2">mut </span>store, memory, instance) = <span class="self">Self</span>::instantiate::&lt;<span class="kw">crate</span>::wasm::runtime::Env, <span class="kw">_</span>&gt;(
 			code,
 			runtime,
@@ -4006,15 +4077,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.add_fuel(fuel_limit)
 			.expect(<span class="string">&quot;We&#39;ve set up engine to fuel consuming mode; qed&quot;</span>);
 
-		<span class="comment">// Sync this frame&#39;s gas meter with the engine&#39;s one.
-		</span><span class="kw">let </span>process_result = |<span class="kw-2">mut </span>store: Store&lt;Runtime&lt;E&gt;&gt;, result| {
-			<span class="kw">let </span>engine_consumed_total =
-				store.fuel_consumed().expect(<span class="string">&quot;Fuel metering is enabled; qed&quot;</span>);
-			<span class="kw">let </span>gas_meter = store.data_mut().ext().gas_meter_mut();
-			<span class="kw">let _ </span>= gas_meter.sync_from_executor(engine_consumed_total)<span class="question-mark">?</span>;
-			store.into_data().to_execution_result(result)
-		};
-
 		<span class="comment">// Start function should already see the correct refcount in case it will be ever inspected.
 		</span><span class="kw">if let </span><span class="kw-2">&amp;</span>ExportedFunction::Constructor = function {
 			E::increment_refcount(<span class="self">self</span>.code_hash)<span class="question-mark">?</span>;
@@ -4033,10 +4095,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Error::&lt;T&gt;::CodeRejected
 					})<span class="question-mark">?</span>;
 
-				<span class="kw">let </span>result = exported_func.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;mut </span>[]);
-				process_result(store, result)
+				<span class="prelude-val">Ok</span>(InstanceOrExecReturn::Instance((exported_func, store)))
 			},
-			<span class="prelude-val">Err</span>(err) =&gt; process_result(store, <span class="prelude-val">Err</span>(err)),
+			<span class="prelude-val">Err</span>(err) =&gt; <span class="self">Self</span>::process_result(store, <span class="prelude-val">Err</span>(err)).map(InstanceOrExecReturn::ExecReturn),
+		}
+	}
+}
+
+<span class="kw">impl</span>&lt;T: Config&gt; Executable&lt;T&gt; <span class="kw">for </span>WasmBlob&lt;T&gt; {
+	<span class="kw">fn </span>from_storage(
+		code_hash: CodeHash&lt;T&gt;,
+		gas_meter: <span class="kw-2">&amp;mut </span>GasMeter&lt;T&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
+		<span class="kw">let </span>code_info = &lt;CodeInfoOf&lt;T&gt;&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
+		gas_meter.charge(CodeLoadToken(code_info.code_len))<span class="question-mark">?</span>;
+		<span class="kw">let </span>code = &lt;PristineCode&lt;T&gt;&gt;::get(code_hash).ok_or(Error::&lt;T&gt;::CodeNotFound)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ code, code_info, code_hash })
+	}
+
+	<span class="kw">fn </span>execute&lt;E: Ext&lt;T = T&gt;&gt;(
+		<span class="self">self</span>,
+		ext: <span class="kw-2">&amp;mut </span>E,
+		function: <span class="kw-2">&amp;</span>ExportedFunction,
+		input_data: Vec&lt;u8&gt;,
+	) -&gt; ExecResult {
+		<span class="kw">use </span>InstanceOrExecReturn::<span class="kw-2">*</span>;
+		<span class="kw">match </span><span class="self">Self</span>::prepare_execute(<span class="self">self</span>, Runtime::new(ext, input_data), function)<span class="question-mark">? </span>{
+			Instance((func, <span class="kw-2">mut </span>store)) =&gt; {
+				<span class="kw">let </span>result = func.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;mut </span>[]);
+				<span class="self">Self</span>::process_result(store, result)
+			},
+			ExecReturn(exec_return) =&gt; <span class="prelude-val">Ok</span>(exec_return),
 		}
 	}
 
@@ -5396,6 +5485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>CODE_GAS_LEFT: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
 (module
 	(import &quot;seal1&quot; &quot;gas_left&quot; (func $seal_gas_left (param i32 i32)))
+	(import &quot;seal0&quot; &quot;clear_storage&quot; (func $clear_storage (param i32)))
 	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
 	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
 
@@ -5412,6 +5502,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 
 	(func (export &quot;call&quot;)
+		;; Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we need to read its size first.
+		(call $clear_storage (i32.const 0))
+
 		;; This stores the weight left to the buffer
 		(call $seal_gas_left (i32.const 0) (i32.const 20))
 
@@ -5422,6 +5515,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(i32.const 16)
 			)
 		)
+
+		;; Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we need to read its size first.
+		(call $clear_storage (i32.const 0))
 
 		;; Return weight left and its encoded value len
 		(call $seal_return (i32.const 0) (i32.const 0) (i32.load (i32.const 20)))
