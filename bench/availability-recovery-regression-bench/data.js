@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712711389236,
+  "lastUpdate": 1712730537203,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2309,6 +2309,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.17280806947333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "PG Herveou",
+            "username": "pgherveou",
+            "email": "pgherveou@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "2d927b077263f2d39586a49cf993ecf3885e4de5",
+          "message": "Contracts: Fix legacy uapi (#3994)\n\nFix some broken legacy definitions of pallet_contracts_uapi storage host\nfunctions",
+          "timestamp": "2024-04-10T05:05:21Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2d927b077263f2d39586a49cf993ecf3885e4de5"
+        },
+        "date": 1712730512169,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.430980926446669,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.208015568,
             "unit": "seconds"
           }
         ]
