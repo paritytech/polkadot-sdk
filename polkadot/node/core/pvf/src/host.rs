@@ -959,9 +959,7 @@ pub(crate) mod tests {
 	use crate::{artifacts::generate_artifact_path, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
-	use polkadot_node_core_pvf_common::{
-		prepare::PrepareStats,
-	};
+	use polkadot_node_core_pvf_common::prepare::PrepareStats;
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub(crate) const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
