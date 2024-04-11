@@ -947,7 +947,10 @@ impl pallet_asset_rewards::Config for Runtime {
 	type Assets = NativeAndAllAssets;
 	type AssetId = xcm::v3::Location;
 	type PermissionedOrigin = EnsureWithSuccess<
-		EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,
+		EitherOfDiverse<
+			EnsureRoot<AccountId>,
+			EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,
+		>,
 		AccountId,
 		TreasurerBodyAccount,
 	>;
@@ -1109,6 +1112,7 @@ mod benches {
 		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
 		[pallet_asset_conversion, AssetConversion]
+		[pallet_asset_rewards, AssetRewards]
 		[pallet_balances, Balances]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]
