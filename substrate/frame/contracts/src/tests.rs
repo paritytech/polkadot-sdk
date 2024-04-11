@@ -457,7 +457,7 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 }
 
-#[derive_impl(crate::config_preludes::TestDefaultConfig as crate::DefaultConfig)]
+#[derive_impl(crate::config_preludes::TestDefaultConfig)]
 impl Config for Test {
 	type Time = Timestamp;
 	type Randomness = Randomness;
