@@ -539,7 +539,7 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_sub_account_truncating(())
 	}
 
-	fn era_payout_account(era_index: EraIndex) -> T::AccountId {
+	pub fn era_payout_account(era_index: EraIndex) -> T::AccountId {
 		T::PalletId::get().into_sub_account_truncating(era_index)
 	}
 

@@ -96,6 +96,7 @@ frame_support::construct_runtime!(
 		Authorship: pallet_authorship,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
+		PolkadotInflation: pallet_polkadot_inflation,
 		Staking: pallet_staking,
 		Session: pallet_session,
 		Historical: pallet_session::historical,
@@ -174,19 +175,8 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
-pallet_staking_reward_curve::build! {
-	const I_NPOS: PiecewiseLinear<'static> = curve!(
-		min_inflation: 0_025_000,
-		max_inflation: 0_100_000,
-		ideal_stake: 0_500_000,
-		falloff: 0_050_000,
-		max_piece_count: 40,
-		test_precision: 0_005_000,
-	);
-}
 parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
-	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
 }
 
@@ -301,10 +291,30 @@ parameter_types! {
 }
 
 parameter_types! {
+	pub static MinInflation: Perquintill = Perquintill::from_rational(25u64, 1000);
+	pub static MaxInflation: Perquintill = Perquintill::from_rational(1u64, 10);
+	pub static IdealStakingRate: Perquintill = Perquintill::from_percent(50);
+	pub static Falloff: Perquintill = Perquintill::from_percent(5);
+	pub static StakingRecipient: AccountId = Staking::pending_payout_account();
+	pub static LeftoverRecipients: Vec<(AccountId, Perquintill)> = vec![]; // TODO: add tests
 	pub const StakingPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/staki");
 }
 
-pub type InflationCalculator = ConvertCurve<RewardCurve>;
+use crate::inflation::polkadot_inflation as pallet_polkadot_inflation;
+
+// #[derive_impl(crate::inflation::polkadot_inflation::config_preludes::TestDefaultConfig)]
+impl pallet_polkadot_inflation::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type UnixTime = Timestamp;
+	type Currency = Balances;
+	type CurrencyBalance = Balance;
+	type IdealStakingRate = IdealStakingRate;
+	type MinInflation = MinInflation;
+	type MaxInflation = MaxInflation;
+	type Falloff = Falloff;
+	type StakingRecipient = StakingRecipient;
+	type LeftoverRecipients = LeftoverRecipients;
+}
 
 pub struct EventListenerMock;
 impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
@@ -318,12 +328,11 @@ impl OnStakingUpdate<AccountId, Balance> for EventListenerMock {
 	}
 
 	fn on_before_era_end(_era_index: EraIndex) {
-		let (staking, _max) = InflationCalculator::era_payout(
-			Staking::eras_total_stake(active_era()),
-			Balances::total_issuance(),
-			time_per_era(),
-		);
-		let _ = Balances::deposit_creating(&Staking::pending_payout_account(), staking);
+		let new_total_stake = Staking::eras_total_stake(active_era());
+		// Set the right last known staked amount,
+		<Test as pallet_polkadot_inflation::Config>::update_total_stake(new_total_stake);
+		// Trigger an inflation, which will populate the pot.
+		PolkadotInflation::inflate_with_bookkeeping();
 	}
 }
 

@@ -23,7 +23,7 @@
 use sp_runtime::{curve::PiecewiseLinear, traits::AtLeast32BitUnsigned, Perbill};
 
 #[frame_support::pallet]
-pub mod inflation {
+pub mod polkadot_inflation {
 	//! Polkadot inflation pallet.
 	use frame_support::{
 		pallet_prelude::*,
@@ -42,10 +42,46 @@ pub mod inflation {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	#[pallet::config]
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	// pub mod config_preludes {
+	// 	use super::*;
+	// 	use frame_support::derive_impl;
+
+	// 	type AccountId = <TestDefaultConfig as frame_system::DefaultConfig>::AccountId;
+
+	// 	pub struct TestDefaultConfig;
+
+	// 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
+	// 	impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+	// 	frame_support::parameter_types! {
+	// 		pub const IdealStakingRate: Perquintill = Perquintill::from_percent(75);
+	// 		pub const MaxInflation: Perquintill = Perquintill::from_percent(10);
+	// 		pub const MinInflation: Perquintill = Perquintill::from_percent(2);
+	// 		pub const Falloff: Perquintill = Perquintill::from_percent(5);
+	// 		pub const LeftoverRecipients: Vec<(AccountId, Perquintill)> = vec![];
+	// 	}
+
+	// 	use crate::inflation::polkadot_inflation::DefaultConfig;
+	// 	#[frame_support::register_default_impl(TestDefaultConfig)]
+	// 	impl DefaultConfig for TestDefaultConfig {
+	// 		#[inject_runtime_type]
+	// 		type RuntimeEvent = ();
+
+	// 		type IdealStakingRate = IdealStakingRate;
+	// 		type MaxInflation = MaxInflation;
+	// 		type MinInflation = MinInflation;
+	// 		type Falloff = Falloff;
+	// 		type LeftoverRecipients = LeftoverRecipients;
+	// 	}
+	// }
+
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		#[pallet::no_default]
 		type UnixTime: frame_support::traits::UnixTime;
 
 		type IdealStakingRate: Get<Perquintill>;
@@ -54,10 +90,15 @@ pub mod inflation {
 		type Falloff: Get<Perquintill>;
 
 		type LeftoverRecipients: Get<Vec<(Self::AccountId, Perquintill)>>;
+
+		#[pallet::no_default]
 		type StakingRecipient: Get<Self::AccountId>;
 
+		#[pallet::no_default]
 		type Currency: fung::Mutate<Self::AccountId>
 			+ fung::Inspect<Self::AccountId, Balance = Self::CurrencyBalance>;
+
+		#[pallet::no_default]
 		type CurrencyBalance: frame_support::traits::tokens::Balance + From<u64>;
 
 		/// Customize how this pallet reads the total issuance, if need be.
@@ -66,6 +107,7 @@ pub mod inflation {
 		///
 		/// NOTE: one should not use `T::Currency::total_issuance()` directly within the pallet in
 		/// case it has been overwritten here.
+		#[pallet::no_default]
 		fn adjusted_total_issuance() -> BalanceOf<Self> {
 			Self::Currency::total_issuance()
 		}
@@ -75,6 +117,7 @@ pub mod inflation {
 		///
 		/// Once multi-chain, we should expect an extrinsic, gated by the origin of the staking
 		/// parachain that can update this value. This can be `Transact`-ed via XCM.
+		#[pallet::no_default] // TODO @gupnik this should be taken care of better? the fn already has a default.
 		fn update_total_stake(new_total_stake: BalanceOf<Self>) {
 			LastKnownStaked::<Self>::put(new_total_stake);
 		}
@@ -109,7 +152,7 @@ pub mod inflation {
 
 	impl<T: Config> Pallet<T> {
 		/// Trigger an inflation,
-		pub fn inflate_with_duration(since_last_inflation: u64) {
+		pub fn inflate_with_duration(since_last_inflation: u64) -> (BalanceOf<T>, BalanceOf<T>) {
 			let adjusted_total_issuance = T::adjusted_total_issuance();
 
 			// what percentage of a year has passed since last inflation?
@@ -136,23 +179,35 @@ pub mod inflation {
 
 			// ideal amount that we want to payout.
 			let max_payout = payout_with_annual_inflation(max_annual_inflation);
-			let staking_payout = payout_with_annual_inflation(staking_annual_inflation);
-			let leftover_inflation = max_payout.saturating_sub(staking_payout);
+			let staking_inflation = payout_with_annual_inflation(staking_annual_inflation);
+			let leftover_inflation = max_payout.saturating_sub(staking_inflation);
 
-			T::LeftoverRecipients::get().into_iter().for_each(|(who, proportion)| {
-				let amount = proportion * leftover_inflation;
-				// not much we can do about errors here.
-				let _ = T::Currency::mint_into(&who, amount).defensive();
-			});
-
-			Self::deposit_event(Event::Inflated { staking: staking_payout, leftovers: max_payout });
+			(staking_inflation, leftover_inflation)
 		}
 
 		pub fn inflate_with_bookkeeping() {
 			let last_inflated = LastInflated::<T>::get();
 			let now = T::UnixTime::now().as_millis().saturated_into::<u64>();
 			let since_last_inflation = now.saturating_sub(last_inflated);
-			Self::inflate_with_duration(since_last_inflation);
+			let (staking, leftovers) = Self::inflate_with_duration(since_last_inflation);
+
+			// distribute the inflation to pots.
+			T::Currency::mint_into(&T::StakingRecipient::get(), staking).defensive();
+			T::LeftoverRecipients::get().into_iter().for_each(|(who, proportion)| {
+				let amount = proportion * leftovers;
+				T::Currency::mint_into(&who, amount).defensive();
+			});
+
+			crate::log!(
+				debug,
+				"inflation: done at {:?}, period duration: {:?}, staking: {:?}, leftovers: {:?}",
+				now,
+				since_last_inflation,
+				staking,
+				leftovers
+			);
+
+			Self::deposit_event(Event::Inflated { staking, leftovers });
 			LastInflated::<T>::put(T::UnixTime::now().as_millis().saturated_into::<u64>());
 		}
 	}
