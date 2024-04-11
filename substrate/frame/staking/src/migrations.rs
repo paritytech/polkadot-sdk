@@ -67,10 +67,17 @@ pub mod v15 {
 	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let migrated = v14::OffendingValidators::<T>::take()
+			let mut migrated = v14::OffendingValidators::<T>::take()
 				.into_iter()
+				.filter(|p| p.1) // take only disabled validators
 				.map(|p| p.0)
 				.collect::<Vec<_>>();
+
+			// Respect disabling limit
+			migrated.truncate(T::DisablingStrategy::disable_threshold(
+				T::SessionInterface::validators().len(),
+			));
+
 			DisabledValidators::<T>::set(migrated);
 
 			log!(info, "v15 applied successfully.");

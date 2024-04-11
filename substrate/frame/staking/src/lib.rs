@@ -1235,6 +1235,16 @@ pub trait DisablingStrategy<T: Config> {
 		slash_era: EraIndex,
 		currently_disabled: &Vec<u32>,
 	) -> Option<u32>;
+
+	/// Returns the maximum number of validators that can be disabled at a given point in time.
+	///
+	/// This method is needed only for the implementation of `VersionUncheckedMigrateV14ToV15` in
+	/// staking pallet. Feel free to remove after this migration is no longer needed because in
+	/// theory `DisablingStrategy` can be anything. It even (in theory!) can have no disabling
+	/// threshold. However we need to know the maximum number of disabled validators expected by the
+	/// `DisablingStrategy` implementation so that we can migrate `OffendingValidators` without
+	/// breaking any invariants.
+	fn disable_threshold(validators_len: usize) -> usize;
 }
 
 /// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
@@ -1261,6 +1271,10 @@ impl<const DISABLING_LIMIT_FACTOR: usize> UpToThresholdDisablingStrategy<DISABLI
 impl<T: Config, const DISABLING_LIMIT_FACTOR: usize> DisablingStrategy<T>
 	for UpToThresholdDisablingStrategy<DISABLING_LIMIT_FACTOR>
 {
+	fn disable_threshold(validators_len: usize) -> usize {
+		Self::disable_threshold(validators_len)
+	}
+
 	fn decision(
 		offender_stash: &T::AccountId,
 		slash_era: EraIndex,
