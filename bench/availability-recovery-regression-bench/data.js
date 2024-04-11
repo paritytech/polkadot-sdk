@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712837740875,
+  "lastUpdate": 1712843532999,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2729,6 +2729,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.16653987614666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "832570545b0311f533499ead57d764a2bc04145c",
+          "message": "Fix link check (#4074)\n\nCloses #4041\n\nChanges:\n- Increase cache size and reduce retries.\n- Ignore Substrate SE links :(\n- Fix broken link.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-04-11T10:55:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/832570545b0311f533499ead57d764a2bc04145c"
+        },
+        "date": 1712843506910,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.17689647383999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.23242465047333,
             "unit": "seconds"
           }
         ]
