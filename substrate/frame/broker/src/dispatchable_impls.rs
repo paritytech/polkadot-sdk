@@ -211,6 +211,13 @@ impl<T: Config> Pallet<T> {
 		region.paid = None;
 		let new_region_ids = (region_id, RegionId { begin: pivot, ..region_id });
 
+		// Remove this region from the pool in case it has been assigned provisionally. If we get
+		// this far then it is still in `Regions` and thus could only have been pooled
+		// provisionally.
+		Self::force_unpool_region(region_id, &region);
+
+		// Overwrite the previous region with its new end and create a new region for the second
+		// part of the partition.
 		Regions::<T>::insert(&new_region_ids.0, &RegionRecord { end: pivot, ..region.clone() });
 		Regions::<T>::insert(&new_region_ids.1, &region);
 		Self::deposit_event(Event::Partitioned { old_region_id: region_id, new_region_ids });
@@ -232,6 +239,11 @@ impl<T: Config> Pallet<T> {
 		ensure!((pivot & !region_id.mask).is_void(), Error::<T>::ExteriorPivot);
 		ensure!(!pivot.is_void(), Error::<T>::VoidPivot);
 		ensure!(pivot != region_id.mask, Error::<T>::CompletePivot);
+
+		// Remove this region from the pool in case it has been assigned provisionally. If we get
+		// this far then it is still in `Regions` and thus could only have been pooled
+		// provisionally.
+		Self::force_unpool_region(region_id, &region);
 
 		// The old region should be removed.
 		Regions::<T>::remove(&region_id);
@@ -256,6 +268,12 @@ impl<T: Config> Pallet<T> {
 		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
 			let workplan_key = (region_id.begin, region_id.core);
 			let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
+
+			// Remove this region from the pool in case it has been assigned provisionally. If we
+			// get this far then it is still in `Regions` and thus could only have been pooled
+			// provisionally.
+			Self::force_unpool_region(region_id, &region);
+
 			// Ensure no previous allocations exist.
 			workplan.retain(|i| (i.mask & region_id.mask).is_void());
 			if workplan
@@ -475,5 +493,23 @@ impl<T: Config> Pallet<T> {
 
 		let now = frame_system::Pallet::<T>::block_number();
 		Ok(Self::sale_price(&sale, now))
+	}
+
+	// Remove a region from on-demand pool contributions. Useful in cases where it was pooled
+	// provisionally and it is being redeployed (partition/interlace/assign).
+	//
+	// Takes both the region_id and (a reference to) the region as arguments to avoid another DB
+	// read. No-op for regions which have not been pooled.
+	fn force_unpool_region(region_id: RegionId, region: &RegionRecordOf<T>) {
+		// We don't care if this fails or not, just that it is removed if present. This is to
+		// account for the case where a region is pooled provisionally and redeployed.
+		if let Some(_) = InstaPoolContribution::<T>::take(region_id) {
+			Self::deposit_event(Event::<T>::RegionUnpooled { region_id });
+
+			// Account for this in `InstaPoolIo`.
+			let size = region_id.mask.count_ones() as i32;
+			InstaPoolIo::<T>::mutate(region_id.begin, |a| a.private.saturating_reduce(size));
+			InstaPoolIo::<T>::mutate(region.end, |a| a.private.saturating_accrue(size));
+		};
 	}
 }
