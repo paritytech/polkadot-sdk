@@ -24,9 +24,9 @@ use frame_support::traits::{
 use pallet_assets::FrozenBalance;
 use sp_runtime::traits::Zero;
 
-/// Implements [`FrozenBalance`] from [`pallet-assets`], so it can understands how much of an
-/// account balance is frozen, and is able to signal to this pallet when to clear the state of an
-/// account.
+// Implements [`FrozenBalance`] from [`pallet-assets`], so it can understand how much of an
+// account balance is frozen, and is able to signal to this pallet when to clear the state of an
+// account.
 impl<T: Config<I>, I: 'static> FrozenBalance<T::AssetId, T::AccountId, T::Balance>
 	for Pallet<T, I>
 {
@@ -40,6 +40,10 @@ impl<T: Config<I>, I: 'static> FrozenBalance<T::AssetId, T::AccountId, T::Balanc
 	}
 }
 
+// Implement [`fungibles::Inspect`](frame_support::traits::fungibles::Inspect) as it is bound by
+// [`fungibles::InspectFreeze`](frame_support::traits::fungibles::InspectFreeze) and
+// [`fungibles::MutateFreeze`](frame_support::traits::fungibles::MutateFreeze). To do so, we'll
+// re-export all of `pallet-assets` implementation of the same trait.
 impl<T: Config<I>, I: 'static> Inspect<T::AccountId> for Pallet<T, I> {
 	type AssetId = T::AssetId;
 	type Balance = T::Balance;
