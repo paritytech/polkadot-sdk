@@ -121,11 +121,14 @@ pub enum DummyFreezeReason {
 	Other,
 }
 
+impl VariantCount for DummyFreezeReason {
+	// Intentionally set below the actual count of variants, to allow testing for `can_freeze`
+	const VARIANT_COUNT: u32 = 2;
+}
+
 impl Config for Test {
-	type FreezeIdentifier = DummyFreezeReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeFreezeReason = DummyFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
-	type MaxFreezes = ConstU32<2>;
 }
 
 pub fn new_test_ext(execute: impl FnOnce()) -> sp_io::TestExternalities {

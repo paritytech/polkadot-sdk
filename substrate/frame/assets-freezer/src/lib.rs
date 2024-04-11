@@ -44,7 +44,7 @@
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::{tokens::IdAmount, VariantCount},
+	traits::{tokens::IdAmount, VariantCount, VariantCountOf},
 	BoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -68,21 +68,14 @@ pub mod pallet {
 
 	#[pallet::config(with_default)]
 	pub trait Config<I: 'static = ()>: frame_system::Config + pallet_assets::Config<I> {
-		/// The ID type for freezes.
-		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Copy;
-
 		/// The overarching freeze reason.
 		#[pallet::no_default_bounds]
-		type RuntimeFreezeReason: VariantCount;
+		type RuntimeFreezeReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// The maximum number of individual freezes that can exist on an account at any time.
-		#[pallet::constant]
-		type MaxFreezes: Get<u32>;
 	}
 
 	#[pallet::error]
@@ -111,7 +104,10 @@ pub mod pallet {
 		T::AssetId,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<IdAmount<T::FreezeIdentifier, T::Balance>, T::MaxFreezes>,
+		BoundedVec<
+			IdAmount<T::RuntimeFreezeReason, T::Balance>,
+			VariantCountOf<T::RuntimeFreezeReason>,
+		>,
 		ValueQuery,
 	>;
 
@@ -132,14 +128,6 @@ pub mod pallet {
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
-
-		fn integrity_test() {
-			assert!(
-				T::MaxFreezes::get() >= <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
-				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
-				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
-			);
-		}
 	}
 }
 
@@ -147,7 +135,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn update_freezes(
 		asset: T::AssetId,
 		who: &T::AccountId,
-		freezes: BoundedSlice<IdAmount<T::FreezeIdentifier, T::Balance>, T::MaxFreezes>,
+		freezes: BoundedSlice<
+			IdAmount<T::RuntimeFreezeReason, T::Balance>,
+			VariantCountOf<T::RuntimeFreezeReason>,
+		>,
 	) -> DispatchResult {
 		let prev_frozen = FrozenBalances::<T, I>::get(asset.clone(), who).unwrap_or_default();
 		let after_frozen = freezes.into_iter().map(|f| f.amount).max().unwrap_or_else(Zero::zero);

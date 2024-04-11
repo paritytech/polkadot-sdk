@@ -96,7 +96,7 @@ impl<T: Config<I>, I: 'static> Inspect<T::AccountId> for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> InspectFreeze<T::AccountId> for Pallet<T, I> {
-	type Id = T::FreezeIdentifier;
+	type Id = T::RuntimeFreezeReason;
 
 	fn balance_frozen(asset: Self::AssetId, id: &Self::Id, who: &T::AccountId) -> Self::Balance {
 		let freezes = Freezes::<T, I>::get(asset, who);
