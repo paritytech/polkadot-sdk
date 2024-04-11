@@ -5,6 +5,15 @@ timeout = 1000
   max_candidate_depth = 6
   allowed_ancestry_len = 3
 
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+  max_validators_per_core = 1
+  scheduling_lookahead = 2
+  num_cores = 4
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
+  needed_approvals = 3
+  max_approval_coalesce_count = 5
+
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
 chain = "rococo-local"
@@ -19,23 +28,11 @@ command = "polkadot"
   args = ["-lruntime=debug,parachain=trace" ]
   count = 8
 
-[[parachains]]
-id = 1005
-chain = "coretime-rococo-local"
-
-  [parachains.collator]
-  name = "coretime-collator"
-  image = "{{CUMULUS_IMAGE}}"
-  command = "polkadot-parachain"
-  args = [ "-lruntime=info" ,"--force-authoring"]
-
 # Slot based authoring with 3 cores and 2s slot duration
 [[parachains]]
 id = 2100
-add_to_genesis = false
-register_para = false
-onboard_as_parachain = false
 chain = "elastic-scaling"
+add_to_genesis = true
 
   [[parachains.collators]]
   name = "collator-elastic"
@@ -46,9 +43,7 @@ chain = "elastic-scaling"
 # Slot based authoring with 3 cores and 2s slot duration
 [[parachains]]
 id = 2000
-add_to_genesis = false
-register_para = false
-onboard_as_parachain = false
+add_to_genesis = true
 
   [[parachains.collators]]
   name = "collator-single-core"
