@@ -21,26 +21,26 @@
 mod prepare;
 mod runtime;
 
-#[cfg(test)]
-pub use runtime::STABLE_API_COUNT;
-
 #[cfg(doc)]
 pub use crate::wasm::runtime::api_doc;
 
-pub use crate::wasm::runtime::{
-	AllowDeprecatedInterface, AllowUnstableInterface, Environment, Runtime, RuntimeCosts,
+#[cfg(test)]
+pub use {
+	crate::wasm::{prepare::tracker, runtime::ReturnErrorCode},
+	runtime::STABLE_API_COUNT,
+	tests::MockExt,
 };
 
-#[cfg(test)]
-pub use tests::MockExt;
-
-#[cfg(test)]
-pub use crate::wasm::runtime::ReturnErrorCode;
+pub use crate::wasm::{
+	prepare::{LoadedModule, LoadingMode},
+	runtime::{
+		AllowDeprecatedInterface, AllowUnstableInterface, Environment, Runtime, RuntimeCosts,
+	},
+};
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
-	wasm::prepare::LoadedModule,
 	weights::WeightInfo,
 	AccountIdOf, BadOrigin, BalanceOf, CodeHash, CodeInfoOf, CodeVec, Config, Error, Event,
 	HoldReason, Pallet, PristineCode, Schedule, Weight, LOG_TARGET,
@@ -201,17 +201,14 @@ impl<T: Config> WasmBlob<T> {
 	/// When validating we pass `()` as `host_state`. Please note that such a dummy instance must
 	/// **never** be called/executed, since it will panic the executor.
 	pub fn instantiate<E, H>(
-		code: &[u8],
+		contract: LoadedModule,
 		host_state: H,
 		schedule: &Schedule<T>,
-		determinism: Determinism,
-		stack_limits: StackLimits,
 		allow_deprecated: AllowDeprecatedInterface,
 	) -> Result<(Store<H>, Memory, InstancePre), &'static str>
 	where
 		E: Environment<H>,
 	{
-		let contract = LoadedModule::new::<T>(&code, determinism, Some(stack_limits))?;
 		let mut store = Store::new(&contract.engine, host_state);
 		let mut linker = Linker::new(&contract.engine);
 		E::define(
@@ -382,12 +379,22 @@ impl<T: Config> WasmBlob<T> {
 		let code = self.code.as_slice();
 		// Instantiate the Wasm module to the engine.
 		let schedule = <T>::Schedule::get();
+
+		let contract = LoadedModule::new::<T>(
+			&code,
+			self.code_info.determinism,
+			Some(StackLimits::default()),
+			LoadingMode::Unchecked,
+		)
+		.map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to create wasmi module: {err:?}");
+			Error::<T>::CodeRejected
+		})?;
+
 		let (mut store, memory, instance) = Self::instantiate::<crate::wasm::runtime::Env, _>(
-			code,
+			contract,
 			runtime,
 			&schedule,
-			self.code_info.determinism,
-			StackLimits::default(),
 			match function {
 				ExportedFunction::Call => AllowDeprecatedInterface::Yes,
 				ExportedFunction::Constructor => AllowDeprecatedInterface::No,

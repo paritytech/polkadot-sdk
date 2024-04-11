@@ -442,7 +442,7 @@ impl ClusterTracker {
 				target: LOG_TARGET,
 				pending_statements  = ?self.pending,
 				?parent_hash,
-				"Cluster has too many pending statements, something wrong with our connection to our group peers \n
+				"Cluster has too many pending statements, something wrong with our connection to our group peers
 				Restart might be needed if validator gets 0 backing rewards for more than 3-4 consecutive sessions"
 			);
 		}
