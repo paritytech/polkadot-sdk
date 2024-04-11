@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712843226317,
+  "lastUpdate": 1712854544360,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3431,6 +3431,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15383937414,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6ebf491b50a45d1814a72a6ac4287f4a15ba39ce",
+          "message": "[ci] Divide subsystem-regression-tests into 2 jobs (#4076)\n\nCurrently `subsystem-regression-tests` job fails if the first benchmarks\nfail and there is no result for the second benchmark. Also dividing the\njob makes the pipeline faster (currently it's a longest job)\n\ncc https://github.com/paritytech/ci_cd/issues/969\ncc @AndreiEres\n\n---------\n\nCo-authored-by: Andrei Eres <eresav@me.com>",
+          "timestamp": "2024-04-11T15:29:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ebf491b50a45d1814a72a6ac4287f4a15ba39ce"
+        },
+        "date": 1712854517664,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.893333333326,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02650565074666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16218815036666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011889844726666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014496761419999997,
             "unit": "seconds"
           }
         ]
