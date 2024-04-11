@@ -89,18 +89,14 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 	/// Returns `true` if we may fit more free headers into the current block. If `false` is
 	/// returned, the call will be paid even if `is_free_execution_expected` has been set
 	/// to `true`.
-	pub fn can_import_anything_for_free() -> bool {
+	pub fn has_free_header_slots() -> bool {
 		// `unwrap_or(u32::MAX)` means that if `FreeHeadersRemaining` is `None`, we may accept
-		// this header for free. That is a small cheat - is is `None` if executed outside of
+		// this header for free. That is a small cheat - it is `None` if executed outside of
 		// transaction (e.g. during block initialization). Normal relayer would never submit
 		// such calls, but if he did, that is not our problem. During normal transactions,
 		// the `FreeHeadersRemaining` is always `Some(_)`.
 		let free_headers_remaining = FreeHeadersRemaining::<T, I>::get().unwrap_or(u32::MAX);
-		if free_headers_remaining == 0 {
-			return false
-		}
-
-		true
+		free_headers_remaining > 0
 	}
 
 	/// Check that the: (1) GRANDPA head provided by the `SubmitFinalityProof` is better than the
@@ -122,7 +118,7 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 		}
 
 		// else - if we can not accept more free headers, "reject" the transaction
-		if !Self::can_import_anything_for_free() {
+		if !Self::has_free_header_slots() {
 			log::trace!(
 				target: crate::LOG_TARGET,
 				"Cannot accept free {:?} header {:?}. No more free slots remaining",

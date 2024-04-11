@@ -660,7 +660,7 @@ where
 		extra_size: &mut u32,
 	) -> bool {
 		// check if relay chain state has been updated
-		let is_granda_call_succeeded =
+		let is_grandpa_call_successful =
 			RefundBridgedGrandpaMessages::<
 				Runtime,
 				Runtime::BridgesGrandpaPalletInstance,
@@ -669,7 +669,7 @@ where
 				Priority,
 				Id,
 			>::additional_call_result_check(relayer, call_info, extra_weight, extra_size);
-		if !is_granda_call_succeeded {
+		if !is_grandpa_call_successful {
 			return false
 		}
 
@@ -1299,7 +1299,7 @@ pub(crate) mod tests {
 					is_free_execution_expected: false,
 				},
 				SubmitParachainHeadsInfo {
-					at_relay_block: (200, [0u8; 32].into()),
+					at_relay_block: HeaderId(200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 					is_free_execution_expected: false,
@@ -1339,7 +1339,7 @@ pub(crate) mod tests {
 					is_free_execution_expected: false,
 				},
 				SubmitParachainHeadsInfo {
-					at_relay_block: (200, [0u8; 32].into()),
+					at_relay_block: HeaderId(200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 					is_free_execution_expected: false,
@@ -1431,7 +1431,7 @@ pub(crate) mod tests {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::ParachainFinalityAndMsgs(
 				SubmitParachainHeadsInfo {
-					at_relay_block: (200, [0u8; 32].into()),
+					at_relay_block: HeaderId(200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 					is_free_execution_expected: false,
@@ -1456,7 +1456,7 @@ pub(crate) mod tests {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::ParachainFinalityAndMsgs(
 				SubmitParachainHeadsInfo {
-					at_relay_block: (200, [0u8; 32].into()),
+					at_relay_block: HeaderId(200, [0u8; 32].into()),
 					para_id: ParaId(TestParachain::get()),
 					para_head_hash: [200u8; 32].into(),
 					is_free_execution_expected: false,

@@ -18,7 +18,7 @@ use crate::{Config, GrandpaPalletOf, Pallet, RelayBlockHash, RelayBlockNumber};
 use bp_header_chain::HeaderChain;
 use bp_parachains::BestParaHeadHash;
 use bp_polkadot_core::parachains::{ParaHash, ParaId};
-use bp_runtime::OwnedBridgeModule;
+use bp_runtime::{HeaderId, OwnedBridgeModule};
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
@@ -35,7 +35,7 @@ use sp_runtime::{
 pub struct SubmitParachainHeadsInfo {
 	/// Number and hash of the finalized relay block that has been used to prove parachain
 	/// finality.
-	pub at_relay_block: (RelayBlockNumber, RelayBlockHash),
+	pub at_relay_block: HeaderId<RelayBlockHash, RelayBlockNumber>,
 	/// Parachain identifier.
 	pub para_id: ParaId,
 	/// Hash of the bundled parachain head.
@@ -75,7 +75,8 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 		}
 
 		// reject if no more free slots remaining in the block
-		if !SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free() {
+		if !SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::has_free_header_slots()
+		{
 			log::trace!(
 				target: crate::LOG_TARGET,
 				"The free parachain {:?} head can't be updated: no more free slots \
@@ -201,7 +202,7 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 				..
 			}) => match &parachains[..] {
 				&[(para_id, para_head_hash)] => Some(SubmitParachainHeadsInfo {
-					at_relay_block: *at_relay_block,
+					at_relay_block: HeaderId(at_relay_block.0, at_relay_block.1),
 					para_id,
 					para_head_hash,
 					is_free_execution_expected: false,
@@ -215,7 +216,7 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 				..
 			}) => match &parachains[..] {
 				&[(para_id, para_head_hash)] => Some(SubmitParachainHeadsInfo {
-					at_relay_block: *at_relay_block,
+					at_relay_block: HeaderId(at_relay_block.0, at_relay_block.1),
 					para_id,
 					para_head_hash,
 					is_free_execution_expected: *is_free_execution_expected,

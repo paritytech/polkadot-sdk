@@ -536,7 +536,7 @@ pub mod pallet {
 						let artifacts = Pallet::<T, I>::update_parachain_head(
 							parachain,
 							stored_best_head.take(),
-							(relay_block_number, relay_block_hash),
+							HeaderId(relay_block_number, relay_block_hash),
 							parachain_head_data,
 							parachain_head_hash,
 						)?;
@@ -579,7 +579,7 @@ pub mod pallet {
 			// check if we allow this submission for free
 			let is_free = total_parachains == 1
 				&& free_parachain_heads == total_parachains
-				&& SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::can_import_anything_for_free();
+				&& SubmitFinalityProofHelper::<T, T::BridgesGrandpaPalletInstance>::has_free_header_slots();
 			let pays_fee = if is_free {
 				log::trace!(target: LOG_TARGET, "Parachain heads update transaction is free");
 				pallet_bridge_grandpa::on_free_header_imported::<T, T::BridgesGrandpaPalletInstance>(
@@ -647,7 +647,7 @@ pub mod pallet {
 		pub(super) fn update_parachain_head(
 			parachain: ParaId,
 			stored_best_head: Option<ParaInfo>,
-			new_at_relay_block: (RelayBlockNumber, RelayBlockHash),
+			new_at_relay_block: HeaderId<RelayBlockHash, RelayBlockNumber>,
 			new_head_data: ParaStoredHeaderData,
 			new_head_hash: ParaHash,
 		) -> Result<UpdateParachainHeadArtifacts, ()> {
@@ -657,7 +657,7 @@ pub mod pallet {
 				at_relay_block: new_at_relay_block,
 				para_id: parachain,
 				para_head_hash: new_head_hash,
-				// don't actually matter here
+				// doesn't actually matter here
 				is_free_execution_expected: false,
 			};
 			if SubmitParachainHeadsHelper::<T, I>::check_obsolete(&update).is_err() {
@@ -808,7 +808,7 @@ pub fn initialize_for_benchmarks<T: Config<I>, I: 'static, PC: Parachain<Hash = 
 	Pallet::<T, I>::update_parachain_head(
 		parachain,
 		None,
-		(0, Default::default()),
+		HeaderId(0, Default::default()),
 		updated_head_data,
 		parachain_head.hash(),
 	)

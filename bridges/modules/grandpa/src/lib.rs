@@ -125,7 +125,7 @@ pub mod pallet {
 		/// The distance between bridged chain headers, that may be submitted for free. The
 		/// first free header is header number zero, the next one is header number
 		/// `FreeHeadersInterval::get()` or any of its descendant if that header has not
-		/// bee submitted. In other words, interval between free headers should be at least
+		/// been submitted. In other words, interval between free headers should be at least
 		/// `FreeHeadersInterval`.
 		#[pallet::constant]
 		type FreeHeadersInterval: Get<Option<u32>>;
@@ -311,7 +311,6 @@ pub mod pallet {
 			let maybe_new_authority_set =
 				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
 			let may_refund_call_fee = may_refund_call_fee::<T, I>(
-				maybe_new_authority_set.is_some(),
 				&finality_target,
 				&justification,
 				current_set_id,
@@ -524,7 +523,6 @@ pub mod pallet {
 	/// Return true if we may refund transaction cost to the submitter. In other words,
 	/// this transaction is considered as common good deed w.r.t to pallet configuration.
 	fn may_refund_call_fee<T: Config<I>, I: 'static>(
-		is_mandatory_header: bool,
 		finality_target: &BridgedHeader<T, I>,
 		justification: &GrandpaJustification<BridgedHeader<T, I>>,
 		current_set_id: SetId,
@@ -550,7 +548,7 @@ pub mod pallet {
 		}
 
 		// if that's a mandatory header => refund
-		if is_mandatory_header {
+		if call_info.is_mandatory {
 			return true;
 		}
 
