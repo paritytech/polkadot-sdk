@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712829283588,
+  "lastUpdate": 1712837740875,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2687,6 +2687,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.15999301305999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9ede4152ef0d539019875e6aff97dbe0744a4053",
+          "message": "collation-generation: Avoid using `para_backing_state` if runtime is ancient (#4070)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/4067\n\nAlso add an early bail out for look ahead collator such that we don't\nwaste time if a CollatorFn is not set.\n\nTODO:\n- [x] add test.\n- [x] Polkadot System Parachain burn-in.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-04-11T10:36:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9ede4152ef0d539019875e6aff97dbe0744a4053"
+        },
+        "date": 1712837714836,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.272893857826668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.16653987614666668,
             "unit": "seconds"
           }
         ]
