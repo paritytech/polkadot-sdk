@@ -60,7 +60,7 @@ fn ah_to_para_transfer_assets(t: SystemParaToParaTest) -> DispatchResult {
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::LocalReserve),
-		bx!(fee.into()),
+		bx!(fee.id.into()),
 		bx!(TransferType::LocalReserve),
 		t.args.weight_limit,
 	)
@@ -75,7 +75,7 @@ fn para_to_ah_transfer_assets(t: ParaToSystemParaTest) -> DispatchResult {
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::DestinationReserve),
-		bx!(fee.into()),
+		bx!(fee.id.into()),
 		bx!(TransferType::DestinationReserve),
 		t.args.weight_limit,
 	)
@@ -91,7 +91,7 @@ fn para_to_para_transfer_assets_through_ah(t: ParaToParaThroughAHTest) -> Dispat
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::RemoteReserve(asset_hub_location.clone().into())),
-		bx!(fee.into()),
+		bx!(fee.id.into()),
 		bx!(TransferType::RemoteReserve(asset_hub_location.into())),
 		t.args.weight_limit,
 	)
@@ -106,7 +106,7 @@ fn para_to_asset_hub_teleport_foreign_assets(t: ParaToSystemParaTest) -> Dispatc
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::Teleport),
-		bx!(fee.into()),
+		bx!(fee.id.into()),
 		bx!(TransferType::DestinationReserve),
 		t.args.weight_limit,
 	)
@@ -121,7 +121,7 @@ fn asset_hub_to_para_teleport_foreign_assets(t: SystemParaToParaTest) -> Dispatc
 		bx!(t.args.beneficiary.into()),
 		bx!(t.args.assets.into()),
 		bx!(TransferType::Teleport),
-		bx!(fee.into()),
+		bx!(fee.id.into()),
 		bx!(TransferType::LocalReserve),
 		t.args.weight_limit,
 	)

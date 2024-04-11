@@ -57,8 +57,8 @@ fn send_asset_from_penpal_westend_through_local_asset_hub_to_rococo_asset_hub(
 		let signed_origin = <PenpalB as Chain>::RuntimeOrigin::signed(PenpalBSender::get());
 		let beneficiary: Location =
 			AccountId32Junction { network: None, id: AssetHubRococoReceiver::get().into() }.into();
-		let fees: Asset = (id, transfer_amount).into();
-		let assets: Assets = fees.clone().into();
+		let assets: Assets = (id.clone(), transfer_amount).into();
+		let fees_id: AssetId = id.into();
 
 		<PenpalB as PenpalBPallet>::PolkadotXcm::transfer_assets_using_type(
 			signed_origin,
@@ -66,7 +66,7 @@ fn send_asset_from_penpal_westend_through_local_asset_hub_to_rococo_asset_hub(
 			bx!(beneficiary.into()),
 			bx!(assets.into()),
 			bx!(TransferType::RemoteReserve(local_asset_hub.clone().into())),
-			bx!(fees.into()),
+			bx!(fees_id.into()),
 			bx!(TransferType::RemoteReserve(local_asset_hub.into())),
 			WeightLimit::Unlimited,
 		)

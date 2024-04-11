@@ -1301,7 +1301,6 @@ pub mod pallet {
 			ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 			let assets = assets.into_inner();
 			let fee_asset_item = fee_asset_item as usize;
-			let fees = assets.get(fee_asset_item as usize).ok_or(Error::<T>::Empty)?.clone();
 			// Find transfer types for fee and non-fee assets.
 			let (fees_transfer_type, assets_transfer_type) =
 				Self::find_fee_and_assets_transfer_types(&assets, fee_asset_item, &dest)?;
@@ -1312,7 +1311,7 @@ pub mod pallet {
 				beneficiary,
 				assets,
 				assets_transfer_type,
-				fees,
+				fee_asset_item,
 				fees_transfer_type,
 				weight_limit,
 			)
@@ -1448,7 +1447,7 @@ pub mod pallet {
 			beneficiary: Box<VersionedLocation>,
 			assets: Box<VersionedAssets>,
 			assets_transfer_type: Box<TransferType>,
-			fees: Box<VersionedAsset>,
+			fees_id: Box<VersionedAssetId>,
 			fees_transfer_type: Box<TransferType>,
 			weight_limit: WeightLimit,
 		) -> DispatchResult {
@@ -1457,31 +1456,25 @@ pub mod pallet {
 			let beneficiary: Location =
 				(*beneficiary).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			let assets: Assets = (*assets).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let fees: Asset = (*fees).try_into().map_err(|()| Error::<T>::BadVersion)?;
+			let fees_id: AssetId = (*fees_id).try_into().map_err(|()| Error::<T>::BadVersion)?;
 			log::debug!(
 				target: "xcm::pallet_xcm::transfer_assets_using_type",
-				"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?} through {:?}, fees {:?} through {:?}",
-				origin_location, dest, beneficiary, assets, assets_transfer_type, fees, fees_transfer_type,
+				"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?} through {:?}, fees-id {:?} through {:?}",
+				origin_location, dest, beneficiary, assets, assets_transfer_type, fees_id, fees_transfer_type,
 			);
 
 			let assets = assets.into_inner();
 			ensure!(assets.len() <= MAX_ASSETS_FOR_TRANSFER, Error::<T>::TooManyAssets);
 
 			let fee_asset_index =
-				assets.iter().position(|a| a.id == fees.id).ok_or(Error::<T>::FeesNotMet)?;
-			let fee_asset = assets.get(fee_asset_index).ok_or(Error::<T>::Empty)?;
-			ensure!(
-				matches!((&fee_asset.fun, &fees.fun), (Fungible(a), Fungible(f)) if a >= f),
-				Error::<T>::FeesNotMet
-			);
-
+				assets.iter().position(|a| a.id == fees_id).ok_or(Error::<T>::FeesNotMet)?;
 			Self::do_transfer_assets(
 				origin_location,
 				dest,
 				beneficiary,
 				assets,
 				*assets_transfer_type,
-				fees,
+				fee_asset_index,
 				*fees_transfer_type,
 				weight_limit,
 			)
@@ -1710,12 +1703,13 @@ impl<T: Config> Pallet<T> {
 		beneficiary: Location,
 		mut assets: Vec<Asset>,
 		assets_transfer_type: TransferType,
-		fees: Asset,
+		fee_asset_index: usize,
 		fees_transfer_type: TransferType,
 		weight_limit: WeightLimit,
 	) -> DispatchResult {
 		// local and remote XCM programs to potentially handle fees separately
 		let fees = if fees_transfer_type == assets_transfer_type {
+			let fees = assets.get(fee_asset_index).ok_or(Error::<T>::Empty)?.clone();
 			// no need for custom fees instructions, fees are batched with assets
 			FeesHandling::Batched { fees }
 		} else {
@@ -1731,8 +1725,6 @@ impl<T: Config> Pallet<T> {
 			let weight_limit = weight_limit.clone();
 			// remove `fees` from `assets` and build separate fees transfer instructions to be
 			// added to assets transfers XCM programs
-			let fee_asset_index =
-				assets.iter().position(|a| a.id == fees.id).ok_or(Error::<T>::FeesNotMet)?;
 			let fees = assets.remove(fee_asset_index);
 			let (local_xcm, remote_xcm) = match fees_transfer_type {
 				TransferType::LocalReserve => Self::local_reserve_fees_instructions(
