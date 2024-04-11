@@ -139,11 +139,6 @@ struct CodeLoadToken(u32);
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		// When loading the contract, we already covered the general costs of
-		// calling the storage but still need to account for the actual size of the
-		// contract code. This is why we subtract `T::*::(0)`. We need to do this at this
-		// point because when charging the general weight for calling the contract we don't know the
-		// size of the contract.
 		T::WeightInfo::call_with_code_per_byte(self.0)
 			.saturating_sub(T::WeightInfo::call_with_code_per_byte(0))
 	}

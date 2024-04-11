@@ -72,7 +72,7 @@ impl LoadedModule {
 		determinism: Determinism,
 		stack_limits: Option<StackLimits>,
 		loading_mode: LoadingMode,
-		compilation_mode: CompilationMode,
+		_compilation_mode: CompilationMode,
 	) -> Result<Self, &'static str> {
 		// NOTE: wasmi does not support unstable WebAssembly features. The module is implicitly
 		// checked for not having those ones when creating `wasmi::Module` below.
@@ -87,7 +87,8 @@ impl LoadedModule {
 			.wasm_extended_const(false)
 			.wasm_saturating_float_to_int(false)
 			.floats(matches!(determinism, Determinism::Relaxed))
-			.compilation_mode(compilation_mode)
+			// .compilation_mode(compilation_mode)
+			.compilation_mode(CompilationMode::Eager)
 			.consume_fuel(true);
 
 		if let Some(stack_limits) = stack_limits {
