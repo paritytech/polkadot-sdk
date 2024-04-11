@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712858939913,
+  "lastUpdate": 1712869847843,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3535,6 +3535,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16608715200000018,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "39b1f50f1c251def87c1625d68567ed252dc6272",
+          "message": "Remove deprecated `TryRuntime` subcommand (#4017)\n\nCompletes the removal of `try-runtime-cli` logic from `polkadot-sdk`.",
+          "timestamp": "2024-04-11T20:01:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/39b1f50f1c251def87c1625d68567ed252dc6272"
+        },
+        "date": 1712869821192,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02435384886666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0072147792666666655,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16209362493333354,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.014615952733333326,
             "unit": "seconds"
           }
         ]
