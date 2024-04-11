@@ -68,7 +68,7 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSigned, EnsureSignedBy,
+	EnsureRoot, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
 };
 use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
 use pallet_nfts::PalletFeatures;
@@ -77,6 +77,7 @@ use parachains_common::{
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
 	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
+	TREASURY_PALLET_ID,
 };
 use sp_runtime::{Perbill, RuntimeDebug};
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
@@ -336,7 +337,7 @@ pub type NativeAndNonPoolAssets = fungible::UnionOf<
 
 /// Union fungibles implementation for [`PoolAssets`] and [`NativeAndAssets`].
 ///
-/// Should be kept updated to include ALL balances and assets in the runtime.
+/// NOTE: Should be kept updated to include ALL balances and assets in the runtime.
 pub type NativeAndAllAssets = fungibles::UnionOf<
 	PoolAssets,
 	NativeAndNonPoolAssets,
@@ -903,9 +904,40 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+use crate::fungible::NativeOrWithId;
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::PalletInfoAccess;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PalletAssetRewardsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v3::Location, AccountId>
+	for PalletAssetRewardsBenchmarkHelper
+{
+	fn to_asset_id(seed: NativeOrWithId<u32>) -> xcm::v3::Location {
+		match seed {
+			NativeOrWithId::Native => xcm::v3::Location::here().into(),
+			NativeOrWithId::WithId(id) => xcm::v3::Location::ancestor(id.try_into().unwrap()),
+		}
+	}
+	fn to_account_id(seed: u32) -> AccountId {
+		let mut bytes = [0u8; 32];
+		bytes[0..4].copy_from_slice(&seed.to_be_bytes());
+		bytes.into()
+	}
+	fn sufficient_asset() -> xcm::v3::Location {
+		xcm::v3::Junction::PalletInstance(<Balances as PalletInfoAccess>::index() as u8).into()
+	}
+}
+
 parameter_types! {
-	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/asrwd");
+	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/astrd");
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
+	pub TreasurerBodyAccount: AccountId =
+		AccountIdConversion::<AccountId>::into_account_truncating(&TREASURY_PALLET_ID);
 }
 
 impl pallet_asset_rewards::Config for Runtime {
@@ -914,12 +946,13 @@ impl pallet_asset_rewards::Config for Runtime {
 	type Balance = Balance;
 	type Assets = NativeAndAllAssets;
 	type AssetId = xcm::v3::Location;
-	type PermissionedPoolCreator = EitherOfDiverse<
-		EnsureRoot<AccountId>,
+	type PermissionedOrigin = EnsureWithSuccess<
 		EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,
+		AccountId,
+		TreasurerBodyAccount,
 	>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
+	type BenchmarkHelper = PalletAssetRewardsBenchmarkHelper;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
