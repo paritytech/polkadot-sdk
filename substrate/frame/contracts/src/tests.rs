@@ -34,7 +34,7 @@ use crate::{
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
+	wasm::{Determinism, LoadingMode, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	Array, BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo,
 	ContractInfoOf, DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
@@ -1100,6 +1100,20 @@ fn delegate_call() {
 			.data(callee_code_hash.as_ref().to_vec())
 			.build());
 	});
+}
+
+#[test]
+fn track_check_uncheck_module_call() {
+	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		Contracts::bare_upload_code(ALICE, wasm, None, Determinism::Enforced).unwrap();
+		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_result();
+	});
+
+	// It should have recorded 1 `Checked` for the upload and 1 `Unchecked` for the instantiate.
+	let record = crate::wasm::tracker::LOADED_MODULE.with(|stack| stack.borrow().clone());
+	assert_eq!(record, vec![LoadingMode::Checked, LoadingMode::Unchecked]);
 }
 
 #[test]
@@ -3803,7 +3817,7 @@ fn locking_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			dependency_deposit + contract.storage_base_deposit() - ED
+			dependency_deposit + contract.storage_base_deposit()
 		);
 
 		// Removing the code should fail, since we have added a dependency.
@@ -3842,7 +3856,7 @@ fn locking_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			contract.storage_base_deposit() - ED
+			contract.storage_base_deposit()
 		);
 
 		// Removing a nonexistent dependency should fail.
@@ -3874,7 +3888,7 @@ fn locking_delegate_dependency_works() {
 		assert_ok!(call(&addr_caller, &terminate_input).result);
 		assert_eq!(
 			test_utils::get_balance(&ALICE),
-			balance_before + contract.storage_base_deposit() + dependency_deposit
+			ED + balance_before + contract.storage_base_deposit() + dependency_deposit
 		);
 
 		// Terminate should also remove the dependency, so we can remove the code.
@@ -3890,13 +3904,9 @@ fn native_dependency_deposit_works() {
 	// Set hash lock up deposit to 30%, to test deposit calculation.
 	CODE_HASH_LOCKUP_DEPOSIT_PERCENT.with(|c| *c.borrow_mut() = Perbill::from_percent(30));
 
-	// Set a low existential deposit so that the base storage deposit is based on the contract
-	// storage deposit rather than the existential deposit.
-	const ED: u64 = 10;
-
 	// Test with both existing and uploaded code
 	for code in [Code::Upload(wasm.clone()), Code::Existing(code_hash)] {
-		ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let _ = Balances::set_balance(&ALICE, 1_000_000);
 			let lockup_deposit_percent = CodeHashLockupDepositPercent::get();
 
@@ -3928,16 +3938,16 @@ fn native_dependency_deposit_works() {
 			let res = builder::bare_instantiate(code).build();
 
 			let addr = res.result.unwrap().account_id;
-			let base_deposit = ED + test_utils::contract_info_storage_deposit(&addr);
+			let base_deposit = test_utils::contract_info_storage_deposit(&addr);
 			let upload_deposit = test_utils::get_code_deposit(&code_hash);
 			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
 
 			// Check initial storage_deposit
-			// The base deposit should be: ED + contract_info_storage_deposit + 30% * deposit
+			// The base deposit should be: contract_info_storage_deposit + 30% * deposit
 			let deposit =
 				extra_deposit + base_deposit + lockup_deposit_percent.mul_ceil(upload_deposit);
 
-			assert_eq!(res.storage_deposit.charge_or_zero(), deposit);
+			assert_eq!(res.storage_deposit.charge_or_zero(), deposit + Contracts::min_balance());
 
 			// call set_code_hash
 			builder::bare_call(addr.clone())
@@ -3948,9 +3958,10 @@ fn native_dependency_deposit_works() {
 			let code_deposit = test_utils::get_code_deposit(&dummy_code_hash);
 			let deposit = base_deposit + lockup_deposit_percent.mul_ceil(code_deposit);
 			assert_eq!(test_utils::get_contract(&addr).storage_base_deposit(), deposit);
+
 			assert_eq!(
 				test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &addr),
-				deposit - ED
+				deposit
 			);
 		});
 	}
