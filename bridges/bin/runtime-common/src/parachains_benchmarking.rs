@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Everything required to run benchmarks of parachains finality module.
+//! Everything required to run benchmarks of the parachains finality module.
 
 #![cfg(feature = "runtime-benchmarks")]
 
@@ -34,8 +34,8 @@ use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 /// Prepare proof of messages for the `receive_messages_proof` call.
 ///
-/// In addition to returning valid messages proof, environment is prepared to verify this message
-/// proof.
+/// In addition to returning a valid messages proof, the environment is prepared to verify this
+/// message proof.
 pub fn prepare_parachain_heads_proof<R, PI>(
 	parachains: &[ParaId],
 	parachain_head_size: u32,
@@ -50,7 +50,7 @@ where
 {
 	let parachain_head = ParaHead(vec![0u8; parachain_head_size as usize]);
 
-	// insert all heads to the trie
+	// Insert all heads into the trie.
 	let mut parachain_heads = Vec::with_capacity(parachains.len());
 	let mut storage_keys = Vec::with_capacity(parachains.len());
 	let mut state_root = Default::default();
@@ -59,7 +59,7 @@ where
 		let mut trie =
 			TrieDBMutBuilderV1::<RelayBlockHasher>::new(&mut mdb, &mut state_root).build();
 
-		// insert parachain heads
+		// Insert parachain heads.
 		for (i, parachain) in parachains.into_iter().enumerate() {
 			let storage_key =
 				parachain_head_storage_key_at_source(R::ParasPalletName::get(), *parachain);
@@ -76,7 +76,7 @@ where
 		}
 	}
 
-	// generate heads storage proof
+	// Generate heads storage proof.
 	let proof = record_all_trie_keys::<LayoutV1<RelayBlockHasher>, _>(&mdb, &state_root)
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");

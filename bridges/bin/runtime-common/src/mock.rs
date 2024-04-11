@@ -98,7 +98,7 @@ pub type TestStakeAndSlash = pallet_bridge_relayers::StakeAndSlashNamed<
 
 /// Message lane used in tests.
 pub const TEST_LANE_ID: LaneId = LaneId([0, 0, 0, 0]);
-/// Bridged chain id used in tests.
+/// Bridged chain ID used in tests.
 pub const TEST_BRIDGED_CHAIN_ID: ChainId = *b"brdg";
 /// Maximal extrinsic weight at the `BridgedChain`.
 pub const BRIDGED_CHAIN_MAX_EXTRINSIC_WEIGHT: usize = 2048;

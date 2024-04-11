@@ -67,7 +67,7 @@ pub struct UnrewardedRelayerOccupation {
 /// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
 #[derive(PartialEq, RuntimeDebug)]
 pub struct ReceiveMessagesProofInfo {
-	/// Base messages proof info
+	/// Base messages proof info.
 	pub base: BaseMessagesProofInfo,
 	/// State of unrewarded relayers vector.
 	pub unrewarded_relayers: UnrewardedRelayerOccupation,
@@ -76,30 +76,30 @@ pub struct ReceiveMessagesProofInfo {
 impl ReceiveMessagesProofInfo {
 	/// Returns true if:
 	///
-	/// - either inbound lane is ready to accept bundled messages;
+	/// - Either inbound lane is ready to accept bundled messages;
 	///
-	/// - or there are no bundled messages, but the inbound lane is blocked by too many unconfirmed
+	/// - Or there are no bundled messages, but the inbound lane is blocked by too many unconfirmed
 	///   messages and/or unrewarded relayers.
 	fn is_obsolete(&self, is_dispatcher_active: bool) -> bool {
-		// if dispatcher is inactive, we don't accept any delivery transactions
+		// If dispatcher is inactive, we don't accept any delivery transactions.
 		if !is_dispatcher_active {
 			return true
 		}
 
-		// transactions with zero bundled nonces are not allowed, unless they're message
+		// Transactions with zero bundled nonces are not allowed, unless they're message
 		// delivery transactions, which brings reward confirmations required to unblock
-		// the lane
+		// the lane.
 		if self.base.bundled_range.is_empty() {
 			let empty_transactions_allowed =
-				// we allow empty transactions when we can't accept delivery from new relayers
+				// We allow empty transactions when we can't accept delivery from new relayers.
 				self.unrewarded_relayers.free_relayer_slots == 0 ||
-				// or if we can't accept new messages at all
+				// Or if we can't accept new messages at all.
 				self.unrewarded_relayers.free_message_slots == 0;
 
 			return !empty_transactions_allowed
 		}
 
-		// otherwise we require bundled messages to continue stored range
+		// Otherwise, we require bundled messages to continue stored range.
 		!self.base.appends_to_stored_nonce()
 	}
 }
@@ -143,9 +143,9 @@ pub struct CallHelper<T: Config<I>, I: 'static> {
 impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 	/// Returns true if:
 	///
-	/// - call is `receive_messages_proof` and all messages have been delivered;
+	/// - Call is `receive_messages_proof` and all messages have been delivered.
 	///
-	/// - call is `receive_messages_delivery_proof` and all messages confirmations have been
+	/// - Call is `receive_messages_delivery_proof` and all messages confirmations have been
 	///   received.
 	pub fn was_successful(info: &CallInfo) -> bool {
 		match info {
@@ -155,10 +155,10 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 				if info.base.bundled_range.is_empty() {
 					let post_occupation =
 						unrewarded_relayers_occupation::<T, I>(&inbound_lane_data);
-					// we don't care about `free_relayer_slots` here - it is checked in
+					// We don't care about `free_relayer_slots` here - it is checked in
 					// `is_obsolete` and every relayer has delivered at least one message,
 					// so if relayer slots are released, then message slots are also
-					// released
+					// released.
 					return post_occupation.free_message_slots >
 						info.unrewarded_relayers.free_message_slots
 				}
@@ -195,16 +195,16 @@ pub trait MessagesCallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 
 	/// Ensures that a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call:
 	///
-	/// - does not deliver already delivered messages. We require all messages in the
-	///   `ReceiveMessagesProof` call to be undelivered;
+	/// - Does not deliver already delivered messages. We require all messages in the
+	///   `ReceiveMessagesProof` call to be undelivered.
 	///
-	/// - does not submit empty `ReceiveMessagesProof` call with zero messages, unless the lane
-	///   needs to be unblocked by providing relayer rewards proof;
+	/// - Does not submit empty `ReceiveMessagesProof` call with zero messages, unless the lane
+	///   needs to be unblocked by providing relayer rewards proof.
 	///
-	/// - brings no new delivery confirmations in a `ReceiveMessagesDeliveryProof` call. We require
-	///   at least one new delivery confirmation in the unrewarded relayers set;
+	/// - Brings no new delivery confirmations in a `ReceiveMessagesDeliveryProof` call. We require
+	///   at least one new delivery confirmation in the unrewarded relayers set.
 	///
-	/// - does not violate some basic (easy verifiable) messages pallet rules obsolete (like
+	/// - Does not violate some basic (easy verifiable) messages pallet rules obsolete (like
 	///   submitting a call when a pallet is halted or delivering messages when a dispatcher is
 	///   inactive).
 	///
@@ -239,7 +239,7 @@ impl<
 			return Some(ReceiveMessagesProofInfo {
 				base: BaseMessagesProofInfo {
 					lane_id: proof.lane,
-					// we want all messages in this range to be new for us. Otherwise transaction
+					// We want all messages in this range to be new for us. Otherwise, transaction
 					// will be considered obsolete.
 					bundled_range: proof.nonces_start..=proof.nonces_end,
 					best_stored_nonce: inbound_lane_data.last_delivered_nonce(),
@@ -262,9 +262,9 @@ impl<
 
 			return Some(ReceiveMessagesDeliveryProofInfo(BaseMessagesProofInfo {
 				lane_id: proof.lane,
-				// there's a time frame between message delivery, message confirmation and reward
+				// There's a time frame between message delivery, message confirmation, and reward
 				// confirmation. Because of that, we can't assume that our state has been confirmed
-				// to the bridged chain. So we are accepting any proof that brings new
+				// to the bridged chain. So, we are accepting any proof that brings new
 				// confirmations.
 				bundled_range: outbound_lane_data.latest_received_nonce + 1..=
 					relayers_state.last_delivered_nonce,
@@ -434,8 +434,8 @@ mod tests {
 	#[test]
 	fn extension_rejects_obsolete_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver messages 8..=9
-			// => tx is rejected
+			// When current best delivered is message#10 and we're trying to deliver messages 8..=9,
+			// the transaction is rejected.
 			deliver_message_10();
 			assert!(!validate_message_delivery(8, 9));
 		});
@@ -444,8 +444,8 @@ mod tests {
 	#[test]
 	fn extension_rejects_same_message() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to import messages 10..=10
-			// => tx is rejected
+			// When current best delivered is message#10 and we're trying to import messages 10..=10,
+			// the transaction is rejected.
 			deliver_message_10();
 			assert!(!validate_message_delivery(8, 10));
 		});
@@ -454,8 +454,8 @@ mod tests {
 	#[test]
 	fn extension_rejects_call_with_some_obsolete_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver messages
-			// 10..=15 => tx is rejected
+			// When current best delivered is message#10 and we're trying to deliver messages
+			// 10..=15, the transaction is rejected.
 			deliver_message_10();
 			assert!(!validate_message_delivery(10, 15));
 		});
@@ -464,8 +464,8 @@ mod tests {
 	#[test]
 	fn extension_rejects_call_with_future_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver messages
-			// 13..=15 => tx is rejected
+			// When current best delivered is message#10 and we're trying to deliver messages
+			// 13..=15, the transaction is rejected.
 			deliver_message_10();
 			assert!(!validate_message_delivery(13, 15));
 		});
@@ -474,8 +474,8 @@ mod tests {
 	#[test]
 	fn extension_reject_call_when_dispatcher_is_inactive() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver message 11..=15
-			// => tx is accepted, but we have inactive dispatcher, so...
+			// When current best delivered is message#10 and we're trying to deliver message 11..=15,
+			// the transaction is accepted, but we have inactive dispatcher, so...
 			deliver_message_10();
 
 			DummyMessageDispatch::deactivate();
@@ -517,8 +517,8 @@ mod tests {
 	#[test]
 	fn extension_accepts_new_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver message 11..=15
-			// => tx is accepted
+			// When current best delivered is message#10 and we're trying to deliver message 11..=15,
+			// the transaction is accepted.
 			deliver_message_10();
 			assert!(validate_message_delivery(11, 15));
 		});
@@ -556,8 +556,8 @@ mod tests {
 	#[test]
 	fn extension_rejects_obsolete_confirmations() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best confirmed is message#10 and we're trying to confirm message#5 => tx
-			// is rejected
+			// When current best confirmed is message#10 and we're trying to confirm message#5, the transaction
+			// is rejected.
 			confirm_message_10();
 			assert!(!validate_message_confirmation(5));
 		});
@@ -566,8 +566,8 @@ mod tests {
 	#[test]
 	fn extension_rejects_same_confirmation() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best confirmed is message#10 and we're trying to confirm message#10 =>
-			// tx is rejected
+			// When current best confirmed is message#10 and we're trying to confirm message#10,
+			// the transaction is rejected.
 			confirm_message_10();
 			assert!(!validate_message_confirmation(10));
 		});
@@ -585,8 +585,8 @@ mod tests {
 	#[test]
 	fn extension_accepts_new_confirmation() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best confirmed is message#10 and we're trying to confirm message#15 =>
-			// tx is accepted
+			// When current best confirmed is message#10 and we're trying to confirm message#15,
+			// the transaction is accepted.
 			confirm_message_10();
 			assert!(validate_message_confirmation(15));
 		});
@@ -601,10 +601,10 @@ mod tests {
 				base: BaseMessagesProofInfo {
 					lane_id: LaneId([0, 0, 0, 0]),
 					bundled_range,
-					best_stored_nonce: 0, // doesn't matter for `was_successful`
+					best_stored_nonce: 0, // Doesn't matter for `was_successful`.
 				},
 				unrewarded_relayers: UnrewardedRelayerOccupation {
-					free_relayer_slots: 0, // doesn't matter for `was_successful`
+					free_relayer_slots: 0, // Doesn't matter for `was_successful`.
 					free_message_slots: if is_empty {
 						0
 					} else {

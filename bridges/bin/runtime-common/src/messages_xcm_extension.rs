@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Module provides utilities for easier XCM handling, e.g:
+//! Module provides utilities for easier XCM handling, e.g.:
 //! `XcmExecutor` -> `MessageSender` -> `OutboundMessageQueue`
 //!                                             |
 //!                                          `Relayer`
@@ -40,18 +40,18 @@ use sp_std::{fmt::Debug, marker::PhantomData};
 use xcm::prelude::*;
 use xcm_builder::{DispatchBlob, DispatchBlobError};
 
-/// Message dispatch result type for single message.
+/// Message dispatch result type for a single message.
 #[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, Debug, TypeInfo)]
 pub enum XcmBlobMessageDispatchResult {
-	/// We've been unable to decode message payload.
+	/// We've been unable to decode the message payload.
 	InvalidPayload,
 	/// Message has been dispatched.
 	Dispatched,
-	/// Message has **NOT** been dispatched because of given error.
+	/// Message has **NOT** been dispatched because of a given error.
 	NotDispatched(#[codec(skip)] Option<DispatchBlobError>),
 }
 
-/// [`XcmBlobMessageDispatch`] is responsible for dispatching received messages
+/// [`XcmBlobMessageDispatch`] is responsible for dispatching received messages.
 ///
 /// It needs to be used at the target bridge hub.
 pub struct XcmBlobMessageDispatch<DispatchBlob, Weights, Channel> {
@@ -132,7 +132,7 @@ pub struct SenderAndLane {
 }
 
 impl SenderAndLane {
-	/// Create new object using provided location and lane.
+	/// Create a new object using the provided location and lane.
 	pub fn new(location: Location, lane: LaneId) -> Self {
 		SenderAndLane { location, lane }
 	}
@@ -178,7 +178,7 @@ impl<
 		if let Some(sender_and_lane) =
 			Lanes::get().iter().find(|link| link.0.lane == lane).map(|link| &link.0)
 		{
-			// notify XCM queue manager about updated lane state
+			// Notify XCM queue manager about updated lane state.
 			LocalXcmQueueManager::<H>::on_bridge_messages_delivered(
 				sender_and_lane,
 				enqueued_messages,
@@ -197,8 +197,8 @@ pub struct LocalXcmQueueManager<H>(PhantomData<H>);
 /// send a "congestion" XCM message to the sending chain.
 const OUTBOUND_LANE_CONGESTED_THRESHOLD: MessageNonce = 8_192;
 
-/// After we have sent "congestion" XCM message to the sending chain, we wait until number
-/// of messages in the outbound bridge queue drops to this count, before sending `uncongestion`
+/// After we have sent "congestion" XCM message to the sending chain, we wait until the number
+/// of messages in the outbound bridge queue drops to this count before sending `uncongestion`
 /// XCM message.
 const OUTBOUND_LANE_UNCONGESTED_THRESHOLD: MessageNonce = 1_024;
 
@@ -208,17 +208,17 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 		sender_and_lane: &SenderAndLane,
 		enqueued_messages: MessageNonce,
 	) {
-		// skip if we dont want to handle congestion
+		// Skip if we don't want to handle congestion.
 		if !H::supports_congestion_detection() {
 			return
 		}
 
-		// if we have already sent the congestion signal, we don't want to do anything
+		// If we have already sent the congestion signal, we don't want to do anything.
 		if Self::is_congested_signal_sent(sender_and_lane.lane) {
 			return
 		}
 
-		// if the bridge queue is not congested, we don't want to do anything
+		// If the bridge queue is not congested, we don't want to do anything.
 		let is_congested = enqueued_messages > OUTBOUND_LANE_CONGESTED_THRESHOLD;
 		if !is_congested {
 			return
@@ -248,17 +248,17 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 		sender_and_lane: &SenderAndLane,
 		enqueued_messages: MessageNonce,
 	) {
-		// skip if we don't want to handle congestion
+		// Skip if we don't want to handle congestion.
 		if !H::supports_congestion_detection() {
 			return
 		}
 
-		// if we have not sent the congestion signal before, we don't want to do anything
+		// If we have not sent the congestion signal before, we don't want to do anything.
 		if !Self::is_congested_signal_sent(sender_and_lane.lane) {
 			return
 		}
 
-		// if the bridge queue is still congested, we don't want to do anything
+		// If the bridge queue is still congested, we don't want to do anything.
 		let is_congested = enqueued_messages > OUTBOUND_LANE_UNCONGESTED_THRESHOLD;
 		if is_congested {
 			return
@@ -410,14 +410,14 @@ mod tests {
 		run_test(|| {
 			let enqueued = fill_up_lane_to_congestion();
 
-			// next sent message leads to congested signal
+			// The next sent message leads to a congested signal.
 			LocalXcmQueueManager::<TestBlobHauler>::on_bridge_message_enqueued(
 				&TestSenderAndLane::get(),
 				enqueued + 1,
 			);
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 
-			// next sent message => we don't sent another congested signal
+			// The next sent message means we don't send another congested signal.
 			LocalXcmQueueManager::<TestBlobHauler>::on_bridge_message_enqueued(
 				&TestSenderAndLane::get(),
 				enqueued,
@@ -442,7 +442,7 @@ mod tests {
 		run_test(|| {
 			let enqueued = fill_up_lane_to_congestion();
 
-			// next sent message leads to congested signal
+			// The next sent message leads to a congested signal.
 			LocalXcmQueueManager::<TestBlobHauler>::on_bridge_message_enqueued(
 				&TestSenderAndLane::get(),
 				enqueued + 1,
@@ -458,7 +458,7 @@ mod tests {
 			LocalXcmQueueManager::<TestBlobHauler>::send_congested_signal(&TestSenderAndLane::get()).unwrap();
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 
-			// when we receive a delivery report for other lane, we don't send an uncongested signal
+			// When we receive a delivery report for other lane, we don't send an uncongested signal.
 			TestBlobHaulerAdapter::on_messages_delivered(LaneId([42, 42, 42, 42]), 0);
 			assert_eq!(DummySendXcm::messages_sent(), 1);
 		});

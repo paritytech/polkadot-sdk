@@ -37,8 +37,8 @@ where
 				pallet_bridge_messages::Pallet::<Runtime, MessagesPalletInstance>::outbound_message_data(lane, nonce)?;
 			Some(OutboundMessageDetails {
 				nonce,
-				// dispatch message weight is always zero at the source chain, since we're paying for
-				// dispatch at the target chain
+				// Dispatch message weight is always zero at the source chain, since we're paying for
+				// dispatch at the target chain.
 				dispatch_weight: frame_support::weights::Weight::zero(),
 				size: message_data.len() as _,
 			})
