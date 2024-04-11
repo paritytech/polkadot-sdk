@@ -30,7 +30,7 @@ use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
-use polkadot_primitives::{slashing, CoreIndex, ExecutorParams};
+use polkadot_primitives::{async_backing::BackingState, slashing, CoreIndex, ExecutorParams};
 
 pub use overseer::{
 	gen::{OrchestraError as OverseerError, Timeout},
@@ -308,6 +308,7 @@ specialize_requests! {
 	fn request_disabled_validators() -> Vec<ValidatorIndex>; DisabledValidators;
 	fn request_async_backing_params() -> AsyncBackingParams; AsyncBackingParams;
 	fn request_claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>>; ClaimQueue;
+	fn request_para_backing_state(para_id: ParaId) -> Option<BackingState>; ParaBackingState;
 }
 
 /// Requests executor parameters from the runtime effective at given relay-parent. First obtains

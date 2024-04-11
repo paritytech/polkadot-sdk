@@ -17,7 +17,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-futures = "0.3.19"
+futures = "0.3.30"
 libc = "0.2"
 log = { workspace = true, default-features = true }
 rand = "0.8.5"

@@ -4,11 +4,13 @@ use super::*;
 
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, Everything},
+	traits::{ConstU32, Everything},
 	weights::IdentityFee,
 };
 use hex_literal::hex;
-use snowbridge_beacon_primitives::{Fork, ForkVersions};
+use snowbridge_beacon_primitives::{
+	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
+};
 use snowbridge_core::{
 	gwei,
 	inbound::{Log, Proof, VerificationError},
@@ -20,7 +22,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
-use sp_std::convert::From;
+use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
 use xcm_executor::AssetsInHolding;
 
@@ -65,6 +67,10 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 
+parameter_types! {
+	pub const ExistentialDeposit: u128 = 1;
+}
+
 impl pallet_balances::Config for Test {
 	type MaxLocks = ();
 	type MaxReserves = ();
@@ -72,7 +78,7 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ConstU128<1>;
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
@@ -82,7 +88,6 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ExecutionHeadersPruneThreshold: u32 = 10;
 	pub const ChainForkVersions: ForkVersions = ForkVersions{
 		genesis: Fork {
 			version: [0, 0, 0, 1], // 0x00000001
@@ -110,7 +115,6 @@ parameter_types! {
 impl snowbridge_pallet_ethereum_client::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
-	type MaxExecutionHeadersToKeep = ExecutionHeadersPruneThreshold;
 	type WeightInfo = ();
 }
 
@@ -139,7 +143,7 @@ parameter_types! {
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Test {
 	// not implemented since the MockVerifier is used for tests
-	fn initialize_storage(_: H256, _: CompactExecutionHeader) {}
+	fn initialize_storage(_: BeaconHeader, _: H256) {}
 }
 
 // Mock XCM sender that always succeeds
@@ -333,6 +337,33 @@ pub fn mock_event_log_invalid_gateway() -> Log {
         // Nonce + Payload
         data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001e000f000000000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d0000").into(),
     }
+}
+
+pub fn mock_execution_proof() -> ExecutionProof {
+	ExecutionProof {
+		header: BeaconHeader::default(),
+		ancestry_proof: None,
+		execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
+			parent_hash: Default::default(),
+			fee_recipient: Default::default(),
+			state_root: Default::default(),
+			receipts_root: Default::default(),
+			logs_bloom: vec![],
+			prev_randao: Default::default(),
+			block_number: 0,
+			gas_limit: 0,
+			gas_used: 0,
+			timestamp: 0,
+			extra_data: vec![],
+			base_fee_per_gas: Default::default(),
+			block_hash: Default::default(),
+			transactions_root: Default::default(),
+			withdrawals_root: Default::default(),
+			blob_gas_used: 0,
+			excess_blob_gas: 0,
+		}),
+		execution_branch: vec![],
+	}
 }
 
 pub const ASSET_HUB_PARAID: u32 = 1000u32;

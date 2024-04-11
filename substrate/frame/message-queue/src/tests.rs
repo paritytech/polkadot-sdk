@@ -1838,3 +1838,45 @@ fn with_service_mutex_works() {
 	with_service_mutex(|| called = 3).unwrap();
 	assert_eq!(called, 3);
 }
+
+#[test]
+fn process_enqueued_on_idle() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		// Some messages enqueued on previous block.
+		MessageQueue::enqueue_messages(vec![msg("a"), msg("ab"), msg("abc")].into_iter(), Here);
+		assert_eq!(BookStateFor::<Test>::iter().count(), 1);
+
+		// Process enqueued messages from previous block.
+		Pallet::<Test>::on_initialize(1);
+		assert_eq!(
+			MessagesProcessed::take(),
+			vec![(b"a".to_vec(), Here), (b"ab".to_vec(), Here), (b"abc".to_vec(), Here),]
+		);
+
+		MessageQueue::enqueue_messages(vec![msg("x"), msg("xy"), msg("xyz")].into_iter(), There);
+		assert_eq!(BookStateFor::<Test>::iter().count(), 2);
+
+		// Enough weight to process on idle.
+		Pallet::<Test>::on_idle(1, Weight::from_parts(100, 100));
+		assert_eq!(
+			MessagesProcessed::take(),
+			vec![(b"x".to_vec(), There), (b"xy".to_vec(), There), (b"xyz".to_vec(), There)]
+		);
+	})
+}
+
+#[test]
+fn process_enqueued_on_idle_requires_enough_weight() {
+	use MessageOrigin::*;
+	build_and_execute::<Test>(|| {
+		Pallet::<Test>::on_initialize(1);
+
+		MessageQueue::enqueue_messages(vec![msg("x"), msg("xy"), msg("xyz")].into_iter(), There);
+		assert_eq!(BookStateFor::<Test>::iter().count(), 1);
+
+		// Not enough weight to process on idle.
+		Pallet::<Test>::on_idle(1, Weight::from_parts(0, 0));
+		assert_eq!(MessagesProcessed::take(), vec![]);
+	})
+}

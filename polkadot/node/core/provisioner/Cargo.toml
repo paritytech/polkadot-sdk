@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-futures = "0.3.21"
+futures = "0.3.30"
 gum = { package = "tracing-gum", path = "../../gum" }
 thiserror = { workspace = true }
 polkadot-primitives = { path = "../../../primitives" }

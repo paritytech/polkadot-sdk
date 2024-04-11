@@ -31,4 +31,4 @@ sc-keystore = { path = "../keystore" }
 
 [dev-dependencies]
 tempfile = "3.1.0"
-env_logger = "0.9"
+env_logger = "0.11"
