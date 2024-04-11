@@ -1,9 +1,9 @@
 [package]
 name = "cumulus-primitives-parachain-inherent"
-version = "0.7.0"
+version = "0.11.0"
 authors.workspace = true
 edition.workspace = true
-description = "Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof."
+description = "Inherent that needs to be present in every parachain block. Contains messages and a relay chain storage-proof. (polkadot v1.10.0)"
 license = "Apache-2.0"
 
 [lints]
@@ -15,15 +15,15 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
 # Substrate
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", optional = true }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine", optional = true }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "32.0.0" }
+sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", optional = true, version = "35.0.0" }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine", optional = true, version = "0.39.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "33.0.0" }
 
 # Cumulus
-cumulus-primitives-core = { path = "../core", default-features = false }
+cumulus-primitives-core = { path = "../core", default-features = false, version = "0.11.0" }
 
 [features]
 default = ["std"]

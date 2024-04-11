@@ -1,10 +1,10 @@
 [package]
 name = "polkadot-node-jaeger"
-version = "7.0.0"
+version = "11.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Polkadot Jaeger primitives, but equally useful for Grafana/Tempo"
+description = "Polkadot Jaeger primitives, but equally useful for Grafana/Tempo (polkadot v1.10.0)"
 
 [lints]
 workspace = true
@@ -13,10 +13,10 @@ workspace = true
 mick-jaeger = "0.1.8"
 lazy_static = "1.4"
 parking_lot = "0.12.1"
-polkadot-primitives = { path = "../../primitives" }
-polkadot-node-primitives = { path = "../primitives" }
-sc-network = { path = "../../../substrate/client/network" }
-sp-core = { path = "../../../substrate/primitives/core" }
+polkadot-primitives = { version = "11.0.0", path = "../../primitives" }
+polkadot-node-primitives = { version = "11.0.0", path = "../primitives" }
+sc-network = { version = "0.38.0", path = "../../../substrate/client/network" }
+sp-core = { version = "32.0.0", path = "../../../substrate/primitives/core" }
 thiserror = { workspace = true }
 tokio = "1.37"
 log = { workspace = true, default-features = true }

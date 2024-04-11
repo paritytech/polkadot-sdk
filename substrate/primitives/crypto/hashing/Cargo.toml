@@ -1,12 +1,12 @@
 [package]
 name = "sp-crypto-hashing"
-version = "0.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Hashing primitives."
+description = "Hashing primitives. (polkadot v1.10.0)"
 documentation = "https://docs.rs/sp-crypto-hashing"
 
 [lints]
