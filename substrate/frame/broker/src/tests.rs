@@ -24,6 +24,7 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::RawOrigin::Root;
+use pretty_assertions::assert_eq;
 use sp_runtime::{traits::Get, TokenError};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
@@ -1090,5 +1091,117 @@ fn config_works() {
 		// Bad config is a noop:
 		cfg.leadin_length = 0;
 		assert_noop!(Broker::configure(Root.into(), cfg), Error::<Test>::InvalidConfig);
+	});
+}
+
+#[test]
+fn renewal_works_for_ended_leases() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		// This lease is ended before `start_stales` was called.
+		assert_ok!(Broker::do_set_lease(1, 1));
+		// This lease will end later.
+		assert_ok!(Broker::do_set_lease(2, 20));
+		advance_to(12);
+		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::NotAllowed);
+		let new_core = Broker::do_renew(1, 0).unwrap();
+		assert_eq!(balance(1), 900);
+		advance_to(18);
+		// Renewing the active lease doesn't work.
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
+		assert_ok!(Broker::do_renew(1, new_core));
+		assert_eq!(balance(1), 790);
+		advance_to(24);
+		// Renewing the active lease doesn't work.
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
+		assert_ok!(Broker::do_renew(1, new_core));
+		assert_eq!(balance(1), 669);
+		advance_to(30);
+		let new_core_task_1 = Broker::do_renew(1, new_core).unwrap();
+		let new_core_task_2 = Broker::do_renew(1, 0).unwrap();
+		assert_eq!(balance(1), 436);
+		advance_to(36);
+		assert_ok!(Broker::do_renew(1, new_core_task_1));
+		assert_ok!(Broker::do_renew(1, new_core_task_2));
+		assert_eq!(balance(1), 180);
+
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![
+				(
+					18,
+					AssignCore {
+						core: 0,
+						begin: 20,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					18,
+					AssignCore {
+						core: 1,
+						begin: 20,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					24,
+					AssignCore {
+						core: 0,
+						begin: 26,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					24,
+					AssignCore {
+						core: 1,
+						begin: 26,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					30,
+					AssignCore {
+						core: 0,
+						begin: 32,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					30,
+					AssignCore {
+						core: 1,
+						begin: 32,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None
+					}
+				),
+				// Now the cores change
+				(
+					36,
+					AssignCore {
+						core: 0,
+						begin: 38,
+						assignment: vec![(Task(1), 57600)],
+						end_hint: None
+					}
+				),
+				(
+					36,
+					AssignCore {
+						core: 1,
+						begin: 38,
+						assignment: vec![(Task(2), 57600)],
+						end_hint: None
+					}
+				),
+			]
+		);
 	});
 }

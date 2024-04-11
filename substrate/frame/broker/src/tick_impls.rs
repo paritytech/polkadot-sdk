@@ -193,7 +193,7 @@ impl<T: Config> Pallet<T> {
 		let region_begin = old_sale.region_end;
 		let region_end = region_begin + config.region_length;
 
-		let mut first_core = 0;
+		let mut core_index = 0;
 		let mut total_pooled: SignedCoreMaskBitCount = 0;
 		for schedule in Reservations::<T>::get().into_iter() {
 			let parts: u32 = schedule
@@ -203,37 +203,42 @@ impl<T: Config> Pallet<T> {
 				.sum();
 			total_pooled.saturating_accrue(parts as i32);
 
-			Workplan::<T>::insert((region_begin, first_core), &schedule);
-			first_core.saturating_inc();
+			Workplan::<T>::insert((region_begin, core_index), &schedule);
+			core_index.saturating_inc();
 		}
 		InstaPoolIo::<T>::mutate(region_begin, |r| r.system.saturating_accrue(total_pooled));
 		InstaPoolIo::<T>::mutate(region_end, |r| r.system.saturating_reduce(total_pooled));
 
+		let mut first_core = core_index;
 		let mut leases = Leases::<T>::get();
 		// Can morph to a renewable as long as it's >=begin and <end.
 		leases.retain(|&LeaseRecordItem { until, task }| {
 			let mask = CoreMask::complete();
 			let assignment = CoreAssignment::Task(task);
 			let schedule = BoundedVec::truncate_from(vec![ScheduleItem { mask, assignment }]);
-			Workplan::<T>::insert((region_begin, first_core), &schedule);
-			// Separate these to avoid missed expired leases hanging around forever.
-			let expired = until < region_end;
-			let expiring = until >= region_begin && expired;
-			if expiring {
-				// last time for this one - make it renewable.
-				let renewal_id = AllowedRenewalId { core: first_core, when: region_end };
+			Workplan::<T>::insert((region_begin, core_index), &schedule);
+			// Will the lease expire at the end of the period?
+			let expire = until < region_end;
+			if expire {
+				// last time for this one - make it renewable in this sale.
+				let renewal_id = AllowedRenewalId { core: core_index, when: region_begin };
 				let record = AllowedRenewalRecord { price, completion: Complete(schedule) };
 				AllowedRenewals::<T>::insert(renewal_id, &record);
 				Self::deposit_event(Event::Renewable {
-					core: first_core,
+					core: core_index,
 					price,
 					begin: region_end,
 					workload: record.completion.drain_complete().unwrap_or_default(),
 				});
 				Self::deposit_event(Event::LeaseEnding { when: region_end, task });
+			} else {
+				// The lease did not expire yet and thus, it will be occupied in the next period.
+				first_core.saturating_inc();
 			}
-			first_core.saturating_inc();
-			!expired
+
+			core_index.saturating_inc();
+
+			!expire
 		});
 		Leases::<T>::put(&leases);
 
