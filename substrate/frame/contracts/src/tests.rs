@@ -34,7 +34,7 @@ use crate::{
 	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
+	wasm::{Determinism, LoadingMode, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	Array, BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo,
 	ContractInfoOf, DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
@@ -914,6 +914,21 @@ fn instantiate_unique_trie_id() {
 }
 
 #[test]
+fn storage_work() {
+	let (code, _code_hash) = compile_module::<Test>("storage").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let min_balance = Contracts::min_balance();
+		let addr = builder::bare_instantiate(Code::Upload(code))
+			.value(min_balance * 100)
+			.build_and_unwrap_account_id();
+
+		builder::bare_call(addr).build_and_unwrap_result();
+	});
+}
+
+#[test]
 fn storage_max_value_limit() {
 	let (wasm, _code_hash) = compile_module::<Test>("storage_size").unwrap();
 
@@ -1085,6 +1100,20 @@ fn delegate_call() {
 			.data(callee_code_hash.as_ref().to_vec())
 			.build());
 	});
+}
+
+#[test]
+fn track_check_uncheck_module_call() {
+	let (wasm, code_hash) = compile_module::<Test>("dummy").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		Contracts::bare_upload_code(ALICE, wasm, None, Determinism::Enforced).unwrap();
+		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_result();
+	});
+
+	// It should have recorded 1 `Checked` for the upload and 1 `Unchecked` for the instantiate.
+	let record = crate::wasm::tracker::LOADED_MODULE.with(|stack| stack.borrow().clone());
+	assert_eq!(record, vec![LoadingMode::Checked, LoadingMode::Unchecked]);
 }
 
 #[test]
@@ -1385,19 +1414,7 @@ fn crypto_hashes() {
 			// We offset data in the contract tables by 1.
 			let mut params = vec![(n + 1) as u8];
 			params.extend_from_slice(input);
-			let result = <Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				params,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-			.unwrap();
+			let result = builder::bare_call(addr.clone()).data(params).build_and_unwrap_result();
 			assert!(!result.did_revert());
 			let expected = hash_fn(input.as_ref());
 			assert_eq!(&result.data[..*expected_size], &*expected);
@@ -2277,19 +2294,7 @@ fn ecdsa_recover() {
 		params.extend_from_slice(&signature);
 		params.extend_from_slice(&message_hash);
 		assert!(params.len() == 65 + 32);
-		let result = <Pallet<Test>>::bare_call(
-			ALICE,
-			addr.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			params,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		let result = builder::bare_call(addr.clone()).data(params).build_and_unwrap_result();
 		assert!(!result.did_revert());
 		assert_eq!(result.data, EXPECTED_COMPRESSED_PUBLIC_KEY);
 	})
@@ -2404,19 +2409,7 @@ fn sr25519_verify() {
 			params.extend_from_slice(&public_key);
 			params.extend_from_slice(message);
 
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				params,
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-			.unwrap()
+			builder::bare_call(addr.clone()).data(params).build_and_unwrap_result()
 		};
 
 		// verification should succeed for "hello world"
@@ -3692,35 +3685,13 @@ fn cannot_instantiate_indeterministic_code() {
 
 		// Try to instantiate `code_hash` from another contract in deterministic mode
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result,
+			builder::bare_call(addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 
 		// Instantiations are not allowed even in non-determinism mode
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Relaxed,
-			)
-			.result,
+			builder::bare_call(addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 	});
@@ -3747,18 +3718,7 @@ fn cannot_set_code_indeterministic_code() {
 
 		// We do not allow to set the code hash to a non-deterministic wasm
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				caller_addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Relaxed,
-			)
-			.result,
+			builder::bare_call(caller_addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 	});
@@ -3785,35 +3745,17 @@ fn delegate_call_indeterministic_code() {
 
 		// The delegate call will fail in deterministic mode
 		assert_err!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				caller_addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result,
+			builder::bare_call(caller_addr.clone()).data(code_hash.encode()).build().result,
 			<Error<Test>>::Indeterministic,
 		);
 
 		// The delegate call will work on non-deterministic mode
 		assert_ok!(
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				caller_addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Relaxed,
-			)
-			.result
+			builder::bare_call(caller_addr.clone())
+				.data(code_hash.encode())
+				.determinism(Determinism::Relaxed)
+				.build()
+				.result
 		);
 	});
 }
@@ -3845,19 +3787,8 @@ fn locking_delegate_dependency_works() {
 
 	// Call contract with the given input.
 	let call = |addr_caller: &AccountId32, input: &(u32, H256)| {
-		<Pallet<Test>>::bare_call(
-			ALICE,
-			addr_caller.clone(),
-			0,
-			GAS_LIMIT,
-			None,
-			input.encode(),
-			DebugInfo::UnsafeDebug,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
+		builder::bare_call(addr_caller.clone()).data(input.encode()).build()
 	};
-
 	const ED: u64 = 2000;
 	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
@@ -3886,7 +3817,7 @@ fn locking_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			dependency_deposit + contract.storage_base_deposit() - ED
+			dependency_deposit + contract.storage_base_deposit()
 		);
 
 		// Removing the code should fail, since we have added a dependency.
@@ -3925,7 +3856,7 @@ fn locking_delegate_dependency_works() {
 				&HoldReason::StorageDepositReserve.into(),
 				&addr_caller
 			),
-			contract.storage_base_deposit() - ED
+			contract.storage_base_deposit()
 		);
 
 		// Removing a nonexistent dependency should fail.
@@ -3957,7 +3888,7 @@ fn locking_delegate_dependency_works() {
 		assert_ok!(call(&addr_caller, &terminate_input).result);
 		assert_eq!(
 			test_utils::get_balance(&ALICE),
-			balance_before + contract.storage_base_deposit() + dependency_deposit
+			ED + balance_before + contract.storage_base_deposit() + dependency_deposit
 		);
 
 		// Terminate should also remove the dependency, so we can remove the code.
@@ -3973,13 +3904,9 @@ fn native_dependency_deposit_works() {
 	// Set hash lock up deposit to 30%, to test deposit calculation.
 	CODE_HASH_LOCKUP_DEPOSIT_PERCENT.with(|c| *c.borrow_mut() = Perbill::from_percent(30));
 
-	// Set a low existential deposit so that the base storage deposit is based on the contract
-	// storage deposit rather than the existential deposit.
-	const ED: u64 = 10;
-
 	// Test with both existing and uploaded code
 	for code in [Code::Upload(wasm.clone()), Code::Existing(code_hash)] {
-		ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 			let _ = Balances::set_balance(&ALICE, 1_000_000);
 			let lockup_deposit_percent = CodeHashLockupDepositPercent::get();
 
@@ -4011,39 +3938,30 @@ fn native_dependency_deposit_works() {
 			let res = builder::bare_instantiate(code).build();
 
 			let addr = res.result.unwrap().account_id;
-			let base_deposit = ED + test_utils::contract_info_storage_deposit(&addr);
+			let base_deposit = test_utils::contract_info_storage_deposit(&addr);
 			let upload_deposit = test_utils::get_code_deposit(&code_hash);
 			let extra_deposit = add_upload_deposit.then(|| upload_deposit).unwrap_or_default();
 
 			// Check initial storage_deposit
-			// The base deposit should be: ED + contract_info_storage_deposit + 30% * deposit
+			// The base deposit should be: contract_info_storage_deposit + 30% * deposit
 			let deposit =
 				extra_deposit + base_deposit + lockup_deposit_percent.mul_ceil(upload_deposit);
 
-			assert_eq!(res.storage_deposit.charge_or_zero(), deposit);
+			assert_eq!(res.storage_deposit.charge_or_zero(), deposit + Contracts::min_balance());
 
 			// call set_code_hash
-			<Pallet<Test>>::bare_call(
-				ALICE,
-				addr.clone(),
-				0,
-				GAS_LIMIT,
-				None,
-				dummy_code_hash.encode(),
-				DebugInfo::Skip,
-				CollectEvents::Skip,
-				Determinism::Enforced,
-			)
-			.result
-			.unwrap();
+			builder::bare_call(addr.clone())
+				.data(dummy_code_hash.encode())
+				.build_and_unwrap_result();
 
 			// Check updated storage_deposit
 			let code_deposit = test_utils::get_code_deposit(&dummy_code_hash);
 			let deposit = base_deposit + lockup_deposit_percent.mul_ceil(code_deposit);
 			assert_eq!(test_utils::get_contract(&addr).storage_base_deposit(), deposit);
+
 			assert_eq!(
 				test_utils::get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &addr),
-				deposit - ED
+				deposit
 			);
 		});
 	}
