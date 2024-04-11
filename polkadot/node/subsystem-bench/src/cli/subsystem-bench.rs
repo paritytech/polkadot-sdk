@@ -20,7 +20,7 @@
 use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
-use polkadot_subsystem_bench::{approval, availability, configuration};
+use polkadot_subsystem_bench::{approval, availability, configuration, statement};
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,7 @@ pub enum TestObjective {
 	DataAvailabilityWrite,
 	/// Benchmark the approval-voting and approval-distribution subsystems.
 	ApprovalVoting(approval::ApprovalsOptions),
+	// TODO
 	StatementDistribution,
 }
 
@@ -173,7 +174,13 @@ impl BenchCli {
 					))
 				},
 				TestObjective::StatementDistribution => {
-					todo!();
+					let state = statement::TestState::new(&test_config);
+					let mut env = statement::prepare_test(&state, true);
+					env.runtime().block_on(statement::benchmark_statement_distribution(
+						&benchmark_name,
+						&mut env,
+						&state,
+					))
 				},
 			};
 			println!("{}", usage);
