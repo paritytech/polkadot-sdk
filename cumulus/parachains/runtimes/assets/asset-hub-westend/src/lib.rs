@@ -29,6 +29,7 @@ pub mod xcm_config;
 
 use assets_common::{
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
+	AssetIdForPoolAssets, AssetIdForPoolAssetsConvertV3Location,
 	AssetIdForTrustBackedAssetsConvert,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -42,19 +43,19 @@ use frame_support::{
 	traits::{
 		fungible, fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
-		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, Equals,
-		InstanceFilter, TransformOrigin,
+		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse,
+		Equals, InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSigned, EnsureSignedBy,
+	EnsureRoot, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
 };
 use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
-use pallet_xcm::EnsureXcm;
+use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
@@ -74,10 +75,12 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
-	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
+	ForeignAssetsConvertedConcreteId, GovernanceLocation, LocationToAccountId,
+	PoolAssetsConvertedConcreteId, PoolAssetsPalletLocationV3, RelayTreasuryLocation,
 	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3, WestendLocation,
 	WestendLocationV3, XcmOriginToTransactDispatchOrigin,
 };
+use xcm_executor::traits::ConvertLocation;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -85,16 +88,14 @@ pub use sp_runtime::BuildStorage;
 use assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 // We exclude `Assets` since it's the name of a pallet
-use xcm::latest::prelude::AssetId;
-
+use crate::xcm_config::ForeignCreatorsSovereignAccountOf;
+use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
 	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
-
-use crate::xcm_config::ForeignCreatorsSovereignAccountOf;
-use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
+use xcm::latest::{prelude::AssetId, BodyId};
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
@@ -307,10 +308,25 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 >;
 
 /// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
-pub type NativeAndAssets = fungible::UnionOf<
+pub type NativeAndNonPoolAssets = fungible::UnionOf<
 	Balances,
 	LocalAndForeignAssets,
 	TargetFromLeft<WestendLocationV3, xcm::v3::Location>,
+	xcm::v3::Location,
+	AccountId,
+>;
+
+/// Union fungibles implementation for [`PoolAssets`] and [`NativeAndAssets`].
+///
+/// NOTE: Should be kept updated to include ALL balances and assets in the runtime.
+pub type NativeAndAllAssets = fungibles::UnionOf<
+	PoolAssets,
+	NativeAndNonPoolAssets,
+	LocalFromLeft<
+		AssetIdForPoolAssetsConvertV3Location<PoolAssetsPalletLocationV3>,
+		AssetIdForPoolAssets,
+		xcm::v3::Location,
+	>,
 	xcm::v3::Location,
 	AccountId,
 >;
@@ -320,7 +336,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type AssetKind = xcm::v3::Location;
-	type Assets = NativeAndAssets;
+	type Assets = NativeAndNonPoolAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator =
 		pallet_asset_conversion::WithFirstAsset<WestendLocationV3, AccountId, Self::AssetKind>;
@@ -342,6 +358,60 @@ impl pallet_asset_conversion::Config for Runtime {
 		xcm_config::TrustBackedAssetsPalletIndex,
 		xcm::v3::Location,
 	>;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+use crate::fungible::NativeOrWithId;
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::PalletInfoAccess;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PalletAssetRewardsBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v3::Location, AccountId>
+	for PalletAssetRewardsBenchmarkHelper
+{
+	fn to_asset_id(seed: NativeOrWithId<u32>) -> xcm::v3::Location {
+		match seed {
+			NativeOrWithId::Native => xcm::v3::Location::here().into(),
+			NativeOrWithId::WithId(id) => xcm::v3::Location::ancestor(id.try_into().unwrap()),
+		}
+	}
+	fn to_account_id(seed: u32) -> AccountId {
+		let mut bytes = [0u8; 32];
+		bytes[0..4].copy_from_slice(&seed.to_be_bytes());
+		bytes.into()
+	}
+	fn sufficient_asset() -> xcm::v3::Location {
+		xcm::v3::Junction::PalletInstance(<Balances as PalletInfoAccess>::index() as u8).into()
+	}
+}
+
+parameter_types! {
+	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/astrd");
+	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
+	pub TreasurerBodyAccount: AccountId = LocationToAccountId::convert_location(&RelayTreasuryLocation::get()).unwrap();
+		// AccountIdConversion::<AccountId>::into_account_truncating(&RelayTreasuryLocation::get());
+}
+
+impl pallet_asset_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = AssetRewardsPalletId;
+	type Balance = Balance;
+	type Assets = NativeAndAllAssets;
+	type AssetId = xcm::v3::Location;
+	type PermissionedOrigin = EnsureWithSuccess<
+		EitherOfDiverse<
+			EnsureRoot<AccountId>,
+			EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>,
+		>,
+		AccountId,
+		TreasurerBodyAccount,
+	>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PalletAssetRewardsBenchmarkHelper;
 }
 
 parameter_types! {
@@ -906,6 +976,7 @@ construct_runtime!(
 		NftFractionalization: pallet_nft_fractionalization = 54,
 		PoolAssets: pallet_assets::<Instance3> = 55,
 		AssetConversion: pallet_asset_conversion = 56,
+		AssetRewards: pallet_asset_rewards = 57,
 	}
 );
 
@@ -1071,6 +1142,7 @@ mod benches {
 		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
 		[pallet_asset_conversion, AssetConversion]
+		[pallet_asset_rewards, AssetRewards]
 		[pallet_balances, Balances]
 		[pallet_message_queue, MessageQueue]
 		[pallet_multisig, Multisig]

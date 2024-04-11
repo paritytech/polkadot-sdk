@@ -26,6 +26,7 @@ frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", defau
 pallet-asset-conversion-tx-payment = { path = "../../../../../substrate/frame/transaction-payment/asset-conversion-tx-payment", default-features = false }
 pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
 pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
+pallet-asset-rewards = { path = "../../../../../substrate/frame/asset-rewards", default-features = false }
 pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false }
 pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
@@ -132,6 +133,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
+	"pallet-asset-rewards/runtime-benchmarks"
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
@@ -164,6 +166,7 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-asset-rewards/try-runtime"
 ]
 std = [
 	"assets-common/std",
@@ -236,6 +239,7 @@ std = [
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
+	"pallet-asset-rewards/std"
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
