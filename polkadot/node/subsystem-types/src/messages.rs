@@ -670,7 +670,7 @@ pub enum RuntimeApiRequest {
 	/// Get validation code by its hash, either past, current or future code can be returned, as
 	/// long as state is still available.
 	ValidationCodeByHash(ValidationCodeHash, RuntimeApiSender<Option<ValidationCode>>),
-	/// Get a the candidate pending availability for a particular parachain by parachain / core
+	/// Get the candidate pending availability for a particular parachain by parachain / core
 	/// index
 	CandidatePendingAvailability(ParaId, RuntimeApiSender<Option<CommittedCandidateReceipt>>),
 	/// Get all events concerning candidates (backing, inclusion, time-out) in the parent of
