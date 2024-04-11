@@ -363,8 +363,13 @@ impl<T: Config> WasmBlob<T> {
 		input_data: Vec<u8>,
 	) -> (Func, Store<Runtime<E>>) {
 		use InstanceOrExecReturn::*;
-		match Self::prepare_execute(self, Runtime::new(ext, input_data), &ExportedFunction::Call)
-			.expect("Benchmark should provide valid module")
+		match Self::prepare_execute(
+			self,
+			Runtime::new(ext, input_data),
+			&ExportedFunction::Call,
+			CompilationMode::Eager,
+		)
+		.expect("Benchmark should provide valid module")
 		{
 			Instance((func, store)) => (func, store),
 			ExecReturn(_) => panic!("Expected Instance"),
@@ -375,6 +380,7 @@ impl<T: Config> WasmBlob<T> {
 		self,
 		runtime: Runtime<'a, E>,
 		function: &'a ExportedFunction,
+		compilation_mode: CompilationMode,
 	) -> PreExecResult<'a, E> {
 		let code = self.code.as_slice();
 		// Instantiate the Wasm module to the engine.
@@ -385,7 +391,7 @@ impl<T: Config> WasmBlob<T> {
 			self.code_info.determinism,
 			Some(StackLimits::default()),
 			LoadingMode::Unchecked,
-			CompilationMode::Lazy,
+			compilation_mode,
 		)
 		.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create wasmi module: {err:?}");
@@ -464,7 +470,12 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		use InstanceOrExecReturn::*;
-		match Self::prepare_execute(self, Runtime::new(ext, input_data), function)? {
+		match Self::prepare_execute(
+			self,
+			Runtime::new(ext, input_data),
+			function,
+			CompilationMode::Lazy,
+		)? {
 			Instance((func, mut store)) => {
 				let result = func.call(&mut store, &[], &mut []);
 				Self::process_result(store, result)
