@@ -43,8 +43,6 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	pub collator_key: CollatorPair,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
-	pub overseer_handle: OverseerHandle,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
 	/// Collator service interface
@@ -65,8 +63,13 @@ where
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 {
+	let Ok(mut overseer_handle) = params.relay_client.overseer_handle() else {
+		tracing::error!(target: LOG_TARGET, "Failed to get overseer handle.");
+		return
+	};
+
 	cumulus_client_collator::initialize_collator_subsystems(
-		&mut params.overseer_handle,
+		&mut overseer_handle,
 		params.collator_key,
 		params.para_id,
 		params.reinitialize,
@@ -87,7 +90,6 @@ where
 		},
 	};
 
-	let mut overseer_handle = params.overseer_handle;
 	let mut core_queue = Default::default();
 	let mut messages = VecDeque::new();
 	loop {

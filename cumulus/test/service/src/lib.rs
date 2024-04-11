@@ -482,7 +482,6 @@ where
 					keystore,
 					collator_key,
 					para_id,
-					overseer_handle,
 					relay_chain_slot_duration,
 					proposer,
 					collator_service,

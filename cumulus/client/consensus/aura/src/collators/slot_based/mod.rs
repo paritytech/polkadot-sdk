@@ -88,8 +88,6 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub collator_key: CollatorPair,
 	/// The para's ID.
 	pub para_id: ParaId,
-	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
-	pub overseer_handle: OverseerHandle,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
 	/// The underlying block proposer this should call into.
@@ -137,7 +135,6 @@ where
 		relay_client: params.relay_client.clone(),
 		collator_key: params.collator_key.clone(),
 		para_id: params.para_id,
-		overseer_handle: params.overseer_handle.clone(),
 		reinitialize: params.reinitialize,
 		collator_service: params.collator_service.clone(),
 		collator_receiver: rx,
