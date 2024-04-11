@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712854880513,
+  "lastUpdate": 1712859244746,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2813,6 +2813,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.457229359566663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "25f038aa8e381911832450b2e2452d5cc64dfe37",
+          "message": "Run subsystem-benchmark without network latency (#4068)\n\nImplements the idea from\nhttps://github.com/paritytech/polkadot-sdk/pull/3899\n- Removed latencies\n- Number of runs reduced from 50 to 5, according to local runs it's\nquite enough\n- Network message is always sent in a spawned task, even if latency is\nzero. Without it, CPU time sometimes spikes.\n- Removed the `testnet` profile because we probably don't need that\ndebug additions.\n\nAfter the local tests I can't say that it brings a significant\nimprovement in the stability of the results. However, I belive it is\nworth trying and looking at the results over time.",
+          "timestamp": "2024-04-11T16:54:59Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/25f038aa8e381911832450b2e2452d5cc64dfe37"
+        },
+        "date": 1712859218538,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.2009481294,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.24930246080000001,
             "unit": "seconds"
           }
         ]
