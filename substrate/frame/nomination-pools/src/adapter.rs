@@ -357,6 +357,6 @@ impl<
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn remove_as_agent(pool: &Self::AccountId) {
-		DelegationInterface::drop_agent(pool)
+		Delegation::drop_agent(pool)
 	}
 }
