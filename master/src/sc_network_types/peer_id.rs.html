@@ -494,7 +494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Convert `PeerId` into ed25519 public key bytes.
 	</span><span class="kw">pub fn </span>into_ed25519(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt; {
 		<span class="kw">let </span>hash = <span class="kw-2">&amp;</span><span class="self">self</span>.multihash;
-		<span class="comment">// https://www.ietf.org/id/draft-multiformats-multihash-07.html#name-the-multihash-identifier-re
+		<span class="comment">// https://www.ietf.org/archive/id/draft-multiformats-multihash-07.html#name-the-multihash-identifier-re
 		</span><span class="kw">if </span>hash.code() != <span class="number">0 </span>{
 			<span class="comment">// Hash is not identity
 			</span><span class="kw">return </span><span class="prelude-val">None
