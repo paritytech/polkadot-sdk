@@ -18,10 +18,22 @@
 
 use crate::scheduler;
 use primitives::{CoreIndex, Id as ParaId};
-use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
+use sp_runtime::traits::One;
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
+};
 
 /// Returns the claimqueue from the scheduler
 pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+	let now = <frame_system::Pallet<T>>::block_number() + One::one();
+
+	// This explicit update is only strictly required for session boundaries:
+	//
+	// At the end of a session we clear the claim queues: Without this update call, nothing would be
+	// scheduled to the client.
+	<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(Vec::new(), now);
+
 	scheduler::ClaimQueue::<T>::get()
 		.into_iter()
 		.map(|(core_index, entries)| {
