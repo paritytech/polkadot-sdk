@@ -20140,7 +20140,7 @@ dependencies = [
  "parity-scale-codec",
  "parity-wasm",
  "polkavm-linker",
- "sc-executor-wasmtime",
+ "sc-executor",
  "sp-io",
  "sp-maybe-compressed-blob",
  "sp-tracing 16.0.0",

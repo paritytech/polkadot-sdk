@@ -18,40 +18,24 @@
 use codec::{Decode, Encode};
 use frame_metadata::RuntimeMetadataPrefixed;
 use merkleized_metadata::{generate_metadata_digest, ExtraInfo};
-use sc_executor_wasmtime::{
-	create_runtime, Config, HeapAllocStrategy, InstantiationStrategy, RuntimeBlob, WasmModule,
-};
+use sc_executor::{ WasmExecutor, Runtime };
 use std::path::Path;
+
+type HostFunctions = (
+sp_io::allocator::HostFunctions, sp_io::logging::HostFunctions, sp_io::storage::HostFunctions,
+);
 
 pub fn generate_hash(wasm: &Path) -> [u8; 32] {
 	sp_tracing::try_init_simple();
 
 	let wasm = std::fs::read(wasm).expect("Reads wasm");
 
+	let executor = WasmExecutor::builder().with_allow_missing_host_functions(yes).build();
+
 	let runtime_blob = RuntimeBlob::new(&wasm).unwrap();
 	let metadata =
-		create_runtime::<(sp_io::allocator::HostFunctions, sp_io::logging::HostFunctions)>(
-			runtime_blob,
-			Config {
-				allow_missing_func_imports: true,
-				cache_path: None,
-				semantics: sc_executor_wasmtime::Semantics {
-					heap_alloc_strategy: HeapAllocStrategy::Dynamic { maximum_pages: None },
-					instantiation_strategy: InstantiationStrategy::PoolingCopyOnWrite,
-					deterministic_stack_limit: None,
-					canonicalize_nans: false,
-					parallel_compilation: true,
-					wasm_multi_value: false,
-					wasm_bulk_memory: false,
-					wasm_reference_types: false,
-					wasm_simd: false,
-				},
-			},
-		)
-		.expect("Creates a runtime")
-		.new_instance()
-		.unwrap()
-		.call_export("Metadata_metadata_at_version", &15u32.encode())
+		executor
+		.call(&runtime_blob, "Metadata_metadata_at_version", &15u32.encode())
 		.expect("Calls `Metadata_metadata`");
 
 	let metadata = Option::<Vec::<u8>>::decode(&mut &metadata[..]).unwrap().unwrap();
