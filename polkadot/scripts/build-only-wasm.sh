@@ -2,7 +2,7 @@
 
 # Script for building only the WASM binary of the given project.
 
-set -e
+set -e -x
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 
@@ -37,3 +37,7 @@ if [ -d $WASM_BUILDER_RUNNER ]; then
 else
   fl_cargo build --release -p $1 --features fast-runtime
 fi
+
+echo "ROCOCO_EPOCH_DURATION=$ROCOCO_EPOCH_DURATION checksums"
+
+md5sum "$WASM_TARGET_DIRECTORY/*"
