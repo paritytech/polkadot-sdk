@@ -264,7 +264,7 @@ pub mod pallet {
 		/// be instantiated from existing codes that use this deprecated functionality. It will
 		/// be removed eventually. Hence for new `pallet-contracts` deployments it is okay
 		/// to supply a dummy implementation for this type (because it is never used).
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 
 		/// The fungible in which fees are paid and contract balances are held.
@@ -315,7 +315,7 @@ pub mod pallet {
 
 		/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type WeightPrice: Convert<Weight, BalanceOf<Self>>;
 
 		/// Describes the weights of the dispatchables of this module and is also used to
@@ -323,7 +323,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type ChainExtension: chain_extension::ChainExtension<Self> + Default;
 
 		/// Cost schedule and limits.
@@ -348,12 +348,12 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type DepositPerByte: Get<BalanceOf<Self>>;
 
 		/// Fallback value to limit the storage deposit if it's not being set by the caller.
 		#[pallet::constant]
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type DefaultDepositLimit: Get<BalanceOf<Self>>;
 
 		/// The amount of balance a caller has to pay for each storage item.
@@ -362,7 +362,7 @@ pub mod pallet {
 		///
 		/// Changing this value for an existing chain might need a storage migration.
 		#[pallet::constant]
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type DepositPerItem: Get<BalanceOf<Self>>;
 
 		/// The percentage of the storage deposit that should be held for using a code hash.
@@ -413,6 +413,7 @@ pub mod pallet {
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
 		/// code.
+		#[pallet::no_default_bounds]
 		type UploadOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
 
 		/// Origin allowed to instantiate code.
@@ -425,10 +426,8 @@ pub mod pallet {
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to instantiate
 		/// contract code.
+		#[pallet::no_default_bounds]
 		type InstantiateOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Self::AccountId>;
-
-		/// Overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The sequence of migration steps that will be applied during a migration.
 		///
@@ -461,17 +460,19 @@ pub mod pallet {
 		/// This is not a real config. We just mention the type here as constant so that
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type Environment: Get<Environment<Self>>;
 
 		/// The version of the HostFn APIs that are available in the runtime.
 		///
 		/// Only valid value is `()`.
 		#[pallet::constant]
+		#[pallet::no_default_bounds]
 		type ApiVersion: Get<ApiVersion>;
 
 		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
 		/// execute XCM programs.
+		#[pallet::no_default_bounds]
 		type Xcm: xcm_builder::Controller<
 			OriginFor<Self>,
 			<Self as frame_system::Config>::RuntimeCall,
@@ -486,14 +487,42 @@ pub mod pallet {
 			derive_impl,
 			traits::{ConstBool, ConstU32},
 		};
+		use frame_system::EnsureSigned;
 		use sp_core::parameter_types;
 
+		type AccountId = u64;
+		type Balance = u64;
+		const UNITS: Balance = 10_000_000_000;
+		const CENTS: Balance = UNITS / 100;
+
+		const fn deposit(items: u32, bytes: u32) -> Balance {
+			items as Balance * 1 * CENTS + (bytes as Balance) * 1 * CENTS
+		}
+
 		parameter_types! {
-				pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+			pub const DepositPerItem: Balance = deposit(1, 0);
+			pub const DepositPerByte: Balance = deposit(0, 1);
+			pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+			pub const MaxDelegateDependencies: u32 = 32;
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
 		pub struct TestDefaultConfig;
+
+		pub struct TestRandomness;
+		impl<Output, BlockNumber> Randomness<Output, BlockNumber> for TestRandomness {
+			fn random(_subject: &[u8]) -> (Output, BlockNumber) {
+				panic!("Randomness is not configured for this test environment")
+			}
+		}
+
+		pub struct TestWeightPrice;
+		impl<T: From<u64>> Convert<Weight, T> for TestWeightPrice {
+			fn convert(w: Weight) -> T {
+				w.ref_time().into()
+			}
+		}
 
 		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
@@ -502,22 +531,35 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
-			#[inject_runtime_type]
-			type RuntimeCall = ();
+
 			#[inject_runtime_type]
 			type RuntimeHoldReason = ();
 
-			type CallFilter = ();
+			#[inject_runtime_type]
+			type RuntimeCall = ();
+
 			type AddressGenerator = DefaultAddressGenerator;
-			type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
-			type MaxStorageKeyLen = ConstU32<128>;
-			type UnsafeUnstableInterface = ConstBool<true>;
-			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+			type CallFilter = ();
+			type ChainExtension = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-			type MaxDelegateDependencies = ConstU32<32>;
+			type DefaultDepositLimit = DefaultDepositLimit;
+			type DepositPerByte = DepositPerByte;
+			type DepositPerItem = DepositPerItem;
+			type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
+			type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
+			type MaxDelegateDependencies = MaxDelegateDependencies;
+			type MaxStorageKeyLen = ConstU32<128>;
 			type Migrations = ();
+			type Randomness = TestRandomness;
+			type UnsafeUnstableInterface = ConstBool<true>;
+			type UploadOrigin = EnsureSigned<AccountId>;
+			type InstantiateOrigin = EnsureSigned<AccountId>;
 			type WeightInfo = ();
+			type WeightPrice = TestWeightPrice;
 			type Debug = ();
+			type Environment = ();
+			type ApiVersion = ();
+			type Xcm = ();
 		}
 	}
 

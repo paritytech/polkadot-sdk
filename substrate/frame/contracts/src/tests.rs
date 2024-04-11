@@ -342,24 +342,16 @@ impl frame_system::Config for Test {
 
 impl pallet_insecure_randomness_collective_flip::Config for Test {}
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
-	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = ConstU64<1>;
-	type WeightInfo = ();
-}
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {}
+
 impl pallet_utility::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -472,25 +464,20 @@ impl Config for Test {
 	type Currency = Balances;
 	type CallFilter = TestFilter;
 	type CallStack = [Frame<Self>; 5];
-	type WeightPrice = Self;
 	type ChainExtension =
 		(TestExtension, DisabledExtension, RevertingExtension, TempStorageExtension);
 	type Schedule = MySchedule;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type DefaultDepositLimit = DefaultDepositLimit;
+	type AddressGenerator = DefaultAddressGenerator;
 	type UnsafeUnstableInterface = UnstableInterface;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
-	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
-	type RuntimeHoldReason = RuntimeHoldReason;
 	type Migrations = crate::migration::codegen::BenchMigrations;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
-	type Environment = ();
-	type ApiVersion = ();
-	type Xcm = ();
 }
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
