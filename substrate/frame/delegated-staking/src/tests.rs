@@ -22,6 +22,7 @@ use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use pallet_nomination_pools::{Error as PoolsError, Event as PoolsEvent};
 use pallet_staking::Error as StakingError;
+use sp_staking::StakerStatus;
 
 #[test]
 fn create_a_agent_with_first_delegator() {
