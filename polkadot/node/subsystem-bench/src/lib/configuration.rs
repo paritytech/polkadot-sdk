@@ -21,7 +21,7 @@ use itertools::Itertools;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
-use sc_network::PeerId;
+use sc_network_types::PeerId;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::AuthorityId;
 use std::collections::HashMap;

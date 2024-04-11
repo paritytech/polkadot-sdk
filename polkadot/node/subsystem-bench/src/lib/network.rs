@@ -67,8 +67,9 @@ use prometheus_endpoint::U64;
 use rand::{seq::SliceRandom, thread_rng};
 use sc_network::{
 	request_responses::{IncomingRequest, OutgoingResponse},
-	PeerId, RequestFailure,
+	RequestFailure,
 };
+use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use std::{
 	collections::HashMap,
