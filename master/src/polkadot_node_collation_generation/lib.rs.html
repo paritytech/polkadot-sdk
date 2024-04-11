@@ -802,6 +802,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1010,9 +1031,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// follow the procedure from the guide:
 	// https://paritytech.github.io/polkadot-sdk/book/node/collators/collation-generation.html
 
+	// If there is no collation function provided, bail out early.
+	// Important: Lookahead collator and slot based collator do not use `CollatorFn`.
 	</span><span class="kw">if </span>config.collator.is_none() {
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
+
 	<span class="kw">let </span>para_id = config.para_id;
 
 	<span class="kw">let </span>_overall_timer = metrics.time_new_activations();
@@ -1036,9 +1060,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// The loop bellow will fill in cores that the para is allowed to build on.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>cores_to_build_on = Vec::new();
 
+		<span class="comment">// This assumption refers to all cores of the parachain, taking elastic scaling
+		// into account.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>para_assumption = <span class="prelude-val">None</span>;
 		<span class="kw">for </span>(core_idx, core) <span class="kw">in </span>availability_cores.into_iter().enumerate() {
-			<span class="kw">let </span>scheduled_core = <span class="kw">match </span>core {
-				CoreState::Scheduled(scheduled_core) =&gt; scheduled_core,
+			<span class="comment">// This nested assumption refers only to the core being iterated.
+			</span><span class="kw">let </span>(core_assumption, scheduled_core) = <span class="kw">match </span>core {
+				CoreState::Scheduled(scheduled_core) =&gt;
+					(OccupiedCoreAssumption::Free, scheduled_core),
 				CoreState::Occupied(occupied_core) =&gt; <span class="kw">match </span>async_backing_params {
 					<span class="prelude-val">Some</span>(params) <span class="kw">if </span>params.max_candidate_depth &gt;= <span class="number">1 </span>=&gt; {
 						<span class="comment">// maximum candidate depth when building on top of a block
@@ -1061,7 +1090,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						};
 
 						<span class="kw">match </span>res {
-							<span class="prelude-val">Some</span>(res) =&gt; res,
+							<span class="prelude-val">Some</span>(res) =&gt; (OccupiedCoreAssumption::Included, res),
 							<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
 						}
 					},
@@ -1095,6 +1124,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="string">&quot;core is not assigned to our para. Keep going.&quot;</span>,
 				);
 			} <span class="kw">else </span>{
+				<span class="comment">// This does not work for elastic scaling, but it should be enough for single
+				// core parachains. If async backing runtime is available we later override
+				// the assumption based on the `para_backing_state` API response.
+				</span>para_assumption = <span class="prelude-val">Some</span>(core_assumption);
 				<span class="comment">// Accumulate cores for building collation(s) outside the loop.
 				</span>cores_to_build_on.push(CoreIndex(core_idx <span class="kw">as </span>u32));
 			}
@@ -1105,34 +1138,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">continue
 		</span>}
 
-		<span class="kw">let </span>para_backing_state =
-			request_para_backing_state(relay_parent, config.para_id, ctx.sender())
-				.<span class="kw">await
-				</span>.<span class="kw">await</span><span class="question-mark">??
-				</span>.ok_or(<span class="kw">crate</span>::error::Error::MissingParaBackingState)<span class="question-mark">?</span>;
+		<span class="comment">// If at least one core is assigned to us, `para_assumption` is `Some`.
+		</span><span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>para_assumption) = para_assumption <span class="kw">else </span>{ <span class="kw">continue </span>};
 
-		<span class="comment">// We are being very optimistic here, but one of the cores could pend availability some more
-		// block, ore even time out.
-		// For timeout assumption the collator can&#39;t really know because it doesn&#39;t receive bitfield
-		// gossip.
-		</span><span class="kw">let </span>assumption = <span class="kw">if </span>para_backing_state.pending_availability.is_empty() {
-			OccupiedCoreAssumption::Free
-		} <span class="kw">else </span>{
-			OccupiedCoreAssumption::Included
-		};
+		<span class="comment">// If it is none it means that neither async backing or elastic scaling (which
+		// depends on it) are supported. We&#39;ll use the `para_assumption` we got from
+		// iterating cores.
+		</span><span class="kw">if </span>async_backing_params.is_some() {
+			<span class="comment">// We are being very optimistic here, but one of the cores could pend availability some
+			// more block, ore even time out.
+			// For timeout assumption the collator can&#39;t really know because it doesn&#39;t receive
+			// bitfield gossip.
+			</span><span class="kw">let </span>para_backing_state =
+				request_para_backing_state(relay_parent, config.para_id, ctx.sender())
+					.<span class="kw">await
+					</span>.<span class="kw">await</span><span class="question-mark">??
+					</span>.ok_or(<span class="kw">crate</span>::error::Error::MissingParaBackingState)<span class="question-mark">?</span>;
+
+			<span class="comment">// Override the assumption about the para&#39;s assigned cores.
+			</span>para_assumption = <span class="kw">if </span>para_backing_state.pending_availability.is_empty() {
+				OccupiedCoreAssumption::Free
+			} <span class="kw">else </span>{
+				OccupiedCoreAssumption::Included
+			}
+		}
 
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			relay_parent = <span class="question-mark">?</span>relay_parent,
-			our_para = %config.para_id,
-			<span class="question-mark">?</span>assumption,
+			our_para = %para_id,
+			<span class="question-mark">?</span>para_assumption,
 			<span class="string">&quot;Occupied core(s) assumption&quot;</span>,
 		);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = <span class="kw">match </span>request_persisted_validation_data(
 			relay_parent,
-			config.para_id,
-			assumption,
+			para_id,
+			para_assumption,
 			ctx.sender(),
 		)
 		.<span class="kw">await
@@ -1143,7 +1185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					relay_parent = <span class="question-mark">?</span>relay_parent,
-					our_para = %config.para_id,
+					our_para = %para_id,
 					<span class="string">&quot;validation data is not available&quot;</span>,
 				);
 				<span class="kw">continue
@@ -1152,8 +1194,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>validation_code_hash = <span class="kw">match </span>obtain_validation_code_hash_with_assumption(
 			relay_parent,
-			config.para_id,
-			assumption,
+			para_id,
+			para_assumption,
 			ctx.sender(),
 		)
 		.<span class="kw">await</span><span class="question-mark">?
@@ -1163,7 +1205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					relay_parent = <span class="question-mark">?</span>relay_parent,
-					our_para = %config.para_id,
+					our_para = %para_id,
 					<span class="string">&quot;validation code hash is not found.&quot;</span>,
 				);
 				<span class="kw">continue
