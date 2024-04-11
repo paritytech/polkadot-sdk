@@ -742,8 +742,6 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		#[pallet::weight(task.weight())]
 		pub fn do_task(origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-
 			if !task.is_valid() {
 				return Err(Error::<T>::InvalidTask.into())
 			}

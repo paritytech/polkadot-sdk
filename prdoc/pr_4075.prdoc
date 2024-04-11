@@ -1,0 +1,14 @@
+title: Adds ability to trigger tasks via unsigned transactions
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR updates the `validate_unsigned` hook for `frame_system` to allow valid tasks 
+      to be submitted as unsigned transactions. It also updates the task example to be able to 
+      submit such transactions via an off-chain worker.
+
+crates:
+  - name: frame-system
+    bump: patch
+  - name: pallet-example-tasks
+    bump: minor
