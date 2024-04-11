@@ -45,9 +45,9 @@ use frame_support::{
 			GetSalary, PayFromAccount,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
-		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
-		OnUnbalanced, WithdrawReasons,
+		EitherOfDiverse, EnsureOrigin, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance,
+		InsideBoth, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier,
+		Nothing, OnUnbalanced, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -71,13 +71,11 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_session::historical as pallet_session_historical;
-use sp_core::TypedGet;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 #[allow(deprecated)]
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
-use pallet_treasury::TreasuryAccountId;
 use pallet_tx_pause::RuntimeCallNameOf;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -1752,8 +1750,26 @@ impl pallet_asset_rewards::benchmarking::BenchmarkHelper<NativeOrWithId<u32>, Ac
 		bytes[0..4].copy_from_slice(&seed.to_be_bytes()); // Place the u32 value at the beginning (big-endian for this example)
 		bytes.into()
 	}
-	fn permissioned_pool_creator() -> AccountId {
-		TreasuryAccountId::<Runtime>::get()
+	fn sufficient_asset() -> NativeOrWithId<u32> {
+		NativeOrWithId::<u32>::Native
+	}
+}
+
+/// Give Root Origin permission to create pools, and an acc id of 0.
+pub struct AssetRewardsPermissionedOrigin;
+impl EnsureOrigin<RuntimeOrigin> for AssetRewardsPermissionedOrigin {
+	type Success = <Runtime as frame_system::Config>::AccountId;
+
+	fn try_origin(origin: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		match origin.clone().into() {
+			Ok(frame_system::RawOrigin::Root) => Ok([0u8; 32].into()),
+			_ => Err(origin),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
 	}
 }
 
@@ -1763,7 +1779,7 @@ impl pallet_asset_rewards::Config for Runtime {
 	type Balance = u128;
 	type Assets = NativeAndAssets;
 	type PalletId = StakingRewardsPalletId;
-	type PermissionedOrigin = EnsureRoot<AccountId>;
+	type PermissionedOrigin = AssetRewardsPermissionedOrigin;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetRewardsBenchmarkHelper;
 }
