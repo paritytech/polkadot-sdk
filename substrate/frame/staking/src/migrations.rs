@@ -23,7 +23,7 @@ use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::ValueQuery,
 	storage_alias,
-	traits::{GetStorageVersion, OnRuntimeUpgrade},
+	traits::{GetStorageVersion, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
 };
 
 #[cfg(feature = "try-runtime")]
@@ -64,8 +64,8 @@ type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, Value
 pub mod v15 {
 	use super::*;
 
-	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
+	pub struct VersionUncheckedMigrateV14ToV15<T>(core::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = v14::OffendingValidators::<T>::take()
 				.into_iter()
@@ -91,7 +91,7 @@ pub mod v15 {
 		14,
 		15,
 		VersionUncheckedMigrateV14ToV15<T>,
-		crate::Pallet<T>,
+		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
 }
