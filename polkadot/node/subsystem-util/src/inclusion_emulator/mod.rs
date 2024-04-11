@@ -39,8 +39,8 @@
 ///
 /// # Usage
 ///
-/// It's expected that the users of this module will be building up trees of
-/// [`Fragment`]s and consistently pruning and adding to the tree.
+/// It's expected that the users of this module will be building up chains of
+/// [`Fragment`]s and consistently pruning and adding to the chains.
 ///
 /// ## Operating Constraints
 ///
@@ -54,60 +54,65 @@
 /// make an intelligent prediction about what might be accepted in the future based on
 /// prior fragments that also exist off-chain.
 ///
-/// ## Fragment Trees
+/// ## Fragment Chains
+///
+/// For simplicity, we expect that collators of the same parachain are cooperating and don't
+/// create parachain forks on the same relay chain active leaf.
+/// Therefore, higher-level code should maintain one fragment chain for each active leaf (not a
+/// fragment tree). If parachains do create forks, their performance in regards to async
+/// backing and elastic scaling will suffer, because different validators will have different
+/// predictions of the future.
 ///
 /// As the relay-chain grows, some predictions come true and others come false.
 /// And new predictions get made. These three changes correspond distinctly to the
-/// 3 primary operations on fragment trees.
+/// 3 primary operations on fragment chains.
 ///
-/// A fragment tree is a mental model for thinking about a forking series of predictions
-/// about a single parachain. There may be one or more fragment trees per parachain.
+/// Avoiding fragment-chain blowup is beyond the scope of this module. Higher-level must ensure
+/// proper spam protection.
 ///
-/// In expectation, most parachains will have a plausibly-unique authorship method which means
-/// that they should really be much closer to fragment-chains, maybe with an occasional fork.
-///
-/// Avoiding fragment-tree blowup is beyond the scope of this module.
-///
-/// ### Pruning Fragment Trees
+/// ### Pruning Fragment Chains
 ///
 /// When the relay-chain advances, we want to compare the new constraints of that relay-parent
-/// to the roots of the fragment trees we have. There are 3 cases:
+/// to the root of the fragment chain we have. There are 3 cases:
 ///
 /// 1. The root fragment is still valid under the new constraints. In this case, we do nothing.
-///    This is the "prediction still uncertain" case.
+///    This is the "prediction still uncertain" case. (Corresponds to some candidates still
+///    being pending availability).
 ///
-/// 2. The root fragment is invalid under the new constraints because it has been subsumed by
-///    the relay-chain. In this case, we can discard the root and split & re-root the fragment
-///    tree under its descendants and compare to the new constraints again. This is the
-///    "prediction came true" case.
+/// 2. The root fragment (potentially along with a number of descendants) is invalid under the
+///    new constraints because it has been included by the relay-chain. In this case, we can
+///    discard the included chain and split & re-root the chain under its descendants and
+///    compare to the new constraints again. This is the "prediction came true" case.
 ///
-/// 3. The root fragment is invalid under the new constraints because a competing parachain
-///    block has been included or it would never be accepted for some other reason. In this
-///    case we can discard the entire fragment tree. This is the "prediction came false" case.
+/// 3. The root fragment becomes invalid under the new constraints for any reason (if for
+///    example the parachain produced a fork and the block producer picked a different
+///    candidate to back). In this case we can discard the entire fragment chain. This is the
+///    "prediction came false" case.
 ///
 /// This is all a bit of a simplification because it assumes that the relay-chain advances
-/// without forks and is finalized instantly. In practice, the set of fragment-trees needs to
+/// without forks and is finalized instantly. In practice, the set of fragment-chains needs to
 /// be observable from the perspective of a few different possible forks of the relay-chain and
 /// not pruned too eagerly.
 ///
 /// Note that the fragments themselves don't need to change and the only thing we care about
 /// is whether the predictions they represent are still valid.
 ///
-/// ### Extending Fragment Trees
+/// ### Extending Fragment Chains
 ///
 /// As predictions fade into the past, new ones should be stacked on top.
 ///
 /// Every new relay-chain block is an opportunity to make a new prediction about the future.
-/// Higher-level logic should select the leaves of the fragment-trees to build upon or whether
-/// to create a new fragment-tree.
+/// Higher-level logic should decide whether to build upon an existing chain or whether
+/// to create a new fragment-chain.
 ///
 /// ### Code Upgrades
 ///
 /// Code upgrades are the main place where this emulation fails. The on-chain PVF upgrade
 /// scheduling logic is very path-dependent and intricate so we just assume that code upgrades
-/// can't be initiated and applied within a single fragment-tree. Fragment-trees aren't deep,
-/// in practice and code upgrades are fairly rare. So what's likely to happen around code
-/// upgrades is that the entire fragment-tree has to get discarded at some point.
+/// can't be initiated and applied within a single fragment-chain. Fragment-chains aren't deep,
+/// in practice (bounded by a linear function of the the number of cores assigned to a
+/// parachain) and code upgrades are fairly rare. So what's likely to happen around code
+/// upgrades is that the entire fragment-chain has to get discarded at some point.
 ///
 /// That means a few blocks of execution time lost, which is not a big deal for code upgrades
 /// in practice at most once every few weeks.

@@ -14,35 +14,47 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A tree utility for managing parachain fragments not referenced by the relay-chain.
+//! Utility for managing parachain fragments not referenced by the relay-chain.
 //!
 //! # Overview
 //!
-//! This module exposes two main types: [`FragmentTree`] and [`CandidateStorage`] which are meant to
-//! be used in close conjunction. Each fragment tree is associated with a particular relay-parent
-//! and each node in the tree represents a candidate. Each parachain has a single candidate storage,
-//! but can have multiple trees for each relay chain block in the view.
+//! This module exposes two main types: [`FragmentChain`] and [`CandidateStorage`] which are meant
+//! to be used in close conjunction. Each fragment chain is associated with a particular
+//! relay-parent and each node in the chain represents a candidate. Each parachain has a single
+//! candidate storage, but can have one chain for each relay chain block in the view.
+//! Therefore, the same candidate can be present in multiple fragment chains of a parachain. One of
+//! the purposes of the candidate storage is to deduplicate the large candidate data that is being
+//! referenced from multiple fragment chains.
 //!
-//! A tree has an associated [`Scope`] which defines limits on candidates within the tree.
+//! A chain has an associated [`Scope`] which defines limits on candidates within the chain.
 //! Candidates themselves have their own [`Constraints`] which are either the constraints from the
-//! scope, or, if there are previous nodes in the tree, a modified version of the previous
+//! scope, or, if there are previous nodes in the chain, a modified version of the previous
 //! candidate's constraints.
+//!
+//! Another use of the `CandidateStorage` is to keep a record of candidates which may not be yet
+//! included in any chain, but which may become part of a chain in the future. This is needed for
+//! elastic scaling, so that we may parallelise the backing process across different groups. As long
+//! as some basic constraints are not violated by an unconnected candidate (like the relay parent
+//! being in scope), we proceed with the backing process, hoping that its predecessors will be
+//! backed soon enough.
 //!
 //! This module also makes use of types provided by the Inclusion Emulator module, such as
 //! [`Fragment`] and [`Constraints`]. These perform the actual job of checking for validity of
 //! prospective fragments.
 //!
-//! # Usage
+//! # Parachain forks
 //!
-//! It's expected that higher-level code will have a tree for each relay-chain block which might
-//! reasonably have blocks built upon it.
+//! Parachains are expected to not create forks, hence the use of fragment chains as opposed to
+//! fragment trees. If parachains do create forks, their performance in regards to async backing and
+//! elastic scaling will suffer, because different validators will have different views of the
+//! future.
 //!
-//! Because a para only has a single candidate storage, trees only store indices into the storage.
-//! The storage is meant to be pruned when trees are dropped by higher-level code.
+//! This is a compromise we can make - collators which want to use async backing and elastic scaling
+//! need to cooperate for the highest throughput.
 //!
-//! # Cycles
+//! # Parachain cycles
 //!
-//! Nodes do not uniquely refer to a parachain block for two reasons.
+//! Parachains can create cycles, because:
 //!   1. There's no requirement that head-data is unique for a parachain. Furthermore, a parachain
 //!      is under no obligation to be acyclic, and this is mostly just because it's totally
 //!      inefficient to enforce it. Practical use-cases are acyclic, but there is still more than
@@ -50,31 +62,14 @@
 //!   2. and candidates only refer to their parent by its head-data. This whole issue could be
 //!      resolved by having candidates reference their parent by candidate hash.
 //!
-//! The implication is that when we receive a candidate receipt, there are actually multiple
-//! possibilities for any candidates between the para-head recorded in the relay parent's state
-//! and the candidate in question.
+//! However, dealing with cycles increases complexity during the backing/inclusion process for no
+//! practical reason. Therefore, fragment chains will not accept such candidates.
 //!
-//! This means that our candidates need to handle multiple parents and that depth is an
-//! attribute of a node in a tree, not a candidate. Put another way, the same candidate might
-//! have different depths in different parts of the tree.
+//! On the other hand, enforcing that a parachain will NEVER be acyclic would be very complicated
+//! (looping through the entire parachain's history on every new candidate or changing the candidate
+//! receipt to reference the parent's candidate hash).
 //!
-//! As an extreme example, a candidate which produces head-data which is the same as its parent
-//! can correspond to multiple nodes within the same [`FragmentTree`]. Such cycles are bounded
-//! by the maximum depth allowed by the tree. An example with `max_depth: 4`:
-//!
-//! ```text
-//!           committed head
-//!                  |
-//! depth 0:      head_a
-//!                  |
-//! depth 1:      head_b
-//!                  |
-//! depth 2:      head_a
-//!                  |
-//! depth 3:      head_b
-//!                  |
-//! depth 4:      head_a
-//! ```
+//! # Spam protection
 //!
 //! As long as the [`CandidateStorage`] has bounded input on the number of candidates supplied,
 //! [`FragmentTree`] complexity is bounded. This means that higher-level code needs to be selective
