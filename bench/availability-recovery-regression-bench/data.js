@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712859244746,
+  "lastUpdate": 1712870140429,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2855,6 +2855,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.24930246080000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Liam Aharon",
+            "username": "liamaharon",
+            "email": "liam.aharon@hotmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "39b1f50f1c251def87c1625d68567ed252dc6272",
+          "message": "Remove deprecated `TryRuntime` subcommand (#4017)\n\nCompletes the removal of `try-runtime-cli` logic from `polkadot-sdk`.",
+          "timestamp": "2024-04-11T20:01:16Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/39b1f50f1c251def87c1625d68567ed252dc6272"
+        },
+        "date": 1712870113902,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 13.15880675726667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.2156480974,
             "unit": "seconds"
           }
         ]
