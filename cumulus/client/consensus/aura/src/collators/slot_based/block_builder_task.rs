@@ -328,10 +328,12 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 
 		tracing::debug!(
 			target: crate::LOG_TARGET,
-			?relay_parent,
-			slot_claim = ?para_slot.slot,
+			slot = ?para_slot.slot,
 			unincluded_segment_len = parent.depth,
-			"Slot claimed. Building"
+			relay_parent = tracing::field::display(relay_parent),
+			included = tracing::field::display(included_block),
+			parent = tracing::field::display(parent_hash),
+			"Building block."
 		);
 
 		let validation_data = PersistedValidationData {

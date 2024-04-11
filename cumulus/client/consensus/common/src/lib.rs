@@ -448,7 +448,7 @@ pub async fn find_potential_parents<B: BlockT>(
 			.map_or(true, |route| route.enacted().iter().any(|x| x.hash == hash))
 	};
 
-	tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?included_hash, included_num = ?included_header.number(), ?pending_hash ,?rp_ancestry, "Searching relay chain ancestry.");
+	tracing::trace!(target: PARENT_SEARCH_LOG_TARGET, ?included_hash, included_num = ?included_header.number(), ?pending_hash , ?rp_ancestry, "Searching relay chain ancestry.");
 	while let Some(entry) = frontier.pop() {
 		// TODO Adjust once we can fetch multiple pending blocks.
 		// https://github.com/paritytech/polkadot-sdk/issues/3967

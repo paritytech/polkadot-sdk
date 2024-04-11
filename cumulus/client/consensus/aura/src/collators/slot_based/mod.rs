@@ -44,7 +44,6 @@ use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::CollectCollationInfo;
 use cumulus_relay_chain_interface::RelayChainInterface;
-use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Hash as RelayHash, Id as ParaId, ValidationCodeHash};
 
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
