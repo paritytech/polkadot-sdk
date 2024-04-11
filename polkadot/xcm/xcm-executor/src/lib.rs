@@ -348,8 +348,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		reason: FeeReason,
 	) -> Result<XcmHash, XcmError> {
 		log::trace!(
-			target: "xcm::send", "Sending msg: {:?}, to destination: {:?}, (reason: {:?})",
-			msg, dest, reason,
+			target: "xcm::send", "Sending msg: {msg:?}, to destination: {dest:?}, (reason: {reason:?})"
 		);
 		let (ticket, fee) = validate_send::<Config::XcmSender>(dest, msg)?;
 		self.take_fee(fee, reason)?;

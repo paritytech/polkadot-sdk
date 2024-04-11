@@ -943,7 +943,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 				Ok(hash)
 			},
 			Err(e) => {
-				log::error!(target: "xcm::XcmpQueue::deliver", "error: {:?}", e);
+				log::error!(target: LOG_TARGET, "Deliver error: {e:?}");
 				Err(SendError::Transport(e.into()))
 			},
 		}
