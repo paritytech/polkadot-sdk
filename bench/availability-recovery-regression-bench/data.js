@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712787921415,
+  "lastUpdate": 1712829283588,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2645,6 +2645,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.464937940086672,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "69cc7f2090e169e736d9c998c29467040521881d",
+          "message": "Fix ClaimQueue case of nothing scheduled on session boundary  (#4065)\n\nSame issue but about av-cores was fixed in\nhttps://github.com/paritytech/polkadot-sdk/pull/1403\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-04-11T08:37:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/69cc7f2090e169e736d9c998c29467040521881d"
+        },
+        "date": 1712829258564,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.253908213973334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.15999301305999997,
             "unit": "seconds"
           }
         ]
