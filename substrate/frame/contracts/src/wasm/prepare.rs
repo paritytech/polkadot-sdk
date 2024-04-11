@@ -87,9 +87,10 @@ impl LoadedModule {
 			.wasm_extended_const(false)
 			.wasm_saturating_float_to_int(false)
 			.floats(matches!(determinism, Determinism::Relaxed))
+			// TODO restore before merging PR
 			// .compilation_mode(compilation_mode)
-			.compilation_mode(CompilationMode::Eager)
-			.consume_fuel(true);
+			.consume_fuel(true)
+			.compilation_mode(CompilationMode::Eager);
 
 		if let Some(stack_limits) = stack_limits {
 			config.set_stack_limits(stack_limits);
@@ -99,8 +100,10 @@ impl LoadedModule {
 
 		let module = match loading_mode {
 			LoadingMode::Checked => Module::new(&engine, code),
+			LoadingMode::Unchecked => Module::new(&engine, code),
+			// TODO restore before merging PR
 			// Safety: The code has been validated, Therefore we know that it's a valid binary.
-			LoadingMode::Unchecked => unsafe { Module::new_unchecked(&engine, code) },
+			// LoadingMode::Unchecked => unsafe { Module::new_unchecked(&engine, code) },
 		}
 		.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Module creation failed: {:?}", err);
