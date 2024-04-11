@@ -30,6 +30,7 @@ use frame_support::{
 	assert_ok, ensure,
 	traits::{
 		fungible::{Inspect, Mutate, Unbalanced},
+		tokens::Preservation,
 		Get, Imbalance,
 	},
 };
@@ -39,7 +40,7 @@ use pallet_nomination_pools::{
 	BalanceOf, BondExtra, BondedPoolInner, BondedPools, ClaimPermission, ClaimPermissions,
 	Commission, CommissionChangeRate, CommissionClaimPermission, ConfigOp, GlobalMaxCommission,
 	MaxPoolMembers, MaxPoolMembersPerPool, MaxPools, Metadata, MinCreateBond, MinJoinBond,
-	Pallet as Pools, PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
+	Pallet as Pools, PoolId, PoolMembers, PoolRoles, PoolState, RewardPools, SubPoolsStorage,
 };
 use pallet_staking::MaxNominationsOf;
 use sp_runtime::{
@@ -61,6 +62,7 @@ pub trait Config:
 	pallet_nomination_pools::Config
 	+ pallet_staking::Config
 	+ pallet_bags_list::Config<VoterBagsListInstance>
+	+ pallet_delegated_staking::Config
 {
 }
 
@@ -113,6 +115,30 @@ fn create_pool_account<T: pallet_nomination_pools::Config>(
 		.expect("pool_creator created a pool above");
 
 	(pool_creator, pool_account)
+}
+
+fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
+	if T::StakeAdapter::strategy_type() == StakeStrategyType::Transfer {
+		// should already be in the correct strategy
+		return;
+	}
+	let pool_acc = Pools::<T>::create_bonded_account(pool_id);
+	// drop the agent and its associated delegators .
+	pallet_delegated_staking::Pallet::<T>::drop_agent(&pool_acc);
+
+	// tranfer funds from all members to the pool account.
+	PoolMembers::<T>::iter()
+		.filter(|(_, member)| member.pool_id == pool_id)
+		.for_each(|(member_acc, member)| {
+			let member_balance = member.total_balance();
+			<T as pallet_nomination_pools::Config>::Currency::transfer(
+				&member_acc,
+				&pool_acc,
+				member_balance,
+				Preservation::Preserve,
+			)
+			.expect("member should have enough balance to transfer");
+		});
 }
 
 fn vote_to_balance<T: pallet_nomination_pools::Config>(
@@ -859,9 +885,11 @@ frame_benchmarking::benchmarks! {
 	}
 
 	apply_slash {
+		// Note: With older `TransferStake` strategy, slashing is greedy and apply_slash should
+		// always fail.
+
 		// We want to fill member's unbonding pools. So let's bond with big enough amount.
 		let deposit_amount = Pools::<T>::depositor_min_bond() * T::MaxUnbonding::get().into() * 4u32.into();
-		// Create a pool with 1000 tokens staked.
 		let (depositor, pool_account) = create_pool_account::<T>(0, deposit_amount, None);
 		let depositor_lookup = T::Lookup::unlookup(depositor.clone());
 
@@ -911,10 +939,10 @@ frame_benchmarking::benchmarks! {
 	}
 
 	apply_slash_fail {
-		// we want to bench the scenario where pool has some unapplied slash but the member does not
-		// have any unapplied slash.
+		// Bench the scenario where pool has some unapplied slash but the member does not have any
+		// slash to be applied.
 		let deposit_amount = Pools::<T>::depositor_min_bond() * 10u32.into();
-		// Create a pool with 1000 tokens staked.
+		// Create pool.
 		let (depositor, pool_account) = create_pool_account::<T>(0, deposit_amount, None);
 
 		// slash pool by half
@@ -949,15 +977,24 @@ frame_benchmarking::benchmarks! {
 		assert!(Pools::<T>::apply_slash(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone()).is_err());
 	}
 
-	/*
-	pool_migrate {
-		// Setup a non-migrated pool
-		// DelegatedStaking::unlock funds from all members.
-		// DelegatedStaking::clean all delegated staking storage entries.
-		// Currency::transfer funds to the bonded account.
-		// Staking::remove virtual bonder.
-	}
 
+	pool_migrate {
+		// create a pool.
+		let deposit_amount = Pools::<T>::depositor_min_bond() * 2u32.into();
+		let (depositor, pool_account) = create_pool_account::<T>(0, deposit_amount, None);
+
+		// migrate pool to transfer stake.
+		let _ = migrate_to_transfer_stake::<T>(1);
+	}: {
+		// Try migrate to `DelegateStake`. Would succeed only if `DelegateStake` strategy is used.
+		let res = Pools::<T>::migrate_to_delegate_stake(1);
+		assert!(is_transfer_stake_strategy::<T>() ^ res.is_ok());
+	}
+	verify {
+		// this queries agent balance if `DelegateStake` strategy.
+		assert!(T::StakeAdapter::total_balance(&pool_account) == deposit_amount);
+	}
+/*
 	claim_delegation {
 		// we want to bench the scenario where pool has some unapplied slash but the member does not
 		// have any unapplied slash.

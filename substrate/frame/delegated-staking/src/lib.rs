@@ -696,6 +696,24 @@ impl<T: Config> Pallet<T> {
 			.map(|agent| agent.ledger.stakeable_balance())
 			.unwrap_or_default()
 	}
+
+	/// Only used for testing.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn drop_agent(agent: &T::AccountId) {
+		<Agents<T>>::remove(agent);
+		<Delegators<T>>::iter()
+			.filter(|(_, delegation)| delegation.agent == *agent)
+			.for_each(|(delegator, _)| {
+				let _ = T::Currency::release_all(
+					&HoldReason::Delegating.into(),
+					&delegator,
+					Precision::BestEffort,
+				);
+				<Delegators<T>>::remove(&delegator);
+			});
+
+		T::CoreStaking::migrate_to_direct_staker(agent);
+	}
 }
 
 #[cfg(any(test, feature = "try-runtime"))]

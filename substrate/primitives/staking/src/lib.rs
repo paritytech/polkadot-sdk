@@ -329,6 +329,12 @@ pub trait StakingUnsafe: StakingInterface {
 		value: Self::Balance,
 		payee: &Self::AccountId,
 	) -> DispatchResult;
+
+	/// Migrate a virtual staker to a direct staker.
+	///
+	/// Only used for testing.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn migrate_to_direct_staker(who: &Self::AccountId);
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
