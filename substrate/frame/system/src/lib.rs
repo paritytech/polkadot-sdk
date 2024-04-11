@@ -1032,6 +1032,12 @@ pub mod pallet {
 					})
 				}
 			}
+			#[cfg(feature = "experimental")]
+			if let Call::do_task { ref task } = call {
+				if task.is_valid() {
+					return Ok(ValidTransaction::default())
+				}
+			}
 			Err(InvalidTransaction::Call.into())
 		}
 	}
