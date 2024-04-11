@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712828983339,
+  "lastUpdate": 1712837435397,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3327,6 +3327,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025917381493333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "9ede4152ef0d539019875e6aff97dbe0744a4053",
+          "message": "collation-generation: Avoid using `para_backing_state` if runtime is ancient (#4070)\n\nfixes https://github.com/paritytech/polkadot-sdk/issues/4067\n\nAlso add an early bail out for look ahead collator such that we don't\nwaste time if a CollatorFn is not set.\n\nTODO:\n- [x] add test.\n- [x] Polkadot System Parachain burn-in.\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-04-11T10:36:30Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9ede4152ef0d539019875e6aff97dbe0744a4053"
+        },
+        "date": 1712837409601,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.906666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010327730780000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012279602473333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02576731491333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15391874796666666,
             "unit": "seconds"
           }
         ]
