@@ -115,6 +115,24 @@ impl<T: Config> DelegationInterface for Pallet<T> {
 			value,
 		)
 	}
+
+	/// Only used for testing.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn drop_agent(agent: &T::AccountId) {
+		<Agents<T>>::remove(agent);
+		<Delegators<T>>::iter()
+			.filter(|(_, delegation)| delegation.agent == *agent)
+			.for_each(|(delegator, _)| {
+				let _ = T::Currency::release_all(
+					&HoldReason::Delegating.into(),
+					&delegator,
+					Precision::BestEffort,
+				);
+				<Delegators<T>>::remove(&delegator);
+			});
+
+		T::CoreStaking::migrate_to_direct_staker(agent);
+	}
 }
 
 impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {

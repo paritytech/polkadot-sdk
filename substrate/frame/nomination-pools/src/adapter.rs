@@ -157,6 +157,12 @@ pub trait StakeStrategy {
 	fn nominations(pool_account: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		Self::CoreStaking::nominations(pool_account)
 	}
+
+	/// Remove the pool account as agent.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn remove_as_agent(_pool: &Self::AccountId) {
+		// noop by default
+	}
 }
 
 /// A staking strategy implementation that supports transfer based staking.
@@ -347,5 +353,10 @@ impl<
 		value: Self::Balance,
 	) -> DispatchResult {
 		Delegation::migrate_delegation(pool, delegator, value)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn remove_as_agent(pool: &Self::AccountId) {
+		DelegationInterface::drop_agent(pool)
 	}
 }

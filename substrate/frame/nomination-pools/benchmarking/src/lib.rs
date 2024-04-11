@@ -62,7 +62,6 @@ pub trait Config:
 	pallet_nomination_pools::Config
 	+ pallet_staking::Config
 	+ pallet_bags_list::Config<VoterBagsListInstance>
-	+ pallet_delegated_staking::Config
 {
 }
 
@@ -124,7 +123,7 @@ fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
 	}
 	let pool_acc = Pools::<T>::create_bonded_account(pool_id);
 	// drop the agent and its associated delegators .
-	pallet_delegated_staking::Pallet::<T>::drop_agent(&pool_acc);
+	T::StakeAdapter::remove_as_agent(&pool_acc);
 
 	// tranfer funds from all members to the pool account.
 	PoolMembers::<T>::iter()
