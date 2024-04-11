@@ -19,7 +19,6 @@
 use crate::{
 	communication::{
 		gossip::{proofs_topic, votes_topic, GossipFilterCfg, GossipMessage},
-		peers::PeerReport,
 		request_response::outgoing_requests_engine::ResponseInfo,
 	},
 	error::Error,
@@ -374,7 +373,7 @@ impl<B: Block> PersistedState<B> {
 }
 
 /// A BEEFY worker/voter that follows the BEEFY protocol
-pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
+pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S, N> {
 	// utilities
 	pub backend: Arc<BE>,
 	pub runtime: Arc<RuntimeApi>,
@@ -383,7 +382,7 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub sync: Arc<S>,
 
 	// communication (created once, but returned and reused if worker is restarted/reinitialized)
-	pub comms: BeefyComms<B>,
+	pub comms: BeefyComms<B, N>,
 
 	// channels
 	/// Links between the block importer, the background voter and the RPC layer.
@@ -400,7 +399,7 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub is_authority: bool,
 }
 
-impl<B, BE, P, R, S> BeefyWorker<B, BE, P, R, S>
+impl<B, BE, P, R, S, N> BeefyWorker<B, BE, P, R, S, N>
 where
 	B: Block + Codec,
 	BE: Backend<B>,
@@ -827,7 +826,7 @@ where
 		mut self,
 		block_import_justif: &mut Fuse<NotificationReceiver<BeefyVersionedFinalityProof<B>>>,
 		finality_notifications: &mut Fuse<FinalityNotifications<B>>,
-	) -> (Error, BeefyComms<B>) {
+	) -> (Error, BeefyComms<B, N>) {
 		info!(
 			target: LOG_TARGET,
 			"🥩 run BEEFY worker, best grandpa: #{:?}.",
@@ -896,11 +895,8 @@ where
 						},
 						ResponseInfo::PeerReport(peer_report) => {
 							self.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
-							continue;
 						},
-						ResponseInfo::Pending => {
-							continue;
-						},
+						ResponseInfo::Pending => {},
 					}
 				},
 				justif = block_import_justif.next() => {
@@ -934,13 +930,6 @@ where
 					} else {
 						break Error::VotesGossipStreamTerminated;
 					}
-				},
-				// Process peer reports.
-				report = self.comms.gossip_report_stream.next() => {
-					if let Some(PeerReport { who, cost_benefit }) = report {
-						self.comms.gossip_engine.report(who, cost_benefit);
-					}
-					continue;
 				},
 			}
 
@@ -1054,7 +1043,7 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::{
 		communication::{
-			gossip::GossipValidator,
+			gossip::{tests::TestNetwork, GossipValidator},
 			notification::{BeefyBestBlockStream, BeefyVersionedFinalityProofStream},
 			request_response::outgoing_requests_engine::OnDemandJustificationsEngine,
 		},
@@ -1111,6 +1100,7 @@ pub(crate) mod tests {
 		MmrRootProvider<Block, TestApi>,
 		TestApi,
 		Arc<SyncingService<Block>>,
+		TestNetwork,
 	> {
 		let keystore = create_beefy_keystore(key);
 
@@ -1140,7 +1130,8 @@ pub(crate) mod tests {
 			.take_notification_service(&crate::tests::beefy_gossip_proto_name())
 			.unwrap();
 		let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
-		let (gossip_validator, gossip_report_stream) = GossipValidator::new(known_peers.clone());
+		let gossip_validator =
+			GossipValidator::new(known_peers.clone(), Arc::new(TestNetwork::new().0));
 		let gossip_validator = Arc::new(gossip_validator);
 		let gossip_engine = GossipEngine::new(
 			network.clone(),
@@ -1173,12 +1164,7 @@ pub(crate) mod tests {
 		)
 		.unwrap();
 		let payload_provider = MmrRootProvider::new(api.clone());
-		let comms = BeefyComms {
-			gossip_engine,
-			gossip_validator,
-			gossip_report_stream,
-			on_demand_justifications,
-		};
+		let comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
 		BeefyWorker {
 			backend,
 			runtime: api,
