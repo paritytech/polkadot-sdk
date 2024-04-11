@@ -99,11 +99,11 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
 macro_rules! map_err {
-	($stream:expr, $e:expr, $err_constructor:expr) => {
+	($stream:expr, $worker_info:expr, $e:expr, $err_constructor:expr) => {
 		$e.map_err(|err| {
 			let err: WorkerError = $err_constructor(err.to_string()).into();
 			let io_err = io::Error::new(io::ErrorKind::Other, err.to_string());
-			let _ = send_result::<WorkerResponse, WorkerError>($stream, Err(err));
+			let _ = send_result::<WorkerResponse, WorkerError>($stream, Err(err), $worker_info);
 			io_err
 		})
 	};
@@ -141,6 +141,7 @@ pub fn worker_entrypoint(
 
 			let Handshake { executor_params } = map_err!(
 				&mut stream,
+				worker_info,
 				recv_execute_handshake(&mut stream),
 				InternalValidationError::HostCommunication
 			)?;
@@ -151,6 +152,7 @@ pub fn worker_entrypoint(
 			loop {
 				let (params, execution_timeout) = map_err!(
 					&mut stream,
+					worker_info,
 					recv_request(&mut stream),
 					InternalValidationError::HostCommunication
 				)?;
@@ -165,18 +167,21 @@ pub fn worker_entrypoint(
 				// Get the artifact bytes.
 				let compiled_artifact_blob = map_err!(
 					&mut stream,
+					worker_info,
 					std::fs::read(&artifact_path),
 					InternalValidationError::CouldNotOpenFile
 				)?;
 
 				let (pipe_read_fd, pipe_write_fd) = map_err!(
 					&mut stream,
+					worker_info,
 					pipe2_cloexec(),
 					InternalValidationError::CouldNotCreatePipe
 				)?;
 
 				let usage_before = map_err!(
 					&mut stream,
+					worker_info,
 					nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
 						.map_err(|errno| stringify_errno("getrusage before", errno)),
 					InternalValidationError::Kernel
@@ -239,7 +244,7 @@ pub fn worker_entrypoint(
 					"worker: sending result to host: {:?}",
 					result
 				);
-				send_result(&mut stream, result)?;
+				send_result(&mut stream, result, worker_info)?;
 			}
 		},
 	);

@@ -28,9 +28,6 @@ pub struct Handshake {
 	pub executor_params: ExecutorParams,
 }
 
-/// The result from the execution worker.
-pub type WorkerResult = Result<WorkerResponse, WorkerError>;
-
 /// The response from the execution worker.
 #[derive(Debug, Encode, Decode)]
 pub struct WorkerResponse {

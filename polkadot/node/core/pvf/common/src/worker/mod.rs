@@ -18,14 +18,15 @@
 
 pub mod security;
 
-use crate::{framed_recv_blocking, framed_send_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET};
+use crate::{
+	framed_recv_blocking, framed_send_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET,
+};
 use cpu_time::ProcessTime;
 use futures::never::Never;
-use parity_scale_codec::{Decode, Encode};
 use nix::{errno::Errno, sys::resource::Usage};
+use parity_scale_codec::{Decode, Encode};
 use std::{
 	any::Any,
-	cell::Cell,
 	fmt::{self},
 	fs::File,
 	io::{self, Read, Write},
@@ -37,10 +38,6 @@ use std::{
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
 };
-
-thread_local! {
-    pub static PID: Cell<u32> = const { Cell::new(0) };
-}
 
 /// Use this macro to declare a `fn main() {}` that will create an executable that can be used for
 /// spawning the desired worker.
@@ -63,11 +60,6 @@ macro_rules! decl_worker_main {
 			use $crate::worker::security;
 
 			$crate::sp_tracing::try_init_simple();
-
-			let worker_pid = std::process::id();
-			PID.with(|pid| {
-				pid.set(worker_pid)
-			})
 
 			let args = std::env::args().collect::<Vec<_>>();
 			if args.len() == 1 {
@@ -576,8 +568,12 @@ pub fn get_total_cpu_usage(rusage: Usage) -> Duration {
 }
 
 /// Get a job response.
-pub fn recv_child_response<T>(received_data: &mut io::BufReader<&[u8]>, context: &'static str) -> io::Result<T> 
-where T: Decode
+pub fn recv_child_response<T>(
+	received_data: &mut io::BufReader<&[u8]>,
+	context: &'static str,
+) -> io::Result<T>
+where
+	T: Decode,
 {
 	let response_bytes = framed_recv_blocking(received_data)?;
 	T::decode(&mut response_bytes.as_slice()).map_err(|e| {
@@ -588,26 +584,27 @@ where T: Decode
 	})
 }
 
-pub fn send_result<T, E>(stream: &mut UnixStream, result: Result<T, E>) -> io::Result<()> 
-where 
-T: std::fmt::Debug, 
-E: std::fmt::Debug + std::fmt::Display,
-Result<T, E>: Encode
+pub fn send_result<T, E>(
+	stream: &mut UnixStream,
+	result: Result<T, E>,
+	worker_info: &WorkerInfo,
+) -> io::Result<()>
+where
+	T: std::fmt::Debug,
+	E: std::fmt::Debug + std::fmt::Display,
+	Result<T, E>: Encode,
 {
-	let worker_pid = PID.with(|pid| {
-		pid.get()
-	});
 	if let Err(ref err) = result {
 		gum::warn!(
 			target: LOG_TARGET,
-			%worker_pid,
+			?worker_info,
 			"worker: error occurred: {}",
 			err
 		);
 	}
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_pid,
+		?worker_info,
 		"worker: sending result to host: {:?}",
 		result
 	);
@@ -615,7 +612,7 @@ Result<T, E>: Encode
 	framed_send_blocking(stream, &result.encode()).map_err(|err| {
 		gum::warn!(
 			target: LOG_TARGET,
-			%worker_pid,
+			?worker_info,
 			"worker: error occurred sending result to host: {}",
 			err
 		);

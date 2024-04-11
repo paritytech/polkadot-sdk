@@ -230,7 +230,7 @@ pub fn worker_entrypoint(
 					Err(errno) => {
 						let result: PrepareWorkerResult =
 							Err(error_from_errno("getrusage before", errno));
-						send_result(&mut stream, result)?;
+						send_result(&mut stream, result, worker_info)?;
 						continue
 					},
 				};
@@ -290,7 +290,7 @@ pub fn worker_entrypoint(
 					"worker: sending result to host: {:?}",
 					result
 				);
-				send_result(&mut stream, result)?;
+				send_result(&mut stream, result, worker_info)?;
 			}
 		},
 	);
