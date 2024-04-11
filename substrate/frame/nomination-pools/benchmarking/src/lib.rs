@@ -994,46 +994,36 @@ frame_benchmarking::benchmarks! {
 		// this queries agent balance if `DelegateStake` strategy.
 		assert!(T::StakeAdapter::total_balance(&pool_account) == deposit_amount);
 	}
-/*
+
 	claim_delegation {
-		// we want to bench the scenario where pool has some unapplied slash but the member does not
-		// have any unapplied slash.
-		let deposit_amount = Pools::<T>::depositor_min_bond() * 10u32.into();
-		// Create a pool with 1000 tokens staked.
+		// create a pool.
+		let deposit_amount = Pools::<T>::depositor_min_bond() * 2u32.into();
 		let (depositor, pool_account) = create_pool_account::<T>(0, deposit_amount, None);
+		let depositor_lookup = T::Lookup::unlookup(depositor.clone());
 
-		// slash pool by half
-		let slash_amount: u128 = deposit_amount.into()/2;
-		pallet_staking::slashing::do_slash::<T>(
-			&pool_account,
-			slash_amount.into(),
-			&mut pallet_staking::BalanceOf::<T>::zero(),
-			&mut pallet_staking::NegativeImbalanceOf::<T>::zero(),
-			EraIndex::zero()
-		);
+		// migrate pool to transfer stake.
+		let _ = migrate_to_transfer_stake::<T>(1);
 
-		pallet_staking::CurrentEra::<T>::put(1);
+		// Now migrate pool to delegate stake keeping delegators unmigrated.
+		let migration_res = Pools::<T>::migrate_to_delegate_stake(1);
+		assert!(is_transfer_stake_strategy::<T>() ^ migration_res.is_ok());
 
-		// new member joins the pool who should not be affected by slash.
-		let min_join_bond = MinJoinBond::<T>::get().max(CurrencyOf::<T>::minimum_balance());
-		let join_amount = min_join_bond * T::MaxUnbonding::get().into() * 2u32.into();
-		let joiner = create_funded_user_with_balance::<T>("joiner", 0, join_amount * 2u32.into());
-		let joiner_lookup = T::Lookup::unlookup(joiner.clone());
-		assert!(Pools::<T>::join(RuntimeOrigin::Signed(joiner.clone()).into(), join_amount, 1).is_ok());
+		// verify balances that we will check again later.
+		assert!(T::StakeAdapter::member_delegation_balance(&depositor) == Zero::zero());
+		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 
-		// Fill member's sub pools for the worst case.
-		for i in 0..T::MaxUnbonding::get() {
-			pallet_staking::CurrentEra::<T>::put(i + 2); // +2 because we already set the current era to 1.
-			assert!(Pools::<T>::unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone(), Pools::<T>::depositor_min_bond()).is_ok());
-		}
-
-		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 3);
-		whitelist_account!(joiner);
-
+		whitelist_account!(depositor);
 	}: {
-		assert!(Pools::<T>::apply_slash(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone()).is_err());
+		let res = Pools::<T>::claim_delegation(RuntimeOrigin::Signed(depositor.clone()).into(), depositor_lookup.clone());
+		// for transfer stake strategy, apply slash would error, otherwise success.
+		assert!(is_transfer_stake_strategy::<T>() ^ res.is_ok());
 	}
-*/
+	verify {
+		// verify balances once more.
+		assert!(is_transfer_stake_strategy::<T>() || T::StakeAdapter::member_delegation_balance(&depositor) == deposit_amount);
+		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(),

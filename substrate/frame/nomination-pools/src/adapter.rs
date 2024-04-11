@@ -189,7 +189,7 @@ impl<T: Config, Staking: StakingInterface<Balance = BalanceOf<T>, AccountId = T:
 	}
 
 	fn member_delegation_balance(_member_account: &T::AccountId) -> Staking::Balance {
-		defensive!("delegation not supported");
+		// for transfer stake, delegation balance is always zero.
 		Zero::zero()
 	}
 
