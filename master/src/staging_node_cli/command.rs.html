@@ -376,12 +376,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -605,12 +599,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>((cmd.run(client, backend, <span class="prelude-val">Some</span>(aux_revert)), task_manager))
 			})
 		},
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
-		</span><span class="prelude-val">Some</span>(Subcommand::TryRuntime) =&gt; <span class="prelude-val">Err</span>(try_runtime_cli::DEPRECATION_NOTICE.into()),
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;try-runtime&quot;</span>))]
-		</span><span class="prelude-val">Some</span>(Subcommand::TryRuntime) =&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;TryRuntime wasn&#39;t enabled when building the node. \
-				You can enable it with `--features try-runtime`.&quot;
-			</span>.into()),
 		<span class="prelude-val">Some</span>(Subcommand::ChainInfo(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			runner.sync_run(|config| cmd.run::&lt;Block&gt;(<span class="kw-2">&amp;</span>config))

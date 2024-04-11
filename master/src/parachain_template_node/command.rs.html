@@ -534,7 +534,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::net::SocketAddr;
 
 <span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
@@ -753,7 +752,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Benchmarking sub-command unsupported&quot;</span>.into()),
 			}
 		},
-		<span class="prelude-val">Some</span>(Subcommand::TryRuntime) =&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;The `try-runtime` subcommand has been migrated to a standalone CLI (https://github.com/paritytech/try-runtime-cli). It is no longer being maintained here and will be removed entirely some time after January 2024. Please remove this subcommand from your runtime and use the standalone CLI.&quot;</span>.into()),
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(<span class="kw-2">&amp;</span>cli.run.normalize())<span class="question-mark">?</span>;
 			<span class="kw">let </span>collator_options = cli.run.collator_options();

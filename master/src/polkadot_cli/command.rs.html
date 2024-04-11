@@ -638,13 +638,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1123,13 +1116,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		},
 		<span class="prelude-val">Some</span>(Subcommand::Key(cmd)) =&gt; <span class="prelude-val">Ok</span>(cmd.run(<span class="kw-2">&amp;</span>cli)<span class="question-mark">?</span>),
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
-		</span><span class="prelude-val">Some</span>(Subcommand::TryRuntime) =&gt; <span class="prelude-val">Err</span>(try_runtime_cli::DEPRECATION_NOTICE.to_owned().into()),
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;try-runtime&quot;</span>))]
-		</span><span class="prelude-val">Some</span>(Subcommand::TryRuntime) =&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;TryRuntime wasn&#39;t enabled when building the node. \
-				You can enable it with `--features try-runtime`.&quot;
-			</span>.to_owned()
-			.into()),
 		<span class="prelude-val">Some</span>(Subcommand::ChainInfo(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(runner.sync_run(|config| cmd.run::&lt;service::Block&gt;(<span class="kw-2">&amp;</span>config))<span class="question-mark">?</span>)

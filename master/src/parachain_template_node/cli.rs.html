@@ -257,11 +257,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// Sub-commands supported by the collator.
@@ -301,11 +296,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	</span><span class="attr">#[command(subcommand)]
 	</span>Benchmark(frame_benchmarking_cli::BenchmarkCmd),
-
-	<span class="doccomment">/// Try-runtime has migrated to a standalone
-	/// [CLI](&lt;https://github.com/paritytech/try-runtime-cli&gt;). The subcommand exists as a stub and
-	/// deprecation notice. It will be removed entirely some time after January 2024.
-	</span>TryRuntime,
 }
 
 <span class="kw">const </span>AFTER_HELP_EXAMPLE: <span class="kw-2">&amp;</span>str = <span class="macro">color_print::cstr!</span>(

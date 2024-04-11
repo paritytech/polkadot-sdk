@@ -297,11 +297,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -353,11 +348,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	</span><span class="attr">#[command(subcommand)]
 	</span>Benchmark(frame_benchmarking_cli::BenchmarkCmd),
-
-	<span class="doccomment">/// Try-runtime has migrated to a standalone CLI
-	/// (&lt;https://github.com/paritytech/try-runtime-cli&gt;). The subcommand exists as a stub and
-	/// deprecation notice. It will be removed entirely some time after January 2024.
-	</span>TryRuntime,
 
 	<span class="doccomment">/// Key management CLI utilities
 	</span><span class="attr">#[command(subcommand)]

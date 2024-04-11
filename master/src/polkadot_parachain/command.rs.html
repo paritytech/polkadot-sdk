@@ -1227,8 +1227,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1078" id="1078">1078</a>
 <a href="#1079" id="1079">1079</a>
 <a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1780,9 +1778,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisHead(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
-			runner.sync_run(|config| {
-				<span class="macro">construct_partials!</span>(config, |partials| cmd.run(partials.client))
-			})
+			runner
+				.sync_run(|config| <span class="macro">construct_partials!</span>(config, |partials| cmd.run(partials.client)))
 		},
 		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisWasm(cmd)) =&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
@@ -1832,7 +1829,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Benchmarking sub-command unsupported&quot;</span>.into()),
 			}
 		},
-		<span class="prelude-val">Some</span>(Subcommand::TryRuntime) =&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;The `try-runtime` subcommand has been migrated to a standalone CLI (https://github.com/paritytech/try-runtime-cli). It is no longer being maintained here and will be removed entirely some time after January 2024. Please remove this subcommand from your runtime and use the standalone CLI.&quot;</span>.into()),
 		<span class="prelude-val">Some</span>(Subcommand::Key(cmd)) =&gt; <span class="prelude-val">Ok</span>(cmd.run(<span class="kw-2">&amp;</span>cli)<span class="question-mark">?</span>),
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="kw">let </span>runner = cli.create_runner(<span class="kw-2">&amp;</span>cli.run.normalize())<span class="question-mark">?</span>;
