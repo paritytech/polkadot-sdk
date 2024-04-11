@@ -38,7 +38,7 @@
 //!   // Use nightly formatting.
 //!   // See the polkadot-sdk CI job that checks formatting for the current version used in
 //!   // polkadot-sdk.
-//!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2024-01-22"],
+//!   "rust-analyzer.rustfmt.extraArgs": ["+nightly-2024-04-10"],
 //! }
 //! ```
 //!
@@ -79,7 +79,7 @@
 //!     # Use nightly formatting.
 //!     # See the polkadot-sdk CI job that checks formatting for the current version used in
 //!     # polkadot-sdk.
-//!     extraArgs = { "+nightly-2024-01-22" },
+//!     extraArgs = { "+nightly-2024-04-10" },
 //!   },
 //! },
 //! ```
