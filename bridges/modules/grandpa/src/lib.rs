@@ -511,11 +511,11 @@ pub mod pallet {
 	pub fn on_free_header_imported<T: Config<I>, I: 'static>() {
 		FreeHeadersRemaining::<T, I>::mutate(|count| {
 			*count = match *count {
-				// never set to `None` here - the signed extension assumes that it is `None`
-				// outside of block execution - i.e. when transaction is validatied from
-				// the transaction pool
-				Some(count) => Some(count.saturating_sub(1)),
 				None => None,
+				// the signed extension expects that `None` means outside of block
+				// execution - i.e. when transaction is validated from the transaction pool,
+				// so use `saturating_sub` and don't go from `Some(0)`->`None`
+				Some(count) => Some(count.saturating_sub(1)),
 			}
 		});
 	}
