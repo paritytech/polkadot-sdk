@@ -27,8 +27,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len,
-		OnUnbalanced, TryCollect, UnixTime,
+		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance,
+		InspectLockableCurrency, Len, OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -50,8 +50,8 @@ use sp_std::prelude::*;
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	LedgerIntegrityState, MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -82,6 +82,38 @@ impl<T: Config> Pallet<T> {
 	/// Fetches the controller bonded to a stash account, if any.
 	pub fn bonded(stash: &T::AccountId) -> Option<T::AccountId> {
 		StakingLedger::<T>::paired_account(Stash(stash.clone()))
+	}
+
+	/// Inspects and returns the corruption state of a ledger and bond, if any.
+	///
+	/// Note: all operations in this method access directly the `Bonded` and `Ledger` storage maps
+	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
+	pub(crate) fn inspect_bond_state(
+		stash: &T::AccountId,
+	) -> Result<LedgerIntegrityState, Error<T>> {
+		let lock = T::Currency::balance_locked(crate::STAKING_ID, &stash);
+
+		let controller = <Bonded<T>>::get(stash).ok_or_else(|| {
+			if lock == Zero::zero() {
+				Error::<T>::NotStash
+			} else {
+				Error::<T>::BadState
+			}
+		})?;
+
+		match Ledger::<T>::get(controller) {
+			Some(ledger) =>
+				if ledger.stash != *stash {
+					Ok(LedgerIntegrityState::Corrupted)
+				} else {
+					if lock != ledger.total {
+						Ok(LedgerIntegrityState::LockCorrupted)
+					} else {
+						Ok(LedgerIntegrityState::Ok)
+					}
+				},
+			None => Ok(LedgerIntegrityState::CorruptedKilled),
+		}
 	}
 
 	/// The total balance that can be slashed from a stash account as of right now.
@@ -1825,12 +1857,12 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
+		Self::check_ledgers()?;
 		Self::check_bonded_consistency()?;
 		Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
-		Self::check_ledgers()?;
 		Self::check_count()?;
 		Self::ensure_disabled_validators_sorted()
 	}
@@ -1840,6 +1872,7 @@ impl<T: Config> Pallet<T> {
 	/// * A bonded (stash, controller) pair should have only one associated ledger. I.e. if the
 	///   ledger is bonded by stash, the controller account must not bond a different ledger.
 	/// * A bonded (stash, controller) pair must have an associated ledger.
+	///
 	/// NOTE: these checks result in warnings only. Once
 	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved, turn warns into check
 	/// failures.
@@ -1895,7 +1928,7 @@ impl<T: Config> Pallet<T> {
 	/// Invariants:
 	/// * A bonded ledger should always have an assigned `Payee`.
 	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
-	/// * The stash account in the ledger must match that of the bonded acount.
+	/// * The stash account in the ledger must match that of the bonded account.
 	fn check_payees() -> Result<(), TryRuntimeError> {
 		for (stash, _) in Bonded::<T>::iter() {
 			ensure!(Payee::<T>::get(&stash).is_some(), "bonded ledger does not have payee set");
@@ -1934,19 +1967,18 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Invariants:
-	/// * `ledger.controller` is not stored in the storage (but populated at retrieval).
 	/// * Stake consistency: ledger.total == ledger.active + sum(ledger.unlocking).
-	/// * The controller keyeing the ledger and the ledger stash matches the state of the `Bonded`
-	/// storage.
+	/// * The ledger's controller and stash matches the associated `Bonded` tuple.
+	/// * Staking locked funds for every bonded stash should be the same as its ledger's total.
+	/// * Staking ledger and bond are not corrupted.
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
 			.map(|(stash, ctrl)| {
-				// `ledger.controller` is never stored in raw storage.
-				let raw = Ledger::<T>::get(stash).unwrap_or_else(|| {
-					Ledger::<T>::get(ctrl.clone())
-						.expect("try_check: bonded stash/ctrl does not have an associated ledger")
-				});
-				ensure!(raw.controller.is_none(), "raw storage controller should be None");
+				// ensure locks consistency.
+				ensure!(
+					Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+					"bond, ledger and/or staking lock inconsistent for a bonded stash."
+				);
 
 				// ensure ledger consistency.
 				Self::ensure_ledger_consistent(ctrl)

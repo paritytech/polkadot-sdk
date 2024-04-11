@@ -12,16 +12,19 @@ workspace = true
 
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 log = { workspace = true }
 serde = { workspace = true }
 serde_derive = { optional = true, workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 static_assertions = "1.1.0"
 smallvec = "1.8.0"
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
 babe-primitives = { package = "sp-consensus-babe", path = "../../../substrate/primitives/consensus/babe", default-features = false }
 beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/primitives/consensus/beefy", default-features = false }
+grandpa_primitives = { package = "sp-consensus-grandpa", path = "../../../substrate/primitives/consensus/grandpa", default-features = false }
 binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false }
 rococo-runtime-constants = { package = "rococo-runtime-constants", path = "constants", default-features = false }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
@@ -60,7 +63,6 @@ pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-feat
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
 pallet-grandpa = { path = "../../../substrate/frame/grandpa", default-features = false }
 pallet-identity = { path = "../../../substrate/frame/identity", default-features = false }
-pallet-im-online = { path = "../../../substrate/frame/im-online", default-features = false }
 pallet-indices = { path = "../../../substrate/frame/indices", default-features = false }
 pallet-membership = { path = "../../../substrate/frame/membership", default-features = false }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
@@ -104,6 +106,7 @@ polkadot-parachain-primitives = { path = "../../parachain", default-features = f
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 [dev-dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
@@ -126,6 +129,7 @@ std = [
 	"babe-primitives/std",
 	"beefy-primitives/std",
 	"binary-merkle-tree/std",
+	"bitvec/std",
 	"block-builder-api/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
@@ -134,6 +138,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
+	"grandpa_primitives/std",
 	"inherents/std",
 	"log/std",
 	"offchain-primitives/std",
@@ -152,7 +157,6 @@ std = [
 	"pallet-elections-phragmen/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
-	"pallet-im-online/std",
 	"pallet-indices/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
@@ -191,6 +195,7 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"serde_derive",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
@@ -208,6 +213,7 @@ std = [
 	"tx-pool-api/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm-fee-payment-runtime-api/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -226,7 +232,6 @@ runtime-benchmarks = [
 	"pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
-	"pallet-im-online/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
@@ -282,7 +287,6 @@ try-runtime = [
 	"pallet-elections-phragmen/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-identity/try-runtime",
-	"pallet-im-online/try-runtime",
 	"pallet-indices/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",

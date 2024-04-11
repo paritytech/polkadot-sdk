@@ -167,7 +167,7 @@ parameter_types! {
 	pub static SignedPhase: BlockNumber = 10;
 	pub static UnsignedPhase: BlockNumber = 10;
 	// we expect a minimum of 3 blocks in signed phase and unsigned phases before trying
-	// enetering in emergency phase after the election failed.
+	// entering in emergency phase after the election failed.
 	pub static MinBlocksBeforeEmergency: BlockNumber = 3;
 	pub static MaxActiveValidators: u32 = 1000;
 	pub static OffchainRepeat: u32 = 5;
@@ -280,6 +280,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
@@ -663,7 +664,7 @@ pub fn roll_to(n: BlockNumber, delay_solution: bool) {
 		Session::on_initialize(b);
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 
-		// TODO(gpestana): implement a realistic OCW worker insted of simulating it
+		// TODO(gpestana): implement a realistic OCW worker instead of simulating it
 		// https://github.com/paritytech/substrate/issues/13589
 		// if there's no solution queued and the solution should not be delayed, try mining and
 		// queue a solution.

@@ -161,7 +161,7 @@ pub mod pallet {
 		/// Structure holding information about an identity.
 		type IdentityInformation: IdentityInformationProvider;
 
-		/// Maxmimum number of registrars allowed in the system. Needed to bound the complexity
+		/// Maximum number of registrars allowed in the system. Needed to bound the complexity
 		/// of, e.g., updating judgements.
 		#[pallet::constant]
 		type MaxRegistrars: Get<u32>;

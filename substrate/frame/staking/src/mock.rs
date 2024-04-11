@@ -25,8 +25,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
-		OneSessionHandler,
+		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, LockableCurrency,
+		OnUnbalanced, OneSessionHandler, WithdrawReasons,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -790,55 +790,86 @@ pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> 
 	Ok(())
 }
 
+// simulates `set_controller` without corrupted ledger checks for testing purposes.
+pub(crate) fn set_controller_no_checks(stash: &AccountId) {
+	let controller = Bonded::<Test>::get(stash).expect("testing stash should be bonded");
+	let ledger = Ledger::<Test>::get(&controller).expect("testing ledger should exist");
+
+	Ledger::<Test>::remove(&controller);
+	Ledger::<Test>::insert(stash, ledger);
+	Bonded::<Test>::insert(stash, stash);
+}
+
+// simulates `bond_extra` without corrupted ledger checks for testing purposes.
+pub(crate) fn bond_extra_no_checks(stash: &AccountId, amount: Balance) {
+	let controller = Bonded::<Test>::get(stash).expect("bond must exist to bond_extra");
+	let mut ledger = Ledger::<Test>::get(&controller).expect("ledger must exist to bond_extra");
+
+	let new_total = ledger.total + amount;
+	Balances::set_lock(crate::STAKING_ID, stash, new_total, WithdrawReasons::all());
+	ledger.total = new_total;
+	ledger.active = new_total;
+	Ledger::<Test>::insert(controller, ledger);
+}
+
 pub(crate) fn setup_double_bonded_ledgers() {
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(1), 10, RewardDestination::Staked));
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(2), 20, RewardDestination::Staked));
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 20, RewardDestination::Staked));
+	let init_ledgers = Ledger::<Test>::iter().count();
+
+	let _ = Balances::make_free_balance_be(&333, 2000);
+	let _ = Balances::make_free_balance_be(&444, 2000);
+	let _ = Balances::make_free_balance_be(&555, 2000);
+	let _ = Balances::make_free_balance_be(&777, 2000);
+
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(333), 10, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(444), 20, RewardDestination::Staked));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(555), 20, RewardDestination::Staked));
 	// not relevant to the test case, but ensures try-runtime checks pass.
-	[1, 2, 3]
+	[333, 444, 555]
 		.iter()
 		.for_each(|s| Payee::<Test>::insert(s, RewardDestination::Staked));
 
 	// we want to test the case where a controller can also be a stash of another ledger.
 	// for that, we change the controller/stash bonding so that:
-	// * 2 becomes controller of 1.
-	// * 3 becomes controller of 2.
-	// * 4 becomes controller of 3.
-	let ledger_1 = Ledger::<Test>::get(1).unwrap();
-	let ledger_2 = Ledger::<Test>::get(2).unwrap();
-	let ledger_3 = Ledger::<Test>::get(3).unwrap();
+	// * 444 becomes controller of 333.
+	// * 555 becomes controller of 444.
+	// * 777 becomes controller of 555.
+	let ledger_333 = Ledger::<Test>::get(333).unwrap();
+	let ledger_444 = Ledger::<Test>::get(444).unwrap();
+	let ledger_555 = Ledger::<Test>::get(555).unwrap();
 
-	// 4 becomes controller of 3.
-	Bonded::<Test>::mutate(3, |controller| *controller = Some(4));
-	Ledger::<Test>::insert(4, ledger_3);
+	// 777 becomes controller of 555.
+	Bonded::<Test>::mutate(555, |controller| *controller = Some(777));
+	Ledger::<Test>::insert(777, ledger_555);
 
-	// 3 becomes controller of 2.
-	Bonded::<Test>::mutate(2, |controller| *controller = Some(3));
-	Ledger::<Test>::insert(3, ledger_2);
+	// 555 becomes controller of 444.
+	Bonded::<Test>::mutate(444, |controller| *controller = Some(555));
+	Ledger::<Test>::insert(555, ledger_444);
 
-	// 2 becomes controller of 1
-	Bonded::<Test>::mutate(1, |controller| *controller = Some(2));
-	Ledger::<Test>::insert(2, ledger_1);
-	// 1 is not controller anymore.
-	Ledger::<Test>::remove(1);
+	// 444 becomes controller of 333.
+	Bonded::<Test>::mutate(333, |controller| *controller = Some(444));
+	Ledger::<Test>::insert(444, ledger_333);
+
+	// 333 is not controller anymore.
+	Ledger::<Test>::remove(333);
 
 	// checks. now we have:
-	// * 3 ledgers
-	assert_eq!(Ledger::<Test>::iter().count(), 3);
-	// * stash 1 has controller 2.
-	assert_eq!(Bonded::<Test>::get(1), Some(2));
-	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(1)), Some(2));
-	assert_eq!(Ledger::<Test>::get(2).unwrap().stash, 1);
+	// * +3 ledgers
+	assert_eq!(Ledger::<Test>::iter().count(), 3 + init_ledgers);
 
-	// * stash 2 has controller 3.
-	assert_eq!(Bonded::<Test>::get(2), Some(3));
-	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(2)), Some(3));
-	assert_eq!(Ledger::<Test>::get(3).unwrap().stash, 2);
+	// * stash 333 has controller 444.
+	assert_eq!(Bonded::<Test>::get(333), Some(444));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(333)), Some(444));
+	assert_eq!(Ledger::<Test>::get(444).unwrap().stash, 333);
 
-	// * stash 3 has controller 4.
-	assert_eq!(Bonded::<Test>::get(3), Some(4));
-	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(3)), Some(4));
-	assert_eq!(Ledger::<Test>::get(4).unwrap().stash, 3);
+	// * stash 444 has controller 555.
+	assert_eq!(Bonded::<Test>::get(444), Some(555));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(444)), Some(555));
+	assert_eq!(Ledger::<Test>::get(555).unwrap().stash, 444);
+
+	// * stash 555 has controller 777.
+	assert_eq!(Bonded::<Test>::get(555), Some(777));
+	assert_eq!(StakingLedger::<Test>::paired_account(StakingAccount::Stash(555)), Some(777));
+	assert_eq!(Ledger::<Test>::get(777).unwrap().stash, 555);
 }
 
 #[macro_export]

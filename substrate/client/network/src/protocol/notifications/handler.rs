@@ -58,13 +58,11 @@
 //! [`NotifsHandlerIn::Open`] has gotten an answer.
 
 use crate::{
-	protocol::notifications::{
-		service::metrics,
-		upgrade::{
-			NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
-			UpgradeCollec,
-		},
+	protocol::notifications::upgrade::{
+		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
+		UpgradeCollec,
 	},
+	service::metrics::NotificationMetrics,
 	types::ProtocolName,
 };
 
@@ -131,7 +129,7 @@ pub struct NotifsHandler {
 	>,
 
 	/// Metrics.
-	metrics: Option<Arc<metrics::Metrics>>,
+	metrics: Option<Arc<NotificationMetrics>>,
 }
 
 impl NotifsHandler {
@@ -140,7 +138,7 @@ impl NotifsHandler {
 		peer_id: PeerId,
 		endpoint: ConnectedPoint,
 		protocols: Vec<ProtocolConfig>,
-		metrics: Option<metrics::Metrics>,
+		metrics: Option<NotificationMetrics>,
 	) -> Self {
 		Self {
 			protocols: protocols
@@ -211,7 +209,7 @@ enum State {
 	/// consequently trying to open the various notifications substreams.
 	///
 	/// A [`NotifsHandlerOut::OpenResultOk`] or a [`NotifsHandlerOut::OpenResultErr`] event must
-	/// be emitted when transitionning to respectively [`State::Open`] or [`State::Closed`].
+	/// be emitted when transitioning to respectively [`State::Open`] or [`State::Closed`].
 	Opening {
 		/// Substream opened by the remote. If `Some`, has been accepted.
 		in_substream: Option<NotificationsInSubstream<NegotiatedSubstream>>,
@@ -345,7 +343,7 @@ pub enum NotifsHandlerOut {
 #[derive(Debug, Clone)]
 pub struct NotificationsSink {
 	inner: Arc<NotificationsSinkInner>,
-	metrics: Option<Arc<metrics::Metrics>>,
+	metrics: Option<Arc<NotificationMetrics>>,
 }
 
 impl NotificationsSink {
@@ -372,7 +370,7 @@ impl NotificationsSink {
 	}
 
 	/// Get reference to metrics.
-	pub fn metrics(&self) -> &Option<Arc<metrics::Metrics>> {
+	pub fn metrics(&self) -> &Option<Arc<NotificationMetrics>> {
 		&self.metrics
 	}
 }
@@ -799,6 +797,9 @@ impl ConnectionHandler for NotifsHandler {
 		// performed before the code paths that can produce `Ready` (with some rare exceptions).
 		// Importantly, however, the flush is performed *after* notifications are queued with
 		// `Sink::start_send`.
+		// Note that we must call `poll_flush` on all substreams and not only on those we
+		// have called `Sink::start_send` on, because `NotificationsOutSubstream::poll_flush`
+		// also reports the substream termination (even if no data was written into it).
 		for protocol_index in 0..self.protocols.len() {
 			match &mut self.protocols[protocol_index].state {
 				State::Open { out_substream: out_substream @ Some(_), .. } => {
@@ -841,7 +842,7 @@ impl ConnectionHandler for NotifsHandler {
 				State::OpenDesiredByRemote { in_substream, pending_opening } =>
 					match NotificationsInSubstream::poll_process(Pin::new(in_substream), cx) {
 						Poll::Pending => {},
-						Poll::Ready(Ok(void)) => match void {},
+						Poll::Ready(Ok(())) => {},
 						Poll::Ready(Err(_)) => {
 							self.protocols[protocol_index].state =
 								State::Closed { pending_opening: *pending_opening };
@@ -857,7 +858,7 @@ impl ConnectionHandler for NotifsHandler {
 						cx,
 					) {
 						Poll::Pending => {},
-						Poll::Ready(Ok(void)) => match void {},
+						Poll::Ready(Ok(())) => {},
 						Poll::Ready(Err(_)) => *in_substream = None,
 					},
 			}
