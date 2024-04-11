@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712837435397,
+  "lastUpdate": 1712843226317,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3379,6 +3379,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.15391874796666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez",
+            "email": "oliver.tale-yazdi@parity.io"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "832570545b0311f533499ead57d764a2bc04145c",
+          "message": "Fix link check (#4074)\n\nCloses #4041\n\nChanges:\n- Increase cache size and reduce retries.\n- Ignore Substrate SE links :(\n- Fix broken link.\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2024-04-11T10:55:42Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/832570545b0311f533499ead57d764a2bc04145c"
+        },
+        "date": 1712843200548,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18479.926666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010047565920000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.01221242923333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025694231780000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15383937414,
             "unit": "seconds"
           }
         ]
