@@ -169,7 +169,7 @@ impl<T: Config> Pallet<T> {
 
 		ledger.total += extra;
 		ledger.active += extra;
-		// Last check: the new active amount of ledger must be more than ED.
+		// last check: the new active amount of ledger must be more than ED.
 		ensure!(ledger.active >= T::Currency::minimum_balance(), Error::<T>::InsufficientBond);
 
 		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
