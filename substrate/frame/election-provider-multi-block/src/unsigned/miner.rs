@@ -691,7 +691,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 		page: PageIndex,
 		solution: SolutionOf<T>,
 		partial_score: ElectionScore,
-		full_score: ElectionScore,
+		claimed_full_score: ElectionScore,
 	) -> Result<(), OffchainMinerError> {
 		sublog!(
 			debug,
@@ -699,7 +699,7 @@ impl<T: UnsignedConfig> OffchainWorkerMiner<T> {
 			"miner submitting a solution as an unsigned transaction"
 		);
 
-		let call = Call::submit_page_unsigned { page, solution, partial_score, full_score };
+		let call = Call::submit_page_unsigned { page, solution, partial_score, claimed_full_score };
 		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
 			call.into(),
 		)

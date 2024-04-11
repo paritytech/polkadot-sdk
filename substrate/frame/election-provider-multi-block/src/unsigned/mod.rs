@@ -105,8 +105,8 @@ pub(crate) mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::submit_page_unsigned { page, solution, partial_score, full_score } = call {
-				Self::validate_inherent(page, solution, partial_score, full_score)
+			if let Call::submit_page_unsigned { page, solution, partial_score, claimed_full_score } = call {
+				Self::validate_inherent(page, solution, partial_score, claimed_full_score)
 			} else {
 				InvalidTransaction::Call.into()
 			}
@@ -136,22 +136,16 @@ pub(crate) mod pallet {
 			page: PageIndex,
 			solution: SolutionOf<T>,
 			partial_score: ElectionScore,
-			full_score: ElectionScore,
+			claimed_full_score: ElectionScore,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
+			// TODO
 			// Check if score is an improvement, the current phase, page index and other paged
 			// solution metadata checks.
 			//Self::pre_dispatch_checks(&raw_solution).expect(error_message);
-
-			// Ensure the weight witness matches the paged solution provided.
-			// TODO: how to do it partially?
-			// let SolutionOrSnapshotSize { voters, targets } =
-			//  Self::snapshot_metadata().expect(error_message);
-
-			// TODO: block author -> slash validator.
 
 			// The verifier will store the paged solution, if valid.
 			let _ = <T::Verifier as verifier::Verifier>::verify_synchronous(
@@ -165,7 +159,7 @@ pub(crate) mod pallet {
 			// on the queued paged solutions.
 			if page == EPM::<T>::lsp() {
 				<T::Verifier as verifier::AsyncVerifier>::force_finalize_async_verification(
-					full_score,
+					claimed_full_score,
 				)
 				.expect(error_message);
 			}
@@ -256,7 +250,7 @@ impl<T: Config> Pallet<T> {
 		page: &PageIndex,
 		solution: &SolutionOf<T>,
 		partial_score: &ElectionScore,
-		full_score: &ElectionScore,
+		claimed_full_score: &ElectionScore,
 	) -> TransactionValidity {
 		// TODO: perform checks, etc
 		ValidTransaction::with_tag_prefix("ElectionOffchainWorker")
