@@ -330,6 +330,9 @@ pub trait StakingUnsafe: StakingInterface {
 		payee: &Self::AccountId,
 	) -> DispatchResult;
 
+	/// Migrate a virtual staker to a direct staker.
+	///
+	/// Only used for testing.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn migrate_to_direct_staker(who: &Self::AccountId);
 }
