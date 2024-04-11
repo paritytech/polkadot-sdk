@@ -76,6 +76,7 @@ pub trait WeightInfo {
 	fn apply_slash() -> Weight;
 	fn apply_slash_fail() -> Weight;
 	fn claim_delegation() -> Weight;
+	fn pool_migrate() -> Weight;
 }
 
 /// Weights for `pallet_nomination_pools` using the Substrate node and recommended hardware.
@@ -682,6 +683,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// will be updated by bench bot
 		Weight::default()
 	}
+
+	fn pool_migrate() -> Weight {
+		// will be updated by bench bot
+		Weight::default()
+	}
 }
 
 // For backwards compatibility and tests.
@@ -1283,6 +1289,11 @@ impl WeightInfo for () {
 	}
 
 	fn claim_delegation() -> Weight {
+		// will be updated by bench bot
+		Weight::default()
+	}
+
+	fn pool_migrate() -> Weight {
 		// will be updated by bench bot
 		Weight::default()
 	}

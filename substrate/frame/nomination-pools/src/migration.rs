@@ -118,7 +118,6 @@ pub mod unversioned {
 	/// sequence and hence can be applied unversioned on a production runtime.
 	pub struct DelegationStakeMigration<T>(sp_std::marker::PhantomData<T>);
 
-	// FIXME(ank4n) convert to MBM.
 	impl<T: Config> OnRuntimeUpgrade for DelegationStakeMigration<T> {
 		fn on_runtime_upgrade() -> Weight {
 			if StakeStrategyType::<T>::get() == adapter::StakeStrategyType::Transfer {
@@ -135,11 +134,23 @@ pub mod unversioned {
 				}
 			});
 
+			log!(
+				info,
+				"migrated {:?} pools and failed to migrate {:?} pools.",
+				migrate_count,
+				fail_count
+			);
+
 			// mark migrated to Delegate Strategy.
 			StakeStrategyType::<T>::put(adapter::StakeStrategyType::Delegate);
 
-			// TODO(ank4n) bench `migrate_to_delegate_stake`.
-			Weight::default()
+			let count = migrate_count.saturating_add(fail_count);
+
+			T::WeightInfo::pool_migrate().saturating_mul(count.into()).saturating_add(
+				// reads: count of bonded pools
+				// writes: One write to set the StakeStrategyType.
+				T::DbWeight::get().reads_writes(count.into(), 1u64),
+			)
 		}
 
 		#[cfg(feature = "try-runtime")]

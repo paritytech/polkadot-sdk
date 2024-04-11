@@ -654,4 +654,9 @@ impl<T: frame_system::Config> pallet_nomination_pools::WeightInfo for WeightInfo
 		// will be updated by bench bot
 		Weight::default()
 	}
+
+	fn pool_migrate() -> Weight {
+		// will be updated by bench bot
+		Weight::default()
+	}
 }
