@@ -16,7 +16,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
+use sp_application_crypto::{
+	key_types::BEEFY as BEEFY_KEY_TYPE,
+	key_types::ETF as ETF_KEY_TYPE,
+	AppCrypto, 
+	RuntimeAppPublic
+};
 use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
 use sp_core::ecdsa;
 #[cfg(feature = "bls-experimental")]
@@ -29,6 +34,11 @@ use sp_keystore::KeystorePtr;
 use codec::Decode;
 use log::{info, warn};
 use std::marker::PhantomData;
+
+use etf_crypto_primitives::{
+	proofs::hashed_el_gamal_sigma::BatchPoK,
+	dpss::acss::HighThresholdACSS
+};
 
 use crate::{error, LOG_TARGET};
 
@@ -200,37 +210,51 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 		BeefyAuthorityId::<BeefySignatureHasher>::verify(public, sig, message)
 	}
 
-	/// ACSS Recovery over bls377
-	pub fn recover(
-		&self, 
+	/// produces a BLS signature on the message 
+	/// using ETF round keys derived ad-hoc (via ACSS.Recover)
+	pub fn etf_sign(
+		&self,
 		public: &AuthorityId,
-		pok: &[u8],
-	) -> Result<bls377::Public, error::Error> {
-		info!("ETF: trying to run acss recovery");
+		pok_bytes: &[u8],
+		message: &[u8],
+	) -> Result<<AuthorityId as RuntimeAppPublic>::Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))
 			.map_err(|_| ())
 			.unwrap();
-		
+
 		let public: bls377::Public =
 			bls377::Public::try_from(public.as_slice()).unwrap();
-		
-		if let Some(Some(pubkey)) = store.acss_recover(
+
+		let sig = store.acss_recover(
 			BEEFY_KEY_TYPE, 
 			&public, 
-			pok
-		).ok() {
-			return Ok(pubkey);
-		}
-		Err(error::Error::Signature(format!(
-			"invalid signature [] for key {:?}", public
-		)))
-	}
-}
+			pok_bytes,
+			message,
+		).map_err(|_| {
+			error::Error::Signature(format!(
+				"Failed to recover a key from the provided proof of knowledge"
+			))
+		})?;
 
-use etf_crypto_primitives::{
-	proofs::hashed_el_gamal_sigma::BatchPoK,
-	dpss::acss::HighThresholdACSS
-};
+		let mut signature_byte_array: &[u8] = sig.as_ref();
+		// should this be runtimeapppublic instead?
+		let signature = <AuthorityId as RuntimeAppPublic>::Signature::decode(
+			&mut signature_byte_array,
+		)
+		// let signature = bls377::Signature::decode(
+		// 	&mut signature_byte_array,
+		// )
+		.map_err(|_| {
+			error::Error::Signature(format!(
+				"invalid signature {:?} for key {:?}",
+				signature_byte_array, public
+			))
+		})?;
+
+		Ok(signature)
+	}
+
+}
 
 impl<AuthorityId: AuthorityIdBound> From<Option<KeystorePtr>> for BeefyKeystore<AuthorityId>
 where

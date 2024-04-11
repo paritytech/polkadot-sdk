@@ -3012,19 +3012,36 @@ impl_runtime_apis! {
 				.map(sp_consensus_beefy::OpaqueKeyOwnershipProof::new)
 		}
 
-		// #[cfg(feature = "etf")]
-		// fn submit_report_commitment_unsigned_extrinsic(value: u8) -> Option<()> {
-		// 	Beefy::submit_unsigned_commitment(value)
-		// }
-
-		#[cfg(feature = "etf")]
-		fn read_share(at: u8) -> Option<Vec<u8>> {
-			let shares = pallet_beefy::Shares::<Runtime>::get();
-			if at as usize >= shares.len() {
-				return None;
+		fn read_share(who: BeefyId) -> Option<Vec<u8>> {
+			let authorities = pallet_beefy::Authorities::<Runtime>::get();
+			if let Some(at) = authorities.iter().position(|auth| auth.eq(&who)) {
+				let shares = pallet_beefy::Shares::<Runtime>::get();
+				if at as usize >= shares.len() {
+					return None;
+				}
+				return Some(shares[at as usize].clone().into_inner());
 			}
-			Some(shares[at as usize].clone().into_inner())
-			// Beefy::read_share(at)
+			None
+		}
+
+		fn read_commitment(who: BeefyId) -> Option<BeefyId> {
+
+			let authorities = pallet_beefy::Authorities::<Runtime>::get();
+			if let Some(at) = authorities.iter().position(|auth| auth.eq(&who)) {
+				let commitments = pallet_beefy::Commitments::<Runtime>::get();
+				if at as usize >= commitments.len() {
+					return None;
+				}
+				return Some(commitments[at as usize].clone());
+			}
+			None
+
+
+			// let commitments = pallet_beefy::Commitments::<Runtime>::get();
+			// if at as usize >= commitments.len() {
+			// 	return None;
+			// }
+			// Some(commitments[at as usize].clone().into_inner())
 		}
 	}
 

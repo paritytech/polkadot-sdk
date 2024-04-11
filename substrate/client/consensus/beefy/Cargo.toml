@@ -45,6 +45,7 @@ tokio = "1.22.0"
 etf-crypto-primitives = { git = "https://github.com/ideal-lab5/etf-sdk.git", branch = "dpss-noscale" }
 ark-serialize = { version = "0.4.0" }
 ark-bls12-377 = { version = "0.4.0", features = ["curve"], optional = true}
+w3f-bls = { path = "../../../../../bls" }
 
 
 [dev-dependencies]

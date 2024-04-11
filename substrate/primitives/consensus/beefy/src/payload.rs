@@ -31,6 +31,8 @@ pub mod known_payloads {
 	///
 	/// Encoded value should contain a [`crate::MmrRootHash`] type (i.e. 32-bytes hash).
 	pub const MMR_ROOT_ID: BeefyPayloadId = *b"mh";
+
+	pub const ETF_SIGNATURE: BeefyPayloadId = *b"ef";
 }
 
 /// A BEEFY payload type allowing for future extensibility of adding additional kinds of payloads.

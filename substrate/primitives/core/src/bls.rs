@@ -122,8 +122,10 @@ impl<T: BlsBound> CryptoType for Signature<T> {
 	type Pair = Pair<T>;
 }
 
-/// A key pair.
-pub struct Pair<T: EngineBLS>(Keypair<T>);
+/// A key pair. -> I had to make this public... maybe that isn't right but will leave for now
+/// this can be made private again after I cleanup the etf-crypto-primtiives to work
+/// within the context of the w3f-bls lib
+pub struct Pair<T: EngineBLS>(pub Keypair<T>);
 
 impl<T: EngineBLS> Clone for Pair<T> {
 	fn clone(&self) -> Self {
@@ -146,16 +148,16 @@ impl<T: EngineBLS> Pair<T> {
 		let mut mutable_self = self.clone();
 		if let Ok(pok) = etf_crypto_primitives::proofs::hashed_el_gamal_sigma::BatchPoK::<T::SignatureGroup>::
 			deserialize_compressed(&pok_bytes[..]) {
-				if let Some(recovered) = DoublePublicKeyScheme::acss_recover(
-					&mut mutable_self.0, 
-					pok
-				) {
-					let secret = w3f_bls::SecretKeyVT(recovered).into_split_dirty();
-					let public = secret.into_public();
-					return Some(Pair(w3f_bls::Keypair {
-						secret, public,
-					}));
-				}
+			if let Some(recovered) = DoublePublicKeyScheme::acss_recover(
+				&mut mutable_self.0, 
+				pok
+			) {
+				let secret = w3f_bls::SecretKeyVT(recovered).into_split_dirty();
+				let public = secret.into_public();
+				return Some(Pair(w3f_bls::Keypair {
+					secret, public,
+				}));
+			}
 		}
 		None
 	}
@@ -210,20 +212,6 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 				.expect("Signature serializer returns vectors of SIGNATURE_SERIALIZED_SIZE size");
 		Self::Signature::unchecked_from(r)
 	}
-	
-	// #[cfg(feature = "etf")]
-	// fn acss_recover(&self, pok_bytes: &[u8]) -> Option<Self> {
-	// 	if let Some(pok) = BatchPoK::deserialize_compressed(&pok_bytes[..]) {
-	// 		if let Some(recovered) = DoublePublicKeyScheme::recover(
-	// 			&mut mutable_self.0, 
-	// 			&pok_bytes
-	// 		) {
-	// 			// todo: omit the blinding secret for now
-	// 			return Some(Pair(w3f_bls::SecretKey::from(recovered.0)));
-	// 		}
-	// 	}
-	// 	None
-	// }
 
 	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, pubkey: &Self::Public) -> bool {
 		let pubkey_array: [u8; PUBLIC_KEY_SERIALIZED_SIZE] =

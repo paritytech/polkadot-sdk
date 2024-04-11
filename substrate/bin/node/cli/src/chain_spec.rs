@@ -18,7 +18,7 @@
 
 //! Substrate chain configurations.
 
-use beefy_primitives::bls_crypto::AuthorityId as BeefyId;
+use beefy_primitives::bls_crypto::{AuthorityId as BeefyId, Public as BeefyPublic};
 use grandpa_primitives::AuthorityId as GrandpaId;
 use kitchensink_runtime::{
 	constants::currency::*, wasm_binary_unwrap, Block, MaxNominations, SessionKeys, StakerStatus,
@@ -37,6 +37,11 @@ use sp_runtime::{
 	Perbill,
 	RuntimeAppPublic,
 };
+
+use w3f_bls::{
+    single_pop_aggregator::SignatureAggregatorAssumingPoP, DoublePublicKeyScheme, EngineBLS, Keypair, Message, PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
+};
+
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
@@ -254,6 +259,12 @@ pub fn staging_testnet_config() -> ChainSpec {
 }
 
 /// Helper function to generate a crypto pair from seed.
+pub fn get_pair_from_seed<TPublic: Public>(seed: &str) -> TPublic::Pair {
+	TPublic::Pair::from_string(&format!("//{}", seed), None)
+		.expect("static values are valid; qed")
+}
+
+/// Helper function to generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
@@ -267,6 +278,15 @@ where
 {
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
+
+/// Helper function to generate an account ID from seed.
+pub fn get_account_id_from_raw<TPublic: Public>(seed: &str) -> AccountId
+where
+	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+{
+	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+}
+
 
 /// Helper function to generate stash, controller and session key from seed.
 pub fn authority_keys_from_seed(
@@ -313,7 +333,7 @@ fn configure_accounts(
 	Vec<AccountId>,
 	usize,
 	Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
-	Vec<(BeefyId, Vec<u8>)>
+	Vec<(BeefyId, BeefyId, Vec<u8>)>
 ) {
 	let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
 		vec![
@@ -363,31 +383,53 @@ fn configure_accounts(
 
 	let num_endowed_accounts = endowed_accounts.len();
 
-	let genesis_shares = etf_genesis(initial_authorities.iter().map(|x| x.7.clone()).collect::<Vec<_>>());
+	let genesis_shares = etf_genesis(
+		initial_authorities.iter().map(|x| x.7.clone()).collect::<Vec<_>>(),
+		vec!["Alice", "Bob"],
+	);
 	(initial_authorities, endowed_accounts, num_endowed_accounts, stakers, genesis_shares)
 }
 
 /// Helper function to prepare initial secrets and resharing for ETF conensus
-pub fn etf_genesis(initial_authorities: Vec<BeefyId>) -> Vec<(BeefyId, Vec<u8>)> {
+/// return a vec of (authority id, resharing, pubkey commitment)
+pub fn etf_genesis(
+	initial_authorities: Vec<BeefyId>, 
+	seeds: Vec<&str>
+) -> Vec<(BeefyId, BeefyId, Vec<u8>)> {
 	let msk = ark_bls12_377::Fr::rand(&mut OsRng);
 	let msk_prime = ark_bls12_377::Fr::rand(&mut OsRng);
+
 	let genesis_resharing = HighThresholdACSS::reshare(
 		msk, 
 		msk_prime, 
 		&initial_authorities.iter().map(|authority| {
-			ark_bls12_377::G1Projective::deserialize_compressed(&authority.to_raw_vec()[..]).unwrap()
+			// NO: that's 144 bytes, we only want the first 48 of them (48 + 96 bytes for both keypairs)
+			ark_bls12_377::G1Projective::deserialize_compressed(
+				&authority.to_raw_vec()[..48]
+			).unwrap()
 		}).collect::<Vec<_>>(), 
 		initial_authorities.len() as u8, 
 		&mut OsRng,
 	);
-	// a little redundant
-	// if I can cleanup conversions between BeefyId and bls377 group elements
-	// then this could be much better
+
 	initial_authorities.iter().enumerate().map(|(idx, auth)| {
-		let data = &genesis_resharing[idx].1;
+		let pok = &genesis_resharing[idx].1;
 		let mut bytes = Vec::new();
-		data.serialize_compressed(&mut bytes).unwrap();
-		(auth.clone(), bytes)
+		pok.serialize_compressed(&mut bytes).unwrap();
+
+		let seed = seeds[idx];
+		// let alice_secret = w3f_bls::SecretKey::<TinyBLS377>::from_seed(format!("//{}", seed.clomne));
+		// let alice_public = alice_secret.into_public();
+
+		// let mut alice_kp = w3f_bls::Keypair {
+		// 	secret: alice_secret, 
+		// 	public: alice_public
+		// };
+		let test = get_pair_from_seed::<BeefyId>(seed);
+		let t = sp_core::bls::Pair::<TinyBLS377>::from(test);
+		let o = t.acss_recover(&bytes).expect("genesis shares should be well formatted");
+		let etf_id = BeefyId::from(o.public());
+		(auth.clone(), etf_id, bytes)
 	}).collect::<Vec<_>>()
 }
 

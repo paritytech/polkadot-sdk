@@ -16444,6 +16444,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "w3f-bls",
  "wasm-timer",
 ]
 
@@ -20129,6 +20130,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "try-runtime-cli",
+ "w3f-bls",
  "wait-timeout",
  "wat",
 ]

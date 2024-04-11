@@ -1130,6 +1130,8 @@ pub mod key_types {
 	pub const STATEMENT: KeyTypeId = KeyTypeId(*b"stmt");
 	/// Key type for Mixnet module, used to sign key-exchange public keys. Identified as `mixn`.
 	pub const MIXNET: KeyTypeId = KeyTypeId(*b"mixn");
+	/// Key type for ETF module, used to produce threshold BLS signatures. Identified as `etfn`.
+	pub const ETF: KeyTypeId = KeyTypeId(*b"etfn");
 	/// A key type ID useful for tests.
 	pub const DUMMY: KeyTypeId = KeyTypeId(*b"dumy");
 }

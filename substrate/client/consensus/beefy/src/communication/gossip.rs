@@ -23,10 +23,11 @@ use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorCon
 use sp_runtime::traits::{Block, Hash, Header, NumberFor};
 
 use codec::{Decode, DecodeAll, Encode};
-use log::{debug, trace};
+use log::{debug, trace, info};
 use parking_lot::{Mutex, RwLock};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use wasm_timer::Instant;
+
 
 use crate::{
 	communication::{
@@ -303,10 +304,30 @@ where
 				return Action::Discard(cost::UNKNOWN_VOTER)
 			}
 		}
+	
+		// recover the signature bytes from the payload
+		let raw_etf_payload = vote.commitment.payload.get_raw(
+				&sp_consensus_beefy::known_payloads::ETF_SIGNATURE
+			).expect("its ok for now");
+		
+		let etf_sig: Signature = Signature::decode(
+				&mut sp_runtime::traits::TrailingZeroInput::new(&raw_etf_payload))
+				.ok()
+				.unwrap();
 
-		if BeefyKeystore::verify(&vote.id, &vote.signature, &vote.commitment.encode()) {
+		if BeefyKeystore::verify(&vote.id, &vote.signature, &vote.commitment.encode())
+			// && BeefyKeystore::verify(&vote.id, &etf_sig, &round.to_string().as_bytes()) 
+			{
+				info!(
+					target: LOG_TARGET,
+					"🎲 The etf signature was verified!",
+				);
 			Action::Keep(self.votes_topic, benefit::VOTE_MESSAGE)
 		} else {
+			info!(
+				target: LOG_TARGET,
+				"🎲 The etf signature WAS NOT verified! AH FUCK!~!!!!!!!!!!!!!!!!!!",
+			);
 			debug!(
 				target: LOG_TARGET,
 				"🥩 Bad signature on message: {:?}, from: {:?}", vote, sender

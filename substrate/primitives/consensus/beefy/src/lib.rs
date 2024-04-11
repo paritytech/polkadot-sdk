@@ -464,11 +464,11 @@ sp_api::decl_runtime_apis! {
 			authority_id: AuthorityId,
 		) -> Option<OpaqueKeyOwnershipProof>;
 
-		/// TODO
-		// fn submit_report_commitment_unsigned_extrinsic(value: u8) -> Option<()>;
+		/// ready a proof of knowledge from the Shares storage map
+		fn read_share(who: AuthorityId) -> Option<Vec<u8>>;
 
-		// #[cfg(feature = "etf")]
-		fn read_share(at: u8) -> Option<Vec<u8>>;
+		/// read a commitment from the Commitments storage map
+		fn read_commitment(who: AuthorityId) -> Option<AuthorityId>;
 	}
 
 }

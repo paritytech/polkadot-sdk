@@ -81,7 +81,7 @@ sc-network-sync = { path = "../../../client/network/sync" }
 sc-network-statement = { path = "../../../client/network/statement" }
 sc-consensus-slots = { path = "../../../client/consensus/slots" }
 sc-consensus-babe = { path = "../../../client/consensus/babe" }
-beefy = { package = "sc-consensus-beefy", path = "../../../client/consensus/beefy", features = ["bls-experimental", "etf"]}
+beefy = { package = "sc-consensus-beefy", path = "../../../client/consensus/beefy", features = ["bls-experimental"]}
 grandpa = { package = "sc-consensus-grandpa", path = "../../../client/consensus/grandpa" }
 mmr-gadget = { path = "../../../client/merkle-mountain-range" }
 sc-rpc = { path = "../../../client/rpc" }
@@ -124,6 +124,7 @@ ark-std = "0.4.0"
 ark-serialize = "0.4.0"
 ark-bls12-377 = { version = "0.4.0", features = ["curve"] }
 sp-application-crypto = { path = "../../../primitives/application-crypto" }
+w3f-bls = { path = "../../../../../bls" }
 
 [dev-dependencies]
 sc-keystore = { path = "../../../client/keystore" }

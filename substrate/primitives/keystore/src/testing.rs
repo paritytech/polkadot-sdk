@@ -364,9 +364,15 @@ impl Keystore for MemoryKeystore {
 		&self,
 		key_type: KeyTypeId,
 		public: &bls377::Public,
-		pok: &[u8]
-	) -> Result<Option<bls377::Public>, Error> {
-		Ok(None)
+		pok: &[u8],
+		msg: &[u8]
+	) -> Result<bls377::Signature, Error> {
+		// let sig = self
+		// 	.pair::<bls377::Pair>(key_type, public)
+		// 	.map(|pair| pair.sign(msg));
+		// Ok(sig)
+		// Ok(None)
+		Err(Error::Unavailable)
 	}
 
 	fn insert(&self, key_type: KeyTypeId, suri: &str, public: &[u8]) -> Result<(), ()> {

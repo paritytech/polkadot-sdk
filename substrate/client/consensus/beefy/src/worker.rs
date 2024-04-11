@@ -36,6 +36,7 @@ use futures::{stream::Fuse, FutureExt, StreamExt};
 use log::{debug, error, info, log_enabled, trace, warn};
 use sc_client_api::{Backend, FinalityNotification, FinalityNotifications, HeaderBackend};
 use sc_utils::notification::NotificationReceiver;
+use sp_application_crypto::UncheckedFrom;
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
 use sp_consensus::SyncOracle;
@@ -43,8 +44,9 @@ use sp_consensus_beefy::{
 	check_equivocation_proof,
 	bls_crypto::{AuthorityId, Signature},
 	BeefyApi, BeefySignatureHasher, Commitment, EquivocationProof, PayloadProvider, ValidatorSet,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID, Payload, known_payloads,
 };
+use sp_core::bls377;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header, NumberFor, Zero},
@@ -54,6 +56,10 @@ use std::{
 	collections::{BTreeMap, BTreeSet, VecDeque},
 	fmt::Debug,
 	sync::Arc,
+};
+
+use w3f_bls::{
+    single_pop_aggregator::SignatureAggregatorAssumingPoP, DoublePublicKeyScheme, EngineBLS, Keypair, Message, PublicKey, PublicKeyInSignatureGroup, Signed, TinyBLS, TinyBLS377,
 };
 
 use ark_serialize::CanonicalDeserialize;
@@ -245,23 +251,26 @@ impl<B: Block> VoterOracle<B> {
 	/// return `None` if there is no block we should vote on.
 	pub fn voting_target(&self) -> Option<NumberFor<B>> {
 		let rounds = self.sessions.front().or_else(|| {
-			debug!(target: LOG_TARGET, "🥩 No voting round started");
+			info!(target: LOG_TARGET, "🥩 No voting round started");
 			None
 		})?;
 		let best_grandpa = *self.best_grandpa_block_header.number();
 		let best_beefy = self.best_beefy_block;
 
-		// `target` is guaranteed > `best_beefy` since `min_block_delta` is at least `1`.
-		let target =
-			vote_target(best_grandpa, best_beefy, rounds.session_start(), self.min_block_delta);
-		trace!(
-			target: LOG_TARGET,
-			"🥩 best beefy: #{:?}, best finalized: #{:?}, current_vote_target: {:?}",
-			best_beefy,
-			best_grandpa,
-			target
-		);
-		target
+		// // `target` is guaranteed > `best_beefy` since `min_block_delta` is at least `1`.
+		// let target =
+		// 	vote_target(best_grandpa, best_beefy, rounds.session_start(), self.min_block_delta);
+		// info!(
+		// 	target: LOG_TARGET,
+		// 	"🥩 best beefy: #{:?}, best finalized: #{:?}, current_vote_target: {:?}",
+		// 	best_beefy,
+		// 	best_grandpa,
+		// 	target
+		// );
+		// target
+		
+		// lets see...
+		Some(best_grandpa)
 	}
 }
 
@@ -391,6 +400,9 @@ pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub persisted_state: PersistedState<B>,
 	/// BEEFY voter metrics
 	pub metrics: Option<VoterMetrics>,
+
+	/// the ETFN session public key for this node
+	pub etf_session_pubkey: Option<bls377::Public>, // TODO: remove
 }
 
 impl<B, BE, P, R, S> BeefyWorker<B, BE, P, R, S>
@@ -554,11 +566,15 @@ where
 		&mut self,
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> Result<Option<BeefyVersionedFinalityProof<B>>, Error> {
+
+		info!("TONY IN HANDLE_VOTE");
+
 		let rounds = self.persisted_state.voting_oracle.active_rounds_mut()?;
 
 		let block_number = vote.commitment.block_number;
 		match rounds.add_vote(vote) {
 			VoteImportResult::RoundConcluded(signed_commitment) => {
+				info!("TONY IN HANDLE_VOTE: ROUND CONCLUDED");
 				let finality_proof = VersionedFinalityProof::V1(signed_commitment);
 				debug!(
 					target: LOG_TARGET,
@@ -571,6 +587,7 @@ where
 				return Ok(Some(finality_proof))
 			},
 			VoteImportResult::Ok => {
+				info!("TONY IN HANDLE_VOTE: VOTE IMPORT OK");
 				// Persist state after handling mandatory block vote.
 				if self
 					.voting_oracle()
@@ -685,28 +702,6 @@ where
 
 	/// Decide if should vote, then vote.. or don't..
 	fn try_to_vote(&mut self) -> Result<(), Error> {
-
-		// let hash = self
-		// 	.backend
-		// 	.blockchain()
-		// 	.expect_block_hash_from_id(&BlockId::Number(self.best_grandpa_block()))
-		// 	.map_err(|err| {
-		// 		let err_msg = format!(
-		// 			"Couldn't get hash for block #{:?} (error: {:?}), skipping vote..",
-		// 			self.best_grandpa_block(), err
-		// 		);
-		// 		Error::Backend(err_msg)
-		// 	}).unwrap();
-		// info!(
-		// 	target: LOG_TARGET,
-		// 	"************************ ETF: TRY TO VOTE",
-		// );
-		// self.runtime
-		// 	.runtime_api()
-		// 	.submit_report_commitment_unsigned_extrinsic(
-		// 		hash,
-		// 		1u8
-		// );
 		// Vote if there's now a new vote target.
 		if let Some(target) = self.voting_oracle().voting_target() {
 			metric_set!(self.metrics, beefy_should_vote_on, target);
@@ -750,12 +745,12 @@ where
 		};
 		let target_hash = target_header.hash();
 
-		let payload = if let Some(hash) = self.payload_provider.payload(&target_header) {
-			hash
-		} else {
-			warn!(target: LOG_TARGET, "🥩 No MMR root digest found for: {:?}", target_hash);
-			return Ok(())
-		};
+		// let payload = if let Some(hash) = self.payload_provider.payload(&target_header) {
+		// 	hash
+		// } else {
+		// 	warn!(target: LOG_TARGET, "🥩 No MMR root digest found for: {:?}", target_hash);
+		// 	return Ok(())
+		// };
 
 		let rounds = self.persisted_state.voting_oracle.active_rounds_mut()?;
 		let (validators, validator_set_id) = (rounds.validators(), rounds.validator_set_id());
@@ -770,35 +765,56 @@ where
 			);
 			return Ok(())
 		};
-
-		// log!(target: LOG_TARGET, "trying to sign the round number with ETF key");
-		// // let's try to sign the round number with the ETF key
-		// let etf_signature = match self.key_store.sign()
-
-
+		
+		let payload = Payload::from_single_entry(known_payloads::ETF_SIGNATURE, Vec::new());
 		let commitment = Commitment { payload, block_number: target_number, validator_set_id };
 		let encoded_commitment = commitment.encode();
 
-		let signature = match self.key_store.sign(&authority_id, &encoded_commitment) {
-			Ok(sig) => sig,
-			Err(err) => {
-				warn!(target: LOG_TARGET, "🥩 Error signing commitment: {:?}", err);
+		let signature = match self.etf_extract(
+			target_hash, 
+			authority_id.clone(), 
+			&encoded_commitment,
+		) {
+			Some(sig) => sig,
+			None => {
+				warn!(target: LOG_TARGET, "🥩 Error calculating ETF signature");
 				return Ok(())
 			},
 		};
+		
+		let etf_authority_id = self.runtime.runtime_api()
+			.read_commitment(target_hash, authority_id.clone())
+			.ok()
+			.unwrap()
+			.expect("todo");
 
-		trace!(
+		info!(
 			target: LOG_TARGET,
 			"🥩 Produced signature using {:?}, is_valid: {:?}",
 			authority_id,
-			BeefyKeystore::verify(&authority_id, &signature, &encoded_commitment)
+			BeefyKeystore::<AuthorityId>::verify(
+				&etf_authority_id, 
+				&signature, 
+				&encoded_commitment
+			)
 		);
 
-		let vote = VoteMessage { commitment, id: authority_id, signature };
+		// if it was valid then we instantly schedule the next round
+		// let next_round_number: NumberFor<B> = 1u64.into();
+		// self.persisted_state.voting_oracle.add_session(
+		// 	Rounds::new(
+		// 		next_round_number, 
+		// 		
+		// 	));
+
+		// self.init_session_at(rounds.validator_set().clone(), NumberFor<B>::TryFrom);
+
+		let vote = VoteMessage { commitment, id: etf_authority_id, signature };
 		if let Some(finality_proof) = self.handle_vote(vote.clone()).map_err(|err| {
 			error!(target: LOG_TARGET, "🥩 Error handling self vote: {}", err);
 			err
 		})? {
+			info!("TONY ***************** CREATED THE FINALITY PROOF WOO");
 			let encoded_proof = GossipMessage::<B>::FinalityProof(finality_proof).encode();
 			self.comms
 				.gossip_engine
@@ -808,6 +824,7 @@ where
 			debug!(target: LOG_TARGET, "🥩 Sent vote message: {:?}", vote);
 			let encoded_vote = GossipMessage::<B>::Vote(vote).encode();
 			self.comms.gossip_engine.gossip_message(votes_topic::<B>(), encoded_vote, false);
+			info!("TONY ***************** GOSSIPED VOTE WOO");
 		}
 
 		// Persist state after vote to avoid double voting in case of voter restarts.
@@ -822,7 +839,6 @@ where
 		if let Err(err) = self.try_pending_justifications() {
 			debug!(target: LOG_TARGET, "🥩 {}", err);
 		}
-
 		// Don't bother voting or requesting justifications during major sync.
 		if !self.sync.is_major_syncing() {
 			// There were external events, 'state' is changed, author a vote if needed/possible.
@@ -832,10 +848,39 @@ where
 			// If the current target is a mandatory block,
 			// make sure there's also an on-demand justification request out for it.
 			if let Some((block, active)) = self.voting_oracle().mandatory_pending() {
+				// TONY TODO: could this be why I'm not getting finalized heads?
 				// This only starts new request if there isn't already an active one.
 				self.comms.on_demand_justifications.request(block, active);
 			}
 		}
+	}
+
+	/// execute the ETF extract algorithm
+	/// outputs a (threshold) IBE secret and corresponding DLEQ proof
+	fn etf_extract(
+		&mut self,
+		hash: B::Hash,
+		id: AuthorityId,
+		message: &[u8]
+	) 
+	-> Option<Signature>
+	{
+		let runtime_api = self.runtime.runtime_api();
+		
+		info!(
+			target: LOG_TARGET,
+			"🎲 run ACSS recovery at best grandpa: #{:?}.",
+			hash
+		);
+		if let Some(Some(validator_set)) = runtime_api.validator_set(hash).ok() {
+			if let Some(Some(pok_bytes)) = runtime_api.read_share(hash, id.clone()).ok() {
+				if let Ok(sig)  = self.key_store.etf_sign(&id, &pok_bytes, &message) {
+					return Some(sig);
+				}
+			}
+		}
+
+		None
 	}
 
 	/// Main loop for BEEFY worker.
@@ -852,53 +897,6 @@ where
 			"🥩 run BEEFY worker, best grandpa: #{:?}.",
 			self.best_grandpa_block()
 		);
-		
-		let hash = self
-			.backend
-			.blockchain()
-			.expect_block_hash_from_id(&BlockId::Number(self.best_grandpa_block()))
-			.map_err(|err| {
-				let err_msg = format!(
-					"Couldn't get hash for block #{:?} (error: {:?}), skipping vote..",
-					self.best_grandpa_block(), err
-				);
-				Error::Backend(err_msg)
-			}).unwrap();
-
-		let runtime_api = self.runtime.runtime_api();
-		
-		info!(
-			target: LOG_TARGET,
-			"🎲 run ACSS recovery at best grandpa: #{:?}.",
-			hash
-		);
-
-		let rounds = self.persisted_state.voting_oracle.active_rounds().unwrap();
-
-		if let Some(id) = self.key_store.authority_id(rounds.validators()) {
-			info!(target: LOG_TARGET, "🎲 Local authority id: {:?}", id);
-			if let Some(Some(validator_set)) = runtime_api.validator_set(hash).ok() {
-				let idx = validator_set.validators().iter().position(|r| r.eq(&id)).unwrap();
-				info!(target: LOG_TARGET, "🎲 Found index: {:?}", idx);
-				if let Some(Some(pok_bytes)) = runtime_api.read_share(hash, idx as u8).ok() {
-					let pok = 
-						etf_crypto_primitives::proofs::hashed_el_gamal_sigma::
-							BatchPoK::<ark_bls12_377::G1Projective>::
-								deserialize_compressed(&pok_bytes[..]).unwrap();
-					info!(target: LOG_TARGET, "🎲 Found pok: {:?}", pok);
-
-					let pubkey = self.key_store.recover(
-						&id, 
-						&pok_bytes,
-					);
-					info!(
-						target: LOG_TARGET, 
-						"🎲 ACSS Recovery found public key commitment: {:?}", 
-						pubkey,
-					);
-				}
-			}
-		}
 
 		let mut votes = Box::pin(
 			self.comms
@@ -1265,7 +1263,7 @@ pub(crate) mod tests {
 			beefy_genesis,
 		)
 		.unwrap();
-		let payload_provider = MmrRootProvider::new(api.clone());
+		let payload_provider = MmRootProvider::new(api.clone());
 		let comms = BeefyComms {
 			gossip_engine,
 			gossip_validator,

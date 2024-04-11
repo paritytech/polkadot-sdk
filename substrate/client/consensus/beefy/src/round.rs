@@ -123,6 +123,9 @@ where
 		&mut self,
 		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 	) -> VoteImportResult<B> {
+
+		info!("TONY CALLING ADD VOTE");
+
 		let num = vote.commitment.block_number;
 		let vote_key = (vote.id.clone(), num);
 
@@ -170,6 +173,8 @@ where
 		{
 			if let Some(round) = self.rounds.remove_entry(&vote.commitment) {
 				return VoteImportResult::RoundConcluded(self.signed_commitment(round))
+			} else {
+				info!("TONY ROUND NOT CONCLUDED BUT WE DID TRY!");
 			}
 		}
 		VoteImportResult::Ok

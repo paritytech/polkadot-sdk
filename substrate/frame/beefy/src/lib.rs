@@ -143,10 +143,11 @@ pub mod pallet {
 	pub type Shares<T: Config> = 
 		StorageValue<_, BoundedVec<BoundedVec<u8, ConstU32<1024>>, T::MaxAuthorities>, ValueQuery>;
 
-	/// public commitments of the outputs of ACSS recovery for the current round
+	/// public commitments of the the expected validator to etf pubkey
+	/// assumes order follows the same as the Authorities StorageValue 
 	#[pallet::storage]
 	pub type Commitments<T: Config> = 
-		StorageValue<_, BoundedVec<u8, T::MaxAuthorities>, ValueQuery>;
+		StorageValue<_, BoundedVec<T::BeefyId, T::MaxAuthorities>, ValueQuery>;
 
 	/// A mapping from BEEFY set ID to the index of the *most recent* session for which its
 	/// members were responsible.
@@ -178,7 +179,7 @@ pub mod pallet {
 		/// to guarantee the client gets a finality notification for exactly this block.
 		pub genesis_block: Option<BlockNumberFor<T>>,
 		/// (beefy id, commitment, BatchPoK (which technically contains the commitment...))
-		pub genesis_resharing: Vec<(T::BeefyId, Vec<u8>)>
+		pub genesis_resharing: Vec<(T::BeefyId, T::BeefyId, Vec<u8>)>
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -186,7 +187,11 @@ pub mod pallet {
 			// BEEFY genesis will be first BEEFY-MANDATORY block,
 			// use block number one instead of chain-genesis.
 			let genesis_block = Some(One::one());
-			Self { authorities: Vec::new(), genesis_block, genesis_resharing: Vec::new() }
+			Self { 
+				authorities: Vec::new(), 
+				genesis_block, 
+				genesis_resharing: Vec::new(),
+			}
 		}
 	}
 
@@ -197,7 +202,8 @@ pub mod pallet {
 				// we panic here as runtime maintainers can simply reconfigure genesis and restart
 				// the chain easily
 				.expect("Authorities vec too big");
-			Pallet::<T>::initialize_genesis_shares(&self.genesis_resharing);
+			Pallet::<T>::initialize_genesis_shares(&self.genesis_resharing)
+				.expect("The genesis resharing should be correctly derived");
 			GenesisBlock::<T>::put(&self.genesis_block);
 		}
 	}
@@ -414,20 +420,29 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn initialize_genesis_shares(genesis_resharing: &Vec<(T::BeefyId, Vec<u8>)>) {
+	fn initialize_genesis_shares(
+		genesis_resharing: &Vec<(T::BeefyId, T::BeefyId, Vec<u8>)>
+	) -> Result<(), ()>  {
 		// TODO: we need to convert back to BatchPoks and get the pubkey commitments
 		// then we need to aggregate them and encode it onchain
 
 		// let mut round_pubkey = ark_bls12_377::G1Projective::zero();
 		let mut unbounded_shares: Vec<BoundedVec<u8, ConstU32<1024>>> = Vec::new();
+		let mut unbounded_commitments: Vec<T::BeefyId> = Vec::new();
 		// let mut shares:  = Vec::new();
-		genesis_resharing.iter().for_each(|(public, pok_bytes)| {
+		genesis_resharing.iter().for_each(|(public, commitment, pok_bytes)| {
 
 			let bounded_pok =
 				BoundedVec::<u8, ConstU32<1024>>::try_from(pok_bytes.clone())
 					.expect("genesis poks should be well formatted");
 			
 			unbounded_shares.push(bounded_pok);
+
+			// let bounded_commitment =
+			// 	BoundedVec::<u8, ConstU32<1024>>::try_from(commitment_bytes.clone())
+			// 		.expect("genesis commitments should be well formatted");
+
+			// unbounded_commitments.push(commitment.clone());
 
 			// let pok: BatchPoK<ark_bls12_377::G1Projective> = 
 			// 	BatchPoK::deserialize_compressed(&pok_bytes[..])
@@ -439,6 +454,16 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::<BoundedVec<u8, ConstU32<1024>>, T::MaxAuthorities>::try_from(unbounded_shares)
 				.expect("There should be the correct number of genesis resharings");
 		<Shares<T>>::put(bounded_shares);
+
+		let bounded_commitments =
+			BoundedVec::<T::BeefyId, T::MaxAuthorities>::try_from(
+				genesis_resharing.iter()
+					.map(|g| g.1.clone())
+					.collect::<Vec<_>>()
+			).map_err(|_| ())?;
+
+		Commitments::<T>::put(bounded_commitments);
+		Ok(())
 	}
 }
 

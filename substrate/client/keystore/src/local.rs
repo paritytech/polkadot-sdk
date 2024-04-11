@@ -20,6 +20,7 @@
 use parking_lot::RwLock;
 use sp_application_crypto::{AppCrypto, AppPair, IsWrappedBy};
 use sp_core::{
+	Decode,
 	crypto::{ByteArray, ExposeSecret, KeyTypeId, Pair as CorePair, SecretString, VrfSecret},
 	ecdsa, ed25519, sr25519,
 };
@@ -38,6 +39,7 @@ use sp_core::bandersnatch;
 
 sp_keystore::bls_experimental_enabled! {
 use sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
+use sp_core::crypto::key_types::ETF as ETF_KEY_TYPE;
 }
 
 use crate::{Error, Result};
@@ -112,31 +114,6 @@ impl LocalKeystore {
 			.map(|pair| pair.sign(msg));
 		Ok(signature)
 	}
-
-	/// run the ACSS recovery algorithm
-	/// outputs the public key  (commitment) to two secrets
-	// #[cfg(feature = "etf")]
-	// fn acss_recover<T: CorePair>(
-	// 	&self, 
-	// 	key_type: KeyTypeId,
-	// 	public: &T::Public,
-	// 	pok_bytes: &[u8],
-	// ) -> std::result::Result<Option<T::Public>, TraitError>  {
-	// 	let mut recovered = None;
-
-	// 	#[cfg(feature = "etf")]
-	// 	let recovered = self.0
-	// 		.read()
-	// 		.key_pair_by_type::<T>(public, key_type)?
-	// 		.map(|pair| pair.acss_recover(pok_bytes.clone()));
-
-	// 	if recover.is_some() {
-	// 		self.0.insert_ephemeral_pair(recovered, pok_bytes, key_type);
-	// 	} // else error?
-
-	// 	Ok(recovered.public())
-	// }
-
 
 	fn vrf_sign<T: CorePair + VrfSecret>(
 		&self,
@@ -448,38 +425,19 @@ impl Keystore for LocalKeystore {
 			key_type: KeyTypeId,
 			public: &bls377::Public,
 			pok_bytes: &[u8],
-		) -> std::result::Result<Option<bls377::Public>, TraitError>  {
-			let mut pubkey = None;
-
-			// #[cfg(feature = "etf")]
-			let recovered = self.0
-				.read()
+			message: &[u8],
+		) -> std::result::Result<bls377::Signature, TraitError>  {
+			if let Some(Some(etf_pair)) = self.0.read()
 				.key_pair_by_type::<bls377::Pair>(public, key_type)?
-				.map(|pair| pair.acss_recover(pok_bytes.clone()));
-				
-			if let Some(pair) = recovered {
-				let pair = pair.expect("should be ok");
-				self.0.write().insert_ephemeral_pair(&pair, std::str::from_utf8(b"").unwrap(), key_type);
-				pubkey = Some(pair.public());
+				.map(|pair| pair.acss_recover(pok_bytes.clone())) {
+				// "IBE.Extract" Q = s*H(message) + DLEQ Proof
+				let extract = etf_pair.sign(&message);
+				// let pk = etf_pair.public();
+				return Ok(extract);
 			}
-			// if pubkey.is_some() {
-			// 	self.0.insert_ephemeral_pair(, pok_bytes, key_type);
-			// } // else error?
 
-			Ok(pubkey)
+			Err(TraitError::KeyNotSupported(ETF_KEY_TYPE))
 		}
-
-		// fn acss_recover(
-		// 	&self,
-		// 	key_type: KeyTypeId,
-		// 	public: &bls377::Public,
-		// 	pok_bytes: &[u8]
-		// ) -> std::result::Result<Option<bls377::Public>, TraitError> {
-		// 	let mut out = None;
-		// 	// let out = self.acss_recover(key_type, public, pok_bytes);
-		// 	Ok(out)
-		// 	// out
-		// }
 	}
 }
 
