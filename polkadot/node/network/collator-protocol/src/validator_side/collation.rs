@@ -31,6 +31,7 @@ use std::{collections::VecDeque, future::Future, pin::Pin, task::Poll};
 
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
 	request_response::{outgoing::RequestError, v1 as request_v1, OutgoingResult},
 	PeerId,
 };
@@ -40,7 +41,8 @@ use polkadot_node_subsystem_util::{
 	metrics::prometheus::prometheus::HistogramTimer, runtime::ProspectiveParachainsMode,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CollatorId, Hash, Id as ParaId, PersistedValidationData,
+	CandidateHash, CandidateReceipt, CollatorId, Hash, HeadData, Id as ParaId,
+	PersistedValidationData,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -119,7 +121,7 @@ impl PendingCollation {
 	}
 }
 
-/// v2 advertisement that was rejected by the backing
+/// v2 or v3 advertisement that was rejected by the backing
 /// subsystem. Validator may fetch it later if its fragment
 /// membership gets recognized before relay parent goes out of view.
 #[derive(Debug, Clone)]
@@ -142,6 +144,7 @@ pub fn fetched_collation_sanity_check(
 	advertised: &PendingCollation,
 	fetched: &CandidateReceipt,
 	persisted_validation_data: &PersistedValidationData,
+	maybe_parent_head_and_hash: Option<(HeadData, Hash)>,
 ) -> Result<(), SecondingError> {
 	if persisted_validation_data.hash() != fetched.descriptor().persisted_validation_data_hash {
 		Err(SecondingError::PersistedValidationDataMismatch)
@@ -150,6 +153,8 @@ pub fn fetched_collation_sanity_check(
 		.map_or(false, |pc| pc.candidate_hash() != fetched.hash())
 	{
 		Err(SecondingError::CandidateHashMismatch)
+	} else if maybe_parent_head_and_hash.map_or(false, |(head, hash)| head.hash() != hash) {
+		Err(SecondingError::ParentHeadDataMismatch)
 	} else {
 		Ok(())
 	}
@@ -160,6 +165,8 @@ pub fn fetched_collation_sanity_check(
 pub struct CollationEvent {
 	/// Collator id.
 	pub collator_id: CollatorId,
+	/// The network protocol version the collator is using.
+	pub collator_protocol_version: CollationVersion,
 	/// The requested collation data.
 	pub pending_collation: PendingCollation,
 }
@@ -173,6 +180,9 @@ pub struct PendingCollationFetch {
 	pub candidate_receipt: CandidateReceipt,
 	/// Proof of validity.
 	pub pov: PoV,
+	/// Optional parachain parent head data.
+	/// Only needed for elastic scaling.
+	pub maybe_parent_head_data: Option<HeadData>,
 }
 
 /// The status of the collations in [`CollationsPerRelayParent`].
@@ -307,6 +317,8 @@ pub(super) struct CollationFetchRequest {
 	pub pending_collation: PendingCollation,
 	/// Collator id.
 	pub collator_id: CollatorId,
+	/// The network protocol version the collator is using.
+	pub collator_protocol_version: CollationVersion,
 	/// Responses from collator.
 	pub from_collator: BoxFuture<'static, OutgoingResult<request_v1::CollationFetchingResponse>>,
 	/// Handle used for checking if this request was cancelled.
@@ -334,6 +346,7 @@ impl Future for CollationFetchRequest {
 			self.span.as_mut().map(|s| s.add_string_tag("success", "false"));
 			return Poll::Ready((
 				CollationEvent {
+					collator_protocol_version: self.collator_protocol_version,
 					collator_id: self.collator_id.clone(),
 					pending_collation: self.pending_collation,
 				},
@@ -344,6 +357,7 @@ impl Future for CollationFetchRequest {
 		let res = self.from_collator.poll_unpin(cx).map(|res| {
 			(
 				CollationEvent {
+					collator_protocol_version: self.collator_protocol_version,
 					collator_id: self.collator_id.clone(),
 					pending_collation: self.pending_collation,
 				},
@@ -352,7 +366,7 @@ impl Future for CollationFetchRequest {
 		});
 
 		match &res {
-			Poll::Ready((_, Ok(request_v1::CollationFetchingResponse::Collation(..)))) => {
+			Poll::Ready((_, Ok(_))) => {
 				self.span.as_mut().map(|s| s.add_string_tag("success", "true"));
 			},
 			Poll::Ready((_, Err(_))) => {

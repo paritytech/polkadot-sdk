@@ -28,8 +28,8 @@ use frame_support::{
 		tokens::{fungible, BalanceStatus as Status, Fortitude::Polite, Precision::BestEffort},
 		Currency, DefensiveSaturating, ExistenceRequirement,
 		ExistenceRequirement::AllowDeath,
-		Get, Imbalance, LockIdentifier, LockableCurrency, NamedReservableCurrency,
-		ReservableCurrency, SignedImbalance, TryDrop, WithdrawReasons,
+		Get, Imbalance, InspectLockableCurrency, LockIdentifier, LockableCurrency,
+		NamedReservableCurrency, ReservableCurrency, SignedImbalance, TryDrop, WithdrawReasons,
 	},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -100,6 +100,11 @@ mod imbalances {
 			mem::forget(self);
 			(Self(first), Self(second))
 		}
+		fn extract(&mut self, amount: T::Balance) -> Self {
+			let new = self.0.min(amount);
+			self.0 = self.0 - new;
+			Self(new)
+		}
 		fn merge(mut self, other: Self) -> Self {
 			self.0 = self.0.saturating_add(other.0);
 			mem::forget(other);
@@ -158,6 +163,11 @@ mod imbalances {
 
 			mem::forget(self);
 			(Self(first), Self(second))
+		}
+		fn extract(&mut self, amount: T::Balance) -> Self {
+			let new = self.0.min(amount);
+			self.0 = self.0 - new;
+			Self(new)
 		}
 		fn merge(mut self, other: Self) -> Self {
 			self.0 = self.0.saturating_add(other.0);
@@ -906,5 +916,14 @@ where
 		let mut locks = Self::locks(who);
 		locks.retain(|l| l.id != id);
 		Self::update_locks(who, &locks[..]);
+	}
+}
+
+impl<T: Config<I>, I: 'static> InspectLockableCurrency<T::AccountId> for Pallet<T, I> {
+	fn balance_locked(id: LockIdentifier, who: &T::AccountId) -> Self::Balance {
+		Self::locks(who)
+			.into_iter()
+			.filter(|l| l.id == id)
+			.fold(Zero::zero(), |acc, l| acc + l.amount)
 	}
 }

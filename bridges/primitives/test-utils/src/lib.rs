@@ -16,6 +16,7 @@
 
 //! Utilities for testing runtime code.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_header_chain::justification::{required_justification_precommits, GrandpaJustification};
@@ -33,8 +34,11 @@ pub use keyring::*;
 
 mod keyring;
 
+/// GRANDPA round number used across tests.
 pub const TEST_GRANDPA_ROUND: u64 = 1;
+/// GRANDPA validators set id used across tests.
 pub const TEST_GRANDPA_SET_ID: SetId = 1;
+/// Name of the `Paras` pallet used across tests.
 pub const PARAS_PALLET_NAME: &str = "Paras";
 
 /// Configuration parameters when generating test GRANDPA justifications.
@@ -84,7 +88,7 @@ pub fn make_default_justification<H: HeaderT>(header: &H) -> GrandpaJustificatio
 /// Generate justifications in a way where we are able to tune the number of pre-commits
 /// and vote ancestries which are included in the justification.
 ///
-/// This is useful for benchmarkings where we want to generate valid justifications with
+/// This is useful for benchmarks where we want to generate valid justifications with
 /// a specific number of pre-commits (tuned with the number of "authorities") and/or a specific
 /// number of vote ancestries (tuned with the "votes" parameter).
 ///
@@ -125,7 +129,7 @@ pub fn make_justification_for_header<H: HeaderT>(
 			votes_ancestries.push(child.clone());
 		}
 
-		// The header we need to use when pre-commiting is the one at the highest height
+		// The header we need to use when pre-committing is the one at the highest height
 		// on our chain.
 		let precommit_candidate = chain.last().map(|h| (h.hash(), *h.number())).unwrap();
 		unsigned_precommits.push(precommit_candidate);
@@ -190,7 +194,7 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
 
-	(root, ParaHeadsProof(storage_proof), parachains)
+	(root, ParaHeadsProof { storage_proof }, parachains)
 }
 
 /// Create signed precommit with given target.

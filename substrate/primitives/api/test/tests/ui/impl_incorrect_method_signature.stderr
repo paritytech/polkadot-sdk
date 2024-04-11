@@ -1,3 +1,21 @@
+error[E0603]: struct `RuntimeVersion` is private
+  --> tests/ui/impl_incorrect_method_signature.rs:37:27
+   |
+37 |         fn version() -> sp_api::RuntimeVersion {
+   |                                 ^^^^^^^^^^^^^^ private struct
+   |
+note: the struct `RuntimeVersion` is defined here
+  --> $WORKSPACE/substrate/primitives/api/src/lib.rs
+   |
+   | use sp_version::RuntimeVersion;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: consider importing one of these items instead
+   |
+37 |         fn version() -> sp_api::__private::RuntimeVersion {
+   |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+37 |         fn version() -> sp_version::RuntimeVersion {
+   |                         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 error[E0053]: method `test` has an incompatible type for trait
   --> tests/ui/impl_incorrect_method_signature.rs:33:17
    |

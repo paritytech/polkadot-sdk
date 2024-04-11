@@ -1,6 +1,6 @@
 [package]
 name = "sp-mmr-primitives"
-version = "4.0.0-dev"
+version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,38 +8,41 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Merkle Mountain Range primitives."
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+log = { workspace = true }
 mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.5.2", default-features = false }
-serde = { version = "1.0.188", features = ["derive", "alloc"], default-features = false, optional = true }
-sp-api = { path = "../api", default-features = false}
-sp-core = { path = "../core", default-features = false}
-sp-debug-derive = { path = "../debug-derive", default-features = false}
-sp-runtime = { path = "../runtime", default-features = false}
-sp-std = { path = "../std", default-features = false}
-thiserror = "1.0"
+serde = { features = ["alloc", "derive"], optional = true, workspace = true }
+sp-api = { path = "../api", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-debug-derive = { path = "../debug-derive", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
+thiserror = { optional = true, workspace = true }
 
 [dev-dependencies]
 array-bytes = "6.1"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
+	"dep:thiserror",
 	"log/std",
 	"mmr-lib/std",
+	"scale-info/std",
 	"serde/std",
 	"sp-api/std",
 	"sp-core/std",
 	"sp-debug-derive/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 
 # Serde support without relying on std features.
-serde = [ "dep:serde", "scale-info/serde", "sp-core/serde", "sp-runtime/serde" ]
+serde = ["dep:serde", "scale-info/serde", "sp-core/serde", "sp-runtime/serde"]

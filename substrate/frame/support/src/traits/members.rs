@@ -137,6 +137,14 @@ impl<A, B, These: ContainsPair<A, B>, Those: ContainsPair<A, B>> ContainsPair<A,
 	}
 }
 
+/// An implementation of [`Contains`] which contains only equal members to `T`.
+pub struct Equals<T>(PhantomData<T>);
+impl<X: PartialEq, T: super::Get<X>> Contains<X> for Equals<T> {
+	fn contains(t: &X) -> bool {
+		t == &T::get()
+	}
+}
+
 /// Create a type which implements the `Contains` trait for a particular type with syntax similar
 /// to `matches!`.
 #[macro_export]
@@ -287,6 +295,13 @@ pub trait RankedMembers {
 	/// Demote a member to the next lower rank; demoting beyond the `min_rank` removes the
 	/// member entirely.
 	fn demote(who: &Self::AccountId) -> DispatchResult;
+}
+
+/// Handler that can deal with the swap of two members.
+#[impl_trait_for_tuples::impl_for_tuples(16)]
+pub trait RankedMembersSwapHandler<AccountId, Rank> {
+	/// Member `old` was swapped with `new` at `rank`.
+	fn swapped(who: &AccountId, new_who: &AccountId, rank: Rank);
 }
 
 /// Trait for type that can handle the initialization of account IDs at genesis.

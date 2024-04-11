@@ -19,12 +19,9 @@
 //! we treat the light-client as a normal JsonRPC target.
 
 use futures::{channel::mpsc::Sender, prelude::*, stream::FuturesUnordered};
-use jsonrpsee::core::{
-	client::{
-		Client as JsonRpseeClient, ClientBuilder, ClientT, ReceivedMessage, TransportReceiverT,
-		TransportSenderT,
-	},
-	Error,
+use jsonrpsee::core::client::{
+	Client as JsonRpseeClient, ClientBuilder, ClientT, Error, ReceivedMessage, TransportReceiverT,
+	TransportSenderT,
 };
 use smoldot_light::{ChainId, Client as SmoldotClient, JsonRpcResponses};
 use std::{num::NonZeroU32, sync::Arc};
@@ -48,7 +45,7 @@ const MAX_SUBSCRIPTIONS: u32 = 64;
 
 #[derive(thiserror::Error, Debug)]
 enum LightClientError {
-	#[error("Error occured while executing smoldot request: {0}")]
+	#[error("Error occurred while executing smoldot request: {0}")]
 	SmoldotError(String),
 	#[error("Nothing returned from json_rpc_responses")]
 	EmptyResult,

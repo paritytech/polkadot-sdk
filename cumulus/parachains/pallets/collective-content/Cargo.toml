@@ -1,15 +1,19 @@
 [package]
 name = "pallet-collective-content"
-version = "0.1.0"
+version = "0.6.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 description = "Managed content"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
-frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", optional = true, default-features = false }
+frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
 
@@ -21,7 +25,7 @@ sp-std = { path = "../../../../substrate/primitives/std", default-features = fal
 sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",

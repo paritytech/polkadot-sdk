@@ -24,7 +24,7 @@ use futures::{
 	future::{ready, Ready},
 };
 use sc_transaction_pool::*;
-use sp_core::blake2_256;
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},

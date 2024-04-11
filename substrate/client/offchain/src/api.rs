@@ -22,7 +22,8 @@ use crate::NetworkProvider;
 use codec::{Decode, Encode};
 use futures::Future;
 pub use http::SharedClient;
-use libp2p::{Multiaddr, PeerId};
+use sc_network::Multiaddr;
+use sc_network_types::PeerId;
 use sp_core::{
 	offchain::{
 		self, HttpError, HttpRequestId, HttpRequestStatus, OpaqueMultiaddr, OpaqueNetworkState,
@@ -30,7 +31,6 @@ use sp_core::{
 	},
 	OpaquePeerId,
 };
-pub use sp_offchain::STORAGE_PREFIX;
 
 mod http;
 
@@ -223,13 +223,14 @@ mod tests {
 	use sc_client_db::offchain::LocalStorage;
 	use sc_network::{
 		config::MultiaddrWithPeerId, types::ProtocolName, NetworkPeers, NetworkStateInfo,
-		ReputationChange,
+		ObservedRole, ReputationChange,
 	};
 	use sp_core::offchain::{storage::OffchainDb, DbExternalities, Externalities, StorageKind};
 	use std::time::SystemTime;
 
 	pub(super) struct TestNetwork();
 
+	#[async_trait::async_trait]
 	impl NetworkPeers for TestNetwork {
 		fn set_authorized_peers(&self, _peers: HashSet<PeerId>) {
 			unimplemented!();
@@ -243,11 +244,15 @@ mod tests {
 			unimplemented!();
 		}
 
-		fn report_peer(&self, _who: PeerId, _cost_benefit: ReputationChange) {
+		fn report_peer(&self, _peer_id: PeerId, _cost_benefit: ReputationChange) {
 			unimplemented!();
 		}
 
-		fn disconnect_peer(&self, _who: PeerId, _protocol: ProtocolName) {
+		fn peer_reputation(&self, _peer_id: &PeerId) -> i32 {
+			unimplemented!()
+		}
+
+		fn disconnect_peer(&self, _peer_id: PeerId, _protocol: ProtocolName) {
 			unimplemented!();
 		}
 
@@ -292,6 +297,14 @@ mod tests {
 		}
 
 		fn sync_num_connected(&self) -> usize {
+			unimplemented!();
+		}
+
+		fn peer_role(&self, _peer_id: PeerId, _handshake: Vec<u8>) -> Option<ObservedRole> {
+			None
+		}
+
+		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
 			unimplemented!();
 		}
 	}

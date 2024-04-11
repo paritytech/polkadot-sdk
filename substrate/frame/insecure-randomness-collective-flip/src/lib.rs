@@ -163,14 +163,11 @@ mod tests {
 	use crate as pallet_insecure_randomness_collective_flip;
 
 	use sp_core::H256;
-	use sp_runtime::{
-		traits::{BlakeTwo256, Header as _, IdentityLookup},
-		BuildStorage,
-	};
+	use sp_runtime::{traits::Header as _, BuildStorage};
 
 	use frame_support::{
-		parameter_types,
-		traits::{ConstU32, ConstU64, OnInitialize, Randomness},
+		derive_impl, parameter_types,
+		traits::{OnInitialize, Randomness},
 	};
 	use frame_system::limits;
 
@@ -179,8 +176,8 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			CollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
+			System: frame_system,
+			CollectiveFlip: pallet_insecure_randomness_collective_flip,
 		}
 	);
 
@@ -189,30 +186,9 @@ mod tests {
 			::max(2 * 1024);
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
-		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockWeights = ();
-		type BlockLength = BlockLength;
-		type DbWeight = ();
-		type RuntimeOrigin = RuntimeOrigin;
-		type Nonce = u64;
-		type RuntimeCall = RuntimeCall;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
-		type RuntimeEvent = RuntimeEvent;
-		type BlockHashCount = ConstU64<250>;
-		type Version = ();
-		type PalletInfo = PalletInfo;
-		type AccountData = ();
-		type OnNewAccount = ();
-		type OnKilledAccount = ();
-		type SystemWeightInfo = ();
-		type SS58Prefix = ();
-		type OnSetCode = ();
-		type MaxConsumers = ConstU32<16>;
 	}
 
 	impl pallet_insecure_randomness_collective_flip::Config for Test {}

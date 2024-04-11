@@ -190,7 +190,7 @@ benchmarks! {
 
 		let recovery_config = RecoveryConfig {
 			delay_period: DEFAULT_DELAY.into(),
-			deposit: total_deposit.clone(),
+			deposit: total_deposit,
 			friends: bounded_friends.clone(),
 			threshold: n as u16,
 		};
@@ -243,7 +243,7 @@ benchmarks! {
 
 		let recovery_config = RecoveryConfig {
 			delay_period: 0u32.into(),
-			deposit: total_deposit.clone(),
+			deposit: total_deposit,
 			friends: bounded_friends.clone(),
 			threshold: n as u16,
 		};
@@ -294,7 +294,7 @@ benchmarks! {
 
 		let recovery_config = RecoveryConfig {
 			delay_period: DEFAULT_DELAY.into(),
-			deposit: total_deposit.clone(),
+			deposit: total_deposit,
 			friends: bounded_friends.clone(),
 			threshold: n as u16,
 		};
@@ -342,7 +342,7 @@ benchmarks! {
 
 		let recovery_config = RecoveryConfig {
 			delay_period: DEFAULT_DELAY.into(),
-			deposit: total_deposit.clone(),
+			deposit: total_deposit,
 			friends: bounded_friends.clone(),
 			threshold: n as u16,
 		};

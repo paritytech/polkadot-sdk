@@ -21,14 +21,13 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstBool, ConstU32, Nothing},
 };
+use frame_system::EnsureSigned;
 use pallet_contracts::{
-	migration::{v12, v13, v14, v15},
-	weights::SubstrateWeight,
-	Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
+	weights::SubstrateWeight, Config, DebugInfo, DefaultAddressGenerator, Frame, Schedule,
 };
 use sp_runtime::Perbill;
 
-pub use parachains_common::{rococo::currency::deposit, AVERAGE_ON_INITIALIZE_RATIO};
+use testnet_parachains_constants::rococo::currency::deposit;
 
 // Prints debug output of the `contracts` pallet to stdout if the node is
 // started with `-lruntime::contracts=debug`.
@@ -67,16 +66,15 @@ impl Config for Runtime {
 	type MaxCodeLen = ConstU32<{ 123 * 1024 }>;
 	type MaxStorageKeyLen = ConstU32<128>;
 	type UnsafeUnstableInterface = ConstBool<true>;
+	type UploadOrigin = EnsureSigned<Self::AccountId>;
+	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type MaxDebugBufferLen = ConstU32<{ 2 * 1024 * 1024 }>;
 	type MaxDelegateDependencies = ConstU32<32>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Migrations = (
-		v12::Migration<Runtime, Balances>,
-		v13::Migration<Runtime>,
-		v14::Migration<Runtime, Balances>,
-		v15::Migration<Runtime>,
-	);
+	type Migrations = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type Debug = ();
 	type Environment = ();
+	type ApiVersion = ();
+	type Xcm = pallet_xcm::Pallet<Self>;
 }

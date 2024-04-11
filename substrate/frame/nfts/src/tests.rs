@@ -17,12 +17,12 @@
 
 //! Tests for Nfts pallet.
 
-use crate::{mock::*, Event, *};
+use crate::{mock::*, Event, SystemConfig, *};
 use enumflags2::BitFlags;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{
-		tokens::nonfungibles_v2::{Create, Destroy, Mutate},
+		tokens::nonfungibles_v2::{Create, Destroy, Inspect, Mutate},
 		Currency, Get,
 	},
 };
@@ -440,6 +440,12 @@ fn mint_should_work() {
 			account(2),
 			Some(MintWitness { owned_item: Some(43), ..Default::default() })
 		));
+		assert!(events().contains(&Event::<Test>::PalletAttributeSet {
+			collection: 0,
+			item: Some(43),
+			attribute: PalletAttributes::<<Test as Config>::CollectionId>::UsedToClaim(1),
+			value: Nfts::construct_attribute_value(vec![]).unwrap(),
+		}));
 
 		// can't mint twice
 		assert_noop!(
@@ -614,8 +620,13 @@ fn transfer_owner_should_work() {
 			Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)),
 			Error::<Test>::Unaccepted
 		);
+		assert_eq!(System::consumers(&account(2)), 0);
+
 		assert_ok!(Nfts::set_accept_ownership(RuntimeOrigin::signed(account(2)), Some(0)));
+		assert_eq!(System::consumers(&account(2)), 1);
+
 		assert_ok!(Nfts::transfer_ownership(RuntimeOrigin::signed(account(1)), 0, account(2)));
+		assert_eq!(System::consumers(&account(2)), 1); // one consumer is added due to deposit repatriation
 
 		assert_eq!(collections(), vec![(account(2), 0)]);
 		assert_eq!(Balances::total_balance(&account(1)), 98);
@@ -980,6 +991,86 @@ fn set_collection_owner_attributes_should_work() {
 		assert_eq!(attributes(0), vec![]);
 		assert_eq!(Balances::reserved_balance(account(1)), 0);
 	});
+}
+
+#[test]
+fn set_collection_system_attributes_should_work() {
+	new_test_ext().execute_with(|| {
+		Balances::make_free_balance_be(&account(1), 100);
+
+		assert_ok!(Nfts::force_create(
+			RuntimeOrigin::root(),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_ok!(Nfts::mint(RuntimeOrigin::signed(account(1)), 0, 0, account(1), None));
+
+		let collection_id = 0;
+		let attribute_key = [0u8];
+		let attribute_value = [0u8];
+
+		assert_ok!(<Nfts as Mutate<AccountIdOf<Test>, ItemConfig>>::set_collection_attribute(
+			&collection_id,
+			&attribute_key,
+			&attribute_value
+		));
+
+		assert_eq!(attributes(0), vec![(None, AttributeNamespace::Pallet, bvec![0], bvec![0])]);
+
+		assert_eq!(
+			<Nfts as Inspect<AccountIdOf<Test>>>::system_attribute(
+				&collection_id,
+				None,
+				&attribute_key
+			),
+			Some(attribute_value.to_vec())
+		);
+
+		// test typed system attribute
+		let typed_attribute_key = [0u8; 32];
+		#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+		struct TypedAttributeValue(u32);
+		let typed_attribute_value = TypedAttributeValue(42);
+
+		assert_ok!(
+			<Nfts as Mutate<AccountIdOf<Test>, ItemConfig>>::set_typed_collection_attribute(
+				&collection_id,
+				&typed_attribute_key,
+				&typed_attribute_value
+			)
+		);
+
+		assert_eq!(
+			<Nfts as Inspect<AccountIdOf<Test>>>::typed_system_attribute(
+				&collection_id,
+				None,
+				&typed_attribute_key
+			),
+			Some(typed_attribute_value)
+		);
+
+		// check storage
+		assert_eq!(
+			attributes(collection_id),
+			[
+				(None, AttributeNamespace::Pallet, bvec![0], bvec![0]),
+				(
+					None,
+					AttributeNamespace::Pallet,
+					bvec![
+						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+						0, 0, 0, 0, 0, 0, 0
+					],
+					bvec![42, 0, 0, 0]
+				)
+			]
+		);
+
+		assert_ok!(Nfts::burn(RuntimeOrigin::root(), collection_id, 0));
+		let w = Nfts::get_destroy_witness(&0).unwrap();
+		assert_ok!(Nfts::destroy(RuntimeOrigin::signed(account(1)), collection_id, w));
+		assert_eq!(attributes(collection_id), vec![]);
+	})
 }
 
 #[test]
@@ -2111,6 +2202,10 @@ fn max_supply_should_work() {
 			default_collection_config()
 		));
 		assert_eq!(CollectionConfigOf::<Test>::get(collection_id).unwrap().max_supply, None);
+		assert!(!events().contains(&Event::<Test>::CollectionMaxSupplySet {
+			collection: collection_id,
+			max_supply,
+		}));
 
 		assert_ok!(Nfts::set_collection_max_supply(
 			RuntimeOrigin::signed(user_id.clone()),
@@ -2162,9 +2257,31 @@ fn max_supply_should_work() {
 			None
 		));
 		assert_noop!(
-			Nfts::mint(RuntimeOrigin::signed(user_id.clone()), collection_id, 2, user_id, None),
+			Nfts::mint(
+				RuntimeOrigin::signed(user_id.clone()),
+				collection_id,
+				2,
+				user_id.clone(),
+				None
+			),
 			Error::<Test>::MaxSupplyReached
 		);
+
+		// validate the event gets emitted when we set the max supply on collection create
+		let collection_id = 1;
+		assert_ok!(Nfts::force_create(
+			RuntimeOrigin::root(),
+			user_id.clone(),
+			CollectionConfig { max_supply: Some(max_supply), ..default_collection_config() }
+		));
+		assert_eq!(
+			CollectionConfigOf::<Test>::get(collection_id).unwrap().max_supply,
+			Some(max_supply)
+		);
+		assert!(events().contains(&Event::<Test>::CollectionMaxSupplySet {
+			collection: collection_id,
+			max_supply,
+		}));
 	});
 }
 
@@ -3716,5 +3833,46 @@ fn basic_create_collection_with_id_should_work() {
 			),
 			Error::<Test>::CollectionIdInUse
 		);
+	});
+}
+
+#[test]
+fn clear_collection_metadata_works() {
+	new_test_ext().execute_with(|| {
+		// Start with an account with 100 tokens, 10 of which are reserved
+		Balances::make_free_balance_be(&account(1), 100);
+		Balances::reserve(&account(1), 10).unwrap();
+
+		// Creating a collection increases owner deposit by 2
+		assert_ok!(Nfts::create(
+			RuntimeOrigin::signed(account(1)),
+			account(1),
+			collection_config_with_all_settings_enabled()
+		));
+		assert_eq!(Collection::<Test>::get(0).unwrap().owner_deposit, 2);
+		assert_eq!(Balances::reserved_balance(&account(1)), 12);
+
+		// Setting collection metadata increases owner deposit by 10
+		assert_ok!(Nfts::set_collection_metadata(
+			RuntimeOrigin::signed(account(1)),
+			0,
+			bvec![0, 0, 0, 0, 0, 0, 0, 0, 0],
+		));
+		assert_eq!(Collection::<Test>::get(0).unwrap().owner_deposit, 12);
+		assert_eq!(Balances::reserved_balance(&account(1)), 22);
+
+		// Clearing collection metadata decreases owner deposit by 10
+		assert_ok!(Nfts::clear_collection_metadata(RuntimeOrigin::signed(account(1)), 0));
+		assert_eq!(Collection::<Test>::get(0).unwrap().owner_deposit, 2);
+		assert_eq!(Balances::reserved_balance(&account(1)), 12);
+
+		// Destroying the collection removes it from storage
+		assert_ok!(Nfts::destroy(
+			RuntimeOrigin::signed(account(1)),
+			0,
+			DestroyWitness { item_configs: 0, item_metadatas: 0, attributes: 0 }
+		));
+		assert_eq!(Collection::<Test>::get(0), None);
+		assert_eq!(Balances::reserved_balance(&account(1)), 10);
 	});
 }

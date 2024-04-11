@@ -8,19 +8,22 @@ publish = false
 homepage = "https://substrate.io"
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", default-features = false, features = ["derive"] }
-frame-support = { path = "../..", default-features = false}
-frame-system = { path = "../../../system", default-features = false}
-sp-runtime = { path = "../../../../primitives/runtime", default-features = false}
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { features = ["derive"], workspace = true }
+frame-support = { path = "../..", default-features = false }
+frame-system = { path = "../../../system", default-features = false }
+sp-runtime = { path = "../../../../primitives/runtime", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",

@@ -26,7 +26,7 @@
 //! Study the following types:
 //!
 //! - [`pallet::DefaultConfig`], and how it differs from [`pallet::Config`].
-//! - [`pallet::config_preludes::TestDefaultConfig`] and how it implements
+//! - [`struct@pallet::config_preludes::TestDefaultConfig`] and how it implements
 //!   [`pallet::DefaultConfig`].
 //! - Notice how [`pallet::DefaultConfig`] is independent of [`frame_system::Config`].
 
@@ -46,6 +46,10 @@ pub mod pallet {
 		/// In general, `Runtime*`-oriented types cannot have a sensible default.
 		#[pallet::no_default] // optional. `RuntimeEvent` is automatically excluded as well.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// The overarching task type.
+		#[pallet::no_default]
+		type RuntimeTask: Task;
 
 		/// An input parameter to this pallet. This value can have a default, because it is not
 		/// reliant on `frame_system::Config` or the overarching runtime in any way.
@@ -87,7 +91,7 @@ pub mod pallet {
 		/// A type providing default configurations for this pallet in testing environment.
 		pub struct TestDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for TestDefaultConfig {}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -103,13 +107,13 @@ pub mod pallet {
 		}
 
 		/// A type providing default configurations for this pallet in another environment. Examples
-		/// could be a parachain, or a solo-chain.
+		/// could be a parachain, or a solochain.
 		///
 		/// Appropriate derive for `frame_system::DefaultConfig` needs to be provided. In this
 		/// example, we simple derive `frame_system::config_preludes::TestDefaultConfig` again.
 		pub struct OtherDefaultConfig;
 
-		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig, no_aggregated_types)]
 		impl frame_system::DefaultConfig for OtherDefaultConfig {}
 
 		#[frame_support::register_default_impl(OtherDefaultConfig)]
@@ -138,13 +142,13 @@ pub mod tests {
 	type Block = frame_system::mocking::MockBlock<Runtime>;
 
 	frame_support::construct_runtime!(
-		pub struct Runtime {
+		pub enum Runtime {
 			System: frame_system,
 			DefaultPallet: pallet_default_config_example,
 		}
 	);
 
-	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Runtime {
 		// these items are defined by frame-system as `no_default`, so we must specify them here.
 		type Block = Block;
@@ -192,6 +196,7 @@ pub mod tests {
 	impl pallet_default_config_example::Config for Runtime {
 		// These two both cannot have defaults.
 		type RuntimeEvent = RuntimeEvent;
+		type RuntimeTask = RuntimeTask;
 
 		type HasNoDefault = frame_support::traits::ConstU32<1>;
 		type CannotHaveDefault = SomeCall;

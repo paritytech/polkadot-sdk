@@ -21,16 +21,9 @@
 
 use crate as pallet_whitelist;
 
-use frame_support::{
-	construct_runtime,
-	traits::{ConstU32, ConstU64, Nothing},
-};
+use frame_support::{construct_runtime, derive_impl, traits::ConstU64};
 use frame_system::EnsureRoot;
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -44,30 +37,10 @@ construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Nothing;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -83,7 +56,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 impl pallet_preimage::Config for Test {

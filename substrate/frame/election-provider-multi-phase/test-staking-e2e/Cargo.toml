@@ -9,21 +9,24 @@ repository.workspace = true
 description = "FRAME election provider multi phase pallet tests with staking pallet, bags-list and session pallets"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
 parking_lot = "0.12.1"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
-scale-info = { version = "2.0.1", features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+scale-info = { version = "2.11.1", features = ["derive"] }
+log = { workspace = true }
 
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-io = { path = "../../../primitives/io" }
 sp-std = { path = "../../../primitives/std" }
 sp-staking = { path = "../../../primitives/staking" }
 sp-core = { path = "../../../primitives/core" }
-sp-npos-elections = { path = "../../../primitives/npos-elections", default-features = false}
+sp-npos-elections = { path = "../../../primitives/npos-elections", default-features = false }
 sp-tracing = { path = "../../../primitives/tracing" }
 
 frame-system = { path = "../../system" }
@@ -32,7 +35,23 @@ frame-election-provider-support = { path = "../../election-provider-support" }
 
 pallet-election-provider-multi-phase = { path = ".." }
 pallet-staking = { path = "../../staking" }
+pallet-nomination-pools = { path = "../../nomination-pools" }
 pallet-bags-list = { path = "../../bags-list" }
 pallet-balances = { path = "../../balances" }
 pallet-timestamp = { path = "../../timestamp" }
 pallet-session = { path = "../../session" }
+
+[features]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-nomination-pools/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
+]

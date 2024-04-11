@@ -36,6 +36,7 @@
 use sp_runtime::traits::{Convert, Member};
 use sp_std::prelude::*;
 
+use codec::Decode;
 use pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
 use sp_consensus_beefy::{
 	mmr::{BeefyAuthoritySet, BeefyDataProvider, BeefyNextAuthoritySet, MmrLeaf, MmrLeafVersion},
@@ -67,7 +68,7 @@ where
 				<T as pallet_beefy::Config>::BeefyId,
 			>::MmrRoot(*root)),
 		);
-		<frame_system::Pallet<T>>::deposit_log(digest);
+		frame_system::Pallet::<T>::deposit_log(digest);
 	}
 }
 
@@ -125,7 +126,6 @@ pub mod pallet {
 
 	/// Details of current BEEFY authority set.
 	#[pallet::storage]
-	#[pallet::getter(fn beefy_authorities)]
 	pub type BeefyAuthorities<T: Config> =
 		StorageValue<_, BeefyAuthoritySet<MerkleRootOf<T>>, ValueQuery>;
 
@@ -133,7 +133,6 @@ pub mod pallet {
 	///
 	/// This storage entry is used as cache for calls to `update_beefy_next_authority_set`.
 	#[pallet::storage]
-	#[pallet::getter(fn beefy_next_authorities)]
 	pub type BeefyNextAuthorities<T: Config> =
 		StorageValue<_, BeefyNextAuthoritySet<MerkleRootOf<T>>, ValueQuery>;
 }
@@ -151,7 +150,7 @@ impl<T: Config> LeafDataProvider for Pallet<T> {
 			version: T::LeafVersion::get(),
 			parent_number_and_hash: ParentNumberAndHash::<T>::leaf_data(),
 			leaf_extra: T::BeefyDataProvider::extra_data(),
-			beefy_next_authority_set: Pallet::<T>::beefy_next_authorities(),
+			beefy_next_authority_set: BeefyNextAuthorities::<T>::get(),
 		}
 	}
 }
@@ -176,12 +175,12 @@ where
 impl<T: Config> Pallet<T> {
 	/// Return the currently active BEEFY authority set proof.
 	pub fn authority_set_proof() -> BeefyAuthoritySet<MerkleRootOf<T>> {
-		Pallet::<T>::beefy_authorities()
+		BeefyAuthorities::<T>::get()
 	}
 
 	/// Return the next/queued BEEFY authority set proof.
 	pub fn next_authority_set_proof() -> BeefyNextAuthoritySet<MerkleRootOf<T>> {
-		Pallet::<T>::beefy_next_authorities()
+		BeefyNextAuthorities::<T>::get()
 	}
 
 	/// Returns details of a BEEFY authority set.
@@ -226,7 +225,7 @@ sp_api::decl_runtime_apis! {
 	/// API useful for BEEFY light clients.
 	pub trait BeefyMmrApi<H>
 	where
-		BeefyAuthoritySet<H>: sp_api::Decode,
+		BeefyAuthoritySet<H>: Decode,
 	{
 		/// Return the currently active BEEFY authority set proof.
 		fn authority_set_proof() -> BeefyAuthoritySet<H>;

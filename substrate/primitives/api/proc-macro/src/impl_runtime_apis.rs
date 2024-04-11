@@ -38,7 +38,7 @@ use syn::{
 	Attribute, Ident, ImplItem, ItemImpl, LitInt, LitStr, Path, Signature, Type, TypePath,
 };
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 /// The structure used for parsing the runtime api implementations.
 struct RuntimeApiImpls {
@@ -237,12 +237,13 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
 					#c::std_disabled! {
 						#( #attrs )*
 						#[no_mangle]
-						pub unsafe fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
+						#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
+						pub unsafe extern fn #fn_name(input_data: *mut u8, input_len: usize) -> u64 {
 							let mut #input = if input_len == 0 {
 								&[0u8; 0]
 							} else {
 								unsafe {
-									#c::slice::from_raw_parts(input_data, input_len)
+									::core::slice::from_raw_parts(input_data, input_len)
 								}
 							};
 
@@ -275,6 +276,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 				extensions_generated_for: std::cell::RefCell<std::option::Option<Block::Hash>>,
 			}
 
+			#[automatically_derived]
 			impl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block>> #crate_::ApiExt<Block> for
 				RuntimeApiImpl<Block, C>
 			{
@@ -343,7 +345,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					&self,
 					backend: &B,
 					parent_hash: Block::Hash,
-				) -> core::result::Result<
+				) -> ::core::result::Result<
 					#crate_::StorageChanges<Block>,
 				String
 					> where Self: Sized {
@@ -367,6 +369,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 				}
 			}
 
+			#[automatically_derived]
 			impl<Block: #crate_::BlockT, C> #crate_::ConstructRuntimeApi<Block, C>
 				for RuntimeApi
 			where
@@ -389,6 +392,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 				}
 			}
 
+			#[automatically_derived]
 			impl<Block: #crate_::BlockT, C: #crate_::CallApiAt<Block>> RuntimeApiImpl<Block, C> {
 				fn commit_or_rollback_transaction(&self, commit: bool) {
 					let proof = "\
@@ -685,8 +689,10 @@ fn generate_api_impl_for_runtime_api(impls: &[ItemImpl]) -> Result<TokenStream> 
 		// remove the trait to get just the module path
 		runtime_mod_path.segments.pop();
 
-		let processed_impl =
+		let mut processed_impl =
 			ApiRuntimeImplToApiRuntimeApiImpl { runtime_block }.process(impl_.clone());
+
+		processed_impl.attrs.push(parse_quote!(#[automatically_derived]));
 
 		result.push(processed_impl);
 	}
@@ -726,7 +732,7 @@ fn populate_runtime_api_versions(
 fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 	let mut result = Vec::<TokenStream>::with_capacity(impls.len());
 	let mut sections = Vec::<TokenStream>::with_capacity(impls.len());
-	let mut processed_traits = HashSet::new();
+	let mut processed_traits = HashMap::new();
 
 	let c = generate_crate_access();
 
@@ -746,13 +752,17 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 			.ident;
 
 		let span = trait_.span();
-		if !processed_traits.insert(trait_) {
-			return Err(Error::new(
+		if let Some(other_span) = processed_traits.insert(trait_, span) {
+			let mut error = Error::new(
 				span,
 				"Two traits with the same name detected! \
 					The trait name is used to generate its ID. \
 					Please rename one trait at the declaration!",
-			))
+			);
+
+			error.combine(Error::new(other_span, "First trait implementation."));
+
+			return Err(error)
 		}
 
 		let id: Path = parse_quote!( #path ID );
@@ -787,7 +797,7 @@ fn generate_runtime_api_versions(impls: &[ItemImpl]) -> Result<TokenStream> {
 	}
 
 	Ok(quote!(
-		const RUNTIME_API_VERSIONS: #c::ApisVec = #c::create_apis_vec!([ #( #result ),* ]);
+		pub const RUNTIME_API_VERSIONS: #c::ApisVec = #c::create_apis_vec!([ #( #result ),* ]);
 
 		#( #sections )*
 	))
@@ -837,7 +847,7 @@ fn impl_runtime_apis_impl_inner(api_impls: &[ItemImpl]) -> Result<TokenStream> {
 	);
 
 	let impl_ = expander::Expander::new("impl_runtime_apis")
-		.dry(std::env::var("SP_API_EXPAND").is_err())
+		.dry(std::env::var("EXPAND_MACROS").is_err())
 		.verbose(true)
 		.write_to_out_dir(impl_)
 		.expect("Does not fail because of IO in OUT_DIR; qed");

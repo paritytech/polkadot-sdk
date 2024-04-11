@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use frame_support::{
-	assert_noop, assert_ok, dispatch::DispatchResult, ensure, pallet_prelude::ConstU32,
-	storage::with_storage_layer,
+	assert_noop, assert_ok, derive_impl, dispatch::DispatchResult, ensure,
+	pallet_prelude::ConstU32, storage::with_storage_layer,
 };
 use pallet::*;
 use sp_io::TestExternalities;
@@ -64,6 +64,7 @@ pub type Header = sp_runtime::generic::Header<BlockNumber, sp_runtime::traits::B
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -93,7 +94,7 @@ impl frame_system::Config for Runtime {
 impl Config for Runtime {}
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		MyPallet: pallet,
 	}

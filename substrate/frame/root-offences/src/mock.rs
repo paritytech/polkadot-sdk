@@ -23,17 +23,11 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Hooks, OneSessionHandler},
 };
 use pallet_staking::StakerStatus;
-use sp_core::H256;
-use sp_runtime::{
-	curve::PiecewiseLinear,
-	testing::UintAuthorityId,
-	traits::{BlakeTwo256, IdentityLookup, Zero},
-	BuildStorage,
-};
+use sp_runtime::{curve::PiecewiseLinear, testing::UintAuthorityId, traits::Zero, BuildStorage};
 use sp_staking::{EraIndex, SessionIndex};
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -48,13 +42,13 @@ pub const BLOCK_TIME: u64 = 1000;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		RootOffences: root_offences::{Pallet, Call, Storage, Event<T>},
-		Historical: pallet_session::historical::{Pallet, Storage},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		Staking: pallet_staking,
+		Session: pallet_session,
+		RootOffences: root_offences,
+		Historical: pallet_session::historical,
 	}
 );
 
@@ -84,30 +78,10 @@ impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
 	type Public = UintAuthorityId;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -123,7 +97,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -178,7 +152,7 @@ impl pallet_staking::Config for Test {
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
@@ -186,6 +160,7 @@ impl pallet_staking::Config for Test {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
 	type HistoryDepth = ConstU32<84>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;

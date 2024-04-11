@@ -1,0 +1,9 @@
+title: Zombienet tests - disputes on finalized blocks
+author: Overkillus
+topic: Tests
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

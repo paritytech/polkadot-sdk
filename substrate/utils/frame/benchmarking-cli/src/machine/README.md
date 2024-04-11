@@ -78,6 +78,6 @@ License: Apache-2.0
 
 <!-- LINKS -->
 [Blake2-256]: https://www.blake2.net/
-[blake2_256 function]: https://crates.parity.io/sp_core/hashing/fn.blake2_256.html
+[blake2_256 function]: https://crates.parity.io/sp_crypto_hashing/fn.blake2_256.html
 [Curve25519]: https://en.wikipedia.org/wiki/Curve25519
 [`--base-path`]: ../shared/README.md#arguments

@@ -22,7 +22,7 @@ use crate::{
 	paras::{Pallet as Paras, ParaKind, ParachainsCache},
 	shared::Pallet as Shared,
 };
-use frame_benchmarking::{impl_benchmark_test_suite, v2::*, whitelisted_caller};
+use frame_benchmarking::{v2::*, whitelisted_caller};
 use frame_support::{assert_ok, traits::Currency};
 
 type BalanceOf<T> =
@@ -71,11 +71,13 @@ fn establish_para_connection<T: Config>(
 where
 	<T as frame_system::Config>::RuntimeOrigin: From<crate::Origin>,
 {
-	let config = Configuration::<T>::config();
+	let config = configuration::ActiveConfig::<T>::get();
 	let ed = T::Currency::minimum_balance();
 	let deposit: BalanceOf<T> = config.hrmp_sender_deposit.unique_saturated_into();
 	let capacity = config.hrmp_channel_max_capacity;
 	let message_size = config.hrmp_channel_max_message_size;
+	assert!(message_size > 0, "Invalid genesis for benchmarking");
+	assert!(capacity > 0, "Invalid genesis for benchmarking");
 
 	let sender: ParaId = from.into();
 	let sender_origin: crate::Origin = from.into();
@@ -109,7 +111,7 @@ where
 		return output
 	}
 
-	Hrmp::<T>::process_hrmp_open_channel_requests(&Configuration::<T>::config());
+	Hrmp::<T>::process_hrmp_open_channel_requests(&configuration::ActiveConfig::<T>::get());
 	if matches!(until, ParachainSetupStep::Established) {
 		return output
 	}
@@ -154,13 +156,14 @@ mod benchmarks {
 
 		// make sure para is registered, and has enough balance.
 		let ed = T::Currency::minimum_balance();
-		let deposit: BalanceOf<T> =
-			Configuration::<T>::config().hrmp_sender_deposit.unique_saturated_into();
+		let deposit: BalanceOf<T> = configuration::ActiveConfig::<T>::get()
+			.hrmp_sender_deposit
+			.unique_saturated_into();
 		register_parachain_with_balance::<T>(sender_id, deposit + ed);
 		register_parachain_with_balance::<T>(recipient_id, deposit + ed);
 
-		let capacity = Configuration::<T>::config().hrmp_channel_max_capacity;
-		let message_size = Configuration::<T>::config().hrmp_channel_max_message_size;
+		let capacity = configuration::ActiveConfig::<T>::get().hrmp_channel_max_capacity;
+		let message_size = configuration::ActiveConfig::<T>::get().hrmp_channel_max_message_size;
 
 		#[extrinsic_call]
 		_(sender_origin, recipient_id, capacity, message_size);
@@ -226,7 +229,7 @@ mod benchmarks {
 		// .. and enact it.
 		Configuration::<T>::initializer_on_new_session(&Shared::<T>::scheduled_session());
 
-		let config = Configuration::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 		let deposit: BalanceOf<T> = config.hrmp_sender_deposit.unique_saturated_into();
 
 		let para: ParaId = 1u32.into();
@@ -358,7 +361,7 @@ mod benchmarks {
 
 		assert_eq!(HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32, c);
 		let outgoing = (0..c).map(|id| (id + PREFIX_1).into()).collect::<Vec<ParaId>>();
-		let config = Configuration::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		#[block]
 		{
@@ -381,13 +384,14 @@ mod benchmarks {
 		// Make sure para is registered. The sender does actually need the normal deposit because it
 		// is first going the "init" route.
 		let ed = T::Currency::minimum_balance();
-		let sender_deposit: BalanceOf<T> =
-			Configuration::<T>::config().hrmp_sender_deposit.unique_saturated_into();
+		let sender_deposit: BalanceOf<T> = configuration::ActiveConfig::<T>::get()
+			.hrmp_sender_deposit
+			.unique_saturated_into();
 		register_parachain_with_balance::<T>(sender_id, sender_deposit + ed);
 		register_parachain_with_balance::<T>(recipient_id, Zero::zero());
 
-		let capacity = Configuration::<T>::config().hrmp_channel_max_capacity;
-		let message_size = Configuration::<T>::config().hrmp_channel_max_message_size;
+		let capacity = configuration::ActiveConfig::<T>::get().hrmp_channel_max_capacity;
+		let message_size = configuration::ActiveConfig::<T>::get().hrmp_channel_max_message_size;
 
 		let channel_id = HrmpChannelId { sender: sender_id, recipient: recipient_id };
 		if c == 1 {
@@ -434,7 +438,7 @@ mod benchmarks {
 		let recipient_id: ParaId = 2u32.into();
 
 		let caller: T::AccountId = whitelisted_caller();
-		let config = Configuration::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		// make sure para is registered, and has zero balance.
 		register_parachain_with_balance::<T>(sender_id, Zero::zero());
@@ -464,7 +468,7 @@ mod benchmarks {
 		let channel_id = HrmpChannelId { sender: sender_id, recipient: recipient_id };
 
 		let caller: T::AccountId = whitelisted_caller();
-		let config = Configuration::<T>::config();
+		let config = configuration::ActiveConfig::<T>::get();
 
 		// make sure para is registered, and has balance to reserve.
 		let ed = T::Currency::minimum_balance();

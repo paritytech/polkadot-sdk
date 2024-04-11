@@ -23,6 +23,7 @@ pub mod auctions;
 pub mod claims;
 pub mod crowdloan;
 pub mod elections;
+pub mod identity_migrator;
 pub mod impls;
 pub mod paras_registrar;
 pub mod paras_sudo_wrapper;
@@ -62,6 +63,9 @@ pub use sp_runtime::BuildStorage;
 /// Implementations of some helper traits passed into runtime modules as associated types.
 pub use impls::ToAuthor;
 
+#[deprecated(
+	note = "Please use fungible::Credit instead. This type will be removed some time after March 2024."
+)]
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
@@ -246,7 +250,8 @@ impl sp_runtime::traits::Convert<sp_core::U256, Balance> for U256ToBalance {
 }
 
 /// Macro to set a value (e.g. when using the `parameter_types` macro) to either a production value
-/// or to an environment variable or testing value (in case the `fast-runtime` feature is selected).
+/// or to an environment variable or testing value (in case the `fast-runtime` feature is selected)
+/// or one of two testing values depending on feature.
 /// Note that the environment variable is evaluated _at compile time_.
 ///
 /// Usage:
@@ -255,6 +260,8 @@ impl sp_runtime::traits::Convert<sp_core::U256, Balance> for U256ToBalance {
 /// 	// Note that the env variable version parameter cannot be const.
 /// 	pub LaunchPeriod: BlockNumber = prod_or_fast!(7 * DAYS, 1, "KSM_LAUNCH_PERIOD");
 /// 	pub const VotingPeriod: BlockNumber = prod_or_fast!(7 * DAYS, 1 * MINUTES);
+/// 	pub const EpochDuration: BlockNumber =
+/// 		prod_or_fast!(1 * HOURS, "fast-runtime", 1 * MINUTES, "fast-runtime-10m", 10 * MINUTES);
 /// }
 /// ```
 #[macro_export]

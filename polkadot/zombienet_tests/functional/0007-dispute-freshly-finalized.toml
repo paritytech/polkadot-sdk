@@ -1,0 +1,42 @@
+[settings]
+timeout = 1000
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config]
+  needed_approvals = 1
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+  max_validators_per_core = 1
+
+[relaychain]
+default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
+chain = "rococo-local"
+default_command = "polkadot"
+
+[relaychain.default_resources]
+limits = { memory = "4G", cpu = "2" }
+requests = { memory = "2G", cpu = "1" }
+
+  [[relaychain.node_groups]]
+  name = "honest"
+  count = 6
+  args = ["-lparachain=debug"]
+
+  [[relaychain.nodes]]
+  image = "{{MALUS_IMAGE}}"
+  name = "malus"
+  command = "malus dispute-finalized-candidates"
+  args = [ "--alice", "-lparachain=debug,MALUS=trace", "--dispute-offset=3" ]
+
+[[parachains]]
+id = 2000
+
+  [parachains.collator]
+  image = "{{COL_IMAGE}}"
+  name = "collator"
+  command = "undying-collator"
+  args = ["-lparachain=debug"]
+
+[types.Header]
+number = "u64"
+parent_hash = "Hash"
+post_state = "Hash"

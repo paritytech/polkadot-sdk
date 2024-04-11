@@ -27,27 +27,28 @@ use crate::{
 		api::ChainHeadApiServer,
 		chain_head_follow::ChainHeadFollower,
 		error::Error as ChainHeadRpcError,
-		event::{FollowEvent, MethodResponse, OperationError, StorageQuery},
-		hex_string,
+		event::{FollowEvent, MethodResponse, OperationError},
 		subscription::{SubscriptionManagement, SubscriptionManagementError},
 	},
-	SubscriptionTaskExecutor,
+	common::events::StorageQuery,
+	hex_string, SubscriptionTaskExecutor,
 };
 use codec::Encode;
-use futures::future::FutureExt;
+use futures::{channel::oneshot, future::FutureExt};
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
-	types::{SubscriptionEmptyError, SubscriptionId, SubscriptionResult},
-	SubscriptionSink,
+	core::async_trait, server::ResponsePayload, types::SubscriptionId, ConnectionDetails,
+	MethodResponseFuture, PendingSubscriptionSink, SubscriptionSink,
 };
 use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
 };
+use sc_rpc::utils::to_sub_message;
 use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Bytes};
+use sp_rpc::list::ListOrValue;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -61,9 +62,14 @@ pub struct ChainHeadConfig {
 	pub subscription_max_pinned_duration: Duration,
 	/// The maximum number of ongoing operations per subscription.
 	pub subscription_max_ongoing_operations: usize,
+	/// Stop all subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	pub max_lagging_distance: usize,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	pub operation_max_storage_items: usize,
+	/// The maximum number of `chainHead_follow` subscriptions per connection.
+	pub max_follow_subscriptions_per_connection: usize,
 }
 
 /// Maximum pinned blocks across all connections.
@@ -85,13 +91,22 @@ const MAX_ONGOING_OPERATIONS: usize = 16;
 /// before paginations is required.
 const MAX_STORAGE_ITER_ITEMS: usize = 5;
 
+/// Stop all subscriptions if the distance between the leaves and the current finalized
+/// block is larger than this value.
+const MAX_LAGGING_DISTANCE: usize = 128;
+
+/// The maximum number of `chainHead_follow` subscriptions per connection.
+const MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION: usize = 4;
+
 impl Default for ChainHeadConfig {
 	fn default() -> Self {
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: MAX_PINNED_DURATION,
 			subscription_max_ongoing_operations: MAX_ONGOING_OPERATIONS,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			operation_max_storage_items: MAX_STORAGE_ITER_ITEMS,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 		}
 	}
 }
@@ -105,62 +120,48 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 	/// Keep track of the pinned blocks for each subscription.
-	subscriptions: Arc<SubscriptionManagement<Block, BE>>,
-	/// The hexadecimal encoded hash of the genesis block.
-	genesis_hash: String,
+	subscriptions: SubscriptionManagement<Block, BE>,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
+	/// Stop all subscriptions if the distance between the leaves and the current finalized
+	/// block is larger than this value.
+	max_lagging_distance: usize,
 	/// Phantom member to pin the block type.
 	_phantom: PhantomData<Block>,
 }
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 	/// Create a new [`ChainHead`].
-	pub fn new<GenesisHash: AsRef<[u8]>>(
+	pub fn new(
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		executor: SubscriptionTaskExecutor,
-		genesis_hash: GenesisHash,
 		config: ChainHeadConfig,
 	) -> Self {
-		let genesis_hash = hex_string(&genesis_hash.as_ref());
 		Self {
 			client,
 			backend: backend.clone(),
 			executor,
-			subscriptions: Arc::new(SubscriptionManagement::new(
+			subscriptions: SubscriptionManagement::new(
 				config.global_max_pinned_blocks,
 				config.subscription_max_pinned_duration,
 				config.subscription_max_ongoing_operations,
+				config.max_follow_subscriptions_per_connection,
 				backend,
-			)),
+			),
 			operation_max_storage_items: config.operation_max_storage_items,
-			genesis_hash,
+			max_lagging_distance: config.max_lagging_distance,
 			_phantom: PhantomData,
 		}
 	}
+}
 
-	/// Accept the subscription and return the subscription ID on success.
-	fn accept_subscription(
-		&self,
-		sink: &mut SubscriptionSink,
-	) -> Result<String, SubscriptionEmptyError> {
-		// The subscription must be accepted before it can provide a valid subscription ID.
-		sink.accept()?;
-
-		let Some(sub_id) = sink.subscription_id() else {
-			// This can only happen if the subscription was not accepted.
-			return Err(SubscriptionEmptyError)
-		};
-
-		// Get the string representation for the subscription.
-		let sub_id = match sub_id {
-			SubscriptionId::Num(num) => num.to_string(),
-			SubscriptionId::Str(id) => id.into_owned().into(),
-		};
-
-		Ok(sub_id)
+/// Helper to convert the `subscription ID` to a string.
+pub fn read_subscription_id_as_string(sink: &SubscriptionSink) -> String {
+	match sink.subscription_id() {
+		SubscriptionId::Num(n) => n.to_string(),
+		SubscriptionId::Str(s) => s.into_owned().into(),
 	}
 }
 
@@ -194,109 +195,158 @@ where
 		+ StorageProvider<Block, BE>
 		+ 'static,
 {
-	fn chain_head_unstable_follow(
-		&self,
-		mut sink: SubscriptionSink,
-		with_runtime: bool,
-	) -> SubscriptionResult {
-		let sub_id = match self.accept_subscription(&mut sink) {
-			Ok(sub_id) => sub_id,
-			Err(err) => {
-				sink.close(ChainHeadRpcError::InvalidSubscriptionID);
-				return Err(err)
-			},
-		};
-		// Keep track of the subscription.
-		let Some(sub_data) = self.subscriptions.insert_subscription(sub_id.clone(), with_runtime)
-		else {
-			// Inserting the subscription can only fail if the JsonRPSee
-			// generated a duplicate subscription ID.
-			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
-			let _ = sink.send(&FollowEvent::<Block::Hash>::Stop);
-			return Ok(())
-		};
-		debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription accepted", sub_id);
-
+	fn chain_head_unstable_follow(&self, pending: PendingSubscriptionSink, with_runtime: bool) {
 		let subscriptions = self.subscriptions.clone();
 		let backend = self.backend.clone();
 		let client = self.client.clone();
+		let max_lagging_distance = self.max_lagging_distance;
+
 		let fut = async move {
+			// Ensure the current connection ID has enough space to accept a new subscription.
+			let connection_id = pending.connection_id();
+			// The RAII `reserved_subscription` will clean up resources on drop:
+			// - free the reserved subscription for the connection ID.
+			// - remove the subscription ID from the subscription management.
+			let Some(mut reserved_subscription) = subscriptions.reserve_subscription(connection_id)
+			else {
+				pending.reject(ChainHeadRpcError::ReachedLimits).await;
+				return
+			};
+
+			let Ok(sink) = pending.accept().await else { return };
+
+			let sub_id = read_subscription_id_as_string(&sink);
+			// Keep track of the subscription.
+			let Some(sub_data) =
+				reserved_subscription.insert_subscription(sub_id.clone(), with_runtime)
+			else {
+				// Inserting the subscription can only fail if the JsonRPSee generated a duplicate
+				// subscription ID.
+				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
+				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+				let _ = sink.send(msg).await;
+				return
+			};
+			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription accepted", sub_id);
+
 			let mut chain_head_follow = ChainHeadFollower::new(
 				client,
 				backend,
-				subscriptions.clone(),
+				subscriptions,
 				with_runtime,
 				sub_id.clone(),
+				max_lagging_distance,
 			);
+			let result = chain_head_follow.generate_events(sink, sub_data).await;
+			if let Err(SubscriptionManagementError::BlockDistanceTooLarge) = result {
+				debug!(target: LOG_TARGET, "[follow][id={:?}] All subscriptions are stopped", sub_id);
+				reserved_subscription.stop_all_subscriptions();
+			}
 
-			chain_head_follow.generate_events(sink, sub_data).await;
-
-			subscriptions.remove_subscription(&sub_id);
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription removed", sub_id);
 		};
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
-		Ok(())
 	}
 
-	fn chain_head_unstable_body(
+	async fn chain_head_unstable_body(
 		&self,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		hash: Block::Hash,
-	) -> RpcResult<MethodResponse> {
-		let mut block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
-			Ok(block) => block,
-			Err(SubscriptionManagementError::SubscriptionAbsent) |
-			Err(SubscriptionManagementError::ExceededLimits) => return Ok(MethodResponse::LimitReached),
-			Err(SubscriptionManagementError::BlockHashAbsent) => {
-				// Block is not part of the subscription.
-				return Err(ChainHeadRpcError::InvalidBlock.into())
-			},
-			Err(_) => return Err(ChainHeadRpcError::InvalidBlock.into()),
-		};
+	) -> ResponsePayload<'static, MethodResponse> {
+		if !self
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
+		{
+			// The spec says to return `LimitReached` if the follow subscription is invalid or
+			// stale.
+			return ResponsePayload::success(MethodResponse::LimitReached);
+		}
 
-		let operation_id = block_guard.operation().operation_id();
+		let client = self.client.clone();
+		let subscriptions = self.subscriptions.clone();
+		let executor = self.executor.clone();
 
-		let event = match self.client.block(hash) {
-			Ok(Some(signed_block)) => {
-				let extrinsics = signed_block
-					.block
-					.extrinsics()
-					.iter()
-					.map(|extrinsic| hex_string(&extrinsic.encode()))
-					.collect();
-				FollowEvent::<Block::Hash>::OperationBodyDone(OperationBodyDone {
+		let result = spawn_blocking(&self.executor, async move {
+			let mut block_guard = match subscriptions.lock_block(&follow_subscription, hash, 1) {
+				Ok(block) => block,
+				Err(SubscriptionManagementError::SubscriptionAbsent) |
+				Err(SubscriptionManagementError::ExceededLimits) =>
+					return ResponsePayload::success(MethodResponse::LimitReached),
+				Err(SubscriptionManagementError::BlockHashAbsent) => {
+					// Block is not part of the subscription.
+					return ResponsePayload::error(ChainHeadRpcError::InvalidBlock);
+				},
+				Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
+			};
+
+			let operation_id = block_guard.operation().operation_id();
+
+			let event = match client.block(hash) {
+				Ok(Some(signed_block)) => {
+					let extrinsics = signed_block
+						.block
+						.extrinsics()
+						.iter()
+						.map(|extrinsic| hex_string(&extrinsic.encode()))
+						.collect();
+					FollowEvent::<Block::Hash>::OperationBodyDone(OperationBodyDone {
+						operation_id: operation_id.clone(),
+						value: extrinsics,
+					})
+				},
+				Ok(None) => {
+					// The block's body was pruned. This subscription ID has become invalid.
+					debug!(
+						target: LOG_TARGET,
+						"[body][id={:?}] Stopping subscription because hash={:?} was pruned",
+						&follow_subscription,
+						hash
+					);
+					subscriptions.remove_subscription(&follow_subscription);
+					return ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
+				},
+				Err(error) => FollowEvent::<Block::Hash>::OperationError(OperationError {
 					operation_id: operation_id.clone(),
-					value: extrinsics,
-				})
-			},
-			Ok(None) => {
-				// The block's body was pruned. This subscription ID has become invalid.
-				debug!(
-					target: LOG_TARGET,
-					"[body][id={:?}] Stopping subscription because hash={:?} was pruned",
-					&follow_subscription,
-					hash
-				);
-				self.subscriptions.remove_subscription(&follow_subscription);
-				return Err(ChainHeadRpcError::InvalidBlock.into())
-			},
-			Err(error) => FollowEvent::<Block::Hash>::OperationError(OperationError {
-				operation_id: operation_id.clone(),
-				error: error.to_string(),
-			}),
-		};
+					error: error.to_string(),
+				}),
+			};
 
-		let _ = block_guard.response_sender().unbounded_send(event);
-		Ok(MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items: None }))
+			let (rp, rp_fut) = method_started_response(operation_id, None);
+			let fut = async move {
+				// Wait for the server to send out the response and if it produces an error no event
+				// should be generated.
+				if rp_fut.await.is_err() {
+					return;
+				}
+
+				let _ = block_guard.response_sender().unbounded_send(event);
+			};
+			executor.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+
+			rp
+		});
+
+		result
+			.await
+			.unwrap_or_else(|_| ResponsePayload::success(MethodResponse::LimitReached))
 	}
 
-	fn chain_head_unstable_header(
+	async fn chain_head_unstable_header(
 		&self,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		hash: Block::Hash,
-	) -> RpcResult<Option<String>> {
-		let _block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
+	) -> Result<Option<String>, ChainHeadRpcError> {
+		if !self
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
+		{
+			return Ok(None);
+		}
+
+		let block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
 			Ok(block) => block,
 			Err(SubscriptionManagementError::SubscriptionAbsent) |
 			Err(SubscriptionManagementError::ExceededLimits) => return Ok(None),
@@ -307,48 +357,68 @@ where
 			Err(_) => return Err(ChainHeadRpcError::InvalidBlock.into()),
 		};
 
-		self.client
-			.header(hash)
-			.map(|opt_header| opt_header.map(|h| hex_string(&h.encode())))
-			.map_err(ChainHeadRpcError::FetchBlockHeader)
-			.map_err(Into::into)
+		let client = self.client.clone();
+		let result = spawn_blocking(&self.executor, async move {
+			let _block_guard = block_guard;
+
+			client
+				.header(hash)
+				.map(|opt_header| opt_header.map(|h| hex_string(&h.encode())))
+				.map_err(|err| ChainHeadRpcError::InternalError(err.to_string()))
+		});
+		result.await.unwrap_or_else(|_| Ok(None))
 	}
 
-	fn chain_head_unstable_genesis_hash(&self) -> RpcResult<String> {
-		Ok(self.genesis_hash.clone())
-	}
-
-	fn chain_head_unstable_storage(
+	async fn chain_head_unstable_storage(
 		&self,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		hash: Block::Hash,
 		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
-	) -> RpcResult<MethodResponse> {
+	) -> ResponsePayload<'static, MethodResponse> {
+		if !self
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
+		{
+			// The spec says to return `LimitReached` if the follow subscription is invalid or
+			// stale.
+			return ResponsePayload::success(MethodResponse::LimitReached);
+		}
+
 		// Gain control over parameter parsing and returned error.
-		let items = items
+		let items = match items
 			.into_iter()
 			.map(|query| {
 				let key = StorageKey(parse_hex_param(query.key)?);
 				Ok(StorageQuery { key, query_type: query.query_type })
 			})
-			.collect::<Result<Vec<_>, ChainHeadRpcError>>()?;
+			.collect::<Result<Vec<_>, ChainHeadRpcError>>()
+		{
+			Ok(items) => items,
+			Err(err) => {
+				return ResponsePayload::error(err);
+			},
+		};
 
-		let child_trie = child_trie
-			.map(|child_trie| parse_hex_param(child_trie))
-			.transpose()?
-			.map(ChildInfo::new_default_from_vec);
+		let child_trie = match child_trie.map(|child_trie| parse_hex_param(child_trie)).transpose()
+		{
+			Ok(c) => c.map(ChildInfo::new_default_from_vec),
+			Err(e) => return ResponsePayload::error(e),
+		};
 
 		let mut block_guard =
 			match self.subscriptions.lock_block(&follow_subscription, hash, items.len()) {
 				Ok(block) => block,
 				Err(SubscriptionManagementError::SubscriptionAbsent) |
-				Err(SubscriptionManagementError::ExceededLimits) => return Ok(MethodResponse::LimitReached),
+				Err(SubscriptionManagementError::ExceededLimits) => {
+					return ResponsePayload::success(MethodResponse::LimitReached);
+				},
 				Err(SubscriptionManagementError::BlockHashAbsent) => {
 					// Block is not part of the subscription.
-					return Err(ChainHeadRpcError::InvalidBlock.into())
+					return ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
 				},
-				Err(_) => return Err(ChainHeadRpcError::InvalidBlock.into()),
+				Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 			};
 
 		let mut storage_client = ChainHeadStorage::<Client, Block, BE>::new(
@@ -364,77 +434,121 @@ where
 		let mut items = items;
 		items.truncate(num_operations);
 
+		let (rp, rp_fut) = method_started_response(operation_id, Some(discarded));
 		let fut = async move {
+			// Wait for the server to send out the response and if it produces an error no event
+			// should be generated.
+			if rp_fut.await.is_err() {
+				return;
+			}
+
 			storage_client.generate_events(block_guard, hash, items, child_trie).await;
 		};
-
 		self.executor
 			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
-		Ok(MethodResponse::Started(MethodResponseStarted {
-			operation_id,
-			discarded_items: Some(discarded),
-		}))
+
+		rp
 	}
 
-	fn chain_head_unstable_call(
+	async fn chain_head_unstable_call(
 		&self,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		hash: Block::Hash,
 		function: String,
 		call_parameters: String,
-	) -> RpcResult<MethodResponse> {
-		let call_parameters = Bytes::from(parse_hex_param(call_parameters)?);
+	) -> ResponsePayload<'static, MethodResponse> {
+		let call_parameters = match parse_hex_param(call_parameters) {
+			Ok(hex) => Bytes::from(hex),
+			Err(err) => return ResponsePayload::error(err),
+		};
+
+		if !self
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
+		{
+			// The spec says to return `LimitReached` if the follow subscription is invalid or
+			// stale.
+			return ResponsePayload::success(MethodResponse::LimitReached);
+		}
 
 		let mut block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
 			Ok(block) => block,
 			Err(SubscriptionManagementError::SubscriptionAbsent) |
 			Err(SubscriptionManagementError::ExceededLimits) => {
 				// Invalid invalid subscription ID.
-				return Ok(MethodResponse::LimitReached)
+				return ResponsePayload::success(MethodResponse::LimitReached)
 			},
 			Err(SubscriptionManagementError::BlockHashAbsent) => {
 				// Block is not part of the subscription.
-				return Err(ChainHeadRpcError::InvalidBlock.into())
+				return ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
 			},
-			Err(_) => return Err(ChainHeadRpcError::InvalidBlock.into()),
+			Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 		};
 
 		// Reject subscription if with_runtime is false.
 		if !block_guard.has_runtime() {
-			return Err(ChainHeadRpcError::InvalidParam(
+			return ResponsePayload::error(ChainHeadRpcError::InvalidRuntimeCall(
 				"The runtime updates flag must be set".to_string(),
-			)
-			.into())
+			));
 		}
 
 		let operation_id = block_guard.operation().operation_id();
-		let event = self
-			.client
-			.executor()
-			.call(hash, &function, &call_parameters, CallContext::Offchain)
-			.map(|result| {
-				FollowEvent::<Block::Hash>::OperationCallDone(OperationCallDone {
-					operation_id: operation_id.clone(),
-					output: hex_string(&result),
-				})
-			})
-			.unwrap_or_else(|error| {
-				FollowEvent::<Block::Hash>::OperationError(OperationError {
-					operation_id: operation_id.clone(),
-					error: error.to_string(),
-				})
-			});
+		let client = self.client.clone();
 
-		let _ = block_guard.response_sender().unbounded_send(event);
-		Ok(MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items: None }))
+		let (rp, rp_fut) = method_started_response(operation_id.clone(), None);
+		let fut = async move {
+			// Wait for the server to send out the response and if it produces an error no event
+			// should be generated.
+			if rp_fut.await.is_err() {
+				return
+			}
+
+			let event = client
+				.executor()
+				.call(hash, &function, &call_parameters, CallContext::Offchain)
+				.map(|result| {
+					FollowEvent::<Block::Hash>::OperationCallDone(OperationCallDone {
+						operation_id: operation_id.clone(),
+						output: hex_string(&result),
+					})
+				})
+				.unwrap_or_else(|error| {
+					FollowEvent::<Block::Hash>::OperationError(OperationError {
+						operation_id: operation_id.clone(),
+						error: error.to_string(),
+					})
+				});
+
+			let _ = block_guard.response_sender().unbounded_send(event);
+		};
+		self.executor
+			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+
+		rp
 	}
 
-	fn chain_head_unstable_unpin(
+	async fn chain_head_unstable_unpin(
 		&self,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
-		hash: Block::Hash,
-	) -> RpcResult<()> {
-		match self.subscriptions.unpin_block(&follow_subscription, hash) {
+		hash_or_hashes: ListOrValue<Block::Hash>,
+	) -> Result<(), ChainHeadRpcError> {
+		if !self
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
+		{
+			return Ok(());
+		}
+
+		let result = match hash_or_hashes {
+			ListOrValue::Value(hash) =>
+				self.subscriptions.unpin_blocks(&follow_subscription, [hash]),
+			ListOrValue::List(hashes) =>
+				self.subscriptions.unpin_blocks(&follow_subscription, hashes),
+		};
+
+		match result {
 			Ok(()) => Ok(()),
 			Err(SubscriptionManagementError::SubscriptionAbsent) => {
 				// Invalid invalid subscription ID.
@@ -442,17 +556,27 @@ where
 			},
 			Err(SubscriptionManagementError::BlockHashAbsent) => {
 				// Block is not part of the subscription.
-				Err(ChainHeadRpcError::InvalidBlock.into())
+				Err(ChainHeadRpcError::InvalidBlock)
 			},
-			Err(_) => Err(ChainHeadRpcError::InvalidBlock.into()),
+			Err(SubscriptionManagementError::DuplicateHashes) =>
+				Err(ChainHeadRpcError::InvalidDuplicateHashes),
+			Err(_) => Err(ChainHeadRpcError::InvalidBlock),
 		}
 	}
 
-	fn chain_head_unstable_continue(
+	async fn chain_head_unstable_continue(
 		&self,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		operation_id: String,
-	) -> RpcResult<()> {
+	) -> Result<(), ChainHeadRpcError> {
+		if !self
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
+		{
+			return Ok(())
+		}
+
 		let Some(operation) = self.subscriptions.get_operation(&follow_subscription, &operation_id)
 		else {
 			return Ok(())
@@ -466,11 +590,19 @@ where
 		}
 	}
 
-	fn chain_head_unstable_stop_operation(
+	async fn chain_head_unstable_stop_operation(
 		&self,
+		connection_details: ConnectionDetails,
 		follow_subscription: String,
 		operation_id: String,
-	) -> RpcResult<()> {
+	) -> Result<(), ChainHeadRpcError> {
+		if !self
+			.subscriptions
+			.contains_subscription(connection_details.id(), &follow_subscription)
+		{
+			return Ok(())
+		}
+
 		let Some(operation) = self.subscriptions.get_operation(&follow_subscription, &operation_id)
 		else {
 			return Ok(())
@@ -480,4 +612,35 @@ where
 
 		Ok(())
 	}
+}
+
+fn method_started_response(
+	operation_id: String,
+	discarded_items: Option<usize>,
+) -> (ResponsePayload<'static, MethodResponse>, MethodResponseFuture) {
+	let rp = MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items });
+	ResponsePayload::success(rp).notify_on_completion()
+}
+
+/// Spawn a blocking future on the provided executor and return the result on a oneshot channel.
+///
+/// This is a wrapper to extract the result of a `executor.spawn_blocking` future.
+fn spawn_blocking<R>(
+	executor: &SubscriptionTaskExecutor,
+	fut: impl std::future::Future<Output = R> + Send + 'static,
+) -> oneshot::Receiver<R>
+where
+	R: Send + 'static,
+{
+	let (tx, rx) = oneshot::channel();
+
+	let blocking_fut = async move {
+		let result = fut.await;
+		// Send the result back on the channel.
+		let _ = tx.send(result);
+	};
+
+	executor.spawn_blocking("substrate-rpc-subscription", Some("rpc"), blocking_fut.boxed());
+
+	rx
 }

@@ -26,10 +26,10 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
-use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
+use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID, MIN_CODE_SIZE};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, ParaGenesisArgs},
+	paras::{self, ParaGenesisArgs, UpgradeStrategy},
 	Origin, ParaLifecycle,
 };
 use sp_std::{prelude::*, result};
@@ -106,7 +106,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -182,8 +182,8 @@ pub mod pallet {
 		ParaLocked,
 		/// The ID given for registration has not been reserved.
 		NotReserved,
-		/// Registering parachain with empty code is not allowed.
-		EmptyCode,
+		/// The validation code is invalid.
+		InvalidCode,
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
@@ -239,7 +239,13 @@ pub mod pallet {
 		/// - `validation_code`: The initial validation code of the parachain/thread.
 		///
 		/// ## Deposits/Fees
-		/// The origin signed account must reserve a corresponding deposit for the registration.
+		/// The account with the originating signature must reserve a deposit.
+		///
+		/// The deposit is required to cover the costs associated with storing the genesis head
+		/// data and the validation code.
+		/// This accounts for the potential to store validation code of a size up to the
+		/// `max_code_size`, as defined in the configuration pallet
+		///
 		/// Anything already reserved previously for this para ID is accounted for.
 		///
 		/// ## Events
@@ -402,6 +408,13 @@ pub mod pallet {
 
 		/// Schedule a parachain upgrade.
 		///
+		/// This will kick off a check of `new_code` by all validators. After the majority of the
+		/// validators have reported on the validity of the code, the code will either be enacted
+		/// or the upgrade will be rejected. If the code will be enacted, the current code of the
+		/// parachain will be overwritten directly. This means that any PoV will be checked by this
+		/// new code. The parachain itself will not be informed explictely that the validation code
+		/// has changed.
+		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
 		#[pallet::call_index(7)]
@@ -412,7 +425,11 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
-			runtime_parachains::schedule_code_upgrade::<T>(para, new_code)?;
+			runtime_parachains::schedule_code_upgrade::<T>(
+				para,
+				new_code,
+				UpgradeStrategy::ApplyAtExpectedBlock,
+			)?;
 			Ok(())
 		}
 
@@ -445,7 +462,7 @@ impl<T: Config> Registrar for Pallet<T> {
 	// All lease holding parachains. Ordered ascending by ParaId. On-demand parachains are not
 	// included.
 	fn parachains() -> Vec<ParaId> {
-		paras::Pallet::<T>::parachains()
+		paras::Parachains::<T>::get()
 	}
 
 	// Return if a para is a parathread (on-demand parachain)
@@ -513,14 +530,14 @@ impl<T: Config> Registrar for Pallet<T> {
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_head_data() -> HeadData {
-		let max_head_size = configuration::Pallet::<T>::config().max_head_data_size;
+		let max_head_size = configuration::ActiveConfig::<T>::get().max_head_data_size;
 		assert!(max_head_size > 0, "max_head_data can't be zero for generating worst head data.");
 		vec![0u8; max_head_size as usize].into()
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn worst_validation_code() -> ValidationCode {
-		let max_code_size = configuration::Pallet::<T>::config().max_code_size;
+		let max_code_size = configuration::ActiveConfig::<T>::get().max_code_size;
 		assert!(max_code_size > 0, "max_code_size can't be zero for generating worst code data.");
 		let validation_code = vec![0u8; max_code_size as usize];
 		validation_code.into()
@@ -650,8 +667,8 @@ impl<T: Config> Pallet<T> {
 		validation_code: ValidationCode,
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
-		let config = configuration::Pallet::<T>::config();
-		ensure!(validation_code.0.len() > 0, Error::<T>::EmptyCode);
+		let config = configuration::ActiveConfig::<T>::get();
+		ensure!(validation_code.0.len() >= MIN_CODE_SIZE as usize, Error::<T>::InvalidCode);
 		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
 		ensure!(
 			genesis_head.0.len() <= config.max_head_data_size as usize,
@@ -661,7 +678,7 @@ impl<T: Config> Pallet<T> {
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let deposit = T::ParaDeposit::get()
 			.saturating_add(per_byte_fee.saturating_mul((genesis_head.0.len() as u32).into()))
-			.saturating_add(per_byte_fee.saturating_mul((validation_code.0.len() as u32).into()));
+			.saturating_add(per_byte_fee.saturating_mul(config.max_code_size.into()));
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
 	}
@@ -699,14 +716,14 @@ mod tests {
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
 	};
 	use frame_support::{
-		assert_noop, assert_ok,
+		assert_noop, assert_ok, derive_impl,
 		error::BadOrigin,
 		parameter_types,
 		traits::{ConstU32, OnFinalize, OnInitialize},
 	};
 	use frame_system::limits;
 	use pallet_balances::Error as BalancesError;
-	use primitives::{Balance, BlockNumber, SessionIndex};
+	use primitives::{Balance, BlockNumber, SessionIndex, MAX_CODE_SIZE};
 	use runtime_parachains::{configuration, origin, shared};
 	use sp_core::H256;
 	use sp_io::TestExternalities;
@@ -724,13 +741,13 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Configuration: configuration::{Pallet, Call, Storage, Config<T>},
-			Parachains: paras::{Pallet, Call, Storage, Config<T>, Event},
-			ParasShared: shared::{Pallet, Call, Storage},
-			Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>},
-			ParachainsOrigin: origin::{Pallet, Origin},
+			System: frame_system,
+			Balances: pallet_balances,
+			Configuration: configuration,
+			Parachains: paras,
+			ParasShared: shared,
+			Registrar: paras_registrar,
+			ParachainsOrigin: origin,
 		}
 	);
 
@@ -751,6 +768,7 @@ mod tests {
 			limits::BlockLength::max_with_normal_ratio(4 * 1024 * 1024, NORMAL_RATIO);
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
@@ -792,12 +810,14 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 
-	impl shared::Config for Test {}
+	impl shared::Config for Test {
+		type DisabledValidators = ();
+	}
 
 	impl origin::Config for Test {}
 
@@ -812,6 +832,7 @@ mod tests {
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
+		type AssignCoretime = ();
 	}
 
 	impl configuration::Config for Test {
@@ -839,7 +860,7 @@ mod tests {
 
 		configuration::GenesisConfig::<Test> {
 			config: configuration::HostConfiguration {
-				max_code_size: 2 * 1024 * 1024,      // 2 MB
+				max_code_size: MAX_CODE_SIZE,
 				max_head_data_size: 1 * 1024 * 1024, // 1 MB
 				..Default::default()
 			},
@@ -894,7 +915,7 @@ mod tests {
 			}
 			// Session change every 3 blocks.
 			if (b + 1) % BLOCKS_PER_SESSION == 0 {
-				let session_index = shared::Pallet::<Test>::session_index() + 1;
+				let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
 				let validators_pub_keys = VALIDATORS.iter().map(|v| v.public().into()).collect();
 
 				shared::Pallet::<Test>::set_session_index(session_index);
@@ -926,11 +947,11 @@ mod tests {
 	}
 
 	fn max_code_size() -> u32 {
-		Configuration::config().max_code_size
+		configuration::ActiveConfig::<Test>::get().max_code_size
 	}
 
 	fn max_head_size() -> u32 {
-		Configuration::config().max_head_data_size
+		configuration::ActiveConfig::<Test>::get().max_head_data_size
 	}
 
 	#[test]
@@ -1008,10 +1029,61 @@ mod tests {
 
 			run_to_session(START_SESSION_INDEX + 2);
 			assert!(Parachains::is_parathread(para_id));
+			// Even though the registered validation code has a smaller size than the maximum the
+			// para manager's deposit is reserved as though they registered the maximum-sized code.
+			// Consequently, they can upgrade their code to the maximum size at any point without
+			// additional cost.
+			let validation_code_deposit =
+				max_code_size() as BalanceOf<Test> * <Test as Config>::DataDepositPerByte::get();
+			let head_deposit = 32 * <Test as Config>::DataDepositPerByte::get();
 			assert_eq!(
 				Balances::reserved_balance(&1),
-				<Test as Config>::ParaDeposit::get() +
-					64 * <Test as Config>::DataDepositPerByte::get()
+				<Test as Config>::ParaDeposit::get() + head_deposit + validation_code_deposit
+			);
+		});
+	}
+
+	#[test]
+	fn schedule_code_upgrade_validates_code() {
+		new_test_ext().execute_with(|| {
+			const START_SESSION_INDEX: SessionIndex = 1;
+			run_to_session(START_SESSION_INDEX);
+
+			let para_id = LOWEST_PUBLIC_ID;
+			assert!(!Parachains::is_parathread(para_id));
+
+			let validation_code = test_validation_code(32);
+			assert_ok!(Registrar::reserve(RuntimeOrigin::signed(1)));
+			assert_eq!(Balances::reserved_balance(&1), <Test as Config>::ParaDeposit::get());
+			assert_ok!(Registrar::register(
+				RuntimeOrigin::signed(1),
+				para_id,
+				test_genesis_head(32),
+				validation_code.clone(),
+			));
+			conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+
+			run_to_session(START_SESSION_INDEX + 2);
+			assert!(Parachains::is_parathread(para_id));
+
+			let new_code = test_validation_code(0);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(1),
+					para_id,
+					new_code.clone(),
+				),
+				paras::Error::<Test>::InvalidCode
+			);
+
+			let new_code = test_validation_code(max_code_size() as usize + 1);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(1),
+					para_id,
+					new_code.clone(),
+				),
+				paras::Error::<Test>::InvalidCode
 			);
 		});
 	}
@@ -1294,7 +1366,7 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				para_id,
 				vec![1; 3].into(),
-				vec![1, 2, 3].into(),
+				test_validation_code(32)
 			));
 
 			assert_noop!(Registrar::add_lock(RuntimeOrigin::signed(2), para_id), BadOrigin);
@@ -1457,7 +1529,7 @@ mod benchmarking {
 	use crate::traits::Registrar as RegistrarT;
 	use frame_support::assert_ok;
 	use frame_system::RawOrigin;
-	use primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE};
+	use primitives::{MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MIN_CODE_SIZE};
 	use runtime_parachains::{paras, shared, Origin as ParaOrigin};
 	use sp_runtime::traits::Bounded;
 
@@ -1588,7 +1660,7 @@ mod benchmarking {
 		}
 
 		schedule_code_upgrade {
-			let b in 1 .. MAX_CODE_SIZE;
+			let b in MIN_CODE_SIZE .. MAX_CODE_SIZE;
 			let new_code = ValidationCode(vec![0; b as usize]);
 			let para_id = ParaId::from(1000);
 		}: _(RawOrigin::Root, para_id, new_code)

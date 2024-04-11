@@ -18,7 +18,9 @@ use super::*;
 use crate::{inclusion, ParaId};
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
-use sp_std::collections::btree_map::BTreeMap;
+use sp_std::{cmp::min, collections::btree_map::BTreeMap};
+
+use primitives::v7::GroupIndex;
 
 use crate::builder::BenchBuilder;
 
@@ -63,7 +65,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_cores(cores_with_backed)
+			.set_backed_and_concluding_paras(cores_with_backed)
 			.build();
 
 		let mut benchmark = scenario.data.clone();
@@ -108,7 +110,7 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_cores(cores_with_backed.clone())
+			.set_backed_and_concluding_paras(cores_with_backed.clone())
 			.build();
 
 		let mut benchmark = scenario.data.clone();
@@ -116,7 +118,9 @@ benchmarks! {
 		// There is 1 backed,
 		assert_eq!(benchmark.backed_candidates.len(), 1);
 		// with `v` validity votes.
-		assert_eq!(benchmark.backed_candidates.get(0).unwrap().validity_votes.len(), v as usize);
+		// let votes = v as usize;
+		let votes = min(scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).unwrap().len(), v as usize);
+		assert_eq!(benchmark.backed_candidates.get(0).unwrap().validity_votes().len(), votes);
 
 		benchmark.bitfields.clear();
 		benchmark.disputes.clear();
@@ -132,19 +136,15 @@ benchmarks! {
 		// Ensure that the votes are for the correct session
 		assert_eq!(vote.session, scenario._session);
 		// Ensure that there are an expected number of candidates
-		let header = BenchBuilder::<T>::header(scenario._block_number.clone());
+		let header = BenchBuilder::<T>::header(scenario._block_number);
 		// Traverse candidates and assert descriptors are as expected
 		for (para_id, backing_validators) in vote.backing_validators_per_candidate.iter().enumerate() {
 			let descriptor = backing_validators.0.descriptor();
 			assert_eq!(ParaId::from(para_id), descriptor.para_id);
 			assert_eq!(header.hash(), descriptor.relay_parent);
-			assert_eq!(backing_validators.1.len(), v as usize);
+			assert_eq!(backing_validators.1.len(), votes);
 		}
 
-		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			cores_with_backed.len()
-		);
 		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()
@@ -153,7 +153,7 @@ benchmarks! {
 
 	enter_backed_candidate_code_upgrade {
 		// For now we always assume worst case code size. In the future we could vary over this.
-		let v = crate::configuration::Pallet::<T>::config().max_code_size;
+		let v = crate::configuration::ActiveConfig::<T>::get().max_code_size;
 
 		let cores_with_backed: BTreeMap<_, _>
 			= vec![(0, BenchBuilder::<T>::fallback_min_validity_votes())]
@@ -161,17 +161,20 @@ benchmarks! {
 				.collect();
 
 		let scenario = BenchBuilder::<T>::new()
-			.set_backed_and_concluding_cores(cores_with_backed.clone())
+			.set_backed_and_concluding_paras(cores_with_backed.clone())
 			.set_code_upgrade(v)
 			.build();
 
 		let mut benchmark = scenario.data.clone();
 
+		// let votes = BenchBuilder::<T>::fallback_min_validity_votes() as usize;
+		let votes = min(scheduler::Pallet::<T>::group_validators(GroupIndex::from(0)).unwrap().len(), BenchBuilder::<T>::fallback_min_validity_votes() as usize);
+
 		// There is 1 backed
 		assert_eq!(benchmark.backed_candidates.len(), 1);
 		assert_eq!(
-			benchmark.backed_candidates.get(0).unwrap().validity_votes.len() as u32,
-			BenchBuilder::<T>::fallback_min_validity_votes()
+			benchmark.backed_candidates.get(0).unwrap().validity_votes().len(),
+			votes,
 		);
 
 		benchmark.bitfields.clear();
@@ -189,7 +192,7 @@ benchmarks! {
 		// Ensure that the votes are for the correct session
 		assert_eq!(vote.session, scenario._session);
 		// Ensure that there are an expected number of candidates
-		let header = BenchBuilder::<T>::header(scenario._block_number.clone());
+		let header = BenchBuilder::<T>::header(scenario._block_number);
 		// Traverse candidates and assert descriptors are as expected
 		for (para_id, backing_validators)
 			in vote.backing_validators_per_candidate.iter().enumerate() {
@@ -197,15 +200,11 @@ benchmarks! {
 				assert_eq!(ParaId::from(para_id), descriptor.para_id);
 				assert_eq!(header.hash(), descriptor.relay_parent);
 				assert_eq!(
-					backing_validators.1.len() as u32,
-					BenchBuilder::<T>::fallback_min_validity_votes()
+					backing_validators.1.len(),
+					votes,
 				);
 			}
 
-		assert_eq!(
-			inclusion::PendingAvailabilityCommitments::<T>::iter().count(),
-			cores_with_backed.len()
-		);
 		assert_eq!(
 			inclusion::PendingAvailability::<T>::iter().count(),
 			cores_with_backed.len()

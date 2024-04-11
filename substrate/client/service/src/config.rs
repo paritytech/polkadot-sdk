@@ -18,8 +18,12 @@
 
 //! Service configuration.
 
+pub use jsonrpsee::server::BatchRequestConfig as RpcBatchRequestConfig;
+use prometheus_endpoint::Registry;
+use sc_chain_spec::ChainSpec;
 pub use sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
 pub use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
+pub use sc_informant::OutputFormat;
 pub use sc_network::{
 	config::{
 		MultiaddrWithPeerId, NetworkConfiguration, NodeKeyConfig, NonDefaultSetConfig, ProtocolId,
@@ -30,15 +34,13 @@ pub use sc_network::{
 	},
 	Multiaddr,
 };
-
-use prometheus_endpoint::Registry;
-use sc_chain_spec::ChainSpec;
 pub use sc_telemetry::TelemetryEndpoints;
 pub use sc_transaction_pool::Options as TransactionPoolOptions;
 use sp_core::crypto::SecretString;
 use std::{
 	io, iter,
 	net::SocketAddr,
+	num::NonZeroU32,
 	path::{Path, PathBuf},
 };
 use tempfile::TempDir;
@@ -100,6 +102,12 @@ pub struct Configuration {
 	pub rpc_max_subs_per_conn: u32,
 	/// JSON-RPC server default port.
 	pub rpc_port: u16,
+	/// The number of messages the JSON-RPC server is allowed to keep in memory.
+	pub rpc_message_buffer_capacity: u32,
+	/// JSON-RPC server batch config.
+	pub rpc_batch_config: RpcBatchRequestConfig,
+	/// RPC rate limit per minute.
+	pub rpc_rate_limit: Option<NonZeroU32>,
 	/// Prometheus endpoint configuration. `None` if disabled.
 	pub prometheus_config: Option<PrometheusConfig>,
 	/// Telemetry service URL. `None` if disabled.
@@ -134,7 +142,7 @@ pub struct Configuration {
 	/// Base path of the configuration. This is shared between chains.
 	pub base_path: BasePath,
 	/// Configuration of the output format that the informant uses.
-	pub informant_output_format: sc_informant::OutputFormat,
+	pub informant_output_format: OutputFormat,
 	/// Maximum number of different runtime versions that can be cached.
 	pub runtime_cache_size: u8,
 }
@@ -228,7 +236,7 @@ impl Configuration {
 		ProtocolId::from(protocol_id_full)
 	}
 
-	/// Returns true if the genesis state writting will be skipped while initializing the genesis
+	/// Returns true if the genesis state writing will be skipped while initializing the genesis
 	/// block.
 	pub fn no_genesis(&self) -> bool {
 		matches!(self.network.sync_mode, SyncMode::LightState { .. } | SyncMode::Warp { .. })

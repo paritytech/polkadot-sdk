@@ -1,6 +1,6 @@
 [package]
 name = "fork-tree"
-version = "3.0.0"
+version = "12.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Utility library for managing tree-like ordered data with logic for pruning the tree while finalizing nodes."
 documentation = "https://docs.rs/fork-tree"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

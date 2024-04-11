@@ -1,0 +1,24 @@
+name: Merge-Queue
+
+on:
+  merge_group:
+
+jobs:
+  trigger-merge-queue-action:
+    runs-on: ubuntu-latest
+    environment: merge-queues
+    steps:
+      - name: Generate token
+        id: app_token
+        uses: tibdex/github-app-token@3beb63f4bd073e61482598c45c71c1019b59b73a # v2.1.0
+        with:
+          app_id: ${{ secrets.REVIEW_APP_ID }}
+          private_key: ${{ secrets.REVIEW_APP_KEY }}
+      - name: Add Merge Queue status check
+        uses: billyjbryant/create-status-check@3e6fa0ac599d10d9588cf9516ca4330ef669b858 # v2
+        with:
+          authToken: ${{ steps.app_token.outputs.token }}
+          context: 'review-bot'
+          description: 'PRs for merge queue gets approved'
+          state: 'success'
+          sha: ${{ github.event.merge_group.head_commit.id }}

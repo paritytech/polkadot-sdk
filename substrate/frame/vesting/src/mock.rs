@@ -16,14 +16,10 @@
 // limitations under the License.
 
 use frame_support::{
-	parameter_types,
-	traits::{ConstU32, ConstU64, WithdrawReasons},
+	derive_impl, parameter_types,
+	traits::{ConstU32, WithdrawReasons},
 };
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, Identity, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::{traits::Identity, BuildStorage};
 
 use super::*;
 use crate as pallet_vesting;
@@ -33,36 +29,16 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Vesting: pallet_vesting,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
-	type AccountId = u64;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockHashCount = ConstU64<250>;
-	type BlockLength = ();
-	type BlockWeights = ();
-	type RuntimeCall = RuntimeCall;
-	type DbWeight = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type Block = Block;
-	type Nonce = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type OnKilledAccount = ();
-	type OnNewAccount = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type RuntimeOrigin = RuntimeOrigin;
-	type PalletInfo = PalletInfo;
-	type SS58Prefix = ();
-	type SystemWeightInfo = ();
-	type Version = ();
 }
 
 impl pallet_balances::Config for Test {
@@ -78,7 +54,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 parameter_types! {
 	pub const MinVestedTransfer: u64 = 256 * 2;
@@ -94,6 +70,7 @@ impl Config for Test {
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
 }
 
 pub struct ExtBuilder {

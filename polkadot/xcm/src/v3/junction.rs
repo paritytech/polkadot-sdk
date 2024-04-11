@@ -22,7 +22,8 @@ use crate::{
 		BodyId as OldBodyId, BodyPart as OldBodyPart, Junction as OldJunction,
 		NetworkId as OldNetworkId,
 	},
-	VersionedMultiLocation,
+	v4::{Junction as NewJunction, NetworkId as NewNetworkId},
+	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use core::convert::{TryFrom, TryInto};
@@ -49,6 +50,8 @@ use serde::{Deserialize, Serialize};
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum NetworkId {
 	/// Network specified by the first 32 bytes of its genesis block.
 	ByGenesis([u8; 32]),
@@ -74,6 +77,8 @@ pub enum NetworkId {
 	BitcoinCore,
 	/// The Bitcoin network, including hard-forks supported by Bitcoin Cash developers.
 	BitcoinCash,
+	/// The Polkadot Bulletin chain.
+	PolkadotBulletin,
 }
 
 impl From<OldNetworkId> for Option<NetworkId> {
@@ -100,6 +105,31 @@ impl TryFrom<OldNetworkId> for NetworkId {
 	}
 }
 
+impl From<NewNetworkId> for Option<NetworkId> {
+	fn from(new: NewNetworkId) -> Self {
+		Some(NetworkId::from(new))
+	}
+}
+
+impl From<NewNetworkId> for NetworkId {
+	fn from(new: NewNetworkId) -> Self {
+		use NewNetworkId::*;
+		match new {
+			ByGenesis(hash) => Self::ByGenesis(hash),
+			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
+			Polkadot => Self::Polkadot,
+			Kusama => Self::Kusama,
+			Westend => Self::Westend,
+			Rococo => Self::Rococo,
+			Wococo => Self::Wococo,
+			Ethereum { chain_id } => Self::Ethereum { chain_id },
+			BitcoinCore => Self::BitcoinCore,
+			BitcoinCash => Self::BitcoinCash,
+			PolkadotBulletin => Self::PolkadotBulletin,
+		}
+	}
+}
+
 /// An identifier of a pluralistic body.
 #[derive(
 	Copy,
@@ -116,6 +146,8 @@ impl TryFrom<OldNetworkId> for NetworkId {
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyId {
 	/// The only body in its context.
 	Unit,
@@ -186,6 +218,8 @@ impl TryFrom<OldBodyId> for BodyId {
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum BodyPart {
 	/// The body's declaration, under whatever means it decides.
 	Voice,
@@ -261,6 +295,8 @@ impl TryFrom<OldBodyPart> for BodyPart {
 	Serialize,
 	Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Junction {
 	/// An indexed parachain belonging to and operated by the context.
 	///
@@ -404,6 +440,29 @@ impl TryFrom<OldJunction> for Junction {
 	}
 }
 
+impl TryFrom<NewJunction> for Junction {
+	type Error = ();
+
+	fn try_from(value: NewJunction) -> Result<Self, Self::Error> {
+		use NewJunction::*;
+		Ok(match value {
+			Parachain(id) => Self::Parachain(id),
+			AccountId32 { network: maybe_network, id } =>
+				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
+			AccountIndex64 { network: maybe_network, index } =>
+				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
+			AccountKey20 { network: maybe_network, key } =>
+				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
+			PalletInstance(index) => Self::PalletInstance(index),
+			GeneralIndex(id) => Self::GeneralIndex(id),
+			GeneralKey { length, data } => Self::GeneralKey { length, data },
+			OnlyChild => Self::OnlyChild,
+			Plurality { id, part } => Self::Plurality { id, part },
+			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
+		})
+	}
+}
+
 impl Junction {
 	/// Convert `self` into a `MultiLocation` containing 0 parents.
 	///
@@ -420,10 +479,10 @@ impl Junction {
 		MultiLocation { parents: n, interior: Junctions::X1(self) }
 	}
 
-	/// Convert `self` into a `VersionedMultiLocation` containing 0 parents.
+	/// Convert `self` into a `VersionedLocation` containing 0 parents.
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
-	pub const fn into_versioned(self) -> VersionedMultiLocation {
+	pub const fn into_versioned(self) -> VersionedLocation {
 		self.into_location().into_versioned()
 	}
 

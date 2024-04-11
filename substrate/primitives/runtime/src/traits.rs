@@ -38,7 +38,7 @@ pub use sp_arithmetic::traits::{
 	EnsureOp, EnsureOpAssign, EnsureSub, EnsureSubAssign, IntegerSquareRoot, One,
 	SaturatedConversion, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
 };
-use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId};
+use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
 #[doc(hidden)]
 pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128,
@@ -133,7 +133,7 @@ impl Verify for sp_core::ecdsa::Signature {
 			self.as_ref(),
 			&sp_io::hashing::blake2_256(msg.get()),
 		) {
-			Ok(pubkey) => signer.as_ref() == &pubkey[..],
+			Ok(pubkey) => signer.0 == pubkey,
 			_ => false,
 		}
 	}
@@ -226,7 +226,7 @@ pub trait StaticLookup {
 }
 
 /// A lookup implementation returning the input value.
-#[derive(Default)]
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub struct IdentityLookup<T>(PhantomData<T>);
 impl<T: Codec + Clone + PartialEq + Debug + TypeInfo> StaticLookup for IdentityLookup<T> {
 	type Source = T;
@@ -330,7 +330,7 @@ impl<T, A: Into<T>> Morph<A> for MorphInto<T> {
 	}
 }
 
-/// Implementation of `TryMorph` which attmepts to convert between types using `TryInto`.
+/// Implementation of `TryMorph` which attempts to convert between types using `TryInto`.
 pub struct TryMorphInto<T>(sp_std::marker::PhantomData<T>);
 impl<T, A: TryInto<T>> TryMorph<A> for TryMorphInto<T> {
 	type Outcome = T;
@@ -539,6 +539,9 @@ macro_rules! morph_types {
 morph_types! {
 	/// Morpher to disregard the source value and replace with another.
 	pub type Replace<V: TypedGet> = |_| -> V::Type { V::get() };
+
+	/// Morpher to disregard the source value and replace with the default of `V`.
+	pub type ReplaceWithDefault<V: Default> = |_| -> V { Default::default() };
 
 	/// Mutator which reduces a scalar by a particular amount.
 	pub type ReduceBy<N: TypedGet> = |r: N::Type| -> N::Type {
@@ -1149,6 +1152,44 @@ pub trait IsMember<MemberId> {
 	fn is_member(member_id: &MemberId) -> bool;
 }
 
+/// Super trait with all the attributes for a block number.
+pub trait BlockNumber:
+	Member
+	+ MaybeSerializeDeserialize
+	+ MaybeFromStr
+	+ Debug
+	+ sp_std::hash::Hash
+	+ Copy
+	+ MaybeDisplay
+	+ AtLeast32BitUnsigned
+	+ Into<U256>
+	+ TryFrom<U256>
+	+ Default
+	+ TypeInfo
+	+ MaxEncodedLen
+	+ FullCodec
+{
+}
+
+impl<
+		T: Member
+			+ MaybeSerializeDeserialize
+			+ MaybeFromStr
+			+ Debug
+			+ sp_std::hash::Hash
+			+ Copy
+			+ MaybeDisplay
+			+ AtLeast32BitUnsigned
+			+ Into<U256>
+			+ TryFrom<U256>
+			+ Default
+			+ TypeInfo
+			+ MaxEncodedLen
+			+ FullCodec,
+	> BlockNumber for T
+{
+}
+
 /// Something which fulfills the abstract idea of a Substrate header. It has types for a `Number`,
 /// a `Hash` and a `Hashing`. It provides access to an `extrinsics_root`, `state_root` and
 /// `parent_hash`, as well as a `digest` and a block `number`.
@@ -1158,18 +1199,7 @@ pub trait Header:
 	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + 'static
 {
 	/// Header number.
-	type Number: Member
-		+ MaybeSerializeDeserialize
-		+ MaybeFromStr
-		+ Debug
-		+ sp_std::hash::Hash
-		+ Copy
-		+ MaybeDisplay
-		+ AtLeast32BitUnsigned
-		+ Default
-		+ TypeInfo
-		+ MaxEncodedLen
-		+ FullCodec;
+	type Number: BlockNumber;
 	/// Header hash type
 	type Hash: HashOutput;
 	/// Hashing algorithm
@@ -1411,7 +1441,7 @@ pub trait Dispatchable {
 	/// Every function call from your runtime has an origin, which specifies where the extrinsic was
 	/// generated from. In the case of a signed extrinsic (transaction), the origin contains an
 	/// identifier for the caller. The origin can be empty in the case of an inherent extrinsic.
-	type RuntimeOrigin;
+	type RuntimeOrigin: Debug;
 	/// ...
 	type Config;
 	/// An opaque set of information attached to the transaction. This could be constructed anywhere
@@ -1419,7 +1449,7 @@ pub trait Dispatchable {
 	/// to represent the dispatch class and weight.
 	type Info;
 	/// Additional information that is returned by `dispatch`. Can be used to supply the caller
-	/// with information about a `Dispatchable` that is ownly known post dispatch.
+	/// with information about a `Dispatchable` that is only known post dispatch.
 	type PostInfo: Eq + PartialEq + Clone + Copy + Encode + Decode + Printable;
 	/// Actually dispatch this call and return the result of it.
 	fn dispatch(self, origin: Self::RuntimeOrigin)
@@ -1666,8 +1696,6 @@ impl<AccountId, Call: Dispatchable> SignedExtension for Tuple {
 	}
 }
 
-/// Only for bare bone testing when you don't care about signed extensions at all.
-#[cfg(feature = "std")]
 impl SignedExtension for () {
 	type AccountId = u64;
 	type AdditionalSigned = ();
@@ -1765,7 +1793,7 @@ pub trait ValidateUnsigned {
 	/// this code before the unsigned extrinsic enters the transaction pool and also periodically
 	/// afterwards to ensure the validity. To prevent dos-ing a network with unsigned
 	/// extrinsics, these validity checks should include some checks around uniqueness, for example,
-	/// like checking that the unsigned extrinsic was send by an authority in the active set.
+	/// checking that the unsigned extrinsic was sent by an authority in the active set.
 	///
 	/// Changes made to storage should be discarded by caller.
 	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity;
@@ -2267,7 +2295,15 @@ pub trait BlockIdTo<Block: self::Block> {
 /// Get current block number
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
-	type BlockNumber: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned;
+	type BlockNumber: Codec
+		+ Clone
+		+ Ord
+		+ Eq
+		+ AtLeast32BitUnsigned
+		+ TypeInfo
+		+ Debug
+		+ MaxEncodedLen
+		+ Copy;
 
 	/// Returns the current block number.
 	///
@@ -2286,13 +2322,20 @@ pub trait BlockNumberProvider {
 	/// .
 	fn current_block_number() -> Self::BlockNumber;
 
-	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
-	/// else a noop.
+	/// Utility function only to be used in benchmarking scenarios or tests, to be implemented
+	/// optionally, else a noop.
 	///
 	/// It allows for setting the block number that will later be fetched
 	/// This is useful in case the block number provider is different than System
-	#[cfg(feature = "runtime-benchmarks")]
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 	fn set_block_number(_block: Self::BlockNumber) {}
+}
+
+impl BlockNumberProvider for () {
+	type BlockNumber = u32;
+	fn current_block_number() -> Self::BlockNumber {
+		0
+	}
 }
 
 #[cfg(test)]

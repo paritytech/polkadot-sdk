@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Extract warp sync strategy from `ChainSync`
+
+doc:
+  - audience: Node Dev
+    description: |
+      `WarpSync`, and `StateSync` as the logical part of warp sync, are extracted from  `ChainSync`
+      as independent syncing strategies. `SyncingStrategy` enum is introduced as a proxy between
+      `SyncingEngine` and specific strategies. `SyncingStrategy` may be replaced by a trait in a
+      follow-up PRs.
+
+crates: 
+  - name: sc-network-sync

@@ -15,9 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, Error, Input};
+use core::cmp;
 use scale_info::TypeInfo;
-use sp_std::{cmp, prelude::*};
 
 use crate::{Payload, ValidatorSetId};
 
@@ -95,6 +96,19 @@ pub struct SignedCommitment<TBlockNumber, TSignature> {
 	/// The length of this `Vec` must match number of validators in the current set (see
 	/// [Commitment::validator_set_id]).
 	pub signatures: Vec<Option<TSignature>>,
+}
+
+impl<TBlockNumber: core::fmt::Debug, TSignature> core::fmt::Display
+	for SignedCommitment<TBlockNumber, TSignature>
+{
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		let signatures_count = self.signatures.iter().filter(|s| s.is_some()).count();
+		write!(
+			f,
+			"SignedCommitment(commitment: {:?}, signatures_count: {})",
+			self.commitment, signatures_count
+		)
+	}
 }
 
 impl<TBlockNumber, TSignature> SignedCommitment<TBlockNumber, TSignature> {
@@ -241,6 +255,14 @@ pub enum VersionedFinalityProof<N, S> {
 	V1(SignedCommitment<N, S>),
 }
 
+impl<N: core::fmt::Debug, S> core::fmt::Display for VersionedFinalityProof<N, S> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			VersionedFinalityProof::V1(sc) => write!(f, "VersionedFinalityProof::V1({})", sc),
+		}
+	}
+}
+
 impl<N, S> From<SignedCommitment<N, S>> for VersionedFinalityProof<N, S> {
 	fn from(commitment: SignedCommitment<N, S>) -> Self {
 		VersionedFinalityProof::V1(commitment)
@@ -253,7 +275,8 @@ mod tests {
 	use super::*;
 	use crate::{ecdsa_crypto::Signature as EcdsaSignature, known_payloads};
 	use codec::Decode;
-	use sp_core::{keccak_256, Pair};
+	use sp_core::Pair;
+	use sp_crypto_hashing::keccak_256;
 
 	#[cfg(feature = "bls-experimental")]
 	use crate::bls_crypto::Signature as BlsSignature;
@@ -397,7 +420,7 @@ mod tests {
 		assert_eq!(
 			encoded,
 			array_bytes::hex2bytes_unchecked(
-				"046d68343048656c6c6f20576f726c642105000000000000000000000000000000000000000000000004300400000008558455ad81279df0795cc985580e4fb75d72d948d1107b2ac80a09abed4da8480c746cc321f2319a5e99a830e314d10dd3cd68ce3dc0c33c86e99bcb7816f9ba01667603fc041cf9d7147d22bf54b15e5778893d6986b71a929747befd3b4d233fbe668bc480e8865116b94db46ca25a01e03c71955f2582604e415da68f2c3c406b9d5f4ad416230ec5453f05ac16a50d8d0923dfb0413cc956ae3fa6334465bd1f2cacec8e9cd606438390fe2a29dc052d6e1f8105c337a86cdd9aaacdc496577f3db8c55ef9e6fd48f2c5c05a2274707491635d8ba3df64f324575b7b2a34487bca2324b6a0046395a71681be3d0c2a00df61d3b2be0963eb6caa243cc505d327aec73e1bb7ffe9a14b1354b0c406792ac6d6f47c06987c15dec9993f43eefa001d866fe0850d986702c414840f0d9ec0fdc04832ef91ae37c8d49e2f573ca50cb37f152801d489a19395cb04e5fc8f2ab6954b58a3bcc40ef9b6409d2ff7ef07"
+				"046d68343048656c6c6f20576f726c642105000000000000000000000000000000000000000000000004300400000008558455ad81279df0795cc985580e4fb75d72d948d1107b2ac80a09abed4da8480c746cc321f2319a5e99a830e314d10dd3cd68ce3dc0c33c86e99bcb7816f9ba015dd1c9b2237e54baa93d232cdf83a430b58a5efbc2f86ca1bab173a315ff6f15bef161425750c028055e9a23947b73002889a8b22168628438875a8ef25d76db998a80187b50719471286f054f3b3809b77a0cd87d7fe9c1a9d5d562683e25a70610f0804e92340549a43a7159b77b0c2d6e1f8105c337a86cdd9aaacdc496577f3db8c55ef9e6fd48f2c5c05a2274707491635d8ba3df64f324575b7b2a34487bca2324b6a0046395a71681be3d0c2a001074884b6998c82331bd57ffa0a02cbfd02483c765b9216eab6a1fc119206236bf7971be68acaebff7400edee943240006a6096c9cfa65e9eb4e67f025c27112d14b4574fb208c439500f45cf3a8060f6cf009044f3141cce0364a7c2710a19b1bdf4abf27f86e5e3db08bddd35a7d12"
 			)
 		);
 	}

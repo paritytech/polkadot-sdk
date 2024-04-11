@@ -285,7 +285,11 @@ pub trait SessionHandler<ValidatorId> {
 	/// before initialization of your pallet.
 	///
 	/// `changed` is true whenever any of the session keys or underlying economic
-	/// identities or weightings behind those keys has changed.
+	/// identities or weightings behind `validators` keys has changed. `queued_validators`
+	/// could change without `validators` changing. Example of possible sequent calls:
+	///     Session N: on_new_session(false, unchanged_validators, unchanged_queued_validators)
+	///     Session N + 1: on_new_session(false, unchanged_validators, new_queued_validators)
+	/// 	Session N + 2: on_new_session(true, new_queued_validators, new_queued_validators)
 	fn on_new_session<Ks: OpaqueKeys>(
 		changed: bool,
 		validators: &[(ValidatorId, Ks)],
@@ -368,7 +372,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
@@ -460,27 +464,13 @@ pub mod pallet {
 					);
 					self.keys.iter().map(|x| x.1.clone()).collect()
 				});
-			assert!(
-				!initial_validators_0.is_empty(),
-				"Empty validator set for session 0 in genesis block!"
-			);
 
 			let initial_validators_1 = T::SessionManager::new_session_genesis(1)
 				.unwrap_or_else(|| initial_validators_0.clone());
-			assert!(
-				!initial_validators_1.is_empty(),
-				"Empty validator set for session 1 in genesis block!"
-			);
 
 			let queued_keys: Vec<_> = initial_validators_1
-				.iter()
-				.cloned()
-				.map(|v| {
-					(
-						v.clone(),
-						Pallet::<T>::load_keys(&v).expect("Validator in session 1 missing keys!"),
-					)
-				})
+				.into_iter()
+				.filter_map(|v| Pallet::<T>::load_keys(&v).map(|k| (v, k)))
 				.collect();
 
 			// Tell everyone about the genesis session keys
@@ -917,6 +907,10 @@ impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
 impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
 		<Pallet<T>>::disabled_validators().binary_search(&index).is_ok()
+	}
+
+	fn disabled_validators() -> Vec<u32> {
+		<Pallet<T>>::disabled_validators()
 	}
 }
 

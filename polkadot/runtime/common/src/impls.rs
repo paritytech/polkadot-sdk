@@ -16,35 +16,44 @@
 
 //! Auxiliary `struct`/`enum`s for polkadot runtime.
 
-use crate::NegativeImbalance;
-use frame_support::traits::{Currency, Imbalance, OnUnbalanced};
+use frame_support::traits::{
+	fungible::{Balanced, Credit},
+	tokens::imbalance::ResolveTo,
+	Imbalance, OnUnbalanced,
+};
+use pallet_treasury::TreasuryAccountId;
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::Balance;
-use sp_runtime::Perquintill;
+use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
+use xcm::VersionedLocation;
 
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor<R>(sp_std::marker::PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for ToAuthor<R>
+impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToAuthor<R>
 where
 	R: pallet_balances::Config + pallet_authorship::Config,
 	<R as frame_system::Config>::AccountId: From<primitives::AccountId>,
 	<R as frame_system::Config>::AccountId: Into<primitives::AccountId>,
 {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+	fn on_nonzero_unbalanced(
+		amount: Credit<<R as frame_system::Config>::AccountId, pallet_balances::Pallet<R>>,
+	) {
 		if let Some(author) = <pallet_authorship::Pallet<R>>::author() {
-			<pallet_balances::Pallet<R>>::resolve_creating(&author, amount);
+			let _ = <pallet_balances::Pallet<R>>::resolve(&author, amount);
 		}
 	}
 }
 
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
+impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
-	R: pallet_balances::Config + pallet_treasury::Config + pallet_authorship::Config,
-	pallet_treasury::Pallet<R>: OnUnbalanced<NegativeImbalance<R>>,
+	R: pallet_balances::Config + pallet_authorship::Config + pallet_treasury::Config,
 	<R as frame_system::Config>::AccountId: From<primitives::AccountId>,
 	<R as frame_system::Config>::AccountId: Into<primitives::AccountId>,
 {
-	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
+	fn on_unbalanceds<B>(
+		mut fees_then_tips: impl Iterator<Item = Credit<R::AccountId, pallet_balances::Pallet<R>>>,
+	) {
 		if let Some(fees) = fees_then_tips.next() {
 			// for fees, 80% to treasury, 20% to author
 			let mut split = fees.ration(80, 20);
@@ -52,8 +61,7 @@ where
 				// for tips, if any, 100% to author
 				tips.merge_into(&mut split.1);
 			}
-			use pallet_treasury::Pallet as Treasury;
-			<Treasury<R> as OnUnbalanced<_>>::on_unbalanced(split.0);
+			ResolveTo::<TreasuryAccountId<R>, pallet_balances::Pallet<R>>::on_unbalanced(split.0);
 			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
 		}
 	}
@@ -98,13 +106,131 @@ pub fn era_payout(
 	(staking_payout, rest)
 }
 
+/// Versioned locatable asset type which contains both an XCM `location` and `asset_id` to identify
+/// an asset which exists on some chain.
+#[derive(
+	Encode, Decode, Eq, PartialEq, Clone, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
+)]
+pub enum VersionedLocatableAsset {
+	#[codec(index = 3)]
+	V3 { location: xcm::v3::Location, asset_id: xcm::v3::AssetId },
+	#[codec(index = 4)]
+	V4 { location: xcm::v4::Location, asset_id: xcm::v4::AssetId },
+}
+
+/// Converts the [`VersionedLocatableAsset`] to the [`xcm_builder::LocatableAssetId`].
+pub struct LocatableAssetConverter;
+impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
+	for LocatableAssetConverter
+{
+	fn try_convert(
+		asset: VersionedLocatableAsset,
+	) -> Result<xcm_builder::LocatableAssetId, VersionedLocatableAsset> {
+		match asset {
+			VersionedLocatableAsset::V3 { location, asset_id } =>
+				Ok(xcm_builder::LocatableAssetId {
+					location: location.try_into().map_err(|_| asset.clone())?,
+					asset_id: asset_id.try_into().map_err(|_| asset.clone())?,
+				}),
+			VersionedLocatableAsset::V4 { location, asset_id } =>
+				Ok(xcm_builder::LocatableAssetId { location, asset_id }),
+		}
+	}
+}
+
+/// Converts the [`VersionedLocation`] to the [`xcm::latest::Location`].
+pub struct VersionedLocationConverter;
+impl TryConvert<&VersionedLocation, xcm::latest::Location> for VersionedLocationConverter {
+	fn try_convert(
+		location: &VersionedLocation,
+	) -> Result<xcm::latest::Location, &VersionedLocation> {
+		let latest = match location.clone() {
+			VersionedLocation::V2(l) => {
+				let v3: xcm::v3::Location = l.try_into().map_err(|_| location)?;
+				v3.try_into().map_err(|_| location)?
+			},
+			VersionedLocation::V3(l) => l.try_into().map_err(|_| location)?,
+			VersionedLocation::V4(l) => l,
+		};
+		Ok(latest)
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarks {
+	use super::VersionedLocatableAsset;
+	use core::marker::PhantomData;
+	use frame_support::traits::Get;
+	use pallet_asset_rate::AssetKindFactory;
+	use pallet_treasury::ArgumentsFactory as TreasuryArgumentsFactory;
+	use sp_core::{ConstU32, ConstU8};
+	use xcm::prelude::*;
+
+	/// Provides a factory method for the [`VersionedLocatableAsset`].
+	/// The location of the asset is determined as a Parachain with an ID equal to the passed seed.
+	pub struct AssetRateArguments;
+	impl AssetKindFactory<VersionedLocatableAsset> for AssetRateArguments {
+		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
+			VersionedLocatableAsset::V4 {
+				location: xcm::v4::Location::new(0, [xcm::v4::Junction::Parachain(seed)]),
+				asset_id: xcm::v4::Location::new(
+					0,
+					[
+						xcm::v4::Junction::PalletInstance(seed.try_into().unwrap()),
+						xcm::v4::Junction::GeneralIndex(seed.into()),
+					],
+				)
+				.into(),
+			}
+		}
+	}
+
+	/// Provide factory methods for the [`VersionedLocatableAsset`] and the `Beneficiary` of the
+	/// [`VersionedLocation`]. The location of the asset is determined as a Parachain with an
+	/// ID equal to the passed seed.
+	pub struct TreasuryArguments<Parents = ConstU8<0>, ParaId = ConstU32<0>>(
+		PhantomData<(Parents, ParaId)>,
+	);
+	impl<Parents: Get<u8>, ParaId: Get<u32>>
+		TreasuryArgumentsFactory<VersionedLocatableAsset, VersionedLocation>
+		for TreasuryArguments<Parents, ParaId>
+	{
+		fn create_asset_kind(seed: u32) -> VersionedLocatableAsset {
+			VersionedLocatableAsset::V3 {
+				location: xcm::v3::Location::new(
+					Parents::get(),
+					[xcm::v3::Junction::Parachain(ParaId::get())],
+				),
+				asset_id: xcm::v3::Location::new(
+					0,
+					[
+						xcm::v3::Junction::PalletInstance(seed.try_into().unwrap()),
+						xcm::v3::Junction::GeneralIndex(seed.into()),
+					],
+				)
+				.into(),
+			}
+		}
+		fn create_beneficiary(seed: [u8; 32]) -> VersionedLocation {
+			VersionedLocation::V4(xcm::v4::Location::new(
+				0,
+				[xcm::v4::Junction::AccountId32 { network: None, id: seed }],
+			))
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use frame_support::{
+		derive_impl,
 		dispatch::DispatchClass,
 		parameter_types,
-		traits::{ConstU32, FindAuthor},
+		traits::{
+			tokens::{PayFromAccount, UnityAssetBalanceConversion},
+			ConstU32, FindAuthor,
+		},
 		weights::Weight,
 		PalletId,
 	};
@@ -122,10 +248,10 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Authorship: pallet_authorship::{Pallet, Storage},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>},
+			System: frame_system,
+			Authorship: pallet_authorship,
+			Balances: pallet_balances,
+			Treasury: pallet_treasury,
 		}
 	);
 
@@ -144,6 +270,7 @@ mod tests {
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
@@ -181,14 +308,15 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 
 	parameter_types! {
 		pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 		pub const MaxApprovals: u32 = 100;
+		pub TreasuryAccount: AccountId = Treasury::account_id();
 	}
 
 	impl pallet_treasury::Config for Test {
@@ -208,6 +336,14 @@ mod tests {
 		type MaxApprovals = MaxApprovals;
 		type WeightInfo = ();
 		type SpendOrigin = frame_support::traits::NeverEnsureOrigin<u64>;
+		type AssetKind = ();
+		type Beneficiary = Self::AccountId;
+		type BeneficiaryLookup = IdentityLookup<Self::AccountId>;
+		type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
+		type BalanceConverter = UnityAssetBalanceConversion;
+		type PayoutPeriod = ConstU64<0>;
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper = ();
 	}
 
 	pub struct OneAuthor;
@@ -236,8 +372,14 @@ mod tests {
 	#[test]
 	fn test_fees_and_tip_split() {
 		new_test_ext().execute_with(|| {
-			let fee = Balances::issue(10);
-			let tip = Balances::issue(20);
+			let fee =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(10);
+			let tip =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(20);
 
 			assert_eq!(Balances::free_balance(Treasury::account_id()), 0);
 			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);

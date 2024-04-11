@@ -425,8 +425,8 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	fn verify_signature(who: &T::AccountId, signature: &[u8]) -> Result<(), DispatchError> {
 		// sr25519 always expects a 64 byte signature.
-		let signature: AnySignature = sr25519::Signature::from_slice(signature)
-			.ok_or(Error::<T>::InvalidSignature)?
+		let signature: AnySignature = sr25519::Signature::try_from(signature)
+			.map_err(|_| Error::<T>::InvalidSignature)?
 			.into();
 
 		// In Polkadot, the AccountId is always the same as the 32 byte public key.
@@ -484,7 +484,7 @@ mod tests {
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::purchase;
 	use frame_support::{
-		assert_noop, assert_ok, ord_parameter_types, parameter_types,
+		assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 		traits::{Currency, WithdrawReasons},
 	};
 	use sp_runtime::{
@@ -499,10 +499,10 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Purchase: purchase::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Vesting: pallet_vesting,
+			Purchase: purchase,
 		}
 	);
 
@@ -511,6 +511,8 @@ mod tests {
 	parameter_types! {
 		pub const BlockHashCount: u32 = 250;
 	}
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -552,8 +554,8 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 
@@ -570,6 +572,7 @@ mod tests {
 		type MinVestedTransfer = MinVestedTransfer;
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+		type BlockNumberProvider = System;
 		const MAX_VESTING_SCHEDULES: u32 = 28;
 	}
 

@@ -17,6 +17,8 @@
 
 //! Support code for the runtime. A set of test accounts.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 /// Test account crypto for sr25519.
 pub mod sr25519;
 
@@ -27,9 +29,8 @@ pub mod ed25519;
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
 
-/// Convenience export: Sr25519's Keyring is exposed as `AccountKeyring`,
-/// since it tends to be used for accounts (although it may also be used
-/// by authorities).
+/// Convenience export: Sr25519's Keyring is exposed as `AccountKeyring`, since it tends to be
+/// used for accounts (although it may also be used by authorities).
 pub use sr25519::Keyring as AccountKeyring;
 
 #[cfg(feature = "bandersnatch-experimental")]

@@ -74,7 +74,7 @@ async fn assert_assign_incoming(
 }
 
 /// Handle a view update.
-async fn update_view(
+pub(super) async fn update_view(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &TestState,
 	new_view: Vec<(Hash, u32)>, // Hash and block number.
@@ -212,6 +212,7 @@ async fn assert_collation_seconded(
 	virtual_overseer: &mut VirtualOverseer,
 	relay_parent: Hash,
 	peer_id: PeerId,
+	version: CollationVersion,
 ) {
 	assert_matches!(
 		overseer_recv(virtual_overseer).await,
@@ -222,29 +223,51 @@ async fn assert_collation_seconded(
 			assert_eq!(rep.value, BENEFIT_NOTIFY_GOOD.cost_or_benefit());
 		}
 	);
-	assert_matches!(
-		overseer_recv(virtual_overseer).await,
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
-			peers,
-			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
-				protocol_v2::CollatorProtocolMessage::CollationSeconded(
-					_relay_parent,
-					..,
-				),
-			)),
-		)) => {
-			assert_eq!(peers, vec![peer_id]);
-			assert_eq!(relay_parent, _relay_parent);
-		}
-	);
+
+	match version {
+		CollationVersion::V1 => {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
+					peers,
+					Versioned::V1(protocol_v1::CollationProtocol::CollatorProtocol(
+						protocol_v1::CollatorProtocolMessage::CollationSeconded(
+							_relay_parent,
+							..,
+						),
+					)),
+				)) => {
+					assert_eq!(peers, vec![peer_id]);
+					assert_eq!(relay_parent, _relay_parent);
+				}
+			);
+		},
+		CollationVersion::V2 => {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
+					peers,
+					Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+						protocol_v2::CollatorProtocolMessage::CollationSeconded(
+							_relay_parent,
+							..,
+						),
+					)),
+				)) => {
+					assert_eq!(peers, vec![peer_id]);
+					assert_eq!(relay_parent, _relay_parent);
+				}
+			);
+		},
+	}
 }
 
 #[test]
-fn v1_advertisement_rejected() {
+fn v1_advertisement_accepted_and_seconded() {
 	let test_state = TestState::default();
 
 	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
-		let TestHarness { mut virtual_overseer, .. } = test_harness;
+		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
 
@@ -267,9 +290,94 @@ fn v1_advertisement_rejected() {
 
 		advertise_collation(&mut virtual_overseer, peer_a, head_b, None).await;
 
-		// Not reported.
-		test_helpers::Yield::new().await;
-		assert_matches!(virtual_overseer.recv().now_or_never(), None);
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_b,
+			test_state.chain_ids[0],
+			None,
+		)
+		.await;
+
+		let mut candidate = dummy_candidate_receipt_bad_sig(head_b, Some(Default::default()));
+		candidate.descriptor.para_id = test_state.chain_ids[0];
+		candidate.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
+		let commitments = CandidateCommitments {
+			head_data: HeadData(vec![1 as u8]),
+			horizontal_messages: Default::default(),
+			upward_messages: Default::default(),
+			new_validation_code: None,
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		};
+		candidate.commitments_hash = commitments.hash();
+
+		let pov = PoV { block_data: BlockData(vec![1]) };
+
+		response_channel
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		assert_candidate_backing_second(
+			&mut virtual_overseer,
+			head_b,
+			test_state.chain_ids[0],
+			&pov,
+			CollationVersion::V1,
+		)
+		.await;
+
+		let candidate = CommittedCandidateReceipt { descriptor: candidate.descriptor, commitments };
+
+		send_seconded_statement(&mut virtual_overseer, keystore.clone(), &candidate).await;
+
+		assert_collation_seconded(&mut virtual_overseer, head_b, peer_a, CollationVersion::V1)
+			.await;
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn v1_advertisement_rejected_on_non_active_leave() {
+	let test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair_a = CollatorPair::generate().0;
+
+		let head_b = Hash::from_low_u64_be(128);
+		let head_b_num: u32 = 5;
+
+		update_view(&mut virtual_overseer, &test_state, vec![(head_b, head_b_num)], 1).await;
+
+		let peer_a = PeerId::random();
+
+		// Accept both collators from the implicit view.
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair_a.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V1,
+		)
+		.await;
+
+		advertise_collation(&mut virtual_overseer, peer_a, get_parent_hash(head_b), None).await;
+
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer, rep)),
+			) => {
+				assert_eq!(peer, peer_a);
+				assert_eq!(rep.value, COST_PROTOCOL_MISUSE.cost_or_benefit());
+			}
+		);
 
 		virtual_overseer
 	});
@@ -457,11 +565,14 @@ fn second_multiple_candidates_per_relay_parent() {
 			let pov = PoV { block_data: BlockData(vec![1]) };
 
 			response_channel
-				.send(Ok(request_v2::CollationFetchingResponse::Collation(
-					candidate.clone(),
-					pov.clone(),
-				)
-				.encode()))
+				.send(Ok((
+					request_v2::CollationFetchingResponse::Collation(
+						candidate.clone(),
+						pov.clone(),
+					)
+					.encode(),
+					ProtocolName::from(""),
+				)))
 				.expect("Sending response should succeed");
 
 			assert_candidate_backing_second(
@@ -469,10 +580,7 @@ fn second_multiple_candidates_per_relay_parent() {
 				head_c,
 				test_state.chain_ids[0],
 				&pov,
-				ProspectiveParachainsMode::Enabled {
-					max_candidate_depth: ASYNC_BACKING_PARAMETERS.max_candidate_depth as _,
-					allowed_ancestry_len: ASYNC_BACKING_PARAMETERS.allowed_ancestry_len as _,
-				},
+				CollationVersion::V2,
 			)
 			.await;
 
@@ -481,7 +589,8 @@ fn second_multiple_candidates_per_relay_parent() {
 
 			send_seconded_statement(&mut virtual_overseer, keystore.clone(), &candidate).await;
 
-			assert_collation_seconded(&mut virtual_overseer, head_c, peer_a).await;
+			assert_collation_seconded(&mut virtual_overseer, head_c, peer_a, CollationVersion::V2)
+				.await;
 		}
 
 		// No more advertisements can be made for this relay parent.
@@ -611,11 +720,11 @@ fn fetched_collation_sanity_check() {
 		let pov = PoV { block_data: BlockData(vec![1]) };
 
 		response_channel
-			.send(Ok(request_v2::CollationFetchingResponse::Collation(
-				candidate.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v2::CollationFetchingResponse::Collation(candidate.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		// PVD request.
@@ -640,6 +749,126 @@ fn fetched_collation_sanity_check() {
 				assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
 			}
 		);
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn sanity_check_invalid_parent_head_data() {
+	let test_state = TestState::default();
+
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		let head_c = Hash::from_low_u64_be(130);
+		let head_c_num = 3;
+
+		update_view(&mut virtual_overseer, &test_state, vec![(head_c, head_c_num)], 1).await;
+
+		let peer_a = PeerId::random();
+
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer_a,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		let mut candidate = dummy_candidate_receipt_bad_sig(head_c, Some(Default::default()));
+		candidate.descriptor.para_id = test_state.chain_ids[0];
+
+		let commitments = CandidateCommitments {
+			head_data: HeadData(vec![1, 2, 3]),
+			horizontal_messages: Default::default(),
+			upward_messages: Default::default(),
+			new_validation_code: None,
+			processed_downward_messages: 0,
+			hrmp_watermark: 0,
+		};
+		candidate.commitments_hash = commitments.hash();
+
+		let parent_head_data = HeadData(vec![4, 2, 0]);
+		let parent_head_data_hash = parent_head_data.hash();
+		let wrong_parent_head_data = HeadData(vec![4, 2]);
+
+		let mut pvd = dummy_pvd();
+		pvd.parent_head = parent_head_data;
+
+		candidate.descriptor.persisted_validation_data_hash = pvd.hash();
+
+		let candidate_hash = candidate.hash();
+
+		advertise_collation(
+			&mut virtual_overseer,
+			peer_a,
+			head_c,
+			Some((candidate_hash, parent_head_data_hash)),
+		)
+		.await;
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
+				assert_eq!(request.parent_head_data_hash, parent_head_data_hash);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		let response_channel = assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_c,
+			test_state.chain_ids[0],
+			Some(candidate_hash),
+		)
+		.await;
+
+		let pov = PoV { block_data: BlockData(vec![1]) };
+
+		response_channel
+			.send(Ok((
+				request_v2::CollationFetchingResponse::CollationWithParentHeadData {
+					receipt: candidate.clone(),
+					pov: pov.clone(),
+					parent_head_data: wrong_parent_head_data,
+				}
+				.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		// PVD request.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::ProspectiveParachains(
+				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
+			) => {
+				assert_eq!(head_c, request.candidate_relay_parent);
+				assert_eq!(test_state.chain_ids[0], request.para_id);
+				tx.send(Some(pvd)).unwrap();
+			}
+		);
+
+		// Reported malicious.
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::NetworkBridgeTx(
+				NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(peer_id, rep)),
+			) => {
+				assert_eq!(peer_a, peer_id);
+				assert_eq!(rep.value, COST_REPORT_BAD.cost_or_benefit());
+			}
+		);
+
+		test_helpers::Yield::new().await;
+		assert_matches!(virtual_overseer.recv().now_or_never(), None);
 
 		virtual_overseer
 	});

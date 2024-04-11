@@ -16,12 +16,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Test that `construct_runtime!` also works when `frame-support` is renamed in the `Cargo.toml`.
+//! Test that `construct_runtime!` also works when `frame-support` or `frame-system` are renamed in
+//! the `Cargo.toml`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use renamed_frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU16, ConstU32, ConstU64, Everything},
 };
 use sp_core::{sr25519, H256};
@@ -50,7 +51,8 @@ parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 }
 
-impl frame_system::Config for Runtime {
+#[derive_impl(renamed_frame_system::config_preludes::TestDefaultConfig)]
+impl renamed_frame_system::Config for Runtime {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
@@ -81,7 +83,7 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Signature, ()>;
 
 construct_runtime!(
-	pub struct Runtime {
-		System: frame_system,
+	pub enum Runtime {
+		System: renamed_frame_system,
 	}
 );

@@ -17,15 +17,24 @@
 
 use super::*;
 use crate::log;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
 /// Exports for versioned migration `type`s for this pallet.
-pub mod versioned_migrations {
+pub mod versioned {
 	use super::*;
+
+	/// v8: Adds commission claim permissions to `BondedPools`.
+	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
+		7,
+		8,
+		v8::VersionUncheckedMigrateV7ToV8<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 
 	/// Migration V6 to V7 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
 	/// the migration is only performed when on-chain version is 6.
@@ -47,34 +56,167 @@ pub mod versioned_migrations {
 	>;
 }
 
+pub mod unversioned {
+	use super::*;
+
+	/// Checks and updates `TotalValueLocked` if out of sync.
+	pub struct TotalValueLockedSync<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for TotalValueLockedSync<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let migrated = BondedPools::<T>::count();
+
+			// recalculate the `TotalValueLocked` to compare with the current on-chain TVL which may
+			// be out of sync.
+			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
+			let onchain_tvl = TotalValueLocked::<T>::get();
+
+			let writes = if tvl != onchain_tvl {
+				TotalValueLocked::<T>::set(tvl);
+
+				log!(
+					info,
+					"on-chain TVL was out of sync, update. Old: {:?}, new: {:?}",
+					onchain_tvl,
+					tvl
+				);
+
+				// writes: onchain version + set total value locked.
+				2
+			} else {
+				log!(info, "on-chain TVL was OK: {:?}", tvl);
+
+				// writes: onchain version write.
+				1
+			};
+
+			// reads: migrated * (BondedPools +  Staking::total_stake) + count + onchain
+			// version
+			//
+			// writes: current version + (maybe) TVL
+			T::DbWeight::get()
+				.reads_writes(migrated.saturating_mul(2).saturating_add(2).into(), writes)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			Ok(())
+		}
+	}
+}
+
+pub mod v8 {
+	use super::{v7::V7BondedPoolInner, *};
+
+	impl<T: Config> V7BondedPoolInner<T> {
+		fn migrate_to_v8(self) -> BondedPoolInner<T> {
+			BondedPoolInner {
+				commission: Commission {
+					current: self.commission.current,
+					max: self.commission.max,
+					change_rate: self.commission.change_rate,
+					throttle_from: self.commission.throttle_from,
+					// `claim_permission` is a new field.
+					claim_permission: None,
+				},
+				member_counter: self.member_counter,
+				points: self.points,
+				roles: self.roles,
+				state: self.state,
+			}
+		}
+	}
+
+	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let mut translated = 0u64;
+			BondedPools::<T>::translate::<V7BondedPoolInner<T>, _>(|_key, old_value| {
+				translated.saturating_inc();
+				Some(old_value.migrate_to_v8())
+			});
+			T::DbWeight::get().reads_writes(translated, translated + 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// Check new `claim_permission` field is present.
+			ensure!(
+				BondedPools::<T>::iter()
+					.all(|(_, inner)| inner.commission.claim_permission.is_none()),
+				"`claim_permission` value has not been set correctly."
+			);
+			Ok(())
+		}
+	}
+}
+
 /// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
 ///
 /// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
 /// arbitrarily. Otherwise this migration could fail due to too high weight.
-mod v7 {
+pub(crate) mod v7 {
 	use super::*;
 
-	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> VersionUncheckedMigrateV6ToV7<T> {
-		fn calculate_tvl_by_total_stake() -> BalanceOf<T> {
-			BondedPools::<T>::iter()
-				.map(|(id, inner)| {
-					T::Staking::total_stake(
-						&BondedPool { id, inner: inner.clone() }.bonded_account(),
-					)
-					.unwrap_or_default()
-				})
-				.reduce(|acc, total_balance| acc + total_balance)
-				.unwrap_or_default()
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct V7Commission<T: Config> {
+		pub current: Option<(Perbill, T::AccountId)>,
+		pub max: Option<Perbill>,
+		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
+		pub throttle_from: Option<BlockNumberFor<T>>,
+	}
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct V7BondedPoolInner<T: Config> {
+		pub commission: V7Commission<T>,
+		pub member_counter: u32,
+		pub points: BalanceOf<T>,
+		pub roles: PoolRoles<T::AccountId>,
+		pub state: PoolState,
+	}
+
+	#[allow(dead_code)]
+	#[derive(RuntimeDebugNoBound)]
+	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
+	pub struct V7BondedPool<T: Config> {
+		/// The identifier of the pool.
+		id: PoolId,
+		/// The inner fields.
+		inner: V7BondedPoolInner<T>,
+	}
+
+	impl<T: Config> V7BondedPool<T> {
+		#[allow(dead_code)]
+		fn bonded_account(&self) -> T::AccountId {
+			Pallet::<T>::create_bonded_account(self.id)
 		}
 	}
 
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
+	// NOTE: We cannot put a V7 prefix here since that would change the storage key.
+	#[frame_support::storage_alias]
+	pub type BondedPools<T: Config> =
+		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, V7BondedPoolInner<T>>;
+
+	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
 			// The TVL should be the sum of all the funds that are actively staked and in the
 			// unbonding process of the account of each pool.
-			let tvl: BalanceOf<T> = Self::calculate_tvl_by_total_stake();
+			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
 
 			TotalValueLocked::<T>::set(tvl);
 
@@ -96,7 +238,7 @@ mod v7 {
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// check that the `TotalValueLocked` written is actually the sum of `total_stake` of the
 			// `BondedPools``
-			let tvl: BalanceOf<T> = Self::calculate_tvl_by_total_stake();
+			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
 			ensure!(
 				TotalValueLocked::<T>::get() == tvl,
 				"TVL written is not equal to `Staking::total_stake` of all `BondedPools`."
@@ -140,7 +282,7 @@ mod v6 {
 			})
 		}
 	}
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV6<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for MigrateToV6<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut success = 0u64;
 			let mut fail = 0u64;
@@ -200,25 +342,25 @@ pub mod v5 {
 	pub struct MigrateToV5<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV5<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let in_code = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			log!(
 				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
-				current,
+				"Running migration with in-code storage version {:?} / onchain {:?}",
+				in_code,
 				onchain
 			);
 
-			if current == 5 && onchain == 4 {
+			if in_code == 5 && onchain == 4 {
 				let mut translated = 0u64;
 				RewardPools::<T>::translate::<OldRewardPool<T>, _>(|_id, old_value| {
 					translated.saturating_inc();
 					Some(old_value.migrate_to_v5())
 				});
 
-				current.put::<Pallet<T>>();
-				log!(info, "Upgraded {} pools, storage to version {:?}", translated, current);
+				in_code.put::<Pallet<T>>();
+				log!(info, "Upgraded {} pools, storage to version {:?}", translated, in_code);
 
 				// reads: translated + onchain version.
 				// writes: translated + current.put.
@@ -356,12 +498,12 @@ pub mod v4 {
 	#[allow(deprecated)]
 	impl<T: Config, U: Get<Perbill>> OnRuntimeUpgrade for MigrateToV4<T, U> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			log!(
 				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
+				"Running migration with in-code storage version {:?} / onchain {:?}",
 				current,
 				onchain
 			);
@@ -437,13 +579,13 @@ pub mod v3 {
 	pub struct MigrateToV3<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV3<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			if onchain == 2 {
 				log!(
 					info,
-					"Running migration with current storage version {:?} / onchain {:?}",
+					"Running migration with in-code storage version {:?} / onchain {:?}",
 					current,
 					onchain
 				);
@@ -717,12 +859,12 @@ pub mod v2 {
 
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			log!(
 				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
+				"Running migration with in-code storage version {:?} / onchain {:?}",
 				current,
 				onchain
 			);
@@ -834,12 +976,12 @@ pub mod v1 {
 	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
+			let current = Pallet::<T>::in_code_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
 			log!(
 				info,
-				"Running migration with current storage version {:?} / onchain {:?}",
+				"Running migration with in-code storage version {:?} / onchain {:?}",
 				current,
 				onchain
 			);
@@ -873,5 +1015,19 @@ pub mod v1 {
 			Pallet::<T>::try_state(frame_system::Pallet::<T>::block_number())?;
 			Ok(())
 		}
+	}
+}
+
+mod helpers {
+	use super::*;
+
+	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
+		BondedPools::<T>::iter()
+			.map(|(id, inner)| {
+				T::Staking::total_stake(&BondedPool { id, inner: inner.clone() }.bonded_account())
+					.unwrap_or_default()
+			})
+			.reduce(|acc, total_balance| acc + total_balance)
+			.unwrap_or_default()
 	}
 }

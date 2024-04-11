@@ -55,8 +55,9 @@
 //! and to keep track of what we have sent to other validators in the group and what we may
 //! continue to send them.
 
-use polkadot_primitives::{CandidateHash, CompactStatement, ValidatorIndex};
+use polkadot_primitives::{CandidateHash, CompactStatement, Hash, ValidatorIndex};
 
+use crate::LOG_TARGET;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Hash, PartialEq, Eq)]
@@ -331,6 +332,13 @@ impl ClusterTracker {
 			self.validator_seconded(validator, candidate_hash)
 	}
 
+	/// Whether a validator can request a candidate from us.
+	pub fn can_request(&self, target: ValidatorIndex, candidate_hash: CandidateHash) -> bool {
+		self.validators.contains(&target) &&
+			self.we_sent_seconded(target, candidate_hash) &&
+			!self.they_sent_seconded(target, candidate_hash)
+	}
+
 	/// Returns a Vec of pending statements to be sent to a particular validator
 	/// index. `Seconded` statements are sorted to the front of the vector.
 	///
@@ -416,6 +424,28 @@ impl ClusterTracker {
 
 	fn is_in_group(&self, validator: ValidatorIndex) -> bool {
 		self.validators.contains(&validator)
+	}
+
+	/// Dumps pending statement for this cluster.
+	///
+	/// Normally we should not have pending statements to validators in our cluster,
+	/// but if we do for all validators in our cluster, then we don't participate
+	/// in backing. Occasional pending statements are expected if two authorities
+	/// can't detect each other or after restart, where it takes a while to discover
+	/// the whole network.
+
+	pub fn warn_if_too_many_pending_statements(&self, parent_hash: Hash) {
+		if self.pending.iter().filter(|pending| !pending.1.is_empty()).count() >=
+			self.validators.len()
+		{
+			gum::warn!(
+				target: LOG_TARGET,
+				pending_statements  = ?self.pending,
+				?parent_hash,
+				"Cluster has too many pending statements, something wrong with our connection to our group peers
+				Restart might be needed if validator gets 0 backing rewards for more than 3-4 consecutive sessions"
+			);
+		}
 	}
 }
 

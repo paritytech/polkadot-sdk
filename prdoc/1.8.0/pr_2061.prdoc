@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add Parameters Pallet
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds `pallet-parameters` that allows to have parameters for pallet configs that dynamically change at runtime. Allows to be permissioned on a per-key basis and is compatible with ORML macros.
+
+crates:
+  - name: "pallet-parameters"
+  - name: "frame-support"
+  - name: "frame-support-procedural"

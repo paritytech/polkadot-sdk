@@ -23,7 +23,7 @@ use super::*;
 use crate as pallet_safe_mode;
 
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU64, Everything, InsideBoth, InstanceFilter, IsInVec, SafeModeNotify},
 };
 use frame_system::EnsureSignedBy;
@@ -33,6 +33,7 @@ use sp_runtime::{
 	BuildStorage,
 };
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = InsideBoth<Everything, SafeMode>;
 	type BlockWeights = ();
@@ -79,8 +80,8 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = ConstU32<10>;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<10>;
 	type MaxFreezes = ConstU32<0>;
 }
 

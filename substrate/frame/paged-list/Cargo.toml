@@ -1,6 +1,6 @@
 [package]
 name = "pallet-paged-list"
-version = "0.1.0"
+version = "0.6.0"
 description = "FRAME pallet that provides a paged list data structure."
 authors.workspace = true
 homepage = "https://substrate.io"
@@ -8,26 +8,29 @@ edition.workspace = true
 license = "Apache-2.0"
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive"] }
-docify = "0.2.4"
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+docify = "0.2.8"
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
 
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
 
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
-sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false, optional = true}
+sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false, optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 
 std = [
 	"codec/std",
@@ -55,4 +58,4 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-frame-metadata = [ "sp-metadata-ir" ]
+frame-metadata = ["sp-metadata-ir"]

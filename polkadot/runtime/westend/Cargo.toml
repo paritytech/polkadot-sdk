@@ -1,19 +1,23 @@
 [package]
 name = "westend-runtime"
 build = "build.rs"
-version = "1.0.0"
+version = "7.0.0"
+description = "Westend testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+log = { workspace = true }
 rustc-hex = { version = "2.1.0", default-features = false }
-serde = { version = "1.0.188", default-features = false }
-serde_derive = { version = "1.0.117", optional = true }
+serde = { workspace = true }
+serde_derive = { optional = true, workspace = true }
 smallvec = "1.8.0"
 
 authority-discovery-primitives = { package = "sp-authority-discovery", path = "../../../substrate/primitives/authority-discovery", default-features = false }
@@ -41,10 +45,11 @@ sp-npos-elections = { path = "../../../substrate/primitives/npos-elections", def
 
 frame-election-provider-support = { path = "../../../substrate/frame/election-provider-support", default-features = false }
 frame-executive = { path = "../../../substrate/frame/executive", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, features = ["experimental", "tuples-96"] }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
 westend-runtime-constants = { package = "westend-runtime-constants", path = "constants", default-features = false }
+pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false }
 pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false }
@@ -59,7 +64,6 @@ pallet-election-provider-multi-phase = { path = "../../../substrate/frame/electi
 pallet-fast-unstake = { path = "../../../substrate/frame/fast-unstake", default-features = false }
 pallet-grandpa = { path = "../../../substrate/frame/grandpa", default-features = false }
 pallet-identity = { path = "../../../substrate/frame/identity", default-features = false }
-pallet-im-online = { path = "../../../substrate/frame/im-online", default-features = false }
 pallet-indices = { path = "../../../substrate/frame/indices", default-features = false }
 pallet-membership = { path = "../../../substrate/frame/membership", default-features = false }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
@@ -90,6 +94,7 @@ pallet-vesting = { path = "../../../substrate/frame/vesting", default-features =
 pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
+pallet-root-testing = { path = "../../../substrate/frame/root-testing", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
@@ -108,13 +113,14 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parac
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false }
+xcm-fee-payment-runtime-api = { path = "../../xcm/xcm-fee-payment-runtime-api", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.4.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
-serde_json = "1.0.107"
-remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
+serde_json = { workspace = true, default-features = true }
+remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities" }
 tokio = { version = "1.24.2", features = ["macros"] }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 
@@ -122,7 +128,7 @@ sp-tracing = { path = "../../../substrate/primitives/tracing", default-features 
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 no_std = []
 only-staking = []
 std = [
@@ -143,6 +149,7 @@ std = [
 	"inherents/std",
 	"log/std",
 	"offchain-primitives/std",
+	"pallet-asset-rate/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-babe/std",
@@ -159,7 +166,6 @@ std = [
 	"pallet-fast-unstake/std",
 	"pallet-grandpa/std",
 	"pallet-identity/std",
-	"pallet-im-online/std",
 	"pallet-indices/std",
 	"pallet-membership/std",
 	"pallet-message-queue/std",
@@ -174,6 +180,7 @@ std = [
 	"pallet-proxy/std",
 	"pallet-recovery/std",
 	"pallet-referenda/std",
+	"pallet-root-testing/std",
 	"pallet-scheduler/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
@@ -219,6 +226,7 @@ std = [
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
+	"xcm-fee-payment-runtime-api/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -228,6 +236,7 @@ runtime-benchmarks = [
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"hex-literal",
+	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -240,7 +249,6 @@ runtime-benchmarks = [
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
-	"pallet-im-online/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
@@ -283,6 +291,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-asset-rate/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
@@ -298,7 +307,6 @@ try-runtime = [
 	"pallet-fast-unstake/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-identity/try-runtime",
-	"pallet-im-online/try-runtime",
 	"pallet-indices/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-message-queue/try-runtime",
@@ -310,6 +318,7 @@ try-runtime = [
 	"pallet-proxy/try-runtime",
 	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
+	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-society/try-runtime",
@@ -331,9 +340,9 @@ try-runtime = [
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []
 
-runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
+runtime-metrics = ["runtime-parachains/runtime-metrics", "sp-io/with-tracing"]
 
-# A feature that should be enabled when the runtime should be build for on-chain
+# A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+# to make it smaller, like logging for example.
+on-chain-release-build = ["sp-api/disable-logging"]

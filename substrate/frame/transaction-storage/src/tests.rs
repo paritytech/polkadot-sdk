@@ -15,12 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for transction-storage pallet.
+//! Tests for transaction-storage pallet.
 
 use super::{Pallet as TransactionStorage, *};
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use sp_runtime::{DispatchError, TokenError::FundsUnavailable};
 use sp_transaction_storage_proof::registration::build_proof;
 
 const MAX_DATA_SIZE: u32 = DEFAULT_MAX_TRANSACTION_SIZE;
@@ -52,8 +53,8 @@ fn discards_data() {
 		};
 		run_to_block(11, proof_provider);
 		assert!(Transactions::<Test>::get(1).is_some());
-		let transctions = Transactions::<Test>::get(1).unwrap();
-		assert_eq!(transctions.len(), 2);
+		let transactions = Transactions::<Test>::get(1).unwrap();
+		assert_eq!(transactions.len(), 2);
 		assert_eq!(ChunkCount::<Test>::get(1), 16);
 		run_to_block(12, proof_provider);
 		assert!(Transactions::<Test>::get(1).is_none());
@@ -71,7 +72,7 @@ fn burns_fee() {
 				RawOrigin::Signed(5).into(),
 				vec![0u8; 2000 as usize]
 			),
-			Error::<Test>::InsufficientFunds,
+			DispatchError::Token(FundsUnavailable),
 		);
 		assert_ok!(TransactionStorage::<Test>::store(
 			RawOrigin::Signed(caller).into(),

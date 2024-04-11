@@ -32,4 +32,5 @@ fn ui() {
 
 	let t = trybuild::TestCases::new();
 	t.compile_fail("tests/construct_runtime_ui/*.rs");
+	t.pass("tests/construct_runtime_ui/pass/*.rs");
 }

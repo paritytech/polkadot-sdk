@@ -19,11 +19,12 @@ use futures::channel::{
 	oneshot::Sender as OneshotSender,
 };
 use jsonrpsee::{
-	core::{params::ArrayParams, Error as JsonRpseeError},
+	core::{params::ArrayParams, ClientError as JsonRpseeError},
 	rpc_params,
 };
 use serde::de::DeserializeOwned;
 use serde_json::Value as JsonValue;
+use std::collections::VecDeque;
 use tokio::sync::mpsc::Sender as TokioSender;
 
 use parity_scale_codec::{Decode, Encode};
@@ -31,11 +32,12 @@ use parity_scale_codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState},
-		slashing, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo,
-		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
-		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
-		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+		CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+		ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
+		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement,
+		ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+		ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -44,10 +46,10 @@ use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
 use sc_client_api::StorageData;
 use sc_rpc_api::{state::ReadProof, system::Health};
 use sc_service::TaskManager;
-use sp_api::RuntimeVersion;
 use sp_consensus_babe::Epoch;
 use sp_core::sp_std::collections::btree_map::BTreeMap;
 use sp_storage::StorageKey;
+use sp_version::RuntimeVersion;
 
 use crate::{
 	light_client_worker::{build_smoldot_client, LightClientRpcWorker},
@@ -201,7 +203,7 @@ impl RelayChainRpcClient {
 
 		let value = rx.await.map_err(|err| {
 			RelayChainError::WorkerCommunicationError(format!(
-				"Unexpected channel close on RPC worker side: {}",
+				"RPC worker channel closed. This can hint and connectivity issues with the supplied RPC endpoints. Message: {}",
 				err
 			))
 		})??;
@@ -597,6 +599,22 @@ impl RelayChainRpcClient {
 			.await
 	}
 
+	pub async fn parachain_host_node_features(
+		&self,
+		at: RelayHash,
+	) -> Result<NodeFeatures, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_node_features", at, None::<()>)
+			.await
+	}
+
+	pub async fn parachain_host_disabled_validators(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<ValidatorIndex>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_disabled_validators", at, None::<()>)
+			.await
+	}
+
 	#[allow(missing_docs)]
 	pub async fn parachain_host_async_backing_params(
 		&self,
@@ -607,6 +625,19 @@ impl RelayChainRpcClient {
 	}
 
 	#[allow(missing_docs)]
+	pub async fn parachain_host_staging_approval_voting_params(
+		&self,
+		at: RelayHash,
+		_session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_staging_approval_voting_params",
+			at,
+			None::<()>,
+		)
+		.await
+	}
+
 	pub async fn parachain_host_para_backing_state(
 		&self,
 		at: RelayHash,
@@ -614,6 +645,28 @@ impl RelayChainRpcClient {
 	) -> Result<Option<BackingState>, RelayChainError> {
 		self.call_remote_runtime_function("ParachainHost_para_backing_state", at, Some(para_id))
 			.await
+	}
+
+	pub async fn parachain_host_claim_queue(
+		&self,
+		at: RelayHash,
+	) -> Result<BTreeMap<CoreIndex, VecDeque<ParaId>>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_claim_queue", at, None::<()>)
+			.await
+	}
+
+	pub async fn validation_code_hash(
+		&self,
+		at: RelayHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> Result<Option<ValidationCodeHash>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_validation_code_hash",
+			at,
+			Some((para_id, occupied_core_assumption)),
+		)
+		.await
 	}
 
 	fn send_register_message_to_worker(

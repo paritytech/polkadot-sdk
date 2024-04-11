@@ -1,19 +1,23 @@
 [package]
 name = "bp-xcm-bridge-hub-router"
 description = "Primitives of the xcm-bridge-hub fee pallet."
-version = "0.1.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "bit-vec"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["bit-vec", "derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["bit-vec", "derive"] }
 
 # Substrate Dependencies
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "codec/std", "scale-info/std", "sp-core/std", "sp-runtime/std" ]
+default = ["std"]
+std = ["codec/std", "scale-info/std", "sp-core/std", "sp-runtime/std"]

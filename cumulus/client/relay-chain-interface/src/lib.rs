@@ -22,7 +22,7 @@ use sc_client_api::StorageProof;
 use futures::Stream;
 
 use async_trait::async_trait;
-use jsonrpsee_core::Error as JsonRpcError;
+use jsonrpsee_core::ClientError as JsonRpcError;
 use parity_scale_codec::Error as CodecError;
 use sp_api::ApiError;
 
@@ -30,7 +30,7 @@ use cumulus_primitives_core::relay_chain::BlockId;
 pub use cumulus_primitives_core::{
 	relay_chain::{
 		CommittedCandidateReceipt, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidatorId,
+		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -41,7 +41,7 @@ pub type RelayChainResult<T> = Result<T, RelayChainError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RelayChainError {
-	#[error("Error occured while calling relay chain runtime: {0}")]
+	#[error("Error occurred while calling relay chain runtime: {0}")]
 	ApiError(#[from] ApiError),
 	#[error("Timeout while waiting for relay-chain block `{0}` to be imported.")]
 	WaitTimeout(PHash),
@@ -53,7 +53,7 @@ pub enum RelayChainError {
 	WaitBlockchainError(PHash, sp_blockchain::Error),
 	#[error("Blockchain returned an error: {0}")]
 	BlockchainError(#[from] sp_blockchain::Error),
-	#[error("State machine error occured: {0}")]
+	#[error("State machine error occurred: {0}")]
 	StateMachineError(Box<dyn sp_state_machine::Error>),
 	#[error("Unable to call RPC method '{0}'")]
 	RpcCallError(String),
@@ -67,7 +67,7 @@ pub enum RelayChainError {
 	Application(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 	#[error("Prometheus error: {0}")]
 	PrometheusError(#[from] PrometheusError),
-	#[error("Unspecified error occured: {0}")]
+	#[error("Unspecified error occurred: {0}")]
 	GenericError(String),
 }
 
@@ -194,6 +194,15 @@ pub trait RelayChainInterface: Send + Sync {
 		relay_parent: PHash,
 		relevant_keys: &Vec<Vec<u8>>,
 	) -> RelayChainResult<StorageProof>;
+
+	/// Returns the validation code hash for the given `para_id` using the given
+	/// `occupied_core_assumption`.
+	async fn validation_code_hash(
+		&self,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>>;
 }
 
 #[async_trait]
@@ -300,5 +309,16 @@ where
 
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		(**self).header(block_id).await
+	}
+
+	async fn validation_code_hash(
+		&self,
+		relay_parent: PHash,
+		para_id: ParaId,
+		occupied_core_assumption: OccupiedCoreAssumption,
+	) -> RelayChainResult<Option<ValidationCodeHash>> {
+		(**self)
+			.validation_code_hash(relay_parent, para_id, occupied_core_assumption)
+			.await
 	}
 }

@@ -1,6 +1,6 @@
 [package]
 name = "sp-panic-handler"
-version = "8.0.0"
+version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Custom panic hook with bug report link"
 documentation = "https://docs.rs/sp-panic-handler"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

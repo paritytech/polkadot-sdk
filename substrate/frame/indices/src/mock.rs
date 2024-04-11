@@ -20,7 +20,10 @@
 #![cfg(test)]
 
 use crate::{self as pallet_indices, Config};
-use frame_support::traits::{ConstU32, ConstU64};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU32, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::BuildStorage;
 
@@ -29,12 +32,13 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Indices: pallet_indices,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -74,7 +78,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 impl Config for Test {

@@ -1,6 +1,6 @@
 [package]
 name = "sc-statement-store"
-version = "4.0.0-dev"
+version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -9,13 +9,16 @@ repository.workspace = true
 description = "Substrate statement store."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
-parity-db = "0.4.8"
+parity-db = "0.4.12"
 tokio = { version = "1.22.0", features = ["time"] }
 sp-statement-store = { path = "../../primitives/statement-store" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
@@ -28,4 +31,4 @@ sc-keystore = { path = "../keystore" }
 
 [dev-dependencies]
 tempfile = "3.1.0"
-env_logger = "0.9"
+env_logger = "0.11"

@@ -55,7 +55,7 @@ for (( para_id=$from_para_id; para_id<=$to_para_id; para_id++ )); do
     fi
 
     # build the chain spec we'll manipulate
-    $binary_path build-spec --disable-default-bootnode --chain "glutton-kusama-genesis-$para_id" > "$output_para_dir/plain-glutton-$relay_chain-$para_id-spec.json"
+    $binary_path build-spec --disable-default-bootnode --chain "glutton-westend-genesis-$para_id" > "$output_para_dir/plain-glutton-$relay_chain-$para_id-spec.json"
 
     id="glutton-$relay_chain-$para_id"
     protocol_id="glutton-$relay_chain-$para_id"

@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-manual-seal"
-version = "0.10.0-dev"
+version = "0.35.0"
 authors.workspace = true
 description = "Manual sealing engine for Substrate"
 edition.workspace = true
@@ -9,19 +9,22 @@ homepage = "https://substrate.io"
 repository.workspace = true
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
+jsonrpsee = { version = "0.22", features = ["client-core", "macros", "server"] }
 assert_matches = "1.3.0"
-async-trait = "0.1.57"
+async-trait = "0.1.79"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-futures = "0.3.21"
+futures = "0.3.30"
 futures-timer = "3.0.1"
-log = "0.4.17"
-serde = { version = "1.0", features = ["derive"] }
-thiserror = "1.0"
+log = { workspace = true, default-features = true }
+serde = { features = ["derive"], workspace = true, default-features = true }
+thiserror = { workspace = true }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }
 sc-consensus = { path = "../common" }
@@ -43,7 +46,7 @@ sp-runtime = { path = "../../../primitives/runtime" }
 sp-timestamp = { path = "../../../primitives/timestamp" }
 
 [dev-dependencies]
-tokio = { version = "1.22.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
 sc-basic-authorship = { path = "../../basic-authorship" }
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "../../../test-utils/runtime/transaction-pool" }

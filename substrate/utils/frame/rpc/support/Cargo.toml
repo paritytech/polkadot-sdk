@@ -1,6 +1,6 @@
 [package]
 name = "substrate-frame-rpc-support"
-version = "3.0.0"
+version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,21 +8,24 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Substrate RPC for FRAME's support"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-jsonrpsee = { version = "0.16.2", features = ["jsonrpsee-types"] }
-serde = "1"
+jsonrpsee = { version = "0.22", features = ["jsonrpsee-types"] }
+serde = { workspace = true, default-features = true }
 frame-support = { path = "../../../../frame/support" }
 sc-rpc-api = { path = "../../../../client/rpc-api" }
 sp-storage = { path = "../../../../primitives/storage" }
 
 [dev-dependencies]
-scale-info = "2.1.1"
-jsonrpsee = { version = "0.16.2", features = ["ws-client", "jsonrpsee-types"] }
-tokio = "1.22.0"
+scale-info = "2.11.1"
+jsonrpsee = { version = "0.22", features = ["jsonrpsee-types", "ws-client"] }
+tokio = "1.37"
 sp-core = { path = "../../../../primitives/core" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 frame-system = { path = "../../../../frame/system" }

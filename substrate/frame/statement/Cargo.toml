@@ -1,6 +1,6 @@
 [package]
 name = "pallet-statement"
-version = "4.0.0-dev"
+version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,31 +8,35 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet for statement store"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"]}
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-sp-statement-store = { path = "../../primitives/statement-store", default-features = false}
-sp-api = { path = "../../primitives/api", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
-log = { version = "0.4.17", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+sp-statement-store = { path = "../../primitives/statement-store", default-features = false }
+sp-api = { path = "../../primitives/api", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"sp-api/std",

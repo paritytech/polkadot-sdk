@@ -19,7 +19,7 @@ use crate as example_offchain_worker;
 use crate::*;
 use codec::Decode;
 use frame_support::{
-	assert_ok, parameter_types,
+	assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use sp_core::{
@@ -41,11 +41,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Example: example_offchain_worker::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		System: frame_system,
+		Example: example_offchain_worker,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

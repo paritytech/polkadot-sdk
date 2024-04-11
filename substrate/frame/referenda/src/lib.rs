@@ -143,7 +143,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, traits::EnsureOriginWithArg};
 	use frame_system::pallet_prelude::*;
 
-	/// The current storage version.
+	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
@@ -305,7 +305,7 @@ pub mod pallet {
 			/// The amount placed by the account.
 			amount: BalanceOf<T, I>,
 		},
-		/// A deposit has been slashaed.
+		/// A deposit has been slashed.
 		DepositSlashed {
 			/// The account who placed the deposit.
 			who: T::AccountId,
@@ -424,6 +424,8 @@ pub mod pallet {
 		BadStatus,
 		/// The preimage does not exist.
 		PreimageNotExist,
+		/// The preimage is stored with a different length than the one provided.
+		PreimageStoredWithDifferentLength,
 	}
 
 	#[pallet::hooks]
@@ -432,6 +434,11 @@ pub mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
+		}
+
+		#[cfg(any(feature = "std", test))]
+		fn integrity_test() {
+			T::Tracks::check_integrity().expect("Static tracks configuration is valid.");
 		}
 	}
 
@@ -456,6 +463,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			let proposal_origin = *proposal_origin;
 			let who = T::SubmitOrigin::ensure_origin(origin, &proposal_origin)?;
+
+			// If the pre-image is already stored, ensure that it has the same length as given in
+			// `proposal`.
+			if let (Some(preimage_len), Some(proposal_len)) =
+				(proposal.lookup_hash().and_then(|h| T::Preimages::len(&h)), proposal.lookup_len())
+			{
+				if preimage_len != proposal_len {
+					return Err(Error::<T, I>::PreimageStoredWithDifferentLength.into())
+				}
+			}
 
 			let track =
 				T::Tracks::track_for(&proposal_origin).map_err(|_| Error::<T, I>::NoTrack)?;

@@ -30,12 +30,13 @@
 //! (which requires state not owned by the request manager).
 
 use super::{
-	BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT, COST_IMPROPERLY_DECODED_RESPONSE,
-	COST_INVALID_RESPONSE, COST_INVALID_SIGNATURE, COST_UNREQUESTED_RESPONSE_STATEMENT,
-	REQUEST_RETRY_DELAY,
+	seconded_and_sufficient, BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT,
+	COST_IMPROPERLY_DECODED_RESPONSE, COST_INVALID_RESPONSE, COST_INVALID_SIGNATURE,
+	COST_UNREQUESTED_RESPONSE_STATEMENT, REQUEST_RETRY_DELAY,
 };
 use crate::LOG_TARGET;
 
+use bitvec::prelude::{BitVec, Lsb0};
 use polkadot_node_network_protocol::{
 	request_response::{
 		outgoing::{Recipient as RequestRecipient, RequestError},
@@ -265,6 +266,12 @@ impl RequestManager {
 				HEntry::Vacant(_) => (),
 			}
 		}
+
+		gum::debug!(
+			target: LOG_TARGET,
+			"Requests remaining after cleanup: {}",
+			self.by_priority.len(),
+		);
 	}
 
 	/// Returns true if there are pending requests that are dispatchable.
@@ -308,7 +315,16 @@ impl RequestManager {
 		request_props: impl Fn(&CandidateIdentifier) -> Option<RequestProperties>,
 		peer_advertised: impl Fn(&CandidateIdentifier, &PeerId) -> Option<StatementFilter>,
 	) -> Option<OutgoingRequest<AttestedCandidateRequest>> {
-		if response_manager.len() >= MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
+		// The number of parallel requests a node can answer is limited by
+		// `MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS`, however there is no
+		// need for the current node to limit itself to the same amount the
+		// requests, because the requests are going to different nodes anyways.
+		// While looking at https://github.com/paritytech/polkadot-sdk/issues/3314,
+		// found out that this requests take around 100ms to fulfill, so it
+		// would make sense to try to request things as early as we can, given
+		// we would need to request it for each candidate, around 25 right now
+		// on kusama.
+		if response_manager.len() >= 2 * MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as usize {
 			return None
 		}
 
@@ -354,6 +370,13 @@ impl RequestManager {
 				None => continue,
 				Some(t) => t,
 			};
+
+			gum::debug!(
+				target: crate::LOG_TARGET,
+				candidate_hash = ?id.candidate_hash,
+				peer = ?target,
+				"Issuing candidate request"
+			);
 
 			let (request, response_fut) = OutgoingRequest::new(
 				RequestRecipient::Peer(target),
@@ -482,10 +505,6 @@ fn find_request_target_with_update(
 	}
 }
 
-fn seconded_and_sufficient(filter: &StatementFilter, backing_threshold: Option<usize>) -> bool {
-	backing_threshold.map_or(true, |t| filter.has_seconded() && filter.backing_validators() >= t)
-}
-
 /// A response to a request, which has not yet been handled.
 pub struct UnhandledResponse {
 	response: TaggedResponse,
@@ -496,6 +515,11 @@ impl UnhandledResponse {
 	/// was classified under.
 	pub fn candidate_identifier(&self) -> &CandidateIdentifier {
 		&self.response.identifier
+	}
+
+	/// Get the peer we made the request to.
+	pub fn requested_peer(&self) -> &PeerId {
+		&self.response.requested_peer
 	}
 
 	/// Validate the response. If the response is valid, this will yield the
@@ -524,6 +548,7 @@ impl UnhandledResponse {
 		session: SessionIndex,
 		validator_key_lookup: impl Fn(ValidatorIndex) -> Option<ValidatorId>,
 		allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
+		disabled_mask: BitVec<u8, Lsb0>,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
@@ -582,12 +607,19 @@ impl UnhandledResponse {
 					request_status: CandidateRequestStatus::Incomplete,
 				}
 			},
-			Err(RequestError::NetworkError(_) | RequestError::Canceled(_)) =>
+			Err(e @ RequestError::NetworkError(_) | e @ RequestError::Canceled(_)) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					err = ?e,
+					peer = ?requested_peer,
+					"Request error"
+				);
 				return ResponseValidationOutput {
 					requested_peer,
 					reputation_changes: vec![],
 					request_status: CandidateRequestStatus::Incomplete,
-				},
+				}
+			},
 			Ok(response) => response,
 		};
 
@@ -600,6 +632,7 @@ impl UnhandledResponse {
 			session,
 			validator_key_lookup,
 			allowed_para_lookup,
+			disabled_mask,
 		);
 
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
@@ -619,6 +652,7 @@ fn validate_complete_response(
 	session: SessionIndex,
 	validator_key_lookup: impl Fn(ValidatorIndex) -> Option<ValidatorId>,
 	allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
+	disabled_mask: BitVec<u8, Lsb0>,
 ) -> ResponseValidationOutput {
 	let RequestProperties { backing_threshold, mut unwanted_mask } = props;
 
@@ -724,6 +758,10 @@ fn validate_complete_response(
 						continue
 					}
 				},
+			}
+
+			if disabled_mask.get(i).map_or(false, |x| *x) {
+				continue
 			}
 
 			let validator_public =
@@ -988,6 +1026,7 @@ mod tests {
 		let group = &[ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2)];
 
 		let unwanted_mask = StatementFilter::blank(group_size);
+		let disabled_mask: BitVec<u8, Lsb0> = Default::default();
 		let request_properties = RequestProperties { unwanted_mask, backing_threshold: None };
 
 		// Get requests.
@@ -997,6 +1036,7 @@ mod tests {
 			let peer_advertised = |_identifier: &CandidateIdentifier, _peer: &_| {
 				Some(StatementFilter::full(group_size))
 			};
+
 			let outgoing = request_manager
 				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -1031,6 +1071,7 @@ mod tests {
 				0,
 				validator_key_lookup,
 				allowed_para_lookup,
+				disabled_mask.clone(),
 			);
 			assert_eq!(
 				output,
@@ -1069,6 +1110,7 @@ mod tests {
 				0,
 				validator_key_lookup,
 				allowed_para_lookup,
+				disabled_mask,
 			);
 			assert_eq!(
 				output,
@@ -1116,6 +1158,7 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+
 			let outgoing = request_manager
 				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -1142,12 +1185,14 @@ mod tests {
 			};
 			let validator_key_lookup = |_v| None;
 			let allowed_para_lookup = |_para, _g_index| true;
+			let disabled_mask: BitVec<u8, Lsb0> = Default::default();
 			let output = response.validate_response(
 				&mut request_manager,
 				group,
 				0,
 				validator_key_lookup,
 				allowed_para_lookup,
+				disabled_mask,
 			);
 			assert_eq!(
 				output,
@@ -1196,6 +1241,7 @@ mod tests {
 		{
 			let request_props =
 				|_identifier: &CandidateIdentifier| Some((&request_properties).clone());
+
 			let outgoing = request_manager
 				.next_request(&mut response_manager, request_props, peer_advertised)
 				.unwrap();
@@ -1220,12 +1266,14 @@ mod tests {
 			let validator_key_lookup = |_v| None;
 			let allowed_para_lookup = |_para, _g_index| true;
 			let statements = vec![];
+			let disabled_mask: BitVec<u8, Lsb0> = Default::default();
 			let output = response.validate_response(
 				&mut request_manager,
 				group,
 				0,
 				validator_key_lookup,
 				allowed_para_lookup,
+				disabled_mask,
 			);
 			assert_eq!(
 				output,

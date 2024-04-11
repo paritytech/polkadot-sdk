@@ -20,7 +20,6 @@
 //! An equivalent of `sp_io::TestExternalities` that can load its state from a remote substrate
 //! based chain, or a local state snapshot file.
 
-use async_recursion::async_recursion;
 use codec::{Compact, Decode, Encode};
 use indicatif::{ProgressBar, ProgressStyle};
 use jsonrpsee::{
@@ -30,7 +29,6 @@ use jsonrpsee::{
 use log::*;
 use serde::de::DeserializeOwned;
 use sp_core::{
-	hashing::twox_128,
 	hexdisplay::HexDisplay,
 	storage::{
 		well_known_keys::{is_default_child_storage_key, DEFAULT_CHILD_STORAGE_KEY_PREFIX},
@@ -38,16 +36,17 @@ use sp_core::{
 	},
 };
 use sp_runtime::{
-	traits::{Block as BlockT, HashingFor},
+	traits::{Block as BlockT, Hash, HashingFor},
 	StateVersion,
 };
 use sp_state_machine::TestExternalities;
 use spinners::{Spinner, Spinners};
 use std::{
-	cmp::max,
+	cmp::{max, min},
 	fs,
 	ops::{Deref, DerefMut},
 	path::{Path, PathBuf},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
@@ -64,21 +63,21 @@ const SNAPSHOT_VERSION: SnapshotVersion = Compact(3);
 
 /// The snapshot that we store on disk.
 #[derive(Decode, Encode)]
-struct Snapshot<B: BlockT> {
+struct Snapshot<H> {
 	snapshot_version: SnapshotVersion,
 	state_version: StateVersion,
-	block_hash: B::Hash,
+	block_hash: H,
 	// <Vec<Key, (Value, MemoryDbRefCount)>>
 	raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
-	storage_root: B::Hash,
+	storage_root: H,
 }
 
-impl<B: BlockT> Snapshot<B> {
+impl<H: Decode> Snapshot<H> {
 	pub fn new(
 		state_version: StateVersion,
-		block_hash: B::Hash,
+		block_hash: H,
 		raw_storage: Vec<(Vec<u8>, (Vec<u8>, i32))>,
-		storage_root: B::Hash,
+		storage_root: H,
 	) -> Self {
 		Self {
 			snapshot_version: SNAPSHOT_VERSION,
@@ -89,7 +88,7 @@ impl<B: BlockT> Snapshot<B> {
 		}
 	}
 
-	fn load(path: &PathBuf) -> Result<Snapshot<B>, &'static str> {
+	fn load(path: &PathBuf) -> Result<Snapshot<H>, &'static str> {
 		let bytes = fs::read(path).map_err(|_| "fs::read failed.")?;
 		// The first item in the SCALE encoded struct bytes is the snapshot version. We decode and
 		// check that first, before proceeding to decode the rest of the snapshot.
@@ -106,21 +105,21 @@ impl<B: BlockT> Snapshot<B> {
 
 /// An externalities that acts exactly the same as [`sp_io::TestExternalities`] but has a few extra
 /// bits and pieces to it, and can be loaded remotely.
-pub struct RemoteExternalities<B: BlockT> {
+pub struct RemoteExternalities<H: Hash> {
 	/// The inner externalities.
-	pub inner_ext: TestExternalities<HashingFor<B>>,
-	/// The block hash it which we created this externality env.
-	pub block_hash: B::Hash,
+	pub inner_ext: TestExternalities<H>,
+	/// The block hash with which we created this externality env.
+	pub block_hash: H::Out,
 }
 
-impl<B: BlockT> Deref for RemoteExternalities<B> {
-	type Target = TestExternalities<HashingFor<B>>;
+impl<H: Hash> Deref for RemoteExternalities<H> {
+	type Target = TestExternalities<H>;
 	fn deref(&self) -> &Self::Target {
 		&self.inner_ext
 	}
 }
 
-impl<B: BlockT> DerefMut for RemoteExternalities<B> {
+impl<H: Hash> DerefMut for RemoteExternalities<H> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.inner_ext
 	}
@@ -128,16 +127,16 @@ impl<B: BlockT> DerefMut for RemoteExternalities<B> {
 
 /// The execution mode.
 #[derive(Clone)]
-pub enum Mode<B: BlockT> {
+pub enum Mode<H> {
 	/// Online. Potentially writes to a snapshot file.
-	Online(OnlineConfig<B>),
+	Online(OnlineConfig<H>),
 	/// Offline. Uses a state snapshot file and needs not any client config.
 	Offline(OfflineConfig),
 	/// Prefer using a snapshot file if it exists, else use a remote server.
-	OfflineOrElseOnline(OfflineConfig, OnlineConfig<B>),
+	OfflineOrElseOnline(OfflineConfig, OnlineConfig<H>),
 }
 
-impl<B: BlockT> Default for Mode<B> {
+impl<H> Default for Mode<H> {
 	fn default() -> Self {
 		Mode::Online(OnlineConfig::default())
 	}
@@ -190,7 +189,8 @@ impl Transport {
 				uri.clone()
 			};
 			let http_client = HttpClientBuilder::default()
-				.max_request_body_size(u32::MAX)
+				.max_request_size(u32::MAX)
+				.max_response_size(u32::MAX)
 				.request_timeout(std::time::Duration::from_secs(60 * 5))
 				.build(uri)
 				.map_err(|e| {
@@ -221,10 +221,10 @@ impl From<HttpClient> for Transport {
 ///
 /// A state snapshot config may be present and will be written to in that case.
 #[derive(Clone)]
-pub struct OnlineConfig<B: BlockT> {
+pub struct OnlineConfig<H> {
 	/// The block hash at which to get the runtime state. Will be latest finalized head if not
 	/// provided.
-	pub at: Option<B::Hash>,
+	pub at: Option<H>,
 	/// An optional state snapshot file to WRITE to, not for reading. Not written if set to `None`.
 	pub state_snapshot: Option<SnapshotConfig>,
 	/// The pallets to scrape. These values are hashed and added to `hashed_prefix`.
@@ -240,7 +240,7 @@ pub struct OnlineConfig<B: BlockT> {
 	pub hashed_keys: Vec<Vec<u8>>,
 }
 
-impl<B: BlockT> OnlineConfig<B> {
+impl<H: Clone> OnlineConfig<H> {
 	/// Return rpc (http) client reference.
 	fn rpc_client(&self) -> &HttpClient {
 		self.transport
@@ -248,12 +248,12 @@ impl<B: BlockT> OnlineConfig<B> {
 			.expect("http client must have been initialized by now; qed.")
 	}
 
-	fn at_expected(&self) -> B::Hash {
-		self.at.expect("block at must be initialized; qed")
+	fn at_expected(&self) -> H {
+		self.at.clone().expect("block at must be initialized; qed")
 	}
 }
 
-impl<B: BlockT> Default for OnlineConfig<B> {
+impl<H> Default for OnlineConfig<H> {
 	fn default() -> Self {
 		Self {
 			transport: Transport::from(DEFAULT_HTTP_ENDPOINT.to_owned()),
@@ -267,7 +267,7 @@ impl<B: BlockT> Default for OnlineConfig<B> {
 	}
 }
 
-impl<B: BlockT> From<String> for OnlineConfig<B> {
+impl<H> From<String> for OnlineConfig<H> {
 	fn from(t: String) -> Self {
 		Self { transport: t.into(), ..Default::default() }
 	}
@@ -299,6 +299,7 @@ impl Default for SnapshotConfig {
 }
 
 /// Builder for remote-externalities.
+#[derive(Clone)]
 pub struct Builder<B: BlockT> {
 	/// Custom key-pairs to be injected into the final externalities. The *hashed* keys and values
 	/// must be given.
@@ -306,7 +307,7 @@ pub struct Builder<B: BlockT> {
 	/// The keys that will be excluded from the final externality. The *hashed* key must be given.
 	hashed_blacklist: Vec<Vec<u8>>,
 	/// Connectivity mode, online or offline.
-	mode: Mode<B>,
+	mode: Mode<B::Hash>,
 	/// If provided, overwrite the state version with this. Otherwise, the state_version of the
 	/// remote node is used. All cache files also store their state version.
 	///
@@ -327,7 +328,7 @@ impl<B: BlockT> Default for Builder<B> {
 
 // Mode methods
 impl<B: BlockT> Builder<B> {
-	fn as_online(&self) -> &OnlineConfig<B> {
+	fn as_online(&self) -> &OnlineConfig<B::Hash> {
 		match &self.mode {
 			Mode::Online(config) => config,
 			Mode::OfflineOrElseOnline(_, config) => config,
@@ -335,7 +336,7 @@ impl<B: BlockT> Builder<B> {
 		}
 	}
 
-	fn as_online_mut(&mut self) -> &mut OnlineConfig<B> {
+	fn as_online_mut(&mut self) -> &mut OnlineConfig<B::Hash> {
 		match &mut self.mode {
 			Mode::Online(config) => config,
 			Mode::OfflineOrElseOnline(_, config) => config,
@@ -353,10 +354,11 @@ where
 	const PARALLEL_REQUESTS: usize = 4;
 	const BATCH_SIZE_INCREASE_FACTOR: f32 = 1.10;
 	const BATCH_SIZE_DECREASE_FACTOR: f32 = 0.50;
-	const INITIAL_BATCH_SIZE: usize = 5000;
+	const REQUEST_DURATION_TARGET: Duration = Duration::from_secs(15);
+	const INITIAL_BATCH_SIZE: usize = 10;
 	// nodes by default will not return more than 1000 keys per request
 	const DEFAULT_KEY_DOWNLOAD_PAGE: u32 = 1000;
-	const KEYS_PAGE_MAX_RETRIES: usize = 12;
+	const MAX_RETRIES: usize = 12;
 	const KEYS_PAGE_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 
 	async fn rpc_get_storage(
@@ -400,41 +402,134 @@ where
 			})
 	}
 
-	/// Get all the keys at `prefix` at `hash` using the paged, safe RPC methods.
-	async fn rpc_get_keys_paged(
+	/// Get keys with `prefix` at `block` in a parallel manner.
+	async fn rpc_get_keys_parallel(
 		&self,
-		prefix: StorageKey,
-		at: B::Hash,
+		prefix: &StorageKey,
+		block: B::Hash,
+		parallel: usize,
 	) -> Result<Vec<StorageKey>, &'static str> {
-		let mut last_key: Option<StorageKey> = None;
-		let mut all_keys: Vec<StorageKey> = vec![];
-		let keys = loop {
+		/// Divide the workload and return the start key of each chunks. Guaranteed to return a
+		/// non-empty list.
+		fn gen_start_keys(prefix: &StorageKey) -> Vec<StorageKey> {
+			let mut prefix = prefix.as_ref().to_vec();
+			let scale = 32usize.saturating_sub(prefix.len());
+
+			// no need to divide workload
+			if scale < 9 {
+				prefix.extend(vec![0; scale]);
+				return vec![StorageKey(prefix)]
+			}
+
+			let chunks = 16;
+			let step = 0x10000 / chunks;
+			let ext = scale - 2;
+
+			(0..chunks)
+				.map(|i| {
+					let mut key = prefix.clone();
+					let start = i * step;
+					key.extend(vec![(start >> 8) as u8, (start & 0xff) as u8]);
+					key.extend(vec![0; ext]);
+					StorageKey(key)
+				})
+				.collect()
+		}
+
+		let start_keys = gen_start_keys(&prefix);
+		let start_keys: Vec<Option<&StorageKey>> = start_keys.iter().map(Some).collect();
+		let mut end_keys: Vec<Option<&StorageKey>> = start_keys[1..].to_vec();
+		end_keys.push(None);
+
+		// use a semaphore to limit max scraping tasks
+		let parallel = Arc::new(tokio::sync::Semaphore::new(parallel));
+		let builder = Arc::new(self.clone());
+		let mut handles = vec![];
+
+		for (start_key, end_key) in start_keys.into_iter().zip(end_keys) {
+			let permit = parallel
+				.clone()
+				.acquire_owned()
+				.await
+				.expect("semaphore is not closed until the end of loop");
+
+			let builder = builder.clone();
+			let prefix = prefix.clone();
+			let start_key = start_key.cloned();
+			let end_key = end_key.cloned();
+
+			let handle = tokio::spawn(async move {
+				let res = builder
+					.rpc_get_keys_in_range(&prefix, block, start_key.as_ref(), end_key.as_ref())
+					.await;
+				drop(permit);
+				res
+			});
+
+			handles.push(handle);
+		}
+
+		parallel.close();
+
+		let keys = futures::future::join_all(handles)
+			.await
+			.into_iter()
+			.filter_map(|res| match res {
+				Ok(Ok(keys)) => Some(keys),
+				_ => None,
+			})
+			.flatten()
+			.collect::<Vec<StorageKey>>();
+
+		Ok(keys)
+	}
+
+	/// Get all keys with `prefix` within the given range at `block`.
+	/// Both `start_key` and `end_key` are optional if you want an open-ended range.
+	async fn rpc_get_keys_in_range(
+		&self,
+		prefix: &StorageKey,
+		block: B::Hash,
+		start_key: Option<&StorageKey>,
+		end_key: Option<&StorageKey>,
+	) -> Result<Vec<StorageKey>, &'static str> {
+		let mut last_key: Option<&StorageKey> = start_key;
+		let mut keys: Vec<StorageKey> = vec![];
+
+		loop {
 			// This loop can hit the node with very rapid requests, occasionally causing it to
 			// error out in CI (https://github.com/paritytech/substrate/issues/14129), so we retry.
-			let retry_strategy = FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL)
-				.take(Self::KEYS_PAGE_MAX_RETRIES);
+			let retry_strategy =
+				FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
 			let get_page_closure =
-				|| self.get_keys_single_page(Some(prefix.clone()), last_key.clone(), at);
-			let page = Retry::spawn(retry_strategy, get_page_closure).await?;
+				|| self.get_keys_single_page(Some(prefix.clone()), last_key.cloned(), block);
+			let mut page = Retry::spawn(retry_strategy, get_page_closure).await?;
+
+			// avoid duplicated keys across workloads
+			if let (Some(last), Some(end)) = (page.last(), end_key) {
+				if last >= end {
+					page.retain(|key| key < end);
+				}
+			}
+
 			let page_len = page.len();
+			keys.extend(page);
+			last_key = keys.last();
 
-			all_keys.extend(page);
-
+			// scraping out of range or no more matches,
+			// we are done either way
 			if page_len < Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize {
 				log::debug!(target: LOG_TARGET, "last page received: {}", page_len);
-				break all_keys
-			} else {
-				let new_last_key =
-					all_keys.last().expect("all_keys is populated; has .last(); qed");
-				log::debug!(
-					target: LOG_TARGET,
-					"new total = {}, full page received: {}",
-					all_keys.len(),
-					HexDisplay::from(new_last_key)
-				);
-				last_key = Some(new_last_key.clone());
-			};
-		};
+				break
+			}
+
+			log::debug!(
+				target: LOG_TARGET,
+				"new total = {}, full page received: {}",
+				keys.len(),
+				HexDisplay::from(last_key.expect("full page received, cannot be None"))
+			);
+		}
 
 		Ok(keys)
 	}
@@ -448,8 +543,6 @@ where
 	///
 	/// * `client` - An `Arc` wrapped `HttpClient` used for making the requests.
 	/// * `payloads` - A vector of tuples containing a JSONRPC method name and `ArrayParams`
-	/// * `batch_size` - The initial batch size to use for the request. The batch size will be
-	///   adjusted dynamically in case of failure.
 	///
 	/// # Returns
 	///
@@ -485,87 +578,114 @@ where
 	///     }
 	/// }
 	/// ```
-	#[async_recursion]
 	async fn get_storage_data_dynamic_batch_size(
 		client: &HttpClient,
 		payloads: Vec<(String, ArrayParams)>,
-		batch_size: usize,
 		bar: &ProgressBar,
 	) -> Result<Vec<Option<StorageData>>, String> {
-		// All payloads have been processed
-		if payloads.is_empty() {
-			return Ok(vec![])
-		};
+		let mut all_data: Vec<Option<StorageData>> = vec![];
+		let mut start_index = 0;
+		let mut retries = 0usize;
+		let mut batch_size = Self::INITIAL_BATCH_SIZE;
+		let total_payloads = payloads.len();
 
-		log::debug!(
-			target: LOG_TARGET,
-			"Remaining payloads: {} Batch request size: {}",
-			payloads.len(),
-			batch_size,
-		);
+		while start_index < total_payloads {
+			log::debug!(
+				target: LOG_TARGET,
+				"Remaining payloads: {} Batch request size: {}",
+				total_payloads - start_index,
+				batch_size,
+			);
 
-		// Payloads to attempt to process this batch
-		let page = payloads.iter().take(batch_size).cloned().collect::<Vec<_>>();
+			let end_index = usize::min(start_index + batch_size, total_payloads);
+			let page = &payloads[start_index..end_index];
 
-		// Build the batch request
-		let mut batch = BatchRequestBuilder::new();
-		for (method, params) in page.iter() {
-			batch
-				.insert(method, params.clone())
-				.map_err(|_| "Invalid batch method and/or params")?
-		}
-		let batch_response = match client.batch_request::<Option<StorageData>>(batch).await {
-			Ok(batch_response) => batch_response,
-			Err(e) => {
-				if batch_size < 2 {
-					return Err(e.to_string())
-				}
-
-				log::debug!(
-					target: LOG_TARGET,
-					"Batch request failed, trying again with smaller batch size. {}",
-					e.to_string()
-				);
-
-				return Self::get_storage_data_dynamic_batch_size(
-					client,
-					payloads,
-					max(1, (batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize),
-					bar,
-				)
-				.await
-			},
-		};
-
-		// Collect the data from this batch
-		let mut data: Vec<Option<StorageData>> = vec![];
-		let batch_response_len = batch_response.len();
-		for item in batch_response.into_iter() {
-			match item {
-				Ok(x) => data.push(x),
-				Err(e) => return Err(e.message().to_string()),
+			// Build the batch request
+			let mut batch = BatchRequestBuilder::new();
+			for (method, params) in page.iter() {
+				batch
+					.insert(method, params.clone())
+					.map_err(|_| "Invalid batch method and/or params")?;
 			}
-		}
-		bar.inc(batch_response_len as u64);
 
-		// Return this data joined with the remaining keys
-		let remaining_payloads = payloads.iter().skip(batch_size).cloned().collect::<Vec<_>>();
-		let mut rest = Self::get_storage_data_dynamic_batch_size(
-			client,
-			remaining_payloads,
-			max(batch_size + 1, (batch_size as f32 * Self::BATCH_SIZE_INCREASE_FACTOR) as usize),
-			bar,
-		)
-		.await?;
-		data.append(&mut rest);
-		Ok(data)
+			let request_started = Instant::now();
+			let batch_response = match client.batch_request::<Option<StorageData>>(batch).await {
+				Ok(batch_response) => {
+					retries = 0;
+					batch_response
+				},
+				Err(e) => {
+					if retries > Self::MAX_RETRIES {
+						return Err(e.to_string())
+					}
+
+					retries += 1;
+					let failure_log = format!(
+						"Batch request failed ({}/{} retries). Error: {}",
+						retries,
+						Self::MAX_RETRIES,
+						e
+					);
+					// after 2 subsequent failures something very wrong is happening. log a warning
+					// and reset the batch size down to 1.
+					if retries >= 2 {
+						log::warn!("{}", failure_log);
+						batch_size = 1;
+					} else {
+						log::debug!("{}", failure_log);
+						// Decrease batch size by DECREASE_FACTOR
+						batch_size =
+							(batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize;
+					}
+					continue
+				},
+			};
+
+			let request_duration = request_started.elapsed();
+			batch_size = if request_duration > Self::REQUEST_DURATION_TARGET {
+				// Decrease batch size
+				max(1, (batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize)
+			} else {
+				// Increase batch size, but not more than the remaining total payloads to process
+				min(
+					total_payloads - start_index,
+					max(
+						batch_size + 1,
+						(batch_size as f32 * Self::BATCH_SIZE_INCREASE_FACTOR) as usize,
+					),
+				)
+			};
+
+			log::debug!(
+				target: LOG_TARGET,
+				"Request duration: {:?} Target duration: {:?} Last batch size: {} Next batch size: {}",
+				request_duration,
+				Self::REQUEST_DURATION_TARGET,
+				end_index - start_index,
+				batch_size
+			);
+
+			let batch_response_len = batch_response.len();
+			for item in batch_response.into_iter() {
+				match item {
+					Ok(x) => all_data.push(x),
+					Err(e) => return Err(e.message().to_string()),
+				}
+			}
+			bar.inc(batch_response_len as u64);
+
+			// Update the start index for the next iteration
+			start_index = end_index;
+		}
+
+		Ok(all_data)
 	}
 
 	/// Synonym of `getPairs` that uses paged queries to first get the keys, and then
 	/// map them to values one by one.
 	///
 	/// This can work with public nodes. But, expect it to be darn slow.
-	pub(crate) async fn rpc_get_pairs_paged(
+	pub(crate) async fn rpc_get_pairs(
 		&self,
 		prefix: StorageKey,
 		at: B::Hash,
@@ -573,8 +693,10 @@ where
 	) -> Result<Vec<KeyValue>, &'static str> {
 		let start = Instant::now();
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Scraping keys...".into());
+		// TODO We could start downloading when having collected the first batch of keys
+		// https://github.com/paritytech/polkadot-sdk/issues/2494
 		let keys = self
-			.rpc_get_keys_paged(prefix.clone(), at)
+			.rpc_get_keys_parallel(&prefix, at, Self::PARALLEL_REQUESTS)
 			.await?
 			.into_iter()
 			.collect::<Vec<_>>();
@@ -603,14 +725,9 @@ where
 			.unwrap()
 			.progress_chars("=>-"),
 		);
-		let payloads_chunked = payloads.chunks((&payloads.len() / Self::PARALLEL_REQUESTS).max(1));
+		let payloads_chunked = payloads.chunks((payloads.len() / Self::PARALLEL_REQUESTS).max(1));
 		let requests = payloads_chunked.map(|payload_chunk| {
-			Self::get_storage_data_dynamic_batch_size(
-				&client,
-				payload_chunk.to_vec(),
-				Self::INITIAL_BATCH_SIZE,
-				&bar,
-			)
+			Self::get_storage_data_dynamic_batch_size(client, payload_chunk.to_vec(), &bar)
 		});
 		// Execute the requests and move the Result outside.
 		let storage_data_result: Result<Vec<_>, _> =
@@ -624,7 +741,7 @@ where
 			},
 		};
 		bar.finish_with_message("✅ Downloaded key values");
-		print!("\n");
+		println!();
 
 		// Check if we got responses for all submitted requests.
 		assert_eq!(keys.len(), storage_data.len());
@@ -645,7 +762,7 @@ where
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Inserting keys into DB...".into());
 		let start = Instant::now();
 		pending_ext.batch_insert(key_values.clone().into_iter().filter_map(|(k, v)| {
-			// Don't insert the child keys here, they need to be inserted seperately with all their
+			// Don't insert the child keys here, they need to be inserted separately with all their
 			// data in the load_child_remote function.
 			match is_default_child_storage_key(&k.0) {
 				true => None,
@@ -683,20 +800,14 @@ where
 			.collect::<Vec<_>>();
 
 		let bar = ProgressBar::new(payloads.len() as u64);
-		let storage_data = match Self::get_storage_data_dynamic_batch_size(
-			client,
-			payloads,
-			Self::INITIAL_BATCH_SIZE,
-			&bar,
-		)
-		.await
-		{
-			Ok(storage_data) => storage_data,
-			Err(e) => {
-				log::error!(target: LOG_TARGET, "batch processing failed: {:?}", e);
-				return Err("batch processing failed")
-			},
-		};
+		let storage_data =
+			match Self::get_storage_data_dynamic_batch_size(client, payloads, &bar).await {
+				Ok(storage_data) => storage_data,
+				Err(e) => {
+					log::error!(target: LOG_TARGET, "batch processing failed: {:?}", e);
+					return Err("batch processing failed")
+				},
+			};
 
 		assert_eq!(child_keys_len, storage_data.len());
 
@@ -764,8 +875,9 @@ where
 		pending_ext: &mut TestExternalities<HashingFor<B>>,
 	) -> Result<ChildKeyValues, &'static str> {
 		let child_roots = top_kv
-			.into_iter()
-			.filter_map(|(k, _)| is_default_child_storage_key(k.as_ref()).then(|| k.clone()))
+			.iter()
+			.filter(|(k, _)| is_default_child_storage_key(k.as_ref()))
+			.map(|(k, _)| k.clone())
 			.collect::<Vec<_>>();
 
 		if child_roots.is_empty() {
@@ -785,11 +897,10 @@ where
 		let mut child_kv = vec![];
 		for prefixed_top_key in child_roots {
 			let child_keys =
-				Self::rpc_child_get_keys(&client, &prefixed_top_key, StorageKey(vec![]), at)
-					.await?;
+				Self::rpc_child_get_keys(client, &prefixed_top_key, StorageKey(vec![]), at).await?;
 
 			let child_kv_inner =
-				Self::rpc_child_get_storage_paged(&client, &prefixed_top_key, child_keys, at)
+				Self::rpc_child_get_storage_paged(client, &prefixed_top_key, child_keys, at)
 					.await?;
 
 			let prefixed_top_key = PrefixedStorageKey::new(prefixed_top_key.clone().0);
@@ -832,7 +943,7 @@ where
 		for prefix in &config.hashed_prefixes {
 			let now = std::time::Instant::now();
 			let additional_key_values =
-				self.rpc_get_pairs_paged(StorageKey(prefix.to_vec()), at, pending_ext).await?;
+				self.rpc_get_pairs(StorageKey(prefix.to_vec()), at, pending_ext).await?;
 			let elapsed = now.elapsed();
 			log::info!(
 				target: LOG_TARGET,
@@ -888,10 +999,11 @@ where
 
 		// Then, a few transformation that we want to perform in the online config:
 		let online_config = self.as_online_mut();
-		online_config
-			.pallets
-			.iter()
-			.for_each(|p| online_config.hashed_prefixes.push(twox_128(p.as_bytes()).to_vec()));
+		online_config.pallets.iter().for_each(|p| {
+			online_config
+				.hashed_prefixes
+				.push(sp_crypto_hashing::twox_128(p.as_bytes()).to_vec())
+		});
 
 		if online_config.child_trie {
 			online_config.hashed_prefixes.push(DEFAULT_CHILD_STORAGE_KEY_PREFIX.to_vec());
@@ -943,7 +1055,7 @@ where
 		// If we need to save a snapshot, save the raw storage and root hash to the snapshot.
 		if let Some(path) = self.as_online().state_snapshot.clone().map(|c| c.path) {
 			let (raw_storage, storage_root) = pending_ext.into_raw_snapshot();
-			let snapshot = Snapshot::<B>::new(
+			let snapshot = Snapshot::<B::Hash>::new(
 				state_version,
 				self.as_online()
 					.at
@@ -971,7 +1083,7 @@ where
 		Ok(pending_ext)
 	}
 
-	async fn do_load_remote(&mut self) -> Result<RemoteExternalities<B>, &'static str> {
+	async fn do_load_remote(&mut self) -> Result<RemoteExternalities<HashingFor<B>>, &'static str> {
 		self.init_remote_client().await?;
 		let block_hash = self.as_online().at_expected();
 		let inner_ext = self.load_remote_and_maybe_save().await?;
@@ -981,12 +1093,12 @@ where
 	fn do_load_offline(
 		&mut self,
 		config: OfflineConfig,
-	) -> Result<RemoteExternalities<B>, &'static str> {
+	) -> Result<RemoteExternalities<HashingFor<B>>, &'static str> {
 		let mut sp = Spinner::with_timer(Spinners::Dots, "Loading snapshot...".into());
 		let start = Instant::now();
 		info!(target: LOG_TARGET, "Loading snapshot from {:?}", &config.state_snapshot.path);
 		let Snapshot { snapshot_version: _, block_hash, state_version, raw_storage, storage_root } =
-			Snapshot::<B>::load(&config.state_snapshot.path)?;
+			Snapshot::<B::Hash>::load(&config.state_snapshot.path)?;
 
 		let inner_ext = TestExternalities::from_raw_snapshot(
 			raw_storage,
@@ -998,7 +1110,9 @@ where
 		Ok(RemoteExternalities { inner_ext, block_hash })
 	}
 
-	pub(crate) async fn pre_build(mut self) -> Result<RemoteExternalities<B>, &'static str> {
+	pub(crate) async fn pre_build(
+		mut self,
+	) -> Result<RemoteExternalities<HashingFor<B>>, &'static str> {
 		let mut ext = match self.mode.clone() {
 			Mode::Offline(config) => self.do_load_offline(config)?,
 			Mode::Online(_) => self.do_load_remote().await?,
@@ -1063,7 +1177,7 @@ where
 	}
 
 	/// Configure a state snapshot to be used.
-	pub fn mode(mut self, mode: Mode<B>) -> Self {
+	pub fn mode(mut self, mode: Mode<B::Hash>) -> Self {
 		self.mode = mode;
 		self
 	}
@@ -1074,7 +1188,7 @@ where
 		self
 	}
 
-	pub async fn build(self) -> Result<RemoteExternalities<B>, &'static str> {
+	pub async fn build(self) -> Result<RemoteExternalities<HashingFor<B>>, &'static str> {
 		let mut ext = self.pre_build().await?;
 		ext.commit_all().unwrap();
 
@@ -1096,7 +1210,7 @@ mod test_prelude {
 	pub(crate) type Block = RawBlock<ExtrinsicWrapper<Hash>>;
 
 	pub(crate) fn init_logger() {
-		let _ = sp_tracing::try_init_simple();
+		sp_tracing::try_init_simple();
 	}
 }
 
@@ -1151,7 +1265,11 @@ mod tests {
 #[cfg(all(test, feature = "remote-test"))]
 mod remote_tests {
 	use super::test_prelude::*;
-	use std::os::unix::fs::MetadataExt;
+	use std::{env, os::unix::fs::MetadataExt};
+
+	fn endpoint() -> String {
+		env::var("TEST_WS").unwrap_or_else(|_| DEFAULT_HTTP_ENDPOINT.to_string())
+	}
 
 	#[tokio::test]
 	async fn state_version_is_kept_and_can_be_altered() {
@@ -1161,6 +1279,7 @@ mod remote_tests {
 		// first, build a snapshot.
 		let ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1202,6 +1321,7 @@ mod remote_tests {
 		// first, build a snapshot.
 		let ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1229,6 +1349,7 @@ mod remote_tests {
 		// create an ext with children keys
 		let child_ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: true,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1241,6 +1362,7 @@ mod remote_tests {
 		// create an ext without children keys
 		let ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1266,6 +1388,7 @@ mod remote_tests {
 			.mode(Mode::OfflineOrElseOnline(
 				OfflineConfig { state_snapshot: SnapshotConfig::new(CACHE) },
 				OnlineConfig {
+					transport: endpoint().clone().into(),
 					pallets: vec!["Proxy".to_owned()],
 					child_trie: false,
 					state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1307,6 +1430,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				..Default::default()
@@ -1322,6 +1446,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned(), "Multisig".to_owned()],
 				child_trie: false,
 				..Default::default()
@@ -1339,6 +1464,7 @@ mod remote_tests {
 
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
@@ -1368,6 +1494,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
+				transport: endpoint().clone().into(),
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
 				pallets: vec!["Crowdloan".to_owned()],
 				child_trie: true,
@@ -1399,7 +1526,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: std::option_env!("TEST_WS").unwrap().to_owned().into(),
+				transport: endpoint().clone().into(),
 				pallets: vec!["Staking".to_owned()],
 				child_trie: false,
 				..Default::default()
@@ -1418,12 +1545,35 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: std::option_env!("TEST_WS").unwrap().to_owned().into(),
+				transport: endpoint().clone().into(),
 				..Default::default()
 			}))
 			.build()
 			.await
 			.unwrap()
 			.execute_with(|| {});
+	}
+
+	#[tokio::test]
+	async fn can_fetch_in_parallel() {
+		init_logger();
+
+		let mut builder = Builder::<Block>::new().mode(Mode::Online(OnlineConfig {
+			transport: endpoint().clone().into(),
+			..Default::default()
+		}));
+		builder.init_remote_client().await.unwrap();
+
+		let at = builder.as_online().at.unwrap();
+
+		let prefix = StorageKey(vec![13]);
+		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None).await.unwrap();
+		let para = builder.rpc_get_keys_parallel(&prefix, at, 4).await.unwrap();
+		assert_eq!(paged, para);
+
+		let prefix = StorageKey(vec![]);
+		let paged = builder.rpc_get_keys_in_range(&prefix, at, None, None).await.unwrap();
+		let para = builder.rpc_get_keys_parallel(&prefix, at, 8).await.unwrap();
+		assert_eq!(paged, para);
 	}
 }

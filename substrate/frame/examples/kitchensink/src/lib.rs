@@ -74,7 +74,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// This is a normal Rust type, nothing specific to FRAME here.
-		type Currency: frame_support::traits::tokens::fungible::Inspect<Self::AccountId>;
+		type Currency: frame_support::traits::fungible::Inspect<Self::AccountId>;
 
 		/// Similarly, let the runtime decide this.
 		fn some_function() -> u32;
@@ -125,7 +125,6 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded] // optional
 	#[pallet::storage_prefix = "OtherFoo"] // optional
-	#[pallet::getter(fn foo)] // optional
 	pub type Foo<T> = StorageValue<Value = u32>;
 
 	#[pallet::type_value]
@@ -206,6 +205,10 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_foo_benchmark())]
+		/// Marks this call as feeless if `new_foo` is zero.
+		#[pallet::feeless_if(|_origin: &OriginFor<T>, new_foo: &u32, _other_compact: &u128| -> bool {
+			*new_foo == 0
+		})]
 		pub fn set_foo(
 			_: OriginFor<T>,
 			new_foo: u32,
@@ -288,9 +291,8 @@ pub mod pallet {
 		}
 	}
 
-	/// Allows you to define an enum on the pallet which will then instruct
-	/// `construct_runtime` to amalgamate all similarly-named enums from other
-	/// pallets into an aggregate enum.
+	/// Allows you to define an enum on the pallet which will then instruct `construct_runtime` to
+	/// amalgamate all similarly-named enums from other pallets into an aggregate enum.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		Staking,

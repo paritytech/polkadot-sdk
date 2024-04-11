@@ -15,7 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{env, fs, fs::File, io, io::Read, path::PathBuf};
+use std::{
+	env, fs,
+	fs::File,
+	io,
+	io::Read,
+	path::{Path, PathBuf},
+};
 
 /// Make sure the calling `build.rs` script is rerun when `.git/HEAD` or the ref of `.git/HEAD`
 /// changed.
@@ -55,7 +61,7 @@ pub fn rerun_if_git_head_changed() {
 }
 
 // Code taken from https://github.com/rustyhorde/vergen/blob/8d522db8c8e16e26c0fc9ea8e6b0247cbf5cca84/src/output/envvar.rs
-fn get_git_paths(path: &PathBuf) -> Result<Option<Vec<PathBuf>>, io::Error> {
+fn get_git_paths(path: &Path) -> Result<Option<Vec<PathBuf>>, io::Error> {
 	let git_dir_or_file = path.join(".git");
 
 	if let Ok(metadata) = fs::metadata(&git_dir_or_file) {

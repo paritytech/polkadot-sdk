@@ -1,6 +1,6 @@
 [package]
 name = "sp-core"
-version = "21.0.0"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,60 +9,67 @@ repository.workspace = true
 description = "Shareable Substrate types."
 documentation = "https://docs.rs/sp-core"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive","max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
-serde = { version = "1.0.188", optional = true,  default-features = false, features = ["derive", "alloc"] }
-bounded-collections = { version = "0.1.8", default-features = false }
+log = { workspace = true }
+serde = { optional = true, features = ["alloc", "derive"], workspace = true }
+bounded-collections = { version = "0.2.0", default-features = false }
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "scale-info"] }
 impl-serde = { version = "0.4.0", default-features = false, optional = true }
 hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 bs58 = { version = "0.5.0", default-features = false, optional = true }
-rand = { version = "0.8.5", features = ["small_rng"],  optional = true }
-substrate-bip39 = { version = "0.4.4", optional = true }
-tiny-bip39 = { version = "1.0.0", optional = true }
-regex = { version = "1.6.0", optional = true }
+rand = { version = "0.8.5", features = ["small_rng"], optional = true }
+substrate-bip39 = { path = "../../utils/substrate-bip39", default-features = false }
+# personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
+bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false, features = ["alloc"] }
 zeroize = { version = "1.4.3", default-features = false }
-secrecy = { version = "0.8.0", default-features = false }
-lazy_static = { version = "1.4.0", default-features = false, optional = true }
+secrecy = { version = "0.8.0", default-features = false, features = ["alloc"] }
 parking_lot = { version = "0.12.1", optional = true }
 ss58-registry = { version = "1.34.0", default-features = false }
-sp-std = { path = "../std", default-features = false}
-sp-debug-derive = { path = "../debug-derive", default-features = false}
-sp-storage = { path = "../storage", default-features = false}
-sp-externalities = { path = "../externalities", optional = true}
-futures = { version = "0.3.21", optional = true }
+sp-std = { path = "../std", default-features = false }
+sp-debug-derive = { path = "../debug-derive", default-features = false }
+sp-storage = { path = "../storage", default-features = false }
+sp-externalities = { path = "../externalities", optional = true }
+futures = { version = "0.3.30", optional = true }
 dyn-clonable = { version = "0.9.0", optional = true }
-thiserror = { version = "1.0.48", optional = true }
+thiserror = { optional = true, workspace = true }
 tracing = { version = "0.1.29", optional = true }
 bitflags = "1.3"
 paste = "1.0.7"
+itertools = { version = "0.10.3", optional = true }
 
 # full crypto
-array-bytes = { version = "6.1", optional = true }
-ed25519-zebra = { version = "3.1.0", default-features = false, optional = true }
+array-bytes = { version = "6.1" }
+ed25519-zebra = { version = "3.1.0", default-features = false }
 blake2 = { version = "0.10.4", default-features = false, optional = true }
-libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"], optional = true }
-schnorrkel = { version = "0.9.1", features = ["preaudit_deprecated", "u64_backend"], default-features = false }
-merlin = { version = "2.0", default-features = false }
-secp256k1 = { version = "0.24.0", default-features = false, features = ["recovery", "alloc"], optional = true }
-sp-core-hashing = { path = "hashing", default-features = false, optional = true }
-sp-runtime-interface = { path = "../runtime-interface", default-features = false}
+libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"] }
+schnorrkel = { version = "0.11.4", features = ["preaudit_deprecated"], default-features = false }
+merlin = { version = "3.0", default-features = false }
+sp-crypto-hashing = { path = "../crypto/hashing", default-features = false }
+sp-runtime-interface = { path = "../runtime-interface", default-features = false }
+# k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
+k256 = { version = "0.13.3", features = ["alloc", "ecdsa"], default-features = false }
+# secp256k1 crate, better performance, intended to be used on host side (std)
+secp256k1 = { version = "0.28.0", default-features = false, features = ["alloc", "recovery"], optional = true }
 
 # bls crypto
-w3f-bls = { version = "0.1.3", default-features = false, optional = true}
+w3f-bls = { version = "0.1.3", default-features = false, optional = true }
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "f4fe253", default-features = false, optional = true }
+bandersnatch_vrfs = { git = "https://github.com/w3f/ring-vrf", rev = "e9782f9", default-features = false, features = ["substrate-curves"], optional = true }
 
 [dev-dependencies]
 criterion = "0.4.0"
-serde_json = "1.0"
-sp-core-hashing-proc-macro = { path = "hashing/proc-macro" }
+serde_json = { workspace = true, default-features = true }
+lazy_static = "1.4.0"
+regex = "1.6.0"
 
 [[bench]]
 name = "bench"
@@ -72,10 +79,12 @@ harness = false
 bench = false
 
 [features]
-default = [ "std" ]
+default = ["std"]
+
 std = [
-	"array-bytes",
-	"bandersnatch_vrfs/getrandom",
+	"bandersnatch_vrfs?/std",
+	"bip39/rand",
+	"bip39/std",
 	"blake2/std",
 	"bounded-collections/std",
 	"bs58/std",
@@ -88,7 +97,8 @@ std = [
 	"hash-db/std",
 	"hash256-std-hasher/std",
 	"impl-serde/std",
-	"lazy_static",
+	"itertools",
+	"k256/std",
 	"libsecp256k1/std",
 	"log/std",
 	"merlin/std",
@@ -98,39 +108,36 @@ std = [
 	"primitive-types/serde",
 	"primitive-types/std",
 	"rand",
-	"regex",
 	"scale-info/std",
 	"schnorrkel/std",
 	"secp256k1/global-context",
 	"secp256k1/std",
-	"secrecy/alloc",
 	"serde/std",
-	"sp-core-hashing/std",
+	"sp-crypto-hashing/std",
 	"sp-debug-derive/std",
 	"sp-externalities/std",
 	"sp-runtime-interface/std",
 	"sp-std/std",
 	"sp-storage/std",
 	"ss58-registry/std",
-	"substrate-bip39",
+	"substrate-bip39/std",
 	"thiserror",
-	"tiny-bip39",
 	"tracing",
+	"w3f-bls?/std",
 	"zeroize/alloc",
+	"zeroize/std",
 ]
 
 # Serde support without relying on std features.
 serde = [
-	"array-bytes",
 	"blake2",
 	"bounded-collections/serde",
 	"bs58/alloc",
 	"dep:serde",
 	"impl-serde",
+	"k256/serde",
 	"primitive-types/serde_no_std",
 	"scale-info/serde",
-	"secrecy/alloc",
-	"sp-core-hashing",
 	"sp-storage/serde",
 ]
 
@@ -138,21 +145,16 @@ serde = [
 # or Intel SGX.
 # For the regular wasm runtime builds this should not be used.
 full_crypto = [
-	"array-bytes",
 	"blake2",
-	"ed25519-zebra",
-	"libsecp256k1",
-	"secp256k1",
-	"sp-core-hashing",
 	"sp-runtime-interface/disable_target_static_assertions",
 ]
 
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bls-experimental = [ "w3f-bls" ]
+bls-experimental = ["w3f-bls"]
 
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = [ "bandersnatch_vrfs" ]
+bandersnatch-experimental = ["bandersnatch_vrfs"]

@@ -305,10 +305,10 @@ pub(crate) fn register_metrics<T: PrometheusRegister>(
 // if expr does not derive `Display`.
 #[macro_export]
 macro_rules! metric_set {
-	($self:ident, $m:ident, $v:expr) => {{
+	($metrics:expr, $m:ident, $v:expr) => {{
 		let val: u64 = format!("{}", $v).parse().unwrap();
 
-		if let Some(metrics) = $self.metrics.as_ref() {
+		if let Some(metrics) = $metrics.as_ref() {
 			metrics.$m.set(val);
 		}
 	}};
@@ -316,8 +316,8 @@ macro_rules! metric_set {
 
 #[macro_export]
 macro_rules! metric_inc {
-	($self:ident, $m:ident) => {{
-		if let Some(metrics) = $self.metrics.as_ref() {
+	($metrics:expr, $m:ident) => {{
+		if let Some(metrics) = $metrics.as_ref() {
 			metrics.$m.inc();
 		}
 	}};
@@ -325,8 +325,8 @@ macro_rules! metric_inc {
 
 #[macro_export]
 macro_rules! metric_get {
-	($self:ident, $m:ident) => {{
-		$self.metrics.as_ref().map(|metrics| metrics.$m.clone())
+	($metrics:expr, $m:ident) => {{
+		$metrics.as_ref().map(|metrics| metrics.$m.clone())
 	}};
 }
 

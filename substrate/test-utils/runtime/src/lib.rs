@@ -19,17 +19,22 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "std")]
 pub mod extrinsic;
 #[cfg(feature = "std")]
 pub mod genesismap;
 pub mod substrate_test_pallet;
 
+use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
-	genesis_builder_helper::{build_config, create_default_config},
+	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::{
@@ -42,9 +47,8 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
-#[cfg(not(feature = "std"))]
-use sp_std::vec;
+use sp_application_crypto::Ss58Codec;
+use sp_keyring::AccountKeyring;
 
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 use sp_core::{OpaqueMetadata, RuntimeDebug};
@@ -54,14 +58,16 @@ use sp_trie::{
 };
 use trie_db::{Trie, TrieMut};
 
+use serde_json::json;
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_core::hash::H256;
+use sp_genesis_builder::PresetId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	create_runtime_str, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, NumberFor, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
-	ApplyExtrinsicResult, Perbill,
+	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
@@ -90,7 +96,7 @@ pub mod wasm_binary_logging_disabled {
 #[cfg(feature = "std")]
 pub fn wasm_binary_unwrap() -> &'static [u8] {
 	WASM_BINARY.expect(
-		"Development wasm binary is not available. Testing is only supported with the flag \
+		"Development wasm binary is not available. Testing is only supported with the flag
 		 disabled.",
 	)
 }
@@ -99,7 +105,7 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 #[cfg(feature = "std")]
 pub fn wasm_binary_logging_disabled_unwrap() -> &'static [u8] {
 	wasm_binary_logging_disabled::WASM_BINARY.expect(
-		"Development wasm binary is not available. Testing is only supported with the flag \
+		"Development wasm binary is not available. Testing is only supported with the flag
 		 disabled.",
 	)
 }
@@ -265,7 +271,7 @@ impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
 
 	fn additional_signed(
 		&self,
-	) -> sp_std::result::Result<Self::AdditionalSigned, TransactionValidityError> {
+	) -> core::result::Result<Self::AdditionalSigned, TransactionValidityError> {
 		Ok(())
 	}
 
@@ -342,6 +348,7 @@ parameter_types! {
 		.build_or_panic();
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::pallet::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = RuntimeBlockWeights;
@@ -396,7 +403,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type MaxHolds = ConstU32<1>;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
 impl substrate_test_pallet::Config for Runtime {}
@@ -439,7 +446,7 @@ fn code_using_trie() -> u64 {
 	.to_vec();
 
 	let mut mdb = PrefixedMemoryDB::default();
-	let mut root = sp_std::default::Default::default();
+	let mut root = core::default::Default::default();
 	{
 		let mut t = TrieDBMutBuilderV1::<Hashing>::new(&mut mdb, &mut root).build();
 		for (key, value) in &pairs {
@@ -463,11 +470,10 @@ impl_opaque_keys! {
 	}
 }
 
-pub(crate) const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration =
-	BabeEpochConfiguration {
-		c: (3, 10),
-		allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
-	};
+pub const TEST_RUNTIME_BABE_EPOCH_CONFIGURATION: BabeEpochConfiguration = BabeEpochConfiguration {
+	c: (3, 10),
+	allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
+};
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -480,9 +486,9 @@ impl_runtime_apis! {
 			Executive::execute_block(block);
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
 			log::trace!(target: LOG_TARGET, "initialize_block: {header:#?}");
-			Executive::initialize_block(header);
+			Executive::initialize_block(header)
 		}
 	}
 
@@ -494,7 +500,7 @@ impl_runtime_apis! {
 		fn metadata_at_version(_version: u32) -> Option<OpaqueMetadata> {
 			unimplemented!()
 		}
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			unimplemented!()
 		}
 	}
@@ -722,12 +728,42 @@ impl_runtime_apis! {
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
-		fn create_default_config() -> Vec<u8> {
-			create_default_config::<RuntimeGenesisConfig>()
+		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_config::<RuntimeGenesisConfig>(config)
+		fn get_preset(name: &Option<PresetId>) -> Option<Vec<u8>> {
+			get_preset::<RuntimeGenesisConfig>(name, |name| {
+				let patch = match name.try_into() {
+					Ok("staging") => {
+						let endowed_accounts: Vec<AccountId> = vec![
+							AccountKeyring::Bob.public().into(),
+							AccountKeyring::Charlie.public().into(),
+						];
+
+						json!({
+							"balances": {
+								"balances": endowed_accounts.into_iter().map(|k| (k, 10 * currency::DOLLARS)).collect::<Vec<_>>(),
+							},
+							"substrateTest": {
+								"authorities": [
+									AccountKeyring::Alice.public().to_ss58check(),
+									AccountKeyring::Ferdie.public().to_ss58check()
+								],
+							}
+						})
+					},
+					Ok("foobar") => json!({"foo":"bar"}),
+					_ => return None,
+				};
+				Some(serde_json::to_string(&patch)
+					.expect("serialization to json is expected to work. qed.")
+					.into_bytes())
+			})
+		}
+
+		fn preset_names() -> Vec<PresetId> {
+			vec![PresetId::from("foobar"), PresetId::from("staging")]
 		}
 	}
 }
@@ -833,7 +869,6 @@ fn test_witness(proof: StorageProof, root: crate::Hash) {
 pub mod storage_key_generator {
 	use super::*;
 	use sp_core::Pair;
-	use sp_keyring::AccountKeyring;
 
 	/// Generate hex string without prefix
 	pub(super) fn hex<T>(x: T) -> String
@@ -844,11 +879,11 @@ pub mod storage_key_generator {
 	}
 
 	fn concat_hashes(input: &Vec<&[u8]>) -> String {
-		input.iter().map(|s| sp_core::hashing::twox_128(s)).map(hex).collect()
+		input.iter().map(|s| sp_crypto_hashing::twox_128(s)).map(hex).collect()
 	}
 
 	fn twox_64_concat(x: &[u8]) -> Vec<u8> {
-		sp_core::hashing::twox_64(x).iter().chain(x.iter()).cloned().collect::<Vec<_>>()
+		sp_crypto_hashing::twox_64(x).iter().chain(x.iter()).cloned().collect()
 	}
 
 	/// Generate the hashed storage keys from the raw literals. These keys are expected to be be in
@@ -889,7 +924,7 @@ pub mod storage_key_generator {
 				AccountKeyring::Charlie.public().to_vec(),
 			])
 			.map(|pubkey| {
-				sp_core::hashing::blake2_128(&pubkey)
+				sp_crypto_hashing::blake2_128(&pubkey)
 					.iter()
 					.chain(pubkey.iter())
 					.cloned()
@@ -1019,11 +1054,10 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use frame_support::dispatch::DispatchInfo;
-	use sc_block_builder::BlockBuilderProvider;
+	use sc_block_builder::BlockBuilderBuilder;
 	use sp_api::{ApiExt, ProvideRuntimeApi};
 	use sp_consensus::BlockOrigin;
 	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
-	use sp_keyring::AccountKeyring;
 	use sp_runtime::{
 		traits::{Hash as _, SignedExtension},
 		transaction_validity::{InvalidTransaction, ValidTransaction},
@@ -1051,7 +1085,11 @@ mod tests {
 		// Create a block that sets the `:heap_pages` to 32 pages of memory which corresponds to
 		// ~2048k of heap memory.
 		let (new_at_hash, block) = {
-			let mut builder = client.new_block(Default::default()).unwrap();
+			let mut builder = BlockBuilderBuilder::new(&client)
+				.on_parent_block(best_hash)
+				.with_parent_block_number(0)
+				.build()
+				.unwrap();
 			builder.push_storage_change(HEAP_PAGES.to_vec(), Some(32u64.encode())).unwrap();
 			let block = builder.build().unwrap().block;
 			let hash = block.header.hash();
@@ -1170,7 +1208,7 @@ mod tests {
 	fn check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			let x = sp_keyring::AccountKeyring::Alice.into();
+			let x = AccountKeyring::Alice.into();
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			assert_eq!(
@@ -1232,10 +1270,10 @@ mod tests {
 		#[test]
 		fn build_minimal_genesis_config_works() {
 			sp_tracing::try_init_simple();
-			let default_minimal_json = r#"{"system":{"code":"0x"},"babe":{"authorities":[],"epochConfig":{"c": [ 3, 10 ],"allowed_slots":"PrimaryAndSecondaryPlainSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+			let default_minimal_json = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c": [ 3, 10 ],"allowed_slots":"PrimaryAndSecondaryPlainSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 			let mut t = BasicExternalities::new_empty();
 
-			executor_call(&mut t, "GenesisBuilder_build_config", &default_minimal_json.encode())
+			executor_call(&mut t, "GenesisBuilder_build_state", &default_minimal_json.encode())
 				.unwrap();
 
 			let mut keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
@@ -1259,8 +1297,6 @@ mod tests {
 
 				// System|LastRuntimeUpgrade
 				"26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8",
-				// :code
-				"3a636f6465",
 				// :extrinsic_index
 				"3a65787472696e7369635f696e646578",
 				// Balances|TotalIssuance
@@ -1285,39 +1321,98 @@ mod tests {
 		fn default_config_as_json_works() {
 			sp_tracing::try_init_simple();
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_create_default_config", &vec![]).unwrap();
-			let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_get_preset", &None::<&PresetId>.encode())
+				.unwrap();
+			let r = Option::<Vec<u8>>::decode(&mut &r[..])
+				.unwrap()
+				.expect("default config is there");
 			let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 
-			let expected = r#"{"system":{"code":"0x"},"babe":{"authorities":[],"epochConfig":null},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
 			assert_eq!(expected.to_string(), json);
+		}
+
+		#[test]
+		fn preset_names_listing_works() {
+			sp_tracing::try_init_simple();
+			let mut t = BasicExternalities::new_empty();
+			let r = executor_call(&mut t, "GenesisBuilder_preset_names", &vec![]).unwrap();
+			let r = Vec::<PresetId>::decode(&mut &r[..]).unwrap();
+			assert_eq!(r, vec![PresetId::from("foobar"), PresetId::from("staging"),]);
+			log::info!("r: {:#?}", r);
+		}
+
+		#[test]
+		fn named_config_works() {
+			sp_tracing::try_init_simple();
+			let f = |cfg_name: &str, expected: &str| {
+				let mut t = BasicExternalities::new_empty();
+				let name = cfg_name.to_string();
+				let r = executor_call(
+					&mut t,
+					"GenesisBuilder_get_preset",
+					&Some(name.as_bytes()).encode(),
+				)
+				.unwrap();
+				let r = Option::<Vec<u8>>::decode(&mut &r[..]).unwrap();
+				let json =
+					String::from_utf8(r.unwrap().into()).expect("returned value is json. qed.");
+				log::info!("json: {:#?}", json);
+				assert_eq!(expected.to_string(), json);
+			};
+
+			f("foobar", r#"{"foo":"bar"}"#);
+			f(
+				"staging",
+				r#"{"balances":{"balances":[["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",1000000000000000],["5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",1000000000000000]]},"substrateTest":{"authorities":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY","5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"]}}"#,
+			);
 		}
 
 		#[test]
 		fn build_config_from_json_works() {
 			sp_tracing::try_init_simple();
-			let j = include_str!("test_json/default_genesis_config.json");
+			let j = include_str!("../res/default_genesis_config.json");
 
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]);
 			assert!(r.is_ok());
 
-			let keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
+			let mut keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
+
+			// following keys are not placed during `<RuntimeGenesisConfig as GenesisBuild>::build`
+			// process, add them `keys` to assert against known keys.
+			keys.push(hex(b":code"));
+			keys.sort();
+
 			assert_eq!(keys, storage_key_generator::get_expected_storage_hashed_keys(false));
 		}
 
 		#[test]
 		fn build_config_from_invalid_json_fails() {
 			sp_tracing::try_init_simple();
-			let j = include_str!("test_json/default_genesis_config_invalid.json");
+			let j = include_str!("../res/default_genesis_config_invalid.json");
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			log::info!("result: {:#?}", r);
 			assert_eq!(r, Err(
 				sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 6 column 25".to_string(),
+					"Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 4 column 25".to_string(),
+				))
+			);
+		}
+
+		#[test]
+		fn build_config_from_invalid_json_fails_2() {
+			sp_tracing::try_init_simple();
+			let j = include_str!("../res/default_genesis_config_invalid_2.json");
+			let mut t = BasicExternalities::new_empty();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
+			let r = BuildResult::decode(&mut &r[..]).unwrap();
+			assert_eq!(r, Err(
+				sp_runtime::RuntimeString::Owned(
+					"Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9".to_string(),
 				))
 			);
 		}
@@ -1325,16 +1420,16 @@ mod tests {
 		#[test]
 		fn build_config_from_incomplete_json_fails() {
 			sp_tracing::try_init_simple();
-			let j = include_str!("test_json/default_genesis_config_incomplete.json");
+			let j = include_str!("../res/default_genesis_config_incomplete.json");
 
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_build_config", &j.encode()).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r =
 				core::result::Result::<(), sp_runtime::RuntimeString>::decode(&mut &r[..]).unwrap();
 			assert_eq!(
 				r,
 				Err(sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: missing field `authorities` at line 13 column 3"
+					"Invalid JSON blob: missing field `authorities` at line 11 column 3"
 						.to_string()
 				))
 			);
@@ -1363,8 +1458,11 @@ mod tests {
 			sp_tracing::try_init_simple();
 
 			let mut t = BasicExternalities::new_empty();
-			let r = executor_call(&mut t, "GenesisBuilder_create_default_config", &vec![]).unwrap();
-			let r = Vec::<u8>::decode(&mut &r[..]).unwrap();
+			let r = executor_call(&mut t, "GenesisBuilder_get_preset", &None::<&PresetId>.encode())
+				.unwrap();
+			let r = Option::<Vec<u8>>::decode(&mut &r[..])
+				.unwrap()
+				.expect("default config is there");
 			let mut default_config: serde_json::Value =
 				serde_json::from_slice(&r[..]).expect("returned value is json. qed.");
 
@@ -1387,13 +1485,13 @@ mod tests {
 				}
 			});
 
-			json_patch::merge(&mut default_config, &patch);
+			sc_chain_spec::json_merge(&mut default_config, patch);
 
 			// Build genesis config using custom json:
 			let mut t = BasicExternalities::new_empty();
 			executor_call(
 				&mut t,
-				"GenesisBuilder_build_config",
+				"GenesisBuilder_build_state",
 				&default_config.to_string().encode(),
 			)
 			.unwrap();
@@ -1411,8 +1509,8 @@ mod tests {
 			let authority_key_vec =
 				Vec::<sp_core::sr25519::Public>::decode(&mut &value[..]).unwrap();
 			assert_eq!(authority_key_vec.len(), 2);
-			assert_eq!(authority_key_vec[0], sp_keyring::AccountKeyring::Ferdie.public());
-			assert_eq!(authority_key_vec[1], sp_keyring::AccountKeyring::Alice.public());
+			assert_eq!(authority_key_vec[0], AccountKeyring::Ferdie.public());
+			assert_eq!(authority_key_vec[1], AccountKeyring::Alice.public());
 
 			//Babe|Authorities
 			let value: Vec<u8> = get_from_storage(
@@ -1432,10 +1530,6 @@ mod tests {
 				"c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80",
 			);
 			assert_eq!(u64::decode(&mut &value[..]).unwrap(), 0);
-
-			// :code
-			let value: Vec<u8> = get_from_storage("3a636f6465");
-			assert!(Vec::<u8>::decode(&mut &value[..]).is_err());
 
 			//System|ParentHash
 			let value: Vec<u8> = get_from_storage(

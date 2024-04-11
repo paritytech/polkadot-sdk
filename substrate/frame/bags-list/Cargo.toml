@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bags-list"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,34 +8,41 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet bags list"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 # parity
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+	"derive",
+] }
+scale-info = { version = "2.11.1", default-features = false, features = [
+	"derive",
+] }
 
 # primitives
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
 
 # FRAME
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-frame-election-provider-support = { path = "../election-provider-support", default-features = false}
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+frame-election-provider-support = { path = "../election-provider-support", default-features = false }
 
 # third party
-log = { version = "0.4.17", default-features = false }
-docify = "0.2.4"
-aquamarine = { version = "0.3.2" }
+log = { workspace = true }
+docify = "0.2.8"
+aquamarine = { version = "0.5.0" }
 
 # Optional imports for benchmarking
-frame-benchmarking = { path = "../benchmarking", default-features = false , optional = true}
-pallet-balances = { path = "../balances", default-features = false , optional = true}
-sp-core = { path = "../../primitives/core", default-features = false , optional = true}
-sp-io = { path = "../../primitives/io", default-features = false , optional = true}
-sp-tracing = { path = "../../primitives/tracing", default-features = false , optional = true}
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+pallet-balances = { path = "../balances", default-features = false, optional = true }
+sp-core = { path = "../../primitives/core", default-features = false, optional = true }
+sp-io = { path = "../../primitives/io", default-features = false, optional = true }
+sp-tracing = { path = "../../primitives/tracing", default-features = false, optional = true }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }
@@ -46,7 +53,7 @@ frame-election-provider-support = { path = "../election-provider-support" }
 frame-benchmarking = { path = "../benchmarking" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",

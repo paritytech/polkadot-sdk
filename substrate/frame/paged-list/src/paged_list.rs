@@ -190,7 +190,7 @@ impl<V: FullCodec> Page<V> {
 		let values = sp_io::storage::get(&key)
 			.and_then(|raw| sp_std::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
 		if values.is_empty() {
-			// Dont create empty pages.
+			// Don't create empty pages.
 			return None
 		}
 		let values = values.into_iter().skip(value_index as usize);
@@ -407,13 +407,11 @@ where
 #[allow(dead_code)]
 pub(crate) mod mock {
 	pub use super::*;
-	pub use frame_support::{
-		parameter_types,
-		storage::{types::ValueQuery, StorageList as _},
-		StorageNoopGuard,
-	};
-	pub use sp_io::{hashing::twox_128, TestExternalities};
-	pub use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
+	pub use frame_support::parameter_types;
+	#[cfg(test)]
+	pub use frame_support::{storage::StorageList as _, StorageNoopGuard};
+	#[cfg(test)]
+	pub use sp_io::TestExternalities;
 
 	parameter_types! {
 		pub const ValuesPerNewPage: u32 = 5;

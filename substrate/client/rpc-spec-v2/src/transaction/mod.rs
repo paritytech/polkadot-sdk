@@ -25,14 +25,16 @@
 //!
 //! Methods are prefixed by `transaction`.
 
+#[cfg(test)]
+mod tests;
+
 pub mod api;
 pub mod error;
 pub mod event;
 pub mod transaction;
+pub mod transaction_broadcast;
 
-pub use api::TransactionApiServer;
-pub use event::{
-	TransactionBlock, TransactionBroadcasted, TransactionDropped, TransactionError,
-	TransactionEvent,
-};
+pub use api::{TransactionApiServer, TransactionBroadcastApiServer};
+pub use event::{TransactionBlock, TransactionDropped, TransactionError, TransactionEvent};
 pub use transaction::Transaction;
+pub use transaction_broadcast::TransactionBroadcast;

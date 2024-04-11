@@ -14,110 +14,100 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A module that is responsible for migration of storage.
+//! Migrates the storage from the previously deleted DMP pallet.
 
-use crate::{Config, Configuration, Overweight, Pallet, DEFAULT_POV_SIZE};
-use frame_support::{
-	pallet_prelude::*,
-	traits::{OnRuntimeUpgrade, StorageVersion},
-	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight},
-};
+use crate::*;
+use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
+use frame_support::{pallet_prelude::*, storage_alias, traits::HandleMessage};
+use sp_std::vec::Vec;
 
-/// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+pub(crate) const LOG: &str = "runtime::dmp-queue-export-xcms";
 
-/// Migrates the pallet storage to the most recent version.
-pub struct Migration<T: Config>(PhantomData<T>);
-
-impl<T: Config> OnRuntimeUpgrade for Migration<T> {
-	fn on_runtime_upgrade() -> Weight {
-		let mut weight = T::DbWeight::get().reads(1);
-
-		if StorageVersion::get::<Pallet<T>>() == 0 {
-			weight.saturating_accrue(migrate_to_v1::<T>());
-			StorageVersion::new(1).put::<Pallet<T>>();
-			weight.saturating_accrue(T::DbWeight::get().writes(1));
-		}
-
-		if StorageVersion::get::<Pallet<T>>() == 1 {
-			weight.saturating_accrue(migrate_to_v2::<T>());
-			StorageVersion::new(2).put::<Pallet<T>>();
-			weight.saturating_accrue(T::DbWeight::get().writes(1));
-		}
-
-		weight
-	}
+/// The old `PageIndexData` struct.
+#[derive(Copy, Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct PageIndexData {
+	/// The lowest used page index.
+	pub begin_used: PageCounter,
+	/// The lowest unused page index.
+	pub end_used: PageCounter,
+	/// The number of overweight messages ever recorded (and thus the lowest free index).
+	pub overweight_count: OverweightIndex,
 }
 
-mod v0 {
+/// The old `MigrationState` type.
+pub type OverweightIndex = u64;
+/// The old `MigrationState` type.
+pub type PageCounter = u32;
+
+/// The old `PageIndex` storage item.
+#[storage_alias]
+pub type PageIndex<T: Config> = StorageValue<Pallet<T>, PageIndexData, ValueQuery>;
+
+/// The old `Pages` storage item.
+#[storage_alias]
+pub type Pages<T: Config> = StorageMap<
+	Pallet<T>,
+	Blake2_128Concat,
+	PageCounter,
+	Vec<(RelayBlockNumber, Vec<u8>)>,
+	ValueQuery,
+>;
+
+/// The old `Overweight` storage item.
+#[storage_alias]
+pub type Overweight<T: Config> = CountedStorageMap<
+	Pallet<T>,
+	Blake2_128Concat,
+	OverweightIndex,
+	(RelayBlockNumber, Vec<u8>),
+	OptionQuery,
+>;
+
+pub(crate) mod testing_only {
 	use super::*;
-	use codec::{Decode, Encode};
 
-	#[derive(Decode, Encode, Debug)]
-	pub struct ConfigData {
-		pub max_individual: u64,
-	}
-
-	impl Default for ConfigData {
-		fn default() -> Self {
-			ConfigData { max_individual: 10u64 * WEIGHT_REF_TIME_PER_MILLIS }
-		}
-	}
+	/// This alias is not used by the migration but only for testing.
+	///
+	/// Note that the alias type is wrong on purpose.
+	#[storage_alias]
+	pub type Configuration<T: Config> = StorageValue<Pallet<T>, u32>;
 }
 
-/// Migrates `QueueConfigData` from v1 (using only reference time weights) to v2 (with
-/// 2D weights).
-///
-/// NOTE: Only use this function if you know what you're doing. Default to using
-/// `migrate_to_latest`.
-pub fn migrate_to_v1<T: Config>() -> Weight {
-	let translate = |pre: v0::ConfigData| -> super::ConfigData {
-		super::ConfigData {
-			max_individual: Weight::from_parts(pre.max_individual, DEFAULT_POV_SIZE),
-		}
+/// Migrates a single page to the `DmpSink`.
+pub(crate) fn migrate_page<T: crate::Config>(p: PageCounter) -> Result<(), ()> {
+	let page = Pages::<T>::take(p);
+	log::debug!(target: LOG, "Migrating page #{p} with {} messages ...", page.len());
+	if page.is_empty() {
+		log::error!(target: LOG, "Page #{p}: EMPTY - storage corrupted?");
+		return Err(())
+	}
+
+	for (m, (block, msg)) in page.iter().enumerate() {
+		let Ok(bound) = BoundedVec::<u8, _>::try_from(msg.clone()) else {
+			log::error!(target: LOG, "[Page {p}] Message #{m}: TOO LONG - dropping");
+			continue
+		};
+
+		T::DmpSink::handle_message(bound.as_bounded_slice());
+		log::debug!(target: LOG, "[Page {p}] Migrated message #{m} from block {block}");
+	}
+
+	Ok(())
+}
+
+/// Migrates a single overweight message to the `DmpSink`.
+pub(crate) fn migrate_overweight<T: crate::Config>(i: OverweightIndex) -> Result<(), ()> {
+	let Some((block, msg)) = Overweight::<T>::take(i) else {
+		log::error!(target: LOG, "[Overweight {i}] Message: EMPTY - storage corrupted?");
+		return Err(())
+	};
+	let Ok(bound) = BoundedVec::<u8, _>::try_from(msg) else {
+		log::error!(target: LOG, "[Overweight {i}] Message: TOO LONG - dropping");
+		return Err(())
 	};
 
-	if Configuration::<T>::translate(|pre| pre.map(translate)).is_err() {
-		log::error!(
-			target: "dmp_queue",
-			"unexpected error when performing translation of the QueueConfig type during storage upgrade to v2"
-		);
-	}
+	T::DmpSink::handle_message(bound.as_bounded_slice());
+	log::debug!(target: LOG, "[Overweight {i}] Migrated message from block {block}");
 
-	T::DbWeight::get().reads_writes(1, 1)
-}
-
-/// Migrates `Overweight` so that it initializes the storage map's counter.
-///
-/// NOTE: Only use this function if you know what you're doing. Default to using
-/// `migrate_to_latest`.
-pub fn migrate_to_v2<T: Config>() -> Weight {
-	let overweight_messages = Overweight::<T>::initialize_counter() as u64;
-
-	T::DbWeight::get().reads_writes(overweight_messages, 1)
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::tests::{new_test_ext, Test};
-
-	#[test]
-	fn test_migration_to_v1() {
-		let v0 = v0::ConfigData { max_individual: 30_000_000_000 };
-
-		new_test_ext().execute_with(|| {
-			frame_support::storage::unhashed::put_raw(
-				&crate::Configuration::<Test>::hashed_key(),
-				&v0.encode(),
-			);
-
-			migrate_to_v1::<Test>();
-
-			let v1 = crate::Configuration::<Test>::get();
-
-			assert_eq!(v0.max_individual, v1.max_individual.ref_time());
-			assert_eq!(v1.max_individual.proof_size(), DEFAULT_POV_SIZE);
-		});
-	}
+	Ok(())
 }

@@ -45,7 +45,7 @@ board](https://github.com/paritytech/substrate/discussions).
 * Allow validators to block and kick their nominator set. (#7930)
 * Decouple Staking and Election - Part1: Support traits (#7908)
 * Introduces account existence providers reference counting (#7363)
-* contracts: Cap the surcharge reward by the amount of rent that way payed by a contract (#7870)
+* contracts: Cap the surcharge reward by the amount of rent that way paid by a contract (#7870)
 * Use checked math when calculating storage size (#7885)
 * Fix clear prefix check to avoid erasing child trie roots. (#7848)
 * contracts: Collect rent for the first block during deployment (#7847)

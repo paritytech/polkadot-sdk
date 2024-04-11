@@ -23,6 +23,7 @@ use impl_trait_for_tuples::impl_for_tuples;
 use scale_info::{build::Fields, meta_type, Path, Type, TypeInfo, TypeParameter};
 use sp_arithmetic::traits::{CheckedAdd, CheckedMul, CheckedSub, One, Saturating};
 use sp_core::bounded::bounded_vec::TruncateFrom;
+
 #[doc(hidden)]
 pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstU128, ConstU16, ConstU32,
@@ -36,6 +37,24 @@ pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been trigge
 #[doc(hidden)]
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
 
+/// Trait to get the number of variants in any enum.
+pub trait VariantCount {
+	/// Get the number of variants.
+	const VARIANT_COUNT: u32;
+}
+
+impl VariantCount for () {
+	const VARIANT_COUNT: u32 = 0;
+}
+
+/// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
+pub struct VariantCountOf<T: VariantCount>(sp_std::marker::PhantomData<T>);
+impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
+	fn get() -> u32 {
+		T::VARIANT_COUNT
+	}
+}
+
 /// Generic function to mark an execution path as ONLY defensive.
 ///
 /// Similar to mark a match arm or `if/else` branch as `unreachable!`.
@@ -43,7 +62,7 @@ pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been trigge
 macro_rules! defensive {
 	() => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
 		);
@@ -51,7 +70,7 @@ macro_rules! defensive {
 	};
 	($error:expr $(,)?) => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error
@@ -60,7 +79,7 @@ macro_rules! defensive {
 	};
 	($error:expr, $proof:expr $(,)?) => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}: {:?}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error,
@@ -877,11 +896,21 @@ pub trait GetBacking {
 /// A trait to ensure the inherent are before non-inherent in a block.
 ///
 /// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block> {
+pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
+	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
+{
 	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
 	///
-	/// On error return the index of the inherent with invalid position (counting from 0).
-	fn ensure_inherents_are_first(block: &Block) -> Result<(), u32>;
+	/// On error return the index of the inherent with invalid position (counting from 0). On
+	/// success it returns the index of the last inherent. `0` therefore means that there are no
+	/// inherents.
+	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
+}
+
+/// A trait to check if an extrinsic is an inherent.
+pub trait IsInherent<Extrinsic> {
+	/// Whether this extrinsic is an inherent.
+	fn is_inherent(ext: &Extrinsic) -> bool;
 }
 
 /// An extrinsic on which we can get access to call.
@@ -1158,17 +1187,26 @@ impl<Hash> PreimageRecipient<Hash> for () {
 	fn unnote_preimage(_: &Hash) {}
 }
 
-/// Trait for creating an asset account with a deposit taken from a designated depositor specified
-/// by the client.
+/// Trait for touching/creating an asset account with a deposit taken from a designated depositor
+/// specified by the client.
+///
+/// Ensures that transfers to the touched account will succeed without being denied by the account
+/// creation requirements. For example, it is useful for the account creation of non-sufficient
+/// assets when its system account may not have the free consumer reference required for it. If
+/// there is no risk of failing to meet those requirements, the touch operation can be a no-op, as
+/// is common for native assets.
 pub trait AccountTouch<AssetId, AccountId> {
 	/// The type for currency units of the deposit.
 	type Balance;
 
-	/// The deposit amount of a native currency required for creating an account of the `asset`.
+	/// The deposit amount of a native currency required for touching an account of the `asset`.
 	fn deposit_required(asset: AssetId) -> Self::Balance;
 
+	/// Check if an account for a given asset should be touched to meet the existence requirements.
+	fn should_touch(asset: AssetId, who: &AccountId) -> bool;
+
 	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
-	fn touch(asset: AssetId, who: AccountId, depositor: AccountId) -> DispatchResult;
+	fn touch(asset: AssetId, who: &AccountId, depositor: &AccountId) -> DispatchResult;
 }
 
 #[cfg(test)]
@@ -1386,7 +1424,7 @@ mod test {
 		assert_eq!(<WrapperOpaque<[u8; 2usize.pow(14)]>>::max_encoded_len(), 2usize.pow(14) + 4);
 
 		let data = 4u64;
-		// Ensure that we check that the `Vec<u8>` is consumed completly on decode.
+		// Ensure that we check that the `Vec<u8>` is consumed completely on decode.
 		assert!(WrapperOpaque::<u32>::decode(&mut &data.encode().encode()[..]).is_err());
 	}
 

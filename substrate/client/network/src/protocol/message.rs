@@ -19,16 +19,13 @@
 //! Network packet message types. These get serialized and put into the lower level protocol
 //! payload.
 
-pub use self::generic::{
-	RemoteCallRequest, RemoteChangesRequest, RemoteChangesResponse, RemoteHeaderRequest,
-	RemoteHeaderResponse, RemoteReadChildRequest, RemoteReadRequest,
-};
 use codec::{Decode, Encode};
 use sc_client_api::StorageProof;
 use sc_network_common::message::RequestId;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 /// Type alias for using the message type using block type parameters.
+#[allow(unused)]
 pub type Message<B> = generic::Message<
 	<B as BlockT>::Header,
 	<B as BlockT>::Hash,

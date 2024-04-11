@@ -88,7 +88,7 @@ pub type BridgeRejectObsoleteHeadersAndMessages = GenericSignedExtensionSchema<(
 /// wildcard/placeholder, which relies on the scale encoding for `()` or `((), ())`, or `((), (),
 /// ())` is the same. So runtime can contains any kind of tuple:
 /// `(BridgeRefundBridgeHubRococoMessages)`
-/// `(BridgeRefundBridgeHubRococoMessages, BridgeRefundBridgeHubWococoMessages)`
+/// `(BridgeRefundBridgeHubRococoMessages, BridgeRefundBridgeHubWestendMessages)`
 /// `(BridgeRefundParachainMessages1, ..., BridgeRefundParachainMessagesN)`
 pub type RefundBridgedParachainMessagesSchema = GenericSignedExtensionSchema<(), ()>;
 
@@ -102,6 +102,7 @@ impl SignedExtensionSchema for Tuple {
 /// and signed payloads in the client code.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub struct GenericSignedExtension<S: SignedExtensionSchema> {
+	/// A payload that is included in the transaction.
 	pub payload: S::Payload,
 	#[codec(skip)]
 	// It may be set to `None` if extensions are decoded. We are never reconstructing transactions
@@ -112,6 +113,7 @@ pub struct GenericSignedExtension<S: SignedExtensionSchema> {
 }
 
 impl<S: SignedExtensionSchema> GenericSignedExtension<S> {
+	/// Create new `GenericSignedExtension` object.
 	pub fn new(payload: S::Payload, additional_signed: Option<S::AdditionalSigned>) -> Self {
 		Self { payload, additional_signed }
 	}

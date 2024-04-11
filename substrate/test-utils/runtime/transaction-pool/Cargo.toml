@@ -8,14 +8,17 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-futures = "0.3.21"
+futures = "0.3.30"
 parking_lot = "0.12.1"
-thiserror = "1.0"
+thiserror = { workspace = true }
 sc-transaction-pool = { path = "../../../client/transaction-pool" }
 sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
 sp-blockchain = { path = "../../../primitives/blockchain" }

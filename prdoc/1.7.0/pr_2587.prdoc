@@ -1,0 +1,9 @@
+title: Allow fellowship members to swap their AccountIds.
+
+doc:
+  - audience: Runtime User
+    description: |
+      Add a `exchange_member` extrinsic to the `ranked-collective` pallet that allows to vote on
+      swapping the AccountId of a member. This can be used to recover lost access to a collective.
+
+crates: [ ]

@@ -82,7 +82,7 @@ pub enum CompatibilityMode<N> {
 	None,
 	/// Call `initialize_block` before doing any runtime calls.
 	///
-	/// Previously the node would execute `initialize_block` before fetchting the authorities
+	/// Previously the node would execute `initialize_block` before fetching the authorities
 	/// from the runtime. This behaviour changed in: <https://github.com/paritytech/substrate/pull/9132>
 	///
 	/// By calling `initialize_block` before fetching the authorities, on a block that
@@ -548,7 +548,7 @@ where
 mod tests {
 	use super::*;
 	use parking_lot::Mutex;
-	use sc_block_builder::BlockBuilderProvider;
+	use sc_block_builder::BlockBuilderBuilder;
 	use sc_client_api::BlockchainEvents;
 	use sc_consensus::BoxJustificationImport;
 	use sc_consensus_slots::{BackoffAuthoringOnFinalizedHeadLagging, SimpleSlotWorker};
@@ -604,7 +604,14 @@ mod tests {
 			_: Duration,
 			_: Option<usize>,
 		) -> Self::Proposal {
-			let r = self.1.new_block(digests).unwrap().build().map_err(|e| e.into());
+			let r = BlockBuilderBuilder::new(&*self.1)
+				.on_parent_block(self.1.chain_info().best_hash)
+				.fetch_parent_block_number(&*self.1)
+				.unwrap()
+				.with_inherent_digests(digests)
+				.build()
+				.unwrap()
+				.build();
 
 			future::ready(r.map(|b| Proposal {
 				block: b.block,

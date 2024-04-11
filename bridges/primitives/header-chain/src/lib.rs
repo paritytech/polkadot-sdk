@@ -17,6 +17,7 @@
 //! Defines traits which represent a common interface for Substrate pallets which want to
 //! incorporate bridge functionality.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::justification::{
@@ -145,6 +146,7 @@ pub trait ConsensusLogReader {
 pub struct GrandpaConsensusLogReader<Number>(sp_std::marker::PhantomData<Number>);
 
 impl<Number: Codec> GrandpaConsensusLogReader<Number> {
+	/// Find and return scheduled (regular) change digest item.
 	pub fn find_scheduled_change(
 		digest: &Digest,
 	) -> Option<sp_consensus_grandpa::ScheduledChange<Number>> {
@@ -158,6 +160,8 @@ impl<Number: Codec> GrandpaConsensusLogReader<Number> {
 			})
 	}
 
+	/// Find and return forced change digest item. Or light client can't do anything
+	/// with forced changes, so we can't accept header with the forced change digest.
 	pub fn find_forced_change(
 		digest: &Digest,
 	) -> Option<(Number, sp_consensus_grandpa::ScheduledChange<Number>)> {
@@ -229,12 +233,27 @@ pub enum BridgeGrandpaCall<Header: HeaderT> {
 	/// `pallet-bridge-grandpa::Call::submit_finality_proof`
 	#[codec(index = 0)]
 	submit_finality_proof {
+		/// The header that we are going to finalize.
 		finality_target: Box<Header>,
+		/// Finality justification for the `finality_target`.
 		justification: justification::GrandpaJustification<Header>,
 	},
 	/// `pallet-bridge-grandpa::Call::initialize`
 	#[codec(index = 1)]
-	initialize { init_data: InitializationData<Header> },
+	initialize {
+		/// All data, required to initialize the pallet.
+		init_data: InitializationData<Header>,
+	},
+	/// `pallet-bridge-grandpa::Call::submit_finality_proof_ex`
+	#[codec(index = 4)]
+	submit_finality_proof_ex {
+		/// The header that we are going to finalize.
+		finality_target: Box<Header>,
+		/// Finality justification for the `finality_target`.
+		justification: justification::GrandpaJustification<Header>,
+		/// An identifier of the validators set, that have signed the justification.
+		current_set_id: SetId,
+	},
 }
 
 /// The `BridgeGrandpaCall` used by a chain.
@@ -264,25 +283,30 @@ pub trait ChainWithGrandpa: Chain {
 	/// ancestry and the pallet will accept such justification. The limit is only used to compute
 	/// maximal refund amount and submitting justifications which exceed the limit, may be costly
 	/// to submitter.
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32;
 
-	/// Maximal size of the chain header. The header may be the header that enacts new GRANDPA
-	/// authorities set (so it has large digest inside).
+	/// Maximal size of the mandatory chain header. Mandatory header is the header that enacts new
+	/// GRANDPA authorities set (so it has large digest inside).
 	///
 	/// This isn't a strict limit. The relay may submit larger headers and the pallet will accept
 	/// the call. The limit is only used to compute maximal refund amount and doing calls which
 	/// exceed the limit, may be costly to submitter.
-	const MAX_HEADER_SIZE: u32;
+	const MAX_MANDATORY_HEADER_SIZE: u32;
 
-	/// Average size of the chain header from justification ancestry. We don't expect to see there
-	/// headers that change GRANDPA authorities set (GRANDPA will probably be able to finalize at
-	/// least one additional header per session on non test chains), so this is average size of
-	/// headers that aren't changing the set.
+	/// Average size of the chain header. We don't expect to see there headers that change GRANDPA
+	/// authorities set (GRANDPA will probably be able to finalize at least one additional header
+	/// per session on non test chains), so this is average size of headers that aren't changing the
+	/// set.
 	///
-	/// This isn't a strict limit. The relay may submit justifications with larger headers in its
-	/// ancestry and the pallet will accept the call. The limit is only used to compute maximal
-	/// refund amount and doing calls which exceed the limit, may be costly to submitter.
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32;
+	/// This isn't a strict limit. The relay may submit justifications with larger headers and the
+	/// pallet will accept the call. However, if the total size of all `submit_finality_proof`
+	/// arguments exceeds the maximal size, computed using this average size, relayer will only get
+	/// partial refund.
+	///
+	/// We expect some headers on production chains that are above this size. But they are rare and
+	/// if rellayer cares about its profitability, we expect it'll select other headers for
+	/// submission.
+	const AVERAGE_HEADER_SIZE: u32;
 }
 
 impl<T> ChainWithGrandpa for T
@@ -293,9 +317,72 @@ where
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str =
 		<T::Chain as ChainWithGrandpa>::WITH_CHAIN_GRANDPA_PALLET_NAME;
 	const MAX_AUTHORITIES_COUNT: u32 = <T::Chain as ChainWithGrandpa>::MAX_AUTHORITIES_COUNT;
-	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
-		<T::Chain as ChainWithGrandpa>::REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
-	const MAX_HEADER_SIZE: u32 = <T::Chain as ChainWithGrandpa>::MAX_HEADER_SIZE;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 =
-		<T::Chain as ChainWithGrandpa>::AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
+	const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 =
+		<T::Chain as ChainWithGrandpa>::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY;
+	const MAX_MANDATORY_HEADER_SIZE: u32 =
+		<T::Chain as ChainWithGrandpa>::MAX_MANDATORY_HEADER_SIZE;
+	const AVERAGE_HEADER_SIZE: u32 = <T::Chain as ChainWithGrandpa>::AVERAGE_HEADER_SIZE;
+}
+
+/// Returns maximal expected size of `submit_finality_proof` call arguments.
+pub fn max_expected_submit_finality_proof_arguments_size<C: ChainWithGrandpa>(
+	is_mandatory_finality_target: bool,
+	precommits: u32,
+) -> u32 {
+	let max_expected_justification_size =
+		GrandpaJustification::<HeaderOf<C>>::max_reasonable_size::<C>(precommits);
+
+	// call arguments are header and justification
+	let max_expected_finality_target_size = if is_mandatory_finality_target {
+		C::MAX_MANDATORY_HEADER_SIZE
+	} else {
+		C::AVERAGE_HEADER_SIZE
+	};
+	max_expected_finality_target_size.saturating_add(max_expected_justification_size)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use bp_runtime::ChainId;
+	use frame_support::weights::Weight;
+	use sp_runtime::{testing::H256, traits::BlakeTwo256, MultiSignature};
+
+	struct TestChain;
+
+	impl Chain for TestChain {
+		const ID: ChainId = *b"test";
+
+		type BlockNumber = u32;
+		type Hash = H256;
+		type Hasher = BlakeTwo256;
+		type Header = sp_runtime::generic::Header<u32, BlakeTwo256>;
+		type AccountId = u64;
+		type Balance = u64;
+		type Nonce = u64;
+		type Signature = MultiSignature;
+
+		fn max_extrinsic_size() -> u32 {
+			0
+		}
+		fn max_extrinsic_weight() -> Weight {
+			Weight::zero()
+		}
+	}
+
+	impl ChainWithGrandpa for TestChain {
+		const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "Test";
+		const MAX_AUTHORITIES_COUNT: u32 = 128;
+		const REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = 2;
+		const MAX_MANDATORY_HEADER_SIZE: u32 = 100_000;
+		const AVERAGE_HEADER_SIZE: u32 = 1_024;
+	}
+
+	#[test]
+	fn max_expected_submit_finality_proof_arguments_size_respects_mandatory_argument() {
+		assert!(
+			max_expected_submit_finality_proof_arguments_size::<TestChain>(true, 100) >
+				max_expected_submit_finality_proof_arguments_size::<TestChain>(false, 100),
+		);
+	}
 }

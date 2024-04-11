@@ -29,17 +29,17 @@ use sp_arithmetic::{
 	traits::{SaturatedConversion, Saturating},
 	FixedPointNumber, FixedU64,
 };
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, BlockNumberProvider};
 
 impl<T: Config> Pallet<T> {
 	pub fn current_timeslice() -> Timeslice {
-		let latest = T::Coretime::latest();
+		let latest = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let timeslice_period = T::TimeslicePeriod::get();
 		(latest / timeslice_period).saturated_into()
 	}
 
 	pub fn latest_timeslice_ready_to_commit(config: &ConfigRecordOf<T>) -> Timeslice {
-		let latest = T::Coretime::latest();
+		let latest = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let advanced = latest.saturating_add(config.advance_notice);
 		let timeslice_period = T::TimeslicePeriod::get();
 		(advanced / timeslice_period).saturated_into()

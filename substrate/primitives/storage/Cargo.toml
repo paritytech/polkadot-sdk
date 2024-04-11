@@ -1,6 +1,6 @@
 [package]
 name = "sp-storage"
-version = "13.0.0"
+version = "19.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Storage related primitives"
@@ -10,6 +10,9 @@ repository.workspace = true
 documentation = "https://docs.rs/sp-storage/"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -17,19 +20,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 impl-serde = { version = "0.4.0", optional = true, default-features = false }
 ref-cast = "1.0.0"
-serde = { version = "1.0.188", default-features = false, features = ["derive", "alloc"], optional = true }
-sp-debug-derive = { path = "../debug-derive", default-features = false}
-sp-std = { path = "../std", default-features = false}
+serde = { features = ["alloc", "derive"], optional = true, workspace = true }
+sp-debug-derive = { path = "../debug-derive", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"impl-serde/std",
 	"serde/std",
 	"sp-debug-derive/std",
-	"sp-std/std",
 ]
 
 # Serde support without relying on std features.
-serde = [ "dep:serde", "impl-serde" ]
+serde = ["dep:serde", "impl-serde"]

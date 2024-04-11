@@ -10,6 +10,9 @@ description = "Fuzzer for fixed point arithmetic primitives."
 documentation = "https://docs.rs/sp-arithmetic-fuzzer"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -26,7 +29,7 @@ sp-io = { path = "../../../primitives/io" }
 sp-tracing = { path = "../../../primitives/tracing" }
 
 rand = { version = "0.8.5", features = ["small_rng"] }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 
 [[bin]]
 name = "call"

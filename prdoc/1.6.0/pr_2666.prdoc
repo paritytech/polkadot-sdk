@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove kusama and polkadot SP constants from parachains-common
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The constants for System Parachains in Kusama and Polkadot are now added to a new package in
+      the fellowship repo. This PR removes them from Polkadot-SDK. They are now accessible from the
+      `system-parachains-constants` package.
+
+crates:
+  - name: parachains-common

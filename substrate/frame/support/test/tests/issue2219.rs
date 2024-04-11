@@ -161,7 +161,7 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Signature, ()>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Block = Block;
@@ -176,7 +176,7 @@ impl frame_system::Config for Runtime {
 impl module::Config for Runtime {}
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		Module: module,
 	}

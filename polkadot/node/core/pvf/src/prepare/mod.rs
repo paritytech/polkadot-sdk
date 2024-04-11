@@ -24,7 +24,7 @@
 
 mod pool;
 mod queue;
-mod worker_intf;
+mod worker_interface;
 
 pub use pool::start as start_pool;
 pub use queue::{start as start_queue, FromQueue, ToQueue};

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::*;
+use frame_support_procedural::import_section;
 use sp_io::{MultiRemovalResults, TestExternalities};
 use sp_metadata_ir::{
 	PalletStorageMetadataIR, StorageEntryMetadataIR, StorageEntryModifierIR, StorageEntryTypeIR,
@@ -27,13 +28,15 @@ pub use self::frame_system::{pallet_prelude::*, Config, Pallet};
 
 mod inject_runtime_type;
 mod storage_alias;
+mod tasks;
 
+#[import_section(tasks::tasks_example)]
 #[pallet]
 pub mod frame_system {
 	#[allow(unused)]
 	use super::{frame_system, frame_system::pallet_prelude::*};
 	pub use crate::dispatch::RawOrigin;
-	use crate::pallet_prelude::*;
+	use crate::{pallet_prelude::*, traits::tasks::Task as TaskTrait};
 
 	pub mod config_preludes {
 		use super::{inject_runtime_type, DefaultConfig};
@@ -49,6 +52,8 @@ pub mod frame_system {
 			type RuntimeCall = ();
 			#[inject_runtime_type]
 			type PalletInfo = ();
+			#[inject_runtime_type]
+			type RuntimeTask = ();
 			type DbWeight = ();
 		}
 	}
@@ -69,6 +74,8 @@ pub mod frame_system {
 		#[pallet::no_default_bounds]
 		type RuntimeCall;
 		#[pallet::no_default_bounds]
+		type RuntimeTask: crate::traits::tasks::Task;
+		#[pallet::no_default_bounds]
 		type PalletInfo: crate::traits::PalletInfo;
 		type DbWeight: Get<crate::weights::RuntimeDbWeight>;
 	}
@@ -77,13 +84,33 @@ pub mod frame_system {
 	pub enum Error<T> {
 		/// Required by construct_runtime
 		CallFiltered,
+		/// Used in tasks example.
+		NotFound,
+		/// The specified [`Task`] is not valid.
+		InvalidTask,
+		/// The specified [`Task`] failed during execution.
+		FailedTask,
 	}
 
 	#[pallet::origin]
 	pub type Origin<T> = RawOrigin<<T as Config>::AccountId>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
+	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
+		#[pallet::weight(task.weight())]
+		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
+			if !task.is_valid() {
+				return Err(Error::<T>::InvalidTask.into())
+			}
+
+			if let Err(_err) = task.run() {
+				return Err(Error::<T>::FailedTask.into())
+			}
+
+			Ok(().into())
+		}
+	}
 
 	#[pallet::storage]
 	pub type Data<T> = StorageMap<_, Twox64Concat, u32, u64, ValueQuery>;
@@ -144,7 +171,7 @@ pub mod frame_system {
 		pub data: Vec<(u32, u64)>,
 		pub test_config: Vec<(u32, u32, u64)>,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
@@ -169,6 +196,14 @@ pub mod frame_system {
 		}
 	}
 
+	/// Some running total.
+	#[pallet::storage]
+	pub type Total<T: Config> = StorageValue<_, (u32, u32), ValueQuery>;
+
+	/// Numbers to be added into the total.
+	#[pallet::storage]
+	pub type Numbers<T: Config> = StorageMap<_, Twox64Concat, u32, u32, OptionQuery>;
+
 	pub mod pallet_prelude {
 		pub type OriginFor<T> = <T as super::Config>::RuntimeOrigin;
 
@@ -192,7 +227,7 @@ crate::construct_runtime!(
 	}
 );
 
-#[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[crate::derive_impl(self::frame_system::config_preludes::TestDefaultConfig as self::frame_system::DefaultConfig)]
 impl Config for Runtime {
 	type Block = Block;
 	type AccountId = AccountId;
@@ -621,6 +656,24 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				},
 				default: vec![0],
 				docs: vec![],
+			},
+			StorageEntryMetadataIR {
+				name: "Total",
+				modifier: StorageEntryModifierIR::Default,
+				ty: StorageEntryTypeIR::Plain(scale_info::meta_type::<(u32, u32)>()),
+				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
+				docs: vec![" Some running total."],
+			},
+			StorageEntryMetadataIR {
+				name: "Numbers",
+				modifier: StorageEntryModifierIR::Optional,
+				ty: StorageEntryTypeIR::Map {
+					hashers: vec![StorageHasherIR::Twox64Concat],
+					key: scale_info::meta_type::<u32>(),
+					value: scale_info::meta_type::<u32>(),
+				},
+				default: vec![0],
+				docs: vec![" Numbers to be added into the total."],
 			},
 		],
 	}

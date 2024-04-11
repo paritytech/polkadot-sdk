@@ -24,10 +24,10 @@
 //!
 //! This is internal api and is subject to change.
 
-mod double_map;
+pub(crate) mod double_map;
 pub(crate) mod map;
-mod nmap;
-mod value;
+pub(crate) mod nmap;
+pub(crate) mod value;
 
 pub use double_map::StorageDoubleMap;
 pub use map::StorageMap;
@@ -63,6 +63,7 @@ mod tests {
 			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
 			type RuntimeOrigin;
 			type RuntimeCall;
+			type RuntimeTask;
 			type PalletInfo: crate::traits::PalletInfo;
 			type DbWeight: Get<crate::weights::RuntimeDbWeight>;
 		}
@@ -129,6 +130,7 @@ mod tests {
 		type BaseCallFilter = crate::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
 		type RuntimeCall = RuntimeCall;
+		type RuntimeTask = RuntimeTask;
 		type PalletInfo = PalletInfo;
 		type DbWeight = ();
 	}

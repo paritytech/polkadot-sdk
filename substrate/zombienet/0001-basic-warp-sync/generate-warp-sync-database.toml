@@ -1,16 +1,19 @@
 # this file is not intended to be executed in CI stage
 [relaychain]
-default_image = "docker.io/parity/substrate:latest"
+default_image = "docker.io/paritypr/substrate:latest"
 default_command = "substrate"
 
 # refer to ./README.md for more details on how to create snapshot and spec
-chain = "gen-db"
+chain = "local"
 chain_spec_path = "chain-spec.json"
 
 
   [[relaychain.nodes]]
   name = "alice"
   validator = true
+  # TODO: Workaround for https://github.com/paritytech/polkadot-sdk/issues/2568
+  # After the issue is fixed, we can remove this.
+  args = ["--state-pruning archive --blocks-pruning archive"]
 
   [[relaychain.nodes]]
   name = "bob"

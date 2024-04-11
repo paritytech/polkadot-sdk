@@ -22,7 +22,7 @@
 //! This module provides transaction related helpers to:
 //! - Submit a raw unsigned transaction
 //! - Submit an unsigned transaction with a signed payload
-//! - Submit a signed transction.
+//! - Submit a signed transaction.
 //!
 //! ## Usage
 //!
@@ -154,8 +154,8 @@ impl<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X> Signer<T, C, X> 
 	/// all available accounts and the provided accounts
 	/// in `with_filter`. If no accounts are provided,
 	/// use all accounts by default.
-	fn accounts_from_keys<'a>(&'a self) -> Box<dyn Iterator<Item = Account<T>> + 'a> {
-		let keystore_accounts = self.keystore_accounts();
+	pub fn accounts_from_keys<'a>(&'a self) -> Box<dyn Iterator<Item = Account<T>> + 'a> {
+		let keystore_accounts = Self::keystore_accounts();
 		match self.accounts {
 			None => Box::new(keystore_accounts),
 			Some(ref keys) => {
@@ -175,7 +175,8 @@ impl<T: SigningTypes, C: AppCrypto<T::Public, T::Signature>, X> Signer<T, C, X> 
 		}
 	}
 
-	fn keystore_accounts(&self) -> impl Iterator<Item = Account<T>> {
+	/// Return all available accounts in keystore.
+	pub fn keystore_accounts() -> impl Iterator<Item = Account<T>> {
 		C::RuntimeAppPublic::all().into_iter().enumerate().map(|(index, key)| {
 			let generic_public = C::GenericPublic::from(key);
 			let public: T::Public = generic_public.into();
@@ -383,7 +384,7 @@ where
 ///
 /// // runtime-specific public key
 /// type Public = MultiSigner: From<sr25519::Public>;
-/// type Signature = MulitSignature: From<sr25519::Signature>;
+/// type Signature = MultiSignature: From<sr25519::Signature>;
 /// ```
 // TODO [#5662] Potentially use `IsWrappedBy` types, or find some other way to make it easy to
 // obtain unwrapped crypto (and wrap it back).
@@ -443,7 +444,7 @@ pub trait SigningTypes: crate::Config {
 	/// A public key that is capable of identifying `AccountId`s.
 	///
 	/// Usually that's either a raw crypto public key (e.g. `sr25519::Public`) or
-	/// an aggregate type for multiple crypto public keys, like `MulitSigner`.
+	/// an aggregate type for multiple crypto public keys, like `MultiSigner`.
 	type Public: Clone
 		+ PartialEq
 		+ IdentifyAccount<AccountId = Self::AccountId>

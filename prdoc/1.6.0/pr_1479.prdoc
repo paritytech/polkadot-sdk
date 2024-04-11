@@ -1,0 +1,11 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Rococo/Westend Coretime Runtime
+
+doc:
+  - audience: Runtime User
+    description: |
+      Rococo/Westend runtime for the Coretime Chain (a.k.a. "Broker Chain") described in RFC-1.
+
+crates: [ ]

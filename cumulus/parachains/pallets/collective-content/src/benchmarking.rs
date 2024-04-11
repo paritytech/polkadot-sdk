@@ -16,7 +16,7 @@
 //! The pallet benchmarks.
 
 use super::{Pallet as CollectiveContent, *};
-use frame_benchmarking::{impl_benchmark_test_suite, v2::*};
+use frame_benchmarking::v2::*;
 use frame_support::traits::EnsureOrigin;
 
 fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
@@ -56,7 +56,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, cid.clone(), Some(expire_at.clone()));
+		_(origin as T::RuntimeOrigin, cid.clone(), Some(expire_at));
 
 		assert_eq!(<Announcements<T, I>>::count(), 1);
 		assert_last_event::<T, I>(

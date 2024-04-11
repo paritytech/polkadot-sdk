@@ -83,6 +83,20 @@ pub enum Error {
 	UnknownCodeParam,
 }
 
+impl From<novelpoly::Error> for Error {
+	fn from(error: novelpoly::Error) -> Self {
+		match error {
+			novelpoly::Error::NeedMoreShards { .. } => Self::NotEnoughChunks,
+			novelpoly::Error::ParamterMustBePowerOf2 { .. } => Self::UnevenLength,
+			novelpoly::Error::WantedShardCountTooHigh(_) => Self::TooManyValidators,
+			novelpoly::Error::WantedShardCountTooLow(_) => Self::NotEnoughValidators,
+			novelpoly::Error::PayloadSizeIsZero { .. } => Self::BadPayload,
+			novelpoly::Error::InconsistentShardLengths { .. } => Self::NonUniformChunks,
+			_ => Self::UnknownReconstruction,
+		}
+	}
+}
+
 /// Obtain a threshold of chunks that should be enough to recover the data.
 pub const fn recovery_threshold(n_validators: usize) -> Result<usize, Error> {
 	if n_validators > MAX_VALIDATORS {
@@ -166,42 +180,17 @@ where
 {
 	let params = code_params(n_validators)?;
 	let mut received_shards: Vec<Option<WrappedShard>> = vec![None; n_validators];
-	let mut shard_len = None;
 	for (chunk_data, chunk_idx) in chunks.into_iter().take(n_validators) {
-		if chunk_idx >= n_validators {
-			return Err(Error::ChunkIndexOutOfBounds { chunk_index: chunk_idx, n_validators })
-		}
-
-		let shard_len = shard_len.get_or_insert_with(|| chunk_data.len());
-
-		if *shard_len % 2 != 0 {
+		if chunk_data.len() % 2 != 0 {
 			return Err(Error::UnevenLength)
-		}
-
-		if *shard_len != chunk_data.len() || *shard_len == 0 {
-			return Err(Error::NonUniformChunks)
 		}
 
 		received_shards[chunk_idx] = Some(WrappedShard::new(chunk_data.to_vec()));
 	}
 
-	let res = params.make_encoder().reconstruct(received_shards);
+	let payload_bytes = params.make_encoder().reconstruct(received_shards)?;
 
-	let payload_bytes = match res {
-		Err(e) => match e {
-			novelpoly::Error::NeedMoreShards { .. } => return Err(Error::NotEnoughChunks),
-			novelpoly::Error::ParamterMustBePowerOf2 { .. } => return Err(Error::UnevenLength),
-			novelpoly::Error::WantedShardCountTooHigh(_) => return Err(Error::TooManyValidators),
-			novelpoly::Error::WantedShardCountTooLow(_) => return Err(Error::NotEnoughValidators),
-			novelpoly::Error::PayloadSizeIsZero { .. } => return Err(Error::BadPayload),
-			novelpoly::Error::InconsistentShardLengths { .. } =>
-				return Err(Error::NonUniformChunks),
-			_ => return Err(Error::UnknownReconstruction),
-		},
-		Ok(payload_bytes) => payload_bytes,
-	};
-
-	Decode::decode(&mut &payload_bytes[..]).or_else(|_e| Err(Error::BadPayload))
+	Decode::decode(&mut &payload_bytes[..]).map_err(|_| Error::BadPayload)
 }
 
 /// An iterator that yields merkle branches and chunk data for all chunks to
@@ -291,56 +280,6 @@ pub fn branch_hash(root: &H256, branch_nodes: &Proof, index: usize) -> Result<H2
 		Ok(Some(Err(_))) => Err(Error::InvalidBranchProof), // hash failed to decode
 		Ok(None) => Err(Error::BranchOutOfBounds),
 		Err(_) => Err(Error::InvalidBranchProof),
-	}
-}
-
-// input for `codec` which draws data from the data shards
-struct ShardInput<'a, I> {
-	remaining_len: usize,
-	shards: I,
-	cur_shard: Option<(&'a [u8], usize)>,
-}
-
-impl<'a, I: Iterator<Item = &'a [u8]>> parity_scale_codec::Input for ShardInput<'a, I> {
-	fn remaining_len(&mut self) -> Result<Option<usize>, parity_scale_codec::Error> {
-		Ok(Some(self.remaining_len))
-	}
-
-	fn read(&mut self, into: &mut [u8]) -> Result<(), parity_scale_codec::Error> {
-		let mut read_bytes = 0;
-
-		loop {
-			if read_bytes == into.len() {
-				break
-			}
-
-			let cur_shard = self.cur_shard.take().or_else(|| self.shards.next().map(|s| (s, 0)));
-			let (active_shard, mut in_shard) = match cur_shard {
-				Some((s, i)) => (s, i),
-				None => break,
-			};
-
-			if in_shard >= active_shard.len() {
-				continue
-			}
-
-			let remaining_len_out = into.len() - read_bytes;
-			let remaining_len_shard = active_shard.len() - in_shard;
-
-			let write_len = std::cmp::min(remaining_len_out, remaining_len_shard);
-			into[read_bytes..][..write_len].copy_from_slice(&active_shard[in_shard..][..write_len]);
-
-			in_shard += write_len;
-			read_bytes += write_len;
-			self.cur_shard = Some((active_shard, in_shard))
-		}
-
-		self.remaining_len -= read_bytes;
-		if read_bytes == into.len() {
-			Ok(())
-		} else {
-			Err("slice provided too big for input".into())
-		}
 	}
 }
 

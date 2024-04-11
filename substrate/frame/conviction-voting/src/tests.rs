@@ -20,14 +20,10 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, parameter_types,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, Contains, Polling, VoteTally},
 };
-use sp_core::H256;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::BuildStorage;
 
 use super::*;
 use crate as pallet_conviction_voting;
@@ -37,13 +33,13 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Voting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Voting: pallet_conviction_voting,
 	}
 );
 
-// Test that a fitlered call can be dispatched.
+// Test that a filtered call can be dispatched.
 pub struct BaseFilter;
 impl Contains<RuntimeCall> for BaseFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -51,30 +47,10 @@ impl Contains<RuntimeCall> for BaseFilter {
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = BaseFilter;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -90,7 +66,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

@@ -101,7 +101,9 @@ pub trait Database<H: Clone + AsRef<[u8]>>: Send + Sync {
 	/// This may be faster than `get` since it doesn't allocate.
 	/// Use `with_get` helper function if you need `f` to return a value from `f`
 	fn with_get(&self, col: ColumnId, key: &[u8], f: &mut dyn FnMut(&[u8])) {
-		self.get(col, key).map(|v| f(&v));
+		if let Some(v) = self.get(col, key) {
+			f(&v)
+		}
 	}
 
 	/// Check if database supports internal ref counting for state data.

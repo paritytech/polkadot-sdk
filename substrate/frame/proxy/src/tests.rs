@@ -35,21 +35,21 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Proxy: proxy::{Pallet, Call, Storage, Event<T>},
-		Utility: pallet_utility::{Pallet, Call, Event},
+		System: frame_system,
+		Balances: pallet_balances,
+		Proxy: proxy,
+		Utility: pallet_utility,
 	}
 );
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type BaseCallFilter = BaseFilter;
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
-#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;

@@ -17,7 +17,8 @@
 #![allow(missing_docs)]
 
 use cumulus_primitives_core::ParaId;
-use cumulus_test_runtime::{AccountId, Signature};
+use cumulus_test_runtime::{AccountId, RuntimeGenesisConfig, Signature};
+use parachains_common::AuraId;
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -25,27 +26,7 @@ use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisExt, Extensions>;
-
-/// Extension for the genesis config to add custom keys easily.
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct GenesisExt {
-	/// The runtime genesis config.
-	runtime_genesis_config: cumulus_test_runtime::RuntimeGenesisConfig,
-	/// The parachain id.
-	para_id: ParaId,
-}
-
-impl sp_runtime::BuildStorage for GenesisExt {
-	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
-		sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
-			sp_io::storage::set(cumulus_test_runtime::TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
-			cumulus_test_runtime::ParachainId::set(&self.para_id);
-		});
-
-		self.runtime_genesis_config.assimilate_storage(storage)
-	}
-}
+pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -54,7 +35,7 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 		.public()
 }
 
-/// The extensions for the [`ChainSpec`](crate::ChainSpec).
+/// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
 #[serde(deny_unknown_fields)]
 pub struct Extensions {
@@ -83,37 +64,33 @@ where
 /// The given accounts are initialized with funds in addition
 /// to the default known accounts.
 pub fn get_chain_spec_with_extra_endowed(
-	id: ParaId,
+	id: Option<ParaId>,
 	extra_endowed_accounts: Vec<AccountId>,
 ) -> ChainSpec {
-	ChainSpec::from_genesis(
-		"Local Testnet",
-		"local_testnet",
-		ChainType::Local,
-		move || GenesisExt {
-			runtime_genesis_config: testnet_genesis_with_default_endowed(
-				extra_endowed_accounts.clone(),
-			),
-			para_id: id,
-		},
-		Vec::new(),
-		None,
-		None,
-		None,
-		None,
-		Extensions { para_id: id.into() },
+	ChainSpec::builder(
+		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		Extensions { para_id: id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into()).into() },
 	)
+	.with_name("Local Testnet")
+	.with_id("local_testnet")
+	.with_chain_type(ChainType::Local)
+	.with_genesis_config_patch(testnet_genesis_with_default_endowed(
+		extra_endowed_accounts.clone(),
+		id,
+	))
+	.build()
 }
 
 /// Get the chain spec for a specific parachain ID.
-pub fn get_chain_spec(id: ParaId) -> ChainSpec {
+pub fn get_chain_spec(id: Option<ParaId>) -> ChainSpec {
 	get_chain_spec_with_extra_endowed(id, Default::default())
 }
 
 /// Local testnet genesis for testing.
 pub fn testnet_genesis_with_default_endowed(
 	mut extra_endowed_accounts: Vec<AccountId>,
-) -> cumulus_test_runtime::RuntimeGenesisConfig {
+	self_para_id: Option<ParaId>,
+) -> serde_json::Value {
 	let mut endowed = vec![
 		get_account_id_from_seed::<sr25519::Public>("Alice"),
 		get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -129,28 +106,43 @@ pub fn testnet_genesis_with_default_endowed(
 		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 	];
 	endowed.append(&mut extra_endowed_accounts);
+	let invulnerables = vec![
+		get_collator_keys_from_seed::<AuraId>("Alice"),
+		get_collator_keys_from_seed::<AuraId>("Bob"),
+		get_collator_keys_from_seed::<AuraId>("Charlie"),
+		get_collator_keys_from_seed::<AuraId>("Dave"),
+		get_collator_keys_from_seed::<AuraId>("Eve"),
+		get_collator_keys_from_seed::<AuraId>("Ferdie"),
+	];
+	testnet_genesis(
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		invulnerables,
+		endowed,
+		self_para_id,
+	)
+}
 
-	testnet_genesis(get_account_id_from_seed::<sr25519::Public>("Alice"), endowed)
+/// Generate collator keys from seed.
+///
+/// This function's return type must always match the session keys of the chain in tuple format.
+pub fn get_collator_keys_from_seed<AuraId: Public>(seed: &str) -> <AuraId::Pair as Pair>::Public {
+	get_from_seed::<AuraId>(seed)
 }
 
 /// Creates a local testnet genesis with endowed accounts.
 pub fn testnet_genesis(
 	root_key: AccountId,
+	invulnerables: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
-) -> cumulus_test_runtime::RuntimeGenesisConfig {
-	cumulus_test_runtime::RuntimeGenesisConfig {
-		system: cumulus_test_runtime::SystemConfig {
-			code: cumulus_test_runtime::WASM_BINARY
-				.expect("WASM binary was not build, please build it!")
-				.to_vec(),
-			..Default::default()
-		},
-		glutton: Default::default(),
-		parachain_system: Default::default(),
-		balances: cumulus_test_runtime::BalancesConfig {
+	self_para_id: Option<ParaId>,
+) -> serde_json::Value {
+	let self_para_id = self_para_id.unwrap_or(cumulus_test_runtime::PARACHAIN_ID.into());
+	serde_json::json!({
+		"balances": cumulus_test_runtime::BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},
-		sudo: cumulus_test_runtime::SudoConfig { key: Some(root_key) },
-		transaction_payment: Default::default(),
-	}
+		"sudo": cumulus_test_runtime::SudoConfig { key: Some(root_key) },
+		"testPallet": cumulus_test_runtime::TestPalletConfig { self_para_id: Some(self_para_id), ..Default::default() },
+		"aura": cumulus_test_runtime::AuraConfig { authorities: invulnerables }
+	})
 }

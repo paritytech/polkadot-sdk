@@ -44,6 +44,8 @@ pub(crate) const MAX_JUNCTIONS: usize = 8;
 	serde::Serialize,
 	serde::Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Junctions {
 	/// The interpreting consensus system.
 	Here,
@@ -64,6 +66,27 @@ pub enum Junctions {
 	/// A relative path comprising 8 junctions.
 	X8(Junction, Junction, Junction, Junction, Junction, Junction, Junction, Junction),
 }
+
+macro_rules! impl_junction {
+	($count:expr, $variant:ident, ($($index:literal),+)) => {
+		/// Additional helper for building junctions
+		/// Useful for converting to future XCM versions
+		impl From<[Junction; $count]> for Junctions {
+			fn from(junctions: [Junction; $count]) -> Self {
+				Self::$variant($(junctions[$index]),*)
+			}
+		}
+	};
+}
+
+impl_junction!(1, X1, (0));
+impl_junction!(2, X2, (0, 1));
+impl_junction!(3, X3, (0, 1, 2));
+impl_junction!(4, X4, (0, 1, 2, 3));
+impl_junction!(5, X5, (0, 1, 2, 3, 4));
+impl_junction!(6, X6, (0, 1, 2, 3, 4, 5));
+impl_junction!(7, X7, (0, 1, 2, 3, 4, 5, 6));
+impl_junction!(8, X8, (0, 1, 2, 3, 4, 5, 6, 7));
 
 pub struct JunctionsIterator(Junctions);
 impl Iterator for JunctionsIterator {

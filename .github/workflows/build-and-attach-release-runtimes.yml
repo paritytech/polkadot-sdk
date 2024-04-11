@@ -1,0 +1,65 @@
+name: Build and Attach Runtimes to Releases/RC
+
+on:
+  release:
+    types:
+      - published
+
+env:
+  PROFILE: production
+
+jobs:
+  build_and_upload:
+    strategy:
+      matrix:
+        runtime:
+          - { name: westend, package: westend-runtime, path: polkadot/runtime/westend }
+          - { name: rococo, package: rococo-runtime, path: polkadot/runtime/rococo }
+          - { name: asset-hub-rococo, package: asset-hub-rococo-runtime, path: cumulus/parachains/runtimes/assets/asset-hub-rococo }
+          - { name: asset-hub-westend, package: asset-hub-westend-runtime, path: cumulus/parachains/runtimes/assets/asset-hub-westend }
+          - { name: bridge-hub-rococo, package: bridge-hub-rococo-runtime, path: cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo }
+          - { name: contracts-rococo, package: contracts-rococo-runtime, path: cumulus/parachains/runtimes/contracts/contracts-rococo }
+          - { name: collectives-westend, package: collectives-westend-runtime, path: cumulus/parachains/runtimes/collectives/collectives-westend }
+          - { name: glutton-westend, package: glutton-westend-runtime, path: cumulus/parachains/runtimes/glutton/glutton-westend }
+        build_config:
+          # Release build has logging disabled and no dev features
+          - { type: on-chain-release, opts: --features on-chain-release-build }
+          # Debug build has logging enabled and developer features
+          - { type: dev-debug-build, opts: --features try-runtime }
+
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+    - name: Build ${{ matrix.runtime.name }} ${{ matrix.build_config.type }}
+      id: srtool_build
+      uses: chevdor/srtool-actions@v0.9.2
+      env:
+        BUILD_OPTS: ${{ matrix.build_config.opts }}
+      with:
+        chain: ${{ matrix.runtime.name }}
+        package: ${{ matrix.runtime.package }}
+        runtime_dir: ${{ matrix.runtime.path }}
+        profile: ${{ env.PROFILE }}
+
+    - name: Set up paths and runtime names
+      id: setup
+      run: |
+        RUNTIME_BLOB_NAME=$(echo ${{ matrix.runtime.package }} | sed 's/-/_/g').compact.compressed.wasm
+        PREFIX=${{ matrix.build_config.type == 'dev-debug-build' && 'DEV_DEBUG_BUILD__' || '' }}
+
+        echo "RUNTIME_BLOB_NAME=$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
+        echo "ASSET_PATH=./${{ matrix.runtime.path }}/target/srtool/${{ env.PROFILE }}/wbuild/${{ matrix.runtime.package }}/$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
+        echo "ASSET_NAME=$PREFIX$RUNTIME_BLOB_NAME" >> $GITHUB_ENV
+
+    - name: Upload Runtime to Release
+      uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ env.ASSET_PATH }}
+        asset_name: ${{ env.ASSET_NAME }}
+        asset_content_type: application/octet-stream
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -38,7 +38,7 @@ fn endowed_account<T: Config>(name: &'static str, index: u32) -> T::AccountId {
 	let _ = T::Currency::make_free_balance_be(&account, amount);
 	// important to increase the total issuance since T::CurrencyToVote will need it to be sane for
 	// phragmen to work.
-	T::Currency::issue(amount);
+	let _ = T::Currency::issue(amount);
 
 	account
 }
@@ -379,7 +379,7 @@ benchmarks! {
 		let root = RawOrigin::Root;
 	}: _(root, v, d)
 	verify {
-		assert_eq!(<Voting<T>>::iter().count() as u32, 0);
+		assert_eq!(<Voting<T>>::iter().count() as u32, v - d);
 	}
 
 	election_phragmen {

@@ -130,7 +130,7 @@ impl<Balance: Zero> WithdrawConsequence<Balance> {
 pub enum DepositConsequence {
 	/// Deposit couldn't happen due to the amount being too low. This is usually because the
 	/// account doesn't yet exist and the deposit wouldn't bring it to at least the minimum needed
-	/// for existance.
+	/// for existence.
 	BelowMinimum,
 	/// Deposit cannot happen since the account cannot be created (usually because it's a consumer
 	/// and there exists no provider reference).
@@ -277,6 +277,26 @@ pub trait ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance> {
 		balance: AssetBalance,
 		asset_id: AssetId,
 	) -> Result<OutBalance, Self::Error>;
+	/// Ensures that a conversion for the `asset_id` will be successful if done immediately after
+	/// this call.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(asset_id: AssetId);
+}
+
+/// Implements [`ConversionFromAssetBalance`], enabling a 1:1 conversion of the asset balance
+/// value to the balance.
+pub struct UnityAssetBalanceConversion;
+impl<AssetBalance, AssetId, OutBalance>
+	ConversionFromAssetBalance<AssetBalance, AssetId, OutBalance> for UnityAssetBalanceConversion
+where
+	AssetBalance: Into<OutBalance>,
+{
+	type Error = ();
+	fn from_asset_balance(balance: AssetBalance, _: AssetId) -> Result<OutBalance, Self::Error> {
+		Ok(balance.into())
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: AssetId) {}
 }
 
 /// Trait to handle NFT locking mechanism to ensure interactions with the asset can be implemented

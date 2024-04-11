@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Rococo and Westend People Chain Runtimes
+
+doc:
+  - audience: Runtime User
+    description: |
+      Rococo and Westend runtimes for the "People Chain". This chain contains the Identity pallet
+      with plans to migrate all related data from the Relay Chain. Changes `IdentityInfo` fields.
+
+crates: [ ]

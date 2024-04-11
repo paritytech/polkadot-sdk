@@ -9,13 +9,16 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-core = { path = "../../../primitives/core", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
+sp-core = { path = "../../../primitives/core", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "sp-core/std", "sp-runtime/std" ]
+default = ["std"]
+std = ["sp-core/std", "sp-runtime/std"]

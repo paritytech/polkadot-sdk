@@ -133,7 +133,7 @@ All failed checks should lead to an unrecoverable error making the block invalid
      [`UpwardMessage`s](../types/messages.md#upward-message) from the
      [`CandidateCommitments`](../types/candidate.md#candidate-commitments).
   1. call `Dmp::prune_dmq` with the para id of the candidate and the candidate's `processed_downward_messages`.
-  1. call `Hrmp::prune_hrmp` with the para id of the candiate and the candidate's `hrmp_watermark`.
+  1. call `Hrmp::prune_hrmp` with the para id of the candidate and the candidate's `hrmp_watermark`.
   1. call `Hrmp::queue_outbound_hrmp` with the para id of the candidate and the list of horizontal messages taken from
      the commitment,
   1. Call `Paras::note_new_head` using the `HeadData` from the receipt and `relay_parent_number`.
@@ -147,15 +147,16 @@ All failed checks should lead to an unrecoverable error making the block invalid
       // return a vector of cleaned-up core IDs.
     }
   ```
-* `force_enact(ParaId)`: Forcibly enact the candidate with the given ID as though it had been deemed available by
-  bitfields. Is a no-op if there is no candidate pending availability for this para-id. This should generally not be
-  used but it is useful during execution of Runtime APIs, where the changes to the state are expected to be discarded
-  directly after.
+* `force_enact(ParaId)`: Forcibly enact the pending candidates of the given paraid as though they had been deemed
+  available by bitfields. Is a no-op if there is no candidate pending availability for this para-id.
+  If there are multiple candidates pending availability for this para-id, it will enact all of
+  them. This should generally not be used but it is useful during execution of Runtime APIs,
+  where the changes to the state are expected to be discarded directly after.
 * `candidate_pending_availability(ParaId) -> Option<CommittedCandidateReceipt>`: returns the `CommittedCandidateReceipt`
   pending availability for the para provided, if any.
 * `pending_availability(ParaId) -> Option<CandidatePendingAvailability>`: returns the metadata around the candidate
   pending availability for the para, if any.
-* `collect_disputed(disputed: Vec<CandidateHash>) -> Vec<CoreIndex>`: Sweeps through all paras pending availability. If
+* `free_disputed(disputed: Vec<CandidateHash>) -> Vec<CoreIndex>`: Sweeps through all paras pending availability. If
   the candidate hash is one of the disputed candidates, then clean up the corresponding storage for that candidate and
   the commitments. Return a vector of cleaned-up core IDs.
 

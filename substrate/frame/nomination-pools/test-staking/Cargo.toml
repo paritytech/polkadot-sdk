@@ -9,12 +9,15 @@ repository.workspace = true
 description = "FRAME nomination pools pallet tests with the staking pallet"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
-scale-info = { version = "2.0.1", features = ["derive"] }
+scale-info = { version = "2.11.1", features = ["derive"] }
 
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-io = { path = "../../../primitives/io" }
@@ -34,4 +37,4 @@ pallet-staking-reward-curve = { path = "../../staking/reward-curve" }
 pallet-nomination-pools = { path = ".." }
 
 sp-tracing = { path = "../../../primitives/tracing" }
-log = { version = "0.4.0" }
+log = { workspace = true, default-features = true }

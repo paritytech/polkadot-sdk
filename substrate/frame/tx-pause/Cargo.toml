@@ -1,6 +1,6 @@
 [package]
 name = "pallet-tx-pause"
-version = "4.0.0-dev"
+version = "9.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,20 +8,24 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME transaction pause pallet"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-scale-info = { version = "2.0.1", default-features = false, features = ["derive"] }
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+docify = "0.2.8"
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
 pallet-balances = { path = "../balances", default-features = false, optional = true }
-pallet-utility = { path = "../utility", default-features = false, optional = true  }
-pallet-proxy = { path = "../proxy", default-features = false, optional = true  }
+pallet-utility = { path = "../utility", default-features = false, optional = true }
+pallet-proxy = { path = "../proxy", default-features = false, optional = true }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }
@@ -31,7 +35,7 @@ pallet-utility = { path = "../utility" }
 pallet-proxy = { path = "../proxy" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking/std",

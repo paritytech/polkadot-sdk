@@ -479,13 +479,15 @@ pub mod pallet {
 		///
 		/// The dispatch origin for this call must be _Root_.
 		#[pallet::call_index(5)]
-		#[pallet::weight((*_weight, call.get_dispatch_info().class))]
+		#[pallet::weight((*weight, call.get_dispatch_info().class))]
 		pub fn with_weight(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
-			_weight: Weight,
+			weight: Weight,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			let _ = weight; // Explicitly don't check the the weight witness.
+
 			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
 			res.map(|_| ()).map_err(|e| e.error)
 		}

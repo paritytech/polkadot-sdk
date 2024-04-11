@@ -133,7 +133,7 @@ pub mod v1 {
 						None =>
 							OldRequestStatus::Requested { deposit: None, count: 1, len: Some(len) },
 					},
-					v0::OldRequestStatus::Requested(count) if count == 0 => {
+					v0::OldRequestStatus::Requested(0) => {
 						log::error!(target: TARGET, "preimage has counter of zero: {:?}", hash);
 						continue
 					},

@@ -253,7 +253,9 @@ impl GridTracker {
 	/// This checks whether the peer is allowed to send us manifests
 	/// about this group at this relay-parent. This also does sanity
 	/// checks on the format of the manifest and the amount of votes
-	/// it contains. It has effects on the stored state only when successful.
+	/// it contains. It assumes that the votes from disabled validators
+	/// are already filtered out.
+	/// It has effects on the stored state only when successful.
 	///
 	/// This returns a `bool` on success, which if true indicates that an acknowledgement is
 	/// to be sent in response to the received manifest. This only occurs when the
@@ -525,12 +527,16 @@ impl GridTracker {
 	}
 
 	/// Determine the validators which can send a statement to us by direct broadcast.
+	///
+	/// Returns a list of tuples representing each potential sender(ValidatorIndex)
+	/// and if the sender should already know about the statement, because we just
+	/// sent it to it.
 	pub fn direct_statement_providers(
 		&self,
 		groups: &Groups,
 		originator: ValidatorIndex,
 		statement: &CompactStatement,
-	) -> Vec<ValidatorIndex> {
+	) -> Vec<(ValidatorIndex, bool)> {
 		let (g, c_h, kind, in_group) =
 			match extract_statement_and_group_info(groups, originator, statement) {
 				None => return Vec::new(),
@@ -614,12 +620,13 @@ impl GridTracker {
 		originator: ValidatorIndex,
 		counterparty: ValidatorIndex,
 		statement: &CompactStatement,
+		received: bool,
 	) {
 		if let Some((_, c_h, kind, in_group)) =
 			extract_statement_and_group_info(groups, originator, statement)
 		{
 			if let Some(known) = self.confirmed_backed.get_mut(&c_h) {
-				known.sent_or_received_direct_statement(counterparty, in_group, kind);
+				known.sent_or_received_direct_statement(counterparty, in_group, kind, received);
 
 				if let Some(pending) = self.pending_statements.get_mut(&counterparty) {
 					pending.remove(&(originator, statement.clone()));
@@ -906,6 +913,12 @@ struct MutualKnowledge {
 	/// `Some` only if we have advertised, acknowledged, or requested the candidate
 	/// from them.
 	local_knowledge: Option<StatementFilter>,
+	/// Knowledge peer circulated to us, this is different from `local_knowledge` and
+	/// `remote_knowledge`, through the fact that includes only statements that we received from
+	/// peer while the other two, after manifest exchange part will include both what we sent to
+	/// the peer and what we received from peer, see `sent_or_received_direct_statement` for more
+	/// details.
+	received_knowledge: Option<StatementFilter>,
 }
 
 // A utility struct for keeping track of metadata about candidates
@@ -931,10 +944,13 @@ impl KnownBackedCandidate {
 	}
 
 	fn manifest_sent_to(&mut self, validator: ValidatorIndex, local_knowledge: StatementFilter) {
-		let k = self
-			.mutual_knowledge
-			.entry(validator)
-			.or_insert_with(|| MutualKnowledge { remote_knowledge: None, local_knowledge: None });
+		let k = self.mutual_knowledge.entry(validator).or_insert_with(|| MutualKnowledge {
+			remote_knowledge: None,
+			local_knowledge: None,
+			received_knowledge: None,
+		});
+		k.received_knowledge =
+			Some(StatementFilter::blank(local_knowledge.seconded_in_group.len()));
 
 		k.local_knowledge = Some(local_knowledge);
 	}
@@ -944,20 +960,24 @@ impl KnownBackedCandidate {
 		validator: ValidatorIndex,
 		remote_knowledge: StatementFilter,
 	) {
-		let k = self
-			.mutual_knowledge
-			.entry(validator)
-			.or_insert_with(|| MutualKnowledge { remote_knowledge: None, local_knowledge: None });
+		let k = self.mutual_knowledge.entry(validator).or_insert_with(|| MutualKnowledge {
+			remote_knowledge: None,
+			local_knowledge: None,
+			received_knowledge: None,
+		});
 
 		k.remote_knowledge = Some(remote_knowledge);
 	}
 
+	/// Returns a list of tuples representing each potential sender(ValidatorIndex)
+	/// and if the sender should already know about the statement, because we just
+	/// sent it to it.
 	fn direct_statement_senders(
 		&self,
 		group_index: GroupIndex,
 		originator_index_in_group: usize,
 		statement_kind: StatementKind,
-	) -> Vec<ValidatorIndex> {
+	) -> Vec<(ValidatorIndex, bool)> {
 		if group_index != self.group_index {
 			return Vec::new()
 		}
@@ -966,11 +986,18 @@ impl KnownBackedCandidate {
 			.iter()
 			.filter(|(_, k)| k.remote_knowledge.is_some())
 			.filter(|(_, k)| {
-				k.local_knowledge
+				k.received_knowledge
 					.as_ref()
 					.map_or(false, |r| !r.contains(originator_index_in_group, statement_kind))
 			})
-			.map(|(v, _)| *v)
+			.map(|(v, k)| {
+				(
+					*v,
+					k.local_knowledge
+						.as_ref()
+						.map_or(false, |r| r.contains(originator_index_in_group, statement_kind)),
+				)
+			})
 			.collect()
 	}
 
@@ -1012,11 +1039,18 @@ impl KnownBackedCandidate {
 		validator: ValidatorIndex,
 		statement_index_in_group: usize,
 		statement_kind: StatementKind,
+		received: bool,
 	) {
 		if let Some(k) = self.mutual_knowledge.get_mut(&validator) {
 			if let (Some(r), Some(l)) = (k.remote_knowledge.as_mut(), k.local_knowledge.as_mut()) {
 				r.set(statement_index_in_group, statement_kind);
 				l.set(statement_index_in_group, statement_kind);
+			}
+
+			if received {
+				k.received_knowledge
+					.as_mut()
+					.map(|knowledge| knowledge.set(statement_index_in_group, statement_kind));
 			}
 		}
 	}
@@ -2236,6 +2270,7 @@ mod tests {
 			validator_index,
 			counterparty,
 			&statement,
+			false,
 		);
 
 		// There should be no pending statements now (for the counterparty).
@@ -2244,5 +2279,74 @@ mod tests {
 			Some(StatementFilter::blank(group_size))
 		);
 		assert_eq!(tracker.all_pending_statements_for(counterparty), vec![]);
+	}
+
+	#[test]
+	fn session_grid_topology_consistent() {
+		let n_validators = 300;
+		let group_size = 5;
+
+		let validator_indices =
+			(0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>();
+		let groups = validator_indices.chunks(group_size).map(|x| x.to_vec()).collect::<Vec<_>>();
+
+		let topology = SessionGridTopology::new(
+			(0..n_validators).collect::<Vec<_>>(),
+			(0..n_validators)
+				.map(|i| TopologyPeerInfo {
+					peer_ids: Vec::new(),
+					validator_index: ValidatorIndex(i as u32),
+					discovery_id: AuthorityDiscoveryPair::generate().0.public(),
+				})
+				.collect(),
+		);
+
+		let computed_topologies = validator_indices
+			.iter()
+			.cloned()
+			.map(|v| build_session_topology(groups.iter(), &topology, Some(v)))
+			.collect::<Vec<_>>();
+
+		let pairwise_check_topologies = |i, j| {
+			let v_i = ValidatorIndex(i);
+			let v_j = ValidatorIndex(j);
+
+			for group in (0..groups.len()).map(|i| GroupIndex(i as u32)) {
+				let g_i = computed_topologies[i as usize].group_views.get(&group).unwrap();
+				let g_j = computed_topologies[j as usize].group_views.get(&group).unwrap();
+
+				if g_i.sending.contains(&v_j) {
+					assert!(
+						g_j.receiving.contains(&v_i),
+						"{:?}: {:?}, sending but not receiving",
+						group,
+						&(i, j)
+					);
+				}
+
+				if g_j.sending.contains(&v_i) {
+					assert!(
+						g_i.receiving.contains(&v_j),
+						"{:?}: {:?}, sending but not receiving",
+						group,
+						&(j, i)
+					);
+				}
+
+				if g_i.receiving.contains(&v_j) {
+					assert!(g_j.sending.contains(&v_i), "{:?}, receiving but not sending", &(i, j));
+				}
+
+				if g_j.receiving.contains(&v_i) {
+					assert!(g_i.sending.contains(&v_j), "{:?}, receiving but not sending", &(j, i));
+				}
+			}
+		};
+
+		for i in 0..n_validators {
+			for j in (i + 1)..n_validators {
+				pairwise_check_topologies(i as u32, j as u32);
+			}
+		}
 	}
 }

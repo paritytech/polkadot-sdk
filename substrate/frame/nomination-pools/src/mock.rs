@@ -17,8 +17,11 @@
 
 use super::*;
 use crate::{self as pools};
-use frame_support::{assert_ok, parameter_types, traits::fungible::Mutate, PalletId};
-use frame_system::RawOrigin;
+use frame_support::{
+	assert_ok, derive_impl, ord_parameter_types, parameter_types, traits::fungible::Mutate,
+	PalletId,
+};
+use frame_system::{EnsureSignedBy, RawOrigin};
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::{OnStakingUpdate, Stake};
 
@@ -134,10 +137,23 @@ impl sp_staking::StakingInterface for StakingMock {
 
 	fn withdraw_unbonded(who: Self::AccountId, _: u32) -> Result<bool, DispatchError> {
 		let mut unbonding_map = UnbondingBalanceMap::get();
+
+		// closure to calculate the current unlocking funds across all eras/accounts.
+		let unlocking = |pair: &Vec<(EraIndex, Balance)>| -> Balance {
+			pair.iter()
+				.try_fold(Zero::zero(), |acc: Balance, (_at, amount)| acc.checked_add(*amount))
+				.unwrap()
+		};
+
 		let staker_map = unbonding_map.get_mut(&who).ok_or("Nothing to unbond")?;
+		let unlocking_before = unlocking(&staker_map);
 
 		let current_era = Self::current_era();
+
 		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
+
+		// if there was a withdrawal, notify the pallet.
+		Pools::on_withdraw(&who, unlocking_before.saturating_sub(unlocking(&staker_map)));
 
 		UnbondingBalanceMap::set(&unbonding_map);
 		Ok(UnbondingBalanceMap::get().is_empty() && BondedBalanceMap::get().is_empty())
@@ -202,8 +218,14 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn set_current_era(_era: EraIndex) {
 		unimplemented!("method currently not used in testing")
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_exposure_page_size() -> sp_staking::Page {
+		unimplemented!("method currently not used in testing")
+	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -247,7 +269,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 pub struct BalanceToU256;
@@ -270,6 +292,11 @@ parameter_types! {
 	pub static CheckLevel: u8 = 255;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
 }
+
+ord_parameter_types! {
+	pub const Admin: u128 = 42;
+}
+
 impl pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -284,15 +311,15 @@ impl pools::Config for Runtime {
 	type MaxMetadataLen = MaxMetadataLen;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
+	type AdminOrigin = EnsureSignedBy<Admin, AccountId>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Storage, Event<T>, Config<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Pools: pools::{Pallet, Call, Storage, Event<T>, FreezeReason},
+	pub enum Runtime {
+		System: frame_system,
+		Balances: pallet_balances,
+		Pools: pools,
 	}
 );
 

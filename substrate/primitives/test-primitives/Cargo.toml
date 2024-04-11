@@ -8,20 +8,22 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", default-features = false, features = ["derive"], optional = true }
-sp-application-crypto = { path = "../application-crypto", default-features = false}
-sp-core = { path = "../core", default-features = false}
-sp-runtime = { path = "../runtime", default-features = false}
-sp-std = { path = "../std", default-features = false}
+scale-info = { version = "2.11.1", default-features = false, features = ["derive"] }
+serde = { features = ["derive"], optional = true, workspace = true }
+sp-application-crypto = { path = "../application-crypto", default-features = false }
+sp-core = { path = "../core", default-features = false }
+sp-runtime = { path = "../runtime", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",
@@ -29,7 +31,6 @@ std = [
 	"sp-application-crypto/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 
 # Serde support without relying on std features.

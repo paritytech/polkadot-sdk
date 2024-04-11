@@ -1,0 +1,70 @@
+{
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 1,
+    "links": [],
+    "liveNow": false,
+    "panels": [
+      {
+        "datasource": {
+          "type": "grafana-pyroscope-datasource",
+          "uid": "bc3bc04f-85f9-464b-8ae3-fbe0949063f6"
+        },
+        "gridPos": {
+          "h": 18,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        },
+        "id": 1,
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-pyroscope-datasource",
+              "uid": "bc3bc04f-85f9-464b-8ae3-fbe0949063f6"
+            },
+            "groupBy": [],
+            "labelSelector": "{service_name=\"subsystem-bench\"}",
+            "profileTypeId": "process_cpu:cpu:nanoseconds:cpu:nanoseconds",
+            "queryType": "profile",
+            "refId": "A"
+          }
+        ],
+        "title": "CPU Profiling",
+        "type": "flamegraph"
+      }
+    ],
+    "refresh": "",
+    "schemaVersion": 38,
+    "tags": [],
+    "templating": {
+      "list": []
+    },
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "CPU Profiling",
+    "uid": "c31191d5-fe2b-49e2-8b1c-1451f31d1628",
+    "version": 1,
+    "weekStart": ""
+  }

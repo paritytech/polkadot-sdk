@@ -93,9 +93,7 @@ pub trait StorageInstance {
 }
 
 /// Metadata about storage from the runtime.
-#[derive(
-	codec::Encode, codec::Decode, RuntimeDebug, Eq, PartialEq, Clone, scale_info::TypeInfo,
-)]
+#[derive(Debug, codec::Encode, codec::Decode, Eq, PartialEq, Clone, scale_info::TypeInfo)]
 pub struct StorageInfo {
 	/// Encoded string of pallet name.
 	pub pallet_name: Vec<u8>,

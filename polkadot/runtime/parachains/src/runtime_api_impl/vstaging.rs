@@ -15,3 +15,17 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Put implementations of functions from staging APIs here.
+
+use crate::scheduler;
+use primitives::{CoreIndex, Id as ParaId};
+use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
+
+/// Returns the claimqueue from the scheduler
+pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+	scheduler::ClaimQueue::<T>::get()
+		.into_iter()
+		.map(|(core_index, entries)| {
+			(core_index, entries.into_iter().map(|e| e.para_id()).collect())
+		})
+		.collect()
+}

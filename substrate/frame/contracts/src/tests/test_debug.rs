@@ -18,10 +18,10 @@
 use super::*;
 use crate::{
 	debug::{CallInterceptor, CallSpan, ExecResult, ExportedFunction, Tracing},
+	primitives::ExecReturnValue,
 	AccountIdOf,
 };
 use frame_support::traits::Currency;
-use pallet_contracts_primitives::ExecReturnValue;
 use pretty_assertions::assert_eq;
 use std::cell::RefCell;
 

@@ -43,7 +43,7 @@ parameter_types! {
 		);
 }
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
@@ -76,7 +76,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -133,7 +133,7 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = ();
 	type HistoryDepth = ConstU32<84>;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
 	type ElectionProvider = MockElection;
 	type GenesisElectionProvider = Self::ElectionProvider;
@@ -141,6 +141,7 @@ impl pallet_staking::Config for Runtime {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
@@ -174,14 +175,12 @@ impl fast_unstake::Config for Runtime {
 	type BatchSize = BatchSize;
 	type WeightInfo = ();
 	type MaxErasToCheckPerBlock = ConstU32<16>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type MaxBackersPerValidator = ConstU32<128>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Balances: pallet_balances,
@@ -245,7 +244,7 @@ impl ExtBuilder {
 				(v, Exposure { total: 0, own: 0, others })
 			})
 			.for_each(|(validator, exposure)| {
-				pallet_staking::ErasStakers::<T>::insert(era, validator, exposure);
+				pallet_staking::EraInfo::<T>::set_exposure(era, &validator, exposure);
 			});
 	}
 
@@ -343,10 +342,11 @@ pub fn assert_unstaked(stash: &AccountId) {
 }
 
 pub fn create_exposed_nominator(exposed: AccountId, era: u32) {
-	// create an exposed nominator in era 1
-	pallet_staking::ErasStakers::<T>::mutate(era, VALIDATORS_PER_ERA, |expo| {
-		expo.others.push(IndividualExposure { who: exposed, value: 0 as Balance });
-	});
+	// create an exposed nominator in passed era
+	let mut exposure = pallet_staking::EraInfo::<T>::get_full_exposure(era, &VALIDATORS_PER_ERA);
+	exposure.others.push(IndividualExposure { who: exposed, value: 0 as Balance });
+	pallet_staking::EraInfo::<T>::set_exposure(era, &VALIDATORS_PER_ERA, exposure);
+
 	Balances::make_free_balance_be(&exposed, 100);
 	assert_ok!(Staking::bond(
 		RuntimeOrigin::signed(exposed),

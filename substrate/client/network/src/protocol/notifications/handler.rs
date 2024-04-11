@@ -62,6 +62,7 @@ use crate::{
 		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
 		UpgradeCollec,
 	},
+	service::metrics::NotificationMetrics,
 	types::ProtocolName,
 };
 
@@ -92,7 +93,7 @@ use std::{
 
 /// Number of pending notifications in asynchronous contexts.
 /// See [`NotificationsSink::reserve_notification`] for context.
-const ASYNC_NOTIFICATIONS_BUFFER_SIZE: usize = 8;
+pub(crate) const ASYNC_NOTIFICATIONS_BUFFER_SIZE: usize = 8;
 
 /// Number of pending notifications in synchronous contexts.
 const SYNC_NOTIFICATIONS_BUFFER_SIZE: usize = 2048;
@@ -126,11 +127,19 @@ pub struct NotifsHandler {
 	events_queue: VecDeque<
 		ConnectionHandlerEvent<NotificationsOut, usize, NotifsHandlerOut, NotifsHandlerError>,
 	>,
+
+	/// Metrics.
+	metrics: Option<Arc<NotificationMetrics>>,
 }
 
 impl NotifsHandler {
 	/// Creates new [`NotifsHandler`].
-	pub fn new(peer_id: PeerId, endpoint: ConnectedPoint, protocols: Vec<ProtocolConfig>) -> Self {
+	pub fn new(
+		peer_id: PeerId,
+		endpoint: ConnectedPoint,
+		protocols: Vec<ProtocolConfig>,
+		metrics: Option<NotificationMetrics>,
+	) -> Self {
 		Self {
 			protocols: protocols
 				.into_iter()
@@ -148,6 +157,7 @@ impl NotifsHandler {
 			endpoint,
 			when_connection_open: Instant::now(),
 			events_queue: VecDeque::with_capacity(16),
+			metrics: metrics.map_or(None, |metrics| Some(Arc::new(metrics))),
 		}
 	}
 }
@@ -199,7 +209,7 @@ enum State {
 	/// consequently trying to open the various notifications substreams.
 	///
 	/// A [`NotifsHandlerOut::OpenResultOk`] or a [`NotifsHandlerOut::OpenResultErr`] event must
-	/// be emitted when transitionning to respectively [`State::Open`] or [`State::Closed`].
+	/// be emitted when transitioning to respectively [`State::Open`] or [`State::Closed`].
 	Opening {
 		/// Substream opened by the remote. If `Some`, has been accepted.
 		in_substream: Option<NotificationsInSubstream<NegotiatedSubstream>>,
@@ -303,6 +313,8 @@ pub enum NotifsHandlerOut {
 	OpenDesiredByRemote {
 		/// Index of the protocol in the list of protocols passed at initialization.
 		protocol_index: usize,
+		/// Received handshake.
+		handshake: Vec<u8>,
 	},
 
 	/// The remote would like the substreams to be closed. Send a [`NotifsHandlerIn::Close`] in
@@ -331,6 +343,36 @@ pub enum NotifsHandlerOut {
 #[derive(Debug, Clone)]
 pub struct NotificationsSink {
 	inner: Arc<NotificationsSinkInner>,
+	metrics: Option<Arc<NotificationMetrics>>,
+}
+
+impl NotificationsSink {
+	/// Create new [`NotificationsSink`].
+	/// NOTE: only used for testing but must be `pub` as other crates in `client/network` use this.
+	pub fn new(
+		peer_id: PeerId,
+	) -> (Self, mpsc::Receiver<NotificationsSinkMessage>, mpsc::Receiver<NotificationsSinkMessage>)
+	{
+		let (async_tx, async_rx) = mpsc::channel(ASYNC_NOTIFICATIONS_BUFFER_SIZE);
+		let (sync_tx, sync_rx) = mpsc::channel(SYNC_NOTIFICATIONS_BUFFER_SIZE);
+		(
+			NotificationsSink {
+				inner: Arc::new(NotificationsSinkInner {
+					peer_id,
+					async_channel: FuturesMutex::new(async_tx),
+					sync_channel: Mutex::new(Some(sync_tx)),
+				}),
+				metrics: None,
+			},
+			async_rx,
+			sync_rx,
+		)
+	}
+
+	/// Get reference to metrics.
+	pub fn metrics(&self) -> &Option<Arc<NotificationMetrics>> {
+		&self.metrics
+	}
 }
 
 #[derive(Debug)]
@@ -350,8 +392,8 @@ struct NotificationsSinkInner {
 
 /// Message emitted through the [`NotificationsSink`] and processed by the background task
 /// dedicated to the peer.
-#[derive(Debug)]
-enum NotificationsSinkMessage {
+#[derive(Debug, PartialEq, Eq)]
+pub enum NotificationsSinkMessage {
 	/// Message emitted by [`NotificationsSink::reserve_notification`] and
 	/// [`NotificationsSink::write_notification_now`].
 	Notification { message: Vec<u8> },
@@ -379,8 +421,8 @@ impl NotificationsSink {
 		let mut lock = self.inner.sync_channel.lock();
 
 		if let Some(tx) = lock.as_mut() {
-			let result =
-				tx.try_send(NotificationsSinkMessage::Notification { message: message.into() });
+			let message = message.into();
+			let result = tx.try_send(NotificationsSinkMessage::Notification { message });
 
 			if result.is_err() {
 				// Cloning the `mpsc::Sender` guarantees the allocation of an extra spot in the
@@ -476,7 +518,10 @@ impl ConnectionHandler for NotifsHandler {
 				match protocol_info.state {
 					State::Closed { pending_opening } => {
 						self.events_queue.push_back(ConnectionHandlerEvent::Custom(
-							NotifsHandlerOut::OpenDesiredByRemote { protocol_index },
+							NotifsHandlerOut::OpenDesiredByRemote {
+								protocol_index,
+								handshake: in_substream_open.handshake,
+							},
 						));
 
 						protocol_info.state = State::OpenDesiredByRemote {
@@ -531,6 +576,7 @@ impl ConnectionHandler for NotifsHandler {
 								async_channel: FuturesMutex::new(async_tx),
 								sync_channel: Mutex::new(Some(sync_tx)),
 							}),
+							metrics: self.metrics.clone(),
 						};
 
 						self.protocols[protocol_index].state = State::Open {
@@ -751,6 +797,9 @@ impl ConnectionHandler for NotifsHandler {
 		// performed before the code paths that can produce `Ready` (with some rare exceptions).
 		// Importantly, however, the flush is performed *after* notifications are queued with
 		// `Sink::start_send`.
+		// Note that we must call `poll_flush` on all substreams and not only on those we
+		// have called `Sink::start_send` on, because `NotificationsOutSubstream::poll_flush`
+		// also reports the substream termination (even if no data was written into it).
 		for protocol_index in 0..self.protocols.len() {
 			match &mut self.protocols[protocol_index].state {
 				State::Open { out_substream: out_substream @ Some(_), .. } => {
@@ -793,7 +842,7 @@ impl ConnectionHandler for NotifsHandler {
 				State::OpenDesiredByRemote { in_substream, pending_opening } =>
 					match NotificationsInSubstream::poll_process(Pin::new(in_substream), cx) {
 						Poll::Pending => {},
-						Poll::Ready(Ok(void)) => match void {},
+						Poll::Ready(Ok(())) => {},
 						Poll::Ready(Err(_)) => {
 							self.protocols[protocol_index].state =
 								State::Closed { pending_opening: *pending_opening };
@@ -809,7 +858,7 @@ impl ConnectionHandler for NotifsHandler {
 						cx,
 					) {
 						Poll::Pending => {},
-						Poll::Ready(Ok(void)) => match void {},
+						Poll::Ready(Ok(())) => {},
 						Poll::Ready(Err(_)) => *in_substream = None,
 					},
 			}
@@ -881,6 +930,7 @@ pub mod tests {
 					async_channel: FuturesMutex::new(async_tx),
 					sync_channel: Mutex::new(Some(sync_tx)),
 				}),
+				metrics: None,
 			};
 			let (in_substream, out_substream) = MockSubstream::new();
 
@@ -1040,6 +1090,7 @@ pub mod tests {
 			},
 			peer_id: PeerId::random(),
 			events_queue: VecDeque::new(),
+			metrics: None,
 		}
 	}
 
@@ -1545,6 +1596,7 @@ pub mod tests {
 				async_channel: FuturesMutex::new(async_tx),
 				sync_channel: Mutex::new(Some(sync_tx)),
 			}),
+			metrics: None,
 		};
 
 		handler.protocols[0].state = State::Open {
@@ -1597,7 +1649,7 @@ pub mod tests {
 			assert!(std::matches!(
 				handler.poll(cx),
 				Poll::Ready(ConnectionHandlerEvent::Custom(
-					NotifsHandlerOut::OpenDesiredByRemote { protocol_index: 0 },
+					NotifsHandlerOut::OpenDesiredByRemote { protocol_index: 0, .. },
 				))
 			));
 			assert!(std::matches!(

@@ -10,10 +10,10 @@ The `dave` node executed with `--sync warp` syncs database with the rest of the 
 Database was prepared using the following zombienet file (`generate-warp-sync-database.toml`):
 ```
 [relaychain]
-default_image = "docker.io/parity/substrate:master"
+default_image = "docker.io/paritypr/substrate:master"
 default_command = "substrate"
 
-chain = "gen-db"
+chain = "local"
 
 chain_spec_path = "chain-spec.json"
 
@@ -32,32 +32,31 @@ The zombienet shall be executed with the following command, and run for some per
 ```
 
 Once the zombienet is stopped, the database snapshot
-(`{alice,bob}/data/chains/local_testnet/db/` dirs) was created using the following
+(`alice/data/chains/local_testnet/db/` dir) was created using the following
 commands:
 ```bash
-mkdir -p db-snapshot/{alice,bob}/data/chains/local_testnet/db/
+mkdir -p db-snapshot/alice/data/chains/local_testnet/db/
 cp -r db-test-gen/alice/data/chains/local_testnet/db/full db-snapshot/alice/data/chains/local_testnet/db/
-cp -r db-test-gen/bob/data/chains/local_testnet/db/full   db-snapshot/bob/data/chains/local_testnet/db/
+```
+
+Sample command to prepare archive:
+```
+tar -C db-snapshot/alice/ -czf chains.tgz ./
 ```
 
 The file format should be `tar.gz`. File shall contain `local_testnet` folder and its subfolders, e.g.:
 ```
 $ tar tzf chains.tgz | head
-local_testnet/
-local_testnet/db/
-local_testnet/db/full/
+data/chains/local_testnet/
+data/chains/local_testnet/db/
+data/chains/local_testnet/db/full/
 ...
-local_testnet/db/full/000469.log
-```
-
-Sample command to prepare archive:
-```
-tar -C db-snapshot/alice/data/chains/ -czf chains.tgz local_testnet
+data/chains/local_testnet/db/full/000469.log
 ```
 
 Also refer to: [zombienet#578](https://github.com/paritytech/zombienet/issues/578)
 
-The `raw` chain-spec shall also be saved: `db-test-gen/gen-db-raw.json`.
+The `raw` chain-spec shall also be saved: `db-test-gen/local.json`.
 
 # Where to upload database
 The access to this [bucket](https://console.cloud.google.com/storage/browser/zombienet-db-snaps/) is required.
@@ -80,8 +79,6 @@ Test can be run with the following command:
 ```
 zombienet-linux test --dir db-snapshot --provider native test-warp-sync.zndsl
 ```
-
-*NOTE*: currently blocked by: [zombienet#578](https://github.com/paritytech/zombienet/issues/578)
 
 
 # Save some time hack

@@ -171,7 +171,7 @@ This parameter instructs the pool propagate/gossip a transaction to node peers.
 By default this should be `true`, however in some cases it might be undesirable
 to propagate transactions further. Examples might include heavy transactions
 produced by block authors in offchain workers (DoS) or risking being front
-runned by someone else after finding some non trivial solution or equivocation,
+ran by someone else after finding some non trivial solution or equivocation,
 etc.
 
 ### 'TransactionSource`
@@ -227,7 +227,7 @@ transactions that are prepared for block inclusion. Propagation is best
 effort, especially for block authors and is not directly incentivised.
 However the networking protocol might penalise peers that send invalid or
 useless transactions so we should be nice to others. Also see below a proposal
-to instead of gossiping everyting have other peers request transactions they
+to instead of gossiping everything have other peers request transactions they
 are interested in.
 
 Since the pool is expected to store more transactions than what can fit

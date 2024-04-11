@@ -8,19 +8,22 @@ version = "1.0.0"
 authors.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
-parachain = { package = "polkadot-parachain-primitives", path = "../..", default-features = false, features = [ "wasm-api" ] }
+parachain = { package = "polkadot-parachain-primitives", path = "../..", default-features = false, features = ["wasm-api"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-dlmalloc = { version = "0.2.4", features = [ "global" ] }
+dlmalloc = { version = "0.2.4", features = ["global"] }
 
 # We need to make sure the global allocator is disabled until we have support of full substrate externalities
-sp-io = { path = "../../../../substrate/primitives/io", default-features = false, features = [ "disable_allocator" ] }
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false, features = ["disable_allocator"] }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 
 [features]
-default = [ "std" ]
-std = [ "parachain/std", "sp-io/std", "sp-std/std" ]
+default = ["std"]
+std = ["parachain/std", "parity-scale-codec/std", "sp-io/std", "sp-std/std"]

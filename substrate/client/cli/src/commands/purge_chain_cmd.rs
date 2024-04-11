@@ -48,7 +48,7 @@ pub struct PurgeChainCmd {
 impl PurgeChainCmd {
 	/// Run the purge command
 	pub fn run(&self, database_config: DatabaseSource) -> error::Result<()> {
-		let db_path = database_config.path().ok_or_else(|| {
+		let db_path = database_config.path().and_then(|p| p.parent()).ok_or_else(|| {
 			error::Error::Input("Cannot purge custom database implementation".into())
 		})?;
 

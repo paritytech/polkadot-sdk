@@ -23,17 +23,16 @@ use super::*;
 
 use crate as utility;
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, Pays},
 	error::BadOrigin,
 	parameter_types, storage,
-	traits::{ConstU32, ConstU64, Contains},
+	traits::{ConstU64, Contains},
 	weights::Weight,
 };
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
-use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, Dispatchable, Hash, IdentityLookup},
+	traits::{BlakeTwo256, Dispatchable, Hash},
 	BuildStorage, DispatchError, TokenError,
 };
 
@@ -129,14 +128,14 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Call, Inherent},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		RootTesting: pallet_root_testing::{Pallet, Call, Storage},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		RootTesting: pallet_root_testing,
 		Council: pallet_collective::<Instance1>,
-		Utility: utility::{Pallet, Call, Event},
-		Example: example::{Pallet, Call},
-		Democracy: mock_democracy::{Pallet, Call, Event<T>},
+		Utility: utility,
+		Example: example,
+		Democracy: mock_democracy,
 	}
 );
 
@@ -144,30 +143,12 @@ parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::MAX);
 }
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = TestBaseCallFilter;
 	type BlockWeights = BlockWeights;
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Test>;
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl pallet_balances::Config for Test {
@@ -183,10 +164,12 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
-impl pallet_root_testing::Config for Test {}
+impl pallet_root_testing::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+}
 
 impl pallet_timestamp::Config for Test {
 	type Moment = u64;

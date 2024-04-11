@@ -31,8 +31,8 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
 	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, CollatorPair,
-	CommittedCandidateReceipt, CompactStatement, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
-	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
+	CommittedCandidateReceipt, CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData,
+	Id as ParaId, PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
 	ValidationCodeHash, ValidatorIndex, MAX_CODE_SIZE, MAX_POV_SIZE,
 };
 pub use sp_consensus_babe::{
@@ -53,6 +53,13 @@ pub use disputes::{
 	ValidDisputeVote, ACTIVE_DURATION_SECS,
 };
 
+/// The current node version, which takes the basic SemVer form `<major>.<minor>.<patch>`.
+/// In general, minor should be bumped on every release while major or patch releases are
+/// relatively rare.
+///
+/// The associated worker binaries should use the same version as the node that spawns them.
+pub const NODE_VERSION: &'static str = "1.10.0";
+
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
 // header 1 + bitmap 2 + max partial_key 8 + children 16 * (32 + len 1) + value 32 + value len 1
@@ -67,7 +74,7 @@ pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;
 pub const POV_BOMB_LIMIT: usize = (MAX_POV_SIZE * 4u32) as usize;
 
 /// How many blocks after finalization an information about backed/included candidate should be
-/// pre-loaded (when scraoing onchain votes) and kept locally (when pruning).
+/// pre-loaded (when scraping onchain votes) and kept locally (when pruning).
 ///
 /// We don't want to remove scraped candidates on finalization because we want to
 /// be sure that disputes will conclude on abandoned forks.
@@ -435,7 +442,7 @@ pub struct CollationSecondedSignal {
 	pub relay_parent: Hash,
 	/// The statement about seconding the collation.
 	///
-	/// Anything else than [`Statement::Seconded`](Statement::Seconded) is forbidden here.
+	/// Anything else than [`Statement::Seconded`] is forbidden here.
 	pub statement: SignedFullStatement,
 }
 
@@ -517,6 +524,8 @@ pub struct SubmitCollationParams {
 	/// okay to just drop it. However, if it is called, it should be called with the signed
 	/// statement of a parachain validator seconding the collation.
 	pub result_sender: Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>,
+	/// The core index on which the resulting candidate should be backed
+	pub core_index: CoreIndex,
 }
 
 /// This is the data we keep available for each candidate included in the relay chain.

@@ -54,6 +54,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
 	traits::IsSubType,
@@ -68,7 +69,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
 };
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::vec::Vec;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -285,9 +286,7 @@ pub mod pallet {
 			let _sender = ensure_signed(origin)?;
 
 			// Read the value of dummy from storage.
-			// let dummy = Self::dummy();
-			// Will also work using the `::get` on the storage item type itself:
-			// let dummy = <Dummy<T>>::get();
+			// let dummy = Dummy::<T>::get();
 
 			// Calculate the new value.
 			// let new_dummy = dummy.map_or(increase_by, |dummy| dummy + increase_by);
@@ -380,20 +379,14 @@ pub mod pallet {
 	//   - `Foo::put(1); Foo::get()` returns `1`;
 	//   - `Foo::kill(); Foo::get()` returns `0` (u32::default()).
 	#[pallet::storage]
-	// The getter attribute generate a function on `Pallet` placeholder:
-	// `fn getter_name() -> Type` for basic value items or
-	// `fn getter_name(key: KeyType) -> ValueType` for map items.
-	#[pallet::getter(fn dummy)]
 	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
 
 	// A map that has enumerable entries.
 	#[pallet::storage]
-	#[pallet::getter(fn bar)]
 	pub(super) type Bar<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance>;
 
 	// this one uses the query kind: `ValueQuery`, we'll demonstrate the usage of 'mutate' API.
 	#[pallet::storage]
-	#[pallet::getter(fn foo)]
 	pub(super) type Foo<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
 
 	#[pallet::storage]
@@ -432,10 +425,10 @@ impl<T: Config> Pallet<T> {
 	fn accumulate_foo(origin: T::RuntimeOrigin, increase_by: T::Balance) -> DispatchResult {
 		let _sender = ensure_signed(origin)?;
 
-		let prev = <Foo<T>>::get();
+		let prev = Foo::<T>::get();
 		// Because Foo has 'default', the type of 'foo' in closure is the raw type instead of an
 		// Option<> type.
-		let result = <Foo<T>>::mutate(|foo| {
+		let result = Foo::<T>::mutate(|foo| {
 			*foo = foo.saturating_add(increase_by);
 			*foo
 		});
@@ -485,8 +478,8 @@ impl<T: Config> Pallet<T> {
 #[scale_info(skip_type_params(T))]
 pub struct WatchDummy<T: Config + Send + Sync>(PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for WatchDummy<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<T: Config + Send + Sync> core::fmt::Debug for WatchDummy<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "WatchDummy")
 	}
 }
@@ -501,7 +494,7 @@ where
 	type AdditionalSigned = ();
 	type Pre = ();
 
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+	fn additional_signed(&self) -> core::result::Result<(), TransactionValidityError> {
 		Ok(())
 	}
 

@@ -196,7 +196,10 @@ where
 		let value = match unhashed::get::<O>(&current_key) {
 			Some(value) => value,
 			None => {
-				log::error!("Invalid translate: fail to decode old value");
+				crate::defensive!(
+					"Invalid translation: failed to decode old value for key",
+					array_bytes::bytes2hex("0x", &current_key)
+				);
 				return Some(current_key)
 			},
 		};
@@ -205,7 +208,10 @@ where
 		let key = match K::decode(&mut key_material) {
 			Ok(key) => key,
 			Err(_) => {
-				log::error!("Invalid translate: fail to decode key");
+				crate::defensive!(
+					"Invalid translation: failed to decode key",
+					array_bytes::bytes2hex("0x", &current_key)
+				);
 				return Some(current_key)
 			},
 		};
@@ -389,6 +395,75 @@ mod test_iterators {
 		});
 	}
 
+	#[cfg(debug_assertions)]
+	#[test]
+	#[should_panic]
+	fn map_translate_with_bad_key_in_debug_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = self::frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong key
+			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
+
+			// debug_assert should cause a
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
+		})
+	}
+
+	#[cfg(debug_assertions)]
+	#[test]
+	#[should_panic]
+	fn map_translate_with_bad_value_in_debug_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = self::frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong value
+			unhashed::put(
+				&[prefix.clone(), crate::Blake2_128Concat::hash(&6u16.encode())].concat(),
+				&vec![1],
+			);
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
+		})
+	}
+
+	#[cfg(not(debug_assertions))]
+	#[test]
+	fn map_translate_with_bad_key_in_production_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = self::frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong key
+			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
+		})
+	}
+
+	#[cfg(not(debug_assertions))]
+	#[test]
+	fn map_translate_with_bad_value_in_production_mode() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			type Map = self::frame_system::Map<Runtime>;
+			let prefix = Map::prefix_hash().to_vec();
+
+			// Wrong value
+			unhashed::put(
+				&[prefix.clone(), crate::Blake2_128Concat::hash(&6u16.encode())].concat(),
+				&vec![1],
+			);
+
+			Map::translate(|_k1, v: u64| Some(v * 2));
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
+		})
+	}
+
 	#[test]
 	fn map_reversible_reversible_iteration() {
 		sp_io::TestExternalities::default().execute_with(|| {
@@ -424,15 +499,6 @@ mod test_iterators {
 			for i in 0..4 {
 				Map::insert(i as u16, i as u64);
 			}
-
-			// Wrong key
-			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
-
-			// Wrong value
-			unhashed::put(
-				&[prefix.clone(), crate::Blake2_128Concat::hash(&6u16.encode())].concat(),
-				&vec![1],
-			);
 
 			Map::translate(|_k1, v: u64| Some(v * 2));
 			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
