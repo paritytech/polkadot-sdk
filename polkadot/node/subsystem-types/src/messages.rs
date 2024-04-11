@@ -739,8 +739,7 @@ pub enum RuntimeApiRequest {
 	/// Fetch the `ClaimQueue` from scheduler pallet
 	/// `V11`
 	ClaimQueue(RuntimeApiSender<BTreeMap<CoreIndex, VecDeque<ParaId>>>),
-	/// Get a the candidate pending availability for a particular parachain by parachain / core
-	/// index
+	/// Get the candidates pending availability for a particular parachain
 	/// `V11`
 	CandidatesPendingAvailability(ParaId, RuntimeApiSender<Vec<CommittedCandidateReceipt>>),
 }
