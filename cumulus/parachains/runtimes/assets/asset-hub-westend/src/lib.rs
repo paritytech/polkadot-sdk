@@ -393,7 +393,6 @@ parameter_types! {
 	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/astrd");
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 	pub TreasurerBodyAccount: AccountId = LocationToAccountId::convert_location(&RelayTreasuryLocation::get()).unwrap();
-		// AccountIdConversion::<AccountId>::into_account_truncating(&RelayTreasuryLocation::get());
 }
 
 impl pallet_asset_rewards::Config for Runtime {
