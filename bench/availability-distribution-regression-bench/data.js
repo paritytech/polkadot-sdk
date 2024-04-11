@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712787614183,
+  "lastUpdate": 1712828983339,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3275,6 +3275,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.16118345518666677,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Sandu",
+            "username": "sandreim",
+            "email": "54316454+sandreim@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "69cc7f2090e169e736d9c998c29467040521881d",
+          "message": "Fix ClaimQueue case of nothing scheduled on session boundary  (#4065)\n\nSame issue but about av-cores was fixed in\nhttps://github.com/paritytech/polkadot-sdk/pull/1403\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>",
+          "timestamp": "2024-04-11T08:37:12Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/69cc7f2090e169e736d9c998c29467040521881d"
+        },
+        "date": 1712828957821,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18479.926666666666,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.15496561769999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010515504713333339,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.012450330513333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025917381493333336,
             "unit": "seconds"
           }
         ]
