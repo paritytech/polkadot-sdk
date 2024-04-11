@@ -2845,8 +2845,8 @@ impl_runtime_apis! {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
-		fn benchmark_metadata(extra: bool) -> frame_benchmarking::BenchmarkInfo {
-			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList, BenchmarkInfo};
+		fn benchmark_metadata(extra: bool) -> frame_benchmarking::RuntimeBenchmarkInfo {
+			use frame_benchmarking::{baseline, Benchmarking, BenchmarkList, RuntimeBenchmarkInfo};
 			use frame_support::traits::StorageInfoTrait;
 
 			// Trying to add benchmarks directly to the Session Pallet caused cyclic dependency
@@ -2866,7 +2866,7 @@ impl_runtime_apis! {
 			let max_extrinsic_weight = RuntimeBlockWeights::get().per_class.get(DispatchClass::Normal).max_extrinsic.unwrap();
 			let db_weight: frame_support::weights::RuntimeDbWeight = <Self as frame_system::Config>::DbWeight::get();
 
-			BenchmarkInfo { list, storage_info, max_extrinsic_weight: Some(max_extrinsic_weight), db_weight: Some(db_weight) }
+			RuntimeBenchmarkInfo { list, storage_info, max_extrinsic_weight: Some(max_extrinsic_weight), db_weight: Some(db_weight) }
 		}
 
 		fn dispatch_benchmark(

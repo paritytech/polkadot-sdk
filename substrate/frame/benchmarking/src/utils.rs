@@ -232,7 +232,7 @@ pub struct BenchmarkMetadata {
 
 /// Exhaustive benchmark info provided by the runtime.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
-pub struct BenchmarkInfo {
+pub struct RuntimeBenchmarkInfo {
 	/// List of all benchmarks available for this runtime.
 	pub list: Vec<BenchmarkList>,
 	/// List of all metadata about storage items.
@@ -243,9 +243,9 @@ pub struct BenchmarkInfo {
 	pub db_weight: Option<RuntimeDbWeight>,
 }
 
-/// Convert a tuple of benchmark lists and storage info into a `BenchmarkInfo` struct.
+/// Convert a tuple of benchmark lists and storage info into a `RuntimeBenchmarkInfo` struct.
 /// For backwards compatibility.
-impl From<(Vec<BenchmarkList>, Vec<StorageInfo>)> for BenchmarkInfo {
+impl From<(Vec<BenchmarkList>, Vec<StorageInfo>)> for RuntimeBenchmarkInfo {
 	fn from((list, storage_info): (Vec<BenchmarkList>, Vec<StorageInfo>)) -> Self {
 		Self { list, storage_info, max_extrinsic_weight: None, db_weight: None }
 	}
@@ -253,6 +253,7 @@ impl From<(Vec<BenchmarkList>, Vec<StorageInfo>)> for BenchmarkInfo {
 
 sp_api::decl_runtime_apis! {
 	/// Runtime api for benchmarking a FRAME runtime.
+	#[api_version(2)]
 	pub trait Benchmark {
 		/// Get the benchmark metadata available for this runtime.
 		///
@@ -261,8 +262,8 @@ sp_api::decl_runtime_apis! {
 		///            needed for weight calculation.
 		///
 		/// Returns:
-		/// - `BenchmarkInfo` - Complete benchmark metadata available for this runtime.
-		fn benchmark_metadata(extra: bool) -> BenchmarkInfo;
+		/// - `RuntimeBenchmarkInfo` - Complete benchmark metadata available for this runtime.
+		fn benchmark_metadata(extra: bool) -> RuntimeBenchmarkInfo;
 
 		/// Dispatch the given benchmark.
 		fn dispatch_benchmark(config: BenchmarkConfig) -> Result<Vec<BenchmarkBatch>, sp_runtime::RuntimeString>;

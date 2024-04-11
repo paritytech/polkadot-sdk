@@ -18,8 +18,8 @@
 use super::{writer, PalletCmd};
 use codec::{Decode, Encode};
 use frame_benchmarking::{
-	Analysis, AnalysisChoice, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkInfo,
-	BenchmarkParameter, BenchmarkResult, BenchmarkSelector,
+	Analysis, AnalysisChoice, BenchmarkBatch, BenchmarkBatchSplitResults, BenchmarkList,
+	BenchmarkParameter, BenchmarkResult, BenchmarkSelector, RuntimeBenchmarkInfo,
 };
 use frame_support::{
 	traits::StorageInfo,
@@ -28,10 +28,11 @@ use frame_support::{
 use linked_hash_map::LinkedHashMap;
 use sc_cli::{execution_method_from_cli, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
-use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
+use sc_executor::{HeapAllocStrategy, RuntimeVersion, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_service::Configuration;
 use serde::Serialize;
 use sp_core::{
+	blake2_64,
 	offchain::{
 		testing::{TestOffchainExt, TestTransactionPoolExt},
 		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
@@ -142,6 +143,10 @@ This could mean that you either did not build the node correctly with the \
 `--features runtime-benchmarks` flag, or the chain spec that you are using was \
 not created by a node that was compiled with the flag";
 
+/// Could not query `RuntimeVersion`, which is required
+const ERROR_RUNTIME_VERSION_NOT_FOUND: &'static str = "Could not query the runtime version. \
+This should never happen, please report this issue.";
+
 impl PalletCmd {
 	/// Runs the command and benchmarks the chain.
 	pub fn run<BB, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
@@ -239,8 +244,33 @@ impl PalletCmd {
 			extensions
 		};
 
-		// Get Benchmark List
 		let state = &state_without_tracking;
+
+		// Get runtime version
+		let runtime_version_raw = StateMachine::new(
+			state,
+			&mut changes,
+			&executor,
+			"Core_version",
+			&[],
+			&mut extensions(),
+			&sp_state_machine::backend::BackendRuntimeCode::new(state).runtime_code()?,
+			CallContext::Offchain,
+		)
+		.execute()
+		.map_err(|e| format!("{}: {}", ERROR_RUNTIME_VERSION_NOT_FOUND, e))?;
+
+		let runtime_version = <RuntimeVersion as Decode>::decode(&mut &runtime_version_raw[..])
+			.map_err(|e| format!("Failed to decode runtime version: {:?}", e))?;
+
+		// Get the version of `Benchmark` runtime API.
+		let (_, version) = runtime_version
+			.apis
+			.iter()
+			.find(|(name, _)| name == &blake2_64(b"Benchmark"))
+			.ok_or("Benchmark API not found in runtime version apis")?;
+
+		// Get Benchmark List
 		let result = StateMachine::new(
 			state,
 			&mut changes,
@@ -254,9 +284,16 @@ impl PalletCmd {
 		.execute()
 		.map_err(|e| format!("{}: {}", ERROR_METADATA_NOT_FOUND, e))?;
 
-		let BenchmarkInfo { list, storage_info, max_extrinsic_weight, db_weight } =
-			<BenchmarkInfo as Decode>::decode(&mut &result[..])
-				.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?;
+		let RuntimeBenchmarkInfo { list, storage_info, max_extrinsic_weight, db_weight } = {
+			if *version == 2 {
+				<RuntimeBenchmarkInfo as Decode>::decode(&mut &result[..])
+					.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?
+			} else {
+				<(Vec<BenchmarkList>, Vec<StorageInfo>) as Decode>::decode(&mut &result[..])
+					.map_err(|e| format!("Failed to decode benchmark metadata: {:?}", e))?
+					.into()
+			}
+		};
 
 		if let Some(json_input) = &self.json_input {
 			let raw_data = match std::fs::read(json_input) {
