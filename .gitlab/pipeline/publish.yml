@@ -70,9 +70,9 @@ publish-subsystem-benchmarks:
     - .kubernetes-env
     - .publish-gh-pages-refs
   needs:
-    - job: subsystem-regression-tests-recovery
+    - job: subsystem-benchmark-availability-recovery
       artifacts: true
-    - job: subsystem-regression-tests-distribution
+    - job: subsystem-benchmark-availability-distribution
       artifacts: true
     - job: publish-rustdoc
       artifacts: false
@@ -111,9 +111,9 @@ trigger_workflow:
   needs:
     - job: publish-subsystem-benchmarks
       artifacts: false
-    - job: subsystem-regression-tests-recovery
+    - job: subsystem-benchmark-availability-recovery
       artifacts: true
-    - job: subsystem-regression-tests-distribution
+    - job: subsystem-benchmark-availability-distribution
       artifacts: true
   script:
     - echo "Triggering workflow"

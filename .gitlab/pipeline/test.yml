@@ -511,7 +511,7 @@ test-syscalls:
       fi
   allow_failure: false # this rarely triggers in practice
 
-subsystem-regression-tests-recovery:
+subsystem-benchmark-availability-recovery:
   stage: test
   artifacts:
     name: "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}"
@@ -529,7 +529,7 @@ subsystem-regression-tests-recovery:
     - benchmark
   allow_failure: true
 
-subsystem-regression-tests-distribution:
+subsystem-benchmark-availability-distribution:
   stage: test
   artifacts:
     name: "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}"
