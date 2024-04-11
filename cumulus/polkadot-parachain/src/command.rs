@@ -702,7 +702,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 	hwbench: Option<sc_sysinfo::HwBench>,
 ) -> Result<sc_service::TaskManager> {
 	match config.chain_spec.runtime()? {
-		Runtime::AssetHubPolkadot => crate::service::start_asset_hub_node::<
+		Runtime::AssetHubPolkadot => crate::service::start_asset_hub_lookahead_node::<
 			AssetHubPolkadotRuntimeApi,
 			AssetHubPolkadotAuraId,
 			Network,
@@ -711,16 +711,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map(|r| r.0)
 		.map_err(Into::into),
 
-		Runtime::AssetHubKusama => crate::service::start_asset_hub_node::<
-			RuntimeApi,
-			AuraId,
-			Network,
-		>(config, polkadot_config, collator_options, id, hwbench)
-		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
-
-		Runtime::AssetHubRococo | Runtime::AssetHubWestend =>
+		Runtime::AssetHubRococo | Runtime::AssetHubWestend | Runtime::AssetHubKusama =>
 			crate::service::start_asset_hub_lookahead_node::<RuntimeApi, AuraId, Network>(
 				config,
 				polkadot_config,
@@ -732,18 +723,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.map(|r| r.0)
 			.map_err(Into::into),
 
-		Runtime::CollectivesPolkadot => crate::service::start_generic_aura_node::<Network>(
-			config,
-			polkadot_config,
-			collator_options,
-			id,
-			hwbench,
-		)
-		.await
-		.map(|r| r.0)
-		.map_err(Into::into),
-
-		Runtime::CollectivesWestend =>
+		Runtime::CollectivesWestend | Runtime::CollectivesPolkadot =>
 			crate::service::start_generic_aura_lookahead_node::<Network>(
 				config,
 				polkadot_config,
@@ -779,39 +759,12 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 
 		Runtime::BridgeHub(bridge_hub_runtime_type) => match bridge_hub_runtime_type {
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Polkadot |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal =>
-				crate::service::start_generic_aura_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::PolkadotLocal |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Kusama |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal =>
-				crate::service::start_generic_aura_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::KusamaLocal |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
-			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =>
-				crate::service::start_generic_aura_lookahead_node::<Network>(
-					config,
-					polkadot_config,
-					collator_options,
-					id,
-					hwbench,
-				)
-				.await
-				.map(|r| r.0),
+			chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
 			chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =>
