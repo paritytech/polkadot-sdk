@@ -20247,6 +20247,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util",
+ "tracing-subscriber 0.3.18",
  "try-runtime-cli",
  "wait-timeout",
  "wat",
@@ -21780,12 +21781,15 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
  "regex",
+ "serde",
+ "serde_json",
  "sharded-slab",
  "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
  "tracing-log 0.2.0",
+ "tracing-serde",
 ]
 
 [[package]]
