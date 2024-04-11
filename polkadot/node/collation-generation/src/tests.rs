@@ -807,7 +807,7 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 			OccupiedCoreAssumption::Included,
 			1,
 			pending_availability,
-			runtime_version
+			runtime_version,
 		)
 		.await;
 
@@ -1128,11 +1128,12 @@ mod helpers {
 			}
 		);
 
-		let async_backing_response = if runtime_version >= RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT {
-			Ok(async_backing_params)
-		} else {
-			Err(RuntimeApiError::NotSupported { runtime_api_name: "async_backing_params" })
-		};
+		let async_backing_response =
+			if runtime_version >= RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT {
+				Ok(async_backing_params)
+			} else {
+				Err(RuntimeApiError::NotSupported { runtime_api_name: "async_backing_params" })
+			};
 
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
