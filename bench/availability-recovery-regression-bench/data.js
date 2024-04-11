@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712843532999,
+  "lastUpdate": 1712854880513,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -2771,6 +2771,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.23242465047333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Alexander Samusev",
+            "username": "alvicsam",
+            "email": "41779041+alvicsam@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "6ebf491b50a45d1814a72a6ac4287f4a15ba39ce",
+          "message": "[ci] Divide subsystem-regression-tests into 2 jobs (#4076)\n\nCurrently `subsystem-regression-tests` job fails if the first benchmarks\nfail and there is no result for the second benchmark. Also dividing the\njob makes the pipeline faster (currently it's a longest job)\n\ncc https://github.com/paritytech/ci_cd/issues/969\ncc @AndreiEres\n\n---------\n\nCo-authored-by: Andrei Eres <eresav@me.com>",
+          "timestamp": "2024-04-11T15:29:00Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ebf491b50a45d1814a72a6ac4287f4a15ba39ce"
+        },
+        "date": 1712854853426,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666672,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.21189825042000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.457229359566663,
             "unit": "seconds"
           }
         ]
