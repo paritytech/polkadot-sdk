@@ -2109,17 +2109,30 @@ impl<T: Config> Pallet<T> {
 	/// Invariants:
 	/// * Stake consistency: ledger.total == ledger.active + sum(ledger.unlocking).
 	/// * The ledger's controller and stash matches the associated `Bonded` tuple.
-	/// * Staking locked funds for every bonded stash should be the same as its ledger's total.
+	/// * Staking locked funds for every bonded stash (non virtual stakers) should be the same as
+	/// its ledger's total.
+	/// * For virtual stakers, locked funds should be zero and payee should be non-stash account.
 	/// * Staking ledger and bond are not corrupted.
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
-			.filter(|(stash, _)| !VirtualStakers::<T>::contains_key(stash))
 			.map(|(stash, ctrl)| {
 				// ensure locks consistency.
-				ensure!(
-					Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-					"bond, ledger and/or staking lock inconsistent for a bonded stash."
-				);
+				if VirtualStakers::<T>::contains_key(stash.clone()) {
+					ensure!(T::Currency::balance_locked(crate::STAKING_ID, &stash) == Zero::zero(), "virtual stakers should not have any locked balance");
+					ensure!(<Bonded<T>>::get(stash.clone()).unwrap() == stash.clone(), "stash and controller should be same");
+					ensure!(Ledger::<T>::get(stash.clone()).unwrap().stash == stash, "ledger corrupted for virtual staker");
+					let reward_destination = <Payee<T>>::get(stash.clone()).unwrap();
+					if let RewardDestination::Account(payee) = reward_destination {
+						ensure!(payee != stash.clone(), "reward destination should not be same as stash for virtual staker");
+					} else {
+						return Err(DispatchError::Other("reward destination must be of account variant for virtual staker"));
+					}
+				} else {
+					ensure!(
+						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
+						"bond, ledger and/or staking lock inconsistent for a bonded stash."
+					);
+				}
 
 				// ensure ledger consistency.
 				Self::ensure_ledger_consistent(ctrl)

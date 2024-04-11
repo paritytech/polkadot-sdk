@@ -6997,6 +6997,8 @@ mod staking_unsafe {
 
 			// migrate them to virtual staker
 			<Staking as StakingUnsafe>::migrate_to_virtual_staker(&200);
+			// payee needs to be updated to a non-stash account.
+			assert_ok!(<Staking as StakingInterface>::update_payee(&200, &201));
 
 			// ensure the balance is not locked anymore
 			assert_eq!(Balances::balance_locked(crate::STAKING_ID, &200), 0);
