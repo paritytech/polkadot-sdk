@@ -30,7 +30,8 @@ use futures::prelude::*;
 
 use sp_runtime::traits::{Block as BlockT, Header};
 
-use super::{scheduled_cores, CollatorMessage};
+use super::CollatorMessage;
+use crate::collators::cores_scheduled_for_para;
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
 
@@ -94,7 +95,7 @@ where
 			// Check for scheduled cores.
 			Some(notification) = best_notifications.next() => {
 				core_queue =
-					scheduled_cores(notification.hash(), params.para_id, &params.relay_client).await;
+					cores_scheduled_for_para(notification.hash(), params.para_id, &params.relay_client).await;
 				tracing::debug!(
 					target: LOG_TARGET,
 					relay_parent = ?notification.hash(),

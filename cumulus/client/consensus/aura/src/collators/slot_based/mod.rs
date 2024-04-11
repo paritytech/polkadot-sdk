@@ -42,12 +42,10 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{relay_chain::Hash as PHash, CollectCollationInfo};
+use cumulus_primitives_core::CollectCollationInfo;
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{
-	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
-};
+use polkadot_primitives::{CollatorPair, Hash as RelayHash, Id as ParaId, ValidationCodeHash};
 
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -61,9 +59,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Member};
 
-use std::{collections::VecDeque, sync::Arc, time::Duration};
-
-use crate::LOG_TARGET;
+use std::{sync::Arc, time::Duration};
 
 use self::{block_builder_task::run_block_builder, collation_task::run_collation_task};
 
@@ -184,32 +180,4 @@ struct CollatorMessage<Block: BlockT> {
 	pub hash: Block::Hash,
 	/// The validation code hash at the parent block.
 	pub validation_code_hash: ValidationCodeHash,
-}
-
-/// Retrieve the scheduled cores for the parachain with id `para_id` from the relay chain.
-async fn scheduled_cores<RClient: RelayChainInterface + Clone + 'static>(
-	relay_parent: PHash,
-	para_id: ParaId,
-	relay_chain_interface: &RClient,
-) -> VecDeque<CoreIndex> {
-	let cores = match relay_chain_interface.availability_cores(relay_parent).await {
-		Ok(cores) => cores,
-		Err(error) => {
-			tracing::error!(
-				target: LOG_TARGET,
-				?error,
-				?relay_parent,
-				"Failed to query availability cores runtime API",
-			);
-			return VecDeque::new()
-		},
-	};
-
-	cores
-		.iter()
-		.enumerate()
-		.filter_map(|(idx, core)| {
-			(core.para_id() == Some(para_id)).then_some(CoreIndex(idx as u32))
-		})
-		.collect()
 }

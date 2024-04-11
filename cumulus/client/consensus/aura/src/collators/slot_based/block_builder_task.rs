@@ -67,10 +67,10 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
 use sp_timestamp::Timestamp;
 use std::{sync::Arc, time::Duration};
 
-use super::{scheduled_cores, CollatorMessage};
+use super::CollatorMessage;
 use crate::{
 	collator::{self as collator_util, SlotClaim},
-	collators::check_validation_code_or_log,
+	collators::{check_validation_code_or_log, cores_scheduled_for_para},
 	LOG_TARGET,
 };
 
@@ -275,7 +275,7 @@ pub async fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RClient, CHP
 			continue;
 		};
 
-		let scheduled_cores = scheduled_cores(relay_parent, para_id, &relay_client).await;
+		let scheduled_cores = cores_scheduled_for_para(relay_parent, para_id, &relay_client).await;
 		if scheduled_cores.is_empty() {
 			tracing::debug!(target: LOG_TARGET, "Parachain not scheduled, skipping slot.");
 			continue;

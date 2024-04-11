@@ -34,26 +34,19 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, load_abridged_host_configuration, ParachainBlockImportMarker,
-	ParentSearchParams,
+	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{
-	relay_chain::Hash as PHash, CollectCollationInfo, PersistedValidationData,
-};
+use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::SubmitCollationParams;
-use polkadot_node_subsystem::messages::{
-	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
-};
+use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{
-	AsyncBackingParams, CollatorPair, CoreIndex, CoreState, Id as ParaId, OccupiedCoreAssumption,
-};
+use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
-use futures::{channel::oneshot, prelude::*};
+use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::standalone as aura_internal;
@@ -184,10 +177,9 @@ where
 
 			// TODO: Currently we use just the first core here, but for elastic scaling
 			// we iterate and build on all of the cores returned.
-			let core_index = if let Some(core_index) = cores_scheduled_for_para(
+			let core_index = if let Some(core_index) = super::cores_scheduled_for_para(
 				relay_parent,
 				params.para_id,
-				&mut params.overseer_handle,
 				&mut params.relay_client,
 			)
 			.await
@@ -225,7 +217,7 @@ where
 			let parent_search_params = ParentSearchParams {
 				relay_parent,
 				para_id: params.para_id,
-				ancestry_lookback: async_backing_params(relay_parent, &params.relay_client)
+				ancestry_lookback: super::async_backing_params(relay_parent, &params.relay_client)
 					.await
 					.map(|c| c.allowed_ancestry_len as usize)
 					.unwrap_or(0),
@@ -464,92 +456,4 @@ where
 	}
 
 	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
-}
-
-/// Reads async backing parameters from the relay chain storage at the given relay parent.
-async fn async_backing_params(
-	relay_parent: PHash,
-	relay_client: &impl RelayChainInterface,
-) -> Option<AsyncBackingParams> {
-	match load_abridged_host_configuration(relay_parent, relay_client).await {
-		Ok(Some(config)) => Some(config.async_backing_params),
-		Ok(None) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				"Active config is missing in relay chain storage",
-			);
-			None
-		},
-		Err(err) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?err,
-				?relay_parent,
-				"Failed to read active config from relay chain client",
-			);
-			None
-		},
-	}
-}
-
-// Return all the cores assigned to the para at the provided relay parent.
-async fn cores_scheduled_for_para(
-	relay_parent: PHash,
-	para_id: ParaId,
-	overseer_handle: &mut OverseerHandle,
-	relay_client: &impl RelayChainInterface,
-) -> Vec<CoreIndex> {
-	// Get `AvailabilityCores` from runtime
-	let (tx, rx) = oneshot::channel();
-	let request = RuntimeApiRequest::AvailabilityCores(tx);
-	overseer_handle
-		.send_msg(RuntimeApiMessage::Request(relay_parent, request), "LookaheadCollator")
-		.await;
-
-	let cores = match rx.await {
-		Ok(Ok(cores)) => cores,
-		Ok(Err(error)) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?error,
-				?relay_parent,
-				"Failed to query availability cores runtime API",
-			);
-			return Vec::new()
-		},
-		Err(oneshot::Canceled) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?relay_parent,
-				"Sender for availability cores runtime request dropped",
-			);
-			return Vec::new()
-		},
-	};
-
-	let max_candidate_depth = async_backing_params(relay_parent, relay_client)
-		.await
-		.map(|c| c.max_candidate_depth)
-		.unwrap_or(0);
-
-	cores
-		.iter()
-		.enumerate()
-		.filter_map(|(index, core)| {
-			let core_para_id = match core {
-				CoreState::Scheduled(scheduled_core) => Some(scheduled_core.para_id),
-				CoreState::Occupied(occupied_core) if max_candidate_depth >= 1 => occupied_core
-					.next_up_on_available
-					.as_ref()
-					.map(|scheduled_core| scheduled_core.para_id),
-				CoreState::Free | CoreState::Occupied(_) => None,
-			};
-
-			if core_para_id == Some(para_id) {
-				Some(CoreIndex(index as u32))
-			} else {
-				None
-			}
-		})
-		.collect()
 }
