@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712854544360,
+  "lastUpdate": 1712858939913,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
@@ -3483,6 +3483,58 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.014496761419999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Andrei Eres",
+            "username": "AndreiEres",
+            "email": "eresav@me.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "25f038aa8e381911832450b2e2452d5cc64dfe37",
+          "message": "Run subsystem-benchmark without network latency (#4068)\n\nImplements the idea from\nhttps://github.com/paritytech/polkadot-sdk/pull/3899\n- Removed latencies\n- Number of runs reduced from 50 to 5, according to local runs it's\nquite enough\n- Network message is always sent in a spawned task, even if latency is\nzero. Without it, CPU time sometimes spikes.\n- Removed the `testnet` profile because we probably don't need that\ndebug additions.\n\nAfter the local tests I can't say that it brings a significant\nimprovement in the stability of the results. However, I belive it is\nworth trying and looking at the results over time.",
+          "timestamp": "2024-04-11T16:54:59Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/25f038aa8e381911832450b2e2452d5cc64dfe37"
+        },
+        "date": 1712858914257,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 20537.666666666668,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 440.3333333333333,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02453249373333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.007717179133333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.015406796466666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.16608715200000018,
             "unit": "seconds"
           }
         ]
