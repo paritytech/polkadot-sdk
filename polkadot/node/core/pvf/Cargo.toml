@@ -26,7 +26,7 @@ thiserror = { workspace = true }
 tokio = { version = "1.24.2", features = ["fs", "process"] }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = [
-  "derive",
+	"derive",
 ] }
 
 polkadot-parachain-primitives = { path = "../../../parachain" }
@@ -45,8 +45,8 @@ polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = tr
 [dev-dependencies]
 assert_matches = "1.4.0"
 criterion = { version = "0.4.0", default-features = false, features = [
-  "async_tokio",
-  "cargo_bench_support",
+	"async_tokio",
+	"cargo_bench_support",
 ] }
 hex-literal = "0.4.1"
 
@@ -74,8 +74,8 @@ ci-only-tests = []
 jemalloc-allocator = ["polkadot-node-core-pvf-common/jemalloc-allocator"]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = [
-  "dep:is_executable",
-  "dep:polkadot-node-core-pvf-prepare-worker",
-  "dep:polkadot-node-core-pvf-execute-worker",
-  "dep:sp-maybe-compressed-blob",
+	"dep:is_executable",
+	"dep:polkadot-node-core-pvf-execute-worker",
+	"dep:polkadot-node-core-pvf-prepare-worker",
+	"dep:sp-maybe-compressed-blob",
 ]
