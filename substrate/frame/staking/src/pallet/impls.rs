@@ -1974,6 +1974,19 @@ impl<T: Config> sp_staking::StakingUnsafe for Pallet<T> {
 
 		Ok(())
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn migrate_to_direct_staker(who: &Self::AccountId) {
+		assert!(VirtualStakers::<T>::contains_key(who));
+		let ledger = StakingLedger::<T>::get(Stash(who.clone())).unwrap();
+		T::Currency::set_lock(
+			crate::STAKING_ID,
+			who,
+			ledger.total,
+			frame_support::traits::WithdrawReasons::all(),
+		);
+		VirtualStakers::<T>::remove(who);
+	}
 }
 
 #[cfg(any(test, feature = "try-runtime"))]
