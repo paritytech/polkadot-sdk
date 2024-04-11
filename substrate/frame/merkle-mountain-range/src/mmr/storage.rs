@@ -29,7 +29,7 @@ use sp_std::prelude::*;
 use crate::{
 	mmr::{Node, NodeOf},
 	primitives::{self, NodeIndex},
-	Config, Nodes, NumberOfLeaves, Pallet, BlockHashProvider
+	BlockHashProvider, Config, Nodes, NumberOfLeaves, Pallet,
 };
 
 /// A marker type for runtime-specific storage implementation.

@@ -104,16 +104,18 @@ impl<T: frame_system::Config> LeafDataProvider for ParentNumberAndHash<T> {
 }
 
 /// Block hash provider for a given block number.
-pub trait BlockHashProvider<BlockNumber, BlockHash>{
+pub trait BlockHashProvider<BlockNumber, BlockHash> {
 	fn block_hash_for(block_number: BlockNumber) -> BlockHash;
 }
 
 /// Default implementation of BlockHashProvider using frame_system.
-pub struct DefaultBlockHashProvider<T: frame_system::Config>{
+pub struct DefaultBlockHashProvider<T: frame_system::Config> {
 	_phantom: sp_std::marker::PhantomData<T>,
 }
 
-impl<T: frame_system::Config> BlockHashProvider<BlockNumberFor<T>, T::Hash> for DefaultBlockHashProvider<T> {
+impl<T: frame_system::Config> BlockHashProvider<BlockNumberFor<T>, T::Hash>
+	for DefaultBlockHashProvider<T>
+{
 	fn block_hash_for(block_number: BlockNumberFor<T>) -> T::Hash {
 		frame_system::Pallet::<T>::block_hash(block_number)
 	}
@@ -194,7 +196,10 @@ pub mod pallet {
 		type OnNewRoot: primitives::OnNewRoot<HashOf<Self, I>>;
 
 		/// Block hash provider for a given block number.
-		type BlockHashProvider: BlockHashProvider<BlockNumberFor<Self>, <Self as frame_system::Config>::Hash>;
+		type BlockHashProvider: BlockHashProvider<
+			BlockNumberFor<Self>,
+			<Self as frame_system::Config>::Hash,
+		>;
 
 		/// Weights for this pallet.
 		type WeightInfo: WeightInfo;
