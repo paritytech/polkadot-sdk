@@ -22,7 +22,7 @@ use crate::{self as tasks_example};
 use frame_support::derive_impl;
 use sp_runtime::testing::TestXt;
 
-pub type AccountId = u64;
+pub type AccountId = u32;
 pub type Balance = u32;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
