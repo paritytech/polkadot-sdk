@@ -19,8 +19,10 @@
 #![cfg(test)]
 
 use crate::{mock::*, Numbers};
+#[cfg(feature = "experimental")]
 use codec::Decode;
 use frame_support::traits::Task;
+#[cfg(feature = "experimental")]
 use sp_core::offchain::{testing, OffchainWorkerExt, TransactionPoolExt};
 use sp_runtime::BuildStorage;
 

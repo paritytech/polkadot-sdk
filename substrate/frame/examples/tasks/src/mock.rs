@@ -54,6 +54,7 @@ impl tasks_example::Config for Runtime {
 }
 
 pub fn advance_to(b: u64) {
+	#[cfg(feature = "experimental")]
 	use frame_support::traits::Hooks;
 	while System::block_number() < b {
 		System::set_block_number(System::block_number() + 1);

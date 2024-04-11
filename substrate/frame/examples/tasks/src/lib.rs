@@ -19,7 +19,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::dispatch::DispatchResult;
-use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
+use frame_system::offchain::SendTransactionTypes;
+#[cfg(feature = "experimental")]
+use frame_system::offchain::SubmitTransaction;
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
