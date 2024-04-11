@@ -417,7 +417,7 @@ mod tests {
 			original_ext.backend.clone().into_storage(),
 		);
 
-		// Ensure all have the correct ref counrt
+		// Ensure all have the correct ref count
 		assert!(original_ext.backend.backend_storage().keys().values().all(|r| *r == 2));
 
 		// Drain the raw storage and root.

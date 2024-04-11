@@ -84,7 +84,7 @@ mod benchmarks {
 	// - load the full ring context.
 	// - recompute the ring verifier.
 	// - sorting the epoch tickets in one shot
-	//  (here we account for the very unluky scenario where we haven't done any sort work yet)
+	//  (here we account for the very unlucky scenario where we haven't done any sort work yet)
 	// - pending epoch change config.
 	//
 	// For this bench we assume a redundancy factor of 2 (suggested value to be used in prod).

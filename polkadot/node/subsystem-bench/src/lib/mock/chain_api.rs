@@ -89,7 +89,7 @@ impl MockChainApi {
 							let hash = self
 								.state
 								.get_header_by_number(requested_number)
-								.expect("Unknow block number")
+								.expect("Unknown block number")
 								.hash();
 							sender.send(Ok(Some(hash))).unwrap();
 						},

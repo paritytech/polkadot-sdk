@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage proof primitives. Constains types and basic code to extract storage
+//! Storage proof primitives. Contains types and basic code to extract storage
 //! proofs for indexed transactions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
