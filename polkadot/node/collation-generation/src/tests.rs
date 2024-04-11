@@ -807,6 +807,56 @@ fn distribute_collation_for_occupied_core_with_async_backing_enabled(#[case] run
 			OccupiedCoreAssumption::Included,
 			1,
 			pending_availability,
+			runtime_version,
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+#[test]
+fn distribute_collation_for_occupied_core_pre_async_backing() {
+	let activated_hash: Hash = [1; 32].into();
+	let para_id = ParaId::from(5);
+	let total_cores = 3;
+
+	// Use runtime version before async backing
+	let runtime_version = RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT - 1;
+
+	let cores = (0..total_cores)
+		.into_iter()
+		.map(|_idx| CoreState::Scheduled(ScheduledCore { para_id, collator: None }))
+		.collect::<Vec<_>>();
+
+	let claim_queue = cores
+		.iter()
+		.enumerate()
+		.map(|(idx, _core)| (CoreIndex::from(idx as u32), VecDeque::from([para_id])))
+		.collect::<BTreeMap<_, _>>();
+
+	test_harness(|mut virtual_overseer| async move {
+		helpers::initialize_collator(&mut virtual_overseer, para_id).await;
+		helpers::activate_new_head(&mut virtual_overseer, activated_hash).await;
+		helpers::handle_runtime_calls_on_new_head_activation(
+			&mut virtual_overseer,
+			activated_hash,
+			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
+			cores,
+			runtime_version,
+			claim_queue,
+		)
+		.await;
+
+		helpers::handle_cores_processing_for_a_leaf(
+			&mut virtual_overseer,
+			activated_hash,
+			para_id,
+			// `CoreState` is `Free` => `OccupiedCoreAssumption` is `Free`
+			OccupiedCoreAssumption::Free,
+			total_cores,
+			vec![],
+			runtime_version,
 		)
 		.await;
 
@@ -826,6 +876,8 @@ fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elasti
 ) {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
+	// Using latest runtime with the fancy claim queue exposed.
+	let runtime_version = RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT;
 
 	let cores = (0..3)
 		.into_iter()
@@ -863,8 +915,7 @@ fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elasti
 			activated_hash,
 			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
 			cores,
-			// Using latest runtime with the fancy claim queue exposed.
-			RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+			runtime_version,
 			claim_queue,
 		)
 		.await;
@@ -882,6 +933,7 @@ fn distribute_collation_for_occupied_cores_with_async_backing_enabled_and_elasti
 			},
 			total_cores,
 			pending_availability,
+			runtime_version,
 		)
 		.await;
 
@@ -901,6 +953,8 @@ fn distribute_collation_for_free_cores_with_async_backing_enabled_and_elastic_sc
 ) {
 	let activated_hash: Hash = [1; 32].into();
 	let para_id = ParaId::from(5);
+	// Using latest runtime with the fancy claim queue exposed.
+	let runtime_version = RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT;
 
 	let cores = (0..total_cores)
 		.into_iter()
@@ -921,8 +975,7 @@ fn distribute_collation_for_free_cores_with_async_backing_enabled_and_elastic_sc
 			activated_hash,
 			AsyncBackingParams { max_candidate_depth: 1, allowed_ancestry_len: 1 },
 			cores,
-			// Using latest runtime with the fancy claim queue exposed.
-			RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT,
+			runtime_version,
 			claim_queue,
 		)
 		.await;
@@ -935,6 +988,7 @@ fn distribute_collation_for_free_cores_with_async_backing_enabled_and_elastic_sc
 			OccupiedCoreAssumption::Free,
 			total_cores,
 			vec![],
+			runtime_version,
 		)
 		.await;
 
@@ -1074,6 +1128,13 @@ mod helpers {
 			}
 		);
 
+		let async_backing_response =
+			if runtime_version >= RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT {
+				Ok(async_backing_params)
+			} else {
+				Err(RuntimeApiError::NotSupported { runtime_api_name: "async_backing_params" })
+			};
+
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -1083,7 +1144,7 @@ mod helpers {
 								),
 							)) => {
 				assert_eq!(hash, activated_hash);
-				let _ = tx.send(Ok(async_backing_params));
+				let _ = tx.send(async_backing_response);
 			}
 		);
 
@@ -1121,6 +1182,7 @@ mod helpers {
 		expected_occupied_core_assumption: OccupiedCoreAssumption,
 		cores_assigned: usize,
 		pending_availability: Vec<CandidatePendingAvailability>,
+		runtime_version: u32,
 	) {
 		// Expect no messages if no cores is assigned to the para
 		if cores_assigned == 0 {
@@ -1138,14 +1200,16 @@ mod helpers {
 			max_pov_size: 1024,
 		};
 
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ParaBackingState(p_id, tx))
-			) if parent == activated_hash && p_id == para_id => {
-				tx.send(Ok(Some(dummy_backing_state(pending_availability)))).unwrap();
-			}
-		);
+		if runtime_version >= RuntimeApiRequest::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT {
+			assert_matches!(
+				overseer_recv(virtual_overseer).await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(parent, RuntimeApiRequest::ParaBackingState(p_id, tx))
+				) if parent == activated_hash && p_id == para_id => {
+					tx.send(Ok(Some(dummy_backing_state(pending_availability)))).unwrap();
+				}
+			);
+		}
 
 		assert_matches!(
 			overseer_recv(virtual_overseer).await,
