@@ -2118,14 +2118,28 @@ impl<T: Config> Pallet<T> {
 			.map(|(stash, ctrl)| {
 				// ensure locks consistency.
 				if VirtualStakers::<T>::contains_key(stash.clone()) {
-					ensure!(T::Currency::balance_locked(crate::STAKING_ID, &stash) == Zero::zero(), "virtual stakers should not have any locked balance");
-					ensure!(<Bonded<T>>::get(stash.clone()).unwrap() == stash.clone(), "stash and controller should be same");
-					ensure!(Ledger::<T>::get(stash.clone()).unwrap().stash == stash, "ledger corrupted for virtual staker");
+					ensure!(
+						T::Currency::balance_locked(crate::STAKING_ID, &stash) == Zero::zero(),
+						"virtual stakers should not have any locked balance"
+					);
+					ensure!(
+						<Bonded<T>>::get(stash.clone()).unwrap() == stash.clone(),
+						"stash and controller should be same"
+					);
+					ensure!(
+						Ledger::<T>::get(stash.clone()).unwrap().stash == stash,
+						"ledger corrupted for virtual staker"
+					);
 					let reward_destination = <Payee<T>>::get(stash.clone()).unwrap();
 					if let RewardDestination::Account(payee) = reward_destination {
-						ensure!(payee != stash.clone(), "reward destination should not be same as stash for virtual staker");
+						ensure!(
+							payee != stash.clone(),
+							"reward destination should not be same as stash for virtual staker"
+						);
 					} else {
-						return Err(DispatchError::Other("reward destination must be of account variant for virtual staker"));
+						return Err(DispatchError::Other(
+							"reward destination must be of account variant for virtual staker",
+						));
 					}
 				} else {
 					ensure!(
