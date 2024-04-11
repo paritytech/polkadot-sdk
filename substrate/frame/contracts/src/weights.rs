@@ -58,6 +58,7 @@ pub trait WeightInfo {
 	fn v13_migration_step() -> Weight;
 	fn v14_migration_step() -> Weight;
 	fn v15_migration_step() -> Weight;
+	fn v16_migration_step() -> Weight;
 	fn migration_noop() -> Weight;
 	fn migrate() -> Weight;
 	fn on_runtime_upgrade_noop() -> Weight;
@@ -270,6 +271,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(57_813_000, 6534)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
+	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
+	fn v16_migration_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `409`
+		//  Estimated: `6349`
+		// Minimum execution time: 12_595_000 picoseconds.
+		Weight::from_parts(13_059_000, 6349)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Contracts::MigrationInProgress` (r:1 w:1)
 	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
@@ -1541,6 +1553,17 @@ impl WeightInfo for () {
 		Weight::from_parts(57_813_000, 6534)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `Contracts::ContractInfoOf` (r:2 w:1)
+	/// Proof: `Contracts::ContractInfoOf` (`max_values`: None, `max_size`: Some(1795), added: 4270, mode: `Measured`)
+	fn v16_migration_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `409`
+		//  Estimated: `6349`
+		// Minimum execution time: 12_595_000 picoseconds.
+		Weight::from_parts(13_059_000, 6349)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Contracts::MigrationInProgress` (r:1 w:1)
 	/// Proof: `Contracts::MigrationInProgress` (`max_values`: Some(1), `max_size`: Some(1026), added: 1521, mode: `Measured`)
