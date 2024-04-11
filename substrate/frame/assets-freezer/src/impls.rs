@@ -27,25 +27,22 @@ use sp_runtime::traits::Zero;
 /// Implements [`FrozenBalance`] from [`pallet-assets`], so it can understands how much of an
 /// account balance is frozen, and is able to signal to this pallet when to clear the state of an
 /// account.
-impl<T: Config<I>, I: 'static> FrozenBalance<AssetIdOf<T, I>, AccountIdOf<T>, AssetBalanceOf<T, I>>
+impl<T: Config<I>, I: 'static> FrozenBalance<T::AssetId, T::AccountId, T::Balance>
 	for Pallet<T, I>
 {
-	fn frozen_balance(
-		asset: AssetIdOf<T, I>,
-		who: &AccountIdOf<T>,
-	) -> Option<AssetBalanceOf<T, I>> {
+	fn frozen_balance(asset: T::AssetId, who: &T::AccountId) -> Option<T::Balance> {
 		FrozenBalances::<T, I>::get(asset, who)
 	}
 
-	fn died(asset: AssetIdOf<T, I>, who: &AccountIdOf<T>) {
+	fn died(asset: T::AssetId, who: &T::AccountId) {
 		FrozenBalances::<T, I>::remove(asset.clone(), who);
 		Freezes::<T, I>::remove(asset, who);
 	}
 }
 
-impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
-	type AssetId = AssetIdOf<T, I>;
-	type Balance = AssetBalanceOf<T, I>;
+impl<T: Config<I>, I: 'static> Inspect<T::AccountId> for Pallet<T, I> {
+	type AssetId = T::AssetId;
+	type Balance = T::Balance;
 
 	fn total_issuance(asset: Self::AssetId) -> Self::Balance {
 		pallet_assets::Pallet::<T, I>::total_issuance(asset)
@@ -55,17 +52,17 @@ impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 		pallet_assets::Pallet::<T, I>::minimum_balance(asset)
 	}
 
-	fn total_balance(asset: Self::AssetId, who: &AccountIdOf<T>) -> Self::Balance {
+	fn total_balance(asset: Self::AssetId, who: &T::AccountId) -> Self::Balance {
 		pallet_assets::Pallet::<T, I>::total_balance(asset, who)
 	}
 
-	fn balance(asset: Self::AssetId, who: &AccountIdOf<T>) -> Self::Balance {
+	fn balance(asset: Self::AssetId, who: &T::AccountId) -> Self::Balance {
 		pallet_assets::Pallet::<T, I>::balance(asset, who)
 	}
 
 	fn reducible_balance(
 		asset: Self::AssetId,
-		who: &AccountIdOf<T>,
+		who: &T::AccountId,
 		preservation: Preservation,
 		force: Fortitude,
 	) -> Self::Balance {
@@ -74,7 +71,7 @@ impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 
 	fn can_deposit(
 		asset: Self::AssetId,
-		who: &AccountIdOf<T>,
+		who: &T::AccountId,
 		amount: Self::Balance,
 		provenance: Provenance,
 	) -> DepositConsequence {
@@ -83,7 +80,7 @@ impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 
 	fn can_withdraw(
 		asset: Self::AssetId,
-		who: &AccountIdOf<T>,
+		who: &T::AccountId,
 		amount: Self::Balance,
 	) -> WithdrawConsequence<Self::Balance> {
 		pallet_assets::Pallet::<T, I>::can_withdraw(asset, who, amount)
@@ -94,25 +91,25 @@ impl<T: Config<I>, I: 'static> Inspect<AccountIdOf<T>> for Pallet<T, I> {
 	}
 }
 
-impl<T: Config<I>, I: 'static> InspectFreeze<AccountIdOf<T>> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> InspectFreeze<T::AccountId> for Pallet<T, I> {
 	type Id = T::FreezeIdentifier;
 
-	fn balance_frozen(asset: Self::AssetId, id: &Self::Id, who: &AccountIdOf<T>) -> Self::Balance {
+	fn balance_frozen(asset: Self::AssetId, id: &Self::Id, who: &T::AccountId) -> Self::Balance {
 		let freezes = Freezes::<T, I>::get(asset, who);
 		freezes.into_iter().find(|l| &l.id == id).map_or(Zero::zero(), |l| l.amount)
 	}
 
-	fn can_freeze(asset: Self::AssetId, id: &Self::Id, who: &AccountIdOf<T>) -> bool {
+	fn can_freeze(asset: Self::AssetId, id: &Self::Id, who: &T::AccountId) -> bool {
 		let freezes = Freezes::<T, I>::get(asset, who);
 		!freezes.is_full() || freezes.into_iter().any(|i| i.id == *id)
 	}
 }
 
-impl<T: Config<I>, I: 'static> MutateFreeze<AccountIdOf<T>> for Pallet<T, I> {
+impl<T: Config<I>, I: 'static> MutateFreeze<T::AccountId> for Pallet<T, I> {
 	fn set_freeze(
 		asset: Self::AssetId,
 		id: &Self::Id,
-		who: &AccountIdOf<T>,
+		who: &T::AccountId,
 		amount: Self::Balance,
 	) -> sp_runtime::DispatchResult {
 		if amount.is_zero() {
@@ -132,7 +129,7 @@ impl<T: Config<I>, I: 'static> MutateFreeze<AccountIdOf<T>> for Pallet<T, I> {
 	fn extend_freeze(
 		asset: Self::AssetId,
 		id: &Self::Id,
-		who: &AccountIdOf<T>,
+		who: &T::AccountId,
 		amount: Self::Balance,
 	) -> sp_runtime::DispatchResult {
 		if amount.is_zero() {
@@ -149,11 +146,7 @@ impl<T: Config<I>, I: 'static> MutateFreeze<AccountIdOf<T>> for Pallet<T, I> {
 		Self::update_freezes(asset, who, freezes.as_bounded_slice())
 	}
 
-	fn thaw(
-		asset: Self::AssetId,
-		id: &Self::Id,
-		who: &AccountIdOf<T>,
-	) -> sp_runtime::DispatchResult {
+	fn thaw(asset: Self::AssetId, id: &Self::Id, who: &T::AccountId) -> sp_runtime::DispatchResult {
 		let mut freezes = Freezes::<T, I>::get(asset.clone(), who);
 		freezes.retain(|f| &f.id != id);
 		Self::update_freezes(asset, who, freezes.as_bounded_slice())

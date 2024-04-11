@@ -48,7 +48,6 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_assets::{AccountIdOf, AssetBalanceOf, AssetIdOf};
 use sp_runtime::{
 	traits::{Saturating, Zero},
 	BoundedSlice,
@@ -109,10 +108,10 @@ pub mod pallet {
 	pub(super) type Freezes<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		AssetIdOf<T, I>,
+		T::AssetId,
 		Blake2_128Concat,
-		AccountIdOf<T>,
-		BoundedVec<IdAmount<T::FreezeIdentifier, AssetBalanceOf<T, I>>, T::MaxFreezes>,
+		T::AccountId,
+		BoundedVec<IdAmount<T::FreezeIdentifier, T::Balance>, T::MaxFreezes>,
 		ValueQuery,
 	>;
 
@@ -121,10 +120,10 @@ pub mod pallet {
 	pub(super) type FrozenBalances<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		AssetIdOf<T, I>,
+		T::AssetId,
 		Blake2_128Concat,
-		AccountIdOf<T>,
-		AssetBalanceOf<T, I>,
+		T::AccountId,
+		T::Balance,
 	>;
 
 	#[pallet::hooks]
@@ -146,9 +145,9 @@ pub mod pallet {
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn update_freezes(
-		asset: AssetIdOf<T, I>,
-		who: &AccountIdOf<T>,
-		freezes: BoundedSlice<IdAmount<T::FreezeIdentifier, AssetBalanceOf<T, I>>, T::MaxFreezes>,
+		asset: T::AssetId,
+		who: &T::AccountId,
+		freezes: BoundedSlice<IdAmount<T::FreezeIdentifier, T::Balance>, T::MaxFreezes>,
 	) -> DispatchResult {
 		let prev_frozen = FrozenBalances::<T, I>::get(asset.clone(), who).unwrap_or_default();
 		let after_frozen = freezes.into_iter().map(|f| f.amount).max().unwrap_or_else(Zero::zero);
