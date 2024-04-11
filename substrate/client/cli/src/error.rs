@@ -90,7 +90,6 @@ pub enum Error {
 		\n 2. [Preferred] Separately generate the key with: <NODE_BINARY> key generate-node-key --file <YOUR_PATH_TO_NODE_KEY>
 		\n 3. [Preferred] Separately generate the key with: <NODE_BINARY> key generate-node-key --default-base-path
 		\n 4. [Unsafe] Pass --unsafe-force-node-key-generation and make sure you remove it for subsequent node restarts"
-
 	)]
 	NetworkKeyNotFound(PathBuf),
 	#[error("A network key already exists in path {0}")]
