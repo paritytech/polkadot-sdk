@@ -151,7 +151,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 	ArithmeticError, DispatchResult, RuntimeDebug, Saturating,
 };
-use sp_staking::{EraIndex, StakerStatus, StakingInterface, StakingUnsafe};
+use sp_staking::{EraIndex, StakingInterface, StakingUnsafe};
 use sp_std::{convert::TryInto, prelude::*};
 
 pub type BalanceOf<T> =
@@ -282,7 +282,7 @@ pub mod pallet {
 			ensure!(!Self::is_delegator(&who), Error::<T>::NotAllowed);
 
 			// They cannot be already a direct staker in the staking pallet.
-			ensure!(Self::not_direct_staker(&who), Error::<T>::AlreadyStaking);
+			ensure!(!Self::is_direct_staker(&who), Error::<T>::AlreadyStaking);
 
 			// Reward account cannot be same as `agent` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
@@ -313,7 +313,7 @@ pub mod pallet {
 			ensure!(!Self::is_agent(&who), Error::<T>::NotAllowed);
 
 			// and they should already be a nominator in `CoreStaking`.
-			ensure!(Self::is_direct_nominator(&who), Error::<T>::NotAllowed);
+			ensure!(Self::is_direct_staker(&who), Error::<T>::NotAllowed);
 
 			// Reward account cannot be same as `agent` account.
 			ensure!(reward_account != who, Error::<T>::InvalidRewardDestination);
@@ -359,7 +359,7 @@ pub mod pallet {
 			// Ensure delegator is sane.
 			ensure!(!Self::is_agent(&delegator), Error::<T>::NotAllowed);
 			ensure!(!Self::is_delegator(&delegator), Error::<T>::NotAllowed);
-			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaking);
+			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
@@ -392,7 +392,7 @@ pub mod pallet {
 				Delegation::<T>::can_delegate(&delegator, &agent),
 				Error::<T>::InvalidDelegation
 			);
-			ensure!(Self::not_direct_staker(&delegator), Error::<T>::AlreadyStaking);
+			ensure!(!Self::is_direct_staker(&delegator), Error::<T>::AlreadyStaking);
 
 			// ensure agent is sane.
 			ensure!(Self::is_agent(&agent), Error::<T>::NotAgent);
@@ -437,16 +437,9 @@ impl<T: Config> Pallet<T> {
 		<Delegators<T>>::contains_key(who)
 	}
 
-	/// Returns true if who is not already staking on [`Config::CoreStaking`].
-	fn not_direct_staker(who: &T::AccountId) -> bool {
-		T::CoreStaking::status(who).is_err()
-	}
-
-	/// Returns true if who is a [`StakerStatus::Nominator`] on [`Config::CoreStaking`].
-	fn is_direct_nominator(who: &T::AccountId) -> bool {
-		T::CoreStaking::status(who)
-			.map(|status| matches!(status, StakerStatus::Nominator(_)))
-			.unwrap_or(false)
+	/// Returns true if who is already staking on [`Config::CoreStaking`].
+	fn is_direct_staker(who: &T::AccountId) -> bool {
+		T::CoreStaking::status(who).is_ok()
 	}
 
 	fn do_register_agent(who: &T::AccountId, reward_account: &T::AccountId) {
@@ -721,7 +714,7 @@ impl<T: Config> Pallet<T> {
 			ensure!(
 				matches!(
 					T::CoreStaking::status(&agent).expect("agent should be bonded"),
-					StakerStatus::Nominator(_) | StakerStatus::Idle
+					sp_staking::StakerStatus::Nominator(_) | sp_staking::StakerStatus::Idle
 				),
 				"agent should be bonded and not validator"
 			);
