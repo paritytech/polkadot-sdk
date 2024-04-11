@@ -939,7 +939,7 @@ frame_benchmarking::benchmarks! {
 		// Fill member's sub pools for the worst case.
 		for i in 0..T::MaxUnbonding::get() {
 			pallet_staking::CurrentEra::<T>::put(i + 2); // +2 because we already set the current era to 1.
-			assert!(Pools::<T>::unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone(), Pools::<T>::depositor_min_bond()).is_ok());
+			assert!(Pools::<T>::unbond(RuntimeOrigin::Signed(joiner.clone()).into(), joiner_lookup.clone(), min_join_bond).is_ok());
 		}
 
 		pallet_staking::CurrentEra::<T>::put(T::MaxUnbonding::get() + 3);

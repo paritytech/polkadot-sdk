@@ -7414,5 +7414,4 @@ mod delegation {
 		// TODO(ank4n): fail if adapter does not match the storage strategy. Only while withdrawing
 		// should be enough. For new runtimes, they need to set this storage via migration or force.
 	}
-
 }
