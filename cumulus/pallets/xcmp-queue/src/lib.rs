@@ -59,7 +59,7 @@ use cumulus_primitives_core::{
 
 use frame_support::{
 	defensive, defensive_assert,
-	traits::{EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
+	traits::{Defensive, EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
 	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
@@ -135,10 +135,10 @@ pub mod pallet {
 		///
 		/// If this is reached, then no further messages can be sent to channels that do not yet
 		/// have a message queued. This should be set to the expected maximum of outbound channels
-		/// which is determined by [`Self::ChannelInfo`]. It is important to set this correctly,
+		/// which is determined by [`Self::ChannelInfo`]. It is important to set this large enough,
 		/// since otherwise the congestion control protocol will not work as intended and messages
 		/// may be dropped. This value increases the PoV and should therefore not be picked too
-		/// high.
+		/// high. Governance needs to pay attention to not open more channels than this value.
 		#[pallet::constant]
 		type MaxActiveOutboundChannels: Get<u32>;
 
@@ -508,9 +508,10 @@ impl<T: Config> Pallet<T> {
 		{
 			details
 		} else {
-			all_channels
-				.try_push(OutboundChannelDetails::new(recipient))
-				.map_err(|_| MessageSendError::TooManyChannels)?;
+			all_channels.try_push(OutboundChannelDetails::new(recipient)).map_err(|e| {
+				log::error!("Failed to activate HRMP channel: {:?}", e);
+				MessageSendError::TooManyChannels
+			})?;
 			all_channels
 				.last_mut()
 				.expect("can't be empty; a new element was just pushed; qed")
@@ -711,22 +712,25 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 		let suspended = suspended_channels.contains(&para);
 
 		if suspended && fp.ready_pages <= resume_threshold {
-			// If the resuming fails then it is not critical. We will retry in the future.
-			let _ = Self::send_signal(para, ChannelSignal::Resume);
-
-			suspended_channels.remove(&para);
-			<InboundXcmpSuspended<T>>::put(suspended_channels);
+			if let Err(err) = Self::send_signal(para, ChannelSignal::Resume) {
+				log::error!("defensive: Could not send resumption signal to inbound channel of sibling {:?}: {:?}; channel remains suspended.", para, err);
+			} else {
+				suspended_channels.remove(&para);
+				<InboundXcmpSuspended<T>>::put(suspended_channels);
+			}
 		} else if !suspended && fp.ready_pages >= suspend_threshold {
 			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
-			if let Err(_) = Self::send_signal(para, ChannelSignal::Suspend) {
-				// It will retry if `drop_threshold` is not reached, but it could be too late.
-				defensive!("Could not send suspension signal; future messages may be dropped.");
-			}
 
-			if let Err(err) = suspended_channels.try_insert(para) {
+			if let Err(err) = Self::send_signal(para, ChannelSignal::Suspend) {
+				// It will retry if `drop_threshold` is not reached, but it could be too late.
+				log::error!(
+					"defensive: Could not send suspension signal; future messages may be dropped: {:?}", err
+				);
+			} else if let Err(err) = suspended_channels.try_insert(para) {
 				log::error!("Too many channels suspended; cannot suspend sibling {:?}: {:?}; further messages may be dropped.", para, err);
+			} else {
+				<InboundXcmpSuspended<T>>::put(suspended_channels);
 			}
-			<InboundXcmpSuspended<T>>::put(suspended_channels);
 		}
 	}
 }
@@ -941,14 +945,9 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 		let pruned = old_statuses_len - statuses.len();
 		// removing an item from status implies a message being sent, so the result messages must
 		// be no less than the pruned channels.
-
-		// TODO <https://github.com/paritytech/parity-common/pull/800>
-		{
-			let mut statuses_inner = statuses.into_inner();
-			statuses_inner.rotate_left(result.len().saturating_sub(pruned));
-			statuses = BoundedVec::try_from(statuses_inner)
-				.expect("Rotating does not change the length; it still fits; qed");
-		}
+		let _ = statuses.try_rotate_left(result.len().saturating_sub(pruned)).defensive_proof(
+			"Could not store HRMP channels config. Some HRMP channels may be broken.",
+		);
 
 		<OutboundXcmpStatus<T>>::put(statuses);
 

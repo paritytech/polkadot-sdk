@@ -81,6 +81,8 @@ impl<T: V5Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV4T
 			"Too many outbound channels. Close some channels or increase `MaxActiveOutboundChannels`."
 		);
 
+		ensure!(T::MaxPageSize::get() >= 16, "Sanity check failed: MaxPageSize too small");
+
 		// Check if any channels have a too large message max sizes.
 		let max_msg_len = T::MaxPageSize::get() - XcmpMessageFormat::max_encoded_len() as u32;
 		for channel in T::ChannelList::outgoing_channels() {
@@ -99,20 +101,6 @@ impl<T: V5Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV4T
 				//return Err("Migration can be front-run".into());
 			}
 		}
-
-		// Now check that all pages still fit into the new `BoundedVec`s:
-		for page in v4::OutboundXcmpMessages::<T>::iter_values() {
-			if page.len() >= T::MaxPageSize::get() as usize {
-				log::warn!("Too long message in storage. WeakBoundedVec should handle this.");
-			}
-		}
-		for page in v4::SignalMessages::<T>::iter_values() {
-			if page.len() >= T::MaxPageSize::get() as usize {
-				log::warn!("Too long message in storage. WeakBoundedVec should handle this.");
-			}
-		}
-
-		ensure!(T::MaxPageSize::get() >= 16, "Sanity check failed: MaxPageSize too small");
 
 		Ok(())
 	}
