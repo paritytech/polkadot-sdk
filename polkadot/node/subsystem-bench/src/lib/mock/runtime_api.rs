@@ -26,8 +26,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec, NodeFeatures,
-	OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
+	AsyncBackingParams, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, GroupRotationInfo,
+	IndexedVec, NodeFeatures, OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
@@ -222,6 +222,43 @@ impl MockRuntimeApi {
 								.babe_epoch
 								.clone()
 								.expect("Babe epoch unpopulated")));
+						},
+						RuntimeApiMessage::Request(
+							_block_hash,
+							RuntimeApiRequest::AsyncBackingParams(sender),
+						) => {
+							let _ = sender.send(Ok(AsyncBackingParams {
+								max_candidate_depth: 1,
+								allowed_ancestry_len: 1,
+							}));
+						},
+						RuntimeApiMessage::Request(_parent, RuntimeApiRequest::Version(tx)) => {
+							tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT))
+								.unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::DisabledValidators(tx),
+						) => {
+							tx.send(Ok(vec![])).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::MinimumBackingVotes(_session_index, tx),
+						) => {
+							tx.send(Ok(2)).unwrap();
+						},
+						RuntimeApiMessage::Request(
+							_parent,
+							RuntimeApiRequest::ValidatorGroups(tx),
+						) => {
+							let groups = self.session_info().validator_groups.to_vec();
+							let group_rotation_info = GroupRotationInfo {
+								session_start_block: 1,
+								group_rotation_frequency: 12,
+								now: 1,
+							};
+							tx.send(Ok((groups, group_rotation_info))).unwrap();
 						},
 						// Long term TODO: implement more as needed.
 						message => {
