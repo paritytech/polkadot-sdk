@@ -45,6 +45,7 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Permill,
 };
 use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
+use xcm_executor::traits::ConvertLocation;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -77,14 +78,14 @@ use parachains_common::{
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
 	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
-	TREASURY_PALLET_ID,
 };
 use sp_runtime::{Perbill, RuntimeDebug};
 use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
-	PoolAssetsConvertedConcreteId, PoolAssetsPalletLocationV3, TokenLocation, TokenLocationV3,
-	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
+	LocationToAccountId, PoolAssetsConvertedConcreteId, PoolAssetsPalletLocationV3,
+	RelayTreasuryLocation, TokenLocation, TokenLocationV3, TrustBackedAssetsConvertedConcreteId,
+	TrustBackedAssetsPalletLocationV3,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -936,8 +937,7 @@ impl pallet_asset_rewards::benchmarking::BenchmarkHelper<xcm::v3::Location, Acco
 parameter_types! {
 	pub const AssetRewardsPalletId: PalletId = PalletId(*b"py/astrd");
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
-	pub TreasurerBodyAccount: AccountId =
-		AccountIdConversion::<AccountId>::into_account_truncating(&TREASURY_PALLET_ID);
+	pub TreasurerBodyAccount: AccountId = LocationToAccountId::convert_location(&RelayTreasuryLocation::get()).unwrap();
 }
 
 impl pallet_asset_rewards::Config for Runtime {
