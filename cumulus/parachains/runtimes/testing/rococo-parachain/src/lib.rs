@@ -114,10 +114,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	state_version: 0,
 };
 
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
 // These time units are defined in number of blocks.
@@ -150,14 +146,20 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
-/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
-/// How many parachain blocks are processed by the relay chain per parent. Limits the
-/// number of blocks authored per slot.
-const BLOCK_PROCESSING_VELOCITY: u32 = 2;
+// /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
+// /// into the relay chain.
+// const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
+// /// How many parachain blocks are processed by the relay chain per parent. Limits the
+// /// number of blocks authored per slot.
+// const BLOCK_PROCESSING_VELOCITY: u32 = 2;
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+
+pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 6;
+const BLOCK_PROCESSING_VELOCITY: u32 = 3;
+pub const MILLISECS_PER_BLOCK: u64 = 2000;
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;

@@ -17,10 +17,15 @@
 use codec::{Codec, Decode};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_collator::service::CollatorService;
-use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
+use cumulus_client_consensus_aura::collators::{
+	lookahead::{self as aura, Params as AuraParams},
+	slot_based,
+	slot_based::Params as SlotBasedParams,
+};
 use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
+
 use cumulus_client_consensus_proposer::Proposer;
 #[allow(deprecated)]
 use cumulus_client_service::old_consensus;
@@ -52,7 +57,7 @@ use sc_network::{config::FullNetworkConfiguration, service::traits::NetworkBacke
 use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sp_api::{ApiExt, ConstructRuntimeApi, ProvideRuntimeApi};
-use sp_consensus_aura::AuraApi;
+use sp_consensus_aura::{sr25519::AuthorityPair, AuraApi};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -433,7 +438,7 @@ pub async fn start_rococo_parachain_node<Net: NetworkBackend<Block, Hash>>(
 		para_id,
 		build_parachain_rpc_extensions::<FakeRuntimeApi>,
 		build_aura_import_queue,
-		start_lookahead_aura_consensus,
+		start_slot_based_consensus,
 		hwbench,
 	)
 	.await
@@ -923,6 +928,68 @@ fn start_relay_chain_consensus(
 	Ok(())
 }
 
+fn start_slot_based_consensus(
+	client: Arc<ParachainClient<FakeRuntimeApi>>,
+	block_import: ParachainBlockImport<FakeRuntimeApi>,
+	prometheus_registry: Option<&Registry>,
+	telemetry: Option<TelemetryHandle>,
+	task_manager: &TaskManager,
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
+	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<FakeRuntimeApi>>>,
+	keystore: KeystorePtr,
+	relay_chain_slot_duration: Duration,
+	para_id: ParaId,
+	collator_key: CollatorPair,
+	_overseer_handle: OverseerHandle,
+	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+	backend: Arc<ParachainBackend>,
+) -> Result<(), sc_service::Error> {
+	log::info!("Starting block authoring with slot based authoring.");
+	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		task_manager.spawn_handle(),
+		client.clone(),
+		transaction_pool,
+		prometheus_registry,
+		telemetry.clone(),
+	);
+
+	let collator_service = CollatorService::new(
+		client.clone(),
+		Arc::new(task_manager.spawn_handle()),
+		announce_block,
+		client.clone(),
+	);
+
+	let params = SlotBasedParams {
+		create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+		block_import,
+		para_client: client.clone(),
+		para_backend: backend.clone(),
+		relay_client: relay_chain_interface,
+		code_hash_provider: move |block_hash| {
+			client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+		},
+		keystore,
+		collator_key,
+		para_id,
+		relay_chain_slot_duration,
+		proposer: Proposer::new(proposer_factory),
+		collator_service,
+		authoring_duration: Duration::from_millis(2000),
+		reinitialize: false,
+	};
+
+	let (collation_future, block_builer_future) =
+		slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
+	task_manager
+		.spawn_essential_handle()
+		.spawn("collation-task", None, collation_future);
+	task_manager
+		.spawn_essential_handle()
+		.spawn("block-builder-task", None, block_builer_future);
+
+	Ok(())
+}
 /// Start consensus using the lookahead aura collator.
 fn start_lookahead_aura_consensus(
 	client: Arc<ParachainClient<FakeRuntimeApi>>,
