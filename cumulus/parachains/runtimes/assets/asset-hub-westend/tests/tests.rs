@@ -618,7 +618,7 @@ fn test_asset_xcm_take_first_trader_with_refund() {
 			// We actually use half of the weight
 			let weight_used = bought / 2;
 
-			// Make sure refurnd works.
+			// Make sure refund works.
 			let amount_refunded = WeightToFee::weight_to_fee(&(bought - weight_used));
 
 			assert_eq!(
@@ -745,7 +745,7 @@ fn test_that_buying_ed_refund_does_not_refund_for_take_first_trader() {
 			// Buy weight should work
 			assert_ok!(trader.buy_weight(bought, asset.into(), &ctx));
 
-			// Should return None. We have a specific check making sure we dont go below ED for
+			// Should return None. We have a specific check making sure we don't go below ED for
 			// drop payment
 			assert_eq!(trader.refund_weight(bought, &ctx), None);
 

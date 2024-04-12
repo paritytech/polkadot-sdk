@@ -178,8 +178,8 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 /// active validators. Thus, slashing a percentage of the current validators that is lower than
 /// `OffendingValidatorsThreshold` will never force a new era. However, as the slashes progress, if
 /// the subsequent elections do not meet the minimum election untrusted score, the election will
-/// fail and enter in emenergency mode.
-fn continous_slashes_below_offending_threshold() {
+/// fail and enter in emergency mode.
+fn continuous_slashes_below_offending_threshold() {
 	let staking_builder = StakingExtBuilder::default().validator_count(10);
 	let epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
 
@@ -250,7 +250,7 @@ fn ledger_consistency_active_balance_below_ed() {
 		// however, chilling works as expected.
 		assert_ok!(Staking::chill(RuntimeOrigin::signed(11)));
 
-		// now unbonding the full active balance works, since remainer of the active balance is
+		// now unbonding the full active balance works, since remainder of the active balance is
 		// not enforced to be below `MinNominatorBond` if the stash has been chilled.
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 
@@ -379,7 +379,7 @@ fn automatic_unbonding_pools() {
 			staking_events(),
 			[
 				// auto-withdraw happened as expected to release 2's unbonding funds, but the funds
-				// were not transfered to 2 and stay in the pool's tranferrable balance instead.
+				// were not transferred to 2 and stay in the pool's transferrable balance instead.
 				pallet_staking::Event::Withdrawn { stash: 7939698191839293293, amount: 10 },
 				pallet_staking::Event::Unbonded { stash: 7939698191839293293, amount: 10 }
 			]

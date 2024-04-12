@@ -122,7 +122,7 @@ pub struct RunCmd {
 
 	/// Overseer message capacity override.
 	///
-	/// **Dangerous!** Do not touch unless explicitly adviced to.
+	/// **Dangerous!** Do not touch unless explicitly advised to.
 	#[arg(long)]
 	pub overseer_channel_capacity_override: Option<usize>,
 

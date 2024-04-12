@@ -23,7 +23,7 @@ use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::ValueQuery,
 	storage_alias,
-	traits::{GetStorageVersion, OnRuntimeUpgrade},
+	traits::{GetStorageVersion, OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade},
 };
 
 #[cfg(feature = "try-runtime")]
@@ -31,7 +31,7 @@ use frame_support::ensure;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
-/// Used for release versioning upto v12.
+/// Used for release versioning up to v12.
 ///
 /// Obsolete from v13. Keeping around to make encoding/decoding of old migration code easier.
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -68,7 +68,7 @@ pub mod v15 {
 	type DefaultDisablingStrategy = UpToThresholdDisablingStrategy;
 
 	pub struct VersionUncheckedMigrateV14ToV15<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut migrated = v14::OffendingValidators::<T>::take()
 				.into_iter()
@@ -101,7 +101,7 @@ pub mod v15 {
 		14,
 		15,
 		VersionUncheckedMigrateV14ToV15<T>,
-		crate::Pallet<T>,
+		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
 }

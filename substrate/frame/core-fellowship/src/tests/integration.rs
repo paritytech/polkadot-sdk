@@ -251,7 +251,7 @@ fn swap_exhaustive_works() {
 		});
 
 		assert_eq!(root_add, root_swap);
-		// Ensure that we dont compare trivial stuff like `()` from a type error above.
+		// Ensure that we don't compare trivial stuff like `()` from a type error above.
 		assert_eq!(root_add.len(), 32);
 	});
 }

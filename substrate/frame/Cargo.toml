@@ -1,6 +1,6 @@
 [package]
-name = "frame"
-version = "0.0.1-dev"
+name = "polkadot-sdk-frame"
+version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 parity-scale-codec = { version = "3.2.2", default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.6.0", default-features = false, features = [
+scale-info = { version = "2.11.1", default-features = false, features = [
 	"derive",
 ] }
 
@@ -51,7 +51,7 @@ sp-inherents = { default-features = false, path = "../primitives/inherents", opt
 frame-executive = { default-features = false, path = "../frame/executive", optional = true }
 frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
 
-docify = "0.2.7"
+docify = "0.2.8"
 log = { workspace = true }
 
 [dev-dependencies]

@@ -671,10 +671,10 @@ mod benchmarks {
 		let username = bounded_username::<T>(bench_username(), bench_suffix());
 		Identity::<T>::queue_acceptance(&caller, username.clone());
 
-		let expected_exiration =
+		let expected_expiration =
 			frame_system::Pallet::<T>::block_number() + T::PendingUsernameExpiration::get();
 
-		run_to_block::<T>(expected_exiration + One::one());
+		run_to_block::<T>(expected_expiration + One::one());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), username);

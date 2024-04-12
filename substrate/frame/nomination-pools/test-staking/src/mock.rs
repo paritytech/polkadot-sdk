@@ -186,6 +186,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = ConstU32<8>;
 	type MaxPointsToBalance = ConstU8<10>;
 	type PalletId = PoolsPalletId;
+	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

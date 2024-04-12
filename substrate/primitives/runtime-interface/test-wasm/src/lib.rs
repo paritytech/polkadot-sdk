@@ -126,21 +126,21 @@ pub trait TestApi {
 		val
 	}
 
-	fn test_versionning(&self, data: u32) -> bool {
+	fn test_versioning(&self, data: u32) -> bool {
 		data == 42 || data == 50
 	}
 
 	#[version(2)]
-	fn test_versionning(&self, data: u32) -> bool {
+	fn test_versioning(&self, data: u32) -> bool {
 		data == 42
 	}
 
-	fn test_versionning_register_only(&self, data: u32) -> bool {
+	fn test_versioning_register_only(&self, data: u32) -> bool {
 		data == 80
 	}
 
 	#[version(2, register_only)]
-	fn test_versionning_register_only(&self, data: u32) -> bool {
+	fn test_versioning_register_only(&self, data: u32) -> bool {
 		data == 42
 	}
 
@@ -282,21 +282,21 @@ wasm_export_functions! {
 		assert_eq!(0, len);
 	}
 
-	fn test_versionning_works() {
+	fn test_versioning_works() {
 		// we fix new api to accept only 42 as a proper input
 		// as opposed to sp-runtime-interface-test-wasm-deprecated::test_api::verify_input
 		// which accepted 42 and 50.
-		assert!(test_api::test_versionning(42));
+		assert!(test_api::test_versioning(42));
 
-		assert!(!test_api::test_versionning(50));
-		assert!(!test_api::test_versionning(102));
+		assert!(!test_api::test_versioning(50));
+		assert!(!test_api::test_versioning(102));
 	}
 
-	fn test_versionning_register_only_works() {
+	fn test_versioning_register_only_works() {
 		// Ensure that we will import the version of the runtime interface function that
 		// isn't tagged with `register_only`.
-		assert!(!test_api::test_versionning_register_only(42));
-		assert!(test_api::test_versionning_register_only(80));
+		assert!(!test_api::test_versioning_register_only(42));
+		assert!(test_api::test_versioning_register_only(80));
 	}
 
 	fn test_return_input_as_tuple() {
