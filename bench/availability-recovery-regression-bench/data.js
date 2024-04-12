@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1712951227000,
+  "lastUpdate": 1712965814545,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -3065,6 +3065,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.22865346686666674,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Vedhavyas Singareddi",
+            "username": "vedhavyas",
+            "email": "vedhavyas.singareddi@gmail.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "5b513cc0e995140b17e200d75442d7a3f2436243",
+          "message": "define block hash provider and default impl using frame_system (#4080)\n\nThis PR introduces `BlockHashProvider` into `pallet_mmr::Config`\nThis type is used to get `block_hash` for a given `block_number` rather\nthan directly using `frame_system::Pallet::block_hash`\n\nThe `DefaultBlockHashProvider` uses `frame_system::Pallet::block_hash`\nto get the `block_hash`\n\nCloses: #4062",
+          "timestamp": "2024-04-12T21:57:05Z",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b513cc0e995140b17e200d75442d7a3f2436243"
+        },
+        "date": 1712965787590,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666667,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1902417802666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.863522850333336,
             "unit": "seconds"
           }
         ]
